@@ -1,4 +1,4 @@
-# AITBC
+# AITBC - Artificial Intelligence Token Block Chain
 decentralized blockchain asset-backed currency utilizing AI computation
 
 Computation from the cloud is a game-changer in the world of value exchange. 
