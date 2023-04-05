@@ -43,7 +43,7 @@ The use of AI computation from the cloud provides a unique backing asset that ca
 
 The decentralized nature of the blockchain network ensures secure, transparent transactions with reduced friction, making it an optimal system for the transfer of value in the digital age. In conclusion, a decentralized blockchain asset-backed currency fueled by AI computation from the cloud can provide a stable foundation for innovative and transformative applications in a variety of sectors while promoting active participation and trust in the ecosystem.
 
-## how nodes are mining tokens with providing cpu power to the cloud which is for rent with tokens
+## how nodes are mining tokens with providing AI power to the cloud which is for rent with tokens
 In a blockchain ecosystem, nodes may participate in the mining of tokens as a way to earn rewards. In the case of a blockchain asset-backed currency that utilizes AI computation from the cloud, nodes that provide CPU power can mine tokens in exchange for the resources they provide.
 
 First, users can use tokens to purchase AI computing power from the cloud. Nodes that service the cloud can then receive tokens as payment for their services. These nodes can then mine additional tokens as a reward for their computing power contributions. The reward system is designed to incentivize nodes to contribute CPU resources to the cloud, which in turn helps to power the currency.
