@@ -62,6 +62,10 @@ When users connect stable diffusion and Pytorch with the AI cloud, they can take
 
 Overall, the integration of stable diffusion and Pytorch with the AI cloud democratizes access to advanced AI computational resources. By using tokens to purchase computational power, users can take advantage of the blockchain-based currency system's cost-effectiveness and security features.
 
+## buy sell trade
+Our blockchain-based currency powered by AI computation from the cloud can be bought, sold, and traded on online marketplaces or directly with the miners. The tokens earned through mining can be used to purchase AI computational resources from the cloud or exchanged on markets for traditional currency. The ability to buy, sell, and trade tokens provides liquidity to the currency, making it easier for individuals and companies to participate in the ecosystem. 
+Moreover, as the value of the currency is backed by asset such as AI computation from the cloud, it provides stability amidst market fluctuations, making it a reliable investment option for individuals and enterprises. So, whether you choose to buy, sell, or trade our tokens, you can be confident in the security, transparency, and efficiency of the blockchain-based currency system.
+
 ## In summary
 Embrace decentralization today with our groundbreaking blockchain asset-backed currency based on state-of-the-art AI computations from the cloud!
 Artificial intelligence is revolutionizing the way we live and work.
