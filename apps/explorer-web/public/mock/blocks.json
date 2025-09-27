@@ -1,0 +1,23 @@
+[
+  {
+    "height": 12045,
+    "hash": "0x7a3f5bf5c3b8ed5d6f77a42b8ab9a421e91e23f4d2a3f6a1d4b5c6d7e8f90123",
+    "timestamp": "2025-09-27T01:58:12Z",
+    "txCount": 8,
+    "proposer": "miner-alpha"
+  },
+  {
+    "height": 12044,
+    "hash": "0x5dd4e7a2b88c56f4cbb8f6e21d332e2f1a765e8d9c0b12a34567890abcdef012",
+    "timestamp": "2025-09-27T01:56:43Z",
+    "txCount": 11,
+    "proposer": "miner-beta"
+  },
+  {
+    "height": 12043,
+    "hash": "0x1b9d2c3f4e5a67890b12c34d56e78f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "timestamp": "2025-09-27T01:54:16Z",
+    "txCount": 4,
+    "proposer": "miner-gamma"
+  }
+]

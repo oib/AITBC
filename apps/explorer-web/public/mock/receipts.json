@@ -1,0 +1,18 @@
+[
+  {
+    "jobId": "job-0001",
+    "receiptId": "rcpt-123",
+    "miner": "miner-alpha",
+    "coordinator": "coordinator-001",
+    "issuedAt": "2025-09-27T01:52:22Z",
+    "status": "Attested"
+  },
+  {
+    "jobId": "job-0002",
+    "receiptId": "rcpt-124",
+    "miner": "miner-beta",
+    "coordinator": "coordinator-001",
+    "issuedAt": "2025-09-27T01:45:18Z",
+    "status": "Pending"
+  }
+]

@@ -1,0 +1,5 @@
+{
+  "editor.formatOnSave": true,
+  "python.analysis.typeCheckingMode": "basic",
+  "terminal.integrated.defaultProfile.linux": "zsh"
+}

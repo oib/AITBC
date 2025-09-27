@@ -1,0 +1,23 @@
+from __future__ import annotations
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
+
+
+class Settings(BaseSettings):
+    """Runtime configuration for the wallet daemon service."""
+
+    app_name: str = Field(default="AITBC Wallet Daemon")
+    debug: bool = Field(default=False)
+
+    coordinator_base_url: str = Field(default="http://localhost:8011", alias="COORDINATOR_BASE_URL")
+    coordinator_api_key: str = Field(default="REDACTED_CLIENT_KEY", alias="COORDINATOR_API_KEY")
+
+    rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+
+settings = Settings()
