@@ -1,0 +1,25 @@
+[Unit]
+Description=AITBC Miner Node
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/miner-node
+EnvironmentFile=/opt/aitbc/apps/miner-node/.env
+ExecStart=/opt/aitbc/apps/miner-node/.venv/bin/python -m aitbc_miner.main
+Restart=always
+RestartSec=3
+Nice=5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=6
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/apps/miner-node /var/log/aitbc
+
+[Install]
+WantedBy=multi-user.target

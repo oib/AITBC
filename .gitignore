@@ -1,0 +1,31 @@
+# AITBC Monorepo ignore rules
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+.venv/
+venv/
+.env
+.env.*
+
+# Node / JS
+node_modules/
+dist/
+build/
+.npm/
+yarn.lock
+package-lock.json
+pnpm-lock.yaml
+
+# Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db

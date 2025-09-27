@@ -1,0 +1,14 @@
+[
+  {
+    "address": "0xfeedfacefeedfacefeedfacefeedfacefeedface",
+    "balance": "1450.25 AIT",
+    "txCount": 42,
+    "lastActive": "2025-09-27T01:48:00Z"
+  },
+  {
+    "address": "0xcafebabecafebabecafebabecafebabecafebabe",
+    "balance": "312.00 AIT",
+    "txCount": 9,
+    "lastActive": "2025-09-27T01:25:34Z"
+  }
+]

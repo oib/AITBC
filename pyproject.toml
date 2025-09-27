@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+addopts = "-ra"
+testpaths = [
+    "apps/coordinator-api/tests",
+    "apps/miner-node/tests"
+]
+asyncio_default_fixture_loop_scope = "function"

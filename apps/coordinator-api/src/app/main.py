@@ -1,0 +1,34 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from .config import settings
+from .routers import client, miner, admin
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(
+        title="AITBC Coordinator API",
+        version="0.1.0",
+        description="Stage 1 coordinator service handling job orchestration between clients and miners.",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.allow_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"]
+    )
+
+    app.include_router(client.router, prefix="/v1")
+    app.include_router(miner.router, prefix="/v1")
+    app.include_router(admin.router, prefix="/v1")
+
+    @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
+    async def health() -> dict[str, str]:
+        return {"status": "ok", "env": settings.app_env}
+
+    return app
+
+
+app = create_app()
