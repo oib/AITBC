@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
@@ -14,6 +16,7 @@ class Settings(BaseSettings):
     coordinator_api_key: str = Field(default="REDACTED_CLIENT_KEY", alias="COORDINATOR_API_KEY")
 
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
+    ledger_db_path: Path = Field(default=Path("./data/wallet_ledger.db"), alias="LEDGER_DB_PATH")
 
     class Config:
         env_file = ".env"

@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 from ..logging import get_logger
 from ..metrics import metrics_registry
 from ..models import Block
+from ..gossip import gossip_broker
 
 
 @dataclass
@@ -78,9 +79,11 @@ class PoAProposer:
             head = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
             next_height = 0
             parent_hash = "0x00"
+            interval_seconds: Optional[float] = None
             if head is not None:
                 next_height = head.height + 1
                 parent_hash = head.hash
+                interval_seconds = (datetime.utcnow() - head.timestamp).total_seconds()
 
             timestamp = datetime.utcnow()
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp)
@@ -99,6 +102,21 @@ class PoAProposer:
 
             metrics_registry.increment("blocks_proposed_total")
             metrics_registry.set_gauge("chain_head_height", float(next_height))
+            if interval_seconds is not None and interval_seconds >= 0:
+                metrics_registry.observe("block_interval_seconds", interval_seconds)
+
+            asyncio.create_task(
+                gossip_broker.publish(
+                    "blocks",
+                    {
+                        "height": block.height,
+                        "hash": block.hash,
+                        "parent_hash": block.parent_hash,
+                        "timestamp": block.timestamp.isoformat(),
+                        "tx_count": block.tx_count,
+                    },
+                )
+            )
 
             self._logger.info(
                 "Proposed block",
@@ -129,6 +147,19 @@ class PoAProposer:
             )
             session.add(genesis)
             session.commit()
+            asyncio.create_task(
+                gossip_broker.publish(
+                    "blocks",
+                    {
+                        "height": genesis.height,
+                        "hash": genesis.hash,
+                        "parent_hash": genesis.parent_hash,
+                        "timestamp": genesis.timestamp.isoformat(),
+                        "tx_count": genesis.tx_count,
+                    },
+                )
+            )
+
             self._logger.info("Created genesis block", extra={"hash": genesis_hash})
 
     def _fetch_chain_head(self) -> Optional[Block]:

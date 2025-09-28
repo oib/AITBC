@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "dist",
+    "types": ["node", "mocha", "hardhat", "@nomicfoundation/hardhat-chai-matchers"],
+    "resolveJsonModule": true,
+    "moduleResolution": "node"
+  },
+  "include": ["hardhat.config.ts", "scripts", "test", "typechain-types"],
+  "exclude": ["dist"]
+}

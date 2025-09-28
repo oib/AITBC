@@ -41,8 +41,25 @@
 
 - Added `apps/wallet-daemon/src/app/receipts/service.py` providing `ReceiptVerifierService` that fetches and validates receipts via `aitbc_sdk`.
 - Created unit tests under `apps/wallet-daemon/tests/test_receipts.py` verifying service behavior.
+- Implemented wallet SDK receipt ingestion + attestation surfacing in `packages/py/aitbc-sdk/src/receipts.py`, including pagination client, signature verification, and failure diagnostics with full pytest coverage.
 
 ## Explorer Web
 
 - Initialized a Vite + TypeScript scaffold in `apps/explorer-web/` with `vite.config.ts`, `tsconfig.json`, and placeholder `src/main.ts` content.
 - Installed frontend dependencies locally to unblock editor tooling and TypeScript type resolution.
+- Implemented `overview` page stats rendering backed by mock block/transaction/receipt fetchers, including robust empty-state handling and TypeScript type fixes.
+
+## Pool Hub
+
+- Implemented FastAPI service scaffolding with Redis/PostgreSQL-backed repositories, match/health/metrics endpoints, and Prometheus instrumentation (`apps/pool-hub/src/poolhub/`).
+- Added Alembic migrations (`apps/pool-hub/migrations/`) and async integration tests covering repositories and endpoints (`apps/pool-hub/tests/`).
+
+## Solidity Token
+
+- Implemented attested minting logic in `packages/solidity/aitbc-token/contracts/AIToken.sol` using `AccessControl` role gates and ECDSA signature recovery.
+- Added Hardhat unit tests in `packages/solidity/aitbc-token/test/aitoken.test.ts` covering successful minting, replay prevention, and invalid attestor signatures.
+- Configured project TypeScript settings via `packages/solidity/aitbc-token/tsconfig.json` to align Hardhat, Node, and Mocha typings for the contract test suite.
+
+## JavaScript SDK
+
+- Delivered fetch-based client wrapper with TypeScript definitions and Vitest coverage under `packages/js/aitbc-sdk/`.

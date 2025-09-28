@@ -40,7 +40,6 @@ export async function initOverviewPage(): Promise<void> {
     fetchTransactions(),
     fetchReceipts(),
   ]);
-
   const blockStats = document.querySelector<HTMLUListElement>(
     "#overview-block-stats",
   );
@@ -54,13 +53,12 @@ export async function initOverviewPage(): Promise<void> {
         <li><strong>Time:</strong> ${new Date(latest.timestamp).toLocaleString()}</li>
       `;
     } else {
-      blockStats.innerHTML = `<li class="placeholder">No mock block data available.</li>`;
+      blockStats.innerHTML = `
+        <li class="placeholder">No blocks available. Try switching data mode.</li>
+      `;
     }
   }
-
-  const txStats = document.querySelector<HTMLUListElement>(
-    "#overview-transaction-stats",
-  );
+  const txStats = document.querySelector<HTMLUListElement>("#overview-transaction-stats");
   if (txStats) {
     if (transactions.length > 0) {
       const succeeded = transactions.filter((tx) => tx.status === "Succeeded");
@@ -70,7 +68,7 @@ export async function initOverviewPage(): Promise<void> {
         <li><strong>Pending:</strong> ${transactions.length - succeeded.length}</li>
       `;
     } else {
-      txStats.innerHTML = `<li class="placeholder">No mock transaction data available.</li>`;
+      txStats.innerHTML = `<li class="placeholder">No transactions available. Try switching data mode.</li>`;
     }
   }
 
@@ -86,7 +84,7 @@ export async function initOverviewPage(): Promise<void> {
         <li><strong>Pending:</strong> ${receipts.length - attested.length}</li>
       `;
     } else {
-      receiptStats.innerHTML = `<li class="placeholder">No mock receipt data available.</li>`;
+      receiptStats.innerHTML = `<li class="placeholder">No receipts available. Try switching data mode.</li>`;
     }
   }
 }
