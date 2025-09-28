@@ -75,34 +75,84 @@ These instructions cover the newly scaffolded services. Install dependencies usi
    print("miner signature valid:", verification.miner_signature.valid)
    print("coordinator attestations:", [att.valid for att in verification.coordinator_attestations])
    PY
-   ```
    For receipts containing `attestations`, iterate the list and verify each entry with the corresponding public key.
    A JavaScript helper will ship with the Stage 2 SDK under `packages/js/`; until then, receipts can be verified with Node.js by loading the canonical JSON and invoking an Ed25519 verify function from `tweetnacl` (the payload is `canonical_json(receipt)` and the public key is `receipt.signature.public_key`).
    Example Node.js snippet:
    ```bash
    node <<'JS'
-   import fs from "fs";
-   import nacl from "tweetnacl";
-   import canonical from "json-canonicalize";
+  import fs from "fs";
+  import nacl from "tweetnacl";
+  import canonical from "json-canonicalize";
 
-   const receipt = JSON.parse(fs.readFileSync("receipt.json", "utf-8"));
-   const message = canonical(receipt).trim();
-   const sig = receipt.signature.sig;
-   const key = receipt.signature.key_id;
+  const receipt = JSON.parse(fs.readFileSync("receipt.json", "utf-8"));
+  const message = canonical(receipt).trim();
+  const sig = receipt.signature.sig;
+  const key = receipt.signature.key_id;
 
    const signature = Buffer.from(sig.replace(/-/g, "+").replace(/_/g, "/"), "base64");
    const publicKey = Buffer.from(key.replace(/-/g, "+").replace(/_/g, "/"), "base64");
 
    const ok = nacl.sign.detached.verify(Buffer.from(message, "utf-8"), signature, publicKey);
-   console.log("verified:", ok);
-   JS
+  console.log("verified:", ok);
+  JS
+  ```
+
+## Solidity Token (`packages/solidity/aitbc-token/`)
+
+1. Navigate to the token project:
+   ```bash
+   cd packages/solidity/aitbc-token
+   npm install
    ```
+2. Run the contract unit tests:
+   ```bash
+   npx hardhat test
+   ```
+3. Deploy `AIToken` to the configured Hardhat network. Provide the coordinator (required) and attestor (optional) role recipients via environment variables:
+   ```bash
+   COORDINATOR_ADDRESS=0xCoordinator \
+   ATTESTOR_ADDRESS=0xAttestor \
+   npx hardhat run scripts/deploy.ts --network localhost
+   ```
+   The script prints the deployed address and automatically grants the coordinator and attestor roles if they are not already assigned. Export the printed address for follow-on steps:
+   ```bash
+   export AITOKEN_ADDRESS=0xDeployedAddress
+   ```
+4. Mint tokens against an attested receipt by calling the contract from Hardhat’s console or a script. The helper below loads the deployed contract and invokes `mintWithReceipt` with an attestor signature:
+   ```ts
+   // scripts/mintWithReceipt.ts
+   import { ethers } from "hardhat";
+   import { AIToken__factory } from "../typechain-types";
+
+   async function main() {
+     const [coordinator] = await ethers.getSigners();
+     const token = AIToken__factory.connect(process.env.AITOKEN_ADDRESS!, coordinator);
+
+     const provider = "0xProvider";
+     const units = 100n;
+     const receiptHash = "0x...";
+     const signature = "0xSignedStructHash";
+
+     const tx = await token.mintWithReceipt(provider, units, receiptHash, signature);
+     await tx.wait();
+     console.log("Mint complete", await token.balanceOf(provider));
+   }
+
+   main().catch((err) => {
+     console.error(err);
+     process.exitCode = 1;
+   });
+   ```
+   Execute the helper with `AITOKEN_ADDRESS` exported and the signature produced by the attestor key used in your tests or integration flow:
+   ```bash
+   AITOKEN_ADDRESS=$AITOKEN_ADDRESS npx ts-node scripts/mintWithReceipt.ts
+   ```
+5. To derive the signature payload, reuse the `buildSignature` helper from `test/aitoken.test.ts` or recreate it in a script. The struct hash encodes `(chainId, contractAddress, provider, units, receiptHash)` and must be signed by an authorized attestor account.
 
 ## Wallet Daemon (`apps/wallet-daemon/`)
 
 1. Navigate to the service directory:
    ```bash
-   cd apps/wallet-daemon
    ```
 2. Install dependencies:
    ```bash

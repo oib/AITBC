@@ -9,6 +9,8 @@ from nacl.bindings import (
     crypto_aead_xchacha20poly1305_ietf_encrypt,
 )
 
+from ..security import wipe_buffer
+
 
 class EncryptionError(Exception):
     """Raised when encryption or decryption fails."""
@@ -50,13 +52,15 @@ class EncryptionSuite:
             raise EncryptionError("encryption failed") from exc
 
     def decrypt(self, *, password: str, ciphertext: bytes, salt: bytes, nonce: bytes) -> bytes:
-        key = self._derive_key(password=password, salt=salt)
+        key_bytes = bytearray(self._derive_key(password=password, salt=salt))
         try:
             return crypto_aead_xchacha20poly1305_ietf_decrypt(
                 ciphertext=ciphertext,
                 aad=b"",
                 nonce=nonce,
-                key=key,
+                key=bytes(key_bytes),
             )
         except Exception as exc:
             raise EncryptionError("decryption failed") from exc
+        finally:
+            wipe_buffer(key_bytes)

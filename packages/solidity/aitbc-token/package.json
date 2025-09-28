@@ -1,0 +1,27 @@
+{
+  "name": "@aitbc/aitbc-token",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AITBC Solidity contracts for attested receipt-based minting",
+  "scripts": {
+    "build": "hardhat compile",
+    "test": "hardhat test",
+    "lint": "prettier --check \"contracts/**/*.sol\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \"contracts/**/*.sol\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
+    "deploy": "hardhat run scripts/deploy.ts --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@types/chai": "^4.3.11",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.11.30",
+    "chai": "^4.4.1",
+    "hardhat": "^2.22.1",
+    "prettier": "^3.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.2"
+  }
+}

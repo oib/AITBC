@@ -7,9 +7,16 @@ __pycache__/
 *.pyd
 *.so
 .venv/
+*/.venv/
 venv/
-.env
-.env.*
+*.env
+*.env.*
+
+# Databases & Alembic artifacts
+*.db
+*/data/*.db
+alembic.ini
+migrations/versions/__pycache__/
 
 # Node / JS
 node_modules/

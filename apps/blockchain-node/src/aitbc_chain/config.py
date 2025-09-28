@@ -26,5 +26,8 @@ class ChainSettings(BaseSettings):
 
     block_time_seconds: int = 2
 
+    gossip_backend: str = "memory"
+    gossip_broadcast_url: Optional[str] = None
+
 
 settings = ChainSettings()

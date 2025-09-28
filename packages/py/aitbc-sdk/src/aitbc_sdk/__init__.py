@@ -2,6 +2,7 @@
 
 from .receipts import (
     CoordinatorReceiptClient,
+    ReceiptPage,
     ReceiptVerification,
     SignatureValidation,
     verify_receipt,
@@ -10,6 +11,7 @@ from .receipts import (
 
 __all__ = [
     "CoordinatorReceiptClient",
+    "ReceiptPage",
     "ReceiptVerification",
     "SignatureValidation",
     "verify_receipt",

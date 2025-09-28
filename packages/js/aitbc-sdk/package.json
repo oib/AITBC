@@ -1,0 +1,25 @@
+{
+  "name": "@aitbc/aitbc-sdk",
+  "version": "0.1.0",
+  "description": "AITBC JavaScript SDK for coordinator receipts",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cross-fetch": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "keywords": ["aitbc", "sdk", "receipts"],
+  "author": "AITBC Team",
+  "license": "MIT"
+}

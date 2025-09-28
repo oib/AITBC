@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List
+from typing import Any, Dict, List, Optional
 
 from aitbc_sdk import SignatureValidation
 
@@ -43,3 +43,43 @@ def from_validation_result(result) -> ReceiptVerificationModel:
 
 class ReceiptVerificationListResponse(BaseModel):
     items: List[ReceiptVerificationModel]
+
+
+class WalletDescriptor(BaseModel):
+    wallet_id: str
+    public_key: str
+    metadata: Dict[str, Any]
+
+
+class WalletListResponse(BaseModel):
+    items: List[WalletDescriptor]
+
+
+class WalletCreateRequest(BaseModel):
+    wallet_id: str
+    password: str
+    metadata: Dict[str, Any] = {}
+    secret_key: Optional[str] = None
+
+
+class WalletCreateResponse(BaseModel):
+    wallet: WalletDescriptor
+
+
+class WalletUnlockRequest(BaseModel):
+    password: str
+
+
+class WalletUnlockResponse(BaseModel):
+    wallet_id: str
+    unlocked: bool
+
+
+class WalletSignRequest(BaseModel):
+    password: str
+    message_base64: str
+
+
+class WalletSignResponse(BaseModel):
+    wallet_id: str
+    signature_base64: str

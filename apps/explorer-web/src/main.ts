@@ -10,6 +10,7 @@ import { addressesTitle, renderAddressesPage, initAddressesPage } from "./pages/
 import { receiptsTitle, renderReceiptsPage, initReceiptsPage } from "./pages/receipts";
 import { initDataModeToggle } from "./components/dataModeToggle";
 import { getDataMode } from "./lib/mockData";
+import { initNotifications } from "./components/notifications";
 
 type PageConfig = {
   title: string;
@@ -49,13 +50,12 @@ const routes: Record<string, PageConfig> = {
 };
 
 function render(): void {
+  initNotifications();
   const root = document.querySelector<HTMLDivElement>("#app");
   if (!root) {
     console.warn("[Explorer] Missing #app root element");
     return;
   }
-
-  document.documentElement.dataset.mode = getDataMode();
 
   const currentPath = window.location.pathname.replace(/\/$/, "");
   const normalizedPath = currentPath === "" ? "/" : currentPath;

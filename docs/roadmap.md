@@ -17,10 +17,10 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
 
 - **Blockchain Node**
   - ✅ Define SQLModel schema for blocks, transactions, accounts, receipts (`apps/blockchain-node/src/aitbc_chain/models.py`).
-  - ⏳ Harden schema parity across runtime + storage:
-    - Generate Alembic baseline and incremental migrations in `apps/blockchain-node/migrations/` mirroring the current SQLModel definitions.
-    - Wire explicit SQLModel relationships (`Relationship`, `ForeignKey`) for block ↔ transaction ↔ receipt joins per bootstrap spec.
-    - Add validation hooks (SQLModel validators / custom service checks) to enforce hash formatting, foreign key integrity, and enum bounds before persistence.
+  - ✅ Harden schema parity across runtime + storage:
+    - Alembic baseline + follow-on migrations in `apps/blockchain-node/migrations/` now track the SQLModel schema (blocks, transactions, receipts, accounts).
+    - Added `Relationship` + `ForeignKey` wiring in `apps/blockchain-node/src/aitbc_chain/models.py` for block ↔ transaction ↔ receipt joins.
+    - Introduced hex/enum validation hooks via Pydantic validators to ensure hash integrity and safe persistence.
   - ✅ Implement PoA proposer loop with block assembly (`apps/blockchain-node/src/aitbc_chain/consensus/poa.py`).
   - ✅ Expose REST RPC endpoints for tx submission, balances, receipts (`apps/blockchain-node/src/aitbc_chain/rpc/router.py`).
   - ⏳ Deliver WebSocket RPC + P2P gossip layer:
@@ -38,25 +38,24 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
 - **Receipt Schema**
   - ✅ Finalize canonical JSON receipt format under `protocols/receipts/` (includes sample signed receipts).
   - ✅ Implement signing/verification helpers in `packages/py/aitbc-crypto` (JS SDK pending).
-  - Translate `docs/bootstrap/aitbc_tech_plan.md` contract skeleton into Solidity project.
-  - Add deployment/test scripts and document minting flow.
+  - ✅ Translate `docs/bootstrap/aitbc_tech_plan.md` contract skeleton into Solidity project (`packages/solidity/aitbc-token/`).
+  - ✅ Add deployment/test scripts and document minting flow (`packages/solidity/aitbc-token/scripts/` and `docs/run.md`).
 
 - **Wallet Daemon**
-  - Implement encrypted keystore (Argon2id + XChaCha20-Poly1305).
-  - Provide REST and JSON-RPC endpoints for wallet management and signing.
-  - Add mock ledger adapter with SQLite backend.
+  - ✅ Implement encrypted keystore (Argon2id + XChaCha20-Poly1305) via `KeystoreService`.
+  - ✅ Provide REST and JSON-RPC endpoints for wallet management and signing (`api_rest.py`, `api_jsonrpc.py`).
+  - ✅ Add mock ledger adapter with SQLite backend powering event history (`ledger_mock/`).
   - ✅ Integrate Python receipt verification helpers (`aitbc_sdk`) and expose API/service utilities validating miner + coordinator signatures.
-  - ⏳ Implement Wallet SDK receipt ingestion + attestation surfacing:
-    - Add client for `/v1/jobs/{job_id}/receipts` with pagination + retry support (`packages/py/aitbc-sdk/src/receipts.py`).
-    - Reuse signature verification helpers to validate miner + coordinator attestations before exposing results.
-    - Surface aggregated attestation status + failure reasons via SDK API for UI consumption; mirror logic in pending JS helper.
+  - ✅ Implement Wallet SDK receipt ingestion + attestation surfacing:
+    - Added `/v1/jobs/{job_id}/receipts` client helpers with cursor pagination, retry/backoff, and summary reporting (`packages/py/aitbc-sdk/src/receipts.py`).
+    - Reused crypto helpers to validate miner and coordinator signatures, capturing per-key failure reasons for downstream UX.
+    - Surfaced aggregated attestation status (`ReceiptStatus`) and failure diagnostics for SDK + UI consumers; JS helper parity still planned.
 
-## Stage 3 — Pool Hub & Marketplace
+## Stage 2 — Pool Hub & Marketplace
 
 - **Pool Hub**
-  - Implement miner registry, scoring engine, and `/v1/match` API.
-  - Integrate Redis/PostgreSQL backing stores per bootstrap spec.
-  - Add observability endpoints (`/v1/health`, `/v1/metrics`).
+  - ✅ Implement miner registry, scoring engine, and `/v1/match` API with Redis/PostgreSQL backing stores.
+  - ✅ Add observability endpoints (`/v1/health`, `/v1/metrics`) plus Prometheus instrumentation and integration tests.
 
 - **Marketplace Web**
   - Initialize Vite project with vanilla TypeScript.
@@ -69,6 +68,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Seed mock datasets (`public/mock/`) and fetch helpers powering overview + blocks tables.
   - ✅ Extend mock integrations to transactions, addresses, and receipts pages.
   - ✅ Implement styling system, mock/live data toggle, and coordinator API wiring scaffold.
+  - ✅ Render overview stats from mock block/transaction/receipt summaries with graceful empty-state fallbacks.
   - ⏳ Validate live mode + responsive polish:
     - Hit live coordinator endpoints (`/v1/blocks`, `/v1/transactions`, `/v1/addresses`, `/v1/receipts`) via `getDataMode() === "live"` and reconcile payloads with UI models.
     - Add fallbacks + error surfacing for partial/failed live responses (toast + console diagnostics).
@@ -84,8 +84,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
     - Provide end-to-end tests + examples validating Pool Hub + wallet flows leveraging the coordinator receipt verification primitives.
 
 - **JavaScript SDK (`packages/js/aitbc-sdk`)**
-  - Provide fetch-based wrapper for web clients.
-  - Offer TypeScript definitions and basic auth handling.
+  - ✅ Provide fetch-based wrapper for web clients with TypeScript definitions and basic auth helpers.
 
 - **Examples**
   - Populate quickstart clients (Python/JS) with working code.
@@ -109,6 +108,7 @@ Use this roadmap as the canonical checklist during implementation. Mark complete
 
 - **Blockchain Node**: bootstrap module layout (`apps/blockchain-node/src/`), implement SQLModel schemas and RPC stubs aligned with historical/attested receipts.
 - **Explorer Web**: finish mock integration across all pages, add styling + mock/live toggle, and begin wiring coordinator endpoints (e.g., `/v1/jobs/{job_id}/receipts`).
+  - Current focus: reuse new overview metrics scaffolding for blocks/transactions detail views and expand coverage to live data mode.
 - **Marketplace Web**: scaffold Vite/vanilla frontends with mock integrations consuming the coordinator receipt history endpoints and SDK examples.
 - **Pool Hub**: initialize FastAPI project, scoring registry, and telemetry ingestion hooks leveraging coordinator/miner metrics.
 - **CI Enhancements**: add blockchain-node tests once available and frontend build/lint checks to `.github/workflows/python-tests.yml` or follow-on workflows.

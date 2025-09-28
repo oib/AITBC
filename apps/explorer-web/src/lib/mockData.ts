@@ -1,4 +1,5 @@
 import { CONFIG, type DataMode } from "../config";
+import { notifyError } from "../components/notifications";
 import type {
   BlockListResponse,
   TransactionListResponse,
@@ -35,6 +36,7 @@ export async function fetchBlocks(): Promise<BlockSummary[]> {
     return data.items;
   } catch (error) {
     console.warn("[Explorer] Failed to fetch live block data", error);
+    notifyError("Unable to load live block data. Displaying placeholders.");
     return [];
   }
 }
@@ -54,6 +56,7 @@ export async function fetchTransactions(): Promise<TransactionSummary[]> {
     return data.items;
   } catch (error) {
     console.warn("[Explorer] Failed to fetch live transaction data", error);
+    notifyError("Unable to load live transaction data. Displaying placeholders.");
     return [];
   }
 }
@@ -73,6 +76,7 @@ export async function fetchAddresses(): Promise<AddressSummary[]> {
     return Array.isArray(data) ? data : data.items;
   } catch (error) {
     console.warn("[Explorer] Failed to fetch live address data", error);
+    notifyError("Unable to load live address data. Displaying placeholders.");
     return [];
   }
 }
@@ -92,6 +96,7 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
     return data.items;
   } catch (error) {
     console.warn("[Explorer] Failed to fetch live receipt data", error);
+    notifyError("Unable to load live receipt data. Displaying placeholders.");
     return [];
   }
 }
@@ -107,6 +112,7 @@ async function fetchMock<T>(resource: string): Promise<T> {
     return (await response.json()) as T;
   } catch (error) {
     console.warn(`[Explorer] Failed to fetch mock data from ${url}`, error);
+    notifyError("Mock data is unavailable. Please verify development assets.");
     return [] as unknown as T;
   }
 }

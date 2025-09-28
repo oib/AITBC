@@ -1,0 +1,43 @@
+groups:
+  - name: blockchain-node
+    rules:
+      - alert: BlockProposalStalled
+        expr: (block_interval_seconds_sum / block_interval_seconds_count) > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Block production interval exceeded 5s"
+          description: |
+            Average block interval is {{ $value }} seconds, exceeding the expected cadence.
+
+      - alert: BlockProposalDown
+        expr: (block_interval_seconds_sum / block_interval_seconds_count) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Block production halted"
+          description: |
+            Block intervals have spiked above 10 seconds for more than two minutes.
+            Check proposer loop and database state.
+
+      - alert: MinerErrorsDetected
+        expr: miner_error_rate > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Miner mock reporting errors"
+          description: |
+            The miner mock error gauge is {{ $value }}. Investigate miner telemetry.
+
+      - alert: CoordinatorReceiptDrop
+        expr: rate(miner_receipts_attested_total[5m]) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No receipts attested in 5 minutes"
+          description: |
+            Receipt attestations ceased during the last five minutes. Inspect coordinator connectivity.
