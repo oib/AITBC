@@ -8,7 +8,7 @@ This directory contains Prometheus and Grafana assets for the devnet environment
 ## Files
 
 - `prometheus.yml` – Scrapes both blockchain node and mock coordinator/miner metrics.
-- `grafana-dashboard.json` – Panels for block interval, RPC throughput, miner activity, coordinator receipt flow, **plus new gossip queue, subscriber, and publication rate panels**.
+- `grafana-dashboard.json` – Panels for block interval (including latest interval gauge), RPC throughput, miner activity, coordinator receipt flow, gossip queue/subscriber/publication metrics, and PoA proposer visibility (rotation counts, blocks proposed per proposer).
 - `alerts.yml` – Alertmanager rules highlighting proposer stalls, miner errors, and coordinator receipt drop-offs.
 - `gossip-recording-rules.yml` – Prometheus recording rules that derive queue/subscriber gauges and publication rates from gossip metrics.
 

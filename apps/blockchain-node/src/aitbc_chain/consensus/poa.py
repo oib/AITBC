@@ -4,12 +4,21 @@ import asyncio
 import hashlib
 from dataclasses import dataclass
 from datetime import datetime
+import re
 from typing import Callable, ContextManager, Optional
 
 from sqlmodel import Session, select
 
 from ..logging import get_logger
 from ..metrics import metrics_registry
+
+
+_METRIC_KEY_SANITIZE = re.compile(r"[^0-9a-zA-Z]+")
+
+
+def _sanitize_metric_suffix(value: str) -> str:
+    sanitized = _METRIC_KEY_SANITIZE.sub("_", value).strip("_")
+    return sanitized or "unknown"
 from ..models import Block
 from ..gossip import gossip_broker
 
@@ -33,6 +42,7 @@ class PoAProposer:
         self._logger = get_logger(__name__)
         self._stop_event = asyncio.Event()
         self._task: Optional[asyncio.Task[None]] = None
+        self._last_proposer_id: Optional[str] = None
 
     async def start(self) -> None:
         if self._task is not None:
@@ -104,6 +114,13 @@ class PoAProposer:
             metrics_registry.set_gauge("chain_head_height", float(next_height))
             if interval_seconds is not None and interval_seconds >= 0:
                 metrics_registry.observe("block_interval_seconds", interval_seconds)
+                metrics_registry.set_gauge("poa_last_block_interval_seconds", float(interval_seconds))
+
+            proposer_suffix = _sanitize_metric_suffix(self._config.proposer_id)
+            metrics_registry.increment(f"poa_blocks_proposed_total_{proposer_suffix}")
+            if self._last_proposer_id is not None and self._last_proposer_id != self._config.proposer_id:
+                metrics_registry.increment("poa_proposer_rotations_total")
+            self._last_proposer_id = self._config.proposer_id
 
             asyncio.create_task(
                 gossip_broker.publish(

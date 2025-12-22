@@ -27,4 +27,5 @@ run_pytest() {
 run_pytest "${PROJECT_ROOT}/apps/coordinator-api/src:${PKG_PATHS}" apps/coordinator-api/tests -q
 run_pytest "${PKG_PATHS}" packages/py/aitbc-sdk/tests -q
 run_pytest "${PROJECT_ROOT}/apps/miner-node/src:${PKG_PATHS}" apps/miner-node/tests -q
-run_pytest "${PROJECT_ROOT}/apps/wallet-daemon/src:${PKG_PATHS}" apps/wallet-daemon/tests -q
+run_pytest "${PROJECT_ROOT}/apps/wallet-daemon/src:${PROJECT_ROOT}/apps/blockchain-node/src:${PKG_PATHS}" apps/wallet-daemon/tests -q
+run_pytest "${PROJECT_ROOT}/apps/blockchain-node/src:${PKG_PATHS}" apps/blockchain-node/tests/test_websocket.py -q

@@ -4,6 +4,7 @@ import type {
   BlockListResponse,
   TransactionListResponse,
   AddressDetailResponse,
+  AddressListResponse,
   ReceiptListResponse,
   BlockSummary,
   TransactionSummary,
@@ -11,7 +12,33 @@ import type {
   ReceiptSummary,
 } from "./models.ts";
 
-let currentMode: DataMode = CONFIG.dataMode;
+const STORAGE_KEY = "aitbc-explorer:data-mode";
+
+function loadStoredMode(): DataMode | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+  try {
+    const value = window.localStorage.getItem(STORAGE_KEY);
+    if (value === "mock" || value === "live") {
+      return value as DataMode;
+    }
+  } catch (error) {
+    console.warn("[Explorer] Unable to read stored data mode", error);
+  }
+  return null;
+}
+
+const initialMode = loadStoredMode() ?? CONFIG.dataMode;
+let currentMode: DataMode = initialMode;
+
+function syncDocumentMode(mode: DataMode): void {
+  if (typeof document !== "undefined") {
+    document.documentElement.dataset.mode = mode;
+  }
+}
+
+syncDocumentMode(currentMode);
 
 export function getDataMode(): DataMode {
   return currentMode;
@@ -19,6 +46,14 @@ export function getDataMode(): DataMode {
 
 export function setDataMode(mode: DataMode): void {
   currentMode = mode;
+  syncDocumentMode(mode);
+  if (typeof window !== "undefined") {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, mode);
+    } catch (error) {
+      console.warn("[Explorer] Failed to persist data mode", error);
+    }
+  }
 }
 
 export async function fetchBlocks(): Promise<BlockSummary[]> {
@@ -28,15 +63,15 @@ export async function fetchBlocks(): Promise<BlockSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/blocks`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/blocks`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch blocks: ${response.status}`);
+      throw new Error(`Failed to fetch blocks: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as BlockListResponse;
     return data.items;
   } catch (error) {
-    console.warn("[Explorer] Failed to fetch live block data", error);
-    notifyError("Unable to load live block data. Displaying placeholders.");
+    console.error("[Explorer] Failed to fetch live block data", error);
+    notifyError("Unable to load live block data from coordinator. Showing placeholders.");
     return [];
   }
 }
@@ -48,15 +83,15 @@ export async function fetchTransactions(): Promise<TransactionSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/transactions`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/transactions`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch transactions: ${response.status}`);
+      throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as TransactionListResponse;
     return data.items;
   } catch (error) {
-    console.warn("[Explorer] Failed to fetch live transaction data", error);
-    notifyError("Unable to load live transaction data. Displaying placeholders.");
+    console.error("[Explorer] Failed to fetch live transaction data", error);
+    notifyError("Unable to load transactions from coordinator. Showing placeholders.");
     return [];
   }
 }
@@ -68,15 +103,15 @@ export async function fetchAddresses(): Promise<AddressSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/addresses`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/addresses`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch addresses: ${response.status}`);
+      throw new Error(`Failed to fetch addresses: ${response.status} ${response.statusText}`);
     }
-    const data = (await response.json()) as { items: AddressDetailResponse[] } | AddressDetailResponse[];
-    return Array.isArray(data) ? data : data.items;
+    const data = (await response.json()) as AddressListResponse;
+    return data.items;
   } catch (error) {
-    console.warn("[Explorer] Failed to fetch live address data", error);
-    notifyError("Unable to load live address data. Displaying placeholders.");
+    console.error("[Explorer] Failed to fetch live address data", error);
+    notifyError("Unable to load address summaries from coordinator. Showing placeholders.");
     return [];
   }
 }
@@ -88,15 +123,15 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/receipts`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/receipts`);
     if (!response.ok) {
-      throw new Error(`Failed to fetch receipts: ${response.status}`);
+      throw new Error(`Failed to fetch receipts: ${response.status} ${response.statusText}`);
     }
     const data = (await response.json()) as ReceiptListResponse;
     return data.items;
   } catch (error) {
-    console.warn("[Explorer] Failed to fetch live receipt data", error);
-    notifyError("Unable to load live receipt data. Displaying placeholders.");
+    console.error("[Explorer] Failed to fetch live receipt data", error);
+    notifyError("Unable to load receipts from coordinator. Showing placeholders.");
     return [];
   }
 }

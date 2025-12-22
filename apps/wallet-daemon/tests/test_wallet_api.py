@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from aitbc_chain.app import create_app  # noqa: I100
-
-from app.deps import get_keystore, get_ledger
+from app.deps import get_keystore, get_ledger, get_settings
+from app.main import create_app
+from app.keystore.service import KeystoreService
+from app.ledger_mock import SQLiteLedgerAdapter
 
 
 @pytest.fixture(name="client")
@@ -15,12 +17,24 @@ def client_fixture(tmp_path, monkeypatch):
     # Override ledger path to temporary directory
     from app.settings import Settings
 
-    class TestSettings(Settings):
-        ledger_db_path = tmp_path / "ledger.db"
+    test_settings = Settings(LEDGER_DB_PATH=str(tmp_path / "ledger.db"))
 
-    monkeypatch.setattr("app.deps.get_settings", lambda: TestSettings())
+    monkeypatch.setattr("app.settings.settings", test_settings)
+
+    from app import deps
+
+    deps.get_settings.cache_clear()
+    deps.get_keystore.cache_clear()
+    deps.get_ledger.cache_clear()
 
     app = create_app()
+
+    keystore = KeystoreService()
+    ledger = SQLiteLedgerAdapter(Path(test_settings.ledger_db_path))
+
+    app.dependency_overrides[get_settings] = lambda: test_settings
+    app.dependency_overrides[get_keystore] = lambda: keystore
+    app.dependency_overrides[get_ledger] = lambda: ledger
     return TestClient(app)
 
 
@@ -79,4 +93,6 @@ def test_wallet_password_rules(client: TestClient):
         json={"wallet_id": "weak", "password": "short"},
     )
     assert response.status_code == 400
-***
+    body = response.json()
+    assert body["detail"]["reason"] == "password_too_weak"
+    assert "min_length" in body["detail"]

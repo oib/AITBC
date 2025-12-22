@@ -32,3 +32,6 @@ jobs:
         run: |
           chmod +x scripts/ci/run_python_tests.sh
           ./scripts/ci/run_python_tests.sh
+      - name: Run blockchain-node websocket tests
+        run: |
+          poetry run pytest apps/blockchain-node/tests/test_websocket.py

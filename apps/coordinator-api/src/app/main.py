@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routers import client, miner, admin
+from .routers import client, miner, admin, marketplace, explorer
 
 
 def create_app() -> FastAPI:
@@ -20,9 +20,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"]
     )
 
-    app.include_router(client.router, prefix="/v1")
-    app.include_router(miner.router, prefix="/v1")
-    app.include_router(admin.router, prefix="/v1")
+    app.include_router(client, prefix="/v1")
+    app.include_router(miner, prefix="/v1")
+    app.include_router(admin, prefix="/v1")
+    app.include_router(marketplace, prefix="/v1")
+    app.include_router(explorer, prefix="/v1")
 
     @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:

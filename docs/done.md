@@ -26,6 +26,10 @@
 - Implemented CLI/Python runners and execution pipeline with result reporting.
 - Added starter tests for runners in `apps/miner-node/tests/test_runners.py`.
 
+## Blockchain Node
+
+- Added websocket fan-out, disconnect cleanup, and load-test coverage in `apps/blockchain-node/tests/test_websocket.py`, ensuring gossip topics deliver reliably to multiple subscribers.
+
 ## Directory Preparation
 
 - Established scaffolds for Python and JavaScript packages in `packages/py/` and `packages/js/`.
@@ -42,6 +46,7 @@
 - Added `apps/wallet-daemon/src/app/receipts/service.py` providing `ReceiptVerifierService` that fetches and validates receipts via `aitbc_sdk`.
 - Created unit tests under `apps/wallet-daemon/tests/test_receipts.py` verifying service behavior.
 - Implemented wallet SDK receipt ingestion + attestation surfacing in `packages/py/aitbc-sdk/src/receipts.py`, including pagination client, signature verification, and failure diagnostics with full pytest coverage.
+- Hardened REST API by wiring dependency overrides in `apps/wallet-daemon/tests/test_wallet_api.py`, expanding workflow coverage (create/list/unlock/sign) and enforcing structured password policy errors consumed in CI.
 
 ## Explorer Web
 

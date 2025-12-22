@@ -352,6 +352,80 @@
       ],
       "title": "Gossip Publication Rate by Topic",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(poa_proposer_rotations_total[30m])",
+          "legendFormat": "rotations (30m)",
+          "refId": "A"
+        }
+      ],
+      "title": "Proposer Rotation Count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PROMETHEUS_DS"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {},
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "id": 10,
+      "options": {
+        "legend": {
+          "calcs": ["lastNotNull"],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        }
+      },
+      "targets": [
+        {
+          "expr": "label_replace(sum(rate({__name__=~\"poa_blocks_proposed_total_.*\"}[5m])) by (__name__), \"proposer\", \"$1\", \"__name__\", \"poa_blocks_proposed_total_(.*)\")",
+          "legendFormat": "{{proposer}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Blocks Proposed per Proposer (5m rate)",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",

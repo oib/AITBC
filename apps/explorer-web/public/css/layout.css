@@ -29,12 +29,52 @@
     flex: 1 1 45%;
     text-align: center;
   }
-
   .addresses__input-group,
   .receipts__input-group {
     flex-direction: column;
   }
 
+  .overview__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tr {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(125, 196, 255, 0.12);
+  }
+
+  .table td {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.25rem 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .overview__grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
+
+  .table thead {
+    display: table-header-group;
+  }
+
+  .table tr {
+    display: table-row;
+  }
+
+  .table td {
+    display: table-cell;
+  }
+}
+@media (max-width: 768px) {
   .toast-container {
     left: 0;
     right: 0;
@@ -168,6 +208,18 @@
   .site-header__nav a {
     flex: 1 1 auto;
     text-align: center;
+  }
+
+  .page {
+    padding: 1.5rem;
+  }
+
+  .overview__grid {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .table td {
+    font-size: 0.95rem;
   }
 }
 

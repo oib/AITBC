@@ -41,3 +41,13 @@ groups:
           summary: "No receipts attested in 5 minutes"
           description: |
             Receipt attestations ceased during the last five minutes. Inspect coordinator connectivity.
+
+      - alert: RpcErrorsSpiking
+        expr: increase(rpc_request_failures_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RPC error spike detected"
+          description: |
+            RPC request failures have increased during the last five minutes. Investigate rpc_request_failures_total for details.
