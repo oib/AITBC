@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Service Configuration - AITBC Pool Hub</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .header-content {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        #categoryFilter {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+        
+        #categoryFilter:focus {
+            outline: none;
+            border-color: #4caf50;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: #e8f5e9;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #4caf50;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .service-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .service-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+        }
+        
+        .service-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .service-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .service-icon {
+            width: 40px;
+            height: 40px;
+            background: #f0f2f5;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 48px;
+            height: 24px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #4caf50;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+        
+        .service-description {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        
+        .config-section {
+            margin-top: 20px;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+        
+        input[type="text"],
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+        
+        input[type="text"]:focus,
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #4caf50;
+        }
+        
+        .price-input-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .price-input-group input {
+            flex: 1;
+        }
+        
+        .price-unit {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .capabilities-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .capability-tag {
+            padding: 4px 12px;
+            background: #e3f2fd;
+            color: #1976d2;
+            border-radius: 16px;
+            font-size: 12px;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: #4caf50;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #45a049;
+        }
+        
+        .btn-secondary {
+            background: #f0f2f5;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #e0e2e5;
+        }
+        
+        .actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .notification {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification.success {
+            border-left: 4px solid #4caf50;
+        }
+        
+        .notification.error {
+            border-left: 4px solid #f44336;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4caf50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Service Configuration</h1>
+            <div class="header-controls">
+                <select id="categoryFilter" onchange="filterByCategory()">
+                    <option value="">All Categories</option>
+                    <option value="ai_ml">AI/ML</option>
+                    <option value="media_processing">Media Processing</option>
+                    <option value="scientific_computing">Scientific Computing</option>
+                    <option value="data_analytics">Data Analytics</option>
+                    <option value="gaming_entertainment">Gaming & Entertainment</option>
+                    <option value="development_tools">Development Tools</option>
+                </select>
+                <div class="status-indicator">
+                    <div class="status-dot"></div>
+                    <span>Connected</span>
+                </div>
+            </div>
+        </div>
+    </header>
+    
+    <main class="container">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading service configurations...</p>
+        </div>
+        
+        <div class="services-grid" id="servicesGrid">
+            <!-- Service cards will be dynamically inserted here -->
+        </div>
+    </main>
+    
+    <div class="notification" id="notification"></div>
+    
+    <script>
+        const API_BASE = '/v1';
+        let SERVICES = [];
+        let serviceConfigs = {};
+        
+        // Initialize the app
+        async function init() {
+            showLoading(true);
+            try {
+                await loadServicesFromRegistry();
+                await loadServiceConfigs();
+                renderServices();
+            } catch (error) {
+                showNotification('Failed to load configurations', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Load services from registry
+        async function loadServicesFromRegistry() {
+            const response = await fetch(`${API_BASE}/registry/services`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch service registry');
+            }
+            
+            const registry = await response.json();
+            SERVICES = registry.map(service => ({
+                type: service.id,
+                name: service.name,
+                description: service.description,
+                icon: service.icon || '⚙️',
+                category: service.category,
+                defaultConfig: extractDefaultConfig(service),
+                defaultPricing: extractDefaultPricing(service),
+                capabilities: service.capabilities || []
+            }));
+        }
+        
+        // Extract default configuration from service definition
+        function extractDefaultConfig(service) {
+            const config = {};
+            service.input_parameters.forEach(param => {
+                if (param.default !== undefined) {
+                    config[param.name] = param.default;
+                } else if (param.type === 'array' && param.options) {
+                    config[param.name] = param.options;
+                }
+            });
+            return config;
+        }
+        
+        // Extract default pricing from service definition
+        function extractDefaultPricing(service) {
+            if (!service.pricing || service.pricing.length === 0) {
+                return { per_unit: 0.01, min_charge: 0.01 };
+            }
+            
+            const pricing = {};
+            service.pricing.forEach(tier => {
+                pricing[tier.name] = tier.unit_price;
+                if (tier.min_charge) {
+                    pricing.min_charge = tier.min_charge;
+                }
+            });
+            
+            return pricing;
+        }
+        
+        // Load existing service configurations
+        async function loadServiceConfigs() {
+            const response = await fetch(`${API_BASE}/services/`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to fetch service configs');
+            }
+            
+            const configs = await response.json();
+            configs.forEach(config => {
+                serviceConfigs[config.service_type] = config;
+            });
+        }
+        
+        // Render service cards
+        function renderServices() {
+            const grid = document.getElementById('servicesGrid');
+            grid.innerHTML = '';
+            
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const filteredServices = categoryFilter 
+                ? SERVICES.filter(s => s.category === categoryFilter)
+                : SERVICES;
+            
+            filteredServices.forEach(service => {
+                const config = serviceConfigs[service.type] || {
+                    service_type: service.type,
+                    enabled: false,
+                    config: service.defaultConfig,
+                    pricing: service.defaultPricing,
+                    capabilities: service.capabilities,
+                    max_concurrent: 1
+                };
+                
+                const card = createServiceCard(service, config);
+                grid.appendChild(card);
+            });
+        }
+        
+        // Filter services by category
+        function filterByCategory() {
+            renderServices();
+        }
+        
+        // Create a service card element
+        function createServiceCard(service, config) {
+            const card = document.createElement('div');
+            card.className = 'service-card';
+            card.setAttribute('data-service', service.type);
+            card.innerHTML = `
+                <div class="service-header">
+                    <div class="service-icon">${service.icon}</div>
+                    <h3 class="service-title">${service.name}</h3>
+                    <div class="compatibility-score" id="score-${service.type}" style="display: none;">
+                        Score: <span>0</span>/100
+                    </div>
+                </div>
+                <p class="service-description">${service.description}</p>
+                
+                <label class="toggle-switch">
+                    <input type="checkbox" ${config.enabled ? 'checked' : ''} 
+                           onchange="toggleService('${service.type}', this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+                
+                <div class="config-section" id="config-${service.type}" 
+                     style="display: ${config.enabled ? 'block' : 'none'}">
+                    <div class="section-title">
+                        ⚙️ Configuration
+                    </div>
+                    
+                    ${renderConfigFields(service.type, config.config)}
+                    
+                    <div class="section-title" style="margin-top: 20px;">
+                        💰 Pricing
+                    </div>
+                    
+                    ${renderPricingFields(service.type, config.pricing)}
+                    
+                    <div class="section-title" style="margin-top: 20px;">
+                        ⚡ Capacity
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Max Concurrent Jobs</label>
+                        <input type="number" min="1" max="10" value="${config.max_concurrent}"
+                               onchange="updateConfig('${service.type}', 'max_concurrent', parseInt(this.value)); validateOnChange('${service.type}')">
+                    </div>
+                    
+                    <div class="section-title" style="margin-top: 20px;">
+                        🎯 Capabilities
+                    </div>
+                    
+                    <div class="capabilities-list">
+                        ${config.capabilities.map(cap => 
+                            `<span class="capability-tag">${cap}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="resetConfig('${service.type}')">
+                        Reset to Default
+                    </button>
+                    <button class="btn btn-primary" onclick="saveConfig('${service.type}')">
+                        Save Configuration
+                    </button>
+                </div>
+            `;
+            
+            // Validate on load if enabled
+            if (config.enabled) {
+                setTimeout(() => validateOnChange(service.type), 100);
+            }
+            
+            return card;
+        }
+        
+        // Render configuration fields based on service type
+        function renderConfigFields(serviceType, config) {
+            switch (serviceType) {
+                case 'whisper':
+                    return `
+                        <div class="form-group">
+                            <label>Available Models</label>
+                            <input type="text" value="${config.models ? config.models.join(', ') : ''}"
+                                   placeholder="tiny, base, small, medium, large"
+                                   onchange="updateConfigField('${serviceType}', 'models', this.value.split(',').map(s => s.trim()))">
+                        </div>
+                        <div class="form-group">
+                            <label>Max File Size (MB)</label>
+                            <input type="number" value="${config.max_file_size_mb || 500}"
+                                   onchange="updateConfigField('${serviceType}', 'max_file_size_mb', parseInt(this.value))">
+                        </div>
+                    `;
+                    
+                case 'stable_diffusion':
+                    return `
+                        <div class="form-group">
+                            <label>Available Models</label>
+                            <input type="text" value="${config.models ? config.models.join(', ') : ''}"
+                                   placeholder="stable-diffusion-1.5, stable-diffusion-2.1, sdxl"
+                                   onchange="updateConfigField('${serviceType}', 'models', this.value.split(',').map(s => s.trim()))">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Resolution</label>
+                            <select onchange="updateConfigField('${serviceType}', 'max_resolution', this.value)">
+                                <option value="512x512" ${config.max_resolution === '512x512' ? 'selected' : ''}>512x512</option>
+                                <option value="768x768" ${config.max_resolution === '768x768' ? 'selected' : ''}>768x768</option>
+                                <option value="1024x1024" ${config.max_resolution === '1024x1024' ? 'selected' : ''}>1024x1024</option>
+                                <option value="4K" ${config.max_resolution === '4K' ? 'selected' : ''}>4K</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Images per Request</label>
+                            <input type="number" min="1" max="10" value="${config.max_images_per_request || 4}"
+                                   onchange="updateConfigField('${serviceType}', 'max_images_per_request', parseInt(this.value))">
+                        </div>
+                    `;
+                    
+                case 'llm_inference':
+                    return `
+                        <div class="form-group">
+                            <label>Available Models</label>
+                            <input type="text" value="${config.models ? config.models.join(', ') : ''}"
+                                   placeholder="llama-7b, llama-13b, mistral-7b, mixtral-8x7b"
+                                   onchange="updateConfigField('${serviceType}', 'models', this.value.split(',').map(s => s.trim()))">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Tokens</label>
+                            <input type="number" value="${config.max_tokens || 4096}"
+                                   onchange="updateConfigField('${serviceType}', 'max_tokens', parseInt(this.value))">
+                        </div>
+                    `;
+                    
+                case 'ffmpeg':
+                    return `
+                        <div class="form-group">
+                            <label>Supported Codecs</label>
+                            <input type="text" value="${config.supported_codecs ? config.supported_codecs.join(', ') : ''}"
+                                   placeholder="h264, h265, vp9"
+                                   onchange="updateConfigField('${serviceType}', 'supported_codecs', this.value.split(',').map(s => s.trim()))">
+                        </div>
+                        <div class="form-group">
+                            <label>Max Resolution</label>
+                            <select onchange="updateConfigField('${serviceType}', 'max_resolution', this.value)">
+                                <option value="1080p" ${config.max_resolution === '1080p' ? 'selected' : ''}>1080p</option>
+                                <option value="4K" ${config.max_resolution === '4K' ? 'selected' : ''}>4K</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max File Size (GB)</label>
+                            <input type="number" value="${config.max_file_size_gb || 10}"
+                                   onchange="updateConfigField('${serviceType}', 'max_file_size_gb', parseInt(this.value))">
+                        </div>
+                    `;
+                    
+                case 'blender':
+                    return `
+                        <div class="form-group">
+                            <label>Render Engines</label>
+                            <input type="text" value="${config.engines ? config.engines.join(', ') : ''}"
+                                   placeholder="cycles, eevee"
+                                   onchange="updateConfigField('${serviceType}', 'engines', this.value.split(',').map(s => s.trim()))">
+                        </div>
+                        <div class="form-group">
+                            <label>Default Engine</label>
+                            <select onchange="updateConfigField('${serviceType}', 'default_engine', this.value)">
+                                <option value="cycles" ${config.default_engine === 'cycles' ? 'selected' : ''}>Cycles</option>
+                                <option value="eevee" ${config.default_engine === 'eevee' ? 'selected' : ''}>Eevee</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Max Samples</label>
+                            <input type="number" value="${config.max_samples || 4096}"
+                                   onchange="updateConfigField('${serviceType}', 'max_samples', parseInt(this.value))">
+                        </div>
+                    `;
+                    
+                default:
+                    return '';
+            }
+        }
+        
+        // Render pricing fields based on service type
+        function renderPricingFields(serviceType, pricing) {
+            switch (serviceType) {
+                case 'whisper':
+                case 'llm_inference':
+                    return `
+                        <div class="form-group">
+                            <label>Price per 1k tokens/minutes</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.001" min="0" value="${pricing.per_1k_tokens || pricing.per_minute || 0.001}"
+                                       onchange="updatePricingField('${serviceType}', '${pricing.per_1k_tokens ? 'per_1k_tokens' : 'per_minute'}', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Minimum Charge</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.01" min="0" value="${pricing.min_charge || 0.01}"
+                                       onchange="updatePricingField('${serviceType}', 'min_charge', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                case 'stable_diffusion':
+                    return `
+                        <div class="form-group">
+                            <label>Price per Image</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.001" min="0" value="${pricing.per_image || 0.01}"
+                                       onchange="updatePricingField('${serviceType}', 'per_image', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Price per Step</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.001" min="0" value="${pricing.per_step || 0.001}"
+                                       onchange="updatePricingField('${serviceType}', 'per_step', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                case 'ffmpeg':
+                    return `
+                        <div class="form-group">
+                            <label>Price per Minute</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.001" min="0" value="${pricing.per_minute || 0.005}"
+                                       onchange="updatePricingField('${serviceType}', 'per_minute', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Price per GB</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.01" min="0" value="${pricing.per_gb || 0.01}"
+                                       onchange="updatePricingField('${serviceType}', 'per_gb', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                case 'blender':
+                    return `
+                        <div class="form-group">
+                            <label>Price per Frame</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.001" min="0" value="${pricing.per_frame || 0.01}"
+                                       onchange="updatePricingField('${serviceType}', 'per_frame', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Price per Hour</label>
+                            <div class="price-input-group">
+                                <input type="number" step="0.01" min="0" value="${pricing.per_hour || 0.5}"
+                                       onchange="updatePricingField('${serviceType}', 'per_hour', parseFloat(this.value))">
+                                <span class="price-unit">AITBC</span>
+                            </div>
+                        </div>
+                    `;
+                    
+                default:
+                    return '';
+            }
+        }
+        
+        // Toggle service enabled/disabled
+        function toggleService(serviceType, enabled) {
+            if (!serviceConfigs[serviceType]) {
+                const service = SERVICES.find(s => s.type === serviceType);
+                serviceConfigs[serviceType] = {
+                    service_type: serviceType,
+                    enabled: enabled,
+                    config: service.defaultConfig,
+                    pricing: service.defaultPricing,
+                    capabilities: service.capabilities,
+                    max_concurrent: 1
+                };
+            } else {
+                serviceConfigs[serviceType].enabled = enabled;
+            }
+            
+            // Show/hide configuration section
+            const configSection = document.getElementById(`config-${serviceType}`);
+            configSection.style.display = enabled ? 'block' : 'none';
+            
+            // Validate when enabling
+            if (enabled) {
+                setTimeout(() => validateOnChange(serviceType), 100);
+            } else {
+                // Clear validation feedback when disabling
+                const card = document.querySelector(`[data-service="${serviceType}"]`);
+                const feedback = card.querySelector('.validation-feedback');
+                if (feedback) feedback.remove();
+                card.style.borderColor = '#e0e0e0';
+            }
+        }
+        
+        // Validate configuration on change
+        async function validateOnChange(serviceType) {
+            const config = serviceConfigs[serviceType];
+            if (!config || !config.enabled) return;
+            
+            const validationResult = await validateService(serviceType, config);
+            showValidationFeedback(serviceType, validationResult);
+            
+            // Update score display
+            const scoreElement = document.querySelector(`#score-${serviceType} span`);
+            if (scoreElement) {
+                scoreElement.textContent = validationResult.score;
+                document.getElementById(`score-${serviceType}`).style.display = 'block';
+            }
+        }
+        
+        // Update configuration field
+        function updateConfigField(serviceType, field, value) {
+            if (!serviceConfigs[serviceType]) return;
+            if (!serviceConfigs[serviceType].config) {
+                serviceConfigs[serviceType].config = {};
+            }
+            serviceConfigs[serviceType].config[field] = value;
+        }
+        
+        // Update pricing field
+        function updatePricingField(serviceType, field, value) {
+            if (!serviceConfigs[serviceType]) return;
+            if (!serviceConfigs[serviceType].pricing) {
+                serviceConfigs[serviceType].pricing = {};
+            }
+            serviceConfigs[serviceType].pricing[field] = value;
+        }
+        
+        // Update configuration
+        function updateConfig(serviceType, field, value) {
+            if (!serviceConfigs[serviceType]) return;
+            serviceConfigs[serviceType][field] = value;
+        }
+        
+        // Save configuration
+        async function saveConfig(serviceType) {
+            const config = serviceConfigs[serviceType];
+            if (!config) return;
+            
+            // Validate before saving
+            const validationResult = await validateService(serviceType, config);
+            if (!validationResult.valid) {
+                showNotification(`Cannot save: ${validationResult.errors.join(', ')}`, 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/services/${serviceType}`, {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to save configuration');
+                }
+                
+                showNotification('Configuration saved successfully', 'success');
+            } catch (error) {
+                showNotification('Failed to save configuration: ' + error.message, 'error');
+            }
+        }
+        
+        // Validate service configuration
+        async function validateService(serviceType, config) {
+            try {
+                const response = await fetch(`${API_BASE}/validation/service/${serviceType}`, {
+                    method: 'POST',
+                    headers: {
+                        ...getAuthHeaders(),
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(config.config || {})
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Validation failed');
+                }
+                
+                return await response.json();
+            } catch (error) {
+                return { valid: false, errors: [error.message] };
+            }
+        }
+        
+        // Show validation feedback in UI
+        function showValidationFeedback(serviceType, validationResult) {
+            const card = document.querySelector(`[data-service="${serviceType}"]`);
+            if (!card) return;
+            
+            // Remove existing feedback
+            const existing = card.querySelector('.validation-feedback');
+            if (existing) existing.remove();
+            
+            // Create feedback element
+            const feedback = document.createElement('div');
+            feedback.className = 'validation-feedback';
+            
+            if (!validationResult.valid) {
+                feedback.innerHTML = `
+                    <div class="validation-errors">
+                        <strong>❌ Configuration Issues:</strong>
+                        <ul>
+                            ${validationResult.errors.map(e => `<li>${e}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                feedback.style.color = '#f44336';
+            } else if (validationResult.warnings.length > 0) {
+                feedback.innerHTML = `
+                    <div class="validation-warnings">
+                        <strong>⚠️ Warnings:</strong>
+                        <ul>
+                            ${validationResult.warnings.map(w => `<li>${w}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                feedback.style.color = '#ff9800';
+            } else {
+                feedback.innerHTML = `
+                    <div class="validation-success">
+                        ✅ Configuration is valid (Score: ${validationResult.score}/100)
+                    </div>
+                `;
+                feedback.style.color = '#4caf50';
+            }
+            
+            // Insert after the toggle switch
+            const toggle = card.querySelector('.toggle-switch');
+            toggle.parentNode.insertBefore(feedback, toggle.nextSibling.nextSibling);
+            
+            // Update card border based on validation
+            if (validationResult.valid) {
+                card.style.borderColor = '#4caf50';
+            } else {
+                card.style.borderColor = '#f44336';
+            }
+        }
+        
+        // Reset configuration to defaults
+        function resetConfig(serviceType) {
+            const service = SERVICES.find(s => s.type === serviceType);
+            serviceConfigs[serviceType] = {
+                service_type: serviceType,
+                enabled: false,
+                config: service.defaultConfig,
+                pricing: service.defaultPricing,
+                capabilities: service.capabilities,
+                max_concurrent: 1
+            };
+            renderServices();
+        }
+        
+        // Get auth headers
+        function getAuthHeaders() {
+            // Get API key from localStorage or other secure storage
+            const apiKey = localStorage.getItem('poolhub_api_key') || '';
+            return {
+                'Authorization': `Bearer ${apiKey}`
+            };
+        }
+        
+        // Show notification
+        function showNotification(message, type = 'success') {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Show/hide loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('servicesGrid').style.display = show ? 'none' : 'grid';
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

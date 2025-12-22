@@ -5,12 +5,14 @@ from typing import Dict
 from .base import BaseRunner
 from .cli.simple import CLIRunner
 from .python.noop import PythonNoopRunner
+from .service import ServiceRunner
 
 
 _RUNNERS: Dict[str, BaseRunner] = {
     "cli": CLIRunner(),
     "python": PythonNoopRunner(),
     "noop": PythonNoopRunner(),
+    "service": ServiceRunner(),
 }
 
 

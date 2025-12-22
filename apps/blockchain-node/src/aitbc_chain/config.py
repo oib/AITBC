@@ -15,7 +15,7 @@ class ChainSettings(BaseSettings):
     rpc_bind_host: str = "127.0.0.1"
     rpc_bind_port: int = 8080
 
-    p2p_bind_host: str = "0.0.0.0"
+    p2p_bind_host: str = "127.0.0.2"
     p2p_bind_port: int = 7070
 
     proposer_id: str = "ait-devnet-proposer"

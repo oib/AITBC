@@ -1,10 +1,12 @@
 # Coordinator API – Task Breakdown
 
-## Status (2025-09-27)
+## Status (2025-12-22)
 
 - **Stage 1 delivery**: Core FastAPI service, persistence, job lifecycle, and miner flows implemented under `apps/coordinator-api/`. Receipt signing now includes optional coordinator attestations with history retrieval endpoints.
 - **Testing & tooling**: Pytest suites cover job scheduling, miner flows, and receipt verification; the shared CI script `scripts/ci/run_python_tests.sh` executes these tests in GitHub Actions.
 - **Documentation**: `docs/run.md` and `apps/coordinator-api/README.md` describe configuration for `RECEIPT_SIGNING_KEY_HEX` and `RECEIPT_ATTESTATION_KEY_HEX` plus the receipt history API.
+- **Service APIs**: Implemented specific service endpoints for common GPU workloads (Whisper, Stable Diffusion, LLM inference, FFmpeg, Blender) with typed schemas and validation.
+- **Service Registry**: Created dynamic service registry framework supporting 30+ GPU services across 6 categories (AI/ML, Media Processing, Scientific Computing, Data Analytics, Gaming, Development Tools).
 
 ## Stage 1 (MVP)
 
@@ -27,6 +29,17 @@
   - Build `/v1/jobs` endpoints (submit, get status, get result, cancel) with idempotency support.
   - Build `/v1/miners` endpoints (register, heartbeat, poll, result, fail, drain).
   - Build `/v1/admin` endpoints (stats, job listing, miner listing) with admin auth.
+  - Build `/v1/services` endpoints for specific GPU workloads:
+    - `/v1/services/whisper/transcribe` - Audio transcription
+    - `/v1/services/stable-diffusion/generate` - Image generation
+    - `/v1/services/llm/inference` - Text generation
+    - `/v1/services/ffmpeg/transcode` - Video transcoding
+    - `/v1/services/blender/render` - 3D rendering
+  - Build `/v1/registry` endpoints for dynamic service management:
+    - `/v1/registry/services` - List all available services
+    - `/v1/registry/services/{id}` - Get service definition
+    - `/v1/registry/services/{id}/schema` - Get JSON schema
+    - `/v1/registry/services/{id}/requirements` - Get hardware requirements
   - Optionally add WebSocket endpoints under `ws/` for streaming updates.
 - **Receipts & Attestations**
   - ✅ Persist signed receipts (latest + history), expose `/v1/jobs/{job_id}/receipt(s)` endpoints, and attach optional coordinator attestations when `RECEIPT_ATTESTATION_KEY_HEX` is configured.

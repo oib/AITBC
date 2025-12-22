@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import make_asgi_app
 
 from .config import settings
-from .routers import client, miner, admin, marketplace, explorer
+from .routers import client, miner, admin, marketplace, explorer, services, registry
 
 
 def create_app() -> FastAPI:
@@ -25,6 +26,12 @@ def create_app() -> FastAPI:
     app.include_router(admin, prefix="/v1")
     app.include_router(marketplace, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
+    app.include_router(services, prefix="/v1")
+    app.include_router(registry, prefix="/v1")
+
+    # Add Prometheus metrics endpoint
+    metrics_app = make_asgi_app()
+    app.mount("/metrics", metrics_app)
 
     @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:

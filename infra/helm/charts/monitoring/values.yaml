@@ -1,0 +1,124 @@
+# Default values for aitbc-monitoring.
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  server:
+    enabled: true
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+    retention: 30d
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    service:
+      type: ClusterIP
+      port: 9090
+    serviceMonitors:
+      enabled: true
+      selector:
+        release: monitoring
+  alertmanager:
+    enabled: false
+    config:
+      global:
+        resolve_timeout: 5m
+      route:
+        group_by: ['alertname']
+        group_wait: 10s
+        group_interval: 10s
+        repeat_interval: 1h
+        receiver: 'web.hook'
+      receivers:
+      - name: 'web.hook'
+        webhook_configs:
+        - url: 'http://127.0.0.1:5001/'
+
+# Grafana configuration
+grafana:
+  enabled: true
+  adminPassword: admin
+  persistence:
+    enabled: true
+    size: 20Gi
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 3000
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server:9090
+          access: proxy
+          isDefault: true
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+
+# Service monitors for AITBC services
+serviceMonitors:
+  coordinator:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    port: http
+  blockchainNode:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    port: http
+  walletDaemon:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    port: http
+
+# Alert rules
+alertRules:
+  enabled: true
+  groups:
+    - name: aitbc.rules
+      rules:
+        - alert: HighErrorRate
+          expr: rate(marketplace_errors_total[5m]) / rate(marketplace_requests_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High error rate detected"
+            description: "Error rate is above 10% for 5 minutes"
+        
+        - alert: CoordinatorDown
+          expr: up{job="coordinator"} == 0
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Coordinator is down"
+            description: "Coordinator API has been down for more than 1 minute"

@@ -1,0 +1,99 @@
+# Cert-Manager Installation
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.14.0
+    helm:
+      releaseName: cert-manager
+      parameters:
+      - name: installCRDs
+        value: "true"
+      - name: namespace
+        value: cert-manager
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+# Let's Encrypt Production ClusterIssuer
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@aitbc.io
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+# Let's Encrypt Staging ClusterIssuer (for testing)
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+spec:
+  acme:
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@aitbc.io
+    privateKeySecretRef:
+      name: letsencrypt-staging
+    solvers:
+    - http01:
+        ingress:
+          class: nginx
+---
+# Self-Signed Issuer for Development
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: selfsigned-issuer
+  namespace: default
+spec:
+  selfSigned: {}
+---
+# Development Certificate
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: coordinator-dev-tls
+  namespace: default
+spec:
+  secretName: coordinator-dev-tls
+  dnsNames:
+  - coordinator.local
+  - coordinator.127.0.0.2.nip.io
+  issuerRef:
+    name: selfsigned-issuer
+    kind: Issuer
+---
+# Production Certificate Template
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: coordinator-prod-tls
+  namespace: default
+spec:
+  secretName: coordinator-prod-tls
+  dnsNames:
+  - api.aitbc.io
+  - www.api.aitbc.io
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer

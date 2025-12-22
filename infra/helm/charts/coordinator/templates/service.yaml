@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aitbc-coordinator.fullname" . }}
+  labels:
+    {{- include "aitbc-coordinator.labels" . | nindent 4 }}
+  {{- if .Values.monitoring.enabled }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.service.port }}"
+    prometheus.io/path: "{{ .Values.monitoring.serviceMonitor.path }}"
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "aitbc-coordinator.selectorLabels" . | nindent 4 }}
