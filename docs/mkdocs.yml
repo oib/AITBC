@@ -1,0 +1,197 @@
+site_name: AITBC Documentation
+site_description: AI Trusted Blockchain Computing Platform Documentation
+site_author: AITBC Team
+site_url: https://docs.aitbc.io
+
+# Repository
+repo_name: aitbc/docs
+repo_url: https://github.com/aitbc/docs
+edit_uri: edit/main/docs/
+
+# Copyright
+copyright: Copyright &copy; 2024 AITBC Team
+
+# Configuration
+theme:
+  name: material
+  language: en
+  features:
+    - announce.dismiss
+    - content.action.edit
+    - content.action.view
+    - content.code.annotate
+    - content.code.copy
+    - content.tabs.link
+    - content.tooltips
+    - header.autohide
+    - navigation.expand
+    - navigation.footer
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.instant.scroll
+    - navigation.prune
+    - navigation.sections
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - navigation.tracking
+    - search.highlight
+    - search.share
+    - search.suggest
+    - toc.follow
+    - toc.integrate
+  palette:
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  favicon: assets/favicon.png
+  logo: assets/logo.png
+
+# Plugins
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: datetime
+      timezone: UTC
+  - awesome-pages
+  - glightbox
+  - mkdocs-video
+  - social:
+      cards_layout_options:
+        font_family: Roboto
+
+# Customization
+extra:
+  analytics:
+    provider: google
+    property: !ENV GOOGLE_ANALYTICS_KEY
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/aitbc
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/aitbc
+    - icon: fontawesome/brands/discord
+      link: https://discord.gg/aitbc
+  version:
+    provider: mike
+    default: stable
+  generator: false
+
+# Extensions
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - toc:
+      permalink: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink:
+      repo_url_shorthand: true
+      user: aitbc
+      repo: docs
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+# Navigation
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Introduction: getting-started/introduction.md
+    - Quickstart: getting-started/quickstart.md
+    - Installation: getting-started/installation.md
+    - Architecture: getting-started/architecture.md
+  - User Guide:
+    - Overview: user-guide/overview.md
+    - Creating Jobs: user-guide/creating-jobs.md
+    - Marketplace: user-guide/marketplace.md
+    - Explorer: user-guide/explorer.md
+    - Wallet Management: user-guide/wallet-management.md
+  - Developer Guide:
+    - Overview: developer-guide/overview.md
+    - Setup: developer-guide/setup.md
+    - API Authentication: developer-guide/api-authentication.md
+    - SDKs:
+      - Python SDK: developer-guide/sdks/python.md
+      - JavaScript SDK: developer-guide/sdks/javascript.md
+    - Examples: developer-guide/examples.md
+    - Contributing: developer-guide/contributing.md
+  - API Reference:
+    - Coordinator API:
+      - Overview: api/coordinator/overview.md
+      - Authentication: api/coordinator/authentication.md
+      - Endpoints: api/coordinator/endpoints.md
+      - OpenAPI Spec: api/coordinator/openapi.md
+    - Blockchain Node API:
+      - Overview: api/blockchain/overview.md
+      - WebSocket API: api/blockchain/websocket.md
+      - JSON-RPC API: api/blockchain/jsonrpc.md
+      - OpenAPI Spec: api/blockchain/openapi.md
+    - Wallet Daemon API:
+      - Overview: api/wallet/overview.md
+      - Endpoints: api/wallet/endpoints.md
+      - OpenAPI Spec: api/wallet/openapi.md
+  - Operations:
+    - Deployment: operations/deployment.md
+    - Monitoring: operations/monitoring.md
+    - Security: operations/security.md
+    - Backup & Restore: operations/backup-restore.md
+    - Troubleshooting: operations/troubleshooting.md
+  - Tutorials:
+    - Building a DApp: tutorials/building-dapp.md
+    - Mining Setup: tutorials/mining-setup.md
+    - Running a Node: tutorials/running-node.md
+    - Integration Examples: tutorials/integration-examples.md
+  - Resources:
+    - Glossary: resources/glossary.md
+    - FAQ: resources/faq.md
+    - Support: resources/support.md
+    - Changelog: resources/changelog.md
+
+# Page tree
+plugins:
+  - awesome-pages

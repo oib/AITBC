@@ -1,8 +1,9 @@
 # Pool Hub – Task Breakdown
 
-## Status (2025-09-27)
+## Status (2025-12-22)
 
-- **Stage 1**: Service still in design phase. Coordinator API and miner telemetry improvements will feed into pool hub scoring once implementation starts.
+- **Stage 1**: FastAPI service implemented with miner registry, scoring engine, and Redis/PostgreSQL backing stores. Service configuration API and UI added for GPU providers to select which services to offer.
+- **Service Configuration**: Implemented dynamic service configuration allowing miners to enable/disable specific GPU services, set pricing, and define capabilities.
 
 ## Stage 1 (MVP)
 
@@ -25,6 +26,16 @@
   - `POST /v1/match` returning top K candidates for coordinator requests with explain string.
   - `POST /v1/feedback` to adjust trust and metrics.
   - `GET /v1/health` and `GET /v1/metrics` for observability.
+  - Service Configuration endpoints:
+    - `GET /v1/services/` - List all service configurations for miner
+    - `GET /v1/services/{type}` - Get specific service configuration
+    - `POST /v1/services/{type}` - Create/update service configuration
+    - `PATCH /v1/services/{type}` - Partial update
+    - `DELETE /v1/services/{type}` - Delete configuration
+    - `GET /v1/services/templates/{type}` - Get default templates
+    - `POST /v1/services/validate/{type}` - Validate against hardware
+  - UI endpoint:
+    - `GET /services` - Service configuration web interface
   - Optional admin listing endpoint guarded by shared secret.
 
 - **Rate Limiting & Security**

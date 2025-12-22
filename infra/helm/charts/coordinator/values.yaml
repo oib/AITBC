@@ -1,0 +1,162 @@
+# Default values for aitbc-coordinator.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: aitbc/coordinator-api
+  pullPolicy: IfNotPresent
+  tag: "0.1.0"
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+    - ALL
+
+service:
+  type: ClusterIP
+  port: 8011
+  targetPort: 8011
+
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: coordinator.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: coordinator-tls
+    #   hosts:
+    #     - coordinator.local
+
+# Pod Security Policy
+podSecurityPolicy:
+  enabled: true
+
+# Network policies
+networkPolicy:
+  enabled: true
+
+security:
+  auth:
+    enabled: true
+    requireApiKey: true
+    apiKeyHeader: "X-API-Key"
+  tls:
+    version: "TLSv1.3"
+    ciphers: "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_128_GCM_SHA256"
+  headers:
+    frameOptions: "DENY"
+    contentTypeOptions: "nosniff"
+    xssProtection: "1; mode=block"
+    referrerPolicy: "strict-origin-when-cross-origin"
+    hsts:
+      enabled: true
+      maxAge: 31536000
+      includeSubDomains: true
+      preload: true
+  rateLimit:
+    enabled: true
+    requestsPerMinute: 60
+    burst: 10
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Configuration
+config:
+  appEnv: production
+  databaseUrl: "postgresql://aitbc:password@postgresql:5432/aitbc"
+  receiptSigningKeyHex: ""
+  receiptAttestationKeyHex: ""
+  allowOrigins: "*"
+
+# PostgreSQL sub-chart configuration
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "password"
+    username: aitbc
+    database: aitbc
+  primary:
+    persistence:
+      enabled: true
+      size: 20Gi
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+
+# Monitoring
+monitoring:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /metrics
+    port: http
+
+# Health checks
+livenessProbe:
+  httpGet:
+    path: /v1/health
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /v1/health
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 3

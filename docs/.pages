@@ -1,0 +1,87 @@
+# .pages configuration for awesome-pages plugin
+
+home: index.md
+format: standard
+ordering:
+  asc: title
+
+sections:
+  - title: Getting Started
+    icon: material/rocket-launch
+    children:
+      - getting-started/introduction.md
+      - getting-started/quickstart.md
+      - getting-started/installation.md
+      - getting-started/architecture.md
+  
+  - title: User Guide
+    icon: material/account-group
+    children:
+      - user-guide/overview.md
+      - user-guide/creating-jobs.md
+      - user-guide/marketplace.md
+      - user-guide/explorer.md
+      - user-guide/wallet-management.md
+  
+  - title: Developer Guide
+    icon: material/code-tags
+    children:
+      - developer-guide/overview.md
+      - developer-guide/setup.md
+      - developer-guide/api-authentication.md
+      - title: SDKs
+        icon: material/package-variant
+        children:
+          - developer-guide/sdks/python.md
+          - developer-guide/sdks/javascript.md
+      - developer-guide/examples.md
+      - developer-guide/contributing.md
+  
+  - title: API Reference
+    icon: material/api
+    children:
+      - title: Coordinator API
+        icon: material/server
+        children:
+          - api/coordinator/overview.md
+          - api/coordinator/authentication.md
+          - api/coordinator/endpoints.md
+          - api/coordinator/openapi.md
+      - title: Blockchain Node API
+        icon: material/link-variant
+        children:
+          - api/blockchain/overview.md
+          - api/blockchain/websocket.md
+          - api/blockchain/jsonrpc.md
+          - api/blockchain/openapi.md
+      - title: Wallet Daemon API
+        icon: material/wallet
+        children:
+          - api/wallet/overview.md
+          - api/wallet/endpoints.md
+          - api/wallet/openapi.md
+  
+  - title: Operations
+    icon: material/cog
+    children:
+      - operations/deployment.md
+      - operations/monitoring.md
+      - operations/security.md
+      - operations/backup-restore.md
+      - operations/troubleshooting.md
+  
+  - title: Tutorials
+    icon: material/school
+    children:
+      - tutorials/building-dapp.md
+      - tutorials/mining-setup.md
+      - tutorials/running-node.md
+      - tutorials/integration-examples.md
+  
+  - title: Resources
+    icon: material/information
+    children:
+      - resources/glossary.md
+      - resources/faq.md
+      - resources/support.md
+      - resources/changelog.md

@@ -1,0 +1,77 @@
+# Development environment values
+global:
+  environment: dev
+
+coordinator:
+  replicaCount: 1
+  image:
+    tag: "dev-latest"
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  config:
+    appEnv: development
+    allowOrigins: "*"
+  postgresql:
+    auth:
+      postgresPassword: "dev-password"
+    primary:
+      persistence:
+        size: 10Gi
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+
+monitoring:
+  prometheus:
+    server:
+      retention: 7d
+      persistentVolume:
+        size: 20Gi
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+  grafana:
+    adminPassword: "dev-admin"
+    persistence:
+      size: 5Gi
+    resources:
+      limits:
+        cpu: 250m
+          memory: 512Mi
+        requests:
+          cpu: 125m
+          memory: 256Mi
+
+# Additional services
+blockchainNode:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+
+walletDaemon:
+  replicaCount: 1
+  resources:
+    limits:
+      cpu: 250m
+      memory: 256Mi
+    requests:
+      cpu: 125m
+      memory: 128Mi

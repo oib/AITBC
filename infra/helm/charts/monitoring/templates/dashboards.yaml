@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aitbc-monitoring.fullname" . }}-dashboards
+  labels:
+    {{- include "aitbc-monitoring.labels" . | nindent 4 }}
+  annotations:
+    grafana.io/dashboard: "1"
+data:
+  blockchain-node-overview.json: |
+{{ .Files.Get "dashboards/blockchain-node-overview.json" | indent 4 }}
+  coordinator-overview.json: |
+{{ .Files.Get "dashboards/coordinator-overview.json" | indent 4 }}

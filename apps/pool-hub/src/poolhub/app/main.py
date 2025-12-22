@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis
 from ..settings import settings
-from .routers import health_router, match_router, metrics_router
+from .routers import health_router, match_router, metrics_router, services, ui, validation
 
 
 @asynccontextmanager
@@ -25,6 +25,9 @@ app = FastAPI(**settings.asgi_kwargs(), lifespan=lifespan)
 app.include_router(match_router, prefix="/v1")
 app.include_router(health_router)
 app.include_router(metrics_router)
+app.include_router(services, prefix="/v1")
+app.include_router(ui)
+app.include_router(validation, prefix="/v1")
 
 
 def create_app() -> FastAPI:

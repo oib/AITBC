@@ -1,0 +1,156 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: aitbc-backup
+  namespace: default
+  labels:
+    app: aitbc-backup
+    component: backup
+spec:
+  schedule: "0 2 * * *"  # Run daily at 2 AM
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 7
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: postgresql-backup
+            image: postgres:15-alpine
+            command:
+            - /bin/bash
+            - -c
+            - |
+              echo "Starting PostgreSQL backup..."
+              /scripts/backup_postgresql.sh default postgresql-backup-$(date +%Y%m%d_%H%M%S)
+              echo "PostgreSQL backup completed"
+            env:
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: coordinator-postgresql
+                  key: password
+            volumeMounts:
+            - name: backup-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          
+          - name: redis-backup
+            image: redis:7-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for PostgreSQL backup to complete..."
+              sleep 60
+              echo "Starting Redis backup..."
+              /scripts/backup_redis.sh default redis-backup-$(date +%Y%m%d_%H%M%S)
+              echo "Redis backup completed"
+            volumeMounts:
+            - name: backup-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "128Mi"
+                cpu: "50m"
+              limits:
+                memory: "256Mi"
+                cpu: "200m"
+          
+          - name: ledger-backup
+            image: alpine:3.18
+            command:
+            - /bin/sh
+            - -c
+            - |
+              echo "Waiting for previous backups to complete..."
+              sleep 120
+              echo "Starting Ledger backup..."
+              /scripts/backup_ledger.sh default ledger-backup-$(date +%Y%m%d_%H%M%S)
+              echo "Ledger backup completed"
+            volumeMounts:
+            - name: backup-scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: backup-storage
+              mountPath: /backups
+            resources:
+              requests:
+                memory: "256Mi"
+                cpu: "100m"
+              limits:
+                memory: "512Mi"
+                cpu: "500m"
+          
+          volumes:
+          - name: backup-scripts
+            configMap:
+              name: backup-scripts
+              defaultMode: 0755
+          
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: backup-storage-pvc
+          
+          # Add service account for cloud storage access
+          serviceAccountName: backup-service-account
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backup-service-account
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: backup-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["pods", "pods/exec", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: backup-role-binding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: backup-service-account
+  namespace: default
+roleRef:
+  kind: Role
+  name: backup-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: backup-storage-pvc
+  namespace: default
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 500Gi

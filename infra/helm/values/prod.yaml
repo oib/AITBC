@@ -1,0 +1,140 @@
+# Production environment values
+global:
+  environment: production
+
+coordinator:
+  replicaCount: 3
+  image:
+    tag: "v0.1.0"
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+  config:
+    appEnv: production
+    allowOrigins: "https://app.aitbc.io"
+  postgresql:
+    auth:
+      existingSecret: "coordinator-db-secret"
+    primary:
+      persistence:
+        size: 200Gi
+        storageClass: fast-ssd
+      resources:
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+        requests:
+          cpu: 1000m
+          memory: 2Gi
+    readReplicas:
+      replicaCount: 2
+      resources:
+        limits:
+          cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+
+monitoring:
+  prometheus:
+    server:
+      retention: 90d
+      persistentVolume:
+        size: 500Gi
+        storageClass: fast-ssd
+      resources:
+        limits:
+          cpu: 2000m
+          memory: 4Gi
+        requests:
+          cpu: 1000m
+          memory: 2Gi
+  grafana:
+    adminPassword: "prod-admin-secure-2024"
+    persistence:
+      size: 50Gi
+      storageClass: fast-ssd
+    resources:
+      limits:
+        cpu: 1000m
+          memory: 2Gi
+        requests:
+          cpu: 500m
+          memory: 1Gi
+    ingress:
+      enabled: true
+      hosts:
+        - grafana.aitbc.io
+
+# Additional services
+blockchainNode:
+  replicaCount: 5
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 50
+    targetCPUUtilizationPercentage: 70
+
+walletDaemon:
+  replicaCount: 3
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 75
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: api.aitbc.io
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: prod-tls
+      hosts:
+        - api.aitbc.io
+
+# Security
+podSecurityPolicy:
+  enabled: true
+
+networkPolicy:
+  enabled: true
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "30d"

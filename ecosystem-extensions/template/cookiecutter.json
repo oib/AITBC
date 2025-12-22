@@ -1,0 +1,89 @@
+{
+    "extension_name": {
+        "type": "string",
+        "help": "Name of your extension (e.g., 'sap-connector')",
+        "default": "my-extension"
+    },
+    "extension_display_name": {
+        "type": "string",
+        "help": "Display name for your extension",
+        "default": "My Extension"
+    },
+    "extension_description": {
+        "type": "string",
+        "help": "Brief description of what your extension does",
+        "default": "An AITBC ecosystem extension"
+    },
+    "extension_type": {
+        "type": "choice",
+        "choices": [
+            "payment",
+            "erp",
+            "analytics",
+            "developer"
+        ],
+        "help": "Type of extension you're building",
+        "default": "payment"
+    },
+    "author_name": {
+        "type": "string",
+        "help": "Your name or organization name",
+        "default": "Your Name"
+    },
+    "author_email": {
+        "type": "string",
+        "help": "Contact email",
+        "default": "your.email@example.com"
+    },
+    "github_username": {
+        "type": "string",
+        "help": "GitHub username for the repository",
+        "default": "yourusername"
+    },
+    "package_name": {
+        "type": "string",
+        "help": "Python package name (will be auto-formatted)",
+        "default": "{{ cookiecutter.extension_name|replace('-', '_')|replace(' ', '_') }}"
+    },
+    "class_name": {
+        "type": "string",
+        "help": "Main class name (will be auto-formatted)",
+        "default": "{{ cookiecutter.extension_name|title|replace('-', '')|replace(' ', '') }}Connector"
+    },
+    "version": {
+        "type": "string",
+        "help": "Initial version",
+        "default": "0.1.0"
+    },
+    "python_version": {
+        "type": "string",
+        "help": "Minimum Python version",
+        "default": "3.8"
+    },
+    "use_asyncio": {
+        "type": "bool",
+        "help": "Use asyncio for async operations",
+        "default": true
+    },
+    "include_tests": {
+        "type": "bool",
+        "help": "Include test suite template",
+        "default": true
+    },
+    "include_docs": {
+        "type": "bool",
+        "help": "Include documentation template",
+        "default": true
+    },
+    "license": {
+        "type": "choice",
+        "choices": [
+            "MIT",
+            "Apache-2.0",
+            "BSD-3-Clause",
+            "GPL-3.0-or-later"
+        ],
+        "help": "License for your extension",
+        "default": "MIT"
+    }
+}

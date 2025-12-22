@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Dict, List, Optional
+from enum import Enum
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from uuid import uuid4
+
+
+class ServiceType(str, Enum):
+    """Supported service types"""
+    WHISPER = "whisper"
+    STABLE_DIFFUSION = "stable_diffusion"
+    LLM_INFERENCE = "llm_inference"
+    FFMPEG = "ffmpeg"
+    BLENDER = "blender"
 
 
 class Base(DeclarativeBase):
@@ -93,3 +103,26 @@ class Feedback(Base):
     created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
+
+
+class ServiceConfig(Base):
+    """Service configuration for a miner"""
+    __tablename__ = "service_configs"
+    
+    id: Mapped[PGUUID] = mapped_column(PGUUID(as_uuid=True), primary_key=True, default=uuid4)
+    miner_id: Mapped[str] = mapped_column(ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False)
+    service_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    pricing: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
+    capabilities: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow)
+    updated_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow)
+    
+    # Add unique constraint for miner_id + service_type
+    __table_args__ = (
+        {"schema": None},
+    )
+    
+    miner: Mapped[Miner] = relationship(backref="service_configs")

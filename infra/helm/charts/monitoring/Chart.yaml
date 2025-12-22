@@ -1,0 +1,19 @@
+apiVersion: v2
+name: aitbc-monitoring
+description: AITBC Monitoring Stack (Prometheus, Grafana, AlertManager)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: prometheus
+    version: 23.1.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled
+  - name: grafana
+    version: 6.58.9
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+  - name: alertmanager
+    version: 1.6.1
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: alertmanager.enabled

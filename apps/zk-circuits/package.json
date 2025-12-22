@@ -1,0 +1,38 @@
+{
+  "name": "aitbc-zk-circuits",
+  "version": "1.0.0",
+  "description": "Zero-knowledge circuits for AITBC receipt attestation",
+  "main": "index.js",
+  "scripts": {
+    "compile": "circom receipt.circom --r1cs --wasm --sym",
+    "setup": "snarkjs powersoftau new bn128 12 pot12_0000.ptau -v",
+    "contribute": "snarkjs powersoftau contribute pot12_0000.ptau pot12_0001.ptau --name=\"First contribution\" -v",
+    "prepare": "snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v",
+    "generate-zkey": "snarkjs groth16 setup receipt.r1cs pot12_final.ptau receipt_0000.zkey",
+    "contribute-zkey": "snarkjs zkey contribute receipt_0000.zkey receipt_0001.zkey --name=\"1st Contributor Name\" -v",
+    "export-verification-key": "snarkjs zkey export verificationkey receipt_0001.zkey verification_key.json",
+    "generate-proof": "node generate_proof.js",
+    "verify": "snarkjs groth16 verify verification_key.json public.json proof.json",
+    "solidity": "snarkjs zkey export solidityverifier receipt_0001.zkey verifier.sol",
+    "test": "node test.js"
+  },
+  "dependencies": {
+    "circom": "^2.1.8",
+    "snarkjs": "^0.7.0",
+    "circomlib": "^2.0.5",
+    "ffjavascript": "^0.2.60"
+  },
+  "devDependencies": {
+    "chai": "^4.3.7",
+    "mocha": "^10.2.0"
+  },
+  "keywords": [
+    "zero-knowledge",
+    "circom",
+    "snarkjs",
+    "blockchain",
+    "attestation"
+  ],
+  "author": "AITBC Team",
+  "license": "MIT"
+}
