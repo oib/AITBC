@@ -4,4 +4,5 @@ export default defineConfig({
   server: {
     port: 4173,
   },
+  base: '/explorer/',
 });

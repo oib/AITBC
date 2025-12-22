@@ -2,7 +2,7 @@
 
 This roadmap aggregates high-priority tasks derived from the bootstrap specifications in `docs/bootstrap/` and tracks progress across the monorepo. Update this document as milestones evolve.
 
-## Stage 1 — Upcoming Focus Areas
+## Stage 1 — Upcoming Focus Areas [COMPLETED: 2025-12-22]
 
 - **Blockchain Node Foundations**
   - ✅ Bootstrap module layout in `apps/blockchain-node/src/`.
@@ -22,7 +22,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Add blockchain-node tests once available and frontend build/lint checks to `.github/workflows/python-tests.yml` or follow-on workflows.
   - ✅ Provide systemd unit + installer scripts under `scripts/` for streamlined deployment.
 
-## Stage 2 — Core Services (MVP)
+## Stage 2 — Core Services (MVP) [COMPLETED: 2025-12-22]
 
 - **Coordinator API**
   - ✅ Scaffold FastAPI project (`apps/coordinator-api/src/app/`).
@@ -30,6 +30,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Add miner registration, heartbeat, poll, result routes.
   - ✅ Wire SQLite persistence for jobs, miners, receipts (historical `JobReceipt` table).
   - ✅ Provide `.env.example`, `pyproject.toml`, and run scripts.
+  - ✅ Deploy minimal version in container with nginx proxy
 
 - **Miner Node**
   - ✅ Implement capability probe and control loop (register → heartbeat → fetch jobs).
@@ -72,7 +73,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
     - Reused crypto helpers to validate miner and coordinator signatures, capturing per-key failure reasons for downstream UX.
     - Surfaced aggregated attestation status (`ReceiptStatus`) and failure diagnostics for SDK + UI consumers; JS helper parity still planned.
 
-## Stage 3 — Pool Hub & Marketplace
+## Stage 3 — Pool Hub & Marketplace [COMPLETED: 2025-12-22]
 
 - **Pool Hub**
   - ✅ Implement miner registry, scoring engine, and `/v1/match` API with Redis/PostgreSQL backing stores.
@@ -83,6 +84,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Build offer list, bid form, and stats cards powered by mock data fixtures (`public/mock/`).
   - ✅ Provide API abstraction toggling mock/live mode (`src/lib/api.ts`) and wire coordinator endpoints.
   - ✅ Validate live mode against coordinator `/v1/marketplace/*` responses and add auth feature flags for rollout.
+  - ✅ Deploy to production at https://aitbc.bubuit.net/marketplace/
 
 - **Explorer Web**
   - ✅ Initialize Vite + TypeScript project scaffold (`apps/explorer-web/`).
@@ -95,6 +97,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
     - Hit live coordinator endpoints (`/v1/blocks`, `/v1/transactions`, `/v1/addresses`, `/v1/receipts`) via `getDataMode() === "live"` and reconcile payloads with UI models.
     - Add fallbacks + error surfacing for partial/failed live responses (toast + console diagnostics).
     - Audit responsive breakpoints (`public/css/layout.css`) and adjust grid/typography for tablet + mobile; add regression checks in Percy/Playwright snapshots.
+  - ✅ Deploy to production at https://aitbc.bubuit.net/explorer/ with genesis block display
 
 ## Stage 4 — Observability & Production Polish
 
@@ -140,17 +143,17 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
 - **Cross-Chain & Interop**
   - ✅ Prototype cross-chain settlement hooks leveraging external bridges; document integration patterns.
   - ✅ Extend SDKs (Python/JS) with pluggable transport abstractions for multi-network support.
-  - ⏳ Evaluate third-party explorer/analytics integrations and publish partner onboarding guides.
+  - 🔄 Evaluate third-party explorer/analytics integrations and publish partner onboarding guides.
 
 - **Marketplace Growth**
-  - ⏳ Launch incentive programs (staking, liquidity mining) and expose telemetry dashboards tracking campaign performance.
-  - ⏳ Implement governance module (proposal voting, parameter changes) and add API/UX flows to explorer/marketplace.
-  - ⏳ Provide SLA-backed coordinator/pool hubs with capacity planning and billing instrumentation.
+  - 🔄 Launch incentive programs (staking, liquidity mining) and expose telemetry dashboards tracking campaign performance.
+  - 🔄 Implement governance module (proposal voting, parameter changes) and add API/UX flows to explorer/marketplace.
+  - 🔄 Provide SLA-backed coordinator/pool hubs with capacity planning and billing instrumentation.
 
 - **Developer Experience**
-  - ⏳ Publish advanced tutorials (custom proposers, marketplace extensions) and maintain versioned API docs.
-  - ⏳ Integrate CI/CD pipelines with canary deployments and blue/green release automation.
-  - ⏳ Host quarterly architecture reviews capturing lessons learned and feeding into roadmap revisions.
+  - 🔄 Publish advanced tutorials (custom proposers, marketplace extensions) and maintain versioned API docs.
+  - 🔄 Integrate CI/CD pipelines with canary deployments and blue/green release automation.
+  - 🔄 Host quarterly architecture reviews capturing lessons learned and feeding into roadmap revisions.
 
 ## Stage 7 — Innovation & Ecosystem Services
 
@@ -180,55 +183,55 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Sponsor hackathons/accelerators and provide grants for marketplace extensions and analytics tooling.
   - ✅ Track ecosystem KPIs (active marketplaces, cross-chain volume) and feed them into quarterly strategy reviews.
 
-## Stage 8 — Frontier R&D & Global Expansion
+## Stage 8 — Frontier R&D & Global Expansion [IN PROGRESS: 2025-12-22]
 
 - **Protocol Evolution**
   - ✅ Launch research consortium exploring next-gen consensus (hybrid PoA/PoS) and finalize whitepapers.
-  - ⏳ Prototype sharding or rollup architectures to scale throughput beyond current limits.
-  - ⏳ Standardize interoperability specs with industry bodies and submit proposals for adoption.
+  - 🔄 Prototype sharding or rollup architectures to scale throughput beyond current limits.
+  - 🔄 Standardize interoperability specs with industry bodies and submit proposals for adoption.
 
 - **Global Rollout**
-  - ⏳ Establish regional infrastructure hubs (multi-cloud) with localized compliance and data residency guarantees.
-  - ⏳ Partner with regulators/enterprises to pilot regulated marketplaces and publish compliance playbooks.
-  - ⏳ Expand localization (UI, documentation, support) covering top target markets.
+  - 🔄 Establish regional infrastructure hubs (multi-cloud) with localized compliance and data residency guarantees.
+  - 🔄 Partner with regulators/enterprises to pilot regulated marketplaces and publish compliance playbooks.
+  - 🔄 Expand localization (UI, documentation, support) covering top target markets.
 
 - **Long-Term Sustainability**
-  - ⏳ Create sustainability fund for ecosystem maintenance, bug bounties, and community stewardship.
-  - ⏳ Define succession planning for core teams, including training programs and contributor pathways.
-  - ⏳ Publish bi-annual roadmap retrospectives assessing KPI alignment and revising long-term goals.
+  - 🔄 Create sustainability fund for ecosystem maintenance, bug bounties, and community stewardship.
+  - 🔄 Define succession planning for core teams, including training programs and contributor pathways.
+  - 🔄 Publish bi-annual roadmap retrospectives assessing KPI alignment and revising long-term goals.
 
-## Stage 9 — Moonshot Initiatives
+## Stage 9 — Moonshot Initiatives [IN PROGRESS: 2025-12-22]
 
 - **Decentralized Infrastructure**
-  - ⏳ Transition coordinator/miner roles toward community-governed validator sets with incentive alignment.
-  - ⏳ Explore decentralized storage/backbone options (IPFS/Filecoin) for ledger and marketplace artifacts.
-  - ⏳ Prototype fully trustless marketplace settlement leveraging zero-knowledge rollups.
+  - 🔄 Transition coordinator/miner roles toward community-governed validator sets with incentive alignment.
+  - 🔄 Explore decentralized storage/backbone options (IPFS/Filecoin) for ledger and marketplace artifacts.
+  - 🔄 Prototype fully trustless marketplace settlement leveraging zero-knowledge rollups.
 
 - **AI & Automation**
-  - ⏳ Integrate AI-driven monitoring/anomaly detection for proposer health, market liquidity, and fraud detection.
-  - ⏳ Automate incident response playbooks with ChatOps and policy engines.
-  - ⏳ Launch research into autonomous agent participation (AI agents bidding/offering in the marketplace) and governance implications.
+  - 🔄 Integrate AI-driven monitoring/anomaly detection for proposer health, market liquidity, and fraud detection.
+  - 🔄 Automate incident response playbooks with ChatOps and policy engines.
+  - 🔄 Launch research into autonomous agent participation (AI agents bidding/offering in the marketplace) and governance implications.
 - **Global Standards Leadership**
-  - ⏳ chair industry working groups defining receipt/marketplace interoperability standards.
-  - ⏳ Publish annual transparency reports and sustainability metrics for stakeholders.
-  - ⏳ Engage with academia and open-source foundations to steward long-term protocol evolution.
+  - 🔄 Chair industry working groups defining receipt/marketplace interoperability standards.
+  - 🔄 Publish annual transparency reports and sustainability metrics for stakeholders.
+  - 🔄 Engage with academia and open-source foundations to steward long-term protocol evolution.
 
-### Stage 10 — Stewardship & Legacy Planning
+### Stage 10 — Stewardship & Legacy Planning [IN PROGRESS: 2025-12-22]
 
 - **Open Governance Maturity**
-  - ⏳ Transition roadmap ownership to community-elected councils with transparent voting and treasury controls.
-  - ⏳ Codify constitutional documents (mission, values, conflict resolution) and publish public charters.
-  - ⏳ Implement on-chain governance modules for protocol upgrades and ecosystem-wide decisions.
+  - 🔄 Transition roadmap ownership to community-elected councils with transparent voting and treasury controls.
+  - 🔄 Codify constitutional documents (mission, values, conflict resolution) and publish public charters.
+  - 🔄 Implement on-chain governance modules for protocol upgrades and ecosystem-wide decisions.
 
 - **Educational & Outreach Programs**
-  - ⏳ Fund university partnerships, research chairs, and developer fellowships focused on decentralized marketplace tech.
-  - ⏳ Create certification tracks and mentorship programs for new validator/operators.
-  - ⏳ Launch annual global summit and publish proceedings to share best practices across partners.
+  - 🔄 Fund university partnerships, research chairs, and developer fellowships focused on decentralized marketplace tech.
+  - 🔄 Create certification tracks and mentorship programs for new validator/operators.
+  - 🔄 Launch annual global summit and publish proceedings to share best practices across partners.
 
 - **Long-Term Preservation**
-  - ⏳ Archive protocol specs, governance records, and cultural artifacts in decentralized storage with redundancy.
-  - ⏳ Establish legal/organizational frameworks to ensure continuity across jurisdictions.
-  - ⏳ Develop end-of-life/transition plans for legacy components, documenting deprecation strategies and migration tooling.
+  - 🔄 Archive protocol specs, governance records, and cultural artifacts in decentralized storage with redundancy.
+  - 🔄 Establish legal/organizational frameworks to ensure continuity across jurisdictions.
+  - 🔄 Develop end-of-life/transition plans for legacy components, documenting deprecation strategies and migration tooling.
 
 
 ## Shared Libraries & Examples

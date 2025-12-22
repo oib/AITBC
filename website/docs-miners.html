@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miner Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+            --code-bg: #1f2937;
+            --code-text: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .doc-header h1 {
+            font-size: 3rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+        }
+        
+        /* Audience Badge */
+        .audience-badge {
+            display: inline-block;
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        /* Quick Stats */
+        .quick-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        
+        .stat-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        
+        .stat-label {
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+        
+        /* Content Sections */
+        .content-section {
+            background: var(--bg-white);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 1.5rem 0 1rem;
+            color: var(--primary-color);
+        }
+        
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+        
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+        
+        .content-section li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        /* Code Blocks */
+        .code-block {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Alert Boxes */
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        
+        .alert-danger {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        /* Requirements Grid */
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .requirement-card {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .requirement-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Steps */
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+        
+        .step-number {
+            background: var(--primary-color);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex-grow: 1;
+        }
+        
+        .step-content h4 {
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Profit Calculator */
+        .calculator {
+            background: var(--bg-light);
+            padding: 2rem;
+            border-radius: 10px;
+            margin: 2rem 0;
+        }
+        
+        .calculator h3 {
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+        }
+        
+        .calc-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .calc-input {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .calc-input label {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-dark);
+        }
+        
+        .calc-input input {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        
+        .calc-result {
+            background: var(--bg-white);
+            padding: 1rem;
+            border-radius: 5px;
+            margin-top: 1rem;
+            text-align: center;
+        }
+        
+        .calc-result-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--success-color);
+        }
+        
+        /* FAQ */
+        .faq-item {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+        
+        .faq-question {
+            font-weight: 600;
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        .faq-answer {
+            color: var(--text-light);
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+            
+            .calc-row {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs-miners.html" class="active">Miners</a></li>
+                <li><a href="docs-clients.html">Clients</a></li>
+                <li><a href="docs-developers.html">Developers</a></li>
+                <li><a href="https://gitea.bubuit.net/oib/aitbc">GitHub</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <div class="doc-header">
+                <span class="audience-badge">For Miners</span>
+                <h1>Start Mining AITBC</h1>
+                <p>Complete guide to becoming a successful AITBC miner and earning rewards</p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <div class="stat-card">
+                    <div class="stat-value">15-25%</div>
+                    <div class="stat-label">Annual ROI</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">1000 AITBC</div>
+                    <div class="stat-label">Minimum Stake</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">24/7</div>
+                    <div class="stat-label">Mining Rewards</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">Low</div>
+                    <div class="stat-label">Hardware Requirements</div>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>AITBC mining combines Proof of Authority and Proof of Stake, offering multiple ways to participate and earn rewards.</p>
+                
+                <h3>Mining Options</h3>
+                <ul>
+                    <li><strong>Authority Mining</strong>: Become a trusted authority node (invitation only)</li>
+                    <li><strong>Stake Mining</strong>: Stake AITBC tokens and earn rewards</li>
+                    <li><strong>GPU Mining</strong>: Provide compute power for AI/ML workloads</li>
+                    <li><strong>Hybrid Mining</strong>: Combine staking with compute provision</li>
+                </ul>
+
+                <h3>Quick Start</h3>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Download & Install</h4>
+                        <p>Get the AITBC mining software for your platform</p>
+                        <div class="code-block">
+# Linux/macOS
+curl -O https://releases.aitbc.io/aitbc-miner-v1.0.0.tar.gz
+tar -xzf aitbc-miner-v1.0.0.tar.gz
+cd aitbc-miner
+
+# Windows
+# Download from https://releases.aitbc.io/windows</code-block>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Configure Your Node</h4>
+                        <p>Set up your mining configuration</p>
+                        <div class="code-block">
+# Create configuration
+./aitbc-miner config init
+
+# Edit configuration
+nano ~/.aitbc/miner.toml</code-block>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Stake Tokens</h4>
+                        <p>Lock your AITBC tokens to start earning</p>
+                        <div class="code-block">
+# Stake 1000 AITBC
+./aitbc-miner stake 1000 --wallet YOUR_WALLET_ADDRESS</code-block>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Start Mining</h4>
+                        <p>Launch your mining node</p>
+                        <div class="code-block">
+# Start mining
+./aitbc-miner start --mode stake</code-block>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Hardware Requirements -->
+            <section class="content-section">
+                <h2>Hardware Requirements</h2>
+                
+                <div class="requirements-grid">
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-microchip"></i> CPU</h4>
+                        <p>4+ cores (8+ recommended for GPU mining)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-memory"></i> RAM</h4>
+                        <p>8GB minimum (16GB+ for GPU mining)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-hdd"></i> Storage</h4>
+                        <p>100GB SSD (500GB+ for full node)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-network-wired"></i> Network</h4>
+                        <p>Stable broadband (100Mbps+)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-rocket"></i> GPU (Optional)</h4>
+                        <p>NVIDIA RTX 3080+ or AMD RX 6800+</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-shield-alt"></i> Security</h4>
+                        <p>HSM recommended for large stakes</p>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <strong>Note:</strong> GPU mining requires additional setup but offers higher rewards through AI/ML workload processing.
+                </div>
+            </section>
+
+            <!-- Profit Calculator -->
+            <section class="calculator">
+                <h3><i class="fas fa-calculator"></i> Profit Calculator</h3>
+                <div class="calc-row">
+                    <div class="calc-input">
+                        <label for="stakeAmount">Stake Amount (AITBC)</label>
+                        <input type="number" id="stakeAmount" value="10000" oninput="calculateProfit()">
+                    </div>
+                    <div class="calc-input">
+                        <label for="apy">Expected APY (%)</label>
+                        <input type="number" id="apy" value="20" oninput="calculateProfit()">
+                    </div>
+                </div>
+                <div class="calc-row">
+                    <div class="calc-input">
+                        <label for="tokenPrice">Token Price (USD)</label>
+                        <input type="number" id="tokenPrice" value="2.50" step="0.01" oninput="calculateProfit()">
+                    </div>
+                    <div class="calc-input">
+                        <label for="gpuRewards">GPU Rewards (USD/month)</label>
+                        <input type="number" id="gpuRewards" value="0" oninput="calculateProfit()">
+                    </div>
+                </div>
+                <div class="calc-result">
+                    <div>Estimated Monthly Earnings</div>
+                    <div class="calc-result-value" id="monthlyEarnings">$416.67</div>
+                    <div>Estimated Annual Earnings</div>
+                    <div class="calc-result-value" id="annualEarnings">$5,000.00</div>
+                </div>
+            </section>
+
+            <!-- Mining Strategies -->
+            <section class="content-section">
+                <h2>Mining Strategies</h2>
+                
+                <h3>1. Pure Staking</h3>
+                <p>The simplest approach - stake your tokens and earn passive income.</p>
+                <ul>
+                    <li>Pros: Low maintenance, predictable returns</li>
+                    <li>Cons: Lower rewards than active mining</li>
+                    <li>Best for: Long-term holders, passive investors</li>
+                </ul>
+
+                <h3>2. GPU Mining</h3>
+                <p>Provide compute power for AI/ML workloads and earn additional rewards.</p>
+                <ul>
+                    <li>Pros: Higher rewards, supports the network</li>
+                    <li>Cons: Higher hardware costs, more maintenance</li>
+                    <li>Best for: Technical users with GPU hardware</li>
+                </ul>
+
+                <h3>3. Authority Mining</h3>
+                <p>Apply to become a trusted authority node (invitation only).</p>
+                <ul>
+                    <li>Pros: Highest rewards, network influence</li>
+                    <li>Cons: High requirements, strict vetting</li>
+                    <li>Best for: Established organizations, experienced miners</li>
+                </ul>
+
+                <h3>4. Hybrid Approach</h3>
+                <p>Combine staking with GPU mining for maximum returns.</p>
+                <ul>
+                    <li>Pros: Diversified income streams</li>
+                    <li>Cons: Complex setup, higher initial cost</li>
+                    <li>Best for: Experienced miners seeking optimization</li>
+                </ul>
+            </section>
+
+            <!-- Security Best Practices -->
+            <section class="content-section">
+                <h2>Security Best Practices</h2>
+                
+                <div class="alert alert-danger">
+                    <strong>Important:</strong> Never share your private keys or wallet passwords with anyone!
+                </div>
+
+                <h3>Wallet Security</h3>
+                <ul>
+                    <li>Use a hardware wallet for large stakes</li>
+                    <li>Enable two-factor authentication</li>
+                    <li>Keep your wallet software updated</li>
+                    <li>Backup your wallet securely (offline)</li>
+                    <li>Use a dedicated mining wallet</li>
+                </ul>
+
+                <h3>Node Security</h3>
+                <ul>
+                    <li>Keep your operating system updated</li>
+                    <li>Use a firewall to restrict access</li>
+                    <li>Monitor for unusual activity</li>
+                    <li>Use VPN for additional privacy</li>
+                    <li>Regular security audits</li>
+                </ul>
+
+                <h3>Operational Security</h3>
+                <ul>
+                    <li>Diversify your stake across multiple nodes</li>
+                    <li>Use automated monitoring and alerts</li>
+                    <li>Have backup power and internet</li>
+                    <li>Document your recovery procedures</li>
+                    <li>Join the community for security updates</li>
+                </ul>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="content-section">
+                <h2>Troubleshooting</h2>
+                
+                <h3>Common Issues</h3>
+                <div class="faq-item">
+                    <div class="faq-question">Node won't start?</div>
+                    <div class="faq-answer">
+                        Check your configuration file syntax and ensure all required ports are open. Use <code>./aitbc-miner check-config</code> to validate your setup.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Low mining rewards?</div>
+                    <div class="faq-answer">
+                        Ensure your node is online 24/7, check your stake amount, and verify you're running the latest version. Network conditions also affect rewards.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Sync issues?</div>
+                    <div class="faq-answer">
+                        Try resyncing with <code>./aitbc-miner sync --reset</code>. Check your internet connection and disk space.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">GPU not detected?</div>
+                    <div class="faq-answer">
+                        Install latest GPU drivers, verify CUDA/OpenCL support, and check <code>./aitbc-miner gpu check</code>.
+                    </div>
+                </div>
+
+                <h3>Getting Help</h3>
+                <ul>
+                    <li>Check the logs: <code>./aitbc-miner logs</code></li>
+                    <li>Visit our Discord community</li>
+                    <li>Search issues on Gitea</li>
+                    <li>Email support: miners@aitbc.io</li>
+                </ul>
+            </section>
+
+            <!-- FAQ -->
+            <section class="content-section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <div class="faq-item">
+                    <div class="faq-question">How much can I earn mining AITBC?</div>
+                    <div class="faq-answer">
+                        Earnings vary based on stake amount, network participation, and whether you provide GPU compute. Typical APY ranges from 15-25% for staking, with GPU mining adding additional rewards.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">When do I get paid?</div>
+                    <div class="faq-answer">
+                        Rewards are distributed daily and automatically credited to your wallet. You can withdraw anytime after the initial lock period.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">Can I run multiple nodes?</div>
+                    <div class="faq-answer">
+                        Yes, you can run multiple nodes but each requires separate stakes. This can provide redundancy and potentially higher rewards.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">What happens if my node goes offline?</div>
+                    <div class="faq-answer">
+                        You won't earn rewards while offline, but your stake remains safe. Extended downtime may affect your reputation score.
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question">How do I become an authority node?</div>
+                    <div class="faq-answer">
+                        Authority nodes require invitation based on community contribution, technical expertise, and stake amount. Apply through the community forum.
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Profit Calculator
+        function calculateProfit() {
+            const stake = parseFloat(document.getElementById('stakeAmount').value) || 0;
+            const apy = parseFloat(document.getElementById('apy').value) || 0;
+            const price = parseFloat(document.getElementById('tokenPrice').value) || 0;
+            const gpuRewards = parseFloat(document.getElementById('gpuRewards').value) || 0;
+            
+            const monthlyStakeRewards = (stake * (apy / 100) / 12) * price;
+            const monthlyEarnings = monthlyStakeRewards + gpuRewards;
+            const annualEarnings = monthlyEarnings * 12;
+            
+            document.getElementById('monthlyEarnings').textContent = `$${monthlyEarnings.toFixed(2)}`;
+            document.getElementById('annualEarnings').textContent = `$${annualEarnings.toFixed(2)}`;
+        }
+
+        // Initialize calculator
+        calculateProfit();
+    </script>
+</body>
+</html>

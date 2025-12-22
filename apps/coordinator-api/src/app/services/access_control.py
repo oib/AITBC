@@ -9,7 +9,7 @@ import json
 import re
 
 from ..models import ConfidentialAccessRequest, ConfidentialAccessLog
-from ..settings import settings
+from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)

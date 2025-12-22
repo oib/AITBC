@@ -58,7 +58,8 @@ function render(): void {
   }
 
   const currentPath = window.location.pathname.replace(/\/$/, "");
-  const normalizedPath = currentPath === "" ? "/" : currentPath;
+  // Remove /explorer prefix for routing
+  const normalizedPath = currentPath.replace(/^\/explorer/, "") || "/";
   const page = routes[normalizedPath] ?? null;
 
   root.innerHTML = `

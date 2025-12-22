@@ -1,0 +1,8 @@
+Metadata-Version: 2.4
+Name: aitbc-sdk
+Version: 0.1.0
+Summary: AITBC client SDK for interacting with coordinator services
+Requires-Python: >=3.11
+Requires-Dist: httpx>=0.27.0
+Requires-Dist: pydantic>=2.7.0
+Requires-Dist: aitbc-crypto@ file://../aitbc-crypto

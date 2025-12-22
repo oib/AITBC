@@ -9,6 +9,6 @@ export interface ExplorerConfig {
 export const CONFIG: ExplorerConfig = {
   // Toggle between "mock" (static JSON under public/mock/) and "live" coordinator APIs.
   dataMode: (import.meta.env?.VITE_DATA_MODE as DataMode) ?? "mock",
-  mockBasePath: "/mock",
+  mockBasePath: "/explorer/mock",
   apiBaseUrl: import.meta.env?.VITE_COORDINATOR_API ?? "http://localhost:8000",
 };

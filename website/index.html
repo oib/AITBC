@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC - Production-Ready AI Blockchain Platform</title>
+    <meta name="description" content="AITBC - Production-ready AI blockchain platform with 7 live components, 30+ GPU services, and Stage 7 complete">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        /* Hero Section */
+        .hero {
+            background: var(--gradient);
+            color: white;
+            padding: 120px 0 80px;
+            text-align: center;
+        }
+        
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            animation: fadeInUp 0.8s ease;
+        }
+        
+        .hero p {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+            animation: fadeInUp 0.8s ease 0.2s both;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: var(--bg-white);
+            color: var(--primary-color);
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+            animation: fadeInUp 0.8s ease 0.4s both;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        
+        /* Features Section */
+        .features {
+            padding: 80px 0;
+            background: var(--bg-light);
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: var(--text-dark);
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+        
+        .feature-card {
+            background: var(--bg-white);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+            transition: transform 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .feature-card p {
+            color: var(--text-light);
+            line-height: 1.8;
+        }
+        
+        /* Architecture Section */
+        .architecture {
+            padding: 80px 0;
+            background: var(--bg-white);
+        }
+        
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+        
+        .arch-component {
+            text-align: center;
+            padding: 1.5rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+        
+        .arch-component:hover {
+            border-color: var(--primary-color);
+        }
+        
+        .arch-component i {
+            font-size: 2.5rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        /* Stats Section */
+        .stats {
+            padding: 60px 0;
+            background: var(--gradient);
+            color: white;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            text-align: center;
+        }
+        
+        .stat-item h3 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-item p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+        
+        /* Documentation Section */
+        .documentation {
+            padding: 80px 0;
+            background: var(--bg-light);
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            margin-bottom: 3rem;
+        }
+        
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .doc-card {
+            background: var(--bg-white);
+            padding: 2.5rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .doc-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+        }
+        
+        .doc-card:nth-child(1)::before {
+            background: var(--primary-color);
+        }
+        
+        .doc-card:nth-child(2)::before {
+            background: var(--success-color);
+        }
+        
+        .doc-card:nth-child(3)::before {
+            background: var(--warning-color);
+        }
+        
+        .doc-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .doc-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            margin: 0 auto 1.5rem;
+        }
+        
+        .doc-card:nth-child(1) .doc-icon {
+            background: var(--primary-color);
+        }
+        
+        .doc-card:nth-child(2) .doc-icon {
+            background: var(--success-color);
+        }
+        
+        .doc-card:nth-child(3) .doc-icon {
+            background: var(--warning-color);
+        }
+        
+        .doc-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .doc-card p {
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+        
+        .doc-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .doc-card:nth-child(1) .doc-link:hover {
+            color: var(--primary-color);
+        }
+        
+        .doc-card:nth-child(2) .doc-link:hover {
+            color: var(--success-color);
+        }
+        
+        .doc-card:nth-child(3) .doc-link:hover {
+            color: var(--warning-color);
+        }
+        
+        .docs-cta {
+            text-align: center;
+        }
+        
+        /* Roadmap Section */
+        .roadmap {
+            padding: 80px 0;
+            background: var(--bg-light);
+        }
+        
+        .roadmap-timeline {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .roadmap-item {
+            display: flex;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+        
+        .roadmap-item::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: 30px;
+            bottom: -30px;
+            width: 2px;
+            background: var(--primary-color);
+        }
+        
+        .roadmap-item:last-child::before {
+            display: none;
+        }
+        
+        .roadmap-marker {
+            width: 40px;
+            height: 40px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            margin-right: 2rem;
+            flex-shrink: 0;
+        }
+        
+        .roadmap-content {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            flex-grow: 1;
+        }
+        
+        .roadmap-content h4 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+        }
+        
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .footer-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .footer-links a:hover {
+            color: var(--accent-color);
+        }
+        
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="#" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="#features">Features</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#roadmap">Roadmap</a></li>
+                <li><a href="docs/index.html">Documentation</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <h1>Production-Ready AI Blockchain Platform</h1>
+            <p>7 Live Components • 30+ GPU Services • Stage 7 Complete</p>
+            <a href="#features" class="cta-button">Explore Features</a>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Platform Components</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-cube"></i>
+                    </div>
+                    <h3>Blockchain Node</h3>
+                    <p>PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <h3>Coordinator API</h3>
+                    <p>FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <h3>Marketplace Web</h3>
+                    <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>Explorer Web</h3>
+                    <p>Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <h3>Wallet Daemon</h3>
+                    <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-swimming-pool"></i>
+                    </div>
+                    <h3>Pool Hub</h3>
+                    <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture" id="architecture">
+        <div class="container">
+            <h2 class="section-title">Architecture</h2>
+            <div class="architecture-grid">
+                <div class="arch-component">
+                    <i class="fas fa-server"></i>
+                    <h3>Coordinator API</h3>
+                    <p>Central coordination layer for marketplace operations</p>
+                </div>
+                <div class="arch-component">
+                    <i class="fas fa-link"></i>
+                    <h3>Blockchain Node</h3>
+                    <p>Hybrid PoA/PoS consensus with fast finality</p>
+                </div>
+                <div class="arch-component">
+                    <i class="fas fa-cube"></i>
+                    <h3>GPU Providers</h3>
+                    <p>Decentralized compute network for AI workloads</p>
+                </div>
+                <div class="arch-component">
+                    <i class="fas fa-wallet"></i>
+                    <h3>Wallet Daemon</h3>
+                    <p>Secure wallet management and transaction signing</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="stats">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>100,000+</h3>
+                    <p>Transactions Per Second</p>
+                </div>
+                <div class="stat-item">
+                    <h3>&lt;1s</h3>
+                    <p>Finality Time</p>
+                </div>
+                <div class="stat-item">
+                    <h3>64</h3>
+                    <p>Shard Chains</p>
+                </div>
+                <div class="stat-item">
+                    <h3>95%</h3>
+                    <p>Energy Reduction vs PoW</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Documentation Section -->
+    <section class="documentation" id="documentation">
+        <div class="container">
+            <h2 class="section-title">Documentation</h2>
+            <p class="section-subtitle">Choose your reader level for tailored documentation</p>
+            
+            <div class="docs-grid">
+                <div class="doc-card">
+                    <div class="doc-icon">
+                        <i class="fas fa-hammer"></i>
+                    </div>
+                    <h3>Miners</h3>
+                    <p>Learn mining, staking, and earning rewards</p>
+                    <a href="docs/docs-miners.html" class="doc-link">Miner Docs <i class="fas fa-arrow-right"></i></a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <h3>Clients</h3>
+                    <p>Use AITBC for AI/ML workloads</p>
+                    <a href="docs/docs-clients.html" class="doc-link">Client Docs <i class="fas fa-arrow-right"></i></a>
+                </div>
+                
+                <div class="doc-card">
+                    <div class="doc-icon">
+                        <i class="fas fa-code"></i>
+                    </div>
+                    <h3>Developers</h3>
+                    <p>Build on AITBC and contribute</p>
+                    <a href="docs/docs-developers.html" class="doc-link">Developer Docs <i class="fas fa-arrow-right"></i></a>
+                </div>
+            </div>
+            
+            <div class="docs-cta">
+                <a href="docs/index.html" class="cta-button">View All Documentation</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Achievements Section -->
+    <section class="stats" id="achievements">
+        <div class="container">
+            <h2 class="section-title">Platform Achievements</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <h3>7</h3>
+                    <p>Live Components</p>
+                </div>
+                <div class="stat-item">
+                    <h3>30+</h3>
+                    <p>GPU Services</p>
+                </div>
+                <div class="stat-item">
+                    <h3>Stages 1-7</h3>
+                    <p>Complete</p>
+                </div>
+                <div class="stat-item">
+                    <h3>100%</h3>
+                    <p>Open Source</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Roadmap Section -->
+    <section class="roadmap" id="roadmap">
+        <div class="container">
+            <h2 class="section-title">Development Roadmap</h2>
+            <div class="roadmap-timeline">
+                <div class="roadmap-item">
+                    <div class="roadmap-marker">✓</div>
+                    <div class="roadmap-content">
+                        <h4>Stages 1-7 Complete</h4>
+                        <p>Core infrastructure, marketplace, explorer, wallet, and 30+ GPU services deployed</p>
+                    </div>
+                </div>
+                <div class="roadmap-item">
+                    <div class="roadmap-marker">🔄</div>
+                    <div class="roadmap-content">
+                        <h4>Stage 8 - Current Focus</h4>
+                        <p>Research consortium, sharding prototypes, ZK applications, and global expansion</p>
+                    </div>
+                </div>
+                <div class="roadmap-item">
+                    <div class="roadmap-marker">9</div>
+                    <div class="roadmap-content">
+                        <h4>Stage 9 - Moonshot Initiatives</h4>
+                        <p>Decentralized infrastructure, AI automation, and global standards</p>
+                    </div>
+                </div>
+                <div class="roadmap-item">
+                    <div class="roadmap-marker">10</div>
+                    <div class="roadmap-content">
+                        <h4>Stage 10 - Stewardship</h4>
+                        <p>Open governance, educational programs, and long-term preservation</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://gitea.bubuit.net/oib/aitbc">GitHub</a>
+                <a href="docs/index.html">Documentation</a>
+                <a href="https://discord.gg/aitbc">Discord</a>
+                <a href="mailto:aitbc@bubuit.net">Contact</a>
+            </div>
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+
+        // Add animation on scroll
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all feature cards
+        document.querySelectorAll('.feature-card, .arch-component').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

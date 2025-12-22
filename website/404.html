@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | AITBC</title>
+    <p>&copy; 2025 AITBC. All rights reserved.</p>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .error-container {
+            text-align: center;
+            padding: 2rem;
+            max-width: 600px;
+        }
+        
+        .error-code {
+            font-size: 8rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        
+        .error-message {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .error-description {
+            font-size: 1.1rem;
+            color: var(--text-light);
+            margin-bottom: 2rem;
+        }
+        
+        .error-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .search-box {
+            margin: 2rem 0;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+        
+        .search-box input {
+            padding: 10px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            width: 300px;
+        }
+        
+        .search-box button {
+            padding: 10px 20px;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        .helpful-links {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e5e7eb;
+        }
+        
+        .helpful-links h3 {
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .link-item {
+            padding: 1rem;
+            background: var(--bg-white);
+            border-radius: 5px;
+            transition: transform 0.3s;
+        }
+        
+        .link-item:hover {
+            transform: translateY(-2px);
+        }
+        
+        .link-item a {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .link-item a:hover {
+            text-decoration: underline;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .error-code {
+                font-size: 6rem;
+            }
+            
+            .error-message {
+                font-size: 1.5rem;
+            }
+            
+            .error-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .search-box input {
+                width: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-code">404</div>
+        <h1 class="error-message">Page Not Found</h1>
+        <p class="error-description">
+            Oops! The page you're looking for doesn't exist or has been moved.
+            Don't worry, even AI gets lost sometimes!
+        </p>
+        
+        <div class="error-actions">
+            <a href="index.html" class="btn">
+                <i class="fas fa-home"></i> Go Home
+            </a>
+            <a href="javascript:history.back()" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Go Back
+            </a>
+        </div>
+        
+        <div class="search-box">
+            <input type="text" placeholder="Search for something..." id="searchInput">
+            <button onclick="performSearch()">
+                <i class="fas fa-search"></i> Search
+            </button>
+        </div>
+        
+        <div class="helpful-links">
+            <h3>Helpful Links</h3>
+            <div class="links-grid">
+                <div class="link-item">
+                    <a href="index.html#features">
+                        <i class="fas fa-star"></i> Features
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="index.html#architecture">
+                        <i class="fas fa-cube"></i> Architecture
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="documentation.html">
+                        <i class="fas fa-book"></i> Documentation
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="index.html#roadmap">
+                        <i class="fas fa-road"></i> Roadmap
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="https://github.com/aitbc">
+                        <i class="fab fa-github"></i> GitHub
+                    </a>
+                </div>
+                <div class="link-item">
+                    <a href="mailto:aitbc@bubuit.net">
+                        <i class="fas fa-envelope"></i> Contact Support
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Search functionality
+        function performSearch() {
+            const searchTerm = document.getElementById('searchInput').value;
+            if (searchTerm) {
+                // In a real implementation, this would search the site
+                alert(`Searching for: ${searchTerm}\n\nSearch functionality would be implemented here.`);
+            }
+        }
+        
+        // Enter key support for search
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+        
+        // Add some fun easter egg
+        let clicks = 0;
+        document.querySelector('.error-code').addEventListener('click', function() {
+            clicks++;
+            if (clicks === 5) {
+                this.textContent = 'AI';
+                setTimeout(() => {
+                    this.textContent = '404';
+                    clicks = 0;
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
