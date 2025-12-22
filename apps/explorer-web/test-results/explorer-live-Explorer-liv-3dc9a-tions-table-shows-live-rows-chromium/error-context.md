@@ -1,0 +1,91 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - main [ref=e3]:
+    - generic [ref=e4]:
+      - paragraph [ref=e5]:
+        - text: "Data mode:"
+        - strong [ref=e6]: MOCK
+      - heading "Marketplace Control Center" [level=1] [ref=e7]
+      - paragraph [ref=e8]: Monitor available offers, submit bids, and review marketplace health at a glance.
+    - generic [ref=e9]:
+      - article [ref=e10]:
+        - heading "Total Offers" [level=2] [ref=e11]
+        - strong [ref=e12]: "78"
+        - generic [ref=e13]: Listings currently visible
+      - article [ref=e14]:
+        - heading "Open Capacity" [level=2] [ref=e15]
+        - strong [ref=e16]: 1,120 units
+        - generic [ref=e17]: GPU / compute units available
+      - article [ref=e18]:
+        - heading "Average Price" [level=2] [ref=e19]
+        - strong [ref=e20]: 14.30 credits
+        - generic [ref=e21]: Credits per unit per hour
+      - article [ref=e22]:
+        - heading "Active Bids" [level=2] [ref=e23]
+        - strong [ref=e24]: "36"
+        - generic [ref=e25]: Open bids awaiting match
+    - generic [ref=e26]:
+      - article [ref=e27]:
+        - heading "Available Offers" [level=2] [ref=e28]
+        - table [ref=e31]:
+          - rowgroup [ref=e32]:
+            - row "ID Provider Capacity Price SLA Status" [ref=e33]:
+              - cell "ID" [ref=e34]
+              - cell "Provider" [ref=e35]
+              - cell "Capacity" [ref=e36]
+              - cell "Price" [ref=e37]
+              - cell "SLA" [ref=e38]
+              - cell "Status" [ref=e39]
+          - rowgroup [ref=e40]:
+            - row "offer-101 Alpha Pool 250 units 12.50 99.9% Open" [ref=e41]:
+              - cell "offer-101" [ref=e42]
+              - cell "Alpha Pool" [ref=e43]
+              - cell "250 units" [ref=e44]
+              - cell "12.50" [ref=e45]
+              - cell "99.9%" [ref=e46]
+              - cell "Open" [ref=e47]:
+                - generic [ref=e48]: Open
+            - row "offer-102 Beta Collective 140 units 15.75 99.5% Open" [ref=e49]:
+              - cell "offer-102" [ref=e50]
+              - cell "Beta Collective" [ref=e51]
+              - cell "140 units" [ref=e52]
+              - cell "15.75" [ref=e53]
+              - cell "99.5%" [ref=e54]
+              - cell "Open" [ref=e55]:
+                - generic [ref=e56]: Open
+            - row "offer-103 Gamma Compute 400 units 10.90 99.95% Reserved" [ref=e57]:
+              - cell "offer-103" [ref=e58]
+              - cell "Gamma Compute" [ref=e59]
+              - cell "400 units" [ref=e60]
+              - cell "10.90" [ref=e61]
+              - cell "99.95%" [ref=e62]
+              - cell "Reserved" [ref=e63]:
+                - generic [ref=e64]: Reserved
+            - row "offer-104 Delta Grid 90 units 18.25 99.0% Open" [ref=e65]:
+              - cell "offer-104" [ref=e66]
+              - cell "Delta Grid" [ref=e67]
+              - cell "90 units" [ref=e68]
+              - cell "18.25" [ref=e69]
+              - cell "99.0%" [ref=e70]
+              - cell "Open" [ref=e71]:
+                - generic [ref=e72]: Open
+      - article [ref=e73]:
+        - heading "Submit a Bid" [level=2] [ref=e74]
+        - generic [ref=e75]:
+          - generic [ref=e76]:
+            - generic [ref=e77]: Preferred provider
+            - textbox "Preferred provider" [ref=e78]
+          - generic [ref=e79]:
+            - generic [ref=e80]: Capacity required (units)
+            - spinbutton "Capacity required (units)" [ref=e81]
+          - generic [ref=e82]:
+            - generic [ref=e83]: Bid price (credits/unit/hr)
+            - spinbutton "Bid price (credits/unit/hr)" [ref=e84]
+          - generic [ref=e85]:
+            - generic [ref=e86]: Notes (optional)
+            - textbox "Notes (optional)" [ref=e87]
+          - button "Submit Bid" [ref=e88] [cursor=pointer]
+  - complementary [ref=e89]
+```

@@ -233,6 +233,44 @@ These instructions cover the newly scaffolded services. Install dependencies usi
    ```
    (RPC, consensus, and P2P logic still to be implemented.)
 
+### Observability Dashboards & Alerts
+
+1. Generate the starter Grafana dashboards (if not already present):
+   ```bash
+   cd apps/blockchain-node
+   PYTHONPATH=src python - <<'PY'
+from pathlib import Path
+from aitbc_chain.observability.dashboards import generate_default_dashboards
+
+output_dir = Path("observability/generated_dashboards")
+output_dir.mkdir(parents=True, exist_ok=True)
+generate_default_dashboards(output_dir)
+print("Dashboards written to", output_dir)
+PY
+   ```
+2. Import each JSON file into Grafana (**Dashboards → Import**):
+   - `apps/blockchain-node/observability/generated_dashboards/coordinator-overview.json`
+   - `apps/blockchain-node/observability/generated_dashboards/blockchain-node-overview.json`
+
+   Select your Prometheus datasource (pointing at `127.0.0.1:8080` and `127.0.0.1:8090`) during import.
+3. Ensure Prometheus scrapes both services. Example snippet from `apps/blockchain-node/observability/prometheus.yml`:
+   ```yaml
+   scrape_configs:
+     - job_name: "blockchain-node"
+       static_configs:
+         - targets: ["127.0.0.1:8080"]
+
+     - job_name: "mock-coordinator"
+       static_configs:
+         - targets: ["127.0.0.1:8090"]
+   ```
+4. Deploy the Alertmanager rules in `apps/blockchain-node/observability/alerts.yml` (proposer stalls, miner errors, receipt drop-offs, RPC error spikes). After modifying rule files, reload Prometheus/Alertmanager:
+   ```bash
+   systemctl restart prometheus
+   systemctl restart alertmanager
+   ```
+5. Validate by briefly stopping `aitbc-coordinator.service`, confirming Grafana panels pause and the new alerts fire, then restart the service.
+
 ## Next Steps
 
 - Flesh out remaining logic per task breakdowns in `docs/*.md` (e.g., capability-aware scheduling, artifact uploads).

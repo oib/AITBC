@@ -1,0 +1,36 @@
+{
+  "offers": [
+    {
+      "id": "offer-101",
+      "provider": "Alpha Pool",
+      "capacity": 250,
+      "price": 12.5,
+      "sla": "99.9%",
+      "status": "Open"
+    },
+    {
+      "id": "offer-102",
+      "provider": "Beta Collective",
+      "capacity": 140,
+      "price": 15.75,
+      "sla": "99.5%",
+      "status": "Open"
+    },
+    {
+      "id": "offer-103",
+      "provider": "Gamma Compute",
+      "capacity": 400,
+      "price": 10.9,
+      "sla": "99.95%",
+      "status": "Reserved"
+    },
+    {
+      "id": "offer-104",
+      "provider": "Delta Grid",
+      "capacity": 90,
+      "price": 18.25,
+      "sla": "99.0%",
+      "status": "Open"
+    }
+  ]
+}

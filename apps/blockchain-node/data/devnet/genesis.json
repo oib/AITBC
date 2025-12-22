@@ -1,0 +1,23 @@
+{
+  "accounts": [
+    {
+      "address": "ait1faucet000000000000000000000000000000000",
+      "balance": 1000000000,
+      "nonce": 0
+    }
+  ],
+  "authorities": [
+    {
+      "address": "ait1devproposer000000000000000000000000000000",
+      "weight": 1
+    }
+  ],
+  "chain_id": "ait-devnet",
+  "params": {
+    "base_fee": 10,
+    "coordinator_ratio": 0.05,
+    "fee_per_byte": 1,
+    "mint_per_unit": 1000
+  },
+  "timestamp": 1766383019
+}

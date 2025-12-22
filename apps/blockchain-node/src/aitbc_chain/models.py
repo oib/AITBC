@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import re
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import field_validator
 from sqlalchemy import Column
@@ -34,8 +34,8 @@ class Block(SQLModel, table=True):
     tx_count: int = 0
     state_root: Optional[str] = None
 
-    transactions: List["Transaction"] = Relationship(back_populates="block")
-    receipts: List["Receipt"] = Relationship(back_populates="block")
+    transactions: list["Transaction"] = Relationship(back_populates="block")
+    receipts: list["Receipt"] = Relationship(back_populates="block")
 
     @field_validator("hash", mode="before")
     @classmethod
@@ -69,7 +69,7 @@ class Transaction(SQLModel, table=True):
     )
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
-    block: Optional[Block] = Relationship(back_populates="transactions")
+    block: Optional["Block"] = Relationship(back_populates="transactions")
 
     @field_validator("tx_hash", mode="before")
     @classmethod
@@ -101,7 +101,7 @@ class Receipt(SQLModel, table=True):
     minted_amount: Optional[int] = None
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
-    block: Optional[Block] = Relationship(back_populates="receipts")
+    block: Optional["Block"] = Relationship(back_populates="receipts")
 
     @field_validator("receipt_id", mode="before")
     @classmethod

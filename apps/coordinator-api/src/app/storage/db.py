@@ -8,7 +8,7 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, SQLModel, create_engine
 
 from ..config import settings
-from ..domain import Job, Miner
+from ..domain import Job, Miner, MarketplaceOffer, MarketplaceBid
 
 _engine: Engine | None = None
 

@@ -96,6 +96,7 @@ def list_wallets(
             WalletDescriptor(wallet_id=record.wallet_id, public_key=record.public_key, metadata=metadata)
         )
 
+    return WalletListResponse(items=descriptors)
 
 @router.post("/wallets", response_model=WalletCreateResponse, status_code=status.HTTP_201_CREATED, summary="Create wallet")
 def create_wallet(
@@ -119,7 +120,10 @@ def create_wallet(
             metadata=request.metadata,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"reason": "password_too_weak", "min_length": 10, "message": str(exc)},
+        ) from exc
 
     ledger.upsert_wallet(record.wallet_id, record.public_key, record.metadata)
     ledger.record_event(record.wallet_id, "created", {"metadata": record.metadata})
