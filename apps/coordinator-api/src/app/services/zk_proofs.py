@@ -11,7 +11,7 @@ import tempfile
 import os
 
 from ..models import Receipt, JobResult
-from ..settings import settings
+from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)

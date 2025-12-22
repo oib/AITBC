@@ -2,10 +2,14 @@
 
 ## Status (2025-12-22)
 
-- **Stage 1**: ✅ Completed - All pages implemented with mock data integration, responsive design, and live data toggle.
+- **Stage 1**: ✅ **DEPLOYED** - Explorer Web successfully deployed in production at https://aitbc.bubuit.net/explorer/
+  - All pages implemented with mock data integration, responsive design, and live data toggle
+  - Genesis block (height 0) properly displayed
+  - Mock/live data toggle functional
+  - nginx proxy configured at `/explorer/` route
 - **Stage 2**: ✅ Completed - Live mode validated against coordinator endpoints with Playwright e2e tests.
 
-## Stage 1 (MVP) - Completed
+## Stage 1 (MVP) - COMPLETED
 
 - **Structure & Assets**
   - ✅ Populate `apps/explorer-web/public/` with `index.html` and all page scaffolds.
@@ -35,8 +39,17 @@
   - ✅ Update `apps/explorer-web/README.md` with build/run instructions and API assumptions.
   - ✅ Capture coordinator API + CORS considerations in README deployment notes.
 
-## Stage 2+
+## Production Deployment Details
 
-- Integrate WebSocket streams for live head and mempool updates.
-- Add token balances and ABI decoding when supported by blockchain node.
-- Provide export-to-CSV functionality and light/dark theme toggle.
+- **Container**: Incus container 'aitbc' at `/var/www/aitbc.bubuit.net/explorer/`
+- **Build**: Vite + TypeScript build process
+- **Port**: Static files served by nginx
+- **Access**: https://aitbc.bubuit.net/explorer/
+- **Features**: Genesis block display, mock/live toggle, responsive design
+- **Mock Data**: Blocks.json with proper `{items: [...]}` structure
+
+## Stage 2+ - IN PROGRESS
+
+- 🔄 Integrate WebSocket streams for live head and mempool updates.
+- 🔄 Add token balances and ABI decoding when supported by blockchain node.
+- 🔄 Provide export-to-CSV functionality and light/dark theme toggle.

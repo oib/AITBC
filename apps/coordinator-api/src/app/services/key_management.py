@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ..models import KeyPair, KeyRotationLog, AuditAuthorization
-from ..settings import settings
+from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)

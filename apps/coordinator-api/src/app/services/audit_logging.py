@@ -13,7 +13,7 @@ from pathlib import Path
 from dataclasses import dataclass, asdict
 
 from ..models import ConfidentialAccessLog
-from ..settings import settings
+from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)

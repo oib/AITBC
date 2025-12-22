@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption
 
 from ..models import ConfidentialTransaction, AccessLog
-from ..settings import settings
+from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)

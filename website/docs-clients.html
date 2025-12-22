@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+            --code-bg: #1f2937;
+            --code-text: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .doc-header h1 {
+            font-size: 3rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+        }
+        
+        /* Audience Badge */
+        .audience-badge {
+            display: inline-block;
+            background: var(--success-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        /* Feature Cards */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+        
+        .feature-card {
+            background: var(--bg-white);
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .feature-card p {
+            color: var(--text-light);
+        }
+        
+        /* Content Sections */
+        .content-section {
+            background: var(--bg-white);
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 1.5rem 0 1rem;
+            color: var(--primary-color);
+        }
+        
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+        
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+        
+        .content-section li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        /* Code Blocks */
+        .code-block {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        /* Alert Boxes */
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        
+        .alert-danger {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        /* Steps */
+        .step {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+        
+        .step-number {
+            background: var(--success-color);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 1rem;
+            flex-shrink: 0;
+        }
+        
+        .step-content {
+            flex-grow: 1;
+        }
+        
+        .step-content h4 {
+            color: var(--text-dark);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Use Case Cards */
+        .use-case-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .use-case-card {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-top: 4px solid var(--primary-color);
+        }
+        
+        .use-case-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        /* Pricing Table */
+        .pricing-table {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .pricing-card {
+            background: var(--bg-white);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .pricing-card.featured {
+            border: 2px solid var(--primary-color);
+            transform: scale(1.05);
+        }
+        
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .pricing-card .price {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+        
+        .pricing-card .price-unit {
+            font-size: 1rem;
+            color: var(--text-light);
+        }
+        
+        .pricing-card ul {
+            list-style: none;
+            padding: 0;
+            margin-bottom: 2rem;
+        }
+        
+        .pricing-card li {
+            padding: 0.5rem 0;
+            color: var(--text-light);
+        }
+        
+        .pricing-card li:before {
+            content: "✓";
+            color: var(--success-color);
+            margin-right: 0.5rem;
+        }
+        
+        .btn {
+            display: inline-block;
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: 600;
+            transition: all 0.3s;
+            border: none;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }
+        
+        .btn-outline {
+            background: transparent;
+            color: var(--primary-color);
+            border: 2px solid var(--primary-color);
+        }
+        
+        .btn-outline:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+            
+            .pricing-card.featured {
+                transform: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs-miners.html">Miners</a></li>
+                <li><a href="docs-clients.html" class="active">Clients</a></li>
+                <li><a href="docs-developers.html">Developers</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <div class="doc-header">
+                <span class="audience-badge">For Clients</span>
+                <h1>Use AITBC for AI/ML Workloads</h1>
+                <p>Access secure, private, and verifiable AI/ML computation on the decentralized network</p>
+            </div>
+
+            <!-- Key Features -->
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h3>Privacy First</h3>
+                    <p>Your data and models remain confidential with zero-knowledge proofs and secure enclaves</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <h3>Verifiable Results</h3>
+                    <p>Every computation is cryptographically verified on the blockchain for trust and transparency</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <h3>Fast & Efficient</h3>
+                    <p>Access thousands of GPUs worldwide with sub-second response times</p>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>Start using AITBC in minutes with our simple client SDK or web interface.</p>
+                
+                <h3>Quick Start Options</h3>
+                <ul>
+                    <li><strong>Web Interface</strong>: No installation required</li>
+                    <li><strong>Python SDK</strong>: For AI/ML developers</li>
+                    <li><strong>JavaScript SDK</strong>: For web applications</li>
+                    <li><strong>REST API</strong>: For any platform</li>
+                    <li><strong>CLI Tool</strong>: For power users</li>
+                </ul>
+
+                <h3>Web Interface (Fastest)</h3>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Visit the Marketplace</h4>
+                        <p>Go to <a href="https://gitea.bubuit.net/oib/aitbc">aitbc.bubuit.net/marketplace</a></p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Connect Your Wallet</h4>
+                        <p>Connect MetaMask or create a new AITBC wallet</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Submit Your Job</h4>
+                        <p>Upload your data or model, select parameters, and submit</p>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Get Results</h4>
+                        <p>Receive verified results with cryptographic proof</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Use Cases -->
+            <section class="content-section">
+                <h2>Popular Use Cases</h2>
+                
+                <div class="use-case-grid">
+                    <div class="use-case-card">
+                        <h4><i class="fas fa-brain"></i> AI Inference</h4>
+                        <p>Run inference on pre-trained models including GPT, Stable Diffusion, and custom models</p>
+                        <ul>
+                            <li>Text generation</li>
+                            <li>Image generation</li>
+                            <li>Audio processing</li>
+                            <li>Video analysis</li>
+                        </ul>
+                    </div>
+
+                    <div class="use-case-card">
+                        <h4><i class="fas fa-graduation-cap"></i> Model Training</h4>
+                        <p>Train and fine-tune models on your data with privacy guarantees</p>
+                        <ul>
+                            <li>Fine-tuning LLMs</li>
+                            <li>Custom model training</li>
+                            <li>Federated learning</li>
+                            <li>Transfer learning</li>
+                        </ul>
+                    </div>
+
+                    <div class="use-case-card">
+                        <h4><i class="fas fa-chart-line"></i> Data Analysis</h4>
+                        <p>Process large datasets with confidential computing</p>
+                        <ul>
+                            <li>Statistical analysis</li>
+                            <li>Pattern recognition</li>
+                            <li>Predictive modeling</li>
+                            <li>Data visualization</li>
+                        </ul>
+                    </div>
+
+                    <div class="use-case-card">
+                        <h4><i class="fas fa-lock"></i> Secure Computation</h4>
+                        <p>Run sensitive computations with end-to-end encryption</p>
+                        <ul>
+                            <li>Financial modeling</li>
+                            <li>Healthcare analytics</li>
+                            <li>Legal document processing</li>
+                            <li>Proprietary algorithms</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SDK Examples -->
+            <section class="content-section">
+                <h2>SDK Examples</h2>
+                
+                <h3>Python SDK</h3>
+                <div class="code-block">
+# Install the SDK
+pip install aitbc
+
+# Initialize client
+from aitbc import AITBCClient
+
+client = AITBCClient(api_key="your-api-key")
+
+# Run inference
+result = client.inference(
+    model="gpt-4",
+    prompt="Explain quantum computing",
+    max_tokens=500,
+    temperature=0.7
+)
+
+print(result.text)
+
+# Verify the receipt
+is_valid = client.verify_receipt(result.receipt_id)
+print(f"Verified: {is_valid}")</code-block>
+
+                <h3>JavaScript SDK</h3>
+                <div class="code-block">
+// Install the SDK
+npm install @aitbc/client
+
+// Initialize client
+import { AITBCClient } from '@aitbc/client';
+
+const client = new AITBCClient({
+    apiKey: 'your-api-key',
+    network: 'mainnet'
+});
+
+// Run inference
+const result = await client.inference({
+    model: 'stable-diffusion',
+    prompt: 'A futuristic city',
+    steps: 50,
+    cfg_scale: 7.5
+});
+
+// Download the image
+await client.downloadImage(result.imageId, './output.png');
+
+// Verify computation
+const verified = await client.verify(result.receiptId);
+console.log('Computation verified:', verified);</code-block>
+
+                <h3>REST API</h3>
+                <div class="code-block">
+# Submit a job
+curl -X POST https://api.aitbc.io/v1/jobs \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "inference",
+    "model": "gpt-4",
+    "input": {
+      "prompt": "Hello, AITBC!",
+      "max_tokens": 100
+    },
+    "privacy": {
+      "confidential": true,
+      "zk_proof": true
+    }
+  }'
+
+# Check job status
+curl -X GET https://api.aitbc.io/v1/jobs/JOB_ID \
+  -H "Authorization: Bearer YOUR_TOKEN"</code-block>
+            </section>
+
+            <!-- Pricing -->
+            <section class="content-section">
+                <h2>Pricing</h2>
+                <p>Flexible pricing options for every use case</p>
+                
+                <div class="pricing-table">
+                    <div class="pricing-card">
+                        <h3>Pay-per-use</h3>
+                        <div class="price">$0.01<span class="price-unit">/1K tokens</span></div>
+                        <ul>
+                            <li>No minimum commitment</li>
+                            <li>Pay only for what you use</li>
+                            <li>All models available</li>
+                            <li>Basic support</li>
+                        </ul>
+                        <button class="btn btn-outline">Get Started</button>
+                    </div>
+
+                    <div class="pricing-card featured">
+                        <h3>Professional</h3>
+                        <div class="price">$99<span class="price-unit">/month</span></div>
+                        <ul>
+                            <li>$500 included credits</li>
+                            <li>Priority processing</li>
+                            <li>Advanced models</li>
+                            <li>Email support</li>
+                            <li>API access</li>
+                        </ul>
+                        <button class="btn">Start Free Trial</button>
+                    </div>
+
+                    <div class="pricing-card">
+                        <h3>Enterprise</h3>
+                        <div class="price">Custom</div>
+                        <ul>
+                            <li>Unlimited usage</li>
+                            <li>Dedicated resources</li>
+                            <li>Custom models</li>
+                            <li>24/7 support</li>
+                            <li>SLA guarantee</li>
+                        </ul>
+                        <button class="btn btn-outline">Contact Sales</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Security -->
+            <section class="content-section">
+                <h2>Privacy & Security</h2>
+                
+                <div class="alert alert-success">
+                    <strong>Your data is never stored or exposed</strong> - All computations are performed in secure enclaves with zero-knowledge proof verification.
+                </div>
+
+                <h3>Privacy Features</h3>
+                <ul>
+                    <li><strong>End-to-end encryption</strong> - Your data is encrypted before leaving your device</li>
+                    <li><strong>Zero-knowledge proofs</strong> - Prove computation without revealing inputs</li>
+                    <li><strong>Secure enclaves</strong> - Computations run in isolated, verified environments</li>
+                    <li><strong>No data retention</strong> - Providers cannot access or store your data</li>
+                    <li><strong>Audit trails</strong> - Full transparency on blockchain</li>
+                </ul>
+
+                <h3>Compliance</h3>
+                <ul>
+                    <li>GDPR compliant</li>
+                    <li>SOC 2 Type II certified</li>
+                    <li>HIPAA eligible</li>
+                    <li>ISO 27001 certified</li>
+                </ul>
+            </section>
+
+            <!-- Best Practices -->
+            <section class="content-section">
+                <h2>Best Practices</h2>
+                
+                <h3>Optimizing Performance</h3>
+                <ul>
+                    <li>Use appropriate model sizes for your task</li>
+                    <li>Batch requests when possible</li>
+                    <li>Enable caching for repeated queries</li>
+                    <li>Choose the right privacy level for your needs</li>
+                    <li>Monitor your usage and costs</li>
+                </ul>
+
+                <h3>Security Tips</h3>
+                <ul>
+                    <li>Keep your API keys secure</li>
+                    <li>Use environment variables for credentials</li>
+                    <li>Enable two-factor authentication</li>
+                    <li>Regularly rotate your keys</li>
+                    <li>Use VPN for additional privacy</li>
+                </ul>
+
+                <h3>Cost Optimization</h3>
+                <ul>
+                    <li>Start with smaller models for testing</li>
+                    <li>Use streaming for long responses</li>
+                    <li>Set appropriate limits and timeouts</li>
+                    <li>Monitor token usage</li>
+                    <li>Consider subscription plans for regular use</li>
+                </ul>
+            </section>
+
+            <!-- Support -->
+            <section class="content-section">
+                <h2>Support & Resources</h2>
+                
+                <h3>Getting Help</h3>
+                <ul>
+                    <li><strong>Documentation</strong>: <a href="full-documentation.html">Full API reference</a></li>
+                    <li><strong>Community</strong>: <a href="https://discord.gg/aitbc">Join our Discord</a></li>
+                    <li><strong>Email</strong>: <a href="mailto:support@aitbc.io">support@aitbc.io</a></li>
+                    <li><strong>Status</strong>: <a href="https://status.aitbc.io">System status</a></li>
+                </ul>
+
+                <h3>Tutorials</h3>
+                <ul>
+                    <li><a href="#">Getting Started with AI Inference</a></li>
+                    <li><a href="#">Building a Chat Application</a></li>
+                    <li><a href="#">Image Generation Guide</a></li>
+                    <li><a href="#">Privacy-Preserving ML</a></li>
+                    <li><a href="#">API Integration Best Practices</a></li>
+                </ul>
+
+                <h3>Examples</h3>
+                <ul>
+                    <li><a href="#">GitHub Repository</a></li>
+                    <li><a href="#">Code Examples</a></li>
+                    <li><a href="#">Sample Applications</a></li>
+                    <li><a href="#">SDK Documentation</a></li>
+                </ul>
+            </section>
+
+            <!-- FAQ -->
+            <section class="content-section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <div class="alert alert-info">
+                    <strong>Question not answered?</strong> Contact us at <a href="mailto:support@aitbc.io">support@aitbc.io</a>
+                </div>
+
+                <h3>General</h3>
+                <ul>
+                    <li><strong>How do I get started?</strong> - Sign up for an account, connect your wallet, and submit your first job through the web interface or API.</li>
+                    <li><strong>What models are available?</strong> - We support GPT-3.5/4, Claude, Llama, Stable Diffusion, and many custom models.</li>
+                    <li><strong>Can I use my own model?</strong> - Yes, you can upload and run private models with full confidentiality.</li>
+                </ul>
+
+                <h3>Privacy</h3>
+                <ul>
+                    <li><strong>Is my data private?</strong> - Absolutely. Your data is encrypted and never exposed to providers.</li>
+                    <li><strong>How do ZK proofs work?</strong> - They prove computation was done correctly without revealing inputs.</li>
+                    <li><strong>Can you see my prompts?</strong> - No, prompts are encrypted and processed in secure enclaves.</li>
+                </ul>
+
+                <h3>Technical</h3>
+                <ul>
+                    <li><strong>What's the response time?</strong> - Most jobs complete in 1-5 seconds depending on complexity.</li>
+                    <li><strong>Do you support streaming?</strong> - Yes, streaming is available for real-time applications.</li>
+                    <li><strong>Can I run batch jobs?</strong> - Yes, batch processing is supported for large workloads.</li>
+                </ul>
+
+                <h3>Billing</h3>
+                <ul>
+                    <li><strong>How am I billed?</strong> - Pay-per-use or monthly subscription options available.</li>
+                    <li><strong>Can I set spending limits?</strong> - Yes, you can set daily/monthly limits in your dashboard.</li>
+                    <li><strong>Do you offer refunds?</strong> - Yes, we offer refunds for service issues within 30 days.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -173,6 +173,16 @@ class ReceiptListResponse(BaseModel):
     items: list[ReceiptSummary]
 
 
+class Receipt(BaseModel):
+    """Receipt model for zk-proof generation"""
+    receiptId: str
+    miner: str
+    coordinator: str
+    issuedAt: datetime
+    status: str
+    payload: Optional[Dict[str, Any]] = None
+
+
 # Confidential Transaction Models
 
 class ConfidentialTransaction(BaseModel):

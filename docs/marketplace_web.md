@@ -2,10 +2,14 @@
 
 ## Status (2025-12-22)
 
-- **Stage 1**: ✅ Completed - Vite + TypeScript project initialized with API layer, auth scaffolding, and mock/live data toggle.
+- **Stage 1**: ✅ **DEPLOYED** - Marketplace Web successfully deployed in production at https://aitbc.bubuit.net/marketplace/
+  - Vite + TypeScript project with API layer, auth scaffolding, and mock/live data toggle
+  - Offer list, bid form, stats cards implemented
+  - Mock data fixtures with API abstraction
+  - nginx proxy configured at `/marketplace/` route
 - **Stage 2**: ✅ Completed - Connected to coordinator endpoints with feature flags for live mode rollout.
 
-## Stage 1 (MVP) - Completed
+## Stage 1 (MVP) - COMPLETED
 
 - **Project Initialization**
   - ✅ Scaffold Vite + TypeScript project under `apps/marketplace-web/`.
@@ -39,9 +43,18 @@
 - **Documentation**
   - ✅ Update `apps/marketplace-web/README.md` with instructions for dev/build, mock API usage, and configuration.
 
-## Stage 2+
+## Production Deployment Details
 
-- Integrate real coordinator/pool hub endpoints and authentication.
-- Add WebSocket updates for live offer/pricing changes.
-- Implement i18n support with dictionaries in `public/i18n/`.
-- Add Vitest test suite for utilities and API modules.
+- **Container**: Incus container 'aitbc' at `/var/www/aitbc.bubuit.net/marketplace/`
+- **Build**: Vite + TypeScript build process
+- **Port**: Static files served by nginx
+- **Access**: https://aitbc.bubuit.net/marketplace/
+- **Features**: Offer list, bid form, stats cards, responsive design
+- **Mock Data**: JSON fixtures in `public/mock/` directory
+
+## Stage 2+ - IN PROGRESS
+
+- 🔄 Integrate real coordinator/pool hub endpoints and authentication.
+- 🔄 Add WebSocket updates for live offer/pricing changes.
+- 🔄 Implement i18n support with dictionaries in `public/i18n/`.
+- 🔄 Add Vitest test suite for utilities and API modules.
