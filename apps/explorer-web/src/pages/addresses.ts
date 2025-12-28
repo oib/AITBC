@@ -1,4 +1,5 @@
-import { fetchAddresses, type AddressSummary } from "../lib/mockData";
+import { fetchAddresses } from "../lib/mockData";
+import type { AddressSummary } from "../lib/models";
 
 export const addressesTitle = "Addresses";
 
@@ -48,7 +49,7 @@ export async function initAddressesPage(): Promise<void> {
   }
 
   const addresses = await fetchAddresses();
-  if (addresses.length === 0) {
+  if (!addresses || addresses.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td class="placeholder" colspan="4">No mock addresses available.</td>

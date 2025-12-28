@@ -4,7 +4,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
 from ..deps import require_miner_key
-from ..models import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
+from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
 from ..storage import SessionDep

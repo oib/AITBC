@@ -94,7 +94,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Implement styling system, mock/live data toggle, and coordinator API wiring scaffold.
   - ✅ Render overview stats from mock block/transaction/receipt summaries with graceful empty-state fallbacks.
   - ✅ Validate live mode + responsive polish:
-    - Hit live coordinator endpoints (`/v1/blocks`, `/v1/transactions`, `/v1/addresses`, `/v1/receipts`) via `getDataMode() === "live"` and reconcile payloads with UI models.
+    - Hit live coordinator endpoints via nginx (`/api/explorer/blocks`, `/api/explorer/transactions`, `/api/explorer/addresses`, `/api/explorer/receipts`) via `getDataMode() === "live"` and reconcile payloads with UI models.
     - Add fallbacks + error surfacing for partial/failed live responses (toast + console diagnostics).
     - Audit responsive breakpoints (`public/css/layout.css`) and adjust grid/typography for tablet + mobile; add regression checks in Percy/Playwright snapshots.
   - ✅ Deploy to production at https://aitbc.bubuit.net/explorer/ with genesis block display
@@ -151,7 +151,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - 🔄 Provide SLA-backed coordinator/pool hubs with capacity planning and billing instrumentation.
 
 - **Developer Experience**
-  - 🔄 Publish advanced tutorials (custom proposers, marketplace extensions) and maintain versioned API docs.
+  - ✅ Publish advanced tutorials (custom proposers, marketplace extensions) and maintain versioned API docs.
   - 🔄 Integrate CI/CD pipelines with canary deployments and blue/green release automation.
   - 🔄 Host quarterly architecture reviews capturing lessons learned and feeding into roadmap revisions.
 
@@ -235,5 +235,85 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
 
 
 ## Shared Libraries & Examples
+
+## Stage 11 — Trade Exchange & Token Economy [COMPLETED: 2025-12-28]
+
+- **Bitcoin Wallet Integration**
+  - ✅ Implement Bitcoin payment gateway for AITBC token purchases
+  - ✅ Create payment request API with unique payment addresses
+  - ✅ Add QR code generation for mobile payments
+  - ✅ Implement real-time payment monitoring with blockchain API
+  - ✅ Configure exchange rate: 1 BTC = 100,000 AITBC
+
+- **User Management System**
+  - ✅ Implement wallet-based authentication with session management
+  - ✅ Create individual user accounts with unique wallets
+  - ✅ Add user profile pages with transaction history
+  - ✅ Implement secure session tokens with 24-hour expiry
+  - ✅ Add login/logout functionality across all pages
+
+- **Trade Exchange Platform**
+  - ✅ Build responsive trading interface with real-time price updates
+  - ✅ Integrate Bitcoin payment flow with QR code display
+  - ✅ Add payment status monitoring and confirmation handling
+  - ✅ Implement AITBC token minting upon payment confirmation
+  - ✅ Deploy to production at https://aitbc.bubuit.net/Exchange/
+
+- **API Infrastructure**
+  - ✅ Add user management endpoints (/api/users/*)
+  - ✅ Implement exchange payment endpoints (/api/exchange/*)
+  - ✅ Add session-based authentication for protected routes
+  - ✅ Create transaction history and balance tracking APIs
+  - ✅ Fix all import and syntax errors in coordinator API
+
+## Stage 13 — Explorer Live API & Reverse Proxy Fixes [COMPLETED: 2025-12-28]
+
+- **Explorer Live API**
+  - ✅ Enable coordinator explorer routes at `/v1/explorer/*`.
+  - ✅ Expose nginx explorer proxy at `/api/explorer/*` (maps to backend `/v1/explorer/*`).
+  - ✅ Fix response schema mismatches (e.g., receipts response uses `jobId`).
+
+- **Coordinator API Users/Login**
+  - ✅ Ensure `/v1/users/login` is registered and working.
+  - ✅ Fix missing SQLModel tables by initializing DB on startup (wallet/user tables created).
+
+- **nginx Reverse Proxy Hardening**
+  - ✅ Fix `/api/v1/*` routing to avoid double `/v1` prefix.
+  - ✅ Add compatibility proxy for Exchange: `/api/users/*` → backend `/v1/users/*`.
+
+## Stage 12 — Zero-Knowledge Proof Implementation [COMPLETED: 2025-12-28]
+
+- **Circom Compiler Setup**
+  - ✅ Install Circom compiler v2.2.3 on production server
+  - ✅ Configure Node.js environment for ZK circuit compilation
+  - ✅ Install circomlib and required dependencies
+
+- **ZK Circuit Development**
+  - ✅ Create receipt attestation circuit (receipt_simple.circom)
+  - ✅ Implement membership proof circuit template
+  - ✅ Implement bid range proof circuit template
+  - ✅ Compile circuits to R1CS, WASM, and symbolic files
+
+- **Trusted Setup Ceremony**
+  - ✅ Perform Powers of Tau setup ceremony (2^12)
+  - ✅ Generate proving keys (zkey) for Groth16
+  - ✅ Export verification keys for on-chain verification
+  - ✅ Complete phase 2 preparation with contributions
+
+- **ZK Applications API**
+  - ✅ Implement identity commitment endpoints
+  - ✅ Create stealth address generation service
+  - ✅ Add private receipt attestation API
+  - ✅ Implement group membership proof verification
+  - ✅ Add private bidding functionality
+  - ✅ Create computation proof verification
+  - ✅ Deploy to production at /api/zk/ endpoints
+
+- **Integration & Deployment**
+  - ✅ Integrate ZK proof service with coordinator API
+  - ✅ Configure circuit files in production environment
+  - ✅ Enable ZK proof generation in coordinator service
+  - ✅ Update documentation with ZK capabilities
+
 the canonical checklist during implementation. Mark completed tasks with ✅ and add dates or links to relevant PRs as development progresses.
 

@@ -147,6 +147,8 @@ nav:
     - Architecture: getting-started/architecture.md
   - User Guide:
     - Overview: user-guide/overview.md
+    - Trade Exchange: trade_exchange.md
+    - Zero-Knowledge Applications: zk-applications.md
     - Creating Jobs: user-guide/creating-jobs.md
     - Marketplace: user-guide/marketplace.md
     - Explorer: user-guide/explorer.md
@@ -166,6 +168,11 @@ nav:
       - Authentication: api/coordinator/authentication.md
       - Endpoints: api/coordinator/endpoints.md
       - OpenAPI Spec: api/coordinator/openapi.md
+    - ZK Applications API:
+      - Overview: api/zk/overview.md
+      - Endpoints: api/zk/endpoints.md
+      - Circuits: api/zk/circuits.md
+      - OpenAPI Spec: api/zk/openapi.md
     - Blockchain Node API:
       - Overview: api/blockchain/overview.md
       - WebSocket API: api/blockchain/websocket.md

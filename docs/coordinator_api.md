@@ -2,11 +2,12 @@
 
 ## Status (2025-12-22)
 
-- **Stage 1 delivery**: ✅ **DEPLOYED** - Minimal Coordinator API successfully deployed in production at https://aitbc.bubuit.net/api/v1/
+- **Stage 1 delivery**: ✅ **DEPLOYED** - Coordinator API deployed in production behind https://aitbc.bubuit.net/api/
   - FastAPI service running in Incus container on port 8000
-  - Health endpoint operational: `/v1/health` returns `{"status":"ok","env":"container"}`
-  - nginx proxy configured at `/api/v1/` route
-  - Note: Full codebase has import issues, minimal version deployed
+  - Health endpoint operational: `/api/v1/health` returns `{"status":"ok","env":"dev"}`
+  - nginx proxy configured at `/api/` (so `/api/v1/*` routes to the container service)
+  - Explorer API available via nginx at `/api/explorer/*` (backend: `/v1/explorer/*`)
+  - Users API available via `/api/v1/users/*` (compat: `/api/users/*` for Exchange)
 - **Testing & tooling**: Pytest suites cover job scheduling, miner flows, and receipt verification; the shared CI script `scripts/ci/run_python_tests.sh` executes these tests in GitHub Actions.
 - **Documentation**: `docs/run.md` and `apps/coordinator-api/README.md` describe configuration for `RECEIPT_SIGNING_KEY_HEX` and `RECEIPT_ATTESTATION_KEY_HEX` plus the receipt history API.
 - **Service APIs**: Implemented specific service endpoints for common GPU workloads (Whisper, Stable Diffusion, LLM inference, FFmpeg, Blender) with typed schemas and validation.
@@ -60,10 +61,10 @@
 
 - **Container**: Incus container 'aitbc' at `/opt/coordinator-api/`
 - **Service**: systemd service `coordinator-api.service` enabled and running
-- **Port**: 8000 (internal), proxied via nginx at `/api/v1/`
+- **Port**: 8000 (internal), proxied via nginx at `/api/` (including `/api/v1/*`)
 - **Dependencies**: Virtual environment with FastAPI, uvicorn, pydantic installed
 - **Access**: https://aitbc.bubuit.net/api/v1/health for health check
-- **Note**: Full codebase has import issues, minimal version deployed with health endpoint only
+- **Note**: Explorer + Users routes are enabled in production (see `/api/explorer/*` and `/api/v1/users/*`).
 
 ## Stage 2+ - IN PROGRESS
 

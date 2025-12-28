@@ -1,4 +1,5 @@
-import { fetchBlocks, type BlockSummary } from "../lib/mockData";
+import { fetchBlocks } from "../lib/mockData";
+import type { BlockSummary } from "../lib/models";
 
 export const blocksTitle = "Blocks";
 
@@ -38,7 +39,7 @@ export async function initBlocksPage(): Promise<void> {
   }
 
   const blocks = await fetchBlocks();
-  if (blocks.length === 0) {
+  if (!blocks || blocks.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td class="placeholder" colspan="5">No mock blocks available.</td>

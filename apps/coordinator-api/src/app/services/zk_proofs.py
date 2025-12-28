@@ -10,7 +10,7 @@ from typing import Dict, Any, Optional, List
 import tempfile
 import os
 
-from ..models import Receipt, JobResult
+from ..schemas import Receipt, JobResult
 from ..config import settings
 from ..logging import get_logger
 
@@ -21,16 +21,23 @@ class ZKProofService:
     """Service for generating zero-knowledge proofs for receipts"""
     
     def __init__(self):
-        self.circuits_dir = Path(__file__).parent.parent.parent.parent / "apps" / "zk-circuits"
-        self.zkey_path = self.circuits_dir / "receipt_0001.zkey"
-        self.wasm_path = self.circuits_dir / "receipt.wasm"
+        self.circuits_dir = Path(__file__).parent.parent / "zk-circuits"
+        self.zkey_path = self.circuits_dir / "receipt_simple_0001.zkey"
+        self.wasm_path = self.circuits_dir / "receipt_simple.wasm"
         self.vkey_path = self.circuits_dir / "verification_key.json"
+        
+        # Debug: print paths
+        logger.info(f"ZK circuits directory: {self.circuits_dir}")
+        logger.info(f"Zkey path: {self.zkey_path}, exists: {self.zkey_path.exists()}")
+        logger.info(f"WASM path: {self.wasm_path}, exists: {self.wasm_path.exists()}")
+        logger.info(f"VKey path: {self.vkey_path}, exists: {self.vkey_path.exists()}")
         
         # Verify circuit files exist
         if not all(p.exists() for p in [self.zkey_path, self.wasm_path, self.vkey_path]):
             logger.warning("ZK circuit files not found. Proof generation disabled.")
             self.enabled = False
         else:
+            logger.info("ZK circuit files found. Proof generation enabled.")
             self.enabled = True
     
     async def generate_receipt_proof(

@@ -63,7 +63,7 @@ export async function fetchBlocks(): Promise<BlockSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/blocks`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/blocks`);
     if (!response.ok) {
       throw new Error(`Failed to fetch blocks: ${response.status} ${response.statusText}`);
     }
@@ -71,8 +71,12 @@ export async function fetchBlocks(): Promise<BlockSummary[]> {
     return data.items;
   } catch (error) {
     console.error("[Explorer] Failed to fetch live block data", error);
-    notifyError("Unable to load live block data from coordinator. Showing placeholders.");
-    return [];
+    notifyError("Unable to load live data. Switching to mock data mode.");
+    // Auto-switch to mock mode
+    setDataMode("mock");
+    // Return mock data
+    const data = await fetchMock<BlockListResponse>("blocks");
+    return data.items;
   }
 }
 
@@ -83,7 +87,7 @@ export async function fetchTransactions(): Promise<TransactionSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/transactions`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/transactions`);
     if (!response.ok) {
       throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
     }
@@ -91,8 +95,12 @@ export async function fetchTransactions(): Promise<TransactionSummary[]> {
     return data.items;
   } catch (error) {
     console.error("[Explorer] Failed to fetch live transaction data", error);
-    notifyError("Unable to load transactions from coordinator. Showing placeholders.");
-    return [];
+    notifyError("Unable to load live data. Switching to mock data mode.");
+    // Auto-switch to mock mode
+    setDataMode("mock");
+    // Return mock data
+    const data = await fetchMock<TransactionListResponse>("transactions");
+    return data.items;
   }
 }
 
@@ -103,7 +111,7 @@ export async function fetchAddresses(): Promise<AddressSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/addresses`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/addresses`);
     if (!response.ok) {
       throw new Error(`Failed to fetch addresses: ${response.status} ${response.statusText}`);
     }
@@ -111,8 +119,12 @@ export async function fetchAddresses(): Promise<AddressSummary[]> {
     return data.items;
   } catch (error) {
     console.error("[Explorer] Failed to fetch live address data", error);
-    notifyError("Unable to load address summaries from coordinator. Showing placeholders.");
-    return [];
+    notifyError("Unable to load live data. Switching to mock data mode.");
+    // Auto-switch to mock mode
+    setDataMode("mock");
+    // Return mock data
+    const data = await fetchMock<AddressDetailResponse | AddressDetailResponse[]>("addresses");
+    return Array.isArray(data) ? data : [data];
   }
 }
 
@@ -123,7 +135,7 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/v1/explorer/receipts`);
+    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/receipts`);
     if (!response.ok) {
       throw new Error(`Failed to fetch receipts: ${response.status} ${response.statusText}`);
     }
@@ -131,8 +143,12 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
     return data.items;
   } catch (error) {
     console.error("[Explorer] Failed to fetch live receipt data", error);
-    notifyError("Unable to load receipts from coordinator. Showing placeholders.");
-    return [];
+    notifyError("Unable to load live data. Switching to mock data mode.");
+    // Auto-switch to mock mode
+    setDataMode("mock");
+    // Return mock data
+    const data = await fetchMock<ReceiptListResponse>("receipts");
+    return data.items;
   }
 }
 
@@ -148,6 +164,10 @@ async function fetchMock<T>(resource: string): Promise<T> {
   } catch (error) {
     console.warn(`[Explorer] Failed to fetch mock data from ${url}`, error);
     notifyError("Mock data is unavailable. Please verify development assets.");
-    return [] as unknown as T;
+    // Return proper empty structure based on expected response type
+    if (resource === "addresses") {
+      return [] as unknown as T;
+    }
+    return { items: [] } as unknown as T;
   }
 }

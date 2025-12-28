@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from ..models import (
+from ..schemas import (
     BlockListResponse,
     TransactionListResponse,
     AddressListResponse,

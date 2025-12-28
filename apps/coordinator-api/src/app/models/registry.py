@@ -49,7 +49,7 @@ class ParameterDefinition(BaseModel):
     default: Optional[Any] = Field(None, description="Default value")
     min_value: Optional[Union[int, float]] = Field(None, description="Minimum value")
     max_value: Optional[Union[int, float]] = Field(None, description="Maximum value")
-    options: Optional[List[str]] = Field(None, description="Available options for enum type")
+    options: Optional[List[Union[str, int]]] = Field(None, description="Available options for enum type")
     validation: Optional[Dict[str, Any]] = Field(None, description="Custom validation rules")
 
 
@@ -545,3 +545,6 @@ AI_ML_SERVICES = {
         timeout_seconds=60
     )
 }
+
+# Create global service registry instance
+service_registry = ServiceRegistry(services=AI_ML_SERVICES)

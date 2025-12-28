@@ -1,9 +1,9 @@
 pragma circom 2.0.0;
 
-include "circomlib/circuits/bitify.circom";
-include "circomlib/circuits/escalarmulfix.circom";
-include "circomlib/circuits/comparators.circom";
-include "circomlib/circuits/poseidon.circom";
+include "node_modules/circomlib/circuits/bitify.circom";
+include "node_modules/circomlib/circuits/escalarmulfix.circom";
+include "node_modules/circomlib/circuits/comparators.circom";
+include "node_modules/circomlib/circuits/poseidon.circom";
 
 /*
  * Receipt Attestation Circuit

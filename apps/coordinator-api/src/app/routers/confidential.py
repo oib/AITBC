@@ -10,7 +10,7 @@ import json
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from ..models import (
+from ..schemas import (
     ConfidentialTransaction,
     ConfidentialTransactionCreate,
     ConfidentialTransactionView,

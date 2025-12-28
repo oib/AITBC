@@ -7,8 +7,10 @@ export interface ExplorerConfig {
 }
 
 export const CONFIG: ExplorerConfig = {
-  // Toggle between "mock" (static JSON under public/mock/) and "live" coordinator APIs.
-  dataMode: (import.meta.env?.VITE_DATA_MODE as DataMode) ?? "mock",
+  // Base URL for the coordinator API
+  apiBaseUrl: "https://aitbc.bubuit.net/api",
+  // Base path for mock data files (used by fetchMock)
   mockBasePath: "/explorer/mock",
-  apiBaseUrl: import.meta.env?.VITE_COORDINATOR_API ?? "http://localhost:8000",
+  // Default data mode: "live" or "mock"
+  dataMode: "live" as "live" | "mock",
 };

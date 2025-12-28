@@ -1,29 +1,65 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
 from typing import Any, Dict, Optional, List
 from base64 import b64encode, b64decode
 
 from pydantic import BaseModel, Field, ConfigDict
 
-
-class JobState(str, Enum):
-    queued = "QUEUED"
-    running = "RUNNING"
-    completed = "COMPLETED"
-    failed = "FAILED"
-    canceled = "CANCELED"
-    expired = "EXPIRED"
+from .types import JobState, Constraints
 
 
-class Constraints(BaseModel):
-    gpu: Optional[str] = None
-    cuda: Optional[str] = None
-    min_vram_gb: Optional[int] = None
-    models: Optional[list[str]] = None
-    region: Optional[str] = None
-    max_price: Optional[float] = None
+# User management schemas
+class UserCreate(BaseModel):
+    email: str
+    username: str
+    password: Optional[str] = None
+
+class UserLogin(BaseModel):
+    wallet_address: str
+    signature: Optional[str] = None
+
+class UserProfile(BaseModel):
+    user_id: str
+    email: str
+    username: str
+    created_at: str
+    session_token: Optional[str] = None
+
+class UserBalance(BaseModel):
+    user_id: str
+    address: str
+    balance: float
+    updated_at: Optional[str] = None
+
+class Transaction(BaseModel):
+    id: str
+    type: str
+    status: str
+    amount: float
+    fee: float
+    description: Optional[str]
+    created_at: str
+    confirmed_at: Optional[str] = None
+
+class TransactionHistory(BaseModel):
+    user_id: str
+    transactions: List[Transaction]
+    total: int
+class ExchangePaymentRequest(BaseModel):
+    user_id: str
+    aitbc_amount: float
+    btc_amount: float
+
+class ExchangePaymentResponse(BaseModel):
+    payment_id: str
+    user_id: str
+    aitbc_amount: float
+    btc_amount: float
+    payment_address: str
+    status: str
+    created_at: int
+    expires_at: int
 
 
 class JobCreate(BaseModel):

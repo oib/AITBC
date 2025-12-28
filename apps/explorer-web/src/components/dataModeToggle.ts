@@ -8,24 +8,29 @@ const LABELS: Record<DataMode, string> = {
 
 export function initDataModeToggle(onChange: () => void): void {
   const container = document.querySelector<HTMLDivElement>("[data-role='data-mode-toggle']");
-  if (!container) {
-    return;
+  if (!container) return;
+
+  const currentMode = getDataMode();
+  const isLive = currentMode === "live";
+
+  container.innerHTML = `
+    <div class="data-mode-toggle">
+      <span class="mode-label">Data Mode:</span>
+      <button class="mode-button ${isLive ? "live" : "mock"}" id="dataModeBtn">
+        ${isLive ? "Live API" : "Mock Data"}
+      </button>
+    </div>
+  `;
+
+  const btn = document.getElementById("dataModeBtn") as HTMLButtonElement;
+  if (btn) {
+    btn.addEventListener("click", () => {
+      const newMode = getDataMode() === "live" ? "mock" : "live";
+      setDataMode(newMode);
+      // Reload the page to refresh data
+      window.location.reload();
+    });
   }
-
-  container.innerHTML = renderControls(getDataMode());
-
-  const select = container.querySelector<HTMLSelectElement>("select[data-mode-select]");
-  if (!select) {
-    return;
-  }
-
-  select.value = getDataMode();
-  select.addEventListener("change", (event) => {
-    const value = (event.target as HTMLSelectElement).value as DataMode;
-    setDataMode(value);
-    document.documentElement.dataset.mode = value;
-    onChange();
-  });
 }
 
 function renderControls(mode: DataMode): string {

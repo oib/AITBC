@@ -4,12 +4,11 @@ Database models for confidential transactions
 
 from datetime import datetime
 from typing import Optional, Dict, Any, List
+from sqlmodel import SQLModel as Base, Field
 from sqlalchemy import Column, String, DateTime, Boolean, Text, JSON, Integer, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
-
-from ..database import Base
 
 
 class ConfidentialTransactionDB(Base):

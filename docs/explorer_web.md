@@ -31,7 +31,7 @@
   - ✅ Expand responsive polish beyond overview cards (tablet/mobile grid, table hover states).
 
 - **Live Mode Integration**
-  - ✅ Hit live coordinator endpoints (`/v1/blocks`, `/v1/transactions`, `/v1/addresses`, `/v1/receipts`) via `getDataMode() === "live"`.
+  - ✅ Hit live coordinator endpoints via nginx (`/api/explorer/blocks`, `/api/explorer/transactions`, `/api/explorer/addresses`, `/api/explorer/receipts`) via `getDataMode() === "live"`.
   - ✅ Add fallbacks + error surfacing for partial/failed live responses.
   - ✅ Implement Playwright e2e tests for live mode functionality.
 

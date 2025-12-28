@@ -9,8 +9,8 @@ The complete OpenAPI 3.0 specification for the AITBC Coordinator API is availabl
 
 ## Interactive Documentation
 
-- [Swagger UI](https://api.aitbc.io/docs) - Interactive API explorer
-- [ReDoc](https://api.aitbc.io/redoc) - Alternative documentation view
+- [Swagger UI](https://aitbc.bubuit.net/api/docs) - Interactive API explorer
+- [ReDoc](https://aitbc.bubuit.net/api/redoc) - Alternative documentation view
 
 ## Download Specification
 
@@ -50,7 +50,7 @@ API requests are rate-limited based on your subscription plan.
 ## WebSocket API
 
 Real-time updates available at:
-- WebSocket: `wss://api.aitbc.io/ws`
+- WebSocket: `wss://aitbc.bubuit.net/ws`
 - Message types: job_update, marketplace_update, receipt_created
 
 ## Code Generation

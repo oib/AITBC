@@ -1,4 +1,5 @@
-import { fetchReceipts, type ReceiptSummary } from "../lib/mockData";
+import { fetchReceipts } from "../lib/mockData";
+import type { ReceiptSummary } from "../lib/models";
 
 export const receiptsTitle = "Receipts";
 
@@ -50,7 +51,7 @@ export async function initReceiptsPage(): Promise<void> {
   }
 
   const receipts = await fetchReceipts();
-  if (receipts.length === 0) {
+  if (!receipts || receipts.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td class="placeholder" colspan="6">No mock receipts available.</td>
@@ -65,7 +66,7 @@ export async function initReceiptsPage(): Promise<void> {
 function renderReceiptRow(receipt: ReceiptSummary): string {
   return `
     <tr>
-      <td><code>${receipt.jobId}</code></td>
+      <td><code>N/A</code></td>
       <td><code>${receipt.receiptId}</code></td>
       <td>${receipt.miner}</td>
       <td>${receipt.coordinator}</td>

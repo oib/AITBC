@@ -27,15 +27,18 @@ The AITBC explorer allows you to browse and search the blockchain for transactio
 ## Using the Explorer
 
 ### Web Interface
-Visit [https://explorer.aitbc.io](https://explorer.aitbc.io)
+Visit [https://aitbc.bubuit.net/explorer/](https://aitbc.bubuit.net/explorer/)
 
 ### API Access
 ```bash
 # Get transaction
-curl https://api.aitbc.io/v1/transactions/{tx_hash}
+curl https://aitbc.bubuit.net/api/v1/transactions/{tx_hash}
 
 # Get job details
-curl https://api.aitbc.io/v1/jobs/{job_id}
+curl https://aitbc.bubuit.net/api/v1/jobs/{job_id}
+
+# Explorer data (blocks)
+curl https://aitbc.bubuit.net/api/explorer/blocks
 ```
 
 ## Advanced Features

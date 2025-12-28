@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .card {
+            transition: all 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i data-lucide="shield-check" class="w-8 h-8 text-purple-600"></i>
+                    <h1 class="text-2xl font-bold">AITBC Admin Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-500">Last updated: <span id="lastUpdate">Just now</span></span>
+                    <button onclick="refreshData()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition flex items-center">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-8">
+        <!-- Stats Overview -->
+        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card text-white rounded-lg p-6 card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Total Jobs</p>
+                        <p class="text-3xl font-bold" id="totalJobs">0</p>
+                    </div>
+                    <i data-lucide="briefcase" class="w-10 h-10 text-white/50"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card text-white rounded-lg p-6 card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Active Jobs</p>
+                        <p class="text-3xl font-bold" id="activeJobs">0</p>
+                    </div>
+                    <i data-lucide="activity" class="w-10 h-10 text-white/50"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card text-white rounded-lg p-6 card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Online Miners</p>
+                        <p class="text-3xl font-bold" id="onlineMiners">0</p>
+                    </div>
+                    <i data-lucide="cpu" class="w-10 h-10 text-white/50"></i>
+                </div>
+            </div>
+            
+            <div class="stat-card text-white rounded-lg p-6 card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-white/80 text-sm">Avg Duration</p>
+                        <p class="text-3xl font-bold" id="avgDuration">0ms</p>
+                    </div>
+                    <i data-lucide="clock" class="w-10 h-10 text-white/50"></i>
+                </div>
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i data-lucide="zap" class="w-5 h-5 mr-2 text-yellow-500"></i>
+                    Quick Actions
+                </h2>
+                <div class="grid grid-cols-2 gap-4">
+                    <button onclick="syncOffers()" class="bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 mr-2"></i>Sync Offers
+                    </button>
+                    <button onclick="viewMiners()" class="bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center">
+                        <i data-lucide="users" class="w-4 h-4 mr-2"></i>View Miners
+                    </button>
+                    <button onclick="viewJobs()" class="bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition flex items-center justify-center">
+                        <i data-lucide="list" class="w-4 h-4 mr-2"></i>View Jobs
+                    </button>
+                    <button onclick="viewMarketplace()" class="bg-orange-600 text-white px-4 py-3 rounded-lg hover:bg-orange-700 transition flex items-center justify-center">
+                        <i data-lucide="store" class="w-4 h-4 mr-2"></i>Marketplace
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center">
+                    <i data-lucide="link" class="w-5 h-5 mr-2 text-blue-500"></i>
+                    Quick Links
+                </h2>
+                <div class="space-y-3">
+                    <a href="/Marketplace" target="_blank" class="block bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">Marketplace UI</span>
+                            <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                    </a>
+                    <a href="/Exchange" target="_blank" class="block bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">Trade Exchange</span>
+                            <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                    </a>
+                    <a href="/api/docs" target="_blank" class="block bg-gray-50 p-3 rounded-lg hover:bg-gray-100 transition">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium">API Documentation</span>
+                            <i data-lucide="external-link" class="w-4 h-4 text-gray-400"></i>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Activity -->
+        <section class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-semibold mb-4 flex items-center">
+                <i data-lucide="activity" class="w-5 h-5 mr-2 text-green-500"></i>
+                System Status
+            </h2>
+            <div id="systemStatus" class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-600 mr-3"></i>
+                        <span>Coordinator API</span>
+                    </div>
+                    <span class="text-green-600 font-medium">Online</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-600 mr-3"></i>
+                        <span>Blockchain Node</span>
+                    </div>
+                    <span class="text-green-600 font-medium">Online</span>
+                </div>
+                <div class="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+                    <div class="flex items-center">
+                        <i data-lucide="check-circle" class="w-5 h-5 text-green-600 mr-3"></i>
+                        <span>Marketplace</span>
+                    </div>
+                    <span class="text-green-600 font-medium">Active</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg transform translate-y-full transition-transform duration-300">
+        <span id="toastMessage"></span>
+    </div>
+
+    <script>
+        const API_BASE = '/api';
+        const ADMIN_API_KEY = 'REDACTED_ADMIN_KEY';
+        const headers = { 'X-Api-Key': ADMIN_API_KEY };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            refreshData();
+            // Auto-refresh every 30 seconds
+            setInterval(refreshData, 30000);
+        });
+
+        // Refresh data
+        async function refreshData() {
+            try {
+                // Get stats
+                const response = await axios.get(`${API_BASE}/admin/stats`, { headers });
+                const stats = response.data;
+                
+                document.getElementById('totalJobs').textContent = stats.total_jobs || 0;
+                document.getElementById('activeJobs').textContent = stats.active_jobs || 0;
+                document.getElementById('onlineMiners').textContent = stats.online_miners || 0;
+                document.getElementById('avgDuration').textContent = (stats.avg_miner_job_duration_ms || 0) + 'ms';
+                
+                document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                console.error('Failed to fetch stats:', error);
+                showToast('Failed to fetch stats', 'error');
+            }
+        }
+
+        // Sync offers
+        async function syncOffers() {
+            try {
+                showToast('Syncing offers...');
+                const response = await axios.post(`${API_BASE}/marketplace/sync-offers`, {}, { headers });
+                showToast(`Synced ${response.data.created_offers} offers`);
+                refreshData();
+            } catch (error) {
+                console.error('Failed to sync offers:', error);
+                showToast('Failed to sync offers', 'error');
+            }
+        }
+
+        // View miners
+        async function viewMiners() {
+            window.open('/admin/miners', '_blank');
+        }
+
+        // View jobs
+        async function viewJobs() {
+            window.open('/admin/jobs', '_blank');
+        }
+
+        // View marketplace
+        function viewMarketplace() {
+            window.open('/Marketplace', '_blank');
+        }
+
+        // Show toast notification
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            toastMessage.textContent = message;
+            toast.className = `fixed bottom-4 right-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 ${
+                type === 'error' ? 'bg-red-500' : 'bg-green-500'
+            } text-white`;
+            
+            toast.style.transform = 'translateY(0)';
+            
+            setTimeout(() => {
+                toast.style.transform = 'translateY(100%)';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

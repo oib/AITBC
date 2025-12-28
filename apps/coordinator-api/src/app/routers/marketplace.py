@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 
-from ..models import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceStatsView
+from ..schemas import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceStatsView
 from ..services import MarketplaceService
 from ..storage import SessionDep
 from ..metrics import marketplace_requests_total, marketplace_errors_total

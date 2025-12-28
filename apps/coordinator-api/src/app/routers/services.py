@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Header
 from fastapi.responses import StreamingResponse
 
 from ..deps import require_client_key
-from ..models import JobCreate, JobView, JobResult
+from ..schemas import JobCreate, JobView, JobResult
 from ..models.services import (
     ServiceType,
     ServiceRequest,
@@ -18,7 +18,7 @@ from ..models.services import (
     FFmpegRequest,
     BlenderRequest,
 )
-from ..models.registry import ServiceRegistry, service_registry
+# from ..models.registry import ServiceRegistry, service_registry
 from ..services import JobService
 from ..storage import SessionDep
 

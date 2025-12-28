@@ -10,7 +10,7 @@ The Coordinator API is the central service of the AITBC platform, responsible fo
 ## Base URL
 
 ```
-Production: https://api.aitbc.io
+Production: https://aitbc.bubuit.net/api
 Staging: https://staging-api.aitbc.io
 Development: http://localhost:8011
 ```
@@ -111,7 +111,7 @@ Official SDKs are available for:
 Real-time updates are available through WebSocket connections:
 
 ```javascript
-const ws = new WebSocket('wss://api.aitbc.io/ws');
+const ws = new WebSocket('wss://aitbc.bubuit.net/ws');
 
 ws.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -122,7 +122,7 @@ ws.onmessage = (event) => {
 ## OpenAPI Specification
 
 The complete OpenAPI 3.0 specification is available:
-- [View in Swagger UI](https://api.aitbc.io/docs)
+- [View in Swagger UI](https://aitbc.bubuit.net/api/docs)
 - [Download JSON](openapi.md)
 
 ## Getting Started

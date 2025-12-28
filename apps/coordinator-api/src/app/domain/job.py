@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy import Column, JSON
 from sqlmodel import Field, SQLModel
 
-from ..models import JobState
+from ..types import JobState
 
 
 class Job(SQLModel, table=True):

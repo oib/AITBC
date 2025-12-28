@@ -14,7 +14,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption
 
-from ..models import ConfidentialTransaction, AccessLog
+from ..schemas import ConfidentialTransaction, AccessLog
 from ..config import settings
 from ..logging import get_logger
 

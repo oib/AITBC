@@ -12,7 +12,7 @@ from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.hazmat.backends import default_backend
 
-from ..models import KeyPair, KeyRotationLog, AuditAuthorization
+from ..schemas import KeyPair, KeyRotationLog, AuditAuthorization
 from ..repositories.confidential import (
     ParticipantKeyRepository,
     KeyRotationRepository

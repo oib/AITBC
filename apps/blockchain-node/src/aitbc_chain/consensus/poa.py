@@ -9,7 +9,7 @@ from typing import Callable, ContextManager, Optional
 
 from sqlmodel import Session, select
 
-from ..logging import get_logger
+from ..logger import get_logger
 from ..metrics import metrics_registry
 
 

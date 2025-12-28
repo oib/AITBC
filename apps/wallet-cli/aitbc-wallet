@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""
+AITBC Wallet CLI - A command-line wallet for AITBC blockchain
+"""
+
+import argparse
+import json
+import sys
+import os
+from pathlib import Path
+import httpx
+from datetime import datetime
+
+# Configuration
+BLOCKCHAIN_RPC = "http://127.0.0.1:9080"
+WALLET_DIR = Path.home() / ".aitbc" / "wallets"
+
+def print_header():
+    """Print wallet CLI header"""
+    print("=" * 50)
+    print("    AITBC Blockchain Wallet CLI")
+    print("=" * 50)
+
+def check_blockchain_connection():
+    """Check if connected to blockchain"""
+    # First check if node is running by checking metrics
+    try:
+        response = httpx.get(f"{BLOCKCHAIN_RPC}/metrics", timeout=5.0)
+        if response.status_code == 200:
+            # Node is running, now try RPC
+            try:
+                rpc_response = httpx.get(f"{BLOCKCHAIN_RPC}/rpc/head", timeout=5.0)
+                if rpc_response.status_code == 200:
+                    data = rpc_response.json()
+                    return True, data.get("height", "unknown"), data.get("hash", "unknown")[:16] + "..."
+                else:
+                    return False, f"RPC endpoint error (HTTP {rpc_response.status_code})", "node_running"
+            except Exception as e:
+                return False, f"RPC error: {str(e)}", "node_running"
+        return False, f"Node not responding (HTTP {response.status_code})", None
+    except Exception as e:
+        return False, str(e), None
+
+def get_balance(address):
+    """Get balance for an address"""
+    try:
+        response = httpx.get(f"{BLOCKCHAIN_RPC}/rpc/getBalance/{address}", timeout=5.0)
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def list_wallets():
+    """List local wallets"""
+    WALLET_DIR.mkdir(parents=True, exist_ok=True)
+    
+    wallets = []
+    for wallet_file in WALLET_DIR.glob("*.json"):
+        try:
+            with open(wallet_file, 'r') as f:
+                data = json.load(f)
+                wallets.append({
+                    "id": wallet_file.stem,
+                    "address": data.get("address", "unknown"),
+                    "public_key": data.get("public_key", "unknown"),
+                    "created": data.get("created_at", "unknown")
+                })
+        except Exception as e:
+            continue
+    return wallets
+
+def create_wallet(wallet_id, address=None):
+    """Create a new wallet file"""
+    WALLET_DIR.mkdir(parents=True, exist_ok=True)
+    
+    wallet_file = WALLET_DIR / f"{wallet_id}.json"
+    if wallet_file.exists():
+        return False, "Wallet already exists"
+    
+    # Generate a mock address if not provided
+    if not address:
+        address = f"aitbc1{wallet_id}{'x' * (40 - len(wallet_id))}"
+    
+    # Generate a mock public key
+    public_key = f"0x{'1234567890abcdef' * 4}"
+    
+    wallet_data = {
+        "wallet_id": wallet_id,
+        "address": address,
+        "public_key": public_key,
+        "created_at": datetime.now().isoformat() + "Z",
+        "note": "This is a demo wallet file - not for production use"
+    }
+    
+    try:
+        with open(wallet_file, 'w') as f:
+            json.dump(wallet_data, f, indent=2)
+        return True, f"Wallet created: {wallet_file}"
+    except Exception as e:
+        return False, str(e)
+
+def get_block_info(height=None):
+    try:
+        if height:
+            url = f"{BLOCKCHAIN_RPC}/rpc/blocks/{height}"
+        else:
+            url = f"{BLOCKCHAIN_RPC}/rpc/head"
+        
+        response = httpx.get(url, timeout=5.0)
+        if response.status_code == 200:
+            return response.json()
+        return {"error": f"HTTP {response.status_code}"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="AITBC Blockchain Wallet CLI",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  %(prog)s status              Check blockchain connection
+  %(prog)s list                List all local wallets
+  %(prog)s balance <address>   Get balance of an address
+  %(prog)s block               Show latest block info
+  %(prog)s block <height>      Show specific block info
+        """
+    )
+    
+    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    
+    # Status command
+    status_parser = subparsers.add_parser("status", help="Check blockchain connection status")
+    
+    # List command
+    list_parser = subparsers.add_parser("list", help="List all local wallets")
+    
+    # Balance command
+    balance_parser = subparsers.add_parser("balance", help="Get balance for an address")
+    balance_parser.add_argument("address", help="Wallet address to check")
+    
+    # Block command
+    block_parser = subparsers.add_parser("block", help="Get block information")
+    block_parser.add_argument("height", nargs="?", type=int, help="Block height (optional)")
+    
+    # Create command
+    create_parser = subparsers.add_parser("create", help="Create a new wallet file")
+    create_parser.add_argument("wallet_id", help="Wallet identifier")
+    create_parser.add_argument("--address", help="Wallet address")
+    
+    args = parser.parse_args()
+    
+    if not args.command:
+        print_header()
+        parser.print_help()
+        return
+    
+    if args.command == "status":
+        print_header()
+        print("Checking blockchain connection...\n")
+        
+        connected, info, block_hash = check_blockchain_connection()
+        if connected:
+            print(f"✅ Status: CONNECTED")
+            print(f"📦 Node: {BLOCKCHAIN_RPC}")
+            print(f"🔗 Latest Block: #{info}")
+            print(f"🧮 Block Hash: {block_hash}")
+            print(f"⏰ Checked at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        elif block_hash == "node_running":
+            print(f"⚠️  Status: NODE RUNNING - RPC UNAVAILABLE")
+            print(f"📦 Node: {BLOCKCHAIN_RPC}")
+            print(f"❌ RPC Error: {info}")
+            print(f"💡 The blockchain node is running but RPC endpoints are not working")
+            print(f"   This might be due to initialization or database issues")
+            print(f"⏰ Checked at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            print(f"❌ Status: DISCONNECTED")
+            print(f"📦 Node: {BLOCKCHAIN_RPC}")
+            print(f"⚠️  Error: {info}")
+            print(f"💡 Make sure the blockchain node is running on port 9080")
+    
+    elif args.command == "list":
+        print_header()
+        wallets = list_wallets()
+        
+        if wallets:
+            print(f"Found {len(wallets)} wallet(s) in {WALLET_DIR}:\n")
+            for w in wallets:
+                print(f"🔐 Wallet ID: {w['id']}")
+                print(f"   Address: {w['address']}")
+                print(f"   Public Key: {w['public_key'][:20]}...")
+                print(f"   Created: {w['created']}")
+                print()
+        else:
+            print(f"No wallets found in {WALLET_DIR}")
+            print("\n💡 To create a wallet, use the wallet-daemon service")
+    
+    elif args.command == "balance":
+        print_header()
+        print(f"Checking balance for address: {args.address}\n")
+        
+        result = get_balance(args.address)
+        if "error" in result:
+            print(f"❌ Error: {result['error']}")
+        else:
+            balance = result.get("balance", 0)
+            print(f"💰 Balance: {balance} AITBC")
+            print(f"📍 Address: {args.address}")
+    
+    elif args.command == "block":
+        print_header()
+        if args.height:
+            print(f"Getting block #{args.height}...\n")
+        else:
+            print("Getting latest block...\n")
+        
+        result = get_block_info(args.height)
+        if "error" in result:
+            print(f"❌ Error: {result['error']}")
+        else:
+            print(f"📦 Block Height: {result.get('height', 'unknown')}")
+            print(f"🧮 Block Hash: {result.get('hash', 'unknown')}")
+            print(f"⏰ Timestamp: {result.get('timestamp', 'unknown')}")
+            print(f"👤 Proposer: {result.get('proposer', 'unknown')}")
+            print(f"📊 Transactions: {len(result.get('transactions', []))}")
+    
+    elif args.command == "create":
+        print_header()
+        success, message = create_wallet(args.wallet_id, args.address)
+        if success:
+            print(f"✅ {message}")
+            print(f"\nWallet Details:")
+            print(f"   ID: {args.wallet_id}")
+            print(f"   Address: {args.address or f'aitbc1{args.wallet_id}...'}")
+            print(f"\n💡 This is a demo wallet file for testing purposes")
+            print(f"   Use 'aitbc-wallet list' to see all wallets")
+        else:
+            print(f"❌ Error: {message}")
+    
+    else:
+        parser.print_help()
+
+if __name__ == "__main__":
+    main()

@@ -44,12 +44,12 @@ export async function initOverviewPage(): Promise<void> {
     "#overview-block-stats",
   );
   if (blockStats) {
-    if (blocks.length > 0) {
+    if (blocks && blocks.length > 0) {
       const latest = blocks[0];
       blockStats.innerHTML = `
         <li><strong>Height:</strong> ${latest.height}</li>
         <li><strong>Hash:</strong> ${latest.hash.slice(0, 18)}…</li>
-        <li><strong>Proposer:</strong> ${latest.proposer}</li>
+        <li><strong>Proposer:</strong> <code>${latest.proposer.slice(0, 18)}…</code></li>
         <li><strong>Time:</strong> ${new Date(latest.timestamp).toLocaleString()}</li>
       `;
     } else {
@@ -60,7 +60,7 @@ export async function initOverviewPage(): Promise<void> {
   }
   const txStats = document.querySelector<HTMLUListElement>("#overview-transaction-stats");
   if (txStats) {
-    if (transactions.length > 0) {
+    if (transactions && transactions.length > 0) {
       const succeeded = transactions.filter((tx) => tx.status === "Succeeded");
       txStats.innerHTML = `
         <li><strong>Total Mock Tx:</strong> ${transactions.length}</li>
@@ -76,7 +76,7 @@ export async function initOverviewPage(): Promise<void> {
     "#overview-receipt-stats",
   );
   if (receiptStats) {
-    if (receipts.length > 0) {
+    if (receipts && receipts.length > 0) {
       const attested = receipts.filter((receipt) => receipt.status === "Attested");
       receiptStats.innerHTML = `
         <li><strong>Total Receipts:</strong> ${receipts.length}</li>

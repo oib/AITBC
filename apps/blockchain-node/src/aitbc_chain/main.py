@@ -7,7 +7,7 @@ from typing import Optional
 from .config import settings
 from .consensus import PoAProposer, ProposerConfig
 from .database import init_db, session_scope
-from .logging import get_logger
+from .logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AITBC - Production-Ready AI Blockchain Platform</title>
     <meta name="description" content="AITBC - Production-ready AI blockchain platform with 7 live components, 30+ GPU services, and Stage 7 complete">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="/assets/css/tailwind.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous">
     <style>
         * {
             margin: 0;
@@ -17,6 +21,9 @@
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
             --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
             --text-dark: #1f2937;
             --text-light: #6b7280;
             --bg-light: #f9fafb;
@@ -24,10 +31,23 @@
             --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         }
         
+        [data-theme="dark"] {
+            --primary-color: #3b82f6;
+            --secondary-color: #2563eb;
+            --accent-color: #60a5fa;
+            --text-dark: #f9fafb;
+            --text-light: #d1d5db;
+            --bg-light: #111827;
+            --bg-white: #1f2937;
+            --gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             color: var(--text-dark);
+            background-color: var(--bg-light);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
         
         .container {
@@ -76,11 +96,30 @@
             color: var(--primary-color);
         }
         
+        .dark-mode-toggle {
+            background: none;
+            border: 1px solid var(--text-light);
+            color: var(--text-dark);
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: color 0.3s, border-color 0.3s;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .dark-mode-toggle:hover {
+            color: var(--primary-color);
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
         /* Hero Section */
         .hero {
             background: var(--gradient);
             color: white;
-            padding: 120px 0 80px;
+            padding: 100px 0 80px;
             text-align: center;
         }
         
@@ -160,12 +199,56 @@
         .feature-card p {
             color: var(--text-light);
             line-height: 1.8;
+            margin-bottom: 1.5rem;
+            flex-grow: 1;
+        }
+        
+        .feature-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s;
+        }
+        
+        .feature-link:hover {
+            color: var(--secondary-color);
+            transform: translateX(5px);
         }
         
         /* Architecture Section */
         .architecture {
             padding: 80px 0;
             background: var(--bg-white);
+        }
+        
+        /* Header styles matching Exchange */
+        .gradient-bg {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        }
+        
+        .nav-button {
+            background: transparent !important;
+            color: white !important;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+        }
+        
+        .nav-button:hover {
+            background: rgba(59, 130, 246, 0.1) !important;
+            color: var(--primary-color) !important;
+        }
+        
+        .nav-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
         }
         
         .architecture-grid {
@@ -178,8 +261,9 @@
         .arch-component {
             text-align: center;
             padding: 1.5rem;
-            border: 2px solid #e5e7eb;
+            border: 2px solid var(--text-light);
             border-radius: 10px;
+            background: var(--bg-white);
             transition: border-color 0.3s;
         }
         
@@ -310,8 +394,6 @@
         }
         
         .doc-link {
-            display: inline-flex;
-            align-items: center;
             gap: 0.5rem;
             color: var(--text-dark);
             text-decoration: none;
@@ -449,23 +531,30 @@
 </head>
 <body>
     <!-- Header -->
-    <header>
-        <nav class="container">
-            <a href="#" class="logo">AITBC</a>
-            <ul class="nav-links">
-                <li><a href="#features">Features</a></li>
-                <li><a href="#architecture">Architecture</a></li>
-                <li><a href="#roadmap">Roadmap</a></li>
-                <li><a href="docs/index.html">Documentation</a></li>
-            </ul>
-        </nav>
+    <header class="text-white shadow-lg" style="background: var(--bg-white);">
+        <div class="container mx-auto px-4 py-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <i class="fas fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
+                    <h1 class="text-2xl font-bold" style="color: var(--text-dark);">AITBC</h1>
+                </div>
+                <nav class="flex items-center space-x-6">
+                    <a href="/Exchange/" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Exchange</a>
+                    <a href="docs/index.html" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Documentation</a>
+                    <button onclick="toggleDarkMode()" class="nav-button" title="Toggle dark mode" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem;">
+                        <span id="darkModeEmoji">🌙</span>
+                        <span id="darkModeText" style="margin-left: 0.5rem;">Dark</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
     </header>
 
     <!-- Hero Section -->
     <section class="hero">
         <div class="container">
             <h1>Production-Ready AI Blockchain Platform</h1>
-            <p>7 Live Components • 30+ GPU Services • Stage 7 Complete</p>
+            <p>7 Live Components • 30+ GPU Services • Stage 11 Complete</p>
             <a href="#features" class="cta-button">Explore Features</a>
         </div>
     </section>
@@ -481,6 +570,7 @@
                     </div>
                     <h3>Blockchain Node</h3>
                     <p>PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.</p>
+                    <a href="docs/blockchain-node.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -488,6 +578,7 @@
                     </div>
                     <h3>Coordinator API</h3>
                     <p>FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.</p>
+                    <a href="docs/coordinator-api.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -495,6 +586,7 @@
                     </div>
                     <h3>Marketplace Web</h3>
                     <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.</p>
+                    <a href="docs/marketplace-web.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -502,6 +594,7 @@
                     </div>
                     <h3>Explorer Web</h3>
                     <p>Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.</p>
+                    <a href="docs/explorer-web.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -509,6 +602,15 @@
                     </div>
                     <h3>Wallet Daemon</h3>
                     <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.</p>
+                    <a href="docs/wallet-daemon.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                    <h3>Trade Exchange</h3>
+                    <p>Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.</p>
+                    <a href="docs/trade-exchange.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
                 <div class="feature-card">
                     <div class="feature-icon">
@@ -516,6 +618,7 @@
                     </div>
                     <h3>Pool Hub</h3>
                     <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.</p>
+                    <a href="docs/pool-hub.html" class="feature-link">View Docs <i class="fas fa-arrow-right"></i></a>
                 </div>
             </div>
         </div>
@@ -629,7 +732,7 @@
                     <p>GPU Services</p>
                 </div>
                 <div class="stat-item">
-                    <h3>Stages 1-7</h3>
+                    <h3>Stages 1-11</h3>
                     <p>Complete</p>
                 </div>
                 <div class="stat-item">
@@ -648,8 +751,8 @@
                 <div class="roadmap-item">
                     <div class="roadmap-marker">✓</div>
                     <div class="roadmap-content">
-                        <h4>Stages 1-7 Complete</h4>
-                        <p>Core infrastructure, marketplace, explorer, wallet, and 30+ GPU services deployed</p>
+                        <h4>Stages 1-11 Complete</h4>
+                        <p>Core infrastructure, marketplace, explorer, wallet, trade exchange, and 30+ GPU services deployed</p>
                     </div>
                 </div>
                 <div class="roadmap-item">
@@ -680,12 +783,13 @@
     <!-- Footer -->
     <footer>
         <div class="container">
-            <div class="footer-links">
-                <a href="https://gitea.bubuit.net/oib/aitbc">GitHub</a>
-                <a href="docs/index.html">Documentation</a>
-                <a href="https://discord.gg/aitbc">Discord</a>
-                <a href="mailto:aitbc@bubuit.net">Contact</a>
-            </div>
+            <ul class="nav-links">
+                <li><a href="/Exchange/">Marketplace</a></li>
+                <li><a href="/Exchange/">Exchange</a></li>
+                <li><a href="docs/index.html">Documentation</a></li>
+                <li><a href="https://discord.gg/aitbc">Discord</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
             <p>&copy; 2025 AITBC. All rights reserved.</p>
         </div>
     </footer>
@@ -695,9 +799,15 @@
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
-                document.querySelector(this.getAttribute('href')).scrollIntoView({
-                    behavior: 'smooth'
-                });
+                const targetId = this.getAttribute('href');
+                if (targetId && targetId !== '#') {
+                    const targetElement = document.querySelector(targetId);
+                    if (targetElement) {
+                        targetElement.scrollIntoView({
+                            behavior: 'smooth'
+                        });
+                    }
+                }
             });
         });
 
@@ -722,6 +832,44 @@
             el.style.transform = 'translateY(20px)';
             el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
             observer.observe(el);
+        });
+        
+        // Dark mode functionality
+        function toggleDarkMode() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            // Update button display
+            const emoji = document.getElementById('darkModeEmoji');
+            const text = document.getElementById('darkModeText');
+            
+            if (newTheme === 'dark') {
+                emoji.textContent = '🌙';
+                text.textContent = 'Dark';
+            } else {
+                emoji.textContent = '☀️';
+                text.textContent = 'Light';
+            }
+        }
+        
+        // Check for saved theme preference - default to dark
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        
+        // Set initial display
+        document.addEventListener('DOMContentLoaded', () => {
+            const emoji = document.getElementById('darkModeEmoji');
+            const text = document.getElementById('darkModeText');
+            
+            if (savedTheme === 'dark') {
+                emoji.textContent = '🌙';
+                text.textContent = 'Dark';
+            } else {
+                emoji.textContent = '☀️';
+                text.textContent = 'Light';
+            }
         });
     </script>
 </body>
