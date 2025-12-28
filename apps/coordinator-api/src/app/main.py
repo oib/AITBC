@@ -3,7 +3,23 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from .config import settings
-from .routers import client, miner, admin, marketplace, explorer, services, registry
+from .database import create_db_and_tables
+from .storage import init_db
+from .routers import (
+    client,
+    miner,
+    admin,
+    marketplace,
+    exchange,
+    users,
+    services,
+    marketplace_offers,
+    zk_applications,
+)
+from .routers import zk_applications
+from .routers.governance import router as governance
+from .routers.partners import router as partners
+from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 
 
 def create_app() -> FastAPI:
@@ -12,6 +28,9 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Stage 1 coordinator service handling job orchestration between clients and miners.",
     )
+    
+    # Create database tables
+    init_db()
 
     app.add_middleware(
         CORSMiddleware,
@@ -25,9 +44,13 @@ def create_app() -> FastAPI:
     app.include_router(miner, prefix="/v1")
     app.include_router(admin, prefix="/v1")
     app.include_router(marketplace, prefix="/v1")
-    app.include_router(explorer, prefix="/v1")
+    app.include_router(exchange, prefix="/v1")
+    app.include_router(users, prefix="/v1/users")
     app.include_router(services, prefix="/v1")
-    app.include_router(registry, prefix="/v1")
+    app.include_router(marketplace_offers, prefix="/v1")
+    app.include_router(zk_applications.router, prefix="/v1")
+    app.include_router(governance, prefix="/v1")
+    app.include_router(partners, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

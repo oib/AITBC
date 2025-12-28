@@ -1,7 +1,19 @@
-from typing import Callable
+from typing import Callable, Generator, Annotated
 from fastapi import Depends, Header, HTTPException
+from sqlmodel import Session
 
 from .config import settings
+
+
+def get_session() -> Generator[Session, None, None]:
+    """Get database session"""
+    from .database import engine
+    with Session(engine) as session:
+        yield session
+
+
+# Type alias for session dependency
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 class APIKeyValidator:

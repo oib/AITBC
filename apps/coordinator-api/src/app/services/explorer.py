@@ -7,7 +7,7 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from ..domain import Job, JobReceipt
-from ..models import (
+from ..schemas import (
     BlockListResponse,
     BlockSummary,
     TransactionListResponse,

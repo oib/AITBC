@@ -28,7 +28,7 @@ import { AITBCClient } from '@aitbc/client';
 // Initialize the client
 const client = new AITBCClient({
   apiKey: 'your_api_key_here',
-  baseUrl: 'https://api.aitbc.io'
+  baseUrl: 'https://aitbc.bubuit.net/api'
 });
 
 // Create a job
@@ -49,7 +49,7 @@ console.log('Job created:', job.jobId);
 ### Environment Variables
 ```bash
 AITBC_API_KEY=your_api_key
-AITBC_BASE_URL=https://api.aitbc.io
+AITBC_BASE_URL=https://aitbc.bubuit.net/api
 AITBC_NETWORK=mainnet
 ```
 

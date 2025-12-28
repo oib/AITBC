@@ -26,7 +26,7 @@ def extract_openapi_spec(service_name: str, base_url: str, output_file: str):
         # Add servers configuration
         spec["servers"] = [
             {
-                "url": "https://api.aitbc.io",
+                "url": "https://aitbc.bubuit.net/api",
                 "description": "Production server"
             },
             {

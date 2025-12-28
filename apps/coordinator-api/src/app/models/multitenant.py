@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 
-from ..database import Base
+from sqlmodel import SQLModel as Base
 
 
 class TenantStatus(Enum):

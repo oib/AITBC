@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Exchange - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            background: var(--bg-white);
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .doc-header h1 {
+            font-size: 2.5rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 2rem;
+        }
+        
+        .breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .breadcrumb span {
+            color: var(--text-light);
+            margin: 0 0.5rem;
+        }
+        
+        /* Content Sections */
+        .content-section {
+            background: var(--bg-white);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+        
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+        
+        .content-section ul {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .content-section li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        .content-section code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: var(--primary-color);
+        }
+        
+        .content-section pre {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .content-section pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-dark);
+        }
+        
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .feature-card {
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-light);
+        }
+        
+        .feature-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* API Endpoints */
+        .api-endpoint {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .api-endpoint code {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.live {
+            background: #10b98120;
+            color: var(--success-color);
+        }
+        
+        /* Back Button */
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+        
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+        
+        /* CTA Button */
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--primary-color);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 1rem 0;
+        }
+        
+        .cta-button:hover {
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+            
+            .content-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html" class="active">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <a href="#">Components</a>
+                <span>›</span>
+                <span>Trade Exchange</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="components.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Components
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-exchange-alt"></i> Trade Exchange</h1>
+                <p>AITBC exchange with QR payments, user management, and real-time trading capabilities</p>
+                <span class="status-badge live">● Live</span>
+                <br><br>
+                <a href="https://aitbc.bubuit.net/Exchange/" class="cta-button" target="_blank">
+                    <i class="fas fa-external-link-alt"></i>
+                    Launch Exchange
+                </a>
+            </div>
+
+            <!-- Overview -->
+            <section class="content-section">
+                <h2>Overview</h2>
+                <p>The AITBC Trade Exchange is a crypto-only platform that enables users to exchange Bitcoin for AITBC tokens. It features a modern, responsive interface with user authentication, wallet management, and real-time trading capabilities.</p>
+                
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Bitcoin wallet integration with QR code payments</li>
+                    <li>User management with wallet-based authentication</li>
+                    <li>Real-time payment monitoring and confirmation</li>
+                    <li>Individual user wallets and balance tracking</li>
+                    <li>Transaction history and receipt management</li>
+                    <li>Mobile-responsive design</li>
+                </ul>
+            </section>
+
+            <!-- How It Works -->
+            <section class="content-section">
+                <h2>How It Works</h2>
+                <p>The Trade Exchange provides a simple, secure way to acquire AITBC tokens using Bitcoin.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4><i class="fas fa-wallet"></i> 1. Connect Wallet</h4>
+                        <p>Click "Connect Wallet" to generate a unique wallet address and create your account</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-calculator"></i> 2. Select Amount</h4>
+                        <p>Enter the amount of AITBC you want to buy or Bitcoin you want to spend</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-qrcode"></i> 3. Make Payment</h4>
+                        <p>Scan the QR code or send Bitcoin to the provided address</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-coins"></i> 4. Receive Tokens</h4>
+                        <p>AITBC tokens are credited to your wallet after confirmation</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- User Management -->
+            <section class="content-section">
+                <h2>User Management</h2>
+                <p>The exchange uses a wallet-based authentication system that requires no passwords.</p>
+                
+                <h3>Authentication Flow</h3>
+                <ul>
+                    <li>Users connect with a wallet address (auto-generated for demo)</li>
+                    <li>System creates or retrieves user account</li>
+                    <li>Session token issued for secure API access</li>
+                    <li>24-hour automatic session expiry</li>
+                </ul>
+                
+                <h3>User Features</h3>
+                <ul>
+                    <li>Unique username and user ID</li>
+                    <li>Personal AITBC wallet with balance tracking</li>
+                    <li>Complete transaction history</li>
+                    <li>Secure logout functionality</li>
+                </ul>
+            </section>
+
+            <!-- Exchange API -->
+            <section class="content-section">
+                <h2>Exchange API</h2>
+                <p>The exchange provides RESTful APIs for user management and payment processing.</p>
+                
+                <h3>User Management Endpoints</h3>
+                <div class="api-endpoint">
+                    <code>POST /api/users/login</code>
+                    <p>Login or register with wallet address</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /api/users/me</code>
+                    <p>Get current user profile</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /api/users/{id}/balance</code>
+                    <p>Get user wallet balance</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>POST /api/users/logout</code>
+                    <p>Logout and invalidate session</p>
+                </div>
+                
+                <h3>Exchange Endpoints</h3>
+                <div class="api-endpoint">
+                    <code>POST /api/exchange/create-payment</code>
+                    <p>Create Bitcoin payment request</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /api/exchange/payment-status/{id}</code>
+                    <p>Check payment confirmation status</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /api/exchange/rates</code>
+                    <p>Get current exchange rates</p>
+                </div>
+            </section>
+
+            <!-- Security -->
+            <section class="content-section">
+                <h2>Security Features</h2>
+                <p>The exchange implements multiple security measures to protect user funds and data.</p>
+                
+                <h3>Authentication Security</h3>
+                <ul>
+                    <li>SHA-256 hashed session tokens</li>
+                    <li>24-hour automatic session expiry</li>
+                    <li>Server-side session validation</li>
+                    <li>Secure token invalidation on logout</li>
+                </ul>
+                
+                <h3>Payment Security</h3>
+                <ul>
+                    <li>Unique payment addresses for each transaction</li>
+                    <li>Real-time blockchain monitoring</li>
+                    <li>Payment confirmation requirements (1 confirmation)</li>
+                    <li>Automatic refund for expired payments</li>
+                </ul>
+                
+                <h3>Privacy</h3>
+                <ul>
+                    <li>No personal data collection</li>
+                    <li>User data isolation</li>
+                    <li>GDPR compliant design</li>
+                </ul>
+            </section>
+
+            <!-- Configuration -->
+            <section class="content-section">
+                <h2>Configuration</h2>
+                <p>The exchange can be configured for different environments and requirements.</p>
+                
+                <h3>Exchange Settings</h3>
+                <pre><code># Exchange Rate
+BTC_TO_AITBC_RATE=100000
+
+# Payment Settings
+MIN_CONFIRMATIONS=1
+PAYMENT_TIMEOUT=3600  # 1 hour
+MIN_PAYMENT=0.0001  # BTC
+MAX_PAYMENT=10      # BTC
+
+# Bitcoin Network
+BITCOIN_NETWORK=testnet
+BITCOIN_RPC_URL=http://localhost:8332
+BITCOIN_RPC_USER=user
+BITCOIN_RPC_PASS=password</code></pre>
+            </section>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>Start using the Trade Exchange in just a few simple steps.</p>
+                
+                <h3>1. Access the Exchange</h3>
+                <p>Visit: <a href="https://aitbc.bubuit.net/Exchange/" target="_blank">https://aitbc.bubuit.net/Exchange/</a></p>
+                
+                <h3>2. Connect Your Wallet</h3>
+                <p>Click the "Connect Wallet" button. A unique wallet address will be generated for you.</p>
+                
+                <h3>3. Get Testnet Bitcoin</h3>
+                <p>For testing, get free testnet Bitcoin from:
+                <br><a href="https://testnet-faucet.mempool.co/" target="_blank">testnet-faucet.mempool.co</a></p>
+                
+                <h3>4. Make Your First Purchase</h3>
+                <ul>
+                    <li>Enter the amount of AITBC you want</li>
+                    <li>Click "Create Payment Request"</li>
+                    <li>Send Bitcoin to the provided address</li>
+                    <li>Wait for confirmation</li>
+                    <li>Receive your AITBC tokens!</li>
+                </ul>
+            </section>
+
+            <!-- Support -->
+            <section class="content-section">
+                <h2>Support & Resources</h2>
+                <p>Find help and additional resources for using the Trade Exchange.</p>
+                
+                <h3>Documentation</h3>
+                <ul>
+                    <li><a href="trade_exchange.html" target="_blank">Complete Trade Exchange Guide</a></li>
+                    <li><a href="https://aitbc.bubuit.net/api/docs" target="_blank">API Documentation</a></li>
+                </ul>
+                
+                <h3>Troubleshooting</h3>
+                <ul>
+                    <li>Payment not showing? Check for 1 confirmation</li>
+                    <li>Can't connect? Enable JavaScript and refresh</li>
+                    <li>Balance incorrect? Wait for blockchain sync</li>
+                </ul>
+                
+                <h3>Contact</h3>
+                <ul>
+                    <li>Email: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
+                    <li>Discord: <a href="https://discord.gg/aitbc" target="_blank">discord.gg/aitbc</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // Add any interactive functionality here
+    </script>
+</body>
+</html>

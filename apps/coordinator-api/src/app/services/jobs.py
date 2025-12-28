@@ -6,7 +6,7 @@ from typing import Optional
 from sqlmodel import Session, select
 
 from ..domain import Job, Miner, JobReceipt
-from ..models import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
+from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
 
 
 class JobService:

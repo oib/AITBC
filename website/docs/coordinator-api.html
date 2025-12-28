@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coordinator API - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            background: var(--bg-white);
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .doc-header h1 {
+            font-size: 2.5rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 2rem;
+        }
+        
+        .breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .breadcrumb span {
+            color: var(--text-light);
+            margin: 0 0.5rem;
+        }
+        
+        /* Content Sections */
+        .content-section {
+            background: var(--bg-white);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+        
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+        }
+        
+        .content-section ul {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+        }
+        
+        .content-section li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        .content-section code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: var(--primary-color);
+        }
+        
+        .content-section pre {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+        
+        .content-section pre code {
+            background: none;
+            padding: 0;
+            color: var(--text-dark);
+        }
+        
+        /* Feature Grid */
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+        
+        .feature-card {
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--bg-light);
+        }
+        
+        .feature-card h4 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+        
+        /* API Endpoints */
+        .api-endpoint {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        .api-endpoint code {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        .status-badge.live {
+            background: #10b98120;
+            color: var(--success-color);
+        }
+        
+        /* Back Button */
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+        
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+            
+            .content-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html" class="active">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <a href="#">Components</a>
+                <span>›</span>
+                <span>Coordinator API</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="components.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Components
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-server"></i> Coordinator API</h1>
+                <p>FastAPI service for job submission, miner registration, and receipt management with SQLite persistence</p>
+                <span class="status-badge live">● Live</span>
+            </div>
+
+            <!-- Overview -->
+            <section class="content-section">
+                <h2>Overview</h2>
+                <p>The Coordinator API is the central orchestration layer that manages job distribution between clients and miners in the AITBC network. It handles job submissions, miner registrations, and tracks all computation receipts.</p>
+                
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Job submission and tracking</li>
+                    <li>Miner registration and heartbeat monitoring</li>
+                    <li>Receipt management and verification</li>
+                    <li>User management with wallet-based authentication</li>
+                    <li>SQLite persistence with SQLModel ORM</li>
+                    <li>Comprehensive API documentation with OpenAPI</li>
+                </ul>
+            </section>
+
+            <!-- Architecture -->
+            <section class="content-section">
+                <h2>Architecture</h2>
+                <p>The Coordinator API follows a clean architecture with separation of concerns for domain models, API routes, and business logic.</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4>API Layer</h4>
+                        <p>FastAPI routers for clients, miners, admin, and users</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Domain Models</h4>
+                        <p>SQLModel definitions for jobs, miners, receipts, users</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Business Logic</h4>
+                        <p>Service layer handling job orchestration</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4>Persistence</h4>
+                        <p>SQLite database with Alembic migrations</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Reference -->
+            <section class="content-section">
+                <h2>API Reference</h2>
+                <p>The Coordinator API provides RESTful endpoints for all major operations.</p>
+                
+                <h3>Client Endpoints</h3>
+                <div class="api-endpoint">
+                    <code>POST /v1/client/jobs</code>
+                    <p>Submit a new computation job</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/client/jobs/{job_id}/status</code>
+                    <p>Get job status and progress</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/client/jobs/{job_id}/receipts</code>
+                    <p>Retrieve computation receipts</p>
+                </div>
+                
+                <h3>Miner Endpoints</h3>
+                <div class="api-endpoint">
+                    <code>POST /v1/miner/register</code>
+                    <p>Register as a compute provider</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>POST /v1/miner/heartbeat</code>
+                    <p>Send miner heartbeat</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/miner/jobs</code>
+                    <p>Fetch available jobs</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>POST /v1/miner/result</code>
+                    <p>Submit job result</p>
+                </div>
+                
+                <h3>User Management</h3>
+                <div class="api-endpoint">
+                    <code>POST /v1/users/login</code>
+                    <p>Login or register with wallet</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/users/me</code>
+                    <p>Get current user profile</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/users/{user_id}/balance</code>
+                    <p>Get user wallet balance</p>
+                </div>
+                
+                <h3>Exchange Endpoints</h3>
+                <div class="api-endpoint">
+                    <code>POST /v1/exchange/create-payment</code>
+                    <p>Create Bitcoin payment request</p>
+                </div>
+                
+                <div class="api-endpoint">
+                    <code>GET /v1/exchange/payment-status/{id}</code>
+                    <p>Check payment status</p>
+                </div>
+            </section>
+
+            <!-- Authentication -->
+            <section class="content-section">
+                <h2>Authentication</h2>
+                <p>The API uses API key authentication for clients and miners, and session-based authentication for users.</p>
+                
+                <h3>API Keys</h3>
+                <pre><code>X-Api-Key: your-api-key-here</code></pre>
+                
+                <h3>Session Tokens</h3>
+                <pre><code>X-Session-Token: sha256-token-here</code></pre>
+                
+                <h3>Example Request</h3>
+                <pre><code>curl -X POST "https://aitbc.bubuit.net/api/v1/client/jobs" \
+  -H "X-Api-Key: your-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "job_type": "llm_inference",
+    "parameters": {...}
+  }'</code></pre>
+            </section>
+
+            <!-- Configuration -->
+            <section class="content-section">
+                <h2>Configuration</h2>
+                <p>The Coordinator API can be configured via environment variables.</p>
+                
+                <h3>Environment Variables</h3>
+                <pre><code># Database
+DATABASE_URL=sqlite:///coordinator.db
+
+# API Settings
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Security
+SECRET_KEY=your-secret-key
+API_KEYS=key1,key2,key3
+
+# Exchange
+BITCOIN_ADDRESS=tb1qxy2...
+BTC_TO_AITBC_RATE=100000</code></pre>
+            </section>
+
+            <!-- Deployment -->
+            <section class="content-section">
+                <h2>Deployment</h2>
+                <p>The Coordinator API runs in a Docker container with nginx proxy.</p>
+                
+                <h3>Docker Deployment</h3>
+                <pre><code># Build image
+docker build -t aitbc-coordinator .
+
+# Run container
+docker run -d \
+  --name aitbc-coordinator \
+  -p 8000:8000 \
+  -e DATABASE_URL=sqlite:///data/coordinator.db \
+  -v $(pwd)/data:/app/data \
+  aitbc-coordinator</code></pre>
+                
+                <h3>Systemd Service</h3>
+                <pre><code># Start service
+sudo systemctl start aitbc-coordinator
+
+# Check status
+sudo systemctl status aitbc-coordinator
+
+# View logs
+sudo journalctl -u aitbc-coordinator -f</code></pre>
+            </section>
+
+            <!-- API Documentation -->
+            <section class="content-section">
+                <h2>Interactive API Documentation</h2>
+                <p>Interactive API documentation is available via Swagger UI and ReDoc.</p>
+                
+                <ul>
+                    <li><a href="https://aitbc.bubuit.net/api/docs" target="_blank">Swagger UI</a></li>
+                    <li><a href="https://aitbc.bubuit.net/api/redoc" target="_blank">ReDoc</a></li>
+                    <li><a href="https://aitbc.bubuit.net/api/openapi.json" target="_blank">OpenAPI Spec</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // Add any interactive functionality here
+    </script>
+</body>
+</html>

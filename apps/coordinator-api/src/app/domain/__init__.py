@@ -4,6 +4,7 @@ from .job import Job
 from .miner import Miner
 from .job_receipt import JobReceipt
 from .marketplace import MarketplaceOffer, MarketplaceBid, OfferStatus
+from .user import User, Wallet
 
 __all__ = [
     "Job",
@@ -12,4 +13,6 @@ __all__ = [
     "MarketplaceOffer",
     "MarketplaceBid",
     "OfferStatus",
+    "User",
+    "Wallet",
 ]

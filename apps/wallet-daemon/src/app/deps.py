@@ -10,7 +10,6 @@ from .receipts.service import ReceiptVerifierService
 from .settings import Settings, settings
 
 
-@lru_cache
 def get_settings() -> Settings:
     return settings
 
@@ -27,6 +26,5 @@ def get_keystore() -> KeystoreService:
     return KeystoreService()
 
 
-@lru_cache
 def get_ledger(config: Settings = Depends(get_settings)) -> SQLiteLedgerAdapter:
     return SQLiteLedgerAdapter(config.ledger_db_path)

@@ -75,7 +75,7 @@ metadata:
 spec:
   tls:
   - hosts:
-    - api.aitbc.io
+    - aitbc.bubuit.net
     secretName: api-tls
 ```
 
@@ -137,13 +137,13 @@ ingress:
   tls:
     - secretName: coordinator-tls
       hosts:
-        - api.aitbc.io
+        - aitbc.bubuit.net
 ```
 
 #### Blockchain Node RPC
 ```yaml
 # WebSocket with TLS
-wss://api.aitbc.io:8080/ws
+wss://aitbc.bubuit.net/ws
 ```
 
 ### 2. API Authentication Middleware

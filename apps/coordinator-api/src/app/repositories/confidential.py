@@ -19,14 +19,14 @@ from ..models.confidential import (
     KeyRotationLogDB,
     AuditAuthorizationDB
 )
-from ..models import (
+from ..schemas import (
     ConfidentialTransaction,
     KeyPair,
     ConfidentialAccessLog,
     KeyRotationLog,
     AuditAuthorization
 )
-from ..database import get_async_session
+from sqlmodel import SQLModel as BaseAsyncSession
 
 
 class ConfidentialTransactionRepository:

@@ -1,7 +1,7 @@
 import {
   fetchTransactions,
-  type TransactionSummary,
 } from "../lib/mockData";
+import type { TransactionSummary } from "../lib/models";
 
 export const transactionsTitle = "Transactions";
 
@@ -42,7 +42,7 @@ export async function initTransactionsPage(): Promise<void> {
   }
 
   const transactions = await fetchTransactions();
-  if (transactions.length === 0) {
+  if (!transactions || transactions.length === 0) {
     tbody.innerHTML = `
       <tr>
         <td class="placeholder" colspan="6">No mock transactions available.</td>
@@ -60,7 +60,7 @@ function renderTransactionRow(tx: TransactionSummary): string {
       <td><code>${tx.hash.slice(0, 18)}…</code></td>
       <td>${tx.block}</td>
       <td><code>${tx.from.slice(0, 12)}…</code></td>
-      <td><code>${tx.to.slice(0, 12)}…</code></td>
+      <td><code>${tx.to ? tx.to.slice(0, 12) + '…' : 'null'}</code></td>
       <td>${tx.value}</td>
       <td>${tx.status}</td>
     </tr>

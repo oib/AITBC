@@ -8,6 +8,7 @@ from pydantic import field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy.orm import Mapped
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -33,9 +34,6 @@ class Block(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     tx_count: int = 0
     state_root: Optional[str] = None
-
-    transactions: list["Transaction"] = Relationship(back_populates="block")
-    receipts: list["Receipt"] = Relationship(back_populates="block")
 
     @field_validator("hash", mode="before")
     @classmethod
@@ -69,8 +67,6 @@ class Transaction(SQLModel, table=True):
     )
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
-    block: Optional["Block"] = Relationship(back_populates="transactions")
-
     @field_validator("tx_hash", mode="before")
     @classmethod
     def _tx_hash_is_hex(cls, value: str) -> str:
@@ -100,8 +96,6 @@ class Receipt(SQLModel, table=True):
     )
     minted_amount: Optional[int] = None
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-
-    block: Optional["Block"] = Relationship(back_populates="receipts")
 
     @field_validator("receipt_id", mode="before")
     @classmethod

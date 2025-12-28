@@ -29,7 +29,7 @@ GET /v1/jobs?api_key=your_api_key_here
 
 ### cURL
 ```bash
-curl -X GET https://api.aitbc.io/v1/jobs \
+curl -X GET https://aitbc.bubuit.net/api/v1/jobs \
   -H "X-API-Key: your_api_key_here"
 ```
 
@@ -42,7 +42,7 @@ headers = {
 }
 
 response = requests.get(
-    "https://api.aitbc.io/v1/jobs",
+    "https://aitbc.bubuit.net/api/v1/jobs",
     headers=headers
 )
 ```
@@ -53,7 +53,7 @@ const headers = {
     "X-API-Key": "your_api_key_here"
 };
 
-fetch("https://api.aitbc.io/v1/jobs", {
+fetch("https://aitbc.bubuit.net/api/v1/jobs", {
     headers: headers
 })
 .then(response => response.json())
@@ -100,12 +100,12 @@ Visit the [Dashboard](https://dashboard.aitbc.io/api-keys)
 
 ### Revoke a Key
 ```bash
-curl -X DELETE https://api.aitbc.io/v1/api-keys/{key_id} \
+curl -X DELETE https://aitbc.bubuit.net/api/v1/api-keys/{key_id} \
   -H "X-API-Key: your_master_key"
 ```
 
 ### Regenerate a Key
 ```bash
-curl -X POST https://api.aitbc.io/v1/api-keys/{key_id}/regenerate \
+curl -X POST https://aitbc.bubuit.net/api/v1/api-keys/{key_id}/regenerate \
   -H "X-API-Key: your_master_key"
 ```

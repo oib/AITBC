@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlmodel import Session, select
 
 from ..domain import Miner
-from ..models import AssignedJob, MinerHeartbeat, MinerRegister
+from ..schemas import AssignedJob, MinerHeartbeat, MinerRegister
 from .jobs import JobService
 
 

@@ -332,6 +332,11 @@ Retrieve statistics for a specific miner.
 GET /v1/health
 ```
 
+Production base URL is `https://aitbc.bubuit.net/api`, so the full health URL is:
+```http
+GET /api/v1/health
+```
+
 Check the health status of the coordinator service.
 
 **Response:**

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass, asdict
 
-from ..models import ConfidentialAccessLog
+from ..schemas import ConfidentialAccessLog
 from ..config import settings
 from ..logging import get_logger
 

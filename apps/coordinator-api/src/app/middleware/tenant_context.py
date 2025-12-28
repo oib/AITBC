@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import event, select, and_
 from contextvars import ContextVar
 
-from ..database import get_db
+from sqlmodel import SQLModel as Base
 from ..models.multitenant import Tenant, TenantApiKey
 from ..services.tenant_management import TenantManagementService
 from ..exceptions import TenantError

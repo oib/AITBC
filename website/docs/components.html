@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platform Components - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .nav-links a:hover,
+        .nav-links a.active {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            background: var(--bg-white);
+            padding: 3rem 0;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .doc-header h1 {
+            font-size: 2.5rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            color: var(--text-light);
+            font-size: 1.1rem;
+        }
+        
+        .breadcrumb {
+            margin-bottom: 2rem;
+        }
+        
+        .breadcrumb a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .breadcrumb span {
+            color: var(--text-light);
+            margin: 0 0.5rem;
+        }
+        
+        /* Components Grid */
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .component-card {
+            background: var(--bg-white);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .component-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--primary-color);
+        }
+        
+        .component-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        }
+        
+        .component-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: white;
+            margin-bottom: 1.5rem;
+            background: var(--primary-color);
+        }
+        
+        .component-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .component-card p {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            line-height: 1.8;
+        }
+        
+        .component-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .component-status.live {
+            background: #10b98120;
+            color: var(--success-color);
+        }
+        
+        .component-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .component-link:hover {
+            color: var(--secondary-color);
+            transform: translateX(5px);
+        }
+        
+        /* Section */
+        .section {
+            background: var(--bg-white);
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+        }
+        
+        /* Back Button */
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+        
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+            
+            .components-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html" class="active">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <span>Platform Components</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="index.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Documentation
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1>Platform Components</h1>
+                <p>Explore the 7 core components that make up the AITBC platform</p>
+            </div>
+
+            <!-- Components Grid -->
+            <div class="components-grid">
+                <!-- Blockchain Node -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-cube"></i>
+                    </div>
+                    <h3>Blockchain Node</h3>
+                    <p>PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="blockchain-node.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Coordinator API -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-server"></i>
+                    </div>
+                    <h3>Coordinator API</h3>
+                    <p>FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="coordinator-api.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Marketplace Web -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-store"></i>
+                    </div>
+                    <h3>Marketplace Web</h3>
+                    <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="marketplace-web.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Explorer Web -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <h3>Explorer Web</h3>
+                    <p>Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="explorer-web.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Wallet Daemon -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-wallet"></i>
+                    </div>
+                    <h3>Wallet Daemon</h3>
+                    <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="wallet-daemon.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Trade Exchange -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-exchange-alt"></i>
+                    </div>
+                    <h3>Trade Exchange</h3>
+                    <p>Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="trade-exchange.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+
+                <!-- Pool Hub -->
+                <div class="component-card">
+                    <div class="component-icon">
+                        <i class="fas fa-swimming-pool"></i>
+                    </div>
+                    <h3>Pool Hub</h3>
+                    <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.</p>
+                    <div class="component-status live">
+                        <i class="fas fa-circle"></i> Live
+                    </div>
+                    <a href="pool-hub.html" class="component-link">
+                        Learn More <i class="fas fa-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Architecture Overview -->
+            <section class="section">
+                <h2>Architecture Overview</h2>
+                <p>The AITBC platform consists of 7 core components working together to provide a complete AI blockchain computing solution:</p>
+                
+                <div style="margin-top: 2rem;">
+                    <h3>Infrastructure Layer</h3>
+                    <ul style="margin-left: 2rem; color: var(--text-light);">
+                        <li><strong>Blockchain Node</strong> - Distributed ledger with PoA/PoS consensus</li>
+                        <li><strong>Coordinator API</strong> - Job orchestration and management</li>
+                        <li><strong>Wallet Daemon</strong> - Secure wallet management</li>
+                    </ul>
+                    
+                    <h3 style="margin-top: 1.5rem;">Application Layer</h3>
+                    <ul style="margin-left: 2rem; color: var(--text-light);">
+                        <li><strong>Marketplace Web</strong> - GPU compute marketplace</li>
+                        <li><strong>Trade Exchange</strong> - Token trading platform</li>
+                        <li><strong>Explorer Web</strong> - Blockchain explorer</li>
+                        <li><strong>Pool Hub</strong> - Miner coordination service</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Quick Links -->
+            <section class="section">
+                <h2>Quick Links</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
+                    <a href="https://aitbc.bubuit.net/Exchange/" target="_blank" style="padding: 1rem; background: var(--bg-light); border-radius: 8px; text-decoration: none; color: var(--text-dark); transition: all 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white';" onmouseout="this.style.background='var(--bg-light)'; this.style.color='var(--text-dark)';">
+                        <i class="fas fa-exchange-alt"></i> Trade Exchange
+                    </a>
+                    <a href="https://aitbc.bubuit.net/marketplace/" target="_blank" style="padding: 1rem; background: var(--bg-light); border-radius: 8px; text-decoration: none; color: var(--text-dark); transition: all 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white';" onmouseout="this.style.background='var(--bg-light)'; this.style.color='var(--text-dark)';">
+                        <i class="fas fa-store"></i> Marketplace
+                    </a>
+                    <a href="https://aitbc.bubuit.net/explorer/" target="_blank" style="padding: 1rem; background: var(--bg-light); border-radius: 8px; text-decoration: none; color: var(--text-dark); transition: all 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white';" onmouseout="this.style.background='var(--bg-light)'; this.style.color='var(--text-dark)';">
+                        <i class="fas fa-search"></i> Explorer
+                    </a>
+                    <a href="https://aitbc.bubuit.net/api/docs" target="_blank" style="padding: 1rem; background: var(--bg-light); border-radius: 8px; text-decoration: none; color: var(--text-dark); transition: all 0.3s;" onmouseover="this.style.background='var(--primary-color)'; this.style.color='white';" onmouseout="this.style.background='var(--bg-light)'; this.style.color='var(--text-dark)';">
+                        <i class="fas fa-code"></i> API Docs
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        // Add any interactive functionality here
+    </script>
+</body>
+</html>

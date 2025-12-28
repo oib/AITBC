@@ -137,7 +137,7 @@
         /* Reader Level Cards */
         .reader-levels {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            grid-template-columns: repeat(2, 1fr);
             gap: 2rem;
             margin-bottom: 4rem;
         }
@@ -200,6 +200,10 @@
         
         .reader-card.developer .reader-icon {
             background: var(--warning-color);
+        }
+        
+        .reader-card.full-doc .reader-icon {
+            background: var(--danger-color);
         }
         
         .reader-card h3 {
@@ -285,6 +289,14 @@
         
         .reader-card.developer .btn {
             background: var(--warning-color);
+        }
+        
+        .reader-card.full-doc .btn {
+            background: var(--danger-color);
+        }
+        
+        .reader-card.full-doc::before {
+            background: var(--danger-color);
         }
         
         /* Quick Links */
@@ -395,8 +407,6 @@
         <nav class="container">
             <a href="../index.html" class="logo">AITBC</a>
             <ul class="nav-links">
-                <li><a href="../index.html">Home</a></li>
-                <li><a href="index.html" class="active">Documentation</a></li>
                 <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
             </ul>
         </nav>
@@ -421,7 +431,7 @@
                 <!-- Miners Card -->
                 <div class="reader-card miner">
                     <div class="reader-icon">
-                        <i class="fas fa-pickaxe"></i>
+                        <i class="fas fa-hammer"></i>
                     </div>
                     <h3>Miners</h3>
                     <p>Learn how to mine AITBC tokens and contribute to network security. Perfect for those looking to earn rewards through staking or providing compute power.</p>
@@ -470,9 +480,9 @@
                 </div>
 
                 <!-- Full Documentation Card -->
-                <div class="reader-card">
+                <div class="reader-card full-doc">
                     <div class="reader-icon">
-                        <i class="fas fa-book"></i>
+                        <i class="fas fa-file-alt"></i>
                     </div>
                     <h3>Full Documentation</h3>
                     <p>Complete technical documentation covering all aspects of the AITBC platform including architecture, APIs, deployment, and advanced features.</p>
@@ -494,6 +504,10 @@
                     <a href="../full-documentation.html" class="link-item">
                         <i class="fas fa-book"></i>
                         <span>Full Documentation</span>
+                    </a>
+                    <a href="https://aitbc.bubuit.net/Exchange/" class="link-item">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Trade Exchange</span>
                     </a>
                     <a href="https://gitea.bubuit.net/oib/aitbc" class="link-item">
                         <i class="fab fa-git-alt"></i>

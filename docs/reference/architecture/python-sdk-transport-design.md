@@ -498,7 +498,7 @@ from aitbc import AITBCClient, HTTPTransport
 
 # Create client with HTTP transport
 transport = HTTPTransport({
-    'base_url': 'https://api.aitbc.io',
+    'base_url': 'https://aitbc.bubuit.net/api',
     'timeout': 30,
     'default_headers': {'X-API-Key': 'your-key'}
 })
@@ -520,7 +520,7 @@ config = {
         'ethereum': {
             'type': 'http',
             'chain_id': 1,
-            'base_url': 'https://api.aitbc.io',
+            'base_url': 'https://aitbc.bubuit.net/api',
             'default': True
         },
         'polygon': {

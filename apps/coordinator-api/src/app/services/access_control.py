@@ -8,7 +8,7 @@ from enum import Enum
 import json
 import re
 
-from ..models import ConfidentialAccessRequest, ConfidentialAccessLog
+from ..schemas import ConfidentialAccessRequest, ConfidentialAccessLog
 from ..config import settings
 from ..logging import get_logger
 

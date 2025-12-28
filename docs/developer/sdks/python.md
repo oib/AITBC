@@ -27,7 +27,7 @@ from aitbc import AITBCClient
 # Initialize the client
 client = AITBCClient(
     api_key="your_api_key_here",
-    base_url="https://api.aitbc.io"  # or http://localhost:8011 for dev
+    base_url="https://aitbc.bubuit.net/api"  # or http://localhost:8011 for dev
 )
 
 # Create a job
@@ -50,7 +50,7 @@ print(f"Result: {result}")
 ### Environment Variables
 ```bash
 export AITBC_API_KEY="your_api_key"
-export AITBC_BASE_URL="https://api.aitbc.io"
+export AITBC_BASE_URL="https://aitbc.bubuit.net/api"
 export AITBC_NETWORK="mainnet"  # or testnet
 ```
 
@@ -61,7 +61,7 @@ from aitbc import AITBCClient, Config
 # Using Config object
 config = Config(
     api_key="your_api_key",
-    base_url="https://api.aitbc.io",
+    base_url="https://aitbc.bubuit.net/api",
     timeout=30,
     retries=3
 )
@@ -435,7 +435,7 @@ from aitbc import AITBCClient
 
 client = AITBCClient(
     api_key=os.getenv("AITBC_API_KEY"),
-    base_url=os.getenv("AITBC_BASE_URL", "https://api.aitbc.io")
+    base_url=os.getenv("AITBC_BASE_URL", "https://aitbc.bubuit.net/api")
 )
 ```
 

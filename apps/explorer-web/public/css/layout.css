@@ -262,6 +262,16 @@
   padding: 0;
 }
 
+.stat-list li {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.stat-list li code {
+  word-break: break-all;
+  font-size: 0.9em;
+}
+
 .stat-list li + li {
   margin-top: 0.35rem;
 }

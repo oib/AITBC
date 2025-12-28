@@ -13,7 +13,7 @@ from ..models.multitenant import (
     Tenant, TenantUser, TenantQuota, TenantApiKey,
     TenantAuditLog, TenantStatus
 )
-from ..database import get_db
+from ..storage.db import get_db
 from ..exceptions import TenantError, QuotaExceededError
 
 
