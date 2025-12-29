@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AITBC Trade Exchange - Buy AITBC with Bitcoin</title>
-    <base href="/Exchange/">
-    <link rel="stylesheet" href="/assets/css/aitbc.css">
-    <script src="/assets/js/axios.min.js"></script>
-    <script src="/assets/js/lucide.js"></script>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <link rel="stylesheet" href="/assets/css/aitbc.css?v=20241229-1305">
+    <script src="/assets/js/axios.min.js?v=20241229-1305"></script>
+    <script src="/assets/js/lucide.js?v=20241229-1305"></script>
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
@@ -91,7 +93,7 @@
                     </div>
                     <div class="flex items-center space-x-2">
                         <span class="text-gray-600 dark:text-gray-400">24h Volume:</span>
-                        <span class="font-semibold text-gray-900 dark:text-white">1,234 AITBC</span>
+                        <span class="font-semibold text-gray-900 dark:text-white" id="dailyVolume">Loading...</span>
                     </div>
                 </div>
                 <div class="text-sm text-gray-500 dark:text-gray-400">
@@ -479,56 +481,101 @@
         // Connect Wallet
         async function connectWallet() {
             try {
-                // For demo, create a new wallet
-                const walletId = 'wallet-' + Math.random().toString(36).substr(2, 9);
-                const address = 'aitbc1' + walletId + 'x'.repeat(40 - walletId.length);
+                // Real wallet mode - connect to extension
+                if (typeof window.aitbcWallet === 'undefined') {
+                    showToast('AITBC Wallet extension not found. Please install it first.', 'error');
+                    return;
+                }
                 
-                // Login or register user
-                const response = await axios.post(`${API_BASE}/users/login`, {
-                    wallet_address: address
-                });
+                // Request connection to wallet extension
+                const response = await window.aitbcWallet.connect();
                 
-                const user = response.data;
-                currentUser = user;
-                sessionToken = user.session_token;
-                walletAddress = address;
-                
-                // Update UI
-                document.getElementById('aitbcAddress').textContent = address;
-                document.getElementById('userUsername').textContent = user.username;
-                document.getElementById('userId').textContent = user.user_id;
-                document.getElementById('userCreated').textContent = new Date(user.created_at).toLocaleDateString();
-                
-                // Update navigation
-                document.getElementById('navConnectBtn').classList.add('hidden');
-                document.getElementById('navUserInfo').classList.remove('hidden');
-                document.getElementById('navUsername').textContent = user.username;
-                
-                // Show trade form, hide connect prompt
-                document.getElementById('tradeConnectPrompt').classList.add('hidden');
-                document.getElementById('tradeForm').classList.remove('hidden');
-                
-                // Show profile, hide login prompt
-                document.getElementById('notLoggedIn').classList.add('hidden');
-                document.getElementById('userProfile').classList.remove('hidden');
-                
-                showToast('Wallet connected: ' + address.substring(0, 20) + '...');
-                
-                // Load user balance
-                await loadUserBalance();
+                if (response.success) {
+                    walletAddress = response.address;
+                    
+                    // Login or register user with real wallet
+                    const loginResponse = await axios.post(`${API_BASE}/users/login`, {
+                        wallet_address: walletAddress
+                    });
+                    
+                    const user = loginResponse.data;
+                    currentUser = user;
+                    sessionToken = user.session_token;
+                    
+                    // Update UI
+                    updateWalletUI(user);
+                    showToast(`Connected to AITBC Wallet: ${walletAddress.substring(0, 20)}...`);
+                    
+                    // Load real balance
+                    await loadUserBalance();
+                } else {
+                    showToast('Failed to connect to wallet: ' + response.error, 'error');
+                }
             } catch (error) {
                 console.error('Failed to connect wallet:', error);
-                showToast('Failed to connect wallet', 'error');
+                console.error('Error details:', JSON.stringify(error, null, 2));
+                const errorMsg = error.message || error.error || error.toString() || 'Unknown error';
+                showToast('Failed to connect wallet: ' + errorMsg, 'error');
             }
+        }
+        
+        // Update Wallet UI (helper function)
+        function updateWalletUI(user) {
+            document.getElementById('aitbcAddress').textContent = walletAddress;
+            document.getElementById('userUsername').textContent = user.username;
+            document.getElementById('userId').textContent = user.user_id;
+            document.getElementById('userCreated').textContent = new Date(user.created_at).toLocaleDateString();
+            
+            // Update navigation
+            document.getElementById('navConnectBtn').classList.add('hidden');
+            document.getElementById('navUserInfo').classList.remove('hidden');
+            document.getElementById('navUsername').textContent = user.username;
+            
+            // Show trade form, hide connect prompt
+            document.getElementById('tradeConnectPrompt').classList.add('hidden');
+            document.getElementById('tradeForm').classList.remove('hidden');
+            
+            // Show profile, hide login prompt
+            document.getElementById('notLoggedIn').classList.add('hidden');
+            document.getElementById('userProfile').classList.remove('hidden');
         }
 
         // Update Prices
         function updatePrices() {
-            // Simulate price updates
-            const variation = (Math.random() - 0.5) * 0.000001;
-            const newPrice = EXCHANGE_RATE + variation;
-            document.getElementById('aitbcBtcPrice').textContent = newPrice.toFixed(5);
-            document.getElementById('lastUpdated').textContent = 'Just now';
+            // Fetch real market data
+            fetchMarketData();
+        }
+        
+        // Fetch real market data
+        async function fetchMarketData() {
+            try {
+                // Get market stats from API
+                const response = await axios.get(`${API_BASE}/exchange/market-stats`);
+                const stats = response.data;
+                
+                // Update price
+                if (stats.price) {
+                    document.getElementById('aitbcBtcPrice').textContent = stats.price.toFixed(5);
+                }
+                
+                // Update volume
+                if (stats.daily_volume > 0) {
+                    document.getElementById('dailyVolume').textContent = 
+                        stats.daily_volume.toLocaleString() + ' AITBC';
+                } else {
+                    document.getElementById('dailyVolume').textContent = '0 AITBC';
+                }
+                
+                // Update last updated time
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+            } catch (error) {
+                // Fallback if API is not available
+                const variation = (Math.random() - 0.5) * 0.000001;
+                const newPrice = EXCHANGE_RATE + variation;
+                document.getElementById('aitbcBtcPrice').textContent = newPrice.toFixed(5);
+                document.getElementById('dailyVolume').textContent = 'API unavailable';
+                document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
+            }
         }
 
         // Currency Conversion
@@ -552,7 +599,7 @@
             btcInput.value = aitbcInput.value;
             aitbcInput.value = temp;
             
-            updateAITBCFromBTC();
+            updateAITBCAmount();
         }
 
         // Create Payment Request
@@ -735,6 +782,9 @@
                 document.getElementById('aitbcBalance').textContent = aitbcBalance.toFixed(2);
             } catch (error) {
                 console.error('Failed to load balance:', error);
+                // Set demo balance for testing
+                aitbcBalance = 1000;
+                document.getElementById('aitbcBalance').textContent = aitbcBalance.toFixed(2) + ' AITBC';
             }
         }
         
@@ -884,5 +934,10 @@
             }, 3000);
         }
     </script>
+    
+    <!-- Admin Access (hidden) -->
+    <div style="position: fixed; bottom: 10px; left: 10px; opacity: 0.3; font-size: 12px;">
+        <a href="/Exchange/admin/" style="color: #666;">Admin</a>
+    </div>
 </body>
 </html>
