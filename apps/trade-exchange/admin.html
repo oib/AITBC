@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Exchange - Admin Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/aitbc.css">
+    <script src="/assets/js/axios.min.js"></script>
+    <script src="/assets/js/lucide.js"></script>
+    <style>
+        .stat-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s;
+        }
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #f97316;
+        }
+        .stat-label {
+            color: #6b7280;
+            margin-top: 8px;
+        }
+        .wallet-balance {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+        }
+        .wallet-address {
+            font-family: monospace;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 12px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .payment-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .payment-item {
+            border-left: 4px solid #e5e7eb;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: #f9fafb;
+            border-radius: 0 8px 8px 0;
+        }
+        .payment-item.pending {
+            border-left-color: #f59e0b;
+        }
+        .payment-item.confirmed {
+            border-left-color: #10b981;
+        }
+        .payment-item.expired {
+            border-left-color: #ef4444;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: #f97316;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .refresh-btn:hover {
+            transform: scale(1.1);
+        }
+        .refresh-btn.spinning {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <header class="bg-white shadow-sm border-b">
+        <div class="bg-yellow-100 text-yellow-800 text-center py-2 text-sm">
+            ⚠️ DEMO MODE - This is simulated data for demonstration purposes
+        </div>
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i data-lucide="trending-up" class="w-8 h-8 text-orange-600"></i>
+                    <h1 class="text-2xl font-bold">Exchange Admin Dashboard</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Bank Director Portal</span>
+                    <button onclick="logout()" class="text-gray-500 hover:text-gray-700">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-8">
+        <!-- Bitcoin Wallet Balance -->
+        <section class="wallet-balance">
+            <h2 class="text-3xl font-bold mb-4">Bitcoin Wallet</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div class="text-sm opacity-90">Current Balance</div>
+                    <div class="text-4xl font-bold" id="btcBalance">0.00000000 BTC</div>
+                </div>
+                <div>
+                    <div class="text-sm opacity-90 mb-2">Wallet Address</div>
+                    <div class="wallet-address text-sm" id="walletAddress">tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Grid -->
+        <section class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="stat-card">
+                <i data-lucide="coins" class="w-8 h-8 text-orange-600 mb-2"></i>
+                <div class="stat-value" id="totalAitbcSold">0</div>
+                <div class="stat-label">Total AITBC Sold</div>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="bitcoin" class="w-8 h-8 text-orange-600 mb-2"></i>
+                <div class="stat-value" id="totalBtcReceived">0 BTC</div>
+                <div class="stat-label">Total BTC Received</div>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="users" class="w-8 h-8 text-orange-600 mb-2"></i>
+                <div class="stat-value" id="totalUsers">0</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card">
+                <i data-lucide="clock" class="w-8 h-8 text-orange-600 mb-2"></i>
+                <div class="stat-value" id="pendingPayments">0</div>
+                <div class="stat-label">Pending Payments</div>
+            </div>
+        </section>
+
+        <!-- Available AITBC -->
+        <section class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i data-lucide="package" class="w-5 h-5 mr-2 text-orange-600"></i>
+                Available AITBC for Sale
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <div class="text-3xl font-bold text-green-600" id="availableAitbc">10,000,000</div>
+                    <div class="text-sm text-gray-600 mt-1">AITBC tokens available</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-semibold text-gray-900" id="estimatedValue">100 BTC</div>
+                    <div class="text-sm text-gray-600 mt-1">Estimated value at current rate</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Recent Payments -->
+        <section class="bg-white rounded-lg shadow p-6">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i data-lucide="activity" class="w-5 h-5 mr-2 text-orange-600"></i>
+                Recent Payments
+            </h2>
+            <div class="payment-list" id="paymentsList">
+                <div class="text-gray-500 text-center py-8">Loading payments...</div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Refresh Button -->
+    <div class="refresh-btn" onclick="refreshData()" id="refreshBtn">
+        <i data-lucide="refresh-cw" class="w-6 h-6"></i>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin + '/api';
+        let refreshInterval;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            refreshData();
+            // Auto-refresh every 30 seconds
+            refreshInterval = setInterval(refreshData, 30000);
+        });
+
+        // Refresh all data
+        async function refreshData() {
+            const btn = document.getElementById('refreshBtn');
+            btn.classList.add('spinning');
+            
+            try {
+                await Promise.all([
+                    loadMarketStats(),
+                    loadPayments(),
+                    loadWalletBalance()
+                ]);
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            } finally {
+                setTimeout(() => btn.classList.remove('spinning'), 500);
+            }
+        }
+
+        // Load market statistics
+        async function loadMarketStats() {
+            try {
+                const response = await axios.get(`${API_BASE}/exchange/market-stats`);
+                const stats = response.data;
+                
+                document.getElementById('totalAitbcSold').textContent = 
+                    (stats.daily_volume || 0).toLocaleString();
+                document.getElementById('totalBtcReceived').textContent = 
+                    (stats.daily_volume_btc || 0).toFixed(8) + ' BTC';
+                document.getElementById('pendingPayments').textContent = 
+                    stats.pending_payments || 0;
+                
+                // Update available AITBC (for demo, show a large number)
+                // In production, this would come from a token supply API
+                const availableAitbc = 10000000; // 10 million tokens
+                const estimatedValue = availableAitbc * (stats.price || 0.00001);
+                
+                document.getElementById('availableAitbc').textContent = 
+                    availableAitbc.toLocaleString();
+                document.getElementById('estimatedValue').textContent = 
+                    estimatedValue.toFixed(2) + ' BTC';
+                
+                // Add demo indicator for token supply
+                const supplyElement = document.getElementById('availableAitbc');
+                if (!supplyElement.innerHTML.includes('(DEMO)')) {
+                    supplyElement.innerHTML += ' <span style="font-size: 0.5em; opacity: 0.7;">(DEMO)</span>';
+                }
+            } catch (error) {
+                console.error('Error loading market stats:', error);
+            }
+        }
+
+        // Load recent payments
+        async function loadPayments() {
+            try {
+                // Since there's no endpoint to list all payments, we'll show a message
+                document.getElementById('paymentsList').innerHTML = 
+                    '<div class="text-gray-500 text-center py-8">Payment history requires database implementation</div>';
+            } catch (error) {
+                console.error('Error loading payments:', error);
+            }
+        }
+
+        // Load wallet balance from API
+        async function loadWalletBalance() {
+            try {
+                const response = await axios.get(`${API_BASE}/exchange/wallet/info`);
+                const wallet = response.data;
+                
+                document.getElementById('btcBalance').textContent = 
+                    wallet.balance.toFixed(8) + ' BTC';
+                document.getElementById('walletAddress').textContent = 
+                    wallet.address;
+                
+                // Show wallet type
+                const balanceElement = document.getElementById('btcBalance');
+                if (wallet.testnet) {
+                    balanceElement.innerHTML += ' <span style="font-size: 0.5em; opacity: 0.7;">(TESTNET)</span>';
+                }
+                
+                // Update wallet info section
+                updateWalletInfo(wallet);
+            } catch (error) {
+                console.error('Error loading wallet balance:', error);
+                // Fallback to demo data
+                document.getElementById('btcBalance').textContent = '0.00000000 BTC';
+                document.getElementById('walletAddress').textContent = 'Wallet API unavailable';
+            }
+        }
+        
+        // Update wallet information display
+        function updateWalletInfo(wallet) {
+            // Create or update wallet info display
+            let walletInfo = document.getElementById('walletInfoDisplay');
+            if (!walletInfo) {
+                walletInfo = document.createElement('div');
+                walletInfo.id = 'walletInfoDisplay';
+                walletInfo.className = 'mt-4 p-4 bg-gray-100 rounded-lg';
+                document.querySelector('.wallet-balance').appendChild(walletInfo);
+            }
+            
+            walletInfo.innerHTML = `
+                <div class="text-sm">
+                    <div class="mb-2"><strong>Wallet Type:</strong> ${wallet.wallet_type}</div>
+                    <div class="mb-2"><strong>Network:</strong> ${wallet.testnet ? 'Testnet' : 'Mainnet'}</div>
+                    <div><strong>Recent Transactions:</strong> ${wallet.transactions.length}</div>
+                </div>
+            `;
+        }
+
+        // Logout
+        function logout() {
+            window.location.href = '/Exchange/';
+        }
+    </script>
+</body>
+</html>

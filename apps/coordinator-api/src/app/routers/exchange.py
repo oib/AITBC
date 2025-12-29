@@ -4,15 +4,13 @@ Bitcoin Exchange Router for AITBC
 
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks
-from sqlmodel import Session
 import uuid
 import time
 import json
 import os
 
-from ..deps import SessionDep
-from ..domain import Wallet
 from ..schemas import ExchangePaymentRequest, ExchangePaymentResponse
+from ..services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 
 router = APIRouter(tags=["exchange"])
 
@@ -31,7 +29,6 @@ BITCOIN_CONFIG = {
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
 async def create_payment(
     request: ExchangePaymentRequest,
-    session: SessionDep,
     background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """Create a new Bitcoin payment request"""
@@ -88,8 +85,7 @@ async def get_payment_status(payment_id: str) -> Dict[str, Any]:
 @router.post("/exchange/confirm-payment/{payment_id}")
 async def confirm_payment(
     payment_id: str,
-    tx_hash: str,
-    session: SessionDep
+    tx_hash: str
 ) -> Dict[str, Any]:
     """Confirm payment (webhook from payment processor)"""
     
@@ -131,6 +127,48 @@ async def get_exchange_rates() -> Dict[str, float]:
         'aitbc_to_btc': 1.0 / BITCOIN_CONFIG['exchange_rate'],
         'fee_percent': 0.5
     }
+
+@router.get("/exchange/market-stats")
+async def get_market_stats() -> Dict[str, Any]:
+    """Get market statistics"""
+    
+    # Calculate 24h volume from payments
+    current_time = int(time.time())
+    yesterday_time = current_time - 24 * 60 * 60  # 24 hours ago
+    
+    daily_volume = 0
+    for payment in payments.values():
+        if payment['status'] == 'confirmed' and payment.get('confirmed_at', 0) > yesterday_time:
+            daily_volume += payment['aitbc_amount']
+    
+    # Calculate price change (simulated)
+    base_price = 1.0 / BITCOIN_CONFIG['exchange_rate']
+    price_change_percent = 5.2  # Simulated +5.2%
+    
+    return {
+        'price': base_price,
+        'price_change_24h': price_change_percent,
+        'daily_volume': daily_volume,
+        'daily_volume_btc': daily_volume / BITCOIN_CONFIG['exchange_rate'],
+        'total_payments': len([p for p in payments.values() if p['status'] == 'confirmed']),
+        'pending_payments': len([p for p in payments.values() if p['status'] == 'pending'])
+    }
+
+@router.get("/exchange/wallet/balance")
+async def get_wallet_balance_api() -> Dict[str, Any]:
+    """Get Bitcoin wallet balance"""
+    try:
+        return get_wallet_balance()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/exchange/wallet/info")
+async def get_wallet_info_api() -> Dict[str, Any]:
+    """Get comprehensive wallet information"""
+    try:
+        return get_wallet_info()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 async def monitor_payment(payment_id: str):
     """Monitor payment for confirmation (background task)"""

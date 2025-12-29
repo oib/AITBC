@@ -1,0 +1,46 @@
+{
+  "manifest_version": 2,
+  "name": "AITBC Wallet",
+  "version": "1.0.0",
+  "description": "AITBC Browser Wallet for trading and managing AITBC tokens",
+
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+
+  "content_scripts": [
+    {
+      "matches": ["https://aitbc.bubuit.net/*", "http://localhost:3002/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "AITBC Wallet",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "web_accessible_resources": [
+    ["injected.js"]
+  ],
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": false
+  }
+}
