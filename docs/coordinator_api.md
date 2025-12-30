@@ -1,6 +1,6 @@
 # Coordinator API – Task Breakdown
 
-## Status (2025-12-22)
+## Status (2025-12-30)
 
 - **Stage 1 delivery**: ✅ **DEPLOYED** - Coordinator API deployed in production behind https://aitbc.bubuit.net/api/
   - FastAPI service running in Incus container on port 8000
@@ -8,6 +8,10 @@
   - nginx proxy configured at `/api/` (so `/api/v1/*` routes to the container service)
   - Explorer API available via nginx at `/api/explorer/*` (backend: `/v1/explorer/*`)
   - Users API available via `/api/v1/users/*` (compat: `/api/users/*` for Exchange)
+- **Stage 2 delivery**: ✅ **DEPLOYED** - All import and syntax errors fixed (2025-12-28)
+  - Fixed SQLModel import issues across the codebase
+  - Resolved missing module dependencies
+  - Database initialization working correctly with all tables created
 - **Testing & tooling**: Pytest suites cover job scheduling, miner flows, and receipt verification; the shared CI script `scripts/ci/run_python_tests.sh` executes these tests in GitHub Actions.
 - **Documentation**: `docs/run.md` and `apps/coordinator-api/README.md` describe configuration for `RECEIPT_SIGNING_KEY_HEX` and `RECEIPT_ATTESTATION_KEY_HEX` plus the receipt history API.
 - **Service APIs**: Implemented specific service endpoints for common GPU workloads (Whisper, Stable Diffusion, LLM inference, FFmpeg, Blender) with typed schemas and validation.
