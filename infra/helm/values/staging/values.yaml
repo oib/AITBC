@@ -1,0 +1,168 @@
+# Staging environment Helm values
+
+global:
+  environment: staging
+  domain: staging.aitbc.bubuit.net
+  imageTag: staging
+  imagePullPolicy: Always
+
+# Coordinator API
+coordinator:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/coordinator-api
+    tag: staging
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    LOG_LEVEL: info
+    DATABASE_URL: secretRef:db-credentials
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilization: 70
+
+# Explorer Web
+explorer:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/explorer-web
+    tag: staging
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+
+# Marketplace Web
+marketplace:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/marketplace-web
+    tag: staging
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3001
+
+# Wallet Daemon
+wallet:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/wallet-daemon
+    tag: staging
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8002
+
+# PostgreSQL (staging uses RDS)
+postgresql:
+  enabled: false
+  # Uses external RDS instance
+  external:
+    host: secretRef:db-credentials:host
+    port: 5432
+    database: coordinator
+
+# Redis
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: secretRef:redis-password
+  master:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 256Mi
+    persistence:
+      size: 5Gi
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+  tls:
+    - secretName: staging-tls
+      hosts:
+        - staging.aitbc.bubuit.net
+  hosts:
+    - host: staging.aitbc.bubuit.net
+      paths:
+        - path: /api
+          service: coordinator
+          port: 8001
+        - path: /explorer
+          service: explorer
+          port: 3000
+        - path: /marketplace
+          service: marketplace
+          port: 3001
+        - path: /wallet
+          service: wallet
+          port: 8002
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 7d
+  grafana:
+    enabled: true
+
+# Logging
+logging:
+  enabled: true
+  level: info
+  elasticsearch:
+    enabled: true
+    retention: 14d
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  coordinator:
+    minAvailable: 1
+  explorer:
+    minAvailable: 1

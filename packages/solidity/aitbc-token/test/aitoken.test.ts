@@ -100,4 +100,64 @@ describe("AIToken", function () {
         .mintWithReceipt(provider.address, units, receiptHash, signature)
     ).to.be.revertedWith("invalid attestor signature");
   });
+
+  it("rejects minting to zero address", async function () {
+    const { token, coordinator, attestor } = await loadFixture(deployAITokenFixture);
+
+    const units = 100n;
+    const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-4"));
+    const signature = await buildSignature(token, attestor, ethers.ZeroAddress, units, receiptHash);
+
+    await expect(
+      token
+        .connect(coordinator)
+        .mintWithReceipt(ethers.ZeroAddress, units, receiptHash, signature)
+    ).to.be.revertedWith("invalid provider");
+  });
+
+  it("rejects minting zero units", async function () {
+    const { token, coordinator, attestor, provider } = await loadFixture(deployAITokenFixture);
+
+    const units = 0n;
+    const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-5"));
+    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+
+    await expect(
+      token
+        .connect(coordinator)
+        .mintWithReceipt(provider.address, units, receiptHash, signature)
+    ).to.be.revertedWith("invalid units");
+  });
+
+  it("rejects minting from non-coordinator", async function () {
+    const { token, attestor, provider, outsider } = await loadFixture(deployAITokenFixture);
+
+    const units = 100n;
+    const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-6"));
+    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+
+    await expect(
+      token
+        .connect(outsider)
+        .mintWithReceipt(provider.address, units, receiptHash, signature)
+    ).to.be.reverted;
+  });
+
+  it("returns correct mint digest", async function () {
+    const { token, provider } = await loadFixture(deployAITokenFixture);
+
+    const units = 100n;
+    const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-7"));
+
+    const digest = await token.mintDigest(provider.address, units, receiptHash);
+    expect(digest).to.be.a("string");
+    expect(digest.length).to.equal(66); // 0x + 64 hex chars
+  });
+
+  it("has correct token name and symbol", async function () {
+    const { token } = await loadFixture(deployAITokenFixture);
+
+    expect(await token.name()).to.equal("AIToken");
+    expect(await token.symbol()).to.equal("AIT");
+  });
 });

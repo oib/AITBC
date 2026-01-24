@@ -1,14 +1,11 @@
-from __future__ import annotations
-
 from datetime import datetime
 import re
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
-from sqlalchemy.orm import Mapped
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -26,6 +23,8 @@ def _validate_optional_hex(value: Optional[str], field_name: str) -> Optional[st
 
 
 class Block(SQLModel, table=True):
+    __tablename__ = "block"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     height: int = Field(index=True, unique=True)
     hash: str = Field(index=True, unique=True)
@@ -34,6 +33,16 @@ class Block(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     tx_count: int = 0
     state_root: Optional[str] = None
+    
+    # Relationships - use sa_relationship_kwargs for lazy loading
+    transactions: List["Transaction"] = Relationship(
+        back_populates="block",
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
+    receipts: List["Receipt"] = Relationship(
+        back_populates="block",
+        sa_relationship_kwargs={"lazy": "selectin"}
+    )
 
     @field_validator("hash", mode="before")
     @classmethod
@@ -52,6 +61,8 @@ class Block(SQLModel, table=True):
 
 
 class Transaction(SQLModel, table=True):
+    __tablename__ = "transaction"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     tx_hash: str = Field(index=True, unique=True)
     block_height: Optional[int] = Field(
@@ -66,6 +77,9 @@ class Transaction(SQLModel, table=True):
         sa_column=Column(JSON, nullable=False),
     )
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    
+    # Relationship
+    block: Optional["Block"] = Relationship(back_populates="transactions")
 
     @field_validator("tx_hash", mode="before")
     @classmethod
@@ -74,6 +88,8 @@ class Transaction(SQLModel, table=True):
 
 
 class Receipt(SQLModel, table=True):
+    __tablename__ = "receipt"
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     job_id: str = Field(index=True)
     receipt_id: str = Field(index=True, unique=True)
@@ -90,12 +106,15 @@ class Receipt(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    coordinator_attestations: list[dict] = Field(
+    coordinator_attestations: list = Field(
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
     )
     minted_amount: Optional[int] = None
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    
+    # Relationship
+    block: Optional["Block"] = Relationship(back_populates="receipts")
 
     @field_validator("receipt_id", mode="before")
     @classmethod
@@ -104,6 +123,8 @@ class Receipt(SQLModel, table=True):
 
 
 class Account(SQLModel, table=True):
+    __tablename__ = "account"
+    
     address: str = Field(primary_key=True)
     balance: int = 0
     nonce: int = 0
