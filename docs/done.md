@@ -219,7 +219,7 @@ This document tracks components that have been successfully deployed and are ope
   - Documented common issues, troubleshooting, and performance metrics
 
 - ✅ **Documentation Updates**
-  - Updated `docs/localhost-testing-scenario.md` with CLI wrapper usage
+  - Updated `docs/developer/testing/localhost-testing-scenario.md` with CLI wrapper usage
   - Converted all examples to use localhost URLs (127.0.0.1) instead of production
   - Added host user paths and quick start commands
   - Documented complete testing workflow from setup to verification
@@ -268,3 +268,31 @@ This document tracks components that have been successfully deployed and are ope
 - ✅ **Comprehensive .gitignore**
   - Expanded from 39 to 145 lines with organized sections
   - Added project-specific rules for coordinator, explorer, GPU miner
+
+### Repository File Audit & Cleanup
+- ✅ **File Audit Document** (`docs/files.md`)
+  - Created comprehensive audit of all 849 repository files
+  - Categorized into Whitelist (60), Greylist (0), Placeholders (12), Removed (35)
+  - All greylist items resolved - no pending reviews
+
+- ✅ **Abandoned Folders Removed** (35 items total)
+  - `ecosystem*/` (4 folders), `enterprise-connectors/`, `research/`
+  - `apps/client-web/`, `apps/marketplace-ui/`, `apps/wallet-cli/`
+  - `apps/miner-node/`, `apps/miner-dashboard/`
+  - `packages/py/aitbc-core/`, `aitbc-p2p/`, `aitbc-scheduler/`
+  - `packages/js/ui-widgets/`
+  - `python-sdk/`, `windsurf/`, `configs/`, `docs/user-guide/`, `docs/bootstrap/`
+  - `api/`, `governance/`, `protocols/`
+  - 5 GPU miner variants, 3 extension variants
+
+- ✅ **Docs Folder Reorganization**
+  - Root now contains only: `done.md`, `files.md`, `roadmap.md`
+  - Created new subfolders: `_config/`, `reference/components/`, `reference/governance/`
+  - Created: `operator/deployment/`, `operator/migration/`
+  - Created: `developer/testing/`, `developer/integration/`
+  - Moved 25 files to appropriate subfolders
+  - Moved receipt spec: `protocols/receipts/spec.md` → `docs/reference/specs/receipt-spec.md`
+
+- ✅ **Roadmap Updates**
+  - Added Stage 19: Placeholder Content Development
+  - Added Stage 20: Technical Debt Remediation (blockchain-node, solidity-token, ZKReceiptVerifier)
