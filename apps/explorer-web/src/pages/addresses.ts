@@ -8,7 +8,7 @@ export function renderAddressesPage(): string {
     <section class="addresses">
       <header class="section-header">
         <h2>Address Lookup</h2>
-        <p class="lead">Enter an account address to view recent transactions, balances, and receipt history (mock results shown below).</p>
+        <p class="lead">Live address data from the AITBC coordinator API.</p>
       </header>
       <form class="addresses__search" aria-label="Search for an address">
         <label class="addresses__label" for="address-input">Address</label>
@@ -52,7 +52,7 @@ export async function initAddressesPage(): Promise<void> {
   if (!addresses || addresses.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td class="placeholder" colspan="4">No mock addresses available.</td>
+        <td class="placeholder" colspan="4">No addresses available.</td>
       </tr>
     `;
     return;

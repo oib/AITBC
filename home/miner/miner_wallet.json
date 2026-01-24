@@ -1,0 +1,28 @@
+{
+  "address": "aitbc1721d5bf8c0005ded6704",
+  "balance": 1525.0,
+  "transactions": [
+    {
+      "type": "earn",
+      "amount": 1000.0,
+      "job_id": "genesis_distribution",
+      "description": "Initial funding from genesis block",
+      "timestamp": "2026-01-23T14:55:27.329538"
+    },
+    {
+      "type": "earn",
+      "amount": 500.0,
+      "job_id": "job_456",
+      "description": "Payment received from client",
+      "timestamp": "2026-01-23T14:55:59.086655"
+    },
+    {
+      "type": "earn",
+      "amount": 25.0,
+      "job_id": "e3b3fd7ddd684270932cfd8107771e81",
+      "description": "Processed hello job",
+      "timestamp": "2026-01-23T15:09:41.109718"
+    }
+  ],
+  "created_at": "2026-01-23T14:55:27.329401"
+}

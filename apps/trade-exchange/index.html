@@ -939,5 +939,59 @@
     <div style="position: fixed; bottom: 10px; left: 10px; opacity: 0.3; font-size: 12px;">
         <a href="/Exchange/admin/" style="color: #666;">Admin</a>
     </div>
-</body>
+
+    <script>
+    // GPU Integration
+    async function loadRealGPUOffers() {
+        try {
+            const response = await fetch('http://localhost:8091/miners/list');
+            const data = await response.json();
+            
+            if (data.gpus && data.gpus.length > 0) {
+                displayRealGPUOffers(data.gpus);
+            } else {
+                displayDemoOffers();
+            }
+        } catch (error) {
+            console.log('Using demo GPU offers');
+            displayDemoOffers();
+        }
+    }
+    
+    function displayRealGPUOffers(gpus) {
+        const container = document.getElementById('gpuList');
+        container.innerHTML = '';
+        
+        gpus.forEach(gpu => {
+            const gpuCard = `
+                <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-semibold">${gpu.capabilities.gpu.model}</h3>
+                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">Available</span>
+                    </div>
+                    <div class="space-y-2 text-sm text-gray-600 mb-4">
+                        <p><i data-lucide="monitor" class="w-4 h-4 inline mr-1"></i>Memory: ${gpu.capabilities.gpu.memory_gb} GB</p>
+                        <p><i data-lucide="zap" class="w-4 h-4 inline mr-1"></i>CUDA: ${gpu.capabilities.gpu.cuda_version}</p>
+                        <p><i data-lucide="cpu" class="w-4 h-4 inline mr-1"></i>Concurrency: ${gpu.concurrency}</p>
+                        <p><i data-lucide="map-pin" class="w-4 h-4 inline mr-1"></i>Region: ${gpu.region}</p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-2xl font-bold text-purple-600">50 AITBC/hr</span>
+                        <button onclick="purchaseGPU('${gpu.id}')" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">
+                            Purchase
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.innerHTML += gpuCard;
+        });
+        
+        lucide.createIcons();
+    }
+    
+    // Override the loadGPUOffers function
+    const originalLoadGPUOffers = loadGPUOffers;
+    loadGPUOffers = loadRealGPUOffers;
+    </script>
+    </body>
 </html>

@@ -73,7 +73,7 @@ async def submit_result(
         duration_ms = int((datetime.utcnow() - job.requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
 
-    receipt = receipt_service.create_receipt(job, miner_id, req.result, metrics)
+    receipt = await receipt_service.create_receipt(job, miner_id, req.result, metrics)
     job.receipt = receipt
     job.receipt_id = receipt["receipt_id"] if receipt else None
     session.add(job)

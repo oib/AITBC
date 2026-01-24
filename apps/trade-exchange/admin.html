@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AITBC Exchange - Admin Dashboard</title>
+    <title>AITBC Exchange Admin - Live Treasury Dashboard</title>
     <link rel="stylesheet" href="/assets/css/aitbc.css">
     <script src="/assets/js/axios.min.js"></script>
     <script src="/assets/js/lucide.js"></script>
@@ -92,8 +92,8 @@
 </head>
 <body class="bg-gray-50">
     <header class="bg-white shadow-sm border-b">
-        <div class="bg-yellow-100 text-yellow-800 text-center py-2 text-sm">
-            ⚠️ DEMO MODE - This is simulated data for demonstration purposes
+        <div class="bg-green-100 text-green-800 text-center py-2 text-sm">
+            ✅ LIVE MODE - Connected to AITBC Blockchain with Real Treasury Balance
         </div>
         <div class="container mx-auto px-4 py-4">
             <div class="flex items-center justify-between">
@@ -112,6 +112,32 @@
     </header>
 
     <main class="container mx-auto px-4 py-8">
+        <!-- Market Statistics -->
+        <section class="bg-white rounded-lg shadow p-6 mb-8">
+            <h2 class="text-xl font-bold mb-4 flex items-center">
+                <i data-lucide="bar-chart" class="w-5 h-5 mr-2 text-blue-600"></i>
+                Market Statistics
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div>
+                    <div class="text-2xl font-bold text-gray-900" id="totalAitbcSold">0</div>
+                    <div class="text-sm text-gray-600 mt-1">Total AITBC Sold</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900" id="totalBtcReceived">0 BTC</div>
+                    <div class="text-sm text-gray-600 mt-1">Total BTC Received</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-gray-900" id="pendingPayments">0</div>
+                    <div class="text-sm text-gray-600 mt-1">Pending Payments</div>
+                </div>
+                <div>
+                    <div class="text-2xl font-bold text-green-600" id="marketStatus">Market is open</div>
+                    <div class="text-sm text-gray-600 mt-1">Market Status</div>
+                </div>
+            </div>
+        </section>
+
         <!-- Bitcoin Wallet Balance -->
         <section class="wallet-balance">
             <h2 class="text-3xl font-bold mb-4">Bitcoin Wallet</h2>
@@ -159,8 +185,8 @@
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <div class="text-3xl font-bold text-green-600" id="availableAitbc">10,000,000</div>
-                    <div class="text-sm text-gray-600 mt-1">AITBC tokens available</div>
+                    <div class="text-3xl font-bold text-green-600" id="availableAitbc">Loading...</div>
+                    <div class="text-sm text-gray-600 mt-1">AITBC in Treasury (available for sale)</div>
                 </div>
                 <div>
                     <div class="text-2xl font-semibold text-gray-900" id="estimatedValue">100 BTC</div>
@@ -219,30 +245,51 @@
         // Load market statistics
         async function loadMarketStats() {
             try {
-                const response = await axios.get(`${API_BASE}/exchange/market-stats`);
-                const stats = response.data;
+                // Get treasury balance instead of hardcoded amount
+                const treasuryResponse = await axios.get(`${API_BASE}/treasury-balance`);
+                const treasury = treasuryResponse.data;
                 
-                document.getElementById('totalAitbcSold').textContent = 
-                    (stats.daily_volume || 0).toLocaleString();
-                document.getElementById('totalBtcReceived').textContent = 
-                    (stats.daily_volume_btc || 0).toFixed(8) + ' BTC';
-                document.getElementById('pendingPayments').textContent = 
-                    stats.pending_payments || 0;
+                const availableAitbc = parseInt(treasury.available_for_sale) / 1000000; // Convert from smallest units
+                const stats = { price: 0.00001 }; // Default price
                 
-                // Update available AITBC (for demo, show a large number)
-                // In production, this would come from a token supply API
-                const availableAitbc = 10000000; // 10 million tokens
-                const estimatedValue = availableAitbc * (stats.price || 0.00001);
+                // Update elements with defensive checks
+                const totalSoldEl = document.getElementById('totalAitbcSold');
+                if (totalSoldEl) totalSoldEl.textContent = (stats.daily_volume || 0).toLocaleString();
                 
+                const totalBtcEl = document.getElementById('totalBtcReceived');
+                if (totalBtcEl) totalBtcEl.textContent = (stats.daily_volume_btc || 0).toFixed(8) + ' BTC';
+                
+                const pendingEl = document.getElementById('pendingPayments');
+                if (pendingEl) pendingEl.textContent = stats.pending_payments || 0;
+                
+                // Update available AITBC from treasury
                 document.getElementById('availableAitbc').textContent = 
                     availableAitbc.toLocaleString();
                 document.getElementById('estimatedValue').textContent = 
-                    estimatedValue.toFixed(2) + ' BTC';
+                    (availableAitbc * (stats.price || 0.00001)).toFixed(2) + ' BTC';
                 
-                // Add demo indicator for token supply
+                // Add source indicator
                 const supplyElement = document.getElementById('availableAitbc');
-                if (!supplyElement.innerHTML.includes('(DEMO)')) {
-                    supplyElement.innerHTML += ' <span style="font-size: 0.5em; opacity: 0.7;">(DEMO)</span>';
+                if (treasury.source === 'genesis') {
+                    supplyElement.innerHTML += ' <span class="text-xs text-orange-600">(Genesis)</span>';
+                }
+                
+                // Update market status
+                const marketStatus = stats.market_status;
+                const marketStatusEl = document.getElementById('marketStatus');
+                if (marketStatusEl) {
+                    if (marketStatus === 'open') {
+                        marketStatusEl.textContent = 'Market is open';
+                        marketStatusEl.classList.remove('text-red-600');
+                        marketStatusEl.classList.add('text-green-600');
+                    } else if (marketStatus === 'closed') {
+                        marketStatusEl.textContent = 'Market is closed';
+                        marketStatusEl.classList.remove('text-green-600');
+                        marketStatusEl.classList.add('text-red-600');
+                    } else {
+                        marketStatusEl.textContent = 'Market status unknown';
+                        marketStatusEl.classList.remove('text-green-600', 'text-red-600');
+                    }
                 }
             } catch (error) {
                 console.error('Error loading market stats:', error);

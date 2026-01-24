@@ -10,7 +10,7 @@ export function renderTransactionsPage(): string {
     <section class="transactions">
       <header class="section-header">
         <h2>Recent Transactions</h2>
-        <p class="lead">Mock data is shown below until coordinator or node APIs are wired up.</p>
+        <p class="lead">Latest transactions on the AITBC network.</p>
       </header>
       <table class="table transactions__table">
         <thead>
@@ -45,7 +45,7 @@ export async function initTransactionsPage(): Promise<void> {
   if (!transactions || transactions.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td class="placeholder" colspan="6">No mock transactions available.</td>
+        <td class="placeholder" colspan="6">No transactions available.</td>
       </tr>
     `;
     return;

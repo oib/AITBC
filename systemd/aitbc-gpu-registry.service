@@ -1,0 +1,19 @@
+[Unit]
+Description=AITBC GPU Registry Demo
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=oib
+Group=oib
+WorkingDirectory=/home/oib/windsurf/aitbc
+ExecStart=/usr/bin/python3 /home/oib/windsurf/aitbc/gpu_registry_demo.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-gpu-registry
+
+[Install]
+WantedBy=multi-user.target

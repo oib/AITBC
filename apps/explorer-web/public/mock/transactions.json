@@ -1,18 +1,20 @@
-[
-  {
-    "hash": "0xabc1230000000000000000000000000000000000000000000000000000000001",
-    "block": 12045,
-    "from": "0xfeedfacefeedfacefeedfacefeedfacefeedface",
-    "to": "0xcafebabecafebabecafebabecafebabecafebabe",
-    "value": "12.5 AIT",
-    "status": "Succeeded"
-  },
-  {
-    "hash": "0xabc1230000000000000000000000000000000000000000000000000000000002",
-    "block": 12044,
-    "from": "0xdeadc0dedeadc0dedeadc0dedeadc0dedeadc0de",
-    "to": "0x8badf00d8badf00d8badf00d8badf00d8badf00d",
-    "value": "3.1 AIT",
-    "status": "Pending"
-  }
-]
+{
+  "items": [
+    {
+      "hash": "0xabc1230000000000000000000000000000000000000000000000000000000001",
+      "block": 12045,
+      "from": "0xfeedfacefeedfacefeedfacefeedfacefeedface",
+      "to": "0xcafebabecafebabecafebabecafebabecafebabe",
+      "value": "12.5 AIT",
+      "status": "Succeeded"
+    },
+    {
+      "hash": "0xabc1230000000000000000000000000000000000000000000000000000000002",
+      "block": 12044,
+      "from": "0xdeadc0dedeadc0dedeadc0dedeadc0dedeadc0de",
+      "to": "0x8badf00d8badf00d8badf00d8badf00d8badf00d",
+      "value": "3.1 AIT",
+      "status": "Pending"
+    }
+  ]
+}

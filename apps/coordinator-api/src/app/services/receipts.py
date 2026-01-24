@@ -35,24 +35,60 @@ class ReceiptService:
     ) -> Dict[str, Any] | None:
         if self._signer is None:
             return None
+        metrics = result_metrics or {}
+        result_payload = job_result or {}
+        unit_type = _first_present([
+            metrics.get("unit_type"),
+            result_payload.get("unit_type"),
+        ], default="gpu_seconds")
+
+        units = _coerce_float(_first_present([
+            metrics.get("units"),
+            result_payload.get("units"),
+        ]))
+        if units is None:
+            duration_ms = _coerce_float(metrics.get("duration_ms"))
+            if duration_ms is not None:
+                units = duration_ms / 1000.0
+            else:
+                duration_seconds = _coerce_float(_first_present([
+                    metrics.get("duration_seconds"),
+                    metrics.get("compute_time"),
+                    result_payload.get("execution_time"),
+                    result_payload.get("duration"),
+                ]))
+                units = duration_seconds
+        if units is None:
+            units = 0.0
+
+        unit_price = _coerce_float(_first_present([
+            metrics.get("unit_price"),
+            result_payload.get("unit_price"),
+        ]))
+        if unit_price is None:
+            unit_price = 0.02
+
+        price = _coerce_float(_first_present([
+            metrics.get("price"),
+            result_payload.get("price"),
+            metrics.get("aitbc_earned"),
+            result_payload.get("aitbc_earned"),
+            metrics.get("cost"),
+            result_payload.get("cost"),
+        ]))
+        if price is None:
+            price = round(units * unit_price, 6)
         payload = {
             "version": "1.0",
             "receipt_id": token_hex(16),
             "job_id": job.id,
             "provider": miner_id,
             "client": job.client_id,
-            "units": _first_present([
-                (result_metrics or {}).get("units"),
-                (job_result or {}).get("units"),
-            ], default=0.0),
-            "unit_type": _first_present([
-                (result_metrics or {}).get("unit_type"),
-                (job_result or {}).get("unit_type"),
-            ], default="gpu_seconds"),
-            "price": _first_present([
-                (result_metrics or {}).get("price"),
-                (job_result or {}).get("price"),
-            ]),
+            "status": job.state.value,
+            "units": units,
+            "unit_type": unit_type,
+            "unit_price": unit_price,
+            "price": price,
             "started_at": int(job.requested_at.timestamp()) if job.requested_at else int(datetime.utcnow().timestamp()),
             "completed_at": int(datetime.utcnow().timestamp()),
             "metadata": {
@@ -105,3 +141,13 @@ def _first_present(values: list[Optional[Any]], default: Optional[Any] = None) -
         if value is not None:
             return value
     return default
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    """Coerce a value to float, returning None if not possible"""
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None

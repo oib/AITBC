@@ -8,7 +8,7 @@ export function renderBlocksPage(): string {
     <section class="blocks">
       <header class="section-header">
         <h2>Recent Blocks</h2>
-        <p class="lead">This view lists blocks pulled from the coordinator or blockchain node (mock data shown for now).</p>
+        <p class="lead">Live blockchain data from the AITBC coordinator API.</p>
       </header>
       <table class="table blocks__table">
         <thead>
@@ -42,7 +42,7 @@ export async function initBlocksPage(): Promise<void> {
   if (!blocks || blocks.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td class="placeholder" colspan="5">No mock blocks available.</td>
+        <td class="placeholder" colspan="5">No blocks available.</td>
       </tr>
     `;
     return;

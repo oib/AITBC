@@ -8,7 +8,7 @@ export function renderReceiptsPage(): string {
     <section class="receipts">
       <header class="section-header">
         <h2>Receipt History</h2>
-        <p class="lead">Mock receipts from the coordinator history are displayed below; live lookup will arrive with API wiring.</p>
+        <p class="lead">Live receipt data from the AITBC coordinator API.</p>
       </header>
       <div class="receipts__controls">
         <label class="receipts__label" for="job-id-input">Job ID</label>
@@ -54,7 +54,7 @@ export async function initReceiptsPage(): Promise<void> {
   if (!receipts || receipts.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td class="placeholder" colspan="6">No mock receipts available.</td>
+        <td class="placeholder" colspan="6">No receipts available.</td>
       </tr>
     `;
     return;
@@ -64,14 +64,18 @@ export async function initReceiptsPage(): Promise<void> {
 }
 
 function renderReceiptRow(receipt: ReceiptSummary): string {
+  // Get jobId from receipt or from payload
+  const jobId = receipt.jobId || receipt.payload?.job_id || "N/A";
+  const jobIdDisplay = jobId !== "N/A" ? jobId.slice(0, 16) + "…" : "N/A";
+  
   return `
     <tr>
-      <td><code>N/A</code></td>
-      <td><code>${receipt.receiptId}</code></td>
+      <td><code title="${jobId}">${jobIdDisplay}</code></td>
+      <td><code title="${receipt.receiptId}">${receipt.receiptId.slice(0, 16)}…</code></td>
       <td>${receipt.miner}</td>
       <td>${receipt.coordinator}</td>
       <td>${new Date(receipt.issuedAt).toLocaleString()}</td>
-      <td>${receipt.status}</td>
+      <td><span class="status-badge status-${receipt.status.toLowerCase()}">${receipt.status}</span></td>
     </tr>
   `;
 }

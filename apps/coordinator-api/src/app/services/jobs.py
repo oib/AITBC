@@ -101,7 +101,7 @@ class JobService:
         return None
 
     def _ensure_not_expired(self, job: Job) -> Job:
-        if job.state == JobState.queued and job.expires_at <= datetime.utcnow():
+        if job.state in {JobState.queued, JobState.running} and job.expires_at <= datetime.utcnow():
             job.state = JobState.expired
             job.error = "job expired"
             self.session.add(job)

@@ -6,11 +6,11 @@ export interface ExplorerConfig {
   apiBaseUrl: string;
 }
 
-export const CONFIG: ExplorerConfig = {
+export const config = {
   // Base URL for the coordinator API
-  apiBaseUrl: "https://aitbc.bubuit.net/api",
+  apiBaseUrl: import.meta.env.VITE_COORDINATOR_API ?? 'https://aitbc.bubuit.net/api',
   // Base path for mock data files (used by fetchMock)
-  mockBasePath: "/explorer/mock",
+  mockBasePath: '/explorer/mock',
   // Default data mode: "live" or "mock"
-  dataMode: "live" as "live" | "mock",
-};
+  dataMode: 'live', // Changed from 'mock' to 'live'
+} as const;

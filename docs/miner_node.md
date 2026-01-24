@@ -1,8 +1,34 @@
 # Miner Node – Task Breakdown
 
-## Status (2025-12-22)
+## Status (2026-01-24)
 
-- **Stage 1**: ✅ **IMPLEMENTED** - Core miner package (`apps/miner-node/src/aitbc_miner/`) provides registration, heartbeat, polling, and result submission flows with CLI/Python runners. Basic telemetry and tests exist; remaining tasks focus on allowlist hardening, artifact handling, and multi-slot scheduling.
+- **Stage 1**: ✅ **IMPLEMENTED** - Core miner package (`apps/miner-node/src/aitbc_miner/`) provides registration, heartbeat, polling, and result submission flows with CLI/Python runners. Basic telemetry and tests exist.
+- **Host GPU Miner**: ✅ **DEPLOYED** - Real GPU miner (`gpu_miner_host.py`) running on host with RTX 4060 Ti, Ollama integration, and systemd service. Successfully processes jobs and generates receipts with payment amounts.
+
+## Recent Updates (2026-01-24)
+
+### Host GPU Miner Deployment
+- ✅ Deployed real GPU miner on host with NVIDIA RTX 4060 Ti (16GB)
+- ✅ Integrated Ollama for LLM inference across 13+ models
+- ✅ Configured systemd service (`aitbc-host-gpu-miner.service`)
+- ✅ Fixed miner ID configuration (REDACTED_MINER_KEY)
+- ✅ Enhanced logging with flush handlers for systemd journal visibility
+- ✅ Verified end-to-end workflow: job polling → Ollama inference → result submission → receipt generation
+
+### Performance Metrics
+- Processing time: ~11-25 seconds per inference job
+- GPU utilization: 7-20% during processing
+- Token processing: 200+ tokens per job
+- Payment calculation: 11.846 gpu_seconds @ 0.02 AITBC = 0.23692 AITBC
+- Receipt signature: Ed25519 cryptographic signing
+
+### Integration Points
+- Coordinator API: http://127.0.0.1:18000 (via Incus proxy)
+- Miner ID: REDACTED_MINER_KEY
+- Heartbeat interval: 15 seconds
+- Job polling: 3-second intervals
+- Result submission: JSON with metrics and execution details
+
 
 ## Stage 1 (MVP) - COMPLETED
 

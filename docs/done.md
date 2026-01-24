@@ -69,6 +69,10 @@ This document tracks components that have been successfully deployed and are ope
   - RPC API on port 9080 (proxied via /rpc/)
   - Mock coordinator on port 8090 (proxied via /v1/)
   - Devnet scripts and observability hooks
+- ✅ **Host GPU Miner** - Running on host (RTX 4060 Ti)
+  - Real GPU inference via Ollama
+  - Connects to container coordinator through Incus proxy on `127.0.0.1:18000`
+  - Receives jobs, submits results, and completes successfully
 
 ## Infrastructure
 
@@ -111,7 +115,7 @@ This document tracks components that have been successfully deployed and are ope
 
 **Production Ready**: All core services deployed and operational
 - ✅ 9 container services running (including ZK Applications and Trade Exchange)
-- ✅ 1 host service running  
+- ✅ 2 host services running (blockchain node + GPU miner)
 - ✅ Complete nginx proxy configuration
 - ✅ SSL/HTTPS fully configured
 - ✅ DNS resolution working
@@ -125,3 +129,142 @@ This document tracks components that have been successfully deployed and are ope
 - Fix Blockchain Node SQLModel/SQLAlchemy compatibility issues (low priority)
 - Configure additional monitoring and observability
 - Set up automated backup procedures
+
+## Recent Updates (2026-01-21)
+
+### Service Maintenance and Fixes
+
+- ✅ **Container Service Recovery** - Fixed all failing AITBC services
+  - Resolved duplicate service conflicts (aitbc-coordinator-api, aitbc-exchange-frontend)
+  - Fixed marketplace service by creating proper server.py file
+  - Identified and disabled redundant services to prevent port conflicts
+  - All essential services now running correctly
+
+- ✅ **Service Status Summary**:
+  - aitbc-blockchain.service - Running ✅
+  - aitbc-exchange-api.service - Running ✅
+  - aitbc-exchange.service - Running ✅
+  - aitbc-marketplace.service - Running ✅ (Fixed)
+  - aitbc-miner-dashboard.service - Running ✅
+  - coordinator-api.service - Running ✅
+  - wallet-daemon.service - Running ✅
+
+- ✅ **SSH Access Configuration** - Set up passwordless SSH access
+  - Created dedicated SSH key for Cascade automation
+  - Configured SSH alias 'aitbc-cascade' for seamless access
+  - Enabled secure service management and monitoring
+
+### Skills Framework Implementation (2025-01-19)
+
+- ✅ **Deploy-Production Skill** - Created comprehensive deployment workflow skill
+  - Location: `.windsurf/skills/deploy-production/`
+  - Features: Pre-deployment checks, environment templates, rollback procedures
+  - Scripts: `pre-deploy-checks.sh`, `health-check.py`
+  use cases: Automated production deployments with safety checks
+
+- ✅ **Blockchain-Operations Skill** - Created blockchain operations management skill
+  - Location: `.windsurf/skills/blockchain-operations/`
+  - Features: Node health monitoring, transaction debugging, mining optimization
+  - Scripts: `node-health.sh`, `tx-tracer.py`, `mining-optimize.sh`, `sync-monitor.py`, `network-diag.py`
+  - Use cases: Node management, mining optimization, network diagnostics
+
+### Skills Benefits
+
+- Standardized workflows for complex operations
+- Automated safety checks and validation
+- Comprehensive documentation and error handling
+- Integration with Cascade for intelligent execution
+
+## Recent Updates (2026-01-23)
+
+- ✅ **Host GPU Miner (Real GPU)**
+  - Host miner runs on RTX 4060 Ti with Ollama inference.
+  - Uses Incus proxy on `127.0.0.1:18000` to reach the container coordinator.
+  - Result submission fixed and jobs complete successfully.
+- ✅ **Coordinator Systemd Alignment**
+  - `coordinator-api.service` enabled in container for startup on boot.
+  - Legacy `aitbc-coordinator-api.service` removed to avoid conflicts.
+- ✅ **Proxy Health Check (Host)**
+  - Added systemd timer `aitbc-coordinator-proxy-health.timer` to monitor proxy availability.
+
+## Recent Updates (2026-01-24)
+
+### Ollama GPU Inference End-to-End Testing
+- ✅ **Complete Workflow Verification**
+  - Job submission via CLI → Coordinator API → Miner polling → Ollama inference → Result submission → Receipt generation → Blockchain recording
+  - Successfully processed test job in 11.12 seconds with 218 tokens
+  - Receipt generated with proper payment amounts: 11.846 gpu_seconds @ 0.02 AITBC = 0.23692 AITBC
+  
+- ✅ **Bash CLI Wrapper Script**
+  - Created unified CLI tool at `/home/oib/windsurf/aitbc/scripts/aitbc-cli.sh`
+  - Commands: submit, status, browser, blocks, receipts, cancel, admin-miners, admin-jobs, admin-stats, health
+  - Environment variable overrides for URL and API keys
+  - Made executable and documented in localhost testing scenario
+
+- ✅ **Coordinator API Bug Fix**
+  - Fixed `NameError: name '_coerce_float' is not defined` in receipt service
+  - Added missing helper function to `/opt/coordinator-api/src/app/services/receipts.py`
+  - Deployed fix to incus container via SSH
+  - Result submission now returns 200 OK instead of 500 Internal Server Error
+
+- ✅ **Miner Configuration Fix**
+  - Updated miner ID from `host-gpu-miner` to `REDACTED_MINER_KEY` for proper job assignment
+  - Added explicit flush logging handler for better systemd journal visibility
+  - Enhanced systemd unit with unbuffered logging environment variables
+
+- ✅ **Blockchain-Operations Skill Enhancement**
+  - Updated skill with comprehensive Ollama testing scenarios
+  - Created detailed test documentation in `ollama-test-scenario.md`
+  - Added end-to-end test automation script template
+  - Documented common issues, troubleshooting, and performance metrics
+
+- ✅ **Documentation Updates**
+  - Updated `docs/localhost-testing-scenario.md` with CLI wrapper usage
+  - Converted all examples to use localhost URLs (127.0.0.1) instead of production
+  - Added host user paths and quick start commands
+  - Documented complete testing workflow from setup to verification
+
+### Explorer Live Data Integration
+- ✅ **Explorer API Integration**
+  - Switched explorer from mock data to live Coordinator API
+  - Fixed receipt display: jobId, miner, payment amounts now shown correctly
+  - Fixed address balances: calculated from actual job receipts
+  - Updated all page text to indicate "Live data from AITBC coordinator API"
+
+- ✅ **CLI Tool Enhancement**
+  - Added `admin-cancel-running` command to cancel all hanging jobs at once
+  - Useful for cleaning up stuck jobs from dev/test sessions
+
+### Repository Reorganization
+- ✅ **Root Level Cleanup** - Moved 60+ loose files to proper directories
+  - `scripts/deploy/` - 9 deployment scripts
+  - `scripts/gpu/` - 13 GPU miner files
+  - `scripts/test/` - 7 test/verify scripts
+  - `scripts/service/` - 7 service management scripts
+  - `systemd/` - 4 systemd service files
+  - `infra/nginx/` - 5 nginx config files
+  - `website/dashboards/` - 2 dashboard HTML files
+  - `docs/` - 8 documentation MD files
+
+- ✅ **Website/Docs Folder Structure**
+  - Moved HTML documentation to `/website/docs/`
+  - Created shared CSS: `/website/docs/css/docs.css` (1232 lines)
+  - Created theme toggle JS: `/website/docs/js/theme.js`
+  - Migrated all HTML files to use external CSS (reduced file sizes 45-66%)
+  - Cleaned `/docs/` folder to only contain mkdocs markdown files
+
+- ✅ **Dark Theme Fixes**
+  - Fixed background color consistency across all docs pages
+  - Added dark theme support to `full-documentation.html`
+  - Fixed Quick Start section cascade styling in docs-miners.html
+  - Fixed SDK Examples cascade indentation in docs-clients.html
+  - Updated API endpoint example to use Python/FastAPI (matches actual codebase)
+
+- ✅ **Path References Updated**
+  - Updated systemd service file with new `scripts/gpu/gpu_miner_host.py` path
+  - Updated skill documentation with new file locations
+  - Updated localhost-testing-scenario.md with correct paths
+
+- ✅ **Comprehensive .gitignore**
+  - Expanded from 39 to 145 lines with organized sections
+  - Added project-specific rules for coordinator, explorer, GPU miner

@@ -195,6 +195,7 @@ class ReceiptSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     receiptId: str
+    jobId: Optional[str] = None
     miner: str
     coordinator: str
     issuedAt: datetime

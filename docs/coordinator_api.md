@@ -1,6 +1,6 @@
 # Coordinator API – Task Breakdown
 
-## Status (2025-12-30)
+## Status (2026-01-24)
 
 - **Stage 1 delivery**: ✅ **DEPLOYED** - Coordinator API deployed in production behind https://aitbc.bubuit.net/api/
   - FastAPI service running in Incus container on port 8000
@@ -12,10 +12,16 @@
   - Fixed SQLModel import issues across the codebase
   - Resolved missing module dependencies
   - Database initialization working correctly with all tables created
+- **Recent Bug Fixes (2026-01-24)**:
+  - ✅ Fixed missing `_coerce_float()` helper function in receipt service causing 500 errors
+  - ✅ Receipt generation now works correctly for all job completions
+  - ✅ Deployed fix to production incus container via SSH
+  - ✅ Result submission endpoint returns 200 OK with valid receipts
 - **Testing & tooling**: Pytest suites cover job scheduling, miner flows, and receipt verification; the shared CI script `scripts/ci/run_python_tests.sh` executes these tests in GitHub Actions.
 - **Documentation**: `docs/run.md` and `apps/coordinator-api/README.md` describe configuration for `RECEIPT_SIGNING_KEY_HEX` and `RECEIPT_ATTESTATION_KEY_HEX` plus the receipt history API.
 - **Service APIs**: Implemented specific service endpoints for common GPU workloads (Whisper, Stable Diffusion, LLM inference, FFmpeg, Blender) with typed schemas and validation.
 - **Service Registry**: Created dynamic service registry framework supporting 30+ GPU services across 6 categories (AI/ML, Media Processing, Scientific Computing, Data Analytics, Gaming, Development Tools).
+
 
 ## Stage 1 (MVP) - COMPLETED
 

@@ -1,0 +1,23 @@
+[Unit]
+Description=AITBC Blockchain Node Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/aitbc/apps/node
+Environment=PATH=/root/aitbc/.venv/bin
+Environment=PYTHONPATH=/root/aitbc/apps/node
+Environment=RUST_LOG=info
+ExecStart=/root/aitbc/.venv/bin/python -m node.main --datadir /root/aitbc/data --rpc-bind 0.0.0.0:8545
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-node
+
+[Install]
+WantedBy=multi-user.target

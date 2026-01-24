@@ -32,6 +32,7 @@ class MinerService:
             miner.concurrency = payload.concurrency
             miner.region = payload.region
             miner.session_token = session_token
+        miner.inflight = 0
         miner.last_heartbeat = datetime.utcnow()
         miner.status = "ONLINE"
         self.session.commit()

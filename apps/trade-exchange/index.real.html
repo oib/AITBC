@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Trade Exchange - Buy & Sell AITBC</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body class="h-full bg-gray-50 dark:bg-gray-900">
+    <div class="min-h-full">
+        <!-- Navigation -->
+        <nav class="bg-white dark:bg-gray-800 shadow">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-xl font-bold text-gray-900 dark:text-white">AITBC Exchange</h1>
+                        </div>
+                        <div class="hidden sm:ml-8 sm:flex sm:space-x-8">
+                            <a href="#" class="border-primary-500 text-gray-900 dark:text-white inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Trade
+                            </a>
+                            <a href="#" class="border-transparent text-gray-500 dark:text-gray-300 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                Orders
+                            </a>
+                            <a href="#" class="border-transparent text-gray-500 dark:text-gray-300 hover:border-gray-300 hover:text-gray-700 dark:hover:text-gray-200 inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium">
+                                History
+                            </a>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <button onclick="toggleDarkMode()" class="p-2 rounded-md text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-200">
+                            <i data-lucide="moon" id="darkModeIcon" class="h-5 w-5"></i>
+                        </button>
+                        <div class="flex items-center space-x-2">
+                            <span class="text-sm text-gray-700 dark:text-gray-300">Balance:</span>
+                            <span class="text-sm font-medium text-gray-900 dark:text-white" id="userBalance">0 BTC | 0 AITBC</span>
+                        </div>
+                        <button class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-md text-sm font-medium">
+                            Connect Wallet
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Price Ticker -->
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">Current Price</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white" id="currentPrice">0.000010 BTC</p>
+                        <p class="text-sm text-green-600" id="priceChange">+5.2%</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">24h Volume</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white" id="volume24h">12,345 AITBC</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">≈ 0.12345 BTC</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">24h High / Low</p>
+                        <p class="text-2xl font-bold text-gray-900 dark:text-white" id="highLow">0.000011 / 0.000009</p>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">BTC</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trading Interface -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Order Book -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div class="p-4 border-b dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Order Book</h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2">
+                            <div class="grid grid-cols-3 text-xs font-medium text-gray-500 dark:text-gray-400 pb-2">
+                                <span>Price (BTC)</span>
+                                <span class="text-right">Amount (AITBC)</span>
+                                <span class="text-right">Total (BTC)</span>
+                            </div>
+                            <!-- Sell Orders -->
+                            <div id="sellOrders" class="space-y-1">
+                                <!-- Dynamically populated -->
+                            </div>
+                            <div class="border-t dark:border-gray-700 my-2"></div>
+                            <!-- Buy Orders -->
+                            <div id="buyOrders" class="space-y-1">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Trade Form -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div class="p-4 border-b dark:border-gray-700">
+                        <div class="flex space-x-4">
+                            <button onclick="setTradeType('BUY')" id="buyTab" class="flex-1 py-2 px-4 text-center font-medium text-white bg-green-600 rounded-md">
+                                Buy AITBC
+                            </button>
+                            <button onclick="setTradeType('SELL')" id="sellTab" class="flex-1 py-2 px-4 text-center font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md">
+                                Sell AITBC
+                            </button>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <form id="tradeForm" onsubmit="placeOrder(event)">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Price (BTC)</label>
+                                    <input type="number" id="orderPrice" step="0.000001" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500" value="0.000010">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount (AITBC)</label>
+                                    <input type="number" id="orderAmount" step="0.01" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-primary-500 focus:ring-primary-500" placeholder="0.00">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Total (BTC)</label>
+                                    <input type="number" id="orderTotal" step="0.000001" readonly class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white bg-gray-50 dark:bg-gray-600" placeholder="0.00">
+                                </div>
+                                <button type="submit" id="submitOrder" class="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md">
+                                    Place Buy Order
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Recent Trades -->
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <div class="p-4 border-b dark:border-gray-700">
+                        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Trades</h2>
+                    </div>
+                    <div class="p-4">
+                        <div class="space-y-2">
+                            <div class="grid grid-cols-3 text-xs font-medium text-gray-500 dark:text-gray-400 pb-2">
+                                <span>Price (BTC)</span>
+                                <span class="text-right">Amount</span>
+                                <span class="text-right">Time</span>
+                            </div>
+                            <div id="recentTrades" class="space-y-1">
+                                <!-- Dynamically populated -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE = window.location.origin + '/api';
+        const EXCHANGE_API_BASE = window.location.origin; // Use same domain with nginx routing
+        let tradeType = 'BUY';
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            
+            // Load initial data
+            loadRecentTrades();
+            loadOrderBook();
+            updatePriceTicker();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(() => {
+                loadRecentTrades();
+                loadOrderBook();
+                updatePriceTicker();
+            }, 5000);
+            
+            // Input handlers
+            document.getElementById('orderAmount').addEventListener('input', updateOrderTotal);
+            document.getElementById('orderPrice').addEventListener('input', updateOrderTotal);
+            
+            // Check for saved dark mode preference
+            if (localStorage.getItem('darkMode') === 'true' || 
+                (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                document.documentElement.classList.add('dark');
+                updateDarkModeIcon(true);
+            }
+        });
+        
+        // Dark mode toggle
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', isDark);
+            updateDarkModeIcon(isDark);
+        }
+        
+        function updateDarkModeIcon(isDark) {
+            const icon = document.getElementById('darkModeIcon');
+            if (isDark) {
+                icon.setAttribute('data-lucide', 'sun');
+            } else {
+                icon.setAttribute('data-lucide', 'moon');
+            }
+            lucide.createIcons();
+        }
+        
+        // Update price ticker with real data
+        async function updatePriceTicker() {
+            try {
+                // Get recent trades to calculate price statistics
+                const response = await fetch(`${EXCHANGE_API_BASE}/api/trades/recent?limit=100`);
+                if (!response.ok) return;
+                
+                const trades = await response.json();
+                
+                if (trades.length === 0) {
+                    console.log('No trades to calculate price from');
+                    return;
+                }
+                
+                // Calculate 24h volume (sum of all trades in last 24h)
+                const now = new Date();
+                const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+                
+                const recentTrades = trades.filter(trade => 
+                    new Date(trade.created_at) > yesterday
+                );
+                
+                const totalVolume = recentTrades.reduce((sum, trade) => sum + trade.amount, 0);
+                const totalBTC = recentTrades.reduce((sum, trade) => sum + trade.total, 0);
+                
+                // Calculate current price (price of last trade)
+                const currentPrice = trades[0].price;
+                
+                // Calculate 24h high/low
+                const prices = recentTrades.map(t => t.price);
+                const high24h = Math.max(...prices);
+                const low24h = Math.min(...prices);
+                
+                // Calculate price change (compare with price 24h ago)
+                const price24hAgo = trades[trades.length - 1]?.price || currentPrice;
+                const priceChange = ((currentPrice - price24hAgo) / price24hAgo) * 100;
+                
+                // Update UI
+                document.getElementById('currentPrice').textContent = `${currentPrice.toFixed(6)} BTC`;
+                document.getElementById('volume24h').textContent = `${totalVolume.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")} AITBC`;
+                document.getElementById('volume24h').nextElementSibling.textContent = `≈ ${totalBTC.toFixed(5)} BTC`;
+                document.getElementById('highLow').textContent = `${high24h.toFixed(6)} / ${low24h.toFixed(6)}`;
+                
+                // Update price change with color
+                const changeElement = document.getElementById('priceChange');
+                changeElement.textContent = `${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)}%`;
+                changeElement.className = `text-sm ${priceChange >= 0 ? 'text-green-600' : 'text-red-600'}`;
+                
+            } catch (error) {
+                console.error('Failed to update price ticker:', error);
+            }
+        }
+        
+        // Trade type
+        function setTradeType(type) {
+            tradeType = type;
+            const buyTab = document.getElementById('buyTab');
+            const sellTab = document.getElementById('sellTab');
+            const submitBtn = document.getElementById('submitOrder');
+            
+            if (type === 'BUY') {
+                buyTab.className = 'flex-1 py-2 px-4 text-center font-medium text-white bg-green-600 rounded-md';
+                sellTab.className = 'flex-1 py-2 px-4 text-center font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md';
+                submitBtn.className = 'w-full bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md';
+                submitBtn.textContent = 'Place Buy Order';
+            } else {
+                sellTab.className = 'flex-1 py-2 px-4 text-center font-medium text-white bg-red-600 rounded-md';
+                buyTab.className = 'flex-1 py-2 px-4 text-center font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-md';
+                submitBtn.className = 'w-full bg-red-600 hover:bg-red-700 text-white font-medium py-2 px-4 rounded-md';
+                submitBtn.textContent = 'Place Sell Order';
+            }
+        }
+        
+        // Order calculations
+        function updateOrderTotal() {
+            const price = parseFloat(document.getElementById('orderPrice').value) || 0;
+            const amount = parseFloat(document.getElementById('orderAmount').value) || 0;
+            const total = price * amount;
+            document.getElementById('orderTotal').value = total.toFixed(8);
+        }
+        
+        // Load recent trades
+        async function loadRecentTrades() {
+            try {
+                const response = await fetch(`${EXCHANGE_API_BASE}/api/trades/recent?limit=15`);
+                if (response.ok) {
+                    const trades = await response.json();
+                    displayRecentTrades(trades);
+                }
+            } catch (error) {
+                console.error('Failed to load recent trades:', error);
+            }
+        }
+        
+        function displayRecentTrades(trades) {
+            const container = document.getElementById('recentTrades');
+            container.innerHTML = '';
+            
+            trades.forEach(trade => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between text-sm';
+                
+                const time = new Date(trade.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                const priceClass = trade.id % 2 === 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
+                
+                div.innerHTML = `
+                    <span class="${priceClass}">${trade.price.toFixed(6)}</span>
+                    <span class="text-gray-600 dark:text-gray-400 text-right">${trade.amount.toFixed(2)}</span>
+                    <span class="text-gray-500 dark:text-gray-400 text-right">${time}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+        
+        // Load order book
+        async function loadOrderBook() {
+            try {
+                const response = await fetch(`${EXCHANGE_API_BASE}/api/orders/orderbook`);
+                if (response.ok) {
+                    const orderbook = await response.json();
+                    displayOrderBook(orderbook);
+                }
+            } catch (error) {
+                console.error('Failed to load order book:', error);
+            }
+        }
+        
+        function displayOrderBook(orderbook) {
+            const sellContainer = document.getElementById('sellOrders');
+            const buyContainer = document.getElementById('buyOrders');
+            
+            // Display sell orders (highest to lowest)
+            sellContainer.innerHTML = '';
+            orderbook.sells.slice(0, 8).reverse().forEach(order => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between text-sm';
+                div.innerHTML = `
+                    <span class="text-red-600 dark:text-red-400">${order.price.toFixed(6)}</span>
+                    <span class="text-gray-600 dark:text-gray-400 text-right">${order.remaining.toFixed(2)}</span>
+                    <span class="text-gray-500 dark:text-gray-400 text-right">${(order.remaining * order.price).toFixed(4)}</span>
+                `;
+                sellContainer.appendChild(div);
+            });
+            
+            // Display buy orders (highest to lowest)
+            buyContainer.innerHTML = '';
+            orderbook.buys.slice(0, 8).forEach(order => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between text-sm';
+                div.innerHTML = `
+                    <span class="text-green-600 dark:text-green-400">${order.price.toFixed(6)}</span>
+                    <span class="text-gray-600 dark:text-gray-400 text-right">${order.remaining.toFixed(2)}</span>
+                    <span class="text-gray-500 dark:text-gray-400 text-right">${(order.remaining * order.price).toFixed(4)}</span>
+                `;
+                buyContainer.appendChild(div);
+            });
+        }
+        
+        // Place order
+        async function placeOrder(event) {
+            event.preventDefault();
+            
+            const price = parseFloat(document.getElementById('orderPrice').value);
+            const amount = parseFloat(document.getElementById('orderAmount').value);
+            
+            if (!price || !amount) {
+                alert('Please enter valid price and amount');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${EXCHANGE_API_BASE}/api/orders`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        order_type: tradeType,
+                        price: price,
+                        amount: amount
+                    })
+                });
+                
+                if (response.ok) {
+                    const order = await response.json();
+                    alert(`${tradeType} order placed successfully! Order ID: ${order.id}`);
+                    
+                    // Clear form
+                    document.getElementById('orderAmount').value = '';
+                    document.getElementById('orderTotal').value = '';
+                    
+                    // Reload order book
+                    loadOrderBook();
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to place order: ${error.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to place order:', error);
+                alert('Failed to place order. Please try again.');
+            }
+        }
+    </script>
+</body>
+</html>

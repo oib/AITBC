@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobView, JobResult
+from ..types import JobState
 from ..services import JobService
 from ..storage import SessionDep
 

@@ -1,0 +1,22 @@
+[Unit]
+Description=AITBC GPU Miner Client
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/home/oib/windsurf/aitbc
+Environment=PYTHONPATH=/home/oib/windsurf/aitbc
+ExecStart=/usr/bin/python3 /home/oib/windsurf/aitbc/gpu_miner_with_wait.py
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-gpu-miner
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,21 @@
+[Unit]
+Description=AITBC Exchange API Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/aitbc/apps/trade-exchange
+Environment=PATH=/root/aitbc/.venv/bin
+ExecStart=/root/aitbc/.venv/bin/python simple_exchange_api.py
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-exchange-api
+
+[Install]
+WantedBy=multi-user.target

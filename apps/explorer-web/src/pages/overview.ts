@@ -9,7 +9,7 @@ export const overviewTitle = "Network Overview";
 export function renderOverviewPage(): string {
   return `
     <section class="overview">
-      <p class="lead">High-level summaries of recent blocks, transactions, and receipts will appear here.</p>
+      <p class="lead">Real-time AITBC network statistics and activity.</p>
       <div class="overview__grid">
         <article class="card">
           <h3>Latest Block</h3>
@@ -54,21 +54,22 @@ export async function initOverviewPage(): Promise<void> {
       `;
     } else {
       blockStats.innerHTML = `
-        <li class="placeholder">No blocks available. Try switching data mode.</li>
+        <li class="placeholder">No blocks available.</li>
       `;
     }
   }
   const txStats = document.querySelector<HTMLUListElement>("#overview-transaction-stats");
   if (txStats) {
     if (transactions && transactions.length > 0) {
-      const succeeded = transactions.filter((tx) => tx.status === "Succeeded");
+      const succeeded = transactions.filter((tx) => tx.status === "Succeeded" || tx.status === "Completed");
+      const running = transactions.filter((tx) => tx.status === "Running");
       txStats.innerHTML = `
-        <li><strong>Total Mock Tx:</strong> ${transactions.length}</li>
-        <li><strong>Succeeded:</strong> ${succeeded.length}</li>
-        <li><strong>Pending:</strong> ${transactions.length - succeeded.length}</li>
+        <li><strong>Total:</strong> ${transactions.length}</li>
+        <li><strong>Completed:</strong> ${succeeded.length}</li>
+        <li><strong>Running:</strong> ${running.length}</li>
       `;
     } else {
-      txStats.innerHTML = `<li class="placeholder">No transactions available. Try switching data mode.</li>`;
+      txStats.innerHTML = `<li class="placeholder">No transactions available.</li>`;
     }
   }
 

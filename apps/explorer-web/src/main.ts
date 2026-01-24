@@ -8,8 +8,6 @@ import { blocksTitle, renderBlocksPage, initBlocksPage } from "./pages/blocks";
 import { transactionsTitle, renderTransactionsPage, initTransactionsPage } from "./pages/transactions";
 import { addressesTitle, renderAddressesPage, initAddressesPage } from "./pages/addresses";
 import { receiptsTitle, renderReceiptsPage, initReceiptsPage } from "./pages/receipts";
-import { initDataModeToggle } from "./components/dataModeToggle";
-import { getDataMode } from "./lib/mockData";
 import { initNotifications } from "./components/notifications";
 
 type PageConfig = {
@@ -68,7 +66,6 @@ function render(): void {
     ${siteFooter()}
   `;
 
-  initDataModeToggle(render);
   void page?.init?.();
 }
 

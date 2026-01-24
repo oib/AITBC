@@ -41,13 +41,26 @@ export interface AddressListResponse {
 
 export interface ReceiptSummary {
   receiptId: string;
+  jobId?: string;
   miner: string;
   coordinator: string;
   issuedAt: string;
   status: string;
   payload?: {
+    job_id?: string;
+    provider?: string;
+    client?: string;
+    units?: number;
+    unit_type?: string;
+    unit_price?: number;
+    price?: number;
     minerSignature?: string;
     coordinatorSignature?: string;
+    signature?: {
+      alg?: string;
+      key_id?: string;
+      sig?: string;
+    };
   };
 }
 
