@@ -296,3 +296,50 @@ This document tracks components that have been successfully deployed and are ope
 - ✅ **Roadmap Updates**
   - Added Stage 19: Placeholder Content Development
   - Added Stage 20: Technical Debt Remediation (blockchain-node, solidity-token, ZKReceiptVerifier)
+
+### Stage 19: Placeholder Content Development (2026-01-24)
+
+- ✅ **Phase 1: Documentation** (17 files created)
+  - User Guides (`docs/user/guides/`): 8 files
+    - `getting-started.md`, `job-submission.md`, `payments-receipts.md`, `troubleshooting.md`
+  - Developer Tutorials (`docs/developer/tutorials/`): 5 files
+    - `building-custom-miner.md`, `coordinator-api-integration.md`
+    - `marketplace-extensions.md`, `zk-proofs.md`, `sdk-examples.md`
+  - Reference Specs (`docs/reference/specs/`): 4 files
+    - `api-reference.md` (OpenAPI 3.0), `protocol-messages.md`, `error-codes.md`
+
+- ✅ **Phase 2: Infrastructure** (8 files created)
+  - Terraform Environments (`infra/terraform/environments/`):
+    - `staging/main.tf`, `prod/main.tf`, `variables.tf`, `secrets.tf`, `backend.tf`
+  - Helm Chart Values (`infra/helm/values/`):
+    - `dev/values.yaml`, `staging/values.yaml`, `prod/values.yaml`
+
+- ✅ **Phase 3: Application Components** (13 files created)
+  - Pool Hub Service (`apps/pool-hub/src/app/`):
+    - `routers/`: miners.py, pools.py, jobs.py, health.py, __init__.py
+    - `registry/`: miner_registry.py, __init__.py
+    - `scoring/`: scoring_engine.py, __init__.py
+  - Coordinator Migrations (`apps/coordinator-api/migrations/`):
+    - `001_initial_schema.sql`, `002_indexes.sql`, `003_data_migration.py`, `README.md`
+
+### Stage 20: Technical Debt Remediation (2026-01-24)
+
+- ✅ **Blockchain Node SQLModel Fixes**
+  - Fixed `models.py`: Added `__tablename__`, proper `Relationship` definitions
+  - Fixed type hints: `List["Transaction"]` instead of `list["Transaction"]`
+  - Added `sa_relationship_kwargs={"lazy": "selectin"}` for efficient loading
+  - Updated tests: 2 passing, 1 skipped (SQLModel validator limitation documented)
+  - Created `docs/SCHEMA.md` with ERD and usage examples
+
+- ✅ **Solidity Token Audit**
+  - Reviewed `AIToken.sol` and `AITokenRegistry.sol`
+  - Added comprehensive tests: 17 tests passing
+    - AIToken: 8 tests (minting, replay, zero address, zero units, non-coordinator)
+    - AITokenRegistry: 9 tests (registration, updates, access control)
+  - Created `docs/DEPLOYMENT.md` with full deployment guide
+
+- ✅ **ZK Receipt Verifier Integration**
+  - Fixed `ZKReceiptVerifier.sol` to match `receipt_simple` circuit
+  - Updated `publicSignals` to `uint[1]` (1 public signal: receiptHash)
+  - Fixed authorization checks: `require(authorizedVerifiers[msg.sender])`
+  - Created `contracts/docs/ZK-VERIFICATION.md` with integration guide

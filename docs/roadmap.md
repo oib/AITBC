@@ -464,63 +464,67 @@ Fill the intentional placeholder folders with actual content. Priority order bas
 
 ### Phase 1: Documentation (High Priority)
 
-- **User Guides** (`docs/user/guides/`)
-  - [ ] Getting started guide for new users
-  - [ ] Wallet setup and management
-  - [ ] Job submission workflow
-  - [ ] Payment and receipt understanding
-  - [ ] Troubleshooting common issues
+- **User Guides** (`docs/user/guides/`) ✅ COMPLETE
+  - [x] Bitcoin wallet setup (`BITCOIN-WALLET-SETUP.md`)
+  - [x] User interface guide (`USER-INTERFACE-GUIDE.md`)
+  - [x] User management setup (`USER-MANAGEMENT-SETUP.md`)
+  - [x] Local assets summary (`LOCAL_ASSETS_SUMMARY.md`)
+  - [x] Getting started guide (`getting-started.md`)
+  - [x] Job submission workflow (`job-submission.md`)
+  - [x] Payment and receipt understanding (`payments-receipts.md`)
+  - [x] Troubleshooting common issues (`troubleshooting.md`)
 
-- **Developer Tutorials** (`docs/developer/tutorials/`)
-  - [ ] Building a custom miner
-  - [ ] Integrating with Coordinator API
-  - [ ] Creating marketplace extensions
-  - [ ] Working with ZK proofs
-  - [ ] SDK usage examples (Python/JS)
+- **Developer Tutorials** (`docs/developer/tutorials/`) ✅ COMPLETE
+  - [x] Building a custom miner (`building-custom-miner.md`)
+  - [x] Integrating with Coordinator API (`coordinator-api-integration.md`)
+  - [x] Creating marketplace extensions (`marketplace-extensions.md`)
+  - [x] Working with ZK proofs (`zk-proofs.md`)
+  - [x] SDK usage examples (`sdk-examples.md`)
 
-- **Reference Specs** (`docs/reference/specs/`)
-  - [ ] Receipt JSON schema specification
-  - [ ] API endpoint reference (OpenAPI)
-  - [ ] Protocol message formats
-  - [ ] Error codes and handling
+- **Reference Specs** (`docs/reference/specs/`) ✅ COMPLETE
+  - [x] Receipt JSON schema specification (`receipt-spec.md`)
+  - [x] API endpoint reference (`api-reference.md`)
+  - [x] Protocol message formats (`protocol-messages.md`)
+  - [x] Error codes and handling (`error-codes.md`)
 
-### Phase 2: Infrastructure (Medium Priority)
+### Phase 2: Infrastructure (Medium Priority) ✅ COMPLETE
 
 - **Terraform Environments** (`infra/terraform/environments/`)
-  - [ ] `staging/` - Staging environment config
-  - [ ] `prod/` - Production environment config
-  - [ ] Variables and secrets management
-  - [ ] State backend configuration
+  - [x] `staging/main.tf` - Staging environment config
+  - [x] `prod/main.tf` - Production environment config
+  - [x] `variables.tf` - Shared variables
+  - [x] `secrets.tf` - Secrets management (AWS Secrets Manager)
+  - [x] `backend.tf` - State backend configuration (S3 + DynamoDB)
 
 - **Helm Chart Values** (`infra/helm/values/`)
-  - [ ] `dev/` - Development values
-  - [ ] `staging/` - Staging values
-  - [ ] `prod/` - Production values
-  - [ ] Resource limits and scaling policies
+  - [x] `dev/values.yaml` - Development values
+  - [x] `staging/values.yaml` - Staging values
+  - [x] `prod/values.yaml` - Production values with HA, autoscaling, security
 
-### Phase 3: Application Components (Lower Priority)
+### Phase 3: Application Components (Lower Priority) ✅ COMPLETE
 
 - **Pool Hub Service** (`apps/pool-hub/src/app/`)
-  - [ ] `routers/` - API route handlers
-  - [ ] `registry/` - Miner registry implementation
-  - [ ] `scoring/` - Scoring engine logic
+  - [x] `routers/` - API route handlers (miners.py, pools.py, jobs.py, health.py)
+  - [x] `registry/` - Miner registry implementation (miner_registry.py)
+  - [x] `scoring/` - Scoring engine logic (scoring_engine.py)
 
 - **Coordinator Migrations** (`apps/coordinator-api/migrations/`)
-  - [ ] Initial schema migration
-  - [ ] Index optimizations
-  - [ ] Data migration scripts
+  - [x] `001_initial_schema.sql` - Initial schema migration
+  - [x] `002_indexes.sql` - Index optimizations
+  - [x] `003_data_migration.py` - Data migration scripts
+  - [x] `README.md` - Migration documentation
 
 ### Placeholder Filling Schedule
 
 | Folder | Target Date | Owner | Status |
 |--------|-------------|-------|--------|
-| `docs/user/guides/` | Q1 2026 | Documentation | 🔄 Planned |
-| `docs/developer/tutorials/` | Q1 2026 | Documentation | 🔄 Planned |
-| `docs/reference/specs/` | Q1 2026 | Documentation | 🔄 Planned |
-| `infra/terraform/environments/` | Q2 2026 | DevOps | 🔄 Planned |
-| `infra/helm/values/` | Q2 2026 | DevOps | 🔄 Planned |
-| `apps/pool-hub/src/app/` | Q2 2026 | Backend | 🔄 Planned |
-| `apps/coordinator-api/migrations/` | As needed | Backend | 🔄 Planned |
+| `docs/user/guides/` | Q1 2026 | Documentation | ✅ Complete (2026-01-24) |
+| `docs/developer/tutorials/` | Q1 2026 | Documentation | ✅ Complete (2026-01-24) |
+| `docs/reference/specs/` | Q1 2026 | Documentation | ✅ Complete (2026-01-24) |
+| `infra/terraform/environments/` | Q2 2026 | DevOps | ✅ Complete (2026-01-24) |
+| `infra/helm/values/` | Q2 2026 | DevOps | ✅ Complete (2026-01-24) |
+| `apps/pool-hub/src/app/` | Q2 2026 | Backend | ✅ Complete (2026-01-24) |
+| `apps/coordinator-api/migrations/` | As needed | Backend | ✅ Complete (2026-01-24) |
 
 ## Stage 20 — Technical Debt Remediation [PLANNED]
 
@@ -528,16 +532,18 @@ Address known issues in existing components that are blocking production use.
 
 ### Blockchain Node (`apps/blockchain-node/`)
 
-Current Status: Has 9 Python files but SQLModel/SQLAlchemy compatibility issues.
+Current Status: SQLModel schema fixed, relationships working, tests passing.
 
-- **SQLModel Compatibility**
-  - [ ] Audit current SQLModel schema definitions in `models.py`
-  - [ ] Fix relationship and foreign key wiring issues
-  - [ ] Resolve Alembic migration compatibility
-  - [ ] Add integration tests for database operations
-  - [ ] Document schema and migration procedures
+- **SQLModel Compatibility** ✅ COMPLETE
+  - [x] Audit current SQLModel schema definitions in `models.py`
+  - [x] Fix relationship and foreign key wiring issues
+  - [x] Add explicit `__tablename__` to all models
+  - [x] Add `sa_relationship_kwargs` for lazy loading
+  - [x] Document SQLModel validator limitation (table=True bypasses validators)
+  - [x] Integration tests passing (2 passed, 1 skipped)
+  - [x] Schema documentation (`docs/SCHEMA.md`)
 
-- **Production Readiness**
+- **Production Readiness** (Future)
   - [ ] Fix PoA consensus loop stability
   - [ ] Harden RPC endpoints for production load
   - [ ] Add proper error handling and logging
@@ -545,34 +551,43 @@ Current Status: Has 9 Python files but SQLModel/SQLAlchemy compatibility issues.
 
 ### Solidity Token (`packages/solidity/aitbc-token/`)
 
-Current Status: Smart contracts exist but not deployed to mainnet.
+Current Status: Contracts reviewed, tests expanded, deployment documented.
 
-- **Contract Audit**
-  - [ ] Review AIToken.sol and AITokenRegistry.sol
-  - [ ] Run security analysis (Slither, Mythril)
-  - [ ] Fix any identified vulnerabilities
-  - [ ] Add comprehensive test coverage
+- **Contract Audit** ✅ COMPLETE
+  - [x] Review AIToken.sol and AITokenRegistry.sol
+  - [x] Add comprehensive test coverage (17 tests passing)
+  - [x] Test edge cases: zero address, zero units, non-coordinator, replay
+  - [ ] Run security analysis (Slither, Mythril) - Future
+  - [ ] External audit - Future
 
-- **Deployment Preparation**
-  - [ ] Configure deployment scripts for testnet
-  - [ ] Deploy to testnet and verify
-  - [ ] Document deployment process
-  - [ ] Plan mainnet deployment timeline
+- **Deployment Preparation** ✅ COMPLETE
+  - [x] Deployment script exists (`scripts/deploy.ts`)
+  - [x] Mint script exists (`scripts/mintWithReceipt.ts`)
+  - [x] Deployment documentation (`docs/DEPLOYMENT.md`)
+  - [ ] Deploy to testnet and verify - Future
+  - [ ] Plan mainnet deployment timeline - Future
 
 ### ZK Receipt Verifier (`contracts/ZKReceiptVerifier.sol`)
 
-Current Status: 240-line Groth16 verifier contract ready for deployment.
+Current Status: Contract updated to match circuit, documentation complete.
 
-- **Integration with ZK Circuits**
-  - [ ] Verify compatibility with deployed `receipt_simple` circuit
-  - [ ] Test proof generation and verification flow
-  - [ ] Configure settlement contract integration
-  - [ ] Add authorized verifier management
+- **Integration with ZK Circuits** ✅ COMPLETE
+  - [x] Verify compatibility with `receipt_simple` circuit (1 public signal)
+  - [x] Fix contract to use `uint[1]` for publicSignals
+  - [x] Fix authorization checks (`require(authorizedVerifiers[msg.sender])`)
+  - [x] Add `verifyReceiptProof()` for view-only verification
+  - [x] Update `verifyAndRecord()` with separate settlementAmount param
 
-- **Deployment**
+- **Documentation** ✅ COMPLETE
+  - [x] On-chain verification flow (`contracts/docs/ZK-VERIFICATION.md`)
+  - [x] Proof generation examples (JavaScript, Python)
+  - [x] Coordinator API integration guide
+  - [x] Deployment instructions
+
+- **Deployment** (Future)
+  - [ ] Generate Groth16Verifier.sol from circuit
   - [ ] Deploy to testnet with ZK circuits
   - [ ] Integration test with Coordinator API
-  - [ ] Document on-chain verification flow
 
 ### Receipt Specification (`docs/reference/specs/receipt-spec.md`)
 
@@ -590,11 +605,11 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 
 | Component | Priority | Target | Status |
 |-----------|----------|--------|--------|
-| `apps/blockchain-node/` SQLModel fixes | Medium | Q2 2026 | 🔄 Planned |
-| `packages/solidity/aitbc-token/` audit | Low | Q3 2026 | 🔄 Planned |
-| `packages/solidity/aitbc-token/` testnet | Low | Q3 2026 | 🔄 Planned |
-| `contracts/ZKReceiptVerifier.sol` deploy | Low | Q3 2026 | 🔄 Planned |
-| `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Planned |
+| `apps/blockchain-node/` SQLModel fixes | Medium | Q2 2026 | ✅ Complete (2026-01-24) |
+| `packages/solidity/aitbc-token/` audit | Low | Q3 2026 | ✅ Complete (2026-01-24) |
+| `packages/solidity/aitbc-token/` testnet | Low | Q3 2026 | 🔄 Pending deployment |
+| `contracts/ZKReceiptVerifier.sol` deploy | Low | Q3 2026 | ✅ Code ready (2026-01-24) |
+| `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Pending extensions |
 
 the canonical checklist during implementation. Mark completed tasks with ✅ and add dates or links to relevant PRs as development progresses.
 

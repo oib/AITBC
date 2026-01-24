@@ -1,0 +1,147 @@
+# Development environment Helm values
+
+global:
+  environment: dev
+  domain: dev.aitbc.local
+  imageTag: latest
+  imagePullPolicy: Always
+
+# Coordinator API
+coordinator:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aitbc/coordinator-api
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    LOG_LEVEL: debug
+    DATABASE_URL: postgresql://aitbc:dev@postgres:5432/coordinator
+  autoscaling:
+    enabled: false
+
+# Explorer Web
+explorer:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aitbc/explorer-web
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 3000
+
+# Marketplace Web
+marketplace:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aitbc/marketplace-web
+    tag: latest
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 3001
+
+# Wallet Daemon
+wallet:
+  enabled: true
+  replicas: 1
+  image:
+    repository: aitbc/wallet-daemon
+    tag: latest
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8002
+
+# PostgreSQL (dev uses in-cluster)
+postgresql:
+  enabled: true
+  auth:
+    username: aitbc
+    password: dev
+    database: coordinator
+  primary:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    persistence:
+      size: 5Gi
+
+# Redis (for caching)
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  hosts:
+    - host: dev.aitbc.local
+      paths:
+        - path: /api
+          service: coordinator
+          port: 8001
+        - path: /explorer
+          service: explorer
+          port: 3000
+        - path: /marketplace
+          service: marketplace
+          port: 3001
+        - path: /wallet
+          service: wallet
+          port: 8002
+
+# Monitoring (disabled in dev)
+monitoring:
+  enabled: false
+
+# Logging
+logging:
+  enabled: true
+  level: debug
