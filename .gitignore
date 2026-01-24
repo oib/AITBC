@@ -133,6 +133,11 @@ apps/coordinator-api/src/*.db
 # Explorer build artifacts
 apps/explorer-web/dist/
 
+# Solidity build artifacts
+packages/solidity/aitbc-token/typechain-types/
+packages/solidity/aitbc-token/artifacts/
+packages/solidity/aitbc-token/cache/
+
 # Local test data
 tests/fixtures/generated/
 
