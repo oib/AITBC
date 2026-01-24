@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Trade Exchange - Buy & Sell AITBC</title>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 0; background: #f9fafb; color: #111827; }
+.container { max-width: 1280px; margin: 0 auto; padding: 0 1rem; }
+nav { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.nav-content { display: flex; justify-content: space-between; align-items: center; height: 4rem; }
+.logo { font-size: 1.25rem; font-weight: 700; }
+.card { background: white; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 1.5rem; margin-bottom: 1.5rem; }
+.grid { display: grid; gap: 1.5rem; }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 1024px) { .grid-cols-3 { grid-template-columns: 1fr; } }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; font-weight: 700; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-gray-600 { color: #6b7280; }
+.text-gray-900 { color: #111827; }
+.flex { display: flex; }
+.justify-between { justify-content: space-between; }
+.items-center { align-items: center; }
+.gap-4 > * + * { margin-left: 1rem; }
+button { padding: 0.5rem 1rem; border-radius: 0.375rem; font-weight: 500; cursor: pointer; border: none; }
+.bg-green-600 { background: #059669; color: white; }
+.bg-green-600:hover { background: #047857; }
+.bg-red-600 { background: #dc2626; color: white; }
+.bg-red-600:hover { background: #b91c1c; }
+input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 0.375rem; }
+input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+.space-y-2 > * + * { margin-top: 0.5rem; }
+.text-right { text-align: right; }
+.text-green-600 { color: #059669; }
+.text-red-600 { color: #dc2626; }
+.py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="nav-content">
+                <div class="logo">AITBC Exchange</div>
+                <div class="flex gap-4">
+                    <button onclick="toggleDarkMode()">🌙</button>
+                    <span id="walletBalance">Balance: Not Connected</span>
+                    <button id="connectWalletBtn" onclick="connectWallet()">Connect Wallet</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container py-8">
+        <div class="card">
+            <div class="grid grid-cols-3">
+                <div>
+                    <p class="text-sm text-gray-600">Current Price</p>
+                    <p class="text-2xl text-gray-900" id="currentPrice">Loading...</p>
+                    <p class="text-sm text-green-600" id="priceChange">--</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">24h Volume</p>
+                    <p class="text-2xl text-gray-900" id="volume24h">Loading...</p>
+                    <p class="text-sm text-gray-600">-- BTC</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-600">24h High / Low</p>
+                    <p class="text-2xl text-gray-900" id="highLow">Loading...</p>
+                    <p class="text-sm text-gray-600">BTC</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-3">
+            <div class="card">
+                <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">Order Book</h2>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm" style="font-weight: 500; color: #6b7280; padding-bottom: 0.5rem;">
+                        <span>Price (BTC)</span>
+                        <span style="text-align: right;">Amount</span>
+                        <span style="text-align: right;">Total</span>
+                    </div>
+                    <div id="sellOrders"></div>
+                    <div id="buyOrders"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display: flex; margin-bottom: 1rem;">
+                    <button id="buyTab" onclick="setTradeType('BUY')" style="flex: 1; margin-right: 0.5rem;" class="bg-green-600">Buy AITBC</button>
+                    <button id="sellTab" onclick="setTradeType('SELL')" style="flex: 1;" class="bg-red-600">Sell AITBC</button>
+                </div>
+                <form onsubmit="placeOrder(event)">
+                    <div class="space-y-2">
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Price (BTC)</label>
+                            <input type="number" id="orderPrice" step="0.000001" value="0.000010">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Amount (AITBC)</label>
+                            <input type="number" id="orderAmount" step="0.01" placeholder="0.00">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.5rem;">Total (BTC)</label>
+                            <input type="number" id="orderTotal" step="0.000001" readonly style="background: #f3f4f6;">
+                        </div>
+                        <button type="submit" id="submitOrder" class="bg-green-600" style="width: 100%;">Place Buy Order</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 style="font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem;">Recent Trades</h2>
+                <div class="space-y-2">
+                    <div class="flex justify-between text-sm" style="font-weight: 500; color: #6b7280; padding-bottom: 0.5rem;">
+                        <span>Price (BTC)</span>
+                        <span style="text-align: right;">Amount</span>
+                        <span style="text-align: right;">Time</span>
+                    </div>
+                    <div id="recentTrades"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const API_BASE = window.location.origin;
+        let tradeType = 'BUY';
+        let walletConnected = false;
+        let walletAddress = null;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            loadRecentTrades();
+            loadOrderBook();
+            updatePriceTicker();
+            
+            setInterval(() => {
+                loadRecentTrades();
+                loadOrderBook();
+                updatePriceTicker();
+            }, 5000);
+            
+            document.getElementById('orderAmount').addEventListener('input', updateOrderTotal);
+            document.getElementById('orderPrice').addEventListener('input', updateOrderTotal);
+            
+            // Check if wallet is already connected
+            checkWalletConnection();
+        });
+        
+        // Wallet connection functions
+        async function connectWallet() {
+            try {
+                // Check if MetaMask or other Web3 wallet is installed
+                if (typeof window.ethereum !== 'undefined') {
+                    // Request account access
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    if (accounts.length > 0) {
+                        walletAddress = accounts[0];
+                        walletConnected = true;
+                        updateWalletUI();
+                        await loadWalletBalance();
+                    }
+                } else if (typeof window.bitcoin !== 'undefined') {
+                    // Bitcoin wallet support (e.g., Unisat, Xverse)
+                    const accounts = await window.bitcoin.requestAccounts();
+                    if (accounts.length > 0) {
+                        walletAddress = accounts[0];
+                        walletConnected = true;
+                        updateWalletUI();
+                        await loadWalletBalance();
+                    }
+                } else {
+                    // Fallback to our AITBC wallet
+                    await connectAITBCWallet();
+                }
+            } catch (error) {
+                console.error('Wallet connection failed:', error);
+                alert('Failed to connect wallet. Please ensure you have a compatible wallet installed.');
+            }
+        }
+        
+        async function connectAITBCWallet() {
+            try {
+                // Connect to AITBC wallet daemon
+                const response = await fetch(`${API_BASE}/api/wallet/connect`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    walletAddress = data.address;
+                    walletConnected = true;
+                    updateWalletUI();
+                    await loadWalletBalance();
+                } else {
+                    throw new Error('Wallet connection failed');
+                }
+            } catch (error) {
+                console.error('AITBC wallet connection failed:', error);
+                alert('Could not connect to AITBC wallet. Please ensure the wallet daemon is running.');
+            }
+        }
+        
+        function updateWalletUI() {
+            const connectBtn = document.getElementById('connectWalletBtn');
+            const balanceSpan = document.getElementById('walletBalance');
+            
+            if (walletConnected) {
+                connectBtn.textContent = 'Disconnect';
+                connectBtn.onclick = disconnectWallet;
+                balanceSpan.textContent = `Address: ${walletAddress.substring(0, 6)}...${walletAddress.substring(walletAddress.length - 4)}`;
+            } else {
+                connectBtn.textContent = 'Connect Wallet';
+                connectBtn.onclick = connectWallet;
+                balanceSpan.textContent = 'Balance: Not Connected';
+            }
+        }
+        
+        async function disconnectWallet() {
+            walletConnected = false;
+            walletAddress = null;
+            updateWalletUI();
+        }
+        
+        async function loadWalletBalance() {
+            if (!walletConnected || !walletAddress) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/wallet/balance?address=${walletAddress}`);
+                if (response.ok) {
+                    const balance = await response.json();
+                    document.getElementById('walletBalance').textContent = 
+                        `BTC: ${balance.btc || '0.00000000'} | AITBC: ${balance.aitbc || '0.00'}`;
+                }
+            } catch (error) {
+                console.error('Failed to load wallet balance:', error);
+            }
+        }
+        
+        function checkWalletConnection() {
+            // Check if there's a stored wallet connection
+            const stored = localStorage.getItem('aitbc_wallet');
+            if (stored) {
+                try {
+                    const data = JSON.parse(stored);
+                    walletAddress = data.address;
+                    walletConnected = true;
+                    updateWalletUI();
+                    loadWalletBalance();
+                } catch (e) {
+                    localStorage.removeItem('aitbc_wallet');
+                }
+            }
+        }
+        
+        function setTradeType(type) {
+            tradeType = type;
+            const buyTab = document.getElementById('buyTab');
+            const sellTab = document.getElementById('sellTab');
+            const submitBtn = document.getElementById('submitOrder');
+            
+            if (type === 'BUY') {
+                buyTab.className = 'bg-green-600';
+                sellTab.className = 'bg-red-600';
+                submitBtn.className = 'bg-green-600';
+                submitBtn.textContent = 'Place Buy Order';
+            } else {
+                sellTab.className = 'bg-red-600';
+                buyTab.className = 'bg-green-600';
+                submitBtn.className = 'bg-red-600';
+                submitBtn.textContent = 'Place Sell Order';
+            }
+        }
+        
+        function updateOrderTotal() {
+            const price = parseFloat(document.getElementById('orderPrice').value) || 0;
+            const amount = parseFloat(document.getElementById('orderAmount').value) || 0;
+            document.getElementById('orderTotal').value = (price * amount).toFixed(8);
+        }
+        
+        async function loadRecentTrades() {
+            try {
+                const response = await fetch(`${API_BASE}/api/trades/recent?limit=15`);
+                if (response.ok) {
+                    const trades = await response.json();
+                    const container = document.getElementById('recentTrades');
+                    container.innerHTML = '';
+                    
+                    trades.forEach(trade => {
+                        const div = document.createElement('div');
+                        div.className = 'flex justify-between text-sm';
+                        const time = new Date(trade.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        const priceClass = trade.id % 2 === 0 ? 'text-green-600' : 'text-red-600';
+                        
+                        div.innerHTML = `
+                            <span class="${priceClass}">${trade.price.toFixed(6)}</span>
+                            <span style="color: #6b7280; text-align: right;">${trade.amount.toFixed(2)}</span>
+                            <span style="color: #9ca3af; text-align: right;">${time}</span>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load recent trades:', error);
+            }
+        }
+        
+        async function loadOrderBook() {
+            try {
+                const response = await fetch(`${API_BASE}/api/orders/orderbook`);
+                if (response.ok) {
+                    const orderbook = await response.json();
+                    displayOrderBook(orderbook);
+                }
+            } catch (error) {
+                console.error('Failed to load order book:', error);
+            }
+        }
+        
+        function displayOrderBook(orderbook) {
+            const sellContainer = document.getElementById('sellOrders');
+            const buyContainer = document.getElementById('buyOrders');
+            
+            sellContainer.innerHTML = '';
+            buyContainer.innerHTML = '';
+            
+            orderbook.sells.slice(0, 8).reverse().forEach(order => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between text-sm';
+                div.innerHTML = `
+                    <span class="text-red-600">${order.price.toFixed(6)}</span>
+                    <span style="color: #6b7280; text-align: right;">${order.remaining.toFixed(2)}</span>
+                    <span style="color: #9ca3af; text-align: right;">${(order.remaining * order.price).toFixed(4)}</span>
+                `;
+                sellContainer.appendChild(div);
+            });
+            
+            orderbook.buys.slice(0, 8).forEach(order => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between text-sm';
+                div.innerHTML = `
+                    <span class="text-green-600">${order.price.toFixed(6)}</span>
+                    <span style="color: #6b7280; text-align: right;">${order.remaining.toFixed(2)}</span>
+                    <span style="color: #9ca3af; text-align: right;">${(order.remaining * order.price).toFixed(4)}</span>
+                `;
+                buyContainer.appendChild(div);
+            });
+        }
+        
+        async function updatePriceTicker() {
+            try {
+                const response = await fetch(`${API_BASE}/api/trades/recent?limit=100`);
+                if (!response.ok) return;
+                
+                const trades = await response.json();
+                if (trades.length === 0) return;
+                
+                const currentPrice = trades[0].price;
+                const prices = trades.map(t => t.price);
+                const high24h = Math.max(...prices);
+                const low24h = Math.min(...prices);
+                const priceChange = prices.length > 1 ? ((currentPrice - prices[prices.length - 1]) / prices[prices.length - 1]) * 100 : 0;
+                
+                // Calculate 24h volume
+                const volume24h = trades.reduce((sum, trade) => sum + trade.amount, 0);
+                const volumeBTC = trades.reduce((sum, trade) => sum + (trade.amount * trade.price), 0);
+                
+                document.getElementById('currentPrice').textContent = `${currentPrice.toFixed(6)} BTC`;
+                document.getElementById('highLow').textContent = `${high24h.toFixed(6)} / ${low24h.toFixed(6)}`;
+                document.getElementById('volume24h').textContent = `${volume24h.toFixed(0)} AITBC`;
+                document.getElementById('volume24h').nextElementSibling.textContent = `≈ ${volumeBTC.toFixed(5)} BTC`;
+                
+                const changeElement = document.getElementById('priceChange');
+                changeElement.textContent = `${priceChange >= 0 ? '+' : ''}${priceChange.toFixed(2)}%`;
+                changeElement.style.color = priceChange >= 0 ? '#059669' : '#dc2626';
+            } catch (error) {
+                console.error('Failed to update price ticker:', error);
+            }
+        }
+        
+        async function placeOrder(event) {
+            event.preventDefault();
+            
+            if (!walletConnected) {
+                alert('Please connect your wallet first!');
+                return;
+            }
+            
+            const price = parseFloat(document.getElementById('orderPrice').value);
+            const amount = parseFloat(document.getElementById('orderAmount').value);
+            
+            if (!price || !amount) {
+                alert('Please enter valid price and amount');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        order_type: tradeType,
+                        price: price,
+                        amount: amount,
+                        user_address: walletAddress
+                    })
+                });
+                
+                if (response.ok) {
+                    const order = await response.json();
+                    alert(`${tradeType} order placed successfully! Order ID: ${order.id}`);
+                    
+                    document.getElementById('orderAmount').value = '';
+                    document.getElementById('orderTotal').value = '';
+                    
+                    loadOrderBook();
+                    loadWalletBalance(); // Refresh balance after order
+                } else {
+                    const error = await response.json();
+                    alert(`Failed to place order: ${error.detail || 'Unknown error'}`);
+                }
+            } catch (error) {
+                console.error('Failed to place order:', error);
+                alert('Failed to place order. Please try again.');
+            }
+        }
+        
+        function toggleDarkMode() {
+            document.body.style.background = document.body.style.background === 'rgb(17, 24, 39)' ? '#f9fafb' : '#111827';
+            document.body.style.color = document.body.style.color === 'rgb(249, 250, 251)' ? '#111827' : '#f9fafb';
+        }
+    </script>
+</body>
+</html>

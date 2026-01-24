@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Developer Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/docs.css">
+    </head>
+<body>
+    <!-- Header -->
+    <header class="text-white shadow-lg" style="background: var(--bg-white); position: fixed; width: 100%; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 0;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fas fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
+                    <h1 style="font-size: 1.5rem; font-weight: bold; margin: 0; color: var(--text-dark);">AITBC</h1>
+                </div>
+                <nav style="display: flex; align-items: center; gap: 1.5rem;">
+                    <a href="/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Home</a>
+                    <a href="/explorer/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Explorer</a>
+                    <a href="/Exchange/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Exchange</a>
+                    <a href="/docs/index.html" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Documentation</a>
+                    <button id="themeToggle" class="theme-toggle" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 1rem;">🌞</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <div class="doc-header">
+                <span class="audience-badge">For Developers</span>
+                <h1>Build on AITBC</h1>
+                <p>Join our developer community and help build the future of decentralized AI</p>
+            </div>
+
+            <!-- Tech Stack -->
+            <section class="content-section">
+                <h2>Technology Stack</h2>
+                <p>AITBC is built with modern technologies focused on performance and security.</p>
+                
+                <div class="tech-grid">
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fab fa-rust"></i>
+                        </div>
+                        <div>Rust</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fab fa-golang"></i>
+                        </div>
+                        <div>Go</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fab fa-python"></i>
+                        </div>
+                        <div>Python</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fab fa-js"></i>
+                        </div>
+                        <div>TypeScript</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fab fa-react"></i>
+                        </div>
+                        <div>React</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fas fa-database"></i>
+                        </div>
+                        <div>PostgreSQL</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fas fa-cube"></i>
+                        </div>
+                        <div>Docker</div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fas fa-project-diagram"></i>
+                        </div>
+                        <div>Kubernetes</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>Ready to contribute? Here's how to get started with AITBC development.</p>
+                
+                <h3>Development Environment Setup</h3>
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Fork & Clone</h4>
+                        <div class="code-block">
+# Fork the repository on Gitea
+git clone https://gitea.bubuit.net/YOUR_USERNAME/aitbc.git
+cd aitbc
+
+# Add upstream remote
+git remote add upstream https://gitea.bubuit.net/oib/aitbc.git</div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Install Dependencies</h4>
+                        <div class="code-block">
+# Install development dependencies
+./scripts/install-dev-deps.sh
+
+# Setup pre-commit hooks
+pre-commit install</div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Build & Run</h4>
+                        <div class="code-block">
+# Build all components
+make build
+
+# Start development environment
+make dev-up
+
+# Run tests
+make test</div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">4</div>
+                    <div class="step-content">
+                        <h4>Create Your Branch</h4>
+                        <div class="code-block">
+# Create feature branch
+git checkout -b feature/your-feature-name
+
+# Make your changes...
+# Commit with proper message
+git commit -m "feat: add your feature description"</div>
+                    </div>
+                </div>
+
+                <div class="step">
+                    <div class="step-number">5</div>
+                    <div class="step-content">
+                        <h4>Submit PR</h4>
+                        <div class="code-block">
+# Push to your fork
+git push origin feature/your-feature-name
+
+# Create pull request on Gitea
+# Fill PR template and submit</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Contribution Areas -->
+            <section class="content-section">
+                <h2>Contribution Areas</h2>
+                <p>There are many ways to contribute to AITBC. Find the area that matches your skills!</p>
+                
+                <div class="contribution-grid">
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-cogs"></i> Core Protocol</h4>
+                        <ul>
+                            <li>Consensus mechanism improvements</li>
+                            <li>Cryptographic implementations</li>
+                            <li>Performance optimizations</li>
+                            <li>Security enhancements</li>
+                            <li>Sharding implementations</li>
+                        </ul>
+                        <p><strong>Skills:</strong> Rust, Go, Cryptography, Distributed Systems</p>
+                    </div>
+
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-brain"></i> AI/ML Integration</h4>
+                        <ul>
+                            <li>Model optimization</li>
+                            <li>ZK proof generation</li>
+                            <li>Secure enclaves</li>
+                            <li>Privacy-preserving ML</li>
+                            <li>Autonomous agents</li>
+                        </ul>
+                        <p><strong>Skills:</strong> Python, TensorFlow, PyTorch, ZK-SNARKs</p>
+                    </div>
+
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-code"></i> Developer Tools</h4>
+                        <ul>
+                            <li>SDK development</li>
+                            <li>CLI tools</li>
+                            <li>Testing frameworks</li>
+                            <li>Documentation</li>
+                            <li>IDE plugins</li>
+                        </ul>
+                        <p><strong>Skills:</strong> TypeScript, Python, Go, Documentation</p>
+                    </div>
+
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-palette"></i> Frontend & UI</h4>
+                        <ul>
+                            <li>Marketplace interface</li>
+                            <li>Wallet UI</li>
+                            <li>Developer dashboard</li>
+                            <li>Mobile apps</li>
+                            <li>Design system</li>
+                        </ul>
+                        <p><strong>Skills:</strong> React, TypeScript, CSS, Design</p>
+                    </div>
+
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-shield-alt"></i> Security</h4>
+                        <ul>
+                            <li>Security audits</li>
+                            <li>Penetration testing</li>
+                            <li>Bug bounty</li>
+                            <li>Security tools</li>
+                            <li>Threat modeling</li>
+                        </ul>
+                        <p><strong>Skills:</strong> Security, Auditing, Cryptography</p>
+                    </div>
+
+                    <div class="contribution-card">
+                        <h4><i class="fas fa-book"></i> Documentation</h4>
+                        <ul>
+                            <li>Technical guides</li>
+                            <li>Tutorials</li>
+                            <li>API docs</li>
+                            <li>Blog posts</li>
+                            <li>Translations</li>
+                        </ul>
+                        <p><strong>Skills:</strong> Writing, Technical Communication</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Development Guidelines -->
+            <section class="content-section">
+                <h2>Development Guidelines</h2>
+                
+                <h3>Code Standards</h3>
+                <ul>
+                    <li>Follow language-specific style guides (rustfmt, gofmt, PEP8)</li>
+                    <li>Write comprehensive tests for new features</li>
+                    <li>Document all public APIs and complex logic</li>
+                    <li>Keep pull requests focused and small</li>
+                    <li>Use clear and descriptive commit messages</li>
+                </ul>
+
+                <h3>Testing Requirements</h3>
+                <div class="code-block">
+# Run all tests
+make test
+
+# Run with coverage
+make test-coverage
+
+# Run integration tests
+make test-integration
+
+# Run benchmarks
+make benchmark</div>
+
+                <h3>Code Review Process</h3>
+                <ul>
+                    <li>All changes require review</li>
+                    <li>At least one approval needed</li>
+                    <li>CI must pass</li>
+                    <li>Documentation updated</li>
+                    <li>Tests added/updated</li>
+                </ul>
+
+                <div class="alert alert-info">
+                    <strong>Pro Tip:</strong> Join our Discord #dev channel for real-time help and discussions!
+                </div>
+            </section>
+
+            <!-- Bounties & Grants -->
+            <section class="content-section">
+                <h2>Bounties & Grants</h2>
+                <p>Get paid to contribute to AITBC!</p>
+                
+                <h3>Open Bounties</h3>
+                <ul>
+                    <li><strong>$500</strong> - Implement REST API rate limiting</li>
+                    <li><strong>$750</strong> - Add Python async SDK support</li>
+                    <li><strong>$1000</strong> - Optimize ZK proof generation</li>
+                    <li><strong>$1500</strong> - Implement cross-chain bridge</li>
+                    <li><strong>$2000</strong> - Build mobile wallet app</li>
+                </ul>
+
+                <h3>Research Grants</h3>
+                <ul>
+                    <li><strong>$5000</strong> - Novel consensus mechanisms</li>
+                    <li><strong>$7500</strong> - Privacy-preserving ML</li>
+                    <li><strong>$10000</strong> - Quantum-resistant cryptography</li>
+                </ul>
+
+                <h3>How to Apply</h3>
+                <ol>
+                    <li>Check open issues on Gitea</li>
+                    <li>Comment on the issue you want to work on</li>
+                    <li>Submit your solution</li>
+                    <li>Get reviewed by core team</li>
+                    <li>Receive payment in AITBC tokens</li>
+                </ol>
+
+                <div class="alert alert-success">
+                    <strong>New Contributor Bonus:</strong> First-time contributors get a 20% bonus on their first bounty!
+                </div>
+            </section>
+
+            <!-- Community -->
+            <section class="content-section">
+                <h2>Join the Community</h2>
+                
+                <h3>Developer Channels</h3>
+                <ul>
+                    <li><strong>Discord #dev</strong> - General development discussion</li>
+                    <li><strong>Discord #core-dev</strong> - Core protocol discussions</li>
+                    <li><strong>Discord #bounties</strong> - Bounty program updates</li>
+                    <li><strong>Discord #research</strong> - Research discussions</li>
+                </ul>
+
+                <h3>Events & Programs</h3>
+                <ul>
+                    <li><strong>Weekly Dev Calls</strong> - Every Tuesday 14:00 UTC</li>
+                    <li><strong>Hackathons</strong> - Quarterly with prizes</li>
+                    <li><strong>Office Hours</strong> - Meet the core team</li>
+                    <li><strong>Mentorship Program</strong> - Learn from experienced devs</li>
+                </ul>
+
+                <h3>Recognition</h3>
+                <ul>
+                    <li>Top contributors featured on website</li>
+                    <li>Monthly contributor rewards</li>
+                    <li>Special Discord roles</li>
+                    <li>Annual developer summit invitation</li>
+                    <li>Swag and merchandise</li>
+                </ul>
+            </section>
+
+            <!-- Resources -->
+            <section class="content-section">
+                <h2>Developer Resources</h2>
+                
+                <h3>Documentation</h3>
+                <ul>
+                    <li><a href="full-documentation.html">Full API Documentation</a></li>
+                    <li><a href="#">Architecture Guide</a></li>
+                    <li><a href="#">Protocol Specification</a></li>
+                    <li><a href="#">Security Best Practices</a></li>
+                </ul>
+
+                <h3>Tools & SDKs</h3>
+                <ul>
+                    <li><a href="#">Python SDK</a></li>
+                    <li><a href="#">JavaScript SDK</a></li>
+                    <li><a href="#">Go SDK</a></li>
+                    <li><a href="#">Rust SDK</a></li>
+                    <li><a href="#">CLI Tools</a></li>
+                </ul>
+
+                <h3>Development Environment</h3>
+                <ul>
+                    <li><a href="#">Docker Compose Setup</a></li>
+                    <li><a href="#">Local Testnet</a></li>
+                    <li><a href="#">Faucet for Test Tokens</a></li>
+                    <li><a href="#">Block Explorer</a></li>
+                </ul>
+
+                <h3>Learning Resources</h3>
+                <ul>
+                    <li><a href="#">Video Tutorials</a></li>
+                    <li><a href="#">Workshop Materials</a></li>
+                    <li><a href="#">Blog Posts</a></li>
+                    <li><a href="#">Research Papers</a></li>
+                </ul>
+            </section>
+
+            <!-- Contributing Code Example -->
+            <section class="content-section">
+                <h2>Example: Adding a New API Endpoint</h2>
+                <p>The coordinator-api uses Python with FastAPI. Here's how to add a new endpoint:</p>
+                
+                <h3>1. Define the Schema</h3>
+                <div class="code-block">
+# File: coordinator-api/src/app/schemas.py
+
+from pydantic import BaseModel
+from typing import Optional
+
+class NewFeatureRequest(BaseModel):
+    """Request model for new feature."""
+    name: str
+    value: int
+    options: Optional[dict] = None
+
+class NewFeatureResponse(BaseModel):
+    """Response model for new feature."""
+    id: str
+    status: str
+    result: dict</div>
+
+                <h3>2. Create the Router</h3>
+                <div class="code-block">
+# File: coordinator-api/src/app/routers/new_feature.py
+
+from fastapi import APIRouter, Depends, HTTPException
+from ..schemas import NewFeatureRequest, NewFeatureResponse
+from ..services.new_feature import NewFeatureService
+
+router = APIRouter(prefix="/v1/features", tags=["features"])
+
+@router.post("/", response_model=NewFeatureResponse)
+async def create_feature(
+    request: NewFeatureRequest,
+    service: NewFeatureService = Depends()
+):
+    """Create a new feature."""
+    try:
+        result = await service.process(request)
+        return NewFeatureResponse(
+            id=result.id,
+            status="success",
+            result=result.data
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))</div>
+
+                <h3>3. Write Tests</h3>
+                <div class="code-block">
+# File: coordinator-api/tests/test_new_feature.py
+
+import pytest
+from fastapi.testclient import TestClient
+from src.app.main import app
+
+client = TestClient(app)
+
+def test_create_feature_success():
+    """Test successful feature creation."""
+    response = client.post(
+        "/v1/features/",
+        json={"name": "test", "value": 123}
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "success"
+    assert "id" in data
+
+def test_create_feature_invalid():
+    """Test validation error."""
+    response = client.post(
+        "/v1/features/",
+        json={"name": ""}  # Missing required field
+    )
+    assert response.status_code == 422</div>
+
+                <div class="alert alert-info">
+                    <strong>💡 Pro Tip:</strong> Run <code>make test</code> locally before pushing. The CI pipeline will also run all tests automatically on your PR.
+                </div>
+            </section>
+
+            <!-- FAQ -->
+            <section class="content-section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <h3>General</h3>
+                <ul>
+                    <li><strong>How do I start contributing?</strong> - Check our "Getting Started" guide and pick an issue that interests you.</li>
+                    <li><strong>Do I need to sign anything?</strong> - Yes, you'll need to sign our CLA (Contributor License Agreement).</li>
+                    <li><strong>Can I be paid for contributions?</strong> - Yes! Check our bounty program or apply for grants.</li>
+                </ul>
+
+                <h3>Technical</h3>
+                <ul>
+                    <li><strong>What's the tech stack?</strong> - Rust for blockchain, Go for services, Python for AI, TypeScript for frontend.</li>
+                    <li><strong>How do I run tests?</strong> - Use `make test` or check specific component documentation.</li>
+                    <li><strong>Where can I ask questions?</strong> - Discord #dev channel is the best place.</li>
+                </ul>
+
+                <h3>Process</h3>
+                <ul>
+                    <li><strong>How long does PR review take?</strong> - Usually 1-3 business days.</li>
+                    <li><strong>Can I work on multiple issues?</strong> - Yes, but keep PRs focused on single features.</li>
+                    <li><strong>What if my PR is rejected?</strong> - We'll provide feedback and guidance for resubmission.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Check for saved theme preference or default to dark mode
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        if (currentTheme === 'light') {
+            document.body.classList.add('light');
+            const btn = document.getElementById('themeToggle');
+            if (btn) btn.textContent = '🌙';
+        }
+
+        // Theme toggle functionality
+        const themeBtn = document.getElementById('themeToggle');
+        if (themeBtn) {
+            themeBtn.addEventListener('click', function() {
+                document.body.classList.toggle('light');
+                const isLight = document.body.classList.contains('light');
+                localStorage.setItem('theme', isLight ? 'light' : 'dark');
+                this.textContent = isLight ? '🌙' : '🌞';
+            });
+        }
+    </script></body>
+</html>

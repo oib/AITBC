@@ -1,0 +1,1107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        /* Dark mode (default) */
+        :root {
+            --primary-color: #3b82f6;
+            --secondary-color: #2563eb;
+            --accent-color: #60a5fa;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #f3f4f6;
+            --text-light: #9ca3af;
+            --bg-light: #111827;
+            --bg-white: #1f2937;
+            --border-color: #374151;
+            --code-bg: #0d1117;
+            --code-text: #e5e7eb;
+        }
+        
+        /* Light mode */
+        body.light {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --accent-color: #3b82f6;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+            --code-bg: #1f2937;
+            --code-text: #e5e7eb;
+        }
+
+        /* Theme toggle button */
+        .theme-toggle {
+            background: none;
+            border: 2px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            font-size: 1.1rem;
+            color: var(--text-dark);
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-white);
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-light);
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        /* Header with gradient border */
+        header {
+            background: var(--bg-white);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+            border-bottom: 3px solid transparent;
+            background-image: linear-gradient(var(--bg-white), var(--bg-white)), 
+                              linear-gradient(90deg, var(--primary-color), var(--accent-color), var(--success-color));
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+        
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-decoration: none;
+            transition: transform 0.3s ease;
+        }
+        
+        .logo:hover {
+            transform: scale(1.05);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            color: var(--text-dark);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            padding: 0.5rem 0;
+            position: relative;
+        }
+        
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
+            transition: width 0.3s ease;
+        }
+        
+        .nav-links a:hover::after,
+        .nav-links a.active::after {
+            width: 100%;
+        }
+        
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        main {
+            margin-top: 80px;
+            padding: 40px 0;
+        }
+        
+        .doc-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+        
+        .doc-header h1 {
+            font-size: 3rem;
+            color: var(--text-dark);
+            margin-bottom: 1rem;
+        }
+        
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+        }
+        
+        /* Documentation Grid */
+        .doc-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 2rem;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background: var(--bg-light);
+            border-radius: 10px;
+            padding: 1.5rem;
+            height: fit-content;
+            position: sticky;
+            top: 100px;
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+        }
+        
+        .sidebar h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+        
+        .sidebar ul {
+            list-style: none;
+        }
+        
+        .sidebar li {
+            margin-bottom: 0.3rem;
+        }
+        
+        .sidebar a {
+            color: var(--text-light);
+            text-decoration: none;
+            display: block;
+            padding: 0.5rem;
+            border-radius: 5px;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+        
+        .sidebar a:hover,
+        .sidebar a.active {
+            background: var(--bg-white);
+            color: var(--primary-color);
+        }
+        
+        .sidebar .sub-item {
+            padding-left: 1.5rem;
+            font-size: 0.85rem;
+        }
+        
+        /* Content */
+        .content {
+            background: var(--bg-white);
+            border-radius: 10px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .content h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+            border-bottom: 3px solid var(--primary-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .content h2 {
+            font-size: 2rem;
+            margin: 2.5rem 0 1rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        
+        .content h3 {
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+        
+        .content h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
+            color: var(--primary-color);
+        }
+        
+        .content p {
+            margin-bottom: 1rem;
+            color: var(--text-light);
+            text-align: justify;
+        }
+        
+        .content ul,
+        .content ol {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+        
+        .content li {
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        
+        .content code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: var(--primary-color);
+        }
+        
+        .content pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        
+        .content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+        
+        .content blockquote {
+            border-left: 4px solid var(--primary-color);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: var(--text-light);
+            font-style: italic;
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 0 5px 5px 0;
+        }
+        
+        .content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+        
+        .content th,
+        .content td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .content th {
+            background: var(--bg-light);
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        /* Alert Boxes */
+        .alert {
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+        }
+        
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            color: #1e40af;
+        }
+        
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            color: #92400e;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+            color: #065f46;
+        }
+        
+        .alert-danger {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            color: #991b1b;
+        }
+        
+        /* Tabs */
+        .tabs {
+            margin: 2rem 0;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .tab-button {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-light);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 1rem 0;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Mermaid Diagrams */
+        .mermaid {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        /* Code Groups */
+        .code-group {
+            margin: 1rem 0;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .code-group-header {
+            background: var(--bg-light);
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            color: var(--text-dark);
+        }
+        
+        .code-group-content {
+            padding: 0;
+        }
+        
+        /* Footer */
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 40px 0;
+            text-align: center;
+            margin-top: 40px;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .doc-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .sidebar {
+                position: static;
+                max-height: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="full-documentation.html" class="active">Full Documentation</a></li>
+                <li><a href="#contact">Contact</a></li>
+                <li><button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button></li>
+            </ul>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <div class="doc-header">
+                <h1>AITBC Full Documentation</h1>
+                <p>Complete technical documentation for the AI Training & Blockchain Computing platform</p>
+            </div>
+
+            <div class="doc-grid">
+                <!-- Sidebar -->
+                <aside class="sidebar">
+                    <h3>Table of Contents</h3>
+                    <ul>
+                        <li><a href="#introduction">Introduction</a></li>
+                        <li><a href="#architecture">Architecture</a>
+                            <ul>
+                                <li><a href="#core-components" class="sub-item">Core Components</a></li>
+                                <li><a href="#data-flow" class="sub-item">Data Flow</a></li>
+                                <li><a href="#consensus" class="sub-item">Consensus Mechanism</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#installation">Installation</a>
+                            <ul>
+                                <li><a href="#prerequisites" class="sub-item">Prerequisites</a></li>
+                                <li><a href="#quick-start" class="sub-item">Quick Start</a></li>
+                                <li><a href="#configuration" class="sub-item">Configuration</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#apis">APIs</a>
+                            <ul>
+                                <li><a href="#coordinator-api" class="sub-item">Coordinator API</a></li>
+                                <li><a href="#blockchain-api" class="sub-item">Blockchain API</a></li>
+                                <li><a href="#wallet-api" class="sub-item">Wallet API</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#development">Development</a>
+                            <ul>
+                                <li><a href="#building" class="sub-item">Building</a></li>
+                                <li><a href="#testing" class="sub-item">Testing</a></li>
+                                <li><a href="#contributing" class="sub-item">Contributing</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#security">Security</a>
+                            <ul>
+                                <li><a href="#threat-model" class="sub-item">Threat Model</a></li>
+                                <li><a href="#audits" class="sub-item">Audits</a></li>
+                                <li><a href="#bug-bounty" class="sub-item">Bug Bounty</a></li>
+                            </ul>
+                        </li>
+                        <li><a href="#reference">Reference</a>
+                            <ul>
+                                <li><a href="#glossary" class="sub-item">Glossary</a></li>
+                                <li><a href="#faq" class="sub-item">FAQ</a></li>
+                                <li><a href="#support" class="sub-item">Support</a></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </aside>
+
+                <!-- Content -->
+                <div class="content">
+                    <section id="introduction">
+                        <h1>Introduction</h1>
+                        <p>AITBC (AI Training & Blockchain Computing) is a decentralized platform that combines artificial intelligence and blockchain technology to create a trustless marketplace for AI/ML workloads. The platform enables secure, private, and verifiable computation while maintaining transparency through blockchain technology.</p>
+                        
+                        <h2>Key Features</h2>
+                        <ul>
+                            <li><strong>Decentralized Marketplace</strong>: Connect AI service providers with consumers in a trustless environment</li>
+                            <li><strong>Confidential Computing</strong>: Zero-knowledge proofs and secure enclaves protect sensitive data</li>
+                            <li><strong>High Performance</strong>: Sharding and rollups achieve 100,000+ TPS with sub-second finality</li>
+                            <li><strong>Privacy-Preserving</strong>: Advanced cryptography ensures data confidentiality</li>
+                            <li><strong>Token Economics</strong>: Sustainable incentives for all participants</li>
+                            <li><strong>Autonomous Agents</strong>: AI agents can participate as marketplace providers</li>
+                        </ul>
+
+                        <h2>Use Cases</h2>
+                        <div class="tabs">
+                            <div class="tab-buttons">
+                                <button class="tab-button active" onclick="switchTab('healthcare')">Healthcare</button>
+                                <button class="tab-button" onclick="switchTab('finance')">Finance</button>
+                                <button class="tab-button" onclick="switchTab('research')">Research</button>
+                            </div>
+                            <div id="healthcare" class="tab-content active">
+                                <h4>Healthcare AI</h4>
+                                <p>Secure medical image analysis, drug discovery, and patient data processing while maintaining HIPAA compliance through confidential computing.</p>
+                            </div>
+                            <div id="finance" class="tab-content">
+                                <h4>Financial Services</h4>
+                                <p>Fraud detection, risk assessment, and algorithmic trading with verifiable computation and audit trails.</p>
+                            </div>
+                            <div id="research" class="tab-content">
+                                <h4>Scientific Research</h4>
+                                <p>Collaborative research with data privacy, reproducible results, and fair attribution through blockchain verification.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="architecture">
+                        <h1>Architecture</h1>
+                        
+                        <h2 id="core-components">Core Components</h2>
+                        <div class="mermaid">
+                            graph TB
+                                A[Client] --> B[Coordinator API]
+                                B --> C[Blockchain Node]
+                                B --> D[GPU Providers]
+                                C --> E[Consensus Engine]
+                                C --> F[Smart Contracts]
+                                D --> G[ZK Proofs]
+                                F --> H[Receipt Storage]
+                            </div>
+
+                        <h3>Blockchain Node</h3>
+                        <p>The blockchain node implements a hybrid Proof of Authority/Proof of Stake consensus mechanism with three operational modes:</p>
+                        <ul>
+                            <li><strong>FAST Mode</strong>: 100-200ms finality, up to 50,000 TPS</li>
+                            <li><strong>BALANCED Mode</strong>: 500ms-1s finality, up to 20,000 TPS</li>
+                            <li><strong>SECURE Mode</strong>: 2-5s finality, up to 10,000 TPS</li>
+                        </ul>
+
+                        <h3>Coordinator API</h3>
+                        <p>The coordinator serves as the central hub for marketplace operations:</p>
+                        <ul>
+                            <li>Job scheduling and management</li>
+                            <li>Receipt verification and storage</li>
+                            <li>Provider registration and reputation tracking</li>
+                            <li>Multi-tenant support with isolation</li>
+                            <li>Real-time metrics and analytics</li>
+                        </ul>
+
+                        <h3>GPU Service Provider</h3>
+                        <p>Decentralized compute providers offer various AI/ML services:</p>
+                        <ul>
+                            <li>Model inference (text, image, audio, video)</li>
+                            <li>Model training and fine-tuning</li>
+                            <li>Data preprocessing and augmentation</li>
+                            <li>Result verification with ZK proofs</li>
+                            <li>Cross-chain compatibility</li>
+                        </ul>
+
+                        <h2 id="data-flow">Data Flow</h2>
+                        <div class="mermaid">
+                            sequenceDiagram
+                                participant C as Client
+                                participant API as Coordinator API
+                                participant P as Provider
+                                participant BC as Blockchain
+                                
+                                C->>API: Submit Job Request
+                                API->>API: Validate & Match Provider
+                                API->>P: Forward Job
+                                P->>P: Execute Computation
+                                P->>P: Generate ZK Proof
+                                P->>API: Submit Results + Proof
+                                API->>API: Verify Proof
+                                API->>BC: Store Receipt
+                                BC->>C: Notify Completion
+                                C->>API: Retrieve Results
+                        </div>
+
+                        <h2 id="consensus">Consensus Mechanism</h2>
+                        <p>The hybrid consensus combines the speed of Proof of Authority with the decentralization of Proof of Stake:</p>
+                        
+                        <h3>Mode Selection Algorithm</h3>
+                        <pre><code>def determine_mode(network_metrics):
+    load = network_metrics.utilization
+    auth_availability = network_metrics.authority_uptime
+    stake_participation = network_metrics.stake_ratio
+    
+    if load < 0.3 and auth_availability > 0.9:
+        return ConsensusMode.FAST
+    elif load > 0.7 or stake_participation > 0.8:
+        return ConsensusMode.SECURE
+    else:
+        return ConsensusMode.BALANCED</code></pre>
+
+                        <h3>Validator Selection</h3>
+                        <div class="tabs">
+                            <div class="tab-buttons">
+                                <button class="tab-button active" onclick="switchTab('fast-mode')">FAST Mode</button>
+                                <button class="tab-button" onclick="switchTab('balanced-mode')">BALANCED Mode</button>
+                                <button class="tab-button" onclick="switchTab('secure-mode')">SECURE Mode</button>
+                            </div>
+                            <div id="fast-mode" class="tab-content active">
+                                <h4>Authority-Only Selection</h4>
+                                <ul>
+                                    <li>VRF-based random selection from 21 authorities</li>
+                                    <li>100ms block time</li>
+                                    <li>2/3 signature threshold</li>
+                                </ul>
+                            </div>
+                            <div id="balanced-mode" class="tab-content">
+                                <h4>Hybrid Selection</h4>
+                                <ul>
+                                    <li>70% authority, 30% staker selection</li>
+                                    <li>500ms block time</li>
+                                    <li>2/3 authority + 1/3 stake threshold</li>
+                                </ul>
+                            </div>
+                            <div id="secure-mode" class="tab-content">
+                                <h4>Stake-Weighted Selection</h4>
+                                <ul>
+                                    <li>Full stake-weighted selection</li>
+                                    <li>2s block time</li>
+                                    <li>2/3 stake threshold</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="installation">
+                        <h1>Installation</h1>
+                        
+                        <h2 id="prerequisites">Prerequisites</h2>
+                        <div class="alert alert-info">
+                            <strong>System Requirements:</strong>
+                            <ul>
+                                <li>Linux (Ubuntu 20.04+) or macOS (10.15+)</li>
+                                <li>16GB RAM minimum (32GB recommended)</li>
+                                <li>100GB free storage</li>
+                                <li>Docker 20.10+ and Docker Compose</li>
+                                <li>Node.js 16+ (for frontend development)</li>
+                                <li>Python 3.8+ (for backend development)</li>
+                                <li>Go 1.19+ (for blockchain node)</li>
+                            </ul>
+                        </div>
+
+                        <h2 id="quick-start">Quick Start</h2>
+                        <h3>Option 1: Docker Compose (Recommended)</h3>
+                        <pre><code># Clone the repository
+git clone https://gitea.bubuit.net/aitbc/aitbc.git
+cd aitbc
+
+# Copy environment configuration
+cp .env.example .env
+# Edit .env with your settings
+
+# Start all services
+docker-compose up -d
+
+# Check status
+docker-compose ps</code></pre>
+
+                        <h3>Option 2: Manual Installation</h3>
+                        <pre><code># Install dependencies
+./scripts/install-dependencies.sh
+
+# Build blockchain node
+make build-node
+
+# Build coordinator
+make build-coordinator
+
+# Initialize database
+./scripts/init-db.sh
+
+# Start services
+./scripts/start-all.sh</code></pre>
+
+                        <h2 id="configuration">Configuration</h2>
+                        <h3>Environment Variables</h3>
+                        <table>
+                            <tr>
+                                <th>Variable</th>
+                                <th>Description</th>
+                                <th>Default</th>
+                            </tr>
+                            <tr>
+                                <td>AITBC_NETWORK</td>
+                                <td>Network mode (dev/test/main)</td>
+                                <td>dev</td>
+                            </tr>
+                            <tr>
+                                <td>AITBC_CHAIN_ID</td>
+                                <td>Blockchain chain ID</td>
+                                <td>1337</td>
+                            </tr>
+                            <tr>
+                                <td>AITBC_CONSENSUS_MODE</td>
+                                <td>Consensus mode</td>
+                                <td>BALANCED</td>
+                            </tr>
+                            <tr>
+                                <td>AITBC_DB_URL</td>
+                                <td>Database connection string</td>
+                                <td>postgresql://localhost/aitbc</td>
+                            </tr>
+                            <tr>
+                                <td>AITBC_REDIS_URL</td>
+                                <td>Redis connection string</td>
+                                <td>redis://localhost:6379</td>
+                            </tr>
+                        </table>
+
+                        <h3>Node Configuration</h3>
+                        <pre><code># config/node.toml
+[network]
+listen_addr = "0.0.0.0:30303"
+discovery_addr = "0.0.0.0:30304"
+
+[consensus]
+mode = "BALANCED"
+validator_count = 21
+stake_minimum = 1000
+
+[storage]
+data_dir = "/var/lib/aitbc"
+prune = true
+prune_threshold = "100GB"</code></pre>
+                    </section>
+
+                    <section id="apis">
+                        <h1>APIs</h1>
+                        
+                        <h2 id="coordinator-api">Coordinator API</h2>
+                        <h3>Authentication</h3>
+                        <p>All API requests require authentication using JWT tokens:</p>
+                        <pre><code>curl -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"address": "0x...", "signature": "0x..."}'</code></pre>
+
+                        <h3>Endpoints</h3>
+                        <div class="code-group">
+                            <div class="code-group-header">Job Management</div>
+                            <div class="code-group-content">
+                                <pre><code># Create a job
+POST /api/v1/jobs
+{
+  "type": "inference",
+  "model_id": "gpt-4",
+  "input_data": "Hello, world!",
+  "requirements": {
+    "max_tokens": 100,
+    "temperature": 0.7
+  }
+}
+
+# Get job status
+GET /api/v1/jobs/{job_id}
+
+# List jobs
+GET /api/v1/jobs?status=pending&limit=10
+
+# Cancel a job
+DELETE /api/v1/jobs/{job_id}</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="code-group">
+                            <div class="code-group-header">Receipt Verification</div>
+                            <div class="code-group-content">
+                                <pre><code># Verify a receipt
+POST /api/v1/receipts/verify
+{
+  "receipt_id": "0x...",
+  "proof": "0x...",
+  "public_inputs": ["0x..."]
+}
+
+# Get receipt details
+GET /api/v1/receipts/{receipt_id}</code></pre>
+                            </div>
+                        </div>
+
+                        <h2 id="blockchain-api">Blockchain API</h2>
+                        <h3>JSON-RPC Endpoints</h3>
+                        <pre><code># Get latest block
+curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_getBlockByNumber","params":["latest", false],"id":1}'
+
+# Send transaction
+curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"eth_sendRawTransaction","params":["0x..."],"id":1}'</code></pre>
+
+                        <h3>WebSocket Subscriptions</h3>
+                        <pre><code># Subscribe to new blocks
+ws://localhost:8545
+
+{"jsonrpc":"2.0","id":1,"method":"eth_subscribe","params":["newHeads"]}</code></pre>
+
+                        <h2 id="wallet-api">Wallet API</h2>
+                        <h3>Wallet Operations</h3>
+                        <pre><code># Create wallet
+POST /api/v1/wallet/create
+{
+  "password": "secure-password",
+  "mnemonic_language": "english"
+}
+
+# Unlock wallet
+POST /api/v1/wallet/unlock
+{
+  "wallet_id": "wallet-uuid",
+  "password": "secure-password"
+}
+
+# Sign transaction
+POST /api/v1/wallet/sign
+{
+  "wallet_id": "wallet-uuid",
+  "transaction": "0x..."
+}</code></pre>
+                    </section>
+
+                    <section id="development">
+                        <h1>Development</h1>
+                        
+                        <h2 id="building">Building</h2>
+                        <h3>Prerequisites</h3>
+                        <pre><code># Install build dependencies
+sudo apt-get install build-essential libssl-dev
+
+# Install Rust (for blockchain node)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Install Go
+wget https://go.dev/dl/go1.19.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.19.linux-amd64.tar.gz</code></pre>
+
+                        <h3>Build Components</h3>
+                        <pre><code># Build blockchain node
+cd blockchain-node
+cargo build --release
+
+# Build coordinator
+cd coordinator-api
+go build -o bin/coordinator
+
+# Build wallet daemon
+cd wallet-daemon
+go build -o bin/wallet
+
+# Build frontend
+cd marketplace-web
+npm install
+npm run build</code></pre>
+
+                        <h2 id="testing">Testing</h2>
+                        <h3>Unit Tests</h3>
+                        <pre><code># Run all tests
+make test
+
+# Run specific package tests
+make test-unit PACKAGE=coordinator
+
+# Run with coverage
+make test-coverage</code></pre>
+
+                        <h3>Integration Tests</h3>
+                        <pre><code># Start test environment
+docker-compose -f docker-compose.test.yml up -d
+
+# Run integration tests
+make test-integration
+
+# Clean up
+docker-compose -f docker-compose.test.yml down -v</code></pre>
+
+                        <h3>Load Testing</h3>
+                        <pre><code># Install Locust
+pip install locust
+
+# Run load tests
+locust -f tests/load/locustfile.py --host=http://localhost:8080</code></pre>
+
+                        <h2 id="contributing">Contributing</h2>
+                        <p>We welcome contributions! Please see our contributing guide for details.</p>
+                        
+                        <h3>Development Workflow</h3>
+                        <ol>
+                            <li>Fork the repository on Gitea</li>
+                            <li>Create a feature branch</li>
+                            <li>Make your changes</li>
+                            <li>Add tests for new functionality</li>
+                            <li>Ensure all tests pass</li>
+                            <li>Submit a pull request</li>
+                        </ol>
+
+                        <h3>Code Style</h3>
+                        <div class="code-group">
+                            <div class="code-group-header">Rust</div>
+                            <div class="code-group-content">
+                                <pre><code># Format code
+cargo fmt
+
+# Run linter
+cargo clippy -- -D warnings
+
+# Run audit
+cargo audit</code></pre>
+                            </div>
+                        </div>
+
+                        <div class="code-group">
+                            <div class="code-group-header">Go</div>
+                            <div class="code-group-content">
+                                <pre><code># Format code
+go fmt ./...
+
+# Run linter
+golangci-lint run
+
+# Run security check
+gosec ./...</code></pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section id="security">
+                        <h1>Security</h1>
+                        
+                        <h2 id="threat-model">Threat Model</h2>
+                        <p>Our comprehensive threat model covers:</p>
+                        <ul>
+                            <li>Privacy attacks and mitigations</li>
+                            <li>Consensus security</li>
+                            <li>Smart contract vulnerabilities</li>
+                            <li>Network-level attacks</li>
+                            <li>Economic attacks</li>
+                        </ul>
+                        
+                        <p>See the full threat modeling document for detailed analysis.</p>
+
+                        <h2 id="audits">Security Audits</h2>
+                        <div class="alert alert-success">
+                            <strong>Completed Audits:</strong>
+                            <ul>
+                                <li>Trail of Bits (2024) - Smart Contracts</li>
+                                <li>CertiK (2024) - Protocol Security</li>
+                                <li>OpenZeppelin (2023) - Token Economics</li>
+                            </ul>
+                        </div>
+
+                        <h2 id="bug-bounty">Bug Bounty Program</h2>
+                        <p>We offer rewards up to $100,000 for critical vulnerabilities:</p>
+                        <ul>
+                            <li>Critical: $50,000 - $100,000</li>
+                            <li>High: $10,000 - $50,000</li>
+                            <li>Medium: $1,000 - $10,000</li>
+                            <li>Low: $100 - $1,000</li>
+                        </ul>
+                        <p>Report vulnerabilities at: <a href="mailto:security@aitbc.io">security@aitbc.io</a></p>
+                    </section>
+
+                    <section id="reference">
+                        <h1>Reference</h1>
+                        
+                        <h2 id="glossary">Glossary</h2>
+                        <table>
+                            <tr>
+                                <th>Term</th>
+                                <th>Definition</th>
+                            </tr>
+                            <tr>
+                                <td>ZK Proof</td>
+                                <td>Zero-knowledge proof enabling verification without revealing inputs</td>
+                            </tr>
+                            <tr>
+                                <td>Receipt</td>
+                                <td>Cryptographic proof of computation completion</td>
+                            </tr>
+                            <tr>
+                                <td>Provider</td>
+                                <td>Node offering AI/ML computation services</td>
+                            </tr>
+                            <tr>
+                                <td>Coordinator</td>
+                                <td>Central service managing marketplace operations</td>
+                            </tr>
+                        </table>
+
+                        <h2 id="faq">Frequently Asked Questions</h2>
+                        <h3>General</h3>
+                        <h4>What blockchain does AITBC use?</h4>
+                        <p>AITBC implements its own blockchain with a hybrid consensus mechanism, but supports cross-chain interoperability with Ethereum, Polygon, and BSC.</p>
+
+                        <h4>How are transactions verified?</h4>
+                        <p>Through a combination of zero-knowledge proofs for privacy and traditional blockchain validation for transparency.</p>
+
+                        <h3>Technical</h3>
+                        <h4>What programming languages are used?</h4>
+                        <ul>
+                            <li>Rust for blockchain node</li>
+                            <li>Go for coordinator and wallet</li>
+                            <li>TypeScript/React for frontend</li>
+                            <li>Python for AI/ML components</li>
+                        </ul>
+
+                        <h4>How can I run a node?</h4>
+                        <p>See the installation guide for detailed instructions on running a full node, validator node, or GPU provider.</p>
+
+                        <h2 id="support">Support</h2>
+                        <p>Get help through:</p>
+                        <ul>
+                            <li>Documentation: <a href="full-documentation.html">Full Documentation</a></li>
+                            <li>Community: <a href="https://discord.gg/aitbc">Discord</a></li>
+                            <li>Issues: <a href="https://gitea.bubuit.net/aitbc/issues">Gitea Issues</a></li>
+                            <li>Email: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
+                        </ul>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="/js/mermaid.min.js"></script>
+    <script src="/js/mermaid-init.js"></script>
+    <script>
+        // Theme toggle functionality
+        const themeToggle = document.getElementById('theme-toggle');
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                document.body.classList.toggle('light');
+                const isLight = document.body.classList.contains('light');
+                themeToggle.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+                localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            });
+            
+            // Load saved theme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme === 'light') {
+                document.body.classList.add('light');
+                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
+            }
+        }
+    </script>
+</body>
+</html>

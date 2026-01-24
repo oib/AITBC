@@ -1,0 +1,27 @@
+[Unit]
+Description=AITBC Host GPU Miner Client
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=oib
+Group=oib
+WorkingDirectory=/home/oib/windsurf/aitbc
+Environment=PYTHONPATH=/home/oib/windsurf/aitbc
+Environment=VIRTUAL_ENV=/home/oib/windsurf/aitbc/.venv
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONIOENCODING=utf-8
+Environment=FORCE_COLOR=1
+Environment=PATH=/home/oib/windsurf/aitbc/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/bin/bash -c 'exec /home/oib/windsurf/aitbc/.venv/bin/python -u /home/oib/windsurf/aitbc/scripts/gpu/gpu_miner_host.py 2>&1 | tee -a /home/oib/windsurf/aitbc/logs/host_gpu_miner.log'
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-host-gpu-miner
+
+[Install]
+WantedBy=multi-user.target

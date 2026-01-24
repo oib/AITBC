@@ -1,4 +1,4 @@
-import { CONFIG, type DataMode } from "../config";
+import { config, type DataMode } from "../config";
 import { notifyError } from "../components/notifications";
 import type {
   BlockListResponse,
@@ -29,8 +29,19 @@ function loadStoredMode(): DataMode | null {
   return null;
 }
 
-const initialMode = loadStoredMode() ?? CONFIG.dataMode;
+// Force live mode - ignore stale localStorage
+const storedMode = loadStoredMode();
+const initialMode = storedMode === "mock" ? "live" : (storedMode ?? config.dataMode);
 let currentMode: DataMode = initialMode;
+
+// Clear any cached mock mode preference
+if (storedMode === "mock" && typeof window !== "undefined") {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, "live");
+  } catch (error) {
+    console.warn("[Explorer] Failed to update cached mode", error);
+  }
+}
 
 function syncDocumentMode(mode: DataMode): void {
   if (typeof document !== "undefined") {
@@ -63,7 +74,7 @@ export async function fetchBlocks(): Promise<BlockSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/blocks`);
+    const response = await fetch(`${config.apiBaseUrl}/explorer/blocks`);
     if (!response.ok) {
       throw new Error(`Failed to fetch blocks: ${response.status} ${response.statusText}`);
     }
@@ -87,7 +98,7 @@ export async function fetchTransactions(): Promise<TransactionSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/transactions`);
+    const response = await fetch(`${config.apiBaseUrl}/explorer/transactions`);
     if (!response.ok) {
       throw new Error(`Failed to fetch transactions: ${response.status} ${response.statusText}`);
     }
@@ -111,7 +122,7 @@ export async function fetchAddresses(): Promise<AddressSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/addresses`);
+    const response = await fetch(`${config.apiBaseUrl}/explorer/addresses`);
     if (!response.ok) {
       throw new Error(`Failed to fetch addresses: ${response.status} ${response.statusText}`);
     }
@@ -135,7 +146,7 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
   }
 
   try {
-    const response = await fetch(`${CONFIG.apiBaseUrl}/explorer/receipts`);
+    const response = await fetch(`${config.apiBaseUrl}/explorer/receipts`);
     if (!response.ok) {
       throw new Error(`Failed to fetch receipts: ${response.status} ${response.statusText}`);
     }
@@ -153,7 +164,7 @@ export async function fetchReceipts(): Promise<ReceiptSummary[]> {
 }
 
 async function fetchMock<T>(resource: string): Promise<T> {
-  const url = `${CONFIG.mockBasePath}/${resource}.json`;
+  const url = `${config.mockBasePath}/${resource}.json`;
   try {
     const response = await fetch(url);
     if (!response.ok) {

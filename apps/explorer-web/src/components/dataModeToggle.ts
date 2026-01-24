@@ -1,4 +1,4 @@
-import { CONFIG, type DataMode } from "../config";
+import { config, type DataMode } from "../config";
 import { getDataMode, setDataMode } from "../lib/mockData";
 
 const LABELS: Record<DataMode, string> = {
@@ -44,7 +44,7 @@ function renderControls(mode: DataMode): string {
       <select data-mode-select>
         ${options}
       </select>
-      <small>${mode === "mock" ? "Static JSON samples" : `Coordinator API (${CONFIG.apiBaseUrl})`}</small>
+      <small>${mode === "mock" ? "Static JSON samples" : `Coordinator API (${config.apiBaseUrl})`}</small>
     </label>
   `;
 }

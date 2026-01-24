@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Miner Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        }
+        .status-online { animation: pulse-green 2s infinite; }
+        .gpu-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .metric-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-gray-800 shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-microchip text-3xl text-purple-500"></i>
+                    <div>
+                        <h1 class="text-2xl font-bold">AITBC Miner Dashboard</h1>
+                        <p class="text-sm text-gray-400">GPU Mining Operations Monitor</p>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="connectionStatus" class="flex items-center">
+                        <span class="w-3 h-3 bg-green-500 rounded-full status-online mr-2"></span>
+                        <span class="text-sm">Connected</span>
+                    </span>
+                    <button onclick="refreshData()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sync-alt mr-2"></i>Refresh
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6 py-8">
+        <!-- GPU Status Card -->
+        <div class="gpu-card rounded-xl p-6 mb-8 text-white">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-3xl font-bold mb-2">NVIDIA GeForce RTX 4060 Ti</h2>
+                    <p class="text-purple-200">GPU Status & Performance</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-4xl font-bold" id="gpuUtilization">0%</div>
+                    <div class="text-purple-200">GPU Utilization</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="metric-card rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-200 text-sm">Temperature</p>
+                            <p class="text-2xl font-bold" id="gpuTemp">43°C</p>
+                        </div>
+                        <i class="fas fa-thermometer-half text-3xl text-purple-300"></i>
+                    </div>
+                </div>
+                <div class="metric-card rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-200 text-sm">Power Usage</p>
+                            <p class="text-2xl font-bold" id="powerUsage">18W</p>
+                        </div>
+                        <i class="fas fa-bolt text-3xl text-yellow-400"></i>
+                    </div>
+                </div>
+                <div class="metric-card rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-200 text-sm">Memory Used</p>
+                            <p class="text-2xl font-bold" id="memoryUsage">2.9GB</p>
+                        </div>
+                        <i class="fas fa-memory text-3xl text-blue-400"></i>
+                    </div>
+                </div>
+                <div class="metric-card rounded-lg p-4">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-200 text-sm">Performance</p>
+                            <p class="text-2xl font-bold" id="perfState">P8</p>
+                        </div>
+                        <i class="fas fa-tachometer-alt text-3xl text-green-400"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Mining Services -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Active Mining Jobs -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-3 text-green-500"></i>
+                    Active Mining Jobs
+                </h3>
+                <div id="miningJobs" class="space-y-3">
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">Matrix Computation</p>
+                                <p class="text-sm text-gray-400">Job ID: #12345</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-green-400 font-semibold">85%</p>
+                                <p class="text-xs text-gray-400">Complete</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 bg-gray-600 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 85%"></div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-semibold">Hash Validation</p>
+                                <p class="text-sm text-gray-400">Job ID: #12346</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-yellow-400 font-semibold">42%</p>
+                                <p class="text-xs text-gray-400">Complete</p>
+                            </div>
+                        </div>
+                        <div class="mt-3 bg-gray-600 rounded-full h-2">
+                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 42%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mining Services -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-server mr-3 text-blue-500"></i>
+                    Available Services
+                </h3>
+                <div class="space-y-3">
+                    <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">GPU Computing</p>
+                            <p class="text-sm text-gray-400">CUDA cores available for computation</p>
+                        </div>
+                        <span class="bg-green-600 px-3 py-1 rounded-full text-sm">Active</span>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">Parallel Processing</p>
+                            <p class="text-sm text-gray-400">Multi-threaded job execution</p>
+                        </div>
+                        <span class="bg-green-600 px-3 py-1 rounded-full text-sm">Active</span>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">Hash Generation</p>
+                            <p class="text-sm text-gray-400">Proof-of-work computation</p>
+                        </div>
+                        <span class="bg-yellow-600 px-3 py-1 rounded-full text-sm">Standby</span>
+                    </div>
+                    <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">AI Model Training</p>
+                            <p class="text-sm text-gray-400">Machine learning operations</p>
+                        </div>
+                        <span class="bg-gray-600 px-3 py-1 rounded-full text-sm">Available</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Performance Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- GPU Utilization Chart -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4">GPU Utilization (Last Hour)</h3>
+                <canvas id="utilizationChart"></canvas>
+            </div>
+
+            <!-- Hash Rate Chart -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <h3 class="text-xl font-bold mb-4">Hash Rate Performance</h3>
+                <canvas id="hashRateChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-gray-800 rounded-lg p-4 text-center">
+                <p class="text-gray-400 text-sm">Total Jobs Completed</p>
+                <p class="text-3xl font-bold text-green-500" id="totalJobs">0</p>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 text-center">
+                <p class="text-gray-400 text-sm">Average Job Time</p>
+                <p class="text-3xl font-bold text-blue-500" id="avgJobTime">0s</p>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 text-center">
+                <p class="text-gray-400 text-sm">Success Rate</p>
+                <p class="text-3xl font-bold text-purple-500" id="successRate">0%</p>
+            </div>
+            <div class="bg-gray-800 rounded-lg p-4 text-center">
+                <p class="text-gray-400 text-sm">Hash Rate</p>
+                <p class="text-3xl font-bold text-yellow-500" id="hashRate">0 MH/s</p>
+            </div>
+        </div>
+
+        <!-- Service Details -->
+        <div class="bg-gray-800 rounded-xl p-6">
+            <h3 class="text-xl font-bold mb-4">Service Capabilities</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="serviceDetails">
+                <!-- Service details will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Chart instances
+        let utilizationChart, hashRateChart;
+        
+        // Initialize dashboard
+        async function initDashboard() {
+            await loadGPUStatus();
+            await loadMiningJobs();
+            await loadServices();
+            await loadStatistics();
+            initCharts();
+            
+            // Auto-refresh every 5 seconds
+            setInterval(refreshData, 5000);
+        }
+        
+        // Load GPU status
+        async function loadGPUStatus() {
+            try {
+                const response = await fetch('/api/gpu-status');
+                const data = await response.json();
+                
+                document.getElementById('gpuUtilization').textContent = data.utilization + '%';
+                document.getElementById('gpuTemp').textContent = data.temperature + '°C';
+                document.getElementById('powerUsage').textContent = data.power_usage + 'W';
+                document.getElementById('memoryUsage').textContent = data.memory_used.toFixed(1) + 'GB';
+                document.getElementById('perfState').textContent = data.performance_state;
+                
+                // Update utilization chart
+                if (utilizationChart) {
+                    utilizationChart.data.datasets[0].data.shift();
+                    utilizationChart.data.datasets[0].data.push(data.utilization);
+                    utilizationChart.update('none');
+                }
+            } catch (error) {
+                console.error('Failed to load GPU status:', error);
+            }
+        }
+        
+        // Load mining jobs
+        async function loadMiningJobs() {
+            try {
+                const response = await fetch('/api/mining-jobs');
+                const jobs = await response.json();
+                
+                const jobsContainer = document.getElementById('miningJobs');
+                document.getElementById('jobCount').textContent = jobs.length + ' jobs';
+                
+                if (jobs.length === 0) {
+                    jobsContainer.innerHTML = `
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-inbox text-4xl mb-3"></i>
+                            <p>No active jobs</p>
+                        </div>
+                    `;
+                } else {
+                    jobsContainer.innerHTML = jobs.map(job => `
+                        <div class="bg-gray-700 rounded-lg p-4">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold">${job.name}</p>
+                                    <p class="text-sm text-gray-400">Job ID: #${job.id}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-${job.progress > 70 ? 'green' : job.progress > 30 ? 'yellow' : 'red'}-400 font-semibold">${job.progress}%</p>
+                                    <p class="text-xs text-gray-400">${job.status}</p>
+                                </div>
+                            </div>
+                            <div class="mt-3 bg-gray-600 rounded-full h-2">
+                                <div class="bg-${job.progress > 70 ? 'green' : job.progress > 30 ? 'yellow' : 'red'}-500 h-2 rounded-full transition-all duration-500" style="width: ${job.progress}%"></div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Failed to load mining jobs:', error);
+            }
+        }
+        
+        // Load services
+        async function loadServices() {
+            try {
+                const response = await fetch('/api/services');
+                const services = await response.json();
+                
+                const servicesContainer = document.getElementById('miningServices');
+                servicesContainer.innerHTML = services.map(service => `
+                    <div class="bg-gray-700 rounded-lg p-4 flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">${service.name}</p>
+                            <p class="text-sm text-gray-400">${service.description}</p>
+                        </div>
+                        <span class="bg-${service.status === 'active' ? 'green' : service.status === 'standby' ? 'yellow' : 'gray'}-600 px-3 py-1 rounded-full text-sm">
+                            ${service.status}
+                        </span>
+                    </div>
+                `).join('');
+                
+                // Load service details
+                const detailsContainer = document.getElementById('serviceDetails');
+                detailsContainer.innerHTML = services.map(service => `
+                    <div class="bg-gray-700 rounded-lg p-4">
+                        <h4 class="font-semibold mb-2">${service.name}</h4>
+                        <p class="text-sm text-gray-400 mb-3">${service.description}</p>
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-sm">
+                                <span>Capacity:</span>
+                                <span>${service.capacity}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span>Utilization:</span>
+                                <span>${service.utilization}%</span>
+                            </div>
+                            <div class="bg-gray-600 rounded-full h-2 mt-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: ${service.utilization}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Failed to load services:', error);
+            }
+        }
+        
+        // Load statistics
+        async function loadStatistics() {
+            try {
+                const response = await fetch('/api/statistics');
+                const stats = await response.json();
+                
+                document.getElementById('totalJobs').textContent = stats.total_jobs_completed.toLocaleString();
+                document.getElementById('avgJobTime').textContent = stats.average_job_time + 's';
+                document.getElementById('successRate').textContent = stats.success_rate + '%';
+                document.getElementById('hashRate').textContent = stats.hash_rate + ' MH/s';
+                
+                // Update hash rate chart
+                if (hashRateChart) {
+                    hashRateChart.data.datasets[0].data.shift();
+                    hashRateChart.data.datasets[0].data.push(stats.hash_rate);
+                    hashRateChart.update('none');
+                }
+            } catch (error) {
+                console.error('Failed to load statistics:', error);
+            }
+        }
+        
+        // Initialize charts
+        function initCharts() {
+            // Utilization chart
+            const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
+            utilizationChart = new Chart(utilizationCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 12}, (_, i) => `${60-i*5}m`),
+                    datasets: [{
+                        label: 'GPU Utilization %',
+                        data: Array(12).fill(0),
+                        borderColor: 'rgb(147, 51, 234)',
+                        backgroundColor: 'rgba(147, 51, 234, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 100, ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } },
+                        x: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } }
+                    }
+                }
+            });
+            
+            // Hash rate chart
+            const hashRateCtx = document.getElementById('hashRateChart').getContext('2d');
+            hashRateChart = new Chart(hashRateCtx, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 12}, (_, i) => `${60-i*5}m`),
+                    datasets: [{
+                        label: 'Hash Rate (MH/s)',
+                        data: Array(12).fill(0),
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: { duration: 0 },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } },
+                        x: { ticks: { color: '#9CA3AF' }, grid: { color: '#374151' } }
+                    }
+                }
+            });
+        }
+        
+        // Refresh all data
+        async function refreshData() {
+            const refreshBtn = document.querySelector('button[onclick="refreshData()"]');
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Refreshing...';
+            
+            await Promise.all([
+                loadGPUStatus(),
+                loadMiningJobs(),
+                loadServices(),
+                loadStatistics()
+            ]);
+            
+            refreshBtn.innerHTML = '<i class="fas fa-sync-alt mr-2"></i>Refresh';
+        }
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', initDashboard);
+    </script>
+</body>
+</html>

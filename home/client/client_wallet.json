@@ -1,0 +1,38 @@
+{
+  "address": "aitbc18f75b7eb7e2ecc7567b6",
+  "balance": 9365.0,
+  "transactions": [
+    {
+      "type": "earn",
+      "amount": 10000.0,
+      "job_id": "genesis_distribution",
+      "description": "Initial funding from genesis block",
+      "timestamp": "2026-01-23T14:55:27.329418"
+    },
+    {
+      "type": "spend",
+      "amount": -100.0,
+      "description": "Payment for GPU training",
+      "timestamp": "2026-01-23T14:55:49.690981"
+    },
+    {
+      "type": "spend",
+      "amount": -500.0,
+      "description": "GPU inference batch",
+      "timestamp": "2026-01-23T14:55:56.229075"
+    },
+    {
+      "type": "spend",
+      "amount": -10.0,
+      "description": "Payment for job 78f7546575e24d3dbf64b96e78d8e54b",
+      "timestamp": "2026-01-23T15:09:30.029201"
+    },
+    {
+      "type": "spend",
+      "amount": -25.0,
+      "description": "Payment for job e3b3fd7ddd684270932cfd8107771e81",
+      "timestamp": "2026-01-23T15:09:41.183693"
+    }
+  ],
+  "created_at": "2026-01-23T14:55:27.329386"
+}

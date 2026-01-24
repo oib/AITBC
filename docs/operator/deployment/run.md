@@ -271,6 +271,44 @@ PY
    ```
 5. Validate by briefly stopping `aitbc-coordinator.service`, confirming Grafana panels pause and the new alerts fire, then restart the service.
 
+## Production Service Status (as of 2026-01-21)
+
+All core AITBC services are deployed and running in production:
+
+### Active Services
+- **aitbc-blockchain.service** - Blockchain Node (port 9080)
+- **aitbc-exchange-api.service** - Exchange API (port 8002)
+- **aitbc-exchange.service** - Trade Exchange (port 3002)
+- **aitbc-marketplace.service** - Marketplace UI (port 3001)
+- **aitbc-miner-dashboard.service** - Miner Dashboard (port 3003)
+- **coordinator-api.service** - Coordinator API (port 8000)
+- **wallet-daemon.service** - Wallet Daemon (port 9080)
+
+### Service Management
+Services are managed via systemd. Example commands:
+```bash
+# Check all AITBC services
+sudo systemctl list-units --type=service | grep aitbc
+
+# Restart a specific service
+sudo systemctl restart coordinator-api.service
+
+# View service logs
+sudo journalctl -u coordinator-api.service -f
+```
+
+### Port Mappings
+All services are proxied through nginx at https://aitbc.bubuit.net/:
+- `/api/` → Coordinator API
+- `/api/explorer/` → Explorer API
+- `/api/users/` → Users API
+- `/api/zk/` → ZK Applications API
+- `/wallet/` → Wallet Daemon
+- `/rpc/` → Blockchain RPC
+- `/explorer/` → Explorer Web
+- `/marketplace/` → Marketplace Web
+- `/Exchange/` → Trade Exchange
+
 ## Next Steps
 
 - Flesh out remaining logic per task breakdowns in `docs/*.md` (e.g., capability-aware scheduling, artifact uploads).

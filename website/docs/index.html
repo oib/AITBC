@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="css/docs.css">
+    <title>Documentation - AITBC</title>
+    <link rel="stylesheet" href="/fonts-font-awesome/css/font-awesome.min.css">
+    </head>
+<body>
+    <!-- Header -->
+    <header class="text-white shadow-lg" style="background: var(--bg-white); position: fixed; width: 100%; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 0;">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <i class="fa fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
+                    <h1 style="font-size: 1.5rem; font-weight: bold; margin: 0; color: var(--text-dark);">AITBC</h1>
+                </div>
+                <nav style="display: flex; align-items: center; gap: 1.5rem;">
+                    <a href="/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Home</a>
+                    <a href="/explorer/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Explorer</a>
+                    <a href="/Exchange/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Exchange</a>
+                    <a href="/docs/index.html" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Documentation</a>
+                    <button id="themeToggle" class="theme-toggle" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 1rem;">🌞</button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <div class="container">
+            <div class="doc-header">
+                <h1>Documentation</h1>
+                <p>Choose your reader level to access tailored documentation for your needs</p>
+                <div style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%); border-radius: 15px; border: 2px solid rgba(59, 130, 246, 0.2);">
+                    <h3 style="color: var(--success-color); margin-bottom: 0.5rem; font-size: 1.2rem;">✅ Latest Update (January 2026)</h3>
+                    <p style="color: var(--text-light); margin: 0;">End-to-end Ollama GPU inference testing completed! Real GPU miner operational with RTX 4060 Ti, processing jobs in 11-25 seconds with verified receipt generation and blockchain recording.</p>
+                </div>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="search-container">
+                <input type="text" class="search-bar" placeholder="Search documentation..." id="searchInput">
+                <i class="fas fa-search search-icon"></i>
+            </div>
+
+            <!-- Reader Level Cards -->
+            <div class="reader-levels">
+                <!-- Miners Card -->
+                <div class="reader-card miner">
+                    <div class="reader-icon">
+                        <i class="fas fa-hammer"></i>
+                    </div>
+                    <h3>Miners</h3>
+                    <p>Learn how to mine AITBC tokens and contribute to network security. Perfect for those looking to earn rewards through staking or providing compute power.</p>
+                    <ul class="reader-features">
+                        <li>GPU miner setup with Ollama (RTX 4060 Ti tested)</li>
+                        <li>Systemd service configuration</li>
+                        <li>Hardware requirements & optimization</li>
+                        <li>Real-time job processing & earnings</li>
+                        <li>Performance monitoring & troubleshooting</li>
+                    </ul>
+                    <a href="docs-miners.html" class="btn">Miner Documentation</a>
+                </div>
+
+                <!-- Clients Card -->
+                <div class="reader-card client">
+                    <div class="reader-icon">
+                        <i class="fa fa-users"></i>
+                    </div>
+                    <h3>Clients</h3>
+                    <p>Use AITBC for your AI/ML workloads with privacy and verifiable computation. Ideal for businesses and developers using AI services.</p>
+                    <ul class="reader-features">
+                        <li>CLI wrapper tool for easy job submission</li>
+                        <li>Job status monitoring & receipt verification</li>
+                        <li>13+ Ollama models available (llama3.2, mistral, deepseek)</li>
+                        <li>Transparent pricing: 0.02 AITBC/gpu_second</li>
+                        <li>Cryptographic receipts & blockchain verification</li>
+                    </ul>
+                    <a href="docs-clients.html" class="btn">Client Documentation</a>
+                </div>
+
+                <!-- Developers Card -->
+                <div class="reader-card developer">
+                    <div class="reader-icon">
+                        <i class="fa fa-code"></i>
+                    </div>
+                    <h3>Developers</h3>
+                    <p>Build on AITBC and contribute to the protocol. Designed for developers wanting to extend the platform or integrate with it.</p>
+                    <ul class="reader-features">
+                        <li>Development setup</li>
+                        <li>Contribution guidelines</li>
+                        <li>API reference</li>
+                        <li>Bounty programs</li>
+                        <li>Community resources</li>
+                    </ul>
+                    <a href="docs-developers.html" class="btn">Developer Documentation</a>
+                </div>
+
+                <!-- Full Documentation Card -->
+                <div class="reader-card full-doc">
+                    <div class="reader-icon">
+                        <i class="fas fa-file-alt"></i>
+                    </div>
+                    <h3>Full Documentation</h3>
+                    <p>Complete technical documentation covering all aspects of the AITBC platform including architecture, APIs, deployment, and advanced features.</p>
+                    <ul class="reader-features">
+                        <li>Architecture overview</li>
+                        <li>Complete API reference</li>
+                        <li>Deployment guides</li>
+                        <li>Security documentation</li>
+                        <li>Advanced configurations</li>
+                    </ul>
+                    <a href="full-documentation.html" class="btn">View Full Documentation</a>
+                </div>
+            </div>
+
+            <!-- Quick Links -->
+            <section class="quick-links">
+                <h2>Quick Links</h2>
+                <div class="links-grid">
+                    <a href="full-documentation.html" class="link-item">
+                        <i class="fa fa-book"></i>
+                        <span>Full Documentation</span>
+                    </a>
+                    <a href="https://aitbc.bubuit.net/Exchange/" class="link-item">
+                        <i class="fa fa-exchange"></i>
+                        <span>Trade Exchange</span>
+                    </a>
+                    <a href="https://gitea.bubuit.net/oib/aitbc" class="link-item">
+                        <i class="fa fa-git"></i>
+                        <span>Source Code</span>
+                    </a>
+                    <a href="https://discord.gg/aitbc" class="link-item">
+                        <i class="fab fa-discord"></i>
+                        <span>Community</span>
+                    </a>
+                    <a href="mailto:support@aitbc.io" class="link-item">
+                        <i class="fa fa-envelope"></i>
+                        <span>Support</span>
+                    </a>
+                    <a href="#" class="link-item">
+                        <i class="fa fa-graduation-cap"></i>
+                        <span>Tutorials</span>
+                    </a>
+                    <a href="#" class="link-item">
+                        <i class="fa fa-video-camera"></i>
+                        <span>Video Guides</span>
+                    </a>
+                </div>
+            </section>
+
+            <!-- Help Section -->
+            <section class="help-section">
+                <h2>Need Help?</h2>
+                <p>Can't find what you're looking for? Our community is here to help!</p>
+                <div class="help-buttons">
+                    <a href="https://discord.gg/aitbc" class="btn">
+                        <i class="fab fa-discord"></i> Join Discord
+                    </a>
+                    <a href="mailto:support@aitbc.io" class="btn btn-outline">
+                        <i class="fa fa-envelope"></i> Email Support
+                    </a>
+                    <a href="#" class="btn btn-outline">
+                        <i class="fa fa-comments"></i> Live Chat
+                    </a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <p>&copy; 2026 AITBC. All rights reserved. | Last updated: January 24, 2026</p>
+        </div>
+    </footer>
+
+    <script>
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const searchTerm = e.target.value.toLowerCase();
+                if (searchTerm) {
+                    // Simple search logic - in real implementation, this would search actual docs
+                    alert(`Searching for: ${searchTerm}\n\nIn a full implementation, this would search through all documentation pages and show relevant results.`);
+                }
+            }
+        });
+
+        // Add some interactivity
+        document.querySelectorAll('.reader-card').forEach(card => {
+            card.addEventListener('mouseenter', function() {
+                this.style.cursor = 'pointer';
+            });
+        });
+    </script>
+
+    <script>
+        // Check for saved theme preference or default to dark mode
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        if (currentTheme === 'light') {
+            document.body.classList.add('light');
+            document.getElementById('themeToggle').textContent = '🌙';
+        }
+
+        // Theme toggle functionality
+        document.getElementById('themeToggle').addEventListener('click', function() {
+            document.body.classList.toggle('light');
+            const isLight = document.body.classList.contains('light');
+            localStorage.setItem('theme', isLight ? 'light' : 'dark');
+            this.textContent = isLight ? '🌙' : '🌞';
+        });
+    </script></body>
+</html>

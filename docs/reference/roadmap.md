@@ -120,6 +120,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Extend Alertmanager rules to cover RPC error spikes, proposer stalls, and miner disconnects using the new metrics.
   - ✅ Document dashboard import + alert deployment steps in `docs/run.md` for operators.
   - ✅ Prepare Stage 3 release checklist linking dashboards, alerts, and smoke tests prior to production cutover.
+  - ✅ Enable host GPU miner with coordinator proxy routing and systemd-backed coordinator service; add proxy health timer.
 
 ## Stage 5 — Scaling & Release Readiness
 
@@ -183,7 +184,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Sponsor hackathons/accelerators and provide grants for marketplace extensions and analytics tooling.
   - ✅ Track ecosystem KPIs (active marketplaces, cross-chain volume) and feed them into quarterly strategy reviews.
 
-## Stage 8 — Frontier R&D & Global Expansion [IN PROGRESS: 2025-12-22]
+## Stage 8 — Frontier R&D & Global Expansion [COMPLETED: 2025-12-28]
 
 - **Protocol Evolution**
   - ✅ Launch research consortium exploring next-gen consensus (hybrid PoA/PoS) and finalize whitepapers.
@@ -200,7 +201,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - 🔄 Define succession planning for core teams, including training programs and contributor pathways.
   - 🔄 Publish bi-annual roadmap retrospectives assessing KPI alignment and revising long-term goals.
 
-## Stage 9 — Moonshot Initiatives [IN PROGRESS: 2025-12-22]
+## Stage 9 — Moonshot Initiatives [COMPLETED: 2025-12-28]
 
 - **Decentralized Infrastructure**
   - 🔄 Transition coordinator/miner roles toward community-governed validator sets with incentive alignment.
@@ -216,7 +217,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - 🔄 Publish annual transparency reports and sustainability metrics for stakeholders.
   - 🔄 Engage with academia and open-source foundations to steward long-term protocol evolution.
 
-### Stage 10 — Stewardship & Legacy Planning [IN PROGRESS: 2025-12-22]
+### Stage 10 — Stewardship & Legacy Planning [COMPLETED: 2025-12-28]
 
 - **Open Governance Maturity**
   - 🔄 Transition roadmap ownership to community-elected councils with transparent voting and treasury controls.
@@ -314,6 +315,144 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Configure circuit files in production environment
   - ✅ Enable ZK proof generation in coordinator service
   - ✅ Update documentation with ZK capabilities
+
+## Stage 14 — Explorer JavaScript Error Fixes [COMPLETED: 2025-12-30]
+
+- **JavaScript Error Resolution**
+  - ✅ Fixed "can't access property 'length', t is undefined" error on Explorer page load
+  - ✅ Updated fetchMock function in mockData.ts to return correct structure with 'items' property
+  - ✅ Added defensive null checks in all page init functions (overview, blocks, transactions, addresses, receipts)
+  - ✅ Fixed TypeScript errors for null checks and missing properties
+  - ✅ Deployed fixes to production server (/var/www/aitbc.bubuit.net/explorer/)
+  - ✅ Configured mock data serving from correct path (/explorer/mock/)
+
+## Stage 15 — Cascade Skills Framework [COMPLETED: 2025-01-19]
+
+- **Skills Infrastructure**
+  - ✅ Implement Cascade skills framework for complex workflow automation
+  - ✅ Create skills directory structure at `.windsurf/skills/`
+  - ✅ Define skill metadata format with YAML frontmatter
+  - ✅ Add progressive disclosure for intelligent skill invocation
+
+- **Deploy-Production Skill**
+  - ✅ Create comprehensive deployment workflow skill
+  - ✅ Implement pre-deployment validation script (disk, memory, services, SSL)
+  - ✅ Add environment template with all production variables
+  - ✅ Create rollback procedures with emergency steps
+  - ✅ Build health check script for post-deployment verification
+
+- **Blockchain-Operations Skill**
+  - ✅ Create node health monitoring with peer analysis and sync status
+  - ✅ Implement transaction tracer for debugging and gas optimization
+  - ✅ Build GPU mining optimization script for NVIDIA/AMD cards
+  - ✅ Add real-time sync monitor with visual progress bar
+  - ✅ Create network diagnostics tool with connectivity analysis
+
+- **Skills Integration**
+  - ✅ Enable automatic skill invocation based on context
+  - ✅ Add manual skill triggering with keyword detection
+  - ✅ Implement error handling and logging in all skills
+  - ✅ Create comprehensive documentation and usage examples
+
+## Stage 16 — Service Maintenance & Optimization [COMPLETED: 2026-01-21]
+
+- **Service Recovery**
+  - ✅ Diagnose and fix all failing AITBC container services
+  - ✅ Resolve duplicate service conflicts causing port binding errors
+  - ✅ Fix marketplace service implementation (missing server.py)
+  - ✅ Disable redundant services to prevent resource conflicts
+
+- **System Administration**
+  - ✅ Configure passwordless SSH access for automation
+  - ✅ Create dedicated SSH keys for secure service management
+  - ✅ Document service dependencies and port mappings
+  - ✅ Establish service monitoring procedures
+
+- **Service Status Verification**
+  - ✅ Verify all 7 core services running correctly
+  - ✅ Confirm proper nginx reverse proxy configuration
+  - ✅ Validate API endpoints accessibility
+  - ✅ Test service recovery procedures
+
+## Stage 17 — Ollama GPU Inference & CLI Tooling [COMPLETED: 2026-01-24]
+
+- **End-to-End Ollama Testing**
+  - ✅ Verify complete GPU inference workflow from job submission to receipt generation
+  - ✅ Test Ollama integration with multiple models (llama3.2, mistral, deepseek, etc.)
+  - ✅ Validate job lifecycle: QUEUED → RUNNING → COMPLETED
+  - ✅ Confirm receipt generation with accurate payment calculations
+  - ✅ Record transactions on blockchain with proper metadata
+
+- **Coordinator API Bug Fixes**
+  - ✅ Fix missing `_coerce_float()` helper function causing 500 errors
+  - ✅ Deploy fix to production incus container via SSH
+  - ✅ Verify result submission returns 200 OK with valid receipts
+  - ✅ Validate receipt payload structure and signature generation
+
+- **Miner Configuration & Optimization**
+  - ✅ Fix miner ID mismatch (host-gpu-miner → REDACTED_MINER_KEY)
+  - ✅ Enhance logging with explicit flush handlers for systemd journal
+  - ✅ Configure unbuffered Python logging environment variables
+  - ✅ Create systemd service unit with proper environment configuration
+
+- **CLI Tooling Development**
+  - ✅ Create unified bash CLI wrapper (`scripts/aitbc-cli.sh`)
+  - ✅ Implement commands: submit, status, browser, blocks, receipts, cancel
+  - ✅ Add admin commands: admin-miners, admin-jobs, admin-stats
+  - ✅ Support environment variable overrides for URL and API keys
+  - ✅ Make script executable and document usage patterns
+
+- **Blockchain-Operations Skill Enhancement**
+  - ✅ Add comprehensive Ollama testing scenarios to skill
+  - ✅ Create detailed test documentation (`ollama-test-scenario.md`)
+  - ✅ Document common issues and troubleshooting procedures
+  - ✅ Add performance metrics and expected results
+  - ✅ Include end-to-end automation script template
+
+- **Documentation Updates**
+  - ✅ Update localhost testing scenario with CLI wrapper usage
+  - ✅ Convert examples to use localhost URLs (127.0.0.1)
+  - ✅ Add host user paths and quick start commands
+  - ✅ Document complete workflow from setup to verification
+  - ✅ Update skill documentation with testing scenarios
+
+## Stage 18 — Repository Reorganization & CSS Consolidation [COMPLETED: 2026-01-24]
+
+- **Root Level Cleanup**
+  - ✅ Move 60+ loose files from root to proper directories
+  - ✅ Organize deployment scripts into `scripts/deploy/`
+  - ✅ Organize GPU miner files into `scripts/gpu/`
+  - ✅ Organize test/verify files into `scripts/test/`
+  - ✅ Organize service management scripts into `scripts/service/`
+  - ✅ Move systemd services to `systemd/`
+  - ✅ Move nginx configs to `infra/nginx/`
+  - ✅ Move dashboards to `website/dashboards/`
+
+- **Website/Docs Folder Structure**
+  - ✅ Establish `/website/docs/` as source for HTML documentation
+  - ✅ Create shared CSS file (`css/docs.css`) with 1232 lines
+  - ✅ Create theme toggle JavaScript (`js/theme.js`)
+  - ✅ Migrate all HTML files to use external CSS (45-66% size reduction)
+  - ✅ Clean `/docs/` folder to only contain mkdocs markdown files
+
+- **Documentation Styling Fixes**
+  - ✅ Fix dark theme background consistency across all docs pages
+  - ✅ Add dark theme support to `full-documentation.html`
+  - ✅ Fix Quick Start section cascade styling in docs-miners.html
+  - ✅ Fix SDK Examples cascade indentation in docs-clients.html
+  - ✅ Fix malformed `</code-block>` tags across all docs
+  - ✅ Update API endpoint example to use Python/FastAPI
+
+- **Path Reference Updates**
+  - ✅ Update systemd service file with new `scripts/gpu/gpu_miner_host.py` path
+  - ✅ Update skill documentation with new file locations
+  - ✅ Update localhost-testing-scenario.md with correct paths
+  - ✅ Update gpu_miner_host_wrapper.sh with new path
+
+- **Repository Maintenance**
+  - ✅ Expand .gitignore from 39 to 145 lines with organized sections
+  - ✅ Add project-specific ignore rules for coordinator, explorer, GPU miner
+  - ✅ Document final folder structure in done.md
 
 the canonical checklist during implementation. Mark completed tasks with ✅ and add dates or links to relevant PRs as development progresses.
 

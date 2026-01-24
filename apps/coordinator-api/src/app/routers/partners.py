@@ -20,9 +20,9 @@ class PartnerRegister(BaseModel):
     """Register a new partner application"""
     name: str = Field(..., min_length=3, max_length=100)
     description: str = Field(..., min_length=10, max_length=500)
-    website: str = Field(..., regex=r'^https?://')
-    contact: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
-    integration_type: str = Field(..., regex="^(explorer|analytics|wallet|exchange|other)$")
+    website: str = Field(..., pattern=r'^https?://')
+    contact: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
+    integration_type: str = Field(..., pattern="^(explorer|analytics|wallet|exchange|other)$")
 
 
 class PartnerResponse(BaseModel):
@@ -36,7 +36,7 @@ class PartnerResponse(BaseModel):
 
 class WebhookCreate(BaseModel):
     """Create a webhook subscription"""
-    url: str = Field(..., regex=r'^https?://')
+    url: str = Field(..., pattern=r'^https?://')
     events: List[str] = Field(..., min_items=1)
     secret: Optional[str] = Field(max_length=100)
 

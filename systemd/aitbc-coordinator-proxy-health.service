@@ -1,0 +1,8 @@
+[Unit]
+Description=AITBC Coordinator Proxy Health Check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/oib/windsurf/aitbc/scripts/check_coordinator_proxy.sh

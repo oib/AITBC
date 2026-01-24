@@ -1,0 +1,22 @@
+[Unit]
+Description=AITBC Wallet Daemon Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/root/aitbc/apps/wallet-daemon
+Environment=PATH=/root/aitbc/.venv/bin
+Environment=PYTHONPATH=/root/aitbc/apps/wallet-daemon
+ExecStart=/root/aitbc/.venv/bin/python -m wallet_daemon.main --host 0.0.0.0 --port 8001
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-wallet
+
+[Install]
+WantedBy=multi-user.target

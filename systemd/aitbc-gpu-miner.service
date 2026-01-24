@@ -1,0 +1,28 @@
+[Unit]
+Description=AITBC GPU Miner Client
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=debian
+Group=debian
+WorkingDirectory=/home/debian/aitbc
+Environment=PYTHONPATH=/home/debian/aitbc
+ExecStart=/home/debian/aitbc/venv/bin/python /home/debian/aitbc/gpu_miner_simple.py
+Restart=on-failure
+RestartSec=30
+StartLimitInterval=300
+StartLimitBurst=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-gpu-miner
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/home/debian/aitbc
+
+[Install]
+WantedBy=multi-user.target

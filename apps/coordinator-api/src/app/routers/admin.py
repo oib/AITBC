@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlmodel import select
 
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
@@ -53,7 +54,7 @@ async def list_miners(session: SessionDep, admin_key: str = Depends(require_admi
     miner_service = MinerService(session)
     miners = [
         {
-            "miner_id": record.miner_id,
+            "miner_id": record.id,
             "status": record.status,
             "inflight": record.inflight,
             "concurrency": record.concurrency,

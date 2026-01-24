@@ -50,7 +50,7 @@ class ExplorerService:
                     height=height,
                     hash=job.id,
                     timestamp=job.requested_at,
-                    tx_count=1,
+                    txCount=1,
                     proposer=proposer,
                 )
             )
@@ -71,13 +71,22 @@ class ExplorerService:
         for index, job in enumerate(jobs):
             height = _DEFAULT_HEIGHT_BASE + offset + index
             status_label = _STATUS_LABELS.get(job.state, job.state.value.title())
-            value = job.payload.get("value") if isinstance(job.payload, dict) else None
-            if value is None:
-                value_str = "0"
-            elif isinstance(value, (int, float)):
-                value_str = f"{value}"
-            else:
-                value_str = str(value)
+            
+            # Try to get payment amount from receipt
+            value_str = "0"
+            if job.receipt and isinstance(job.receipt, dict):
+                price = job.receipt.get("price")
+                if price is not None:
+                    value_str = f"{price}"
+            
+            # Fallback to payload value if no receipt
+            if value_str == "0":
+                value = job.payload.get("value") if isinstance(job.payload, dict) else None
+                if value is not None:
+                    if isinstance(value, (int, float)):
+                        value_str = f"{value}"
+                    else:
+                        value_str = str(value)
 
             items.append(
                 TransactionSummary(
@@ -100,14 +109,16 @@ class ExplorerService:
         address_map: dict[str, dict[str, object]] = defaultdict(
             lambda: {
                 "address": "",
-                "balance": "0",
+                "balance": 0.0,
                 "tx_count": 0,
                 "last_active": datetime.min,
                 "recent_transactions": deque(maxlen=5),
+                "earned": 0.0,
+                "spent": 0.0,
             }
         )
 
-        def touch(address: Optional[str], tx_id: str, when: datetime, value_hint: Optional[str] = None) -> None:
+        def touch(address: Optional[str], tx_id: str, when: datetime, earned: float = 0.0, spent: float = 0.0) -> None:
             if not address:
                 return
             entry = address_map[address]
@@ -115,18 +126,27 @@ class ExplorerService:
             entry["tx_count"] = int(entry["tx_count"]) + 1
             if when > entry["last_active"]:
                 entry["last_active"] = when
-            if value_hint:
-                entry["balance"] = value_hint
+            # Track earnings and spending
+            entry["earned"] = float(entry["earned"]) + earned
+            entry["spent"] = float(entry["spent"]) + spent
+            entry["balance"] = float(entry["earned"]) - float(entry["spent"])
             recent: deque[str] = entry["recent_transactions"]  # type: ignore[assignment]
             recent.appendleft(tx_id)
 
         for job in jobs:
-            value = job.payload.get("value") if isinstance(job.payload, dict) else None
-            value_hint: Optional[str] = None
-            if value is not None:
-                value_hint = str(value)
-            touch(job.client_id, job.id, job.requested_at, value_hint=value_hint)
-            touch(job.assigned_miner_id, job.id, job.requested_at)
+            # Get payment amount from receipt if available
+            price = 0.0
+            if job.receipt and isinstance(job.receipt, dict):
+                receipt_price = job.receipt.get("price")
+                if receipt_price is not None:
+                    try:
+                        price = float(receipt_price)
+                    except (TypeError, ValueError):
+                        pass
+            
+            # Miner earns, client spends
+            touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
+            touch(job.client_id, job.id, job.requested_at, spent=price)
 
         sorted_addresses = sorted(
             address_map.values(),
@@ -138,7 +158,7 @@ class ExplorerService:
         items = [
             AddressSummary(
                 address=entry["address"],
-                balance=str(entry["balance"]),
+                balance=f"{float(entry['balance']):.6f}",
                 txCount=int(entry["tx_count"]),
                 lastActive=entry["last_active"],
                 recentTransactions=list(entry["recent_transactions"]),
@@ -164,19 +184,24 @@ class ExplorerService:
         items: list[ReceiptSummary] = []
         for row in rows:
             payload = row.payload or {}
-            miner = payload.get("miner") or payload.get("miner_id") or "unknown"
-            coordinator = payload.get("coordinator") or payload.get("coordinator_id") or "unknown"
+            # Extract miner from provider field (receipt format) or fallback
+            miner = payload.get("provider") or payload.get("miner") or payload.get("miner_id") or "unknown"
+            # Extract client as coordinator (receipt format) or fallback
+            coordinator = payload.get("client") or payload.get("coordinator") or payload.get("coordinator_id") or "unknown"
             status = payload.get("status") or payload.get("state") or "Unknown"
+            # Get job_id from payload
+            job_id_from_payload = payload.get("job_id") or row.job_id
             items.append(
                 ReceiptSummary(
-                    receipt_id=row.receipt_id,
+                    receiptId=row.receipt_id,
                     miner=miner,
                     coordinator=coordinator,
-                    issued_at=row.created_at,
+                    issuedAt=row.created_at,
                     status=status,
                     payload=payload,
+                    jobId=job_id_from_payload,
                 )
             )
 
         resolved_job_id = job_id or "all"
-        return ReceiptListResponse(job_id=resolved_job_id, items=items)
+        return ReceiptListResponse(jobId=resolved_job_id, items=items)
