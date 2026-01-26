@@ -66,6 +66,8 @@ class JobCreate(BaseModel):
     payload: Dict[str, Any]
     constraints: Constraints = Field(default_factory=Constraints)
     ttl_seconds: int = 900
+    payment_amount: Optional[float] = None  # Amount to pay for the job
+    payment_currency: str = "AITBC"  # Jobs paid with AITBC tokens
 
 
 class JobView(BaseModel):
@@ -75,6 +77,8 @@ class JobView(BaseModel):
     requested_at: datetime
     expires_at: datetime
     error: Optional[str] = None
+    payment_id: Optional[str] = None
+    payment_status: Optional[str] = None
 
 
 class JobResult(BaseModel):

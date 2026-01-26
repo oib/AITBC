@@ -16,6 +16,7 @@ from .routers import (
     marketplace_offers,
     zk_applications,
     explorer,
+    payments,
 )
 from .routers import zk_applications
 from .routers.governance import router as governance
@@ -48,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(exchange, prefix="/v1")
     app.include_router(users, prefix="/v1/users")
     app.include_router(services, prefix="/v1")
+    app.include_router(payments, prefix="/v1")
     app.include_router(marketplace_offers, prefix="/v1")
     app.include_router(zk_applications.router, prefix="/v1")
     app.include_router(governance, prefix="/v1")

@@ -2,11 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobView, JobResult
+from ..schemas.payments import JobPaymentCreate, PaymentMethod
 from ..types import JobState
 from ..services import JobService
+from ..services.payments import PaymentService
 from ..storage import SessionDep
 
 router = APIRouter(tags=["client"])
+
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
 async def submit_job(
@@ -16,6 +19,22 @@ async def submit_job(
 ) -> JobView:  # type: ignore[arg-type]
     service = JobService(session)
     job = service.create_job(client_id, req)
+    
+    # Create payment if amount is specified
+    if req.payment_amount and req.payment_amount > 0:
+        payment_service = PaymentService(session)
+        payment_create = JobPaymentCreate(
+            job_id=job.id,
+            amount=req.payment_amount,
+            currency=req.payment_currency,
+            payment_method=PaymentMethod.AITBC_TOKEN  # Jobs use AITBC tokens
+        )
+        payment = await payment_service.create_payment(job.id, payment_create)
+        job.payment_id = payment.id
+        job.payment_status = payment.status.value
+        session.commit()
+        session.refresh(job)
+    
     return service.to_view(job)
 
 

@@ -4,6 +4,42 @@
 
 This document outlines a comprehensive testing scenario for customers and service providers interacting on the AITBC platform. This scenario enables end-to-end testing of the complete marketplace workflow using the publicly accessible deployment at https://aitbc.bubuit.net/.
 
+## Integration Tests
+
+### Test Suite Status (Updated 2026-01-26)
+
+The integration test suite has been updated to use real implemented features:
+
+#### ✅ Passing Tests (6)
+1. **End-to-End Job Execution** - Tests complete job workflow
+2. **Multi-Tenant Isolation** - Verifies tenant data separation
+3. **Block Propagation** - Tests P2P network block sync
+4. **Transaction Propagation** - Tests P2P transaction sync
+5. **Marketplace Integration** - Connects to live marketplace
+6. **Security Integration** - Uses real ZK proof features
+
+#### ⏸️ Skipped Tests (1)
+1. **Wallet Payment Flow** - Awaiting wallet-coordinator integration
+
+#### Running Tests
+```bash
+# Run all integration tests
+python -m pytest tests/integration/test_full_workflow.py -v
+
+# Run specific test class
+python -m pytest tests/integration/test_full_workflow.py::TestSecurityIntegration -v
+
+# Run with real client (not mocks)
+export USE_REAL_CLIENT=1
+python -m pytest tests/integration/ -v
+```
+
+#### Test Features
+- Tests work with both real client and mock fallback
+- Security tests use actual ZK proof requirements
+- Marketplace tests connect to https://aitbc.bubuit.net/marketplace
+- All tests pass in CLI and Windsorf environments
+
 ## Prerequisites
 
 ### System Requirements

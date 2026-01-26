@@ -5,7 +5,7 @@ This document categorizes all files and folders in the repository by their statu
 - **Greylist (⚠️)**: Uncertain status, may need review
 - **Blacklist (❌)**: Legacy, unused, outdated, candidates for removal
 
-Last updated: 2026-01-24
+Last updated: 2026-01-26
 
 ---
 
@@ -103,6 +103,10 @@ Last updated: 2026-01-24
 | `.gitignore` | ✅ Active | Recently updated (145 lines) |
 | `pyproject.toml` | ✅ Active | Python project config |
 | `.editorconfig` | ✅ Active | Editor config |
+| `INTEGRATION_TEST_FIXES.md` | ✅ Active | Integration test fixes documentation |
+| `INTEGRATION_TEST_UPDATES.md` | ✅ Active | Integration test real features implementation |
+| `SKIPPED_TESTS_ROADMAP.md` | ✅ Active | Skipped tests roadmap status |
+| `TEST_FIXES_COMPLETE.md` | ✅ Active | Complete test fixes summary |
 
 ---
 

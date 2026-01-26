@@ -1,13 +1,30 @@
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-ra --tb=short"
 testpaths = [
     "apps/coordinator-api/tests",
-    "apps/miner-node/tests"
+    "apps/miner-node/tests",
+    "tests"
 ]
 asyncio_default_fixture_loop_scope = "function"
 pythonpath = [
+    ".",
     "packages/py/aitbc-core/src",
     "packages/py/aitbc-crypto/src",
     "packages/py/aitbc-p2p/src",
-    "packages/py/aitbc-sdk/src"
+    "packages/py/aitbc-sdk/src",
+    "apps/coordinator-api/src",
+    "apps/wallet-daemon/src",
+    "apps/blockchain-node/src"
+]
+import-mode = append
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (require external services)",
+    "e2e: End-to-end tests (full system)",
+    "performance: Performance tests (measure speed/memory)",
+    "security: Security tests (vulnerability scanning)",
+    "slow: Slow tests (run separately)",
+    "gpu: Tests requiring GPU resources",
+    "confidential: Tests for confidential transactions",
+    "multitenant: Multi-tenancy specific tests"
 ]

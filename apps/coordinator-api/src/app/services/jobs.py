@@ -7,11 +7,13 @@ from sqlmodel import Session, select
 
 from ..domain import Job, Miner, JobReceipt
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
+from .payments import PaymentService
 
 
 class JobService:
     def __init__(self, session: Session):
         self.session = session
+        self.payment_service = PaymentService(session)
 
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
@@ -27,6 +29,19 @@ class JobService:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
+        
+        # Create payment if amount is specified
+        if req.payment_amount and req.payment_amount > 0:
+            from ..schemas.payments import JobPaymentCreate, PaymentMethod
+            payment_create = JobPaymentCreate(
+                job_id=job.id,
+                amount=req.payment_amount,
+                currency=req.payment_currency,
+                payment_method=PaymentMethod.BITCOIN
+            )
+            # Note: This is async, so we'll handle it in the router
+            job.payment_pending = True
+        
         return job
 
     def get_job(self, job_id: str, client_id: Optional[str] = None) -> Job:
