@@ -529,3 +529,416 @@ class TestHealthAndMetrics:
         assert response.status_code == 200
         data = response.json()
         assert "ready" in data
+
+
+@pytest.mark.unit
+class TestJobExecution:
+    """Test job execution lifecycle"""
+    
+    def test_job_execution_flow(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test complete job execution flow"""
+        # Create job
+        response = coordinator_client.post(
+            "/v1/jobs",
+            json=sample_job_data,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        assert response.status_code == 201
+        job_id = response.json()["id"]
+        
+        # Accept job
+        response = coordinator_client.patch(
+            f"/v1/jobs/{job_id}/accept",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "running"
+        
+        # Complete job
+        response = coordinator_client.patch(
+            f"/v1/jobs/{job_id}/complete",
+            json={"result": "Task completed successfully"},
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "completed"
+    
+    def test_job_retry_mechanism(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test job retry mechanism"""
+        # Create job
+        response = coordinator_client.post(
+            "/v1/jobs",
+            json={**sample_job_data, "max_retries": 3},
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        job_id = response.json()["id"]
+        
+        # Fail job
+        response = coordinator_client.patch(
+            f"/v1/jobs/{job_id}/fail",
+            json={"error": "Temporary failure"},
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "failed"
+        assert data["retry_count"] == 1
+        
+        # Retry job
+        response = coordinator_client.post(
+            f"/v1/jobs/{job_id}/retry",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        assert response.json()["status"] == "pending"
+    
+    def test_job_timeout_handling(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test job timeout handling"""
+        with patch('apps.coordinator_api.src.app.services.job_service.JobService.check_timeout') as mock_timeout:
+            mock_timeout.return_value = True
+            
+            response = coordinator_client.post(
+                "/v1/jobs/timeout-check",
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 200
+        assert "timed_out" in response.json()
+
+
+@pytest.mark.unit
+class TestConfidentialTransactions:
+    """Test confidential transaction features"""
+    
+    def test_create_confidential_job(self, coordinator_client, sample_tenant):
+        """Test creating a confidential job"""
+        confidential_job = {
+            "job_type": "confidential_inference",
+            "parameters": {
+                "encrypted_data": "encrypted_payload",
+                "verification_key": "zk_proof_key"
+            },
+            "confidential": True
+        }
+        
+        with patch('apps.coordinator_api.src.app.services.zk_proofs.generate_proof') as mock_proof:
+            mock_proof.return_value = "proof_hash"
+            
+            response = coordinator_client.post(
+                "/v1/jobs",
+                json=confidential_job,
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert data["confidential"] is True
+        assert "proof_hash" in data
+    
+    def test_verify_confidential_result(self, coordinator_client, sample_tenant):
+        """Test verification of confidential job results"""
+        verification_data = {
+            "job_id": "confidential-job-123",
+            "result_hash": "result_hash",
+            "zk_proof": "zk_proof_data"
+        }
+        
+        with patch('apps.coordinator_api.src.app.services.zk_proofs.verify_proof') as mock_verify:
+            mock_verify.return_value = {"valid": True}
+            
+            response = coordinator_client.post(
+                "/v1/jobs/verify-result",
+                json=verification_data,
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 200
+        assert response.json()["valid"] is True
+
+
+@pytest.mark.unit
+class TestBatchOperations:
+    """Test batch operations"""
+    
+    def test_batch_job_creation(self, coordinator_client, sample_tenant):
+        """Test creating multiple jobs in batch"""
+        batch_data = {
+            "jobs": [
+                {"job_type": "inference", "parameters": {"model": "gpt-4"}},
+                {"job_type": "inference", "parameters": {"model": "claude-3"}},
+                {"job_type": "image_gen", "parameters": {"prompt": "test image"}}
+            ]
+        }
+        
+        response = coordinator_client.post(
+            "/v1/jobs/batch",
+            json=batch_data,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert "job_ids" in data
+        assert len(data["job_ids"]) == 3
+    
+    def test_batch_job_cancellation(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test cancelling multiple jobs"""
+        # Create multiple jobs
+        job_ids = []
+        for i in range(3):
+            response = coordinator_client.post(
+                "/v1/jobs",
+                json=sample_job_data,
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+            job_ids.append(response.json()["id"])
+        
+        # Cancel all jobs
+        response = coordinator_client.post(
+            "/v1/jobs/batch-cancel",
+            json={"job_ids": job_ids},
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["cancelled_count"] == 3
+
+
+@pytest.mark.unit
+class TestRealTimeFeatures:
+    """Test real-time features"""
+    
+    def test_websocket_connection(self, coordinator_client):
+        """Test WebSocket connection for job updates"""
+        with patch('fastapi.WebSocket') as mock_websocket:
+            mock_websocket.accept.return_value = None
+            
+            # Test WebSocket endpoint
+            response = coordinator_client.get("/ws/jobs")
+            # WebSocket connections use different protocol, so we test the endpoint exists
+            assert response.status_code in [200, 401, 426]  # 426 for upgrade required
+    
+    def test_job_status_updates(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test real-time job status updates"""
+        # Create job
+        response = coordinator_client.post(
+            "/v1/jobs",
+            json=sample_job_data,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        job_id = response.json()["id"]
+        
+        # Subscribe to updates
+        with patch('apps.coordinator_api.src.app.services.notification_service.NotificationService.subscribe') as mock_sub:
+            mock_sub.return_value = "subscription_id"
+            
+            response = coordinator_client.post(
+                f"/v1/jobs/{job_id}/subscribe",
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 200
+        assert "subscription_id" in response.json()
+
+
+@pytest.mark.unit
+class TestAdvancedScheduling:
+    """Test advanced job scheduling features"""
+    
+    def test_scheduled_job_creation(self, coordinator_client, sample_tenant):
+        """Test creating scheduled jobs"""
+        scheduled_job = {
+            "job_type": "inference",
+            "parameters": {"model": "gpt-4"},
+            "schedule": {
+                "type": "cron",
+                "expression": "0 2 * * *",  # Daily at 2 AM
+                "timezone": "UTC"
+            }
+        }
+        
+        response = coordinator_client.post(
+            "/v1/jobs/scheduled",
+            json=scheduled_job,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 201
+        data = response.json()
+        assert "schedule_id" in data
+        assert data["next_run"] is not None
+    
+    def test_priority_queue_handling(self, coordinator_client, sample_job_data, sample_tenant):
+        """Test priority queue job handling"""
+        # Create high priority job
+        high_priority_job = {**sample_job_data, "priority": "urgent"}
+        response = coordinator_client.post(
+            "/v1/jobs",
+            json=high_priority_job,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 201
+        job_id = response.json()["id"]
+        
+        # Check priority queue
+        with patch('apps.coordinator_api.src.app.services.queue_service.QueueService.get_priority_queue') as mock_queue:
+            mock_queue.return_value = [job_id]
+            
+            response = coordinator_client.get(
+                "/v1/jobs/queue/priority",
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert job_id in data["jobs"]
+
+
+@pytest.mark.unit
+class TestResourceManagement:
+    """Test resource management and allocation"""
+    
+    def test_resource_allocation(self, coordinator_client, sample_tenant):
+        """Test resource allocation for jobs"""
+        resource_request = {
+            "job_type": "gpu_inference",
+            "requirements": {
+                "gpu_memory": "16GB",
+                "cpu_cores": 8,
+                "ram": "32GB",
+                "storage": "100GB"
+            }
+        }
+        
+        with patch('apps.coordinator_api.src.app.services.resource_service.ResourceService.check_availability') as mock_check:
+            mock_check.return_value = {"available": True, "estimated_wait": 0}
+            
+            response = coordinator_client.post(
+                "/v1/resources/check",
+                json=resource_request,
+                headers={"X-Tenant-ID": sample_tenant.id}
+            )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["available"] is True
+    
+    def test_resource_monitoring(self, coordinator_client, sample_tenant):
+        """Test resource usage monitoring"""
+        response = coordinator_client.get(
+            "/v1/resources/usage",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "gpu_usage" in data
+        assert "cpu_usage" in data
+        assert "memory_usage" in data
+
+
+@pytest.mark.unit
+class TestAPIVersioning:
+    """Test API versioning"""
+    
+    def test_v1_api_compatibility(self, coordinator_client, sample_tenant):
+        """Test v1 API endpoints"""
+        response = coordinator_client.get("/v1/version")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["version"] == "v1"
+    
+    def test_deprecated_endpoint_warning(self, coordinator_client, sample_tenant):
+        """Test deprecated endpoint returns warning"""
+        response = coordinator_client.get(
+            "/v1/legacy/jobs",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        assert "X-Deprecated" in response.headers
+    
+    def test_api_version_negotiation(self, coordinator_client, sample_tenant):
+        """Test API version negotiation"""
+        response = coordinator_client.get(
+            "/version",
+            headers={"Accept-Version": "v1"}
+        )
+        
+        assert response.status_code == 200
+        assert "API-Version" in response.headers
+
+
+@pytest.mark.unit
+class TestSecurityFeatures:
+    """Test security features"""
+    
+    def test_cors_headers(self, coordinator_client):
+        """Test CORS headers are set correctly"""
+        response = coordinator_client.options("/v1/jobs")
+        
+        assert "Access-Control-Allow-Origin" in response.headers
+        assert "Access-Control-Allow-Methods" in response.headers
+    
+    def test_request_size_limit(self, coordinator_client, sample_tenant):
+        """Test request size limits"""
+        large_data = {"data": "x" * 10_000_000}  # 10MB
+        
+        response = coordinator_client.post(
+            "/v1/jobs",
+            json=large_data,
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 413
+    
+    def test_sql_injection_protection(self, coordinator_client, sample_tenant):
+        """Test SQL injection protection"""
+        malicious_input = "'; DROP TABLE jobs; --"
+        
+        response = coordinator_client.get(
+            f"/v1/jobs/{malicious_input}",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 404
+        assert response.status_code != 500
+
+
+@pytest.mark.unit
+class TestPerformanceOptimizations:
+    """Test performance optimizations"""
+    
+    def test_response_compression(self, coordinator_client):
+        """Test response compression for large payloads"""
+        response = coordinator_client.get(
+            "/v1/jobs",
+            headers={"Accept-Encoding": "gzip"}
+        )
+        
+        assert response.status_code == 200
+        assert "Content-Encoding" in response.headers
+    
+    def test_caching_headers(self, coordinator_client):
+        """Test caching headers are set"""
+        response = coordinator_client.get("/v1/marketplace/offers")
+        
+        assert "Cache-Control" in response.headers
+        assert "ETag" in response.headers
+    
+    def test_pagination_performance(self, coordinator_client, sample_tenant):
+        """Test pagination with large datasets"""
+        response = coordinator_client.get(
+            "/v1/jobs?page=1&size=100",
+            headers={"X-Tenant-ID": sample_tenant.id}
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["items"]) <= 100
+        assert "next_page" in data or len(data["items"]) == 0

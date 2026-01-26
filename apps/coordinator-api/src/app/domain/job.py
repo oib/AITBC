@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, JSON
-from sqlmodel import Field, SQLModel
+from sqlalchemy import Column, JSON, String
+from sqlmodel import Field, SQLModel, Relationship
 
 from ..types import JobState
 
@@ -28,3 +28,10 @@ class Job(SQLModel, table=True):
     receipt: Optional[dict] = Field(default=None, sa_column=Column(JSON, nullable=True))
     receipt_id: Optional[str] = Field(default=None, index=True)
     error: Optional[str] = None
+    
+    # Payment tracking
+    payment_id: Optional[str] = Field(default=None, foreign_key="job_payments.id", index=True)
+    payment_status: Optional[str] = Field(default=None, max_length=20)  # pending, escrowed, released, refunded
+    
+    # Relationships
+    payment: Optional["JobPayment"] = Relationship(back_populates="jobs")

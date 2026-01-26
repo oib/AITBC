@@ -9,16 +9,24 @@ All AITBC API endpoints require authentication using API keys.
 
 ## Getting API Keys
 
+### Production
 1. Visit the [AITBC Dashboard](https://dashboard.aitbc.io)
 2. Create an account or sign in
 3. Navigate to API Keys section
 4. Generate a new API key
+
+### Testing/Development
+For integration tests and development, these test keys are available:
+- `REDACTED_CLIENT_KEY` - For client API access
+- `REDACTED_MINER_KEY` - For miner registration
+- `test-tenant` - Default tenant ID for testing
 
 ## Using API Keys
 
 ### HTTP Header
 ```http
 X-API-Key: your_api_key_here
+X-Tenant-ID: your_tenant_id  # Optional for multi-tenant
 ```
 
 ### Environment Variable

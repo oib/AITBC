@@ -2,10 +2,6 @@
 
 This repository houses all components of the Artificial Intelligence Token Blockchain (AITBC) stack, including coordinator services, blockchain node, miner daemon, client-facing web apps, SDKs, and documentation.
 
-## Repository Layout
-
-Refer to `docs/bootstrap/dirs.md` for the authoritative directory breakdown and follow-up implementation tasks.
-
 ## Getting Started
 
 1. Review the bootstrap documents under `docs/bootstrap/` to understand stage-specific goals.

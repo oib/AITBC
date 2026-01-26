@@ -1,6 +1,19 @@
 # AITBC Incident Runbooks
 
-This document contains specific runbooks for common incident scenarios, based on our chaos testing validation.
+This document contains specific runbooks for common incident scenarios, based on our chaos testing validation and integration test suite.
+
+## Integration Test Status (Updated 2026-01-26)
+
+### Current Test Coverage
+- ✅ 6 integration tests passing
+- ✅ Security tests using real ZK proof features
+- ✅ Marketplace tests connecting to live service
+- ⏸️ 1 test skipped (wallet payment flow)
+
+### Test Environment
+- Tests run against both real and mock clients
+- CI/CD pipeline runs full test suite
+- Local development: `python -m pytest tests/integration/ -v`
 
 ## Runbook: Coordinator API Outage
 

@@ -17,16 +17,23 @@ This directory contains the comprehensive test suite for the AITBC platform, inc
 ```
 tests/
 ├── conftest.py              # Shared fixtures and configuration
+├── conftest_fixtures.py     # Comprehensive test fixtures
 ├── pytest.ini              # Pytest configuration
 ├── README.md               # This file
+├── run_test_suite.py       # Test suite runner script
 ├── unit/                   # Unit tests
-│   └── test_coordinator_api.py
-├── integration/            # Integration tests
+│   ├── test_coordinator_api.py
+│   ├── test_wallet_daemon.py
 │   └── test_blockchain_node.py
+├── integration/            # Integration tests
+│   ├── test_blockchain_node.py
+│   └── test_full_workflow.py
 ├── e2e/                    # End-to-end tests
-│   └── test_wallet_daemon.py
+│   ├── test_wallet_daemon.py
+│   └── test_user_scenarios.py
 ├── security/               # Security tests
-│   └── test_confidential_transactions.py
+│   ├── test_confidential_transactions.py
+│   └── test_security_comprehensive.py
 ├── load/                   # Load tests
 │   └── locustfile.py
 └── fixtures/               # Test data and fixtures
@@ -110,8 +117,17 @@ export TEST_MODE="true"
 # Run all tests
 pytest
 
+# Run using the test suite script (recommended)
+python run_test_suite.py
+
 # Run with coverage
-pytest --cov=apps --cov=packages
+python run_test_suite.py --coverage
+
+# Run specific suite
+python run_test_suite.py --suite unit
+python run_test_suite.py --suite integration
+python run_test_suite.py --suite e2e
+python run_test_suite.py --suite security
 
 # Run specific test file
 pytest tests/unit/test_coordinator_api.py

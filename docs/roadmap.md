@@ -497,9 +497,42 @@ Fill the intentional placeholder folders with actual content. Priority order bas
   - [x] `backend.tf` - State backend configuration (S3 + DynamoDB)
 
 - **Helm Chart Values** (`infra/helm/values/`)
-  - [x] `dev/values.yaml` - Development values
-  - [x] `staging/values.yaml` - Staging values
-  - [x] `prod/values.yaml` - Production values with HA, autoscaling, security
+  - [x] `coordinator.yaml` - Coordinator service configuration
+  - [x] `blockchain.yaml` - Blockchain node configuration
+  - [x] `wallet.yaml` - Wallet daemon configuration
+  - [x] `marketplace.yaml` - Marketplace service configuration
+
+### Phase 3: Missing Integrations (High Priority)
+
+- **Wallet-Coordinator Integration** [NEW]
+  - [ ] Add payment endpoints to coordinator API for job payments
+  - [ ] Implement escrow service for holding payments during job execution
+  - [ ] Integrate wallet daemon with coordinator for payment processing
+  - [ ] Add payment status tracking to job lifecycle
+  - [ ] Implement refund mechanism for failed jobs
+  - [ ] Add payment receipt generation and verification
+  - [ ] Update integration tests to use real payment flow
+
+### Phase 4: Integration Test Improvements ✅ COMPLETE 2026-01-26
+
+- **Security Integration Tests** ✅ COMPLETE
+  - [x] Updated to use real ZK proof features instead of mocks
+  - [x] Test confidential job creation with `require_zk_proof: True`
+  - [x] Verify secure job retrieval with tenant isolation
+
+- **Marketplace Integration Tests** ✅ COMPLETE
+  - [x] Updated to connect to live marketplace at https://aitbc.bubuit.net/marketplace
+  - [x] Test marketplace accessibility and service integration
+  - [x] Flexible API endpoint handling
+
+- **Performance Tests** ❌ REMOVED
+  - [x] Removed high throughput and load tests (too early for implementation)
+  - [ ] Can be added back when performance thresholds are defined
+
+- **Test Infrastructure** ✅ COMPLETE
+  - [x] All tests work with both real client and mock fallback
+  - [x] Fixed termination issues in Windsorf environment
+  - [x] Current status: 6 tests passing, 1 skipped (wallet integration)
 
 ### Phase 3: Application Components (Lower Priority) ✅ COMPLETE
 

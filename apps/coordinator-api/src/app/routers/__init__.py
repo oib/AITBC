@@ -9,6 +9,7 @@ from .services import router as services
 from .users import router as users
 from .exchange import router as exchange
 from .marketplace_offers import router as marketplace_offers
+from .payments import router as payments
 # from .registry import router as registry
 
-__all__ = ["client", "miner", "admin", "marketplace", "explorer", "services", "users", "exchange", "marketplace_offers", "registry"]
+__all__ = ["client", "miner", "admin", "marketplace", "explorer", "services", "users", "exchange", "marketplace_offers", "payments", "registry"]

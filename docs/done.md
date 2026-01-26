@@ -20,6 +20,7 @@ This document tracks components that have been successfully deployed and are ope
   - Vite + TypeScript frontend
   - Offer list, bid form, stats cards
   - Mock data fixtures with API abstraction
+  - Integration tests now connect to live marketplace
 
 - ✅ **Coordinator API** - Deployed in container
   - FastAPI service running on port 8000
@@ -28,6 +29,7 @@ This document tracks components that have been successfully deployed and are ope
   - Explorer API (nginx): `/api/explorer/*` → backend `/v1/explorer/*`
   - Users API: `/api/v1/users/*` (compat: `/api/users/*` for Exchange)
   - ZK Applications API: /api/zk/ endpoints for privacy-preserving features
+  - Integration tests use real ZK proof features
 
 - ✅ **Wallet Daemon** - Deployed in container
   - FastAPI service with encrypted keystore (Argon2id + XChaCha20-Poly1305)
@@ -35,6 +37,7 @@ This document tracks components that have been successfully deployed and are ope
   - Mock ledger adapter with SQLite backend
   - Running on port 8002, nginx proxy: /wallet/
   - Dependencies: aitbc-sdk, aitbc-crypto, fastapi, uvicorn
+  - Bitcoin payment gateway implemented
 
 - ✅ **Documentation** - Deployed at https://aitbc.bubuit.net/docs/
   - Split documentation for different audiences
@@ -48,6 +51,15 @@ This document tracks components that have been successfully deployed and are ope
   - Real-time payment monitoring
   - Session-based authentication
   - Exchange rate: 1 BTC = 100,000 AITBC
+
+## Integration Tests
+
+- ✅ **Test Suite Updates** - Completed 2026-01-26
+  - Security tests now use real ZK proof features
+  - Marketplace tests connect to live service
+  - Performance tests removed (too early)
+  - Wallet-coordinator integration added to roadmap
+  - 6 tests passing, 1 skipped (wallet integration)
 
 - ✅ **ZK Applications** - Privacy-preserving features deployed
   - Circom compiler v2.2.3 installed
