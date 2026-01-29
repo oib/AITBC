@@ -78,9 +78,11 @@ This document tracks components that have been successfully deployed and are ope
 
 - ✅ **Blockchain Node** - Running on host
   - SQLModel-based blockchain with PoA consensus
-  - RPC API on port 9080 (proxied via /rpc/)
+  - RPC API on ports 8081/8082 (proxied via /rpc/ and /rpc2/)
   - Mock coordinator on port 8090 (proxied via /v1/)
   - Devnet scripts and observability hooks
+  - Cross-site RPC synchronization enabled
+  - Transaction propagation between sites
 - ✅ **Host GPU Miner** - Running on host (RTX 4060 Ti)
   - Real GPU inference via Ollama
   - Connects to container coordinator through Incus proxy on `127.0.0.1:18000`
@@ -141,6 +143,55 @@ This document tracks components that have been successfully deployed and are ope
 - Fix Blockchain Node SQLModel/SQLAlchemy compatibility issues (low priority)
 - Configure additional monitoring and observability
 - Set up automated backup procedures
+
+## Recent Updates (2026-01-29)
+
+### Cross-Site Synchronization Implementation
+- ✅ **Multi-site Deployment**: Successfully deployed cross-site synchronization across 3 nodes
+- ✅ **Technical Implementation**: 
+  - Created `/src/aitbc_chain/cross_site.py` module
+  - Integrated into node lifecycle in `main.py`
+  - Added configuration in `config.py`
+  - Added `/blocks/import` POST endpoint in `router.py`
+- ✅ **Network Configuration**:
+  - Local nodes: https://aitbc.bubuit.net/rpc/, /rpc2/
+  - Remote node: http://aitbc.keisanki.net/rpc/
+- ✅ **Current Status**: 
+  - Transaction sync working
+  - ✅ Block import endpoint fully functional with transaction support
+  - ✅ Transaction data properly saved to database during block import
+  - Endpoint validates blocks and handles imports correctly
+  - Node heights: Local (771153), Remote (40324)
+  - Nginx routing fixed to port 8081 for blockchain-rpc-2
+
+- ✅ **Technical Fixes Applied**
+  - Fixed URL paths for correct RPC endpoint access
+  - Integrated sync lifecycle into main node process
+  - Resolved Python compatibility issues (removed AbstractAsyncContextManager)
+
+- ✅ **Network Configuration**
+  - Site A (localhost): https://aitbc.bubuit.net/rpc/ and /rpc2/
+  - Site C (remote): http://aitbc.keisanki.net/rpc/
+  - All nodes maintain independent chains (PoA design)
+  - Cross-site sync enabled with 10-second polling interval
+
+## Recent Updates (2026-01-28)
+
+### Transaction-Dependent Block Creation
+- ✅ **PoA Proposer Enhancement** - Modified blockchain nodes to only create blocks when transactions are pending
+  - Updated PoA proposer to check RPC mempool before creating blocks
+  - Implemented HTTP polling mechanism to check mempool size every 2 seconds
+  - Added transaction storage in blocks with proper tx_count field
+  - Fixed syntax errors and import issues in poa.py
+  - Node 1 now active and operational with new block creation logic
+  - Eliminates empty blocks from the blockchain
+
+- ✅ **Architecture Implementation**
+  - RPC Service (port 8082): Receives and stores transactions in in-memory mempool
+  - Node Process: Checks RPC metrics endpoint for mempool_size
+  - If mempool_size > 0: Creates block with transactions
+  - If mempool_size == 0: Skips block creation, logs "No pending transactions"
+  - Removes processed transactions from mempool after block creation
 
 ## Recent Updates (2026-01-21)
 

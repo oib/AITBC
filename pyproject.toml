@@ -16,7 +16,7 @@ pythonpath = [
     "apps/wallet-daemon/src",
     "apps/blockchain-node/src"
 ]
-import-mode = append
+import_mode = "append"
 markers = [
     "unit: Unit tests (fast, isolated)",
     "integration: Integration tests (require external services)",

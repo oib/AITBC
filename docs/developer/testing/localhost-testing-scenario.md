@@ -6,7 +6,7 @@ This document outlines a comprehensive testing scenario for customers and servic
 
 ## Integration Tests
 
-### Test Suite Status (Updated 2026-01-26)
+### Test Suite Status (Updated 2026-01-29)
 
 The integration test suite has been updated to use real implemented features:
 
@@ -17,6 +17,16 @@ The integration test suite has been updated to use real implemented features:
 4. **Transaction Propagation** - Tests P2P transaction sync
 5. **Marketplace Integration** - Connects to live marketplace
 6. **Security Integration** - Uses real ZK proof features
+
+#### 🆕 Cross-Site Synchronization (2026-01-29)
+- Multi-site blockchain deployment active
+- 3 nodes across 2 sites with RPC synchronization
+- Transaction propagation between sites enabled
+- ✅ Block import endpoint fully functional (/blocks/import)
+- Test endpoints:
+  - Local nodes: https://aitbc.bubuit.net/rpc/, /rpc2/
+  - Remote node: http://aitbc.keisanki.net/rpc/
+- Status: ✅ COMPLETE - Full cross-site synchronization active
 
 #### ⏸️ Skipped Tests (1)
 1. **Wallet Payment Flow** - Awaiting wallet-coordinator integration

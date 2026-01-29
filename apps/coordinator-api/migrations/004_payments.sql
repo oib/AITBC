@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS job_payments (
     released_at TIMESTAMP,
     refunded_at TIMESTAMP,
     expires_at TIMESTAMP,
-    metadata JSON
+    meta_data JSON
 );
 
 -- Create payment_escrows table

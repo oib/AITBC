@@ -32,15 +32,8 @@ class JobService:
         
         # Create payment if amount is specified
         if req.payment_amount and req.payment_amount > 0:
-            from ..schemas.payments import JobPaymentCreate, PaymentMethod
-            payment_create = JobPaymentCreate(
-                job_id=job.id,
-                amount=req.payment_amount,
-                currency=req.payment_currency,
-                payment_method=PaymentMethod.BITCOIN
-            )
-            # Note: This is async, so we'll handle it in the router
-            job.payment_pending = True
+            # Note: Payment creation is handled in the router
+            pass
         
         return job
 
@@ -81,6 +74,8 @@ class JobService:
             requested_at=job.requested_at,
             expires_at=job.expires_at,
             error=job.error,
+            payment_id=job.payment_id,
+            payment_status=job.payment_status,
         )
 
     def to_result(self, job: Job) -> JobResult:

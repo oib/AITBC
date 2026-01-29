@@ -4,24 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional, Dict, Any
-from enum import Enum
 
 from pydantic import BaseModel, Field
-
-
-class PaymentStatus(str, Enum):
-    """Payment status values"""
-    PENDING = "pending"
-    ESCROWED = "escrowed"
-    RELEASED = "released"
-    REFUNDED = "refunded"
-    FAILED = "failed"
-
-
-class PaymentMethod(str, Enum):
-    """Payment methods"""
-    AITBC_TOKEN = "aitbc_token"  # Primary method for job payments
-    BITCOIN = "bitcoin"  # Only for exchange purchases
 
 
 class JobPaymentCreate(BaseModel):
@@ -29,7 +13,7 @@ class JobPaymentCreate(BaseModel):
     job_id: str
     amount: float
     currency: str = "AITBC"  # Jobs paid with AITBC tokens
-    payment_method: PaymentMethod = PaymentMethod.AITBC_TOKEN
+    payment_method: str = "aitbc_token"  # Primary method for job payments
     escrow_timeout_seconds: int = 3600  # 1 hour default
 
 
@@ -39,8 +23,8 @@ class JobPaymentView(BaseModel):
     payment_id: str
     amount: float
     currency: str
-    status: PaymentStatus
-    payment_method: PaymentMethod
+    status: str
+    payment_method: str
     escrow_address: Optional[str] = None
     refund_address: Optional[str] = None
     created_at: datetime
@@ -65,7 +49,7 @@ class PaymentReceipt(BaseModel):
     job_id: str
     amount: float
     currency: str
-    status: PaymentStatus
+    status: str
     transaction_hash: Optional[str] = None
     created_at: datetime
     verified_at: Optional[datetime] = None

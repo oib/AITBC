@@ -6,11 +6,9 @@ import httpx
 import logging
 
 from ..domain.payment import JobPayment, PaymentEscrow
-from ..schemas.payments import (
+from ..schemas import (
     JobPaymentCreate, 
     JobPaymentView, 
-    PaymentStatus,
-    PaymentMethod,
     EscrowRelease,
     RefundRequest
 )
@@ -44,10 +42,10 @@ class PaymentService:
         self.session.refresh(payment)
         
         # For AITBC token payments, use token escrow
-        if payment_data.payment_method == PaymentMethod.AITBC_TOKEN:
+        if payment_data.payment_method == "aitbc_token":
             await self._create_token_escrow(payment)
         # Bitcoin payments only for exchange purchases
-        elif payment_data.payment_method == PaymentMethod.BITCOIN:
+        elif payment_data.payment_method == "bitcoin":
             await self._create_bitcoin_escrow(payment)
         
         return payment
@@ -61,7 +59,7 @@ class PaymentService:
                 response = await client.post(
                     f"{self.exchange_base_url}/api/v1/token/escrow/create",
                     json={
-                        "amount": payment.amount,
+                        "amount": float(payment.amount),
                         "currency": payment.currency,
                         "job_id": payment.job_id,
                         "timeout_seconds": 3600  # 1 hour
@@ -71,7 +69,7 @@ class PaymentService:
                 if response.status_code == 200:
                     escrow_data = response.json()
                     payment.escrow_address = escrow_data.get("escrow_id")
-                    payment.status = PaymentStatus.ESCROWED
+                    payment.status = "escrowed"
                     payment.escrowed_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     
@@ -92,7 +90,7 @@ class PaymentService:
                     
         except Exception as e:
             logger.error(f"Error creating token escrow: {e}")
-            payment.status = PaymentStatus.FAILED
+            payment.status = "failed"
             payment.updated_at = datetime.utcnow()
             self.session.commit()
     
@@ -104,7 +102,7 @@ class PaymentService:
                 response = await client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/create",
                     json={
-                        "amount": payment.amount,
+                        "amount": float(payment.amount),
                         "currency": payment.currency,
                         "timeout_seconds": 3600  # 1 hour
                     }
@@ -113,7 +111,7 @@ class PaymentService:
                 if response.status_code == 200:
                     escrow_data = response.json()
                     payment.escrow_address = escrow_data["address"]
-                    payment.status = PaymentStatus.ESCROWED
+                    payment.status = "escrowed"
                     payment.escrowed_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     
@@ -134,7 +132,7 @@ class PaymentService:
                     
         except Exception as e:
             logger.error(f"Error creating Bitcoin escrow: {e}")
-            payment.status = PaymentStatus.FAILED
+            payment.status = "failed"
             payment.updated_at = datetime.utcnow()
             self.session.commit()
     
@@ -145,7 +143,7 @@ class PaymentService:
         if not payment or payment.job_id != job_id:
             return False
         
-        if payment.status != PaymentStatus.ESCROWED:
+        if payment.status != "escrowed":
             return False
         
         try:
@@ -161,7 +159,7 @@ class PaymentService:
                 
                 if response.status_code == 200:
                     release_data = response.json()
-                    payment.status = PaymentStatus.RELEASED
+                    payment.status = "released"
                     payment.released_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     payment.transaction_hash = release_data.get("transaction_hash")
@@ -195,7 +193,7 @@ class PaymentService:
         if not payment or payment.job_id != job_id:
             return False
         
-        if payment.status not in [PaymentStatus.ESCROWED, PaymentStatus.PENDING]:
+        if payment.status not in ["escrowed", "pending"]:
             return False
         
         try:
@@ -206,14 +204,14 @@ class PaymentService:
                     json={
                         "payment_id": payment_id,
                         "address": payment.refund_address,
-                        "amount": payment.amount,
+                        "amount": float(payment.amount),
                         "reason": reason
                     }
                 )
                 
                 if response.status_code == 200:
                     refund_data = response.json()
-                    payment.status = PaymentStatus.REFUNDED
+                    payment.status = "refunded"
                     payment.refunded_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     payment.refund_transaction_hash = refund_data.get("transaction_hash")

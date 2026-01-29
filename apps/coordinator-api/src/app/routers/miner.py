@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 
@@ -8,6 +9,8 @@ from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, Min
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
 from ..storage import SessionDep
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["miner"])
 
@@ -78,6 +81,23 @@ async def submit_result(
     job.receipt_id = receipt["receipt_id"] if receipt else None
     session.add(job)
     session.commit()
+    
+    # Auto-release payment if job has payment
+    if job.payment_id and job.payment_status == "escrowed":
+        from ..services.payments import PaymentService
+        payment_service = PaymentService(session)
+        success = await payment_service.release_payment(
+            job.id,
+            job.payment_id,
+            reason="Job completed successfully"
+        )
+        if success:
+            job.payment_status = "released"
+            session.commit()
+            logger.info(f"Auto-released payment {job.payment_id} for completed job {job.id}")
+        else:
+            logger.error(f"Failed to auto-release payment {job.payment_id} for job {job.id}")
+    
     miner_service.release(
         miner_id,
         success=True,
@@ -106,5 +126,22 @@ async def submit_failure(
     job.assigned_miner_id = miner_id
     session.add(job)
     session.commit()
+    
+    # Auto-refund payment if job has payment
+    if job.payment_id and job.payment_status in ["pending", "escrowed"]:
+        from ..services.payments import PaymentService
+        payment_service = PaymentService(session)
+        success = await payment_service.refund_payment(
+            job.id,
+            job.payment_id,
+            reason=f"Job failed: {req.error_code}: {req.error_message}"
+        )
+        if success:
+            job.payment_status = "refunded"
+            session.commit()
+            logger.info(f"Auto-refunded payment {job.payment_id} for failed job {job.id}")
+        else:
+            logger.error(f"Failed to auto-refund payment {job.payment_id} for job {job.id}")
+    
     miner_service.release(miner_id, success=False)
     return {"status": "ok"}

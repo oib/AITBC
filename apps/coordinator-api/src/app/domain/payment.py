@@ -6,10 +6,9 @@ from datetime import datetime
 from typing import Optional, List
 from uuid import uuid4
 
-from sqlalchemy import Column, String, DateTime, Numeric, ForeignKey
-from sqlmodel import Field, SQLModel, Relationship
-
-from ..schemas.payments import PaymentStatus, PaymentMethod
+from sqlalchemy import Column, String, DateTime, Numeric, ForeignKey, JSON
+from sqlalchemy.orm import Mapped, relationship
+from sqlmodel import Field, SQLModel
 
 
 class JobPayment(SQLModel, table=True):
@@ -23,8 +22,8 @@ class JobPayment(SQLModel, table=True):
     # Payment details
     amount: float = Field(sa_column=Column(Numeric(20, 8), nullable=False))
     currency: str = Field(default="AITBC", max_length=10)
-    status: PaymentStatus = Field(default=PaymentStatus.PENDING)
-    payment_method: PaymentMethod = Field(default=PaymentMethod.AITBC_TOKEN)
+    status: str = Field(default="pending", max_length=20)
+    payment_method: str = Field(default="aitbc_token", max_length=20)
     
     # Addresses
     escrow_address: Optional[str] = Field(default=None, max_length=100)
@@ -43,10 +42,10 @@ class JobPayment(SQLModel, table=True):
     expires_at: Optional[datetime] = None
     
     # Additional metadata
-    metadata: Optional[dict] = Field(default=None)
+    meta_data: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     
     # Relationships
-    jobs: List["Job"] = Relationship(back_populates="payment")
+    # jobs: Mapped[List["Job"]] = relationship(back_populates="payment")
 
 
 class PaymentEscrow(SQLModel, table=True):

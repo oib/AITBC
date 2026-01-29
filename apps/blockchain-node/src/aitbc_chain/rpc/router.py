@@ -105,6 +105,61 @@ async def get_block(height: int) -> Dict[str, Any]:
     }
 
 
+@router.get("/blocks", summary="Get latest blocks")
+async def get_blocks(limit: int = 10, offset: int = 0) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_blocks_total")
+    start = time.perf_counter()
+    
+    # Validate parameters
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    with session_scope() as session:
+        # Get blocks in descending order (newest first)
+        blocks = session.exec(
+            select(Block)
+            .order_by(Block.height.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        # Get total count for pagination info
+        total_count = len(session.exec(select(Block)).all())
+        
+        if not blocks:
+            metrics_registry.increment("rpc_get_blocks_empty_total")
+            return {
+                "blocks": [],
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+            }
+        
+        # Serialize blocks
+        block_list = []
+        for block in blocks:
+            block_list.append({
+                "height": block.height,
+                "hash": block.hash,
+                "parent_hash": block.parent_hash,
+                "timestamp": block.timestamp.isoformat(),
+                "tx_count": block.tx_count,
+                "state_root": block.state_root,
+            })
+        
+        metrics_registry.increment("rpc_get_blocks_success_total")
+    metrics_registry.observe("rpc_get_blocks_duration_seconds", time.perf_counter() - start)
+    
+    return {
+        "blocks": block_list,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 @router.get("/tx/{tx_hash}", summary="Get transaction by hash")
 async def get_transaction(tx_hash: str) -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_transaction_total")
@@ -126,6 +181,61 @@ async def get_transaction(tx_hash: str) -> Dict[str, Any]:
     }
 
 
+@router.get("/transactions", summary="Get latest transactions")
+async def get_transactions(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_transactions_total")
+    start = time.perf_counter()
+    
+    # Validate parameters
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    with session_scope() as session:
+        # Get transactions in descending order (newest first)
+        transactions = session.exec(
+            select(Transaction)
+            .order_by(Transaction.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        # Get total count for pagination info
+        total_count = len(session.exec(select(Transaction)).all())
+        
+        if not transactions:
+            metrics_registry.increment("rpc_get_transactions_empty_total")
+            return {
+                "transactions": [],
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+            }
+        
+        # Serialize transactions
+        tx_list = []
+        for tx in transactions:
+            tx_list.append({
+                "tx_hash": tx.tx_hash,
+                "block_height": tx.block_height,
+                "sender": tx.sender,
+                "recipient": tx.recipient,
+                "payload": tx.payload,
+                "created_at": tx.created_at.isoformat(),
+            })
+        
+        metrics_registry.increment("rpc_get_transactions_success_total")
+    metrics_registry.observe("rpc_get_transactions_duration_seconds", time.perf_counter() - start)
+    
+    return {
+        "transactions": tx_list,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
 @router.get("/receipts/{receipt_id}", summary="Get receipt by ID")
 async def get_receipt(receipt_id: str) -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_receipt_total")
@@ -138,6 +248,54 @@ async def get_receipt(receipt_id: str) -> Dict[str, Any]:
         metrics_registry.increment("rpc_get_receipt_success_total")
     metrics_registry.observe("rpc_get_receipt_duration_seconds", time.perf_counter() - start)
     return _serialize_receipt(receipt)
+
+
+@router.get("/receipts", summary="Get latest receipts")
+async def get_receipts(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_receipts_total")
+    start = time.perf_counter()
+    
+    # Validate parameters
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    with session_scope() as session:
+        # Get receipts in descending order (newest first)
+        receipts = session.exec(
+            select(Receipt)
+            .order_by(Receipt.recorded_at.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        # Get total count for pagination info
+        total_count = len(session.exec(select(Receipt)).all())
+        
+        if not receipts:
+            metrics_registry.increment("rpc_get_receipts_empty_total")
+            return {
+                "receipts": [],
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+            }
+        
+        # Serialize receipts
+        receipt_list = []
+        for receipt in receipts:
+            receipt_list.append(_serialize_receipt(receipt))
+        
+        metrics_registry.increment("rpc_get_receipts_success_total")
+    metrics_registry.observe("rpc_get_receipts_duration_seconds", time.perf_counter() - start)
+    
+    return {
+        "receipts": receipt_list,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/getBalance/{address}", summary="Get account balance")
@@ -157,6 +315,131 @@ async def get_balance(address: str) -> Dict[str, Any]:
         "balance": account.balance,
         "nonce": account.nonce,
         "updated_at": account.updated_at.isoformat(),
+    }
+
+
+@router.get("/address/{address}", summary="Get address details including transactions")
+async def get_address_details(address: str, limit: int = 20, offset: int = 0) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_address_total")
+    start = time.perf_counter()
+    
+    # Validate parameters
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    with session_scope() as session:
+        # Get account info
+        account = session.get(Account, address)
+        
+        # Get transactions where this address is sender or recipient
+        sent_txs = session.exec(
+            select(Transaction)
+            .where(Transaction.sender == address)
+            .order_by(Transaction.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        received_txs = session.exec(
+            select(Transaction)
+            .where(Transaction.recipient == address)
+            .order_by(Transaction.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        # Get total counts
+        total_sent = len(session.exec(select(Transaction).where(Transaction.sender == address)).all())
+        total_received = len(session.exec(select(Transaction).where(Transaction.recipient == address)).all())
+        
+        # Serialize transactions
+        serialize_tx = lambda tx: {
+            "tx_hash": tx.tx_hash,
+            "block_height": tx.block_height,
+            "direction": "sent" if tx.sender == address else "received",
+            "counterparty": tx.recipient if tx.sender == address else tx.sender,
+            "payload": tx.payload,
+            "created_at": tx.created_at.isoformat(),
+        }
+        
+        response = {
+            "address": address,
+            "balance": account.balance if account else 0,
+            "nonce": account.nonce if account else 0,
+            "total_transactions_sent": total_sent,
+            "total_transactions_received": total_received,
+            "latest_sent": [serialize_tx(tx) for tx in sent_txs],
+            "latest_received": [serialize_tx(tx) for tx in received_txs],
+        }
+        
+        if account:
+            response["updated_at"] = account.updated_at.isoformat()
+        
+        metrics_registry.increment("rpc_get_address_success_total")
+    metrics_registry.observe("rpc_get_address_duration_seconds", time.perf_counter() - start)
+    
+    return response
+
+
+@router.get("/addresses", summary="Get list of active addresses")
+async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_addresses_total")
+    start = time.perf_counter()
+    
+    # Validate parameters
+    if limit < 1 or limit > 100:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
+    if offset < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    with session_scope() as session:
+        # Get addresses with balance >= min_balance
+        addresses = session.exec(
+            select(Account)
+            .where(Account.balance >= min_balance)
+            .order_by(Account.balance.desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        
+        # Get total count
+        total_count = len(session.exec(select(Account).where(Account.balance >= min_balance)).all())
+        
+        if not addresses:
+            metrics_registry.increment("rpc_get_addresses_empty_total")
+            return {
+                "addresses": [],
+                "total": total_count,
+                "limit": limit,
+                "offset": offset,
+            }
+        
+        # Serialize addresses
+        address_list = []
+        for addr in addresses:
+            # Get transaction counts
+            sent_count = len(session.exec(select(Transaction).where(Transaction.sender == addr.address)).all())
+            received_count = len(session.exec(select(Transaction).where(Transaction.recipient == addr.address)).all())
+            
+            address_list.append({
+                "address": addr.address,
+                "balance": addr.balance,
+                "nonce": addr.nonce,
+                "total_transactions_sent": sent_count,
+                "total_transactions_received": received_count,
+                "updated_at": addr.updated_at.isoformat(),
+            })
+        
+        metrics_registry.increment("rpc_get_addresses_success_total")
+    metrics_registry.observe("rpc_get_addresses_duration_seconds", time.perf_counter() - start)
+    
+    return {
+        "addresses": address_list,
+        "total": total_count,
+        "limit": limit,
+        "offset": offset,
     }
 
 
