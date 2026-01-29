@@ -26,8 +26,13 @@ This guide explains how to use Windsurf's integrated testing features with the A
 
 ### 4. Pytest Configuration
 - ✅ `pyproject.toml` - Main configuration with markers
-- ✅ `tests/pytest.ini` - Simplified for discovery
+- ✅ `pytest.ini` - Moved to project root with custom markers
 - ✅ `tests/conftest.py` - Fixtures with fallback mocks
+
+### 5. Test Scripts (2026-01-29)
+- ✅ `scripts/testing/` - All test scripts moved here
+- ✅ `test_ollama_blockchain.py` - Complete GPU provider test
+- ✅ `test_block_import.py` - Blockchain block import testing
 
 ## 🚀 How to Use
 

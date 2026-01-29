@@ -397,7 +397,7 @@ async def import_block(request: BlockImportRequest) -> Dict[str, Any]:
                 # Create transaction using constructor with all fields
                 tx = Transaction(
                     tx_hash=str(tx_data.tx_hash),
-                    block_height=block.height,
+                    block_height=block.id,  # Use block.id instead of block.height for foreign key
                     sender=str(tx_data.sender),
                     recipient=str(tx_data.recipient),
                     payload=tx_data.payload if tx_data.payload else {},
@@ -409,7 +409,7 @@ async def import_block(request: BlockImportRequest) -> Dict[str, Any]:
             # Add receipts if provided
             for receipt_data in request.receipts:
                 receipt = Receipt(
-                    block_height=block.height,
+                    block_height=block.id,  # Use block.id instead of block.height for foreign key
                     receipt_id=receipt_data.receipt_id,
                     job_id=receipt_data.job_id,
                     payload=receipt_data.payload,

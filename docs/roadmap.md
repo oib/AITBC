@@ -731,5 +731,26 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 | `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Pending extensions |
 | Cross-site synchronization | High | Q1 2026 | ✅ Complete (2026-01-29) |
 
+## Recent Progress (2026-01-29)
+
+### Testing Infrastructure
+- **Ollama GPU Provider Test Workflow** ✅ COMPLETE
+  - End-to-end test from client submission to blockchain recording
+  - Payment processing verified (0.05206 AITBC for inference job)
+  - Created comprehensive test script and workflow documentation
+
+### Code Quality
+- **Pytest Warning Fixes** ✅ COMPLETE
+  - Fixed all pytest warnings (`PytestReturnNotNoneWarning`, `PydanticDeprecatedSince20`, `PytestUnknownMarkWarning`)
+  - Migrated Pydantic validators to V2 style
+  - Moved `pytest.ini` to project root with proper marker configuration
+
+### Project Organization
+- **Directory Cleanup** ✅ COMPLETE
+  - Reorganized root files into logical directories
+  - Created `docs/guides/`, `docs/reports/`, `scripts/testing/`, `dev-utils/`
+  - Updated documentation to reflect new structure
+  - Fixed GPU miner systemd service path
+
 the canonical checklist during implementation. Mark completed tasks with ✅ and add dates or links to relevant PRs as development progresses.
 
