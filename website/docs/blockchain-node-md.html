@@ -6,16 +6,9 @@
     <title>Blockchain Node - AITBC Documentation</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         :root {
             --primary-color: #2563eb;
             --secondary-color: #1e40af;
-            --accent-color: #3b82f6;
             --success-color: #10b981;
             --warning-color: #f59e0b;
             --danger-color: #ef4444;
@@ -25,182 +18,163 @@
             --bg-white: #ffffff;
             --border-color: #e5e7eb;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             color: var(--text-dark);
-            background: var(--bg-light);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
         }
-        
-        /* Header */
+
         header {
-            background: var(--bg-white);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            position: fixed;
-            width: 100%;
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
             top: 0;
-            z-index: 1000;
+            z-index: 100;
         }
-        
+
         nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 0;
         }
-        
+
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
-            color: var(--primary-color);
+            color: white;
             text-decoration: none;
         }
-        
+
         .nav-links {
             display: flex;
             gap: 2rem;
             list-style: none;
+            margin: 0;
+            padding: 0;
         }
-        
+
         .nav-links a {
-            color: var(--text-dark);
+            color: white;
             text-decoration: none;
             transition: color 0.3s;
         }
-        
-        .nav-links a:hover,
-        .nav-links a.active {
+
+        .nav-links a:hover {
             color: var(--primary-color);
         }
-        
-        /* Main Content */
-        main {
-            margin-top: 80px;
-            padding: 40px 0;
-        }
-        
-        .doc-header {
-            background: var(--bg-white);
-            padding: 3rem 0;
-            margin-bottom: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .doc-header h1 {
-            font-size: 2.5rem;
-            color: var(--text-dark);
-            margin-bottom: 1rem;
-        }
-        
-        .doc-header p {
-            color: var(--text-light);
-            font-size: 1.1rem;
-        }
-        
+
         .breadcrumb {
-            margin-bottom: 2rem;
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
         }
-        
+
         .breadcrumb a {
-            color: var(--primary-color);
+            color: var(--text-light);
             text-decoration: none;
         }
-        
-        .breadcrumb span {
-            color: var(--text-light);
-            margin: 0 0.5rem;
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
         }
-        
-        /* Content Sections */
-        .content-section {
-            background: var(--bg-white);
-            padding: 2.5rem;
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
             margin-bottom: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-        
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #10b98120;
+            color: var(--success-color);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
         .content-section h2 {
             font-size: 1.8rem;
             margin-bottom: 1.5rem;
             color: var(--text-dark);
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
         }
-        
+
         .content-section h3 {
             font-size: 1.4rem;
             margin: 2rem 0 1rem;
             color: var(--text-dark);
         }
-        
-        .content-section p {
-            margin-bottom: 1rem;
-            color: var(--text-light);
-        }
-        
-        .content-section ul {
-            margin-left: 2rem;
-            margin-bottom: 1rem;
-        }
-        
-        .content-section li {
-            margin-bottom: 0.5rem;
-            color: var(--text-light);
-        }
-        
-        .content-section code {
-            background: var(--bg-light);
-            padding: 0.2rem 0.4rem;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            color: var(--primary-color);
-        }
-        
-        .content-section pre {
-            background: var(--bg-light);
-            padding: 1rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-        
-        .content-section pre code {
-            background: none;
-            padding: 0;
+
+        .content-section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
             color: var(--text-dark);
         }
-        
-        /* Feature Grid */
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
         .feature-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 1.5rem;
             margin: 2rem 0;
         }
-        
+
         .feature-card {
+            background: var(--bg-white);
             padding: 1.5rem;
-            border: 1px solid var(--border-color);
             border-radius: 8px;
-            background: var(--bg-light);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        
+
         .feature-card h4 {
+            margin-top: 0;
             color: var(--primary-color);
-            margin-bottom: 0.5rem;
         }
-        
-        /* API Endpoints */
+
         .api-endpoint {
             background: var(--bg-light);
             padding: 1rem;
@@ -208,28 +182,33 @@
             margin: 1rem 0;
             border-left: 4px solid var(--primary-color);
         }
-        
+
         .api-endpoint code {
             display: block;
             font-weight: bold;
             margin-bottom: 0.5rem;
+            color: var(--primary-color);
         }
-        
-        /* Status Badge */
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
         }
-        
-        .status-badge.live {
-            background: #10b98120;
-            color: var(--success-color);
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
         }
-        
-        /* Back Button */
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
         .back-button {
             display: inline-flex;
             align-items: center;
@@ -239,12 +218,19 @@
             margin-bottom: 2rem;
             font-weight: 600;
         }
-        
+
         .back-button:hover {
             color: var(--secondary-color);
         }
-        
-        /* Responsive */
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
         @media (max-width: 768px) {
             .nav-links {
                 display: none;
@@ -253,27 +239,21 @@
             .doc-header h1 {
                 font-size: 2rem;
             }
-            
-            .content-section {
-                padding: 1.5rem;
-            }
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
     <header>
         <nav class="container">
             <a href="../index.html" class="logo">AITBC</a>
             <ul class="nav-links">
                 <li><a href="../index.html">Home</a></li>
-                <li><a href="index.html" class="active">Documentation</a></li>
+                <li><a href="index.html">Documentation</a></li>
                 <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
             </ul>
         </nav>
     </header>
 
-    <!-- Main Content -->
     <main>
         <div class="container">
             <!-- Breadcrumb -->
@@ -295,16 +275,11 @@
             <div class="doc-header">
                 <h1><i class="fas fa-cube"></i> Blockchain Node</h1>
                 <p>PoA/PoS consensus blockchain with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability</p>
-                <span class="status-badge live">● Live</span>
+                <span class="status-badge">● Live</span>
             </div>
 
             <!-- Overview -->
             <section class="content-section">
-                <div class="alert alert-info" style="margin-bottom: 2rem;">
-                    <strong>📚 Also available in Markdown:</strong> 
-                    <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/main/docs/blockchain-node.md" target="_blank" style="color: inherit; text-decoration: underline;">View this documentation in markdown format</a> for easier contribution and version control.
-                </div>
-                
                 <h2>Overview</h2>
                 <p>The AITBC Blockchain Node is the core infrastructure component that maintains the distributed ledger. It implements a hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism with fast finality and supports high throughput for AI workload transactions.</p>
                 
@@ -402,53 +377,112 @@ METRICS_PORT=9090
 LOG_LEVEL=info</code></pre>
             </section>
 
-            <!-- Deployment -->
+            <!-- Running a Node -->
             <section class="content-section">
-                <h2>Deployment</h2>
-                <p>The blockchain node runs on the host machine with GPU access requirements.</p>
+                <h2>Running a Node</h2>
                 
-                <h3>System Requirements</h3>
-                <ul>
-                    <li>CPU: 4+ cores recommended</li>
-                    <li>RAM: 8GB minimum</li>
-                    <li>Storage: 100GB+ SSD</li>
-                    <li>Network: 1Gbps+ for gossip</li>
-                </ul>
-                
-                <h3>Installation</h3>
-                <pre><code># Clone repository
-git clone https://gitea.bubuit.net/oib/aitbc.git
-cd aitbc/apps/blockchain-node
+                <h3>Development Mode</h3>
+                <pre><code># Initialize devnet
+python -m blockchain.scripts.init_devnet
 
-# Install dependencies
-pip install -r requirements.txt
+# Start node
+python -m blockchain.main --config devnet.yaml</code></pre>
 
-# Run node
-python -m aitbc_chain.node</code></pre>
+                <h3>Production Mode</h3>
+                <pre><code># Using Docker
+docker run -d \
+  -v /data/blockchain:/data \
+  -p 9080:9080 \
+  -p 9081:9081 \
+  -p 9090:9090 \
+  aitbc/blockchain-node:latest</code></pre>
             </section>
 
             <!-- Monitoring -->
             <section class="content-section">
-                <h2>Monitoring & Observability</h2>
-                <p>The node provides comprehensive monitoring capabilities out of the box.</p>
+                <h2>Monitoring</h2>
                 
-                <h3>Metrics Available</h3>
+                <h3>Prometheus Metrics</h3>
+                <p>Available at <code>http://localhost:9090/metrics</code></p>
+                
+                <p>Key metrics:</p>
                 <ul>
-                    <li>Block production rate and intervals</li>
-                    <li>Transaction pool size and latency</li>
-                    <li>Network gossip metrics</li>
-                    <li>Consensus health indicators</li>
-                    <li>Resource utilization</li>
+                    <li><code>blockchain_blocks_total</code> - Total blocks produced</li>
+                    <li><code>blockchain_transactions_total</code> - Total transactions processed</li>
+                    <li><code>blockchain_consensus_rounds</code> - Consensus rounds completed</li>
+                    <li><code>blockchain_network_peers</code> - Active peer connections</li>
                 </ul>
+
+                <h3>Health Checks</h3>
+                <pre><code># Node status
+curl http://localhost:9080/health
+
+# Sync status
+curl http://localhost:9080/sync_status</code></pre>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="content-section">
+                <h2>Troubleshooting</h2>
                 
-                <h3>Grafana Dashboard</h3>
-                <p>A pre-built Grafana dashboard is available at <code>/observability/grafana/</code></p>
+                <h3>Common Issues</h3>
+                <ol>
+                    <li><strong>Node not syncing</strong>
+                        <ul>
+                            <li>Check peer connections: <code>curl /rpc/peers</code></li>
+                            <li>Verify network connectivity</li>
+                            <li>Check logs for consensus errors</li>
+                        </ul>
+                    </li>
+                    <li><strong>High memory usage</strong>
+                        <ul>
+                            <li>Reduce <code>block_cache_size</code> in config</li>
+                            <li>Enable block pruning</li>
+                        </ul>
+                    </li>
+                    <li><strong>RPC timeouts</strong>
+                        <ul>
+                            <li>Increase <code>rpc_timeout</code> setting</li>
+                            <li>Check system resources</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Development -->
+            <section class="content-section">
+                <h2>Development</h2>
+                
+                <h3>Building from Source</h3>
+                <pre><code>git clone https://github.com/aitbc/blockchain
+cd blockchain
+pip install -e .</code></pre>
+
+                <h3>Running Tests</h3>
+                <pre><code># Unit tests
+pytest tests/
+
+# Integration tests
+pytest tests/integration/</code></pre>
+            </section>
+
+            <!-- Security Considerations -->
+            <section class="content-section">
+                <h2>Security Considerations</h2>
+                <ul>
+                    <li>Validator keys should be kept secure</li>
+                    <li>Use HTTPS in production</li>
+                    <li>Implement rate limiting on RPC endpoints</li>
+                    <li>Regular security updates for dependencies</li>
+                </ul>
             </section>
         </div>
     </main>
 
-    <script>
-        // Add any interactive functionality here
-    </script>
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
 </body>
 </html>

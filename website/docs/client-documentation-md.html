@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        .pricing-table {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .pricing-card {
+            background: var(--bg-white);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+
+        .pricing-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--primary-color);
+        }
+
+        .pricing-card .price {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .inline-code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid var(--primary-color);
+            color: #1e40af;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning-color);
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid var(--success-color);
+            color: #065f46;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <span>Client Documentation</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="index.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Documentation
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fa fa-users"></i> Client Documentation</h1>
+                <p>Use AITBC for your AI/ML workloads with privacy and verifiable computation. Ideal for businesses and developers using AI services.</p>
+            </div>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>Start using AITBC in minutes with our simple client SDK or web interface.</p>
+                
+                <h3>Quick Start Options</h3>
+                <ul>
+                    <li><strong>CLI Wrapper Tool</strong>: Unified bash script for job management</li>
+                    <li><strong>Web Interface</strong>: No installation required</li>
+                    <li><strong>Python SDK</strong>: For AI/ML developers</li>
+                    <li><strong>JavaScript SDK</strong>: For web applications</li>
+                    <li><strong>REST API</strong>: For any platform</li>
+                </ul>
+                
+                <h3>CLI Wrapper Tool (Recommended)</h3>
+                <pre><code># Install the CLI wrapper
+curl -O https://gitea.bubuit.net/oib/aitbc/releases/download/latest/aitbc-cli.sh
+chmod +x aitbc-cli.sh
+
+# Check available services
+./aitbc-cli.sh status
+
+# Submit a job
+./aitbc-cli.sh submit "Your prompt here" --model llama3.2</code></pre>
+
+                <h3>Web Interface</h3>
+                <p>Visit <a href="https://aitbc.bubuit.net/marketplace/" target="_blank">aitbc.bubuit.net/marketplace</a> to access the web interface.</p>
+            </section>
+
+            <!-- Python SDK -->
+            <section class="content-section">
+                <h2>Python SDK</h2>
+                <p>Install the Python SDK for easy integration into your applications:</p>
+                
+                <pre><code># Install
+pip install aitbc-client
+
+# Basic usage
+from aitbc import AITBCClient
+
+client = AITBCClient(api_key="your-api-key")
+
+# Submit a job
+job = client.submit_job(
+    type="inference",
+    model="llama3.2",
+    prompt="Explain quantum computing",
+    max_tokens=500
+)
+
+# Wait for completion
+result = client.wait_for_job(job.id)
+print(result.output)</code></pre>
+
+                <h3>Advanced Features</h3>
+                <ul>
+                    <li>Async/await support</li>
+                    <li>Batch job submission</li>
+                    <li>Streaming responses</li>
+                    <li>Zero-knowledge proof verification</li>
+                </ul>
+            </section>
+
+            <!-- JavaScript SDK -->
+            <section class="content-section">
+                <h2>JavaScript SDK</h2>
+                <p>For web applications and Node.js:</p>
+                
+                <pre><code># Install
+npm install @aitbc/client
+
+# Usage
+import { AITBCClient } from '@aitbc/client';
+
+const client = new AITBCClient({
+  apiKey: 'your-api-key',
+  endpoint: 'https://aitbc.bubuit.net/api'
+});
+
+// Submit job
+const job = await client.submit({
+  type: 'inference',
+  model: 'llama3.2',
+  input: {
+    prompt: 'Hello, AITBC!',
+    max_tokens: 100
+  }
+});
+
+// Get result
+const result = await client.getResult(job.id);
+console.log(result.output);</code></pre>
+            </section>
+
+            <!-- REST API -->
+            <section class="content-section">
+                <h2>REST API</h2>
+                <p>Direct API access for any programming language:</p>
+                
+                <pre><code># Submit a job
+curl -X POST https://aitbc.bubuit.net/api/v1/jobs \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "inference",
+    "model": "gpt-4",
+    "input": {
+      "prompt": "Hello, AITBC!",
+      "max_tokens": 100
+    },
+    "privacy": {
+      "zk_proof": true
+    }
+  }'
+
+# Check job status
+curl -X GET https://aitbc.bubuit.net/api/v1/jobs/JOB_ID \
+  -H "Authorization: Bearer YOUR_TOKEN"</code></pre>
+            </section>
+
+            <!-- Pricing -->
+            <section class="content-section">
+                <h2>Pricing</h2>
+                <p>Flexible pricing options for every use case</p>
+                
+                <div class="pricing-table">
+                    <div class="pricing-card">
+                        <h3>Pay-per-use</h3>
+                        <div class="price">$0.01/1K tokens</div>
+                        <ul style="text-align: left;">
+                            <li>No minimum commitment</li>
+                            <li>Pay for what you use</li>
+                            <li>All models available</li>
+                        </ul>
+                    </div>
+                    <div class="pricing-card">
+                        <h3>Professional</h3>
+                        <div class="price">$99/month</div>
+                        <ul style="text-align: left;">
+                            <li>10M tokens included</li>
+                            <li>Priority processing</li>
+                            <li>SLA guarantee</li>
+                        </ul>
+                    </div>
+                    <div class="pricing-card">
+                        <h3>Enterprise</h3>
+                        <div class="price">Custom</div>
+                        <ul style="text-align: left;">
+                            <li>Unlimited tokens</li>
+                            <li>Dedicated infrastructure</li>
+                            <li>24/7 support</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Privacy & Security -->
+            <section class="content-section">
+                <h2>Privacy & Security</h2>
+                <p>Your data is protected with enterprise-grade security:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4><i class="fas fa-shield-alt"></i> Zero-Knowledge Proofs</h4>
+                        <p>Computation is verified without revealing your data</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-lock"></i> End-to-End Encryption</h4>
+                        <p>Your prompts and results are encrypted in transit and at rest</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-certificate"></i> Verifiable Computation</h4>
+                        <p>Every result includes a cryptographic proof of correct execution</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-user-secret"></i> Privacy-Preserving</h4>
+                        <p>Optional privacy mode keeps your data completely confidential</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Supported Models -->
+            <section class="content-section">
+                <h2>Supported Models</h2>
+                <p>Access a wide range of state-of-the-art AI models:</p>
+                
+                <h3>Language Models</h3>
+                <ul>
+                    <li>LLaMA 3.2 (8B, 70B)</li>
+                    <li>Mistral (7B, 8x7B)</li>
+                    <li>DeepSeek (67B)</li>
+                    <li>Code Llama (34B)</li>
+                    <li>GPT-4 (via API)</li>
+                </ul>
+                
+                <h3>Image Models</h3>
+                <ul>
+                    <li>Stable Diffusion XL</li>
+                    <li>DALL-E 3 (via API)</li>
+                    <li>Midjourney (via API)</li>
+                </ul>
+                
+                <h3>Specialized Models</h3>
+                <ul>
+                    <li>Embedding models for search</li>
+                    <li>Speech-to-text (Whisper)</li>
+                    <li>Text-to-speech</li>
+                    <li>Translation models</li>
+                </ul>
+            </section>
+
+            <!-- Best Practices -->
+            <section class="content-section">
+                <h2>Best Practices</h2>
+                
+                <div class="alert alert-info">
+                    <strong>💡 Tip:</strong> Use batch processing for multiple requests to reduce latency and costs.
+                </div>
+                
+                <h3>Performance Optimization</h3>
+                <ul>
+                    <li>Use appropriate model sizes for your task</li>
+                    <li>Implement caching for repeated requests</li>
+                    <li>Use streaming for long responses</li>
+                    <li>Monitor token usage to control costs</li>
+                    <li>Consider subscription plans for regular use</li>
+                </ul>
+                
+                <h3>Security Best Practices</h3>
+                <ul>
+                    <li>Keep your API keys secure</li>
+                    <li>Use environment variables for credentials</li>
+                    <li>Implement proper error handling</li>
+                    <li>Validate inputs before submission</li>
+                    <li>Use HTTPS for all API calls</li>
+                </ul>
+            </section>
+
+            <!-- Support & Resources -->
+            <section class="content-section">
+                <h2>Support & Resources</h2>
+                
+                <h3>Getting Help</h3>
+                <ul>
+                    <li><strong>Documentation</strong>: <a href="full-documentation.html">Full API reference</a></li>
+                    <li><strong>Community</strong>: <a href="https://discord.gg/aitbc">Join our Discord</a></li>
+                    <li><strong>Email</strong>: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
+                    <li><strong>Status</strong>: <a href="https://status.aitbc.bubuit.net">System status</a></li>
+                </ul>
+
+                <h3>Tutorials</h3>
+                <ul>
+                    <li><a href="#">Getting Started with AI Inference</a></li>
+                    <li><a href="#">Building a Chat Application</a></li>
+                    <li><a href="#">Image Generation Guide</a></li>
+                    <li><a href="#">Privacy-Preserving ML</a></li>
+                    <li><a href="#">API Integration Best Practices</a></li>
+                </ul>
+
+                <h3>Examples</h3>
+                <ul>
+                    <li><a href="#">Python Examples Repository</a></li>
+                    <li><a href="#">JavaScript Examples</a></li>
+                    <li><a href="#">API Postman Collection</a></li>
+                    <li><a href="#">Sample Applications</a></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

@@ -67,6 +67,11 @@
 
             <!-- Getting Started -->
             <section class="content-section">
+                <div class="alert alert-info" style="margin-bottom: 2rem;">
+                    <strong>📚 Also available in Markdown:</strong> 
+                    <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/main/docs/client-documentation.md" target="_blank" style="color: inherit; text-decoration: underline;">View this documentation in markdown format</a> for easier contribution and version control.
+                </div>
+                
                 <h2>Getting Started</h2>
                 <p>Start using AITBC in minutes with our simple client SDK or web interface.</p>
                 
@@ -247,7 +252,7 @@ console.log('Computation verified:', verified);</div>
                 <h3>REST API</h3>
                 <div class="code-block">
 # Submit a job
-curl -X POST https://api.aitbc.io/v1/jobs \
+curl -X POST https://aitbc.bubuit.net/api/v1/jobs \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -264,7 +269,7 @@ curl -X POST https://api.aitbc.io/v1/jobs \
   }'
 
 # Check job status
-curl -X GET https://api.aitbc.io/v1/jobs/JOB_ID \
+curl -X GET https://aitbc.bubuit.net/api/v1/jobs/JOB_ID \
   -H "Authorization: Bearer YOUR_TOKEN"</div>
             </section>
 
@@ -381,7 +386,7 @@ curl -X GET https://api.aitbc.io/v1/jobs/JOB_ID \
                     <li><strong>Documentation</strong>: <a href="full-documentation.html">Full API reference</a></li>
                     <li><strong>Community</strong>: <a href="https://discord.gg/aitbc">Join our Discord</a></li>
                     <li><strong>Email</strong>: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
-                    <li><strong>Status</strong>: <a href="https://status.aitbc.io">System status</a></li>
+                    <li><strong>Status</strong>: <a href="https://status.aitbc.bubuit.net">System status</a></li>
                 </ul>
 
                 <h3>Tutorials</h3>
