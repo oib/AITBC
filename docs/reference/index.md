@@ -31,8 +31,8 @@ Welcome to the AITBC reference documentation. This section contains technical sp
 
 ## Project Documentation
 
-- [Roadmap](roadmap.md) - Development roadmap
-- [Completed Tasks](done.md) - List of completed features
+- [Roadmap](../roadmap.md) - Development roadmap
+- [Completed Tasks](../done.md) - List of completed features
 - [Beta Release Plan](beta-release-plan.md) - Beta release planning
 
 ## Historical

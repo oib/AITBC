@@ -406,3 +406,36 @@ This document tracks components that have been successfully deployed and are ope
   - Updated `publicSignals` to `uint[1]` (1 public signal: receiptHash)
   - Fixed authorization checks: `require(authorizedVerifiers[msg.sender])`
   - Created `contracts/docs/ZK-VERIFICATION.md` with integration guide
+
+### Recent Updates (2026-01-29)
+
+- ✅ **Cross-Site Synchronization Issue Resolved**
+  - Fixed database foreign key constraint in transaction/receipt tables
+  - Updated import code to use block.id instead of block.height
+  - Applied database migration to all nodes
+  - Full details in: `docs/issues/2026-01-29_cross-site-sync-resolved.md`
+
+- ✅ **Ollama GPU Provider Test Workflow**
+  - Complete end-to-end test from client submission to blockchain recording
+  - Created `/home/oib/windsurf/aitbc/home/test_ollama_blockchain.py`
+  - Updated skill: `.windsurf/skills/ollama-gpu-provider/SKILL.md` (v2.0)
+  - Created workflow: `.windsurf/workflows/ollama-gpu-test.md`
+  - Verified payment flow: Client → Miner (0.05206 AITBC for inference)
+
+- ✅ **Issue Management Workflow**
+  - Created `.windsurf/workflows/issue-management.md`
+  - Established process for tracking and archiving resolved issues
+  - Moved resolved cross-site sync issue to `docs/issues/`
+
+- ✅ **Pytest Warning Fixes**
+  - Fixed `PytestReturnNotNoneWarning` in `test_blockchain_nodes.py`
+  - Fixed `PydanticDeprecatedSince20` by migrating to V2 style validators
+  - Fixed `PytestUnknownMarkWarning` by moving `pytest.ini` to project root
+
+- ✅ **Directory Organization**
+  - Created `docs/guides/` and moved 2 guide files from root
+  - Created `docs/reports/` and moved 10 report files from root
+  - Created `scripts/testing/` and moved 13 test scripts from root
+  - Created `dev-utils/` and moved `aitbc-pythonpath.pth`
+  - Updated `docs/files.md` with new structure
+  - Fixed systemd service path for GPU miner

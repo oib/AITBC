@@ -5,7 +5,7 @@ This document categorizes all files and folders in the repository by their statu
 - **Greylist (⚠️)**: Uncertain status, may need review
 - **Blacklist (❌)**: Legacy, unused, outdated, candidates for removal
 
-Last updated: 2026-01-26
+Last updated: 2026-01-29
 
 ---
 
@@ -32,6 +32,7 @@ Last updated: 2026-01-26
 | `scripts/deploy/` | ✅ Active | Deployment scripts |
 | `scripts/service/` | ✅ Active | Service management |
 | `scripts/dev_services.sh` | ✅ Active | Local development |
+| `scripts/testing/` | ✅ Active | Test scripts (moved from root, 13 files) |
 
 ### Infrastructure (`infra/`, `systemd/`)
 
@@ -61,6 +62,8 @@ Last updated: 2026-01-26
 | `docs/reference/components/miner_node.md` | ✅ Active | Miner documentation |
 | `docs/reference/components/coordinator_api.md` | ✅ Active | API documentation |
 | `docs/developer/integration/skills-framework.md` | ✅ Active | Skills documentation |
+| `docs/guides/` | ✅ Active | Development guides (moved from root) |
+| `docs/reports/` | ✅ Active | Generated reports (moved from root) |
 
 ### Cascade Skills (`.windsurf/`)
 
@@ -94,19 +97,32 @@ Last updated: 2026-01-26
 |------|--------|-------|
 | `plugins/ollama/` | ✅ Active | Ollama integration |
 
+### Development Utilities (`dev-utils/`)
+
+| Path | Status | Notes |
+|------|--------|-------|
+| `dev-utils/` | ✅ Active | Development utilities (newly created) |
+| `dev-utils/aitbc-pythonpath.pth` | ✅ Active | Python path configuration |
+
+### Data Directory (`data/`)
+
+| Path | Status | Notes |
+|------|--------|-------|
+| `data/` | ✅ Active | Runtime data directory (gitignored) |
+| `data/coordinator.db` | ⚠️ Runtime | SQLite database, moved from root |
+
 ### Root Files
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `README.md` | ✅ Active | Project readme |
+| `README.md` | ✅ Active | Project readme, updated with new structure |
 | `LICENSE` | ✅ Active | License file |
 | `.gitignore` | ✅ Active | Recently updated (145 lines) |
 | `pyproject.toml` | ✅ Active | Python project config |
 | `.editorconfig` | ✅ Active | Editor config |
-| `INTEGRATION_TEST_FIXES.md` | ✅ Active | Integration test fixes documentation |
-| `INTEGRATION_TEST_UPDATES.md` | ✅ Active | Integration test real features implementation |
-| `SKIPPED_TESTS_ROADMAP.md` | ✅ Active | Skipped tests roadmap status |
-| `TEST_FIXES_COMPLETE.md` | ✅ Active | Complete test fixes summary |
+| `pytest.ini` | ✅ Active | Pytest configuration with custom markers |
+| `CLEANUP_SUMMARY.md` | ✅ Active | Documentation of directory cleanup |
+| `test_block_import.py` | ⚠️ Duplicate | Recreated in root (exists in scripts/testing/) |
 
 ---
 
@@ -283,6 +299,15 @@ These empty folders are intentional scaffolding for planned future work per the 
    - Q2 2026: Infrastructure (`infra/terraform/`, `infra/helm/`)
    - Q2 2026: Pool Hub components
 
+5. **Directory Organization (2026-01-29)**:
+   - ✅ Created `docs/guides/` and moved 2 guide files from root
+   - ✅ Created `docs/reports/` and moved 10 report files from root
+   - ✅ Created `scripts/testing/` and moved 13 test scripts from root
+   - ✅ Created `dev-utils/` and moved `aitbc-pythonpath.pth`
+   - ✅ Moved `coordinator.db` to `data/` directory
+   - ✅ Updated README.md with new structure
+   - ✅ Created index README files for new directories
+
 ---
 
 ## Folder Structure Recommendation
@@ -297,13 +322,18 @@ aitbc/
 │   └── zk-circuits/         # ✅ Keep
 ├── cli/                     # ✅ CLI tools
 ├── docs/                    # ✅ Markdown documentation
+│   ├── guides/              # Development guides
+│   └── reports/             # Generated reports
 ├── infra/                   # ✅ Infrastructure configs
 ├── packages/                # ✅ Keep (aitbc-crypto, aitbc-sdk, aitbc-token)
 ├── plugins/                 # ✅ Keep (ollama)
 ├── scripts/                 # ✅ Keep - organized
+│   └── testing/             # Test scripts
 ├── systemd/                 # ✅ Keep
 ├── tests/                   # ✅ Keep (e2e, integration, unit, security, load)
 ├── website/                 # ✅ Keep
+├── dev-utils/               # ✅ Development utilities
+├── data/                    # ✅ Runtime data (gitignored)
 └── .windsurf/               # ✅ Keep
 ```
 

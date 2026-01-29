@@ -32,7 +32,8 @@ Welcome to the AITBC developer documentation. This section contains resources fo
 
 ## Testing
 
-- [Testing Guide](testing.md) - How to test your AITBC applications
+- [Testing Guide](../guides/WINDSURF_TESTING_GUIDE.md) - Comprehensive testing with Windsurf
+- [Test Setup](../guides/WINDSURF_TEST_SETUP.md) - Quick testing setup
 - [Test Examples](../examples/) - Test code examples
 
 ## Deployment
