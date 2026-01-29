@@ -56,6 +56,8 @@ from ..domain import (
     MarketplaceBid,
     User,
     Wallet,
+    JobPayment,
+    PaymentEscrow,
 )
 
 # Service-specific models
@@ -101,4 +103,6 @@ __all__ = [
     "LLMRequest",
     "FFmpegRequest",
     "BlenderRequest",
+    "JobPayment",
+    "PaymentEscrow",
 ]

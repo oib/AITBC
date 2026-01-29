@@ -6,13 +6,6 @@ from sqlmodel import SQLModel, Field, Relationship, Column
 from sqlalchemy import JSON
 from datetime import datetime
 from typing import Optional, List
-from enum import Enum
-
-
-class UserStatus(str, Enum):
-    ACTIVE = "active"
-    INACTIVE = "inactive"
-    SUSPENDED = "suspended"
 
 
 class User(SQLModel, table=True):
@@ -20,7 +13,7 @@ class User(SQLModel, table=True):
     id: str = Field(primary_key=True)
     email: str = Field(unique=True, index=True)
     username: str = Field(unique=True, index=True)
-    status: UserStatus = Field(default=UserStatus.ACTIVE)
+    status: str = Field(default="active", max_length=20)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     last_login: Optional[datetime] = None
@@ -44,28 +37,13 @@ class Wallet(SQLModel, table=True):
     transactions: List["Transaction"] = Relationship(back_populates="wallet")
 
 
-class TransactionType(str, Enum):
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    PURCHASE = "purchase"
-    REWARD = "reward"
-    REFUND = "refund"
-
-
-class TransactionStatus(str, Enum):
-    PENDING = "pending"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    CANCELLED = "cancelled"
-
-
 class Transaction(SQLModel, table=True):
     """Transaction model"""
     id: str = Field(primary_key=True)
     user_id: str = Field(foreign_key="user.id")
     wallet_id: Optional[int] = Field(foreign_key="wallet.id")
-    type: TransactionType
-    status: TransactionStatus = Field(default=TransactionStatus.PENDING)
+    type: str = Field(max_length=20)
+    status: str = Field(default="pending", max_length=20)
     amount: float
     fee: float = Field(default=0.0)
     description: Optional[str] = None

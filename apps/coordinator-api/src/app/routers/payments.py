@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 
 from ..deps import require_client_key
-from ..schemas.payments import (
+from ..schemas import (
     JobPaymentCreate,
     JobPaymentView,
     PaymentRequest,

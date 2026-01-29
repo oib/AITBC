@@ -4,7 +4,7 @@ Service schemas for common GPU workloads
 
 from typing import Any, Dict, List, Optional, Union
 from enum import Enum
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import re
 
 
@@ -123,7 +123,8 @@ class StableDiffusionRequest(BaseModel):
     lora: Optional[str] = Field(None, description="LoRA model to use")
     lora_scale: float = Field(1.0, ge=0.0, le=2.0, description="LoRA strength")
     
-    @validator('seed')
+    @field_validator('seed')
+    @classmethod
     def validate_seed(cls, v):
         if v is not None and isinstance(v, list):
             if len(v) > 4:
@@ -289,9 +290,10 @@ class BlenderRequest(BaseModel):
     transparent: bool = Field(False, description="Transparent background")
     custom_args: Optional[List[str]] = Field(None, description="Custom Blender arguments")
     
-    @validator('frame_end')
-    def validate_frame_range(cls, v, values):
-        if 'frame_start' in values and v < values['frame_start']:
+    @field_validator('frame_end')
+    @classmethod
+    def validate_frame_range(cls, v, info):
+        if info and info.data and 'frame_start' in info.data and v < info.data['frame_start']:
             raise ValueError("frame_end must be >= frame_start")
         return v
     

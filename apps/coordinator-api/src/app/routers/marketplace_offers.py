@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
 from ..deps import require_admin_key
-from ..domain import MarketplaceOffer, Miner, OfferStatus
+from ..domain import MarketplaceOffer, Miner
 from ..schemas import MarketplaceOfferView
 from ..storage import SessionDep
 

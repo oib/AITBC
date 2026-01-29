@@ -6,6 +6,7 @@ from sqlmodel import SQLModel, Field, Relationship, Column, JSON
 from typing import Optional, Dict, Any
 from datetime import datetime
 from uuid import uuid4
+from pydantic import ConfigDict
 
 
 class GovernanceProposal(SQLModel, table=True):
@@ -83,10 +84,11 @@ class VotingPowerSnapshot(SQLModel, table=True):
     snapshot_time: datetime = Field(default_factory=datetime.utcnow, index=True)
     block_number: Optional[int] = Field(index=True)
     
-    class Config:
-        indexes = [
+    model_config = ConfigDict(
+        indexes=[
             {"name": "ix_user_snapshot", "fields": ["user_id", "snapshot_time"]},
         ]
+    )
 
 
 class ProtocolUpgrade(SQLModel, table=True):

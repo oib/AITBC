@@ -1,8 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..deps import require_client_key
-from ..schemas import JobCreate, JobView, JobResult
-from ..schemas.payments import JobPaymentCreate, PaymentMethod
+from ..schemas import JobCreate, JobView, JobResult, JobPaymentCreate
 from ..types import JobState
 from ..services import JobService
 from ..services.payments import PaymentService
@@ -27,11 +26,11 @@ async def submit_job(
             job_id=job.id,
             amount=req.payment_amount,
             currency=req.payment_currency,
-            payment_method=PaymentMethod.AITBC_TOKEN  # Jobs use AITBC tokens
+            payment_method="aitbc_token"  # Jobs use AITBC tokens
         )
         payment = await payment_service.create_payment(job.id, payment_create)
         job.payment_id = payment.id
-        job.payment_status = payment.status.value
+        job.payment_status = payment.status
         session.commit()
         session.refresh(job)
     

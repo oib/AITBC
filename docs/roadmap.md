@@ -559,6 +559,92 @@ Fill the intentional placeholder folders with actual content. Priority order bas
 | `apps/pool-hub/src/app/` | Q2 2026 | Backend | ✅ Complete (2026-01-24) |
 | `apps/coordinator-api/migrations/` | As needed | Backend | ✅ Complete (2026-01-24) |
 
+## Stage 21 — Transaction-Dependent Block Creation [COMPLETED: 2026-01-28]
+
+- **PoA Consensus Enhancement**
+  - ✅ Modify PoA proposer to only create blocks when mempool has pending transactions
+  - ✅ Implement HTTP polling mechanism to check RPC mempool size
+  - ✅ Add transaction storage in block data with tx_count field
+  - ✅ Remove processed transactions from mempool after block creation
+  - ✅ Fix syntax errors and import issues in consensus/poa.py
+
+- **Architecture Implementation**
+  - ✅ RPC Service: Receives transactions and maintains in-memory mempool
+  - ✅ Metrics Endpoint: Exposes mempool_size for node polling
+  - ✅ Node Process: Polls metrics every 2 seconds, creates blocks only when needed
+  - ✅ Eliminates empty blocks from blockchain
+  - ✅ Maintains block integrity with proper transaction inclusion
+
+- **Testing and Validation**
+  - ✅ Deploy changes to both Node 1 and Node 2
+  - ✅ Verify proposer skips block creation when no transactions
+  - ✅ Confirm blocks are created when transactions are submitted
+  - ✅ Fix gossip broker integration issues
+  - ✅ Implement message passing solution for transaction synchronization
+
+## Stage 22 — Future Enhancements [PLANNED]
+
+- **Shared Mempool Implementation**
+  - [ ] Implement database-backed mempool for true sharing between services
+  - [ ] Add Redis-based pub/sub for real-time transaction propagation
+  - [ ] Optimize polling mechanism with webhooks or server-sent events
+
+- **Advanced Block Production**
+  - [ ] Implement block size limits and gas optimization
+  - [ ] Add transaction prioritization based on fees
+  - [ ] Implement batch transaction processing
+  - [ ] Add block production metrics and monitoring
+
+- **Production Hardening**
+  - [ ] Add comprehensive error handling for network failures
+  - [ ] Implement graceful degradation when RPC service unavailable
+  - [ ] Add circuit breaker pattern for mempool polling
+  - [ ] Create operational runbooks for block production issues
+
+## Stage 21 — Cross-Site Synchronization [COMPLETED: 2026-01-29]
+
+Enable blockchain nodes to synchronize across different sites via RPC.
+
+### Multi-Site Architecture
+- **Site A (localhost)**: 2 nodes (ports 8081, 8082)
+- **Site B (remote host)**: redacted-host server (95.216.198.140)
+- **Site C (remote container)**: 1 node (port 8082)
+- **Network**: Cross-site RPC synchronization enabled
+
+### Implementation
+- **Synchronization Module** ✅ COMPLETE
+  - [x] Create `/src/aitbc_chain/cross_site.py` module
+  - [x] Implement remote endpoint polling (10-second interval)
+  - [x] Add transaction propagation between sites
+  - [x] Detect height differences between nodes
+  - [x] Integrate into node lifecycle (start/stop)
+
+- **Configuration** ✅ COMPLETE
+  - [x] Add `cross_site_sync_enabled` to ChainSettings
+  - [x] Add `cross_site_remote_endpoints` list
+  - [x] Add `cross_site_poll_interval` setting
+  - [x] Configure endpoints for all 3 nodes
+
+- **Deployment** ✅ COMPLETE
+  - [x] Deploy to all 3 nodes
+  - [x] Fix Python compatibility issues
+  - [x] Fix RPC endpoint URL paths
+  - [x] Verify network connectivity
+
+### Current Status
+- All nodes running with cross-site sync enabled
+- Transaction propagation working
+- ✅ Block sync fully implemented with transaction support
+- ✅ Transaction data properly saved during block import
+- Nodes maintain independent chains (PoA design)
+- Nginx routing fixed to port 8081 for blockchain-rpc-2
+
+### Future Enhancements
+- [x] ✅ Block import endpoint fully implemented with transactions
+- [ ] Implement conflict resolution for divergent chains
+- [ ] Add sync metrics and monitoring
+- [ ] Add proposer signature validation for imported blocks
+
 ## Stage 20 — Technical Debt Remediation [PLANNED]
 
 Address known issues in existing components that are blocking production use.
@@ -643,6 +729,7 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 | `packages/solidity/aitbc-token/` testnet | Low | Q3 2026 | 🔄 Pending deployment |
 | `contracts/ZKReceiptVerifier.sol` deploy | Low | Q3 2026 | ✅ Code ready (2026-01-24) |
 | `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Pending extensions |
+| Cross-site synchronization | High | Q1 2026 | ✅ Complete (2026-01-29) |
 
 the canonical checklist during implementation. Mark completed tasks with ✅ and add dates or links to relevant PRs as development progresses.
 

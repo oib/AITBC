@@ -362,6 +362,9 @@ Monitor your proposer's performance with Grafana dashboards:
 2. **Test thoroughly** - Use testnet before mainnet deployment
 3. **Monitor performance** - Track metrics and optimize
 4. **Handle edge cases** - Empty blocks, network partitions
+   - **Note**: The default AITBC proposer now implements transaction-dependent block creation
+   - Empty blocks are automatically prevented when no pending transactions exist
+   - Consider this behavior when designing custom proposers
 5. **Document behavior** - Clear documentation for custom logic
 
 ## Troubleshooting

@@ -4,17 +4,18 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, JSON, String
-from sqlmodel import Field, SQLModel, Relationship
-
-from ..types import JobState
+from sqlalchemy import Column, JSON, String, ForeignKey
+from sqlalchemy.orm import Mapped, relationship
+from sqlmodel import Field, SQLModel
 
 
 class Job(SQLModel, table=True):
+    __tablename__ = "job"
+    
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
     client_id: str = Field(index=True)
 
-    state: JobState = Field(default=JobState.queued, sa_column_kwargs={"nullable": False})
+    state: str = Field(default="QUEUED", max_length=20)
     payload: dict = Field(sa_column=Column(JSON, nullable=False))
     constraints: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
@@ -30,8 +31,8 @@ class Job(SQLModel, table=True):
     error: Optional[str] = None
     
     # Payment tracking
-    payment_id: Optional[str] = Field(default=None, foreign_key="job_payments.id", index=True)
+    payment_id: Optional[str] = Field(default=None, sa_column=Column(String, ForeignKey("job_payments.id"), index=True))
     payment_status: Optional[str] = Field(default=None, max_length=20)  # pending, escrowed, released, refunded
     
     # Relationships
-    payment: Optional["JobPayment"] = Relationship(back_populates="jobs")
+    # payment: Mapped[Optional["JobPayment"]] = relationship(back_populates="jobs")

@@ -5,7 +5,7 @@ from typing import Iterable, Optional
 
 from sqlmodel import Session, select
 
-from ..domain import MarketplaceOffer, MarketplaceBid, OfferStatus
+from ..domain import MarketplaceOffer, MarketplaceBid
 from ..schemas import (
     MarketplaceBidRequest,
     MarketplaceOfferView,
@@ -62,7 +62,7 @@ class MarketplaceService:
 
     def get_stats(self) -> MarketplaceStatsView:
         offers = self.session.exec(select(MarketplaceOffer)).all()
-        open_offers = [offer for offer in offers if offer.status == OfferStatus.open]
+        open_offers = [offer for offer in offers if offer.status == "open"]
 
         total_offers = len(offers)
         open_capacity = sum(offer.capacity for offer in open_offers)

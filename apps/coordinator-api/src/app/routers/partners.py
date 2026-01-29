@@ -37,7 +37,7 @@ class PartnerResponse(BaseModel):
 class WebhookCreate(BaseModel):
     """Create a webhook subscription"""
     url: str = Field(..., pattern=r'^https?://')
-    events: List[str] = Field(..., min_items=1)
+    events: List[str] = Field(..., min_length=1)
     secret: Optional[str] = Field(max_length=100)
 
 
