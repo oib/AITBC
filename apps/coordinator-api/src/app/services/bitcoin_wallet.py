@@ -12,15 +12,14 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# Bitcoin wallet configuration
+# Bitcoin wallet configuration (credentials from environment)
 WALLET_CONFIG = {
-    # For development, we'll use testnet
     'testnet': True,
-    'rpc_url': 'http://127.0.0.1:18332',  # Testnet RPC port
-    'rpc_user': 'aitbc_rpc',
-    'rpc_password': 'REDACTED_RPC_PASSWORD',
-    'wallet_name': 'aitbc_exchange',
-    'fallback_address': 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'  # Testnet address
+    'rpc_url': os.environ.get('BITCOIN_RPC_URL', 'http://127.0.0.1:18332'),
+    'rpc_user': os.environ.get('BITCOIN_RPC_USER', 'aitbc_rpc'),
+    'rpc_password': os.environ.get('BITCOIN_RPC_PASSWORD', ''),
+    'wallet_name': os.environ.get('BITCOIN_WALLET_NAME', 'aitbc_exchange'),
+    'fallback_address': os.environ.get('BITCOIN_FALLBACK_ADDRESS', 'tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh'),
 }
 
 class BitcoinWallet:

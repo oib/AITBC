@@ -14,10 +14,10 @@ class Settings(BaseSettings):
     debug: bool = False
     
     # Database Configuration
-    database_url: str = "postgresql://aitbc_user:aitbc_password@localhost:5432/aitbc_coordinator"
+    database_url: str = "postgresql://localhost:5432/aitbc_coordinator"
     
     # JWT Configuration
-    jwt_secret: str = "your-secret-key-change-in-production"
+    jwt_secret: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
     
