@@ -19,18 +19,15 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: '1.7.1'
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest pytest-asyncio httpx fastapi uvicorn pydantic pydantic-settings \
+            sqlalchemy aiosqlite sqlmodel python-dotenv slowapi orjson prometheus-client \
+            nacl pycryptodome argon2-cffi websockets
 
-      - name: Install coordinator-api dependencies
-        working-directory: apps/coordinator-api
-        run: poetry install --with dev
-
-      - name: Install blockchain-node dependencies
-        working-directory: apps/blockchain-node
-        run: poetry install --with dev
+      - name: Install aitbc-crypto package
+        run: pip install -e packages/py/aitbc-crypto
 
       - name: Run coordinator-api tests
         run: |
