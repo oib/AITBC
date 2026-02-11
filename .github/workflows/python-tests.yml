@@ -1,4 +1,4 @@
-name: Python Project Tests
+name: Python Tests
 
 on:
   push:
@@ -24,14 +24,20 @@ jobs:
         with:
           version: '1.7.1'
 
-      - name: Install dependencies
-        run: |
-          poetry install --with dev
+      - name: Install coordinator-api dependencies
+        working-directory: apps/coordinator-api
+        run: poetry install --with dev
 
-      - name: Run Python test suites
+      - name: Install blockchain-node dependencies
+        working-directory: apps/blockchain-node
+        run: poetry install --with dev
+
+      - name: Run coordinator-api tests
         run: |
-          chmod +x scripts/ci/run_python_tests.sh
-          ./scripts/ci/run_python_tests.sh
-      - name: Run blockchain-node websocket tests
+          PYTHONPATH=apps/coordinator-api/src:packages/py/aitbc-crypto/src:packages/py/aitbc-sdk/src \
+            python -m pytest apps/coordinator-api/tests -q
+
+      - name: Run blockchain-node tests
         run: |
-          poetry run pytest apps/blockchain-node/tests/test_websocket.py
+          PYTHONPATH=apps/blockchain-node/src:packages/py/aitbc-crypto/src \
+            python -m pytest apps/blockchain-node/tests/test_websocket.py -q
