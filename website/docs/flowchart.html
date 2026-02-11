@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Flow - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .inline-code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        .flow-diagram {
+            background: var(--bg-light);
+            padding: 2rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .http-request {
+            background: #e0f2fe;
+            border-left: 4px solid var(--primary-color);
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+        }
+
+        .http-request h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        .timeline {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 2rem 0;
+            font-family: monospace;
+            white-space: pre;
+            line-height: 1.4;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 2rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-light);
+            font-weight: 600;
+        }
+
+        .error-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .error-box h4 {
+            color: var(--danger-color);
+            margin-top: 0;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <span>System Flow</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="index.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Documentation
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-sitemap"></i> AITBC System Flow</h1>
+                <p>Complete flow of a job submission through the CLI client, detailing each system component, message, RPC call, and port involved.</p>
+            </div>
+
+            <!-- Overview Diagram -->
+            <section class="content-section">
+                <h2>Overview Diagram</h2>
+                <div style="background: #f8fafc; padding: 2rem; border-radius: 8px; overflow-x: auto;">
+                    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; font-family: monospace;">
+                        <div style="background: #3b82f6; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">CLI Wrapper</div>
+                        <div style="color: #64748b;">→</div>
+                        <div style="background: #10b981; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Client Python</div>
+                        <div style="color: #64748b;">→</div>
+                        <div style="background: #f59e0b; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Coordinator</div>
+                        <div style="color: #64748b;">→</div>
+                        <div style="background: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Blockchain</div>
+                        <div style="color: #64748b;">→</div>
+                        <div style="background: #8b5cf6; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Miner</div>
+                        <div style="color: #64748b;">→</div>
+                        <div style="background: #06b6d4; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Ollama</div>
+                    </div>
+                    <div style="font-size: 0.85rem; color: #64748b; text-align: center; margin-top: 1rem;">
+                        <div>(aitbc-cli.sh) → (client.py) → (port 18000) → (RPC:26657) → (port 18001) → (port 11434)</div>
+                    </div>
+                </div>
+                
+                <h3 style="margin-top: 2rem;">Component Interactions</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1.5rem;">
+                    <div style="background: #f1f5f9; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                        <h4 style="margin-top: 0; color: #1e40af;">1. Job Submission</h4>
+                        <p style="margin-bottom: 0; color: #475569;">User submits CLI command → Python client formats request → HTTP POST to Coordinator</p>
+                    </div>
+                    <div style="background: #f1f5f9; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <h4 style="margin-top: 0; color: #92400e;">2. Job Processing</h4>
+                        <p style="margin-bottom: 0; color: #475569;">Coordinator validates → Creates blockchain transaction → Queues for miner</p>
+                    </div>
+                    <div style="background: #f1f5f9; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #8b5cf6;">
+                        <h4 style="margin-top: 0; color: #5b21b6;">3. AI Inference</h4>
+                        <p style="margin-bottom: 0; color: #475569;">Miner receives job → Sends to Ollama → Processes on GPU → Returns result</p>
+                    </div>
+                    <div style="background: #f1f5f9; padding: 1.5rem; border-radius: 8px; border-left: 4px solid #ef4444;">
+                        <h4 style="margin-top: 0; color: #991b1b;">4. Verification</h4>
+                        <p style="margin-bottom: 0; color: #475569;">Result verified → Receipt generated → Recorded on blockchain → Client notified</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Detailed Flow Sequence -->
+            <section class="content-section">
+                <h2>Detailed Flow Sequence</h2>
+
+                <h3>1. CLI Wrapper Execution</h3>
+                <p><strong>User Command:</strong></p>
+                <pre><code>./scripts/aitbc-cli.sh submit inference --prompt "What is machine learning?" --model llama3.2:latest</code></pre>
+
+                <p><strong>Internal Process:</strong></p>
+                <ol>
+                    <li>Bash script (<span class="inline-code">aitbc-cli.sh</span>) parses arguments</li>
+                    <li>Sets environment variables:
+                        <ul>
+                            <li><span class="inline-code">AITBC_URL=http://127.0.0.1:18000</span></li>
+                            <li><span class="inline-code">CLIENT_KEY=REDACTED_CLIENT_KEY</span></li>
+                        </ul>
+                    </li>
+                    <li>Calls Python client: <span class="inline-code">python3 cli/client.py --url $AITBC_URL --api-key $CLIENT_KEY submit inference --prompt "..."</span></li>
+                </ol>
+
+                <h3>2. Python Client Processing</h3>
+                <p><strong>File:</strong> <span class="inline-code">/cli/client.py</span></p>
+
+                <p><strong>Steps:</strong></p>
+                <ol>
+                    <li>Parse command-line arguments</li>
+                    <li>Prepare job submission payload:
+                        <pre><code>{
+  "type": "inference",
+  "prompt": "What is machine learning?",
+  "model": "llama3.2:latest",
+  "client_key": "REDACTED_CLIENT_KEY",
+  "timestamp": "2025-01-29T14:50:00Z"
+}</code></pre>
+                    </li>
+                </ol>
+
+                <h3>3. Coordinator API Call</h3>
+                <div class="http-request">
+                    <h4>HTTP Request:</h4>
+                    <pre><code>POST /v1/jobs
+Host: 127.0.0.1:18000
+Content-Type: application/json
+X-Api-Key: REDACTED_CLIENT_KEY
+
+{
+  "type": "inference",
+  "prompt": "What is machine learning?",
+  "model": "llama3.2:latest"
+}</code></pre>
+                </div>
+
+                <p><strong>Coordinator Service (Port 18000):</strong></p>
+                <ol>
+                    <li>Receives HTTP request</li>
+                    <li>Validates API key and job parameters</li>
+                    <li>Generates unique job ID: <span class="inline-code">job_123456</span></li>
+                    <li>Creates job record in database</li>
+                    <li>Returns initial response:
+                        <pre><code>{
+  "job_id": "job_123456",
+  "status": "pending",
+  "submitted_at": "2025-01-29T14:50:01Z"
+}</code></pre>
+                    </li>
+                </ol>
+
+                <h3>4. Blockchain Transaction</h3>
+                <p><strong>Coordinator → Blockchain Node (RPC Port 26657):</strong></p>
+
+                <ol>
+                    <li>Coordinator creates blockchain transaction:
+                        <pre><code>{
+  "type": "submit_job",
+  "job_id": "job_123456",
+  "client": "REDACTED_CLIENT_KEY",
+  "payload_hash": "abc123...",
+  "reward": "100aitbc"
+}</code></pre>
+                    </li>
+                    <li>RPC Call to blockchain node:
+                        <pre><code>curl -X POST http://127.0.0.1:26657 \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "broadcast_tx_sync",
+    "params": {"tx": "base64_encoded_transaction"}
+  }'</code></pre>
+                    </li>
+                    <li>Blockchain validates and includes transaction in next block</li>
+                    <li>Transaction hash returned: <span class="inline-code">0xdef456...</span></li>
+                </ol>
+
+                <h3>5. Job Queue and Miner Assignment</h3>
+                <p><strong>Coordinator Internal Processing:</strong></p>
+                <ol>
+                    <li>Job added to pending queue (Redis/Database)</li>
+                    <li>Miner selection algorithm runs:
+                        <ul>
+                            <li>Check available miners</li>
+                            <li>Select based on stake, reputation, capacity</li>
+                        </ul>
+                    </li>
+                    <li>Selected miner: <span class="inline-code">REDACTED_MINER_KEY</span></li>
+                </ol>
+
+                <div class="http-request">
+                    <h4>Coordinator → Miner Daemon (Port 18001):</h4>
+                    <pre><code>POST /v1/jobs/assign
+Host: 127.0.0.1:18001
+Content-Type: application/json
+X-Api-Key: REDACTED_ADMIN_KEY
+
+{
+  "job_id": "job_123456",
+  "job_data": {
+    "type": "inference",
+    "prompt": "What is machine learning?",
+    "model": "llama3.2:latest"
+  },
+  "reward": "100aitbc"
+}</code></pre>
+                </div>
+
+                <h3>6. Miner Processing</h3>
+                <p><strong>Miner Daemon (Port 18001):</strong></p>
+                <ol>
+                    <li>Receives job assignment</li>
+                    <li>Updates job status to <span class="inline-code">running</span></li>
+                    <li>Notifies coordinator:
+                        <pre><code>POST /v1/jobs/job_123456/status
+{"status": "running", "started_at": "2025-01-29T14:50:05Z"}</code></pre>
+                    </li>
+                </ol>
+
+                <h3>7. Ollama Inference Request</h3>
+                <div class="http-request">
+                    <h4>Miner → Ollama Server (Port 11434):</h4>
+                    <pre><code>POST /api/generate
+Host: 127.0.0.1:11434
+Content-Type: application/json
+
+{
+  "model": "llama3.2:latest",
+  "prompt": "What is machine learning?",
+  "stream": false,
+  "options": {
+    "temperature": 0.7,
+    "num_predict": 500
+  }
+}</code></pre>
+                </div>
+
+                <p><strong>Ollama Processing:</strong></p>
+                <ol>
+                    <li>Loads model into GPU memory</li>
+                    <li>Processes prompt through neural network</li>
+                    <li>Generates response text</li>
+                    <li>Returns result:
+                        <pre><code>{
+  "model": "llama3.2:latest",
+  "response": "Machine learning is a subset of artificial intelligence...",
+  "done": true,
+  "total_duration": 12500000000,
+  "prompt_eval_count": 15,
+  "eval_count": 150
+}</code></pre>
+                    </li>
+                </ol>
+
+                <h3>8. Result Submission to Coordinator</h3>
+                <div class="http-request">
+                    <h4>Miner → Coordinator (Port 18000):</h4>
+                    <pre><code>POST /v1/jobs/job_123456/complete
+Host: 127.0.0.1:18000
+Content-Type: application/json
+X-Miner-Key: REDACTED_MINER_KEY
+
+{
+  "job_id": "job_123456",
+  "result": "Machine learning is a subset of artificial intelligence...",
+  "metrics": {
+    "compute_time": 12.5,
+    "tokens_generated": 150,
+    "gpu_utilization": 0.85
+  },
+  "proof": {
+    "hash": "hash_of_result",
+    "signature": "miner_signature"
+  }
+}</code></pre>
+                </div>
+
+                <h3>9. Receipt Generation</h3>
+                <p><strong>Coordinator Processing:</strong></p>
+                <ol>
+                    <li>Verifies miner's proof</li>
+                    <li>Calculates payment: <span class="inline-code">12.5 seconds × 0.02 AITBC/second = 0.25 AITBC</span></li>
+                    <li>Creates receipt:
+                        <pre><code>{
+  "receipt_id": "receipt_789",
+  "job_id": "job_123456",
+  "client": "REDACTED_CLIENT_KEY",
+  "miner": "REDACTED_MINER_KEY",
+  "amount_paid": "0.25aitbc",
+  "result_hash": "hash_of_result",
+  "block_height": 12345,
+  "timestamp": "2025-01-29T14:50:18Z"
+}</code></pre>
+                    </li>
+                </ol>
+
+                <h3>10. Blockchain Receipt Recording</h3>
+                <pre><code>Coordinator → Blockchain (RPC Port 26657):
+{
+  "type": "record_receipt",
+  "receipt": {
+    "receipt_id": "receipt_789",
+    "job_id": "job_123456",
+    "payment": "0.25aitbc"
+  }
+}</code></pre>
+
+                <h3>11. Client Polling for Result</h3>
+                <p><strong>CLI Client Status Check:</strong></p>
+                <pre><code>./scripts/aitbc-cli.sh status job_123456</code></pre>
+
+                <div class="http-request">
+                    <h4>HTTP Request:</h4>
+                    <pre><code>GET /v1/jobs/job_123456
+Host: 127.0.0.1:18000
+X-Api-Key: REDACTED_CLIENT_KEY</code></pre>
+
+                    <h4>Response:</h4>
+                    <pre><code>{
+  "job_id": "job_123456",
+  "status": "completed",
+  "result": "Machine learning is a subset of artificial intelligence...",
+  "receipt_id": "receipt_789",
+  "completed_at": "2025-01-29T14:50:18Z"
+}</code></pre>
+                </div>
+
+                <h3>12. Final Output to User</h3>
+                <p><strong>CLI displays:</strong></p>
+                <pre><code>Job ID: job_123456
+Status: completed
+Result: Machine learning is a subset of artificial intelligence...
+Receipt: receipt_789
+Completed in: 17 seconds
+Cost: 0.25 AITBC</code></pre>
+            </section>
+
+            <!-- System Components Summary -->
+            <section class="content-section">
+                <h2>System Components Summary</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Port</th>
+                            <th>Protocol</th>
+                            <th>Responsibility</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>CLI Wrapper</td>
+                            <td>N/A</td>
+                            <td>Bash</td>
+                            <td>User interface, argument parsing</td>
+                        </tr>
+                        <tr>
+                            <td>Client Python</td>
+                            <td>N/A</td>
+                            <td>Python</td>
+                            <td>HTTP client, job formatting</td>
+                        </tr>
+                        <tr>
+                            <td>Coordinator</td>
+                            <td>18000</td>
+                            <td>HTTP/REST</td>
+                            <td>Job management, API gateway</td>
+                        </tr>
+                        <tr>
+                            <td>Blockchain Node</td>
+                            <td>26657</td>
+                            <td>JSON-RPC</td>
+                            <td>Transaction processing, consensus</td>
+                        </tr>
+                        <tr>
+                            <td>Miner Daemon</td>
+                            <td>18001</td>
+                            <td>HTTP/REST</td>
+                            <td>Job execution, GPU management</td>
+                        </tr>
+                        <tr>
+                            <td>Ollama Server</td>
+                            <td>11434</td>
+                            <td>HTTP/REST</td>
+                            <td>AI model inference</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </section>
+
+            <!-- Message Flow Timeline -->
+            <section class="content-section">
+                <h2>Message Flow Timeline</h2>
+                <div class="timeline">0s: User submits CLI command
+└─> 0.1s: Python client called
+   └─> 0.2s: HTTP POST to Coordinator (port 18000)
+      └─> 0.3s: Coordinator validates and creates job
+         └─> 0.4s: RPC to Blockchain (port 26657)
+            └─> 0.5s: Transaction in mempool
+               └─> 1.0s: Job queued for miner
+                  └─> 2.0s: Miner assigned (port 18001)
+                     └─> 2.1s: Miner accepts job
+                        └─> 2.2s: Ollama request (port 11434)
+                           └─> 14.7s: Inference complete (12.5s processing)
+                              └─> 14.8s: Result to Coordinator
+                                 └─> 15.0s: Receipt generated
+                                    └─> 15.1s: Receipt on Blockchain
+                                       └─> 17.0s: Client polls and gets result</div>
+            </section>
+
+            <!-- Error Handling Paths -->
+            <section class="content-section">
+                <h2>Error Handling Paths</h2>
+
+                <div class="error-box">
+                    <h4>1. Invalid Prompt</h4>
+                    <ul>
+                        <li>Coordinator returns 400 error</li>
+                        <li>CLI displays error message</li>
+                    </ul>
+                </div>
+
+                <div class="error-box">
+                    <h4>2. Miner Unavailable</h4>
+                    <ul>
+                        <li>Job stays in queue</li>
+                        <li>Timeout after 60 seconds</li>
+                        <li>Job marked as failed</li>
+                    </ul>
+                </div>
+
+                <div class="error-box">
+                    <h4>3. Ollama Error</h4>
+                    <ul>
+                        <li>Miner reports failure to Coordinator</li>
+                        <li>Job marked as failed</li>
+                        <li>No payment deducted</li>
+                    </ul>
+                </div>
+
+                <div class="error-box">
+                    <h4>4. Network Issues</h4>
+                    <ul>
+                        <li>Client retries with exponential backoff</li>
+                        <li>Maximum 3 retries before giving up</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Security Considerations -->
+            <section class="content-section">
+                <h2>Security Considerations</h2>
+                <ul>
+                    <li><strong>API Keys</strong>: Each request authenticated with X-Api-Key header</li>
+                    <li><strong>Proof of Work</strong>: Miner provides cryptographic proof of computation</li>
+                    <li><strong>Payment Escrow</strong>: Tokens held in smart contract until completion</li>
+                    <li><strong>Rate Limiting</strong>: Coordinator limits requests per client</li>
+                </ul>
+            </section>
+
+            <!-- Additional Resources -->
+            <section class="content-section">
+                <h2>Related Documentation</h2>
+                <ul>
+                    <li><a href="coordinator-api.html">Coordinator API Documentation</a> - Detailed API reference for the coordinator service</li>
+                    <li><a href="blockchain-node.html">Blockchain Node Documentation</a> - Learn about the blockchain node and RPC API</li>
+                    <li><a href="miner-documentation-md.html">Miner Documentation</a> - Guide to setting up and running a miner</li>
+                    <li><a href="client-documentation-md.html">Client Documentation</a> - Using the CLI and Python client</li>
+                    <li><a href="components.html">System Components</a> - Overview of all AITBC components</li>
+                    <li><a href="full-documentation.html">Full Documentation</a> - Complete technical documentation</li>
+                </ul>
+            </section>
+
+            <!-- Monitoring Points -->
+            <section class="content-section">
+                <h2>Monitoring Points</h2>
+                <ul>
+                    <li>Coordinator logs all API calls to <span class="inline-code">/var/log/aitbc/coordinator.log</span></li>
+                    <li>Miner logs GPU utilization to <span class="inline-code">/var/log/aitbc/miner.log</span></li>
+                    <li>Blockchain logs all transactions to <span class="inline-code">/var/log/aitbc/node.log</span></li>
+                    <li>Prometheus metrics available at <span class="inline-code">http://localhost:9090/metrics</span></li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

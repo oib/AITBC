@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .toc {
+            background: var(--bg-light);
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 3rem;
+        }
+
+        .toc h3 {
+            margin-top: 0;
+            color: var(--text-dark);
+        }
+
+        .toc ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .toc li {
+            margin-bottom: 0.5rem;
+        }
+
+        .toc a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .toc a:hover {
+            text-decoration: underline;
+        }
+
+        .component-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .component-card {
+            background: var(--bg-white);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        .component-card h3 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .inline-code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid var(--primary-color);
+            color: #1e40af;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning-color);
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid var(--success-color);
+            color: #065f46;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <span>Full Documentation</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="index.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Documentation
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-file-alt"></i> AITBC Full Documentation</h1>
+                <p>Complete technical documentation for the AI Training & Blockchain Computing platform</p>
+            </div>
+
+            <!-- Table of Contents -->
+            <div class="toc">
+                <h3>Table of Contents</h3>
+                <ul>
+                    <li><a href="#introduction">1. Introduction</a></li>
+                    <li><a href="#architecture">2. Architecture</a></li>
+                    <li><a href="#installation">3. Installation</a></li>
+                    <li><a href="#apis">4. APIs</a></li>
+                    <li><a href="#components">5. Components</a></li>
+                    <li><a href="#guides">6. Guides</a></li>
+                    <li><a href="#advanced">7. Advanced Topics</a></li>
+                    <li><a href="#troubleshooting">8. Troubleshooting</a></li>
+                    <li><a href="#security">9. Security</a></li>
+                </ul>
+            </div>
+
+            <!-- Introduction -->
+            <section class="content-section" id="introduction">
+                <h2>1. Introduction</h2>
+                <p>AITBC (AI Training & Blockchain Computing) is a decentralized platform that combines blockchain technology with AI/ML computing resources. It enables privacy-preserving AI computations with verifiable results on the blockchain.</p>
+                
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Privacy-preserving AI computations with zero-knowledge proofs</li>
+                    <li>Decentralized GPU marketplace for AI/ML workloads</li>
+                    <li>Blockchain-based verification and receipt system</li>
+                    <li>Hybrid Proof-of-Authority/Proof-of-Stake consensus</li>
+                    <li>Native token (AITBC) for payments and staking</li>
+                </ul>
+
+                <h3>Use Cases</h3>
+                <ul>
+                    <li>Private AI inference without data exposure</li>
+                    <li>Verifiable ML model training</li>
+                    <li>Decentralized GPU resource sharing</li>
+                    <li>Cryptographic proof of computation</li>
+                </ul>
+            </section>
+
+            <!-- Architecture -->
+            <section class="content-section" id="architecture">
+                <h2>2. Architecture</h2>
+                <p>AITBC consists of multiple components working together to provide a complete AI blockchain computing solution.</p>
+                
+                <h3>System Architecture</h3>
+                <pre><code>┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Clients   │────▶│ Coordinator  │────▶│ Blockchain  │
+│             │     │     API      │     │    Node     │
+└─────────────┘     └──────────────┘     └─────────────┘
+       │                     │                     │
+       ▼                     ▼                     ▼
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   Wallet    │     │   Pool Hub   │     │   Miners    │
+│   Daemon    │     │              │     │             │
+└─────────────┘     └──────────────┘     └─────────────┘</code></pre>
+
+                <h3>Core Components</h3>
+                <ul>
+                    <li><strong>Blockchain Node</strong>: Distributed ledger with PoA/PoS consensus</li>
+                    <li><strong>Coordinator API</strong>: Job orchestration and management</li>
+                    <li><strong>Wallet Daemon</strong>: Secure wallet management</li>
+                    <li><strong>Miner Daemon</strong>: GPU compute provider</li>
+                    <li><strong>Pool Hub</strong>: Miner coordination and matching</li>
+                    <li><strong>Marketplace Web</strong>: GPU compute marketplace UI</li>
+                    <li><strong>Trade Exchange</strong>: Token trading platform</li>
+                </ul>
+            </section>
+
+            <!-- Installation -->
+            <section class="content-section" id="installation">
+                <h2>3. Installation</h2>
+                
+                <h3>Prerequisites</h3>
+                <ul>
+                    <li>Docker & Docker Compose</li>
+                    <li>Python 3.9+ (for development)</li>
+                    <li>Node.js 18+ (for frontend development)</li>
+                    <li>Rust 1.70+ (for blockchain node)</li>
+                </ul>
+
+                <h3>Quick Start with Docker</h3>
+                <pre><code># Clone the repository
+git clone https://gitea.bubuit.net/oib/aitbc.git
+cd aitbc
+
+# Start all services
+docker-compose up -d
+
+# Check status
+docker-compose ps</code></pre>
+
+                <h3>Development Setup</h3>
+                <pre><code># Backend services
+cd coordinator
+pip install -r requirements.txt
+python -m coordinator.main
+
+# Frontend
+cd website/marketplace
+npm install
+npm run dev
+
+# Blockchain node
+cd blockchain
+cargo run</code></pre>
+            </section>
+
+            <!-- APIs -->
+            <section class="content-section" id="apis">
+                <h2>4. APIs</h2>
+                
+                <h3>Coordinator API</h3>
+                <p>RESTful API for job submission and management</p>
+                <pre><code># Submit a job
+POST /api/v1/jobs
+{
+  "type": "inference",
+  "model": "llama3.2",
+  "input": {
+    "prompt": "Hello, AITBC!"
+  }
+}
+
+# Get job status
+GET /api/v1/jobs/{job_id}
+
+# Get job result
+GET /api/v1/jobs/{job_id}/result</code></pre>
+
+                <h3>Blockchain RPC</h3>
+                <p>JSON-RPC API for blockchain interaction</p>
+                <pre><code># Get latest block
+curl -X POST http://localhost:9080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"get_head","params":[],"id":1}'
+
+# Submit transaction
+curl -X POST http://localhost:9080 \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"send_tx","params":[tx],"id":1}'</code></pre>
+
+                <h3>WebSocket API</h3>
+                <p>Real-time updates for blocks, transactions, and jobs</p>
+                <pre><code># Connect to WebSocket
+ws://localhost:9081/ws
+
+# Subscribe to events
+{
+  "method": "subscribe",
+  "params": ["new_blocks", "job_updates"]
+}</code></pre>
+            </section>
+
+            <!-- Components -->
+            <section class="content-section" id="components">
+                <h2>5. Components</h2>
+                
+                <div class="component-grid">
+                    <div class="component-card">
+                        <h3>Blockchain Node</h3>
+                        <p>PoA/PoS consensus blockchain with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability.</p>
+                        <a href="blockchain-node-md.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3>Coordinator API</h3>
+                        <p>FastAPI service for job submission, miner registration, and receipt management with SQLite persistence.</p>
+                        <a href="coordinator-api-md.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3>Marketplace Web</h3>
+                        <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle.</p>
+                        <a href="marketplace-web-md.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3>Wallet Daemon</h3>
+                        <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification.</p>
+                        <a href="wallet-documentation-md.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3>Trade Exchange</h3>
+                        <p>Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading capabilities.</p>
+                        <a href="trade-exchange-md.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                    
+                    <div class="component-card">
+                        <h3>Pool Hub</h3>
+                        <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics.</p>
+                        <a href="pool-hub.html" style="color: var(--primary-color);">Learn more →</a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Guides -->
+            <section class="content-section" id="guides">
+                <h2>6. Guides</h2>
+                
+                <h3>Client Guide</h3>
+                <p>Learn how to use AITBC as a client:</p>
+                <ul>
+                    <li><a href="client-documentation-md.html">Client Documentation</a></li>
+                    <li>Job submission workflow</li>
+                    <li>Privacy features</li>
+                    <li>Result verification</li>
+                </ul>
+
+                <h3>Miner Guide</h3>
+                <p>Learn how to become a miner:</p>
+                <ul>
+                    <li><a href="miner-documentation-md.html">Miner Documentation</a></li>
+                    <li>Hardware requirements</li>
+                    <li>Setup and configuration</li>
+                    <li>Earning rewards</li>
+                </ul>
+
+                <h3>Developer Guide</h3>
+                <p>Learn how to build on AITBC:</p>
+                <ul>
+                    <li><a href="developer-documentation-md.html">Developer Documentation</a></li>
+                    <li>API integration</li>
+                    <li>SDK usage</li>
+                    <li>Contributing</li>
+                </ul>
+            </section>
+
+            <!-- Advanced Topics -->
+            <section class="content-section" id="advanced">
+                <h2>7. Advanced Topics</h2>
+                
+                <h3>Zero-Knowledge Proofs</h3>
+                <p>AITBC uses zk-SNARKs to provide privacy-preserving computations:</p>
+                <ul>
+                    <li>Input privacy: Your data never leaves your device</li>
+                    <li>Computation verification: Proofs are verified on-chain</li>
+                    <li>Efficient verification: Sub-second proof verification</li>
+                </ul>
+
+                <h3>Consensus Mechanism</h3>
+                <p>Hybrid PoA/PoS consensus provides:</p>
+                <ul>
+                    <li>Fast finality: Blocks confirmed in seconds</li>
+                    <li>Energy efficiency: No proof-of-work mining</li>
+                    <li>Security: Multi-layer validation</li>
+                </ul>
+
+                <h3>Tokenomics</h3>
+                <p>AITBC token utilities:</p>
+                <ul>
+                    <li>Payment for AI computations</li>
+                    <li>Staking for network security</li>
+                    <li>Governance voting rights</li>
+                    <li>Reward distribution</li>
+                </ul>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="content-section" id="troubleshooting">
+                <h2>8. Troubleshooting</h2>
+                
+                <h3>Common Issues</h3>
+                
+                <div class="alert alert-warning">
+                    <strong>Node not syncing?</strong> Check peer connections and network connectivity.
+                </div>
+                
+                <ol>
+                    <li><strong>Connection Issues</strong>
+                        <ul>
+                            <li>Verify all services are running: <code>docker-compose ps</code></li>
+                            <li>Check logs: <code>docker-compose logs [service]</code></li>
+                            <li>Ensure ports are not blocked by firewall</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>Job Submission Fails</strong>
+                        <ul>
+                            <li>Check API key is valid</li>
+                            <li>Verify model is available</li>
+                            <li>Check wallet balance</li>
+                        </ul>
+                    </li>
+                    
+                    <li><strong>GPU Mining Issues</strong>
+                        <ul>
+                            <li>Install latest NVIDIA drivers</li>
+                            <li>Verify CUDA installation</li>
+                            <li>Check GPU memory availability</li>
+                        </ul>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- Security -->
+            <section class="content-section" id="security">
+                <h2>9. Security</h2>
+                
+                <h3>Security Features</h3>
+                <ul>
+                    <li>End-to-end encryption for all data</li>
+                    <li>Zero-knowledge proofs for privacy</li>
+                    <li>Multi-signature wallet support</li>
+                    <li>Hardware wallet integration</li>
+                    <li>Audited smart contracts</li>
+                </ul>
+
+                <h3>Best Practices</h3>
+                <ul>
+                    <li>Keep private keys secure</li>
+                    <li>Use hardware wallets for large amounts</li>
+                    <li>Enable two-factor authentication</li>
+                    <li>Regular security updates</li>
+                </ul>
+
+                <h3>Reporting Issues</h3>
+                <div class="alert alert-info">
+                    For security issues, please email: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

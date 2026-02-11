@@ -3,641 +3,492 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentation - AITBC</title>
-    <link rel="stylesheet" href="/fonts-font-awesome/css/font-awesome.min.css">
+    <title>Marketplace Web - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
         }
-        
-        /* Dark mode (default) */
-:root {
-    --primary-color: #3b82f6;
-    --secondary-color: #2563eb;
-    --accent-color: #60a5fa;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --text-dark: #f3f4f6;
-    --text-light: #9ca3af;
-    --bg-light: #111827;
-    --bg-white: #1f2937;
-    --border-color: #374151;
-}
 
-/* Light mode */
-body.light {
-    --primary-color: #2563eb;
-    --secondary-color: #1e40af;
-    --accent-color: #3b82f6;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --text-dark: #1f2937;
-    --text-light: #6b7280;
-    --bg-light: #f9fafb;
-    --bg-white: #ffffff;
-    --border-color: #e5e7eb;
-}
-        
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             line-height: 1.6;
             color: var(--text-dark);
-            background: var(--bg-light);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
         }
-        
+
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
         }
-        
-        /* Header */
+
         header {
-            background: var(--bg-white);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            position: fixed;
-            width: 100%;
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
             top: 0;
-            z-index: 1000;
+            z-index: 100;
         }
-        
+
         nav {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 1rem 0;
         }
-        
+
         .logo {
             font-size: 1.5rem;
             font-weight: bold;
-            color: var(--primary-color);
+            color: white;
             text-decoration: none;
         }
-        
+
         .nav-links {
             display: flex;
             gap: 2rem;
             list-style: none;
+            margin: 0;
+            padding: 0;
         }
-        
+
         .nav-links a {
-            color: var(--text-dark);
+            color: white;
             text-decoration: none;
             transition: color 0.3s;
         }
-        
+
         .nav-links a:hover {
             color: var(--primary-color);
         }
-        
-        /* Main Content */
-        main {
-            margin-top: 80px;
-            padding: 60px 0;
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
         }
-        
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
         .doc-header {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-        
-        .doc-header h1 {
-            font-size: 3.5rem;
-            color: var(--text-dark);
-            margin-bottom: 1rem;
-        }
-        
-        .doc-header p {
-            font-size: 1.3rem;
-            color: var(--text-light);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-        
-        /* Search Bar */
-        .search-container {
-            max-width: 600px;
-            margin: 0 auto 4rem;
-            position: relative;
-        }
-        
-        .search-bar {
-            width: 100%;
-            padding: 1rem 3rem 1rem 1.5rem;
-            font-size: 1.1rem;
-            border: 2px solid var(--border-color);
-            border-radius: 50px;
-            outline: none;
-            transition: all 0.3s;
-        }
-        
-        .search-bar:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-        
-        .search-icon {
-            position: absolute;
-            right: 1.5rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--text-light);
-            font-size: 1.2rem;
-        }
-        
-        /* Reader Level Cards */
-        .reader-levels {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 2rem;
-            margin-bottom: 4rem;
-        }
-        
-        .reader-card {
-            background: var(--bg-white);
-            border-radius: 15px;
-            padding: 2.5rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            transition: all 0.3s;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .reader-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 5px;
-        }
-        
-        .reader-card.miner::before {
-            background: var(--primary-color);
-        }
-        
-        .reader-card.client::before {
-            background: var(--success-color);
-        }
-        
-        .reader-card.developer::before {
-            background: var(--warning-color);
-        }
-        
-        .reader-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.12);
-        }
-        
-        .reader-icon {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            color: var(--text-dark);
-            margin-bottom: 1.5rem;
-        }
-        
-        .reader-card.miner .reader-icon {
-            background: var(--primary-color);
-        }
-        
-        .reader-card.client .reader-icon {
-            background: var(--success-color);
-        }
-        
-        .reader-card.developer .reader-icon {
-            background: var(--warning-color);
-        }
-        
-        .reader-card.full-doc .reader-icon {
-            background: var(--danger-color);
-        }
-        
-        .reader-card h3 {
-            font-size: 1.8rem;
-            margin-bottom: 1rem;
-            color: var(--text-dark);
-        }
-        
-        .reader-card p {
-            color: var(--text-light);
-            margin-bottom: 2rem;
-            line-height: 1.8;
-        }
-        
-        .reader-features {
-            list-style: none;
-            margin-bottom: 2rem;
-        }
-        
-        .reader-features li {
-            padding: 0.5rem 0;
-            color: var(--text-light);
-            position: relative;
-            padding-left: 1.5rem;
-        }
-        
-        .reader-features li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: var(--success-color);
-            font-weight: bold;
-        }
-        
-        .reader-card.miner .reader-features li::before {
-            color: var(--primary-color);
-        }
-        
-        .reader-card.client .reader-features li::before {
-            color: var(--success-color);
-        }
-        
-        .reader-card.developer .reader-features li::before {
-            color: var(--warning-color);
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 12px 30px;
-            background: var(--primary-color);
-            color: var(--text-dark);
-            text-decoration: none;
-            border-radius: 50px;
-            font-weight: 600;
-            transition: all 0.3s;
-            border: none;
-            cursor: pointer;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .btn-outline {
-            background: transparent;
-            color: var(--primary-color);
-            border: 2px solid var(--primary-color);
-        }
-        
-        .btn-outline:hover {
-            background: var(--primary-color);
-            color: var(--text-dark);
-        }
-        
-        .reader-card.miner .btn {
-            background: var(--primary-color);
-        }
-        
-        .reader-card.client .btn {
-            background: var(--success-color);
-        }
-        
-        .reader-card.developer .btn {
-            background: var(--warning-color);
-        }
-        
-        .reader-card.full-doc .btn {
-            background: var(--danger-color);
-        }
-        
-        .reader-card.full-doc::before {
-            background: var(--danger-color);
-        }
-        
-        /* Quick Links */
-        .quick-links {
-            background: var(--bg-white);
-            border-radius: 15px;
-            padding: 3rem;
-            margin-bottom: 4rem;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        }
-        
-        .quick-links h2 {
-            font-size: 2rem;
-            margin-bottom: 2rem;
-            color: var(--text-dark);
-            text-align: center;
-        }
-        
-        .links-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 1.5rem;
-        }
-        
-        .link-item {
-            display: flex;
-            align-items: center;
-            padding: 1rem;
+            padding: 3rem 0;
             background: var(--bg-light);
-            border-radius: 10px;
-            text-decoration: none;
-            color: var(--text-dark);
-            transition: all 0.3s;
+            margin-bottom: 2rem;
         }
-        
-        .link-item:hover {
-            background: var(--primary-color);
-            color: var(--text-dark);
-            transform: translateX(5px);
-        }
-        
-        .link-item i {
-            font-size: 1.5rem;
-            margin-right: 1rem;
-            color: var(--primary-color);
-        }
-        
-        .link-item:hover i {
-            color: var(--text-dark);
-        }
-        
-        /* Help Section */
-        .help-section {
-            text-align: center;
-            padding: 3rem;
-            background: var(--bg-white);
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        }
-        
-        .help-section h2 {
-            font-size: 2rem;
+
+        .doc-header h1 {
+            font-size: 2.5rem;
             margin-bottom: 1rem;
             color: var(--text-dark);
         }
-        
-        .help-section p {
-            color: var(--text-light);
-            margin-bottom: 2rem;
-        }
-        
-        .help-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-        
-        /* Footer */
-        footer {
-            background: var(--bg-white);
-            color: var(--text-dark);
-            padding: 40px 0;
-            text-align: center;
-            margin-top: 60px;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .doc-header h1 {
-                font-size: 2.5rem;
-            }
-            
-            .reader-levels {
-                grid-template-columns: 1fr;
-            }
-            
-            .help-buttons {
-                flex-direction: column;
-                align-items: center;
-            }
-        }
-    
-        /* Theme toggle button */
-        .theme-toggle {
-            background: none;
-            border: 2px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 0.25rem 0.5rem;
-            cursor: pointer;
+
+        .doc-header p {
             font-size: 1.2rem;
-            transition: all 0.3s;
+            color: var(--text-light);
+            max-width: 800px;
         }
-        
-        .theme-toggle:hover {
-            background: var(--bg-white);
-            border-color: var(--primary-color);
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #10b98120;
+            color: var(--success-color);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
         }
-</style>
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .tech-item {
+            background: var(--bg-light);
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .tech-item strong {
+            display: block;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        .alert {
+            background: #dbeafe;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-color: #3b82f6;
+            color: #1e40af;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Header -->
-    <header class="text-white shadow-lg" style="background: var(--bg-white); position: fixed; width: 100%; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 0;">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fa fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
-                    <h1 style="font-size: 1.5rem; font-weight: bold; margin: 0; color: var(--text-dark);">AITBC</h1>
-                </div>
-                <nav style="display: flex; align-items: center; gap: 1.5rem;">
-                    <a href="/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Home</a>
-                    <a href="/explorer/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Explorer</a>
-                    <a href="/Exchange/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Exchange</a>
-                    <a href="/docs/index.html" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Documentation</a>
-                    <button id="themeToggle" class="theme-toggle" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 1rem;">🌞</button>
-                </nav>
-            </div>
-        </div>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
     </header>
 
-    <!-- Main Content -->
     <main>
         <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <a href="#">Components</a>
+                <span>›</span>
+                <span>Marketplace Web</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="components.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Components
+            </a>
+
+            <!-- Header -->
             <div class="doc-header">
-                <h1>Documentation</h1>
-                <p>Choose your reader level to access tailored documentation for your needs</p>
+                <h1><i class="fas fa-store"></i> Marketplace Web</h1>
+                <p>Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.</p>
+                <span class="status-badge">● Live</span>
             </div>
 
-            <!-- Search Bar -->
-            <div class="search-container">
-                <input type="text" class="search-bar" placeholder="Search documentation..." id="searchInput">
-                <i class="fas fa-search search-icon"></i>
+            <!-- Alert for markdown format -->
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle"></i>
+                <strong>Documentation Format:</strong> <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/master/docs/marketplace-web.md" target="_blank" style="color: #1e40af; text-decoration: underline;">View this documentation in markdown format</a> for easier contribution and version control.
             </div>
 
-            <!-- Reader Level Cards -->
-            <div class="reader-levels">
-                <div class="alert alert-info" style="grid-column: 1 / -1; background: #dbeafe; border-left: 4px solid #3b82f6; color: #1e40af; margin-bottom: 2rem; padding: 1rem; border-radius: 8px;">
-                    <strong>📚 Also available in Markdown:</strong> 
-                    <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/main/docs/marketplace-web.md" target="_blank" style="color: #1e40af; text-decoration: underline;">View this documentation in markdown format</a> for easier contribution and version control.
-                </div>
+            <!-- Overview -->
+            <section class="content-section">
+                <h2>Overview</h2>
+                <p>The Marketplace Web is the primary interface for clients to submit AI compute jobs and for miners to offer their services. It provides a real-time trading platform with comprehensive job management and analytics.</p>
                 
-                <!-- Miners Card -->
-                <div class="reader-card miner">
-                    <div class="reader-icon">
-                        <i class="fas fa-hammer"></i>
-                    </div>
-                    <h3>Miners</h3>
-                    <p>Learn how to mine AITBC tokens and contribute to network security. Perfect for those looking to earn rewards through staking or providing compute power.</p>
-                    <ul class="reader-features">
-                        <li>Mining setup and configuration</li>
-                        <li>Hardware requirements</li>
-                        <li>Profit calculations</li>
-                        <li>Security best practices</li>
-                        <li>Troubleshooting guide</li>
-                    </ul>
-                    <a href="docs-miners.html" class="btn">Miner Documentation</a>
-                </div>
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Real-time job marketplace with offer/bid functionality</li>
+                    <li>Interactive statistics dashboard</li>
+                    <li>Mock/live data toggle for development</li>
+                    <li>Responsive design for all devices</li>
+                    <li>WebSocket integration for live updates</li>
+                    <li>Wallet integration for seamless payments</li>
+                </ul>
+            </section>
 
-                <!-- Clients Card -->
-                <div class="reader-card client">
-                    <div class="reader-icon">
-                        <i class="fa fa-users"></i>
+            <!-- Technology Stack -->
+            <section class="content-section">
+                <h2>Technology Stack</h2>
+                <div class="tech-grid">
+                    <div class="tech-item">
+                        <strong>Framework</strong>
+                        Vite 4.x
                     </div>
-                    <h3>Clients</h3>
-                    <p>Use AITBC for your AI/ML workloads with privacy and verifiable computation. Ideal for businesses and developers using AI services.</p>
-                    <ul class="reader-features">
-                        <li>Quick start guide</li>
-                        <li>API and SDK documentation</li>
-                        <li>Use case examples</li>
-                        <li>Pricing information</li>
-                        <li>Privacy & security features</li>
-                    </ul>
-                    <a href="docs-clients.html" class="btn">Client Documentation</a>
-                </div>
-
-                <!-- Developers Card -->
-                <div class="reader-card developer">
-                    <div class="reader-icon">
-                        <i class="fa fa-code"></i>
+                    <div class="tech-item">
+                        <strong>Language</strong>
+                        TypeScript 5.x
                     </div>
-                    <h3>Developers</h3>
-                    <p>Build on AITBC and contribute to the protocol. Designed for developers wanting to extend the platform or integrate with it.</p>
-                    <ul class="reader-features">
-                        <li>Development setup</li>
-                        <li>Contribution guidelines</li>
-                        <li>API reference</li>
-                        <li>Bounty programs</li>
-                        <li>Community resources</li>
-                    </ul>
-                    <a href="docs-developers.html" class="btn">Developer Documentation</a>
-                </div>
-
-                <!-- Full Documentation Card -->
-                <div class="reader-card full-doc">
-                    <div class="reader-icon">
-                        <i class="fas fa-file-alt"></i>
+                    <div class="tech-item">
+                        <strong>UI</strong>
+                        TailwindCSS + Headless UI
                     </div>
-                    <h3>Full Documentation</h3>
-                    <p>Complete technical documentation covering all aspects of the AITBC platform including architecture, APIs, deployment, and advanced features.</p>
-                    <ul class="reader-features">
-                        <li>Architecture overview</li>
-                        <li>Complete API reference</li>
-                        <li>Deployment guides</li>
-                        <li>Security documentation</li>
-                        <li>Advanced configurations</li>
-                    </ul>
-                    <a href="full-documentation.html" class="btn">View Full Documentation</a>
-                </div>
-            </div>
-
-            <!-- Quick Links -->
-            <section class="quick-links">
-                <h2>Quick Links</h2>
-                <div class="links-grid">
-                    <a href="full-documentation.html" class="link-item">
-                        <i class="fa fa-book"></i>
-                        <span>Full Documentation</span>
-                    </a>
-                    <a href="https://aitbc.bubuit.net/Exchange/" class="link-item">
-                        <i class="fa fa-exchange"></i>
-                        <span>Trade Exchange</span>
-                    </a>
-                    <a href="https://gitea.bubuit.net/oib/aitbc" class="link-item">
-                        <i class="fa fa-git"></i>
-                        <span>Source Code</span>
-                    </a>
-                    <a href="https://discord.gg/aitbc" class="link-item">
-                        <i class="fab fa-discord"></i>
-                        <span>Community</span>
-                    </a>
-                    <a href="mailto:aitbc@bubuit.net" class="link-item">
-                        <i class="fa fa-envelope"></i>
-                        <span>Support</span>
-                    </a>
-                    <a href="#" class="link-item">
-                        <i class="fa fa-graduation-cap"></i>
-                        <span>Tutorials</span>
-                    </a>
-                    <a href="#" class="link-item">
-                        <i class="fa fa-video-camera"></i>
-                        <span>Video Guides</span>
-                    </a>
+                    <div class="tech-item">
+                        <strong>State Management</strong>
+                        Zustand
+                    </div>
+                    <div class="tech-item">
+                        <strong>Charts</strong>
+                        Chart.js
+                    </div>
+                    <div class="tech-item">
+                        <strong>WebSocket</strong>
+                        Native WebSocket API
+                    </div>
+                    <div class="tech-item">
+                        <strong>Icons</strong>
+                        Lucide React
+                    </div>
                 </div>
             </section>
 
-            <!-- Help Section -->
-            <section class="help-section">
-                <h2>Need Help?</h2>
-                <p>Can't find what you're looking for? Our community is here to help!</p>
-                <div class="help-buttons">
-                    <a href="https://discord.gg/aitbc" class="btn">
-                        <i class="fab fa-discord"></i> Join Discord
-                    </a>
-                    <a href="mailto:aitbc@bubuit.net" class="btn btn-outline">
-                        <i class="fa fa-envelope"></i> Email Support
-                    </a>
-                    <a href="#" class="btn btn-outline">
-                        <i class="fa fa-comments"></i> Live Chat
-                    </a>
-                </div>
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                
+                <h3>Prerequisites</h3>
+                <ul>
+                    <li>Node.js 18+</li>
+                    <li>npm or yarn</li>
+                </ul>
+
+                <h3>Installation</h3>
+                <pre><code># Clone the repository
+git clone https://gitea.bubuit.net/oib/aitbc.git
+cd aitbc/apps/marketplace-web
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview</code></pre>
+
+                <h3>Environment Configuration</h3>
+                <pre><code># .env.local
+VITE_API_URL=http://localhost:18000
+VITE_WS_URL=ws://localhost:18001
+VITE_NETWORK=mainnet
+VITE_MOCK_DATA=false</code></pre>
+            </section>
+
+            <!-- Features -->
+            <section class="content-section">
+                <h2>Features</h2>
+                
+                <h3>Job Marketplace</h3>
+                <ul>
+                    <li>Submit AI compute jobs with custom parameters</li>
+                    <li>Browse available miner offers</li>
+                    <li>Real-time price discovery</li>
+                    <li>Job history and tracking</li>
+                </ul>
+
+                <h3>Statistics Dashboard</h3>
+                <ul>
+                    <li>Real-time network metrics</li>
+                    <li>Job completion rates</li>
+                    <li>GPU utilization charts</li>
+                    <li>Price trends analysis</li>
+                </ul>
+
+                <h3>Wallet Integration</h3>
+                <ul>
+                    <li>Connect wallet via private key or keystore</li>
+                    <li>View balance and transaction history</li>
+                    <li>Sign transactions for job submissions</li>
+                    <li>Receipt verification</li>
+                </ul>
+            </section>
+
+            <!-- API Integration -->
+            <section class="content-section">
+                <h2>API Integration</h2>
+                
+                <h3>Coordinator API</h3>
+                <pre><code>// Job submission
+POST /v1/jobs
+{
+  "type": "inference",
+  "prompt": "Your prompt here",
+  "model": "llama3.2:latest",
+  "max_price": "100aitbc"
+}
+
+// WebSocket for live updates
+ws://localhost:18001/ws</code></pre>
+
+                <h3>Blockchain RPC</h3>
+                <pre><code>// Get transaction status
+curl -X POST http://localhost:26657 \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tx",
+    "params": ["0x..."]
+  }'</code></pre>
+            </section>
+
+            <!-- Development -->
+            <section class="content-section">
+                <h2>Development</h2>
+                
+                <h3>Project Structure</h3>
+                <pre><code>marketplace-web/
+├── src/
+│   ├── components/     # Reusable UI components
+│   ├── pages/         # Page components
+│   ├── hooks/         # Custom React hooks
+│   ├── stores/        # Zustand stores
+│   ├── services/      # API services
+│   ├── types/         # TypeScript definitions
+│   └── utils/         # Utility functions
+├── public/
+├── package.json
+└── vite.config.ts</code></pre>
+
+                <h3>Mock Data</h3>
+                <p>Toggle mock data mode for development without a running backend:</p>
+                <pre><code>// In .env.local
+VITE_MOCK_DATA=true</code></pre>
+
+                <h3>Building for Production</h3>
+                <pre><code># Build optimized bundle
+npm run build
+
+# Output in dist/ directory
+# Deploy to any static hosting service</code></pre>
+            </section>
+
+            <!-- Deployment -->
+            <section class="content-section">
+                <h2>Deployment</h2>
+                
+                <h3>Docker Deployment</h3>
+                <pre><code># Build image
+docker build -t aitbc/marketplace-web .
+
+# Run with nginx
+docker run -d \
+  -p 80:80 \
+  -e VITE_API_URL=http://api.aitbc.bubuit.net \
+  aitbc/marketplace-web</code></pre>
+
+                <h3>Environment Variables</h3>
+                <ul>
+                    <li><code>VITE_API_URL</code> - Coordinator API endpoint</li>
+                    <li><code>VITE_WS_URL</code> - WebSocket endpoint</li>
+                    <li><code>VITE_NETWORK</code> - Network name (mainnet/testnet)</li>
+                    <li><code>VITE_MOCK_DATA</code> - Enable/disable mock data</li>
+                </ul>
+            </section>
+
+            <!-- Support -->
+            <section class="content-section">
+                <h2>Support</h2>
+                <p>For marketplace-specific issues:</p>
+                <ul>
+                    <li>Check the <a href="full-documentation.html">issue tracker</a></li>
+                    <li>Join our <a href="#">Discord</a></li>
+                    <li>Contact: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
+                </ul>
             </section>
         </div>
     </main>
 
-    <!-- Footer -->
     <footer>
         <div class="container">
             <p>&copy; 2025 AITBC. All rights reserved.</p>
         </div>
     </footer>
-
-    <script>
-        // Search functionality
-        document.getElementById('searchInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                const searchTerm = e.target.value.toLowerCase();
-                if (searchTerm) {
-                    // Simple search logic - in real implementation, this would search actual docs
-                    alert(`Searching for: ${searchTerm}\n\nIn a full implementation, this would search through all documentation pages and show relevant results.`);
-                }
-            }
-        });
-
-        // Add some interactivity
-        document.querySelectorAll('.reader-card').forEach(card => {
-            card.addEventListener('mouseenter', function() {
-                this.style.cursor = 'pointer';
-            });
-        });
-    </script>
-
-    <script>
-        // Check for saved theme preference or default to dark mode
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        if (currentTheme === 'light') {
-            document.body.classList.add('light');
-            document.getElementById('themeToggle').textContent = '🌙';
-        }
-
-        // Theme toggle functionality
-        document.getElementById('themeToggle').addEventListener('click', function() {
-            document.body.classList.toggle('light');
-            const isLight = document.body.classList.contains('light');
-            localStorage.setItem('theme', isLight ? 'light' : 'dark');
-            this.textContent = isLight ? '🌙' : '🌞';
-        });
-    </script></body>
+</body>
 </html>

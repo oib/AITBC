@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="css/docs.css">
     <title>Documentation - AITBC</title>
-    <link rel="stylesheet" href="/fonts-font-awesome/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
     </head>
 <body>
     <!-- Header -->
@@ -42,7 +42,7 @@
             <!-- Search Bar -->
             <div class="search-container">
                 <input type="text" class="search-bar" placeholder="Search documentation..." id="searchInput">
-                <i class="fas fa-search search-icon"></i>
+                <i class="fa fa-search search-icon"></i>
             </div>
 
             <!-- Reader Level Cards -->
@@ -50,7 +50,7 @@
                 <!-- Miners Card -->
                 <div class="reader-card miner">
                     <div class="reader-icon">
-                        <i class="fas fa-hammer"></i>
+                        <i class="fa fa-hammer"></i>
                     </div>
                     <h3>Miners</h3>
                     <p>Learn how to mine AITBC tokens and contribute to network security. Perfect for those looking to earn rewards through staking or providing compute power.</p>
@@ -101,7 +101,7 @@
                 <!-- Full Documentation Card -->
                 <div class="reader-card full-doc">
                     <div class="reader-icon">
-                        <i class="fas fa-file-alt"></i>
+                        <i class="fa fa-file-alt"></i>
                     </div>
                     <h3>Full Documentation</h3>
                     <p>Complete technical documentation covering all aspects of the AITBC platform including architecture, APIs, deployment, and advanced features.</p>
@@ -114,6 +114,42 @@
                     </ul>
                     <a href="full-documentation.html" class="btn">View Full Documentation</a>
                 </div>
+
+                <!-- Components Card -->
+                <div class="reader-card components">
+                    <div class="reader-icon">
+                        <i class="fa fa-cube"></i>
+                    </div>
+                    <h3>System Components</h3>
+                    <p>Explore the 7 core components that make up the AITBC platform. Understand how each part works together to create a complete AI blockchain computing solution.</p>
+                    <ul class="reader-features">
+                        <li>Blockchain Node with PoA/PoS consensus</li>
+                        <li>Coordinator API for job orchestration</li>
+                        <li>Wallet Daemon for secure key management</li>
+                        <li>Miner Daemon for GPU compute</li>
+                        <li>Marketplace Web for compute trading</li>
+                        <li>Explorer Web for blockchain viewing</li>
+                        <li>Pool Hub for miner coordination</li>
+                    </ul>
+                    <a href="components.html" class="btn">View Components</a>
+                </div>
+
+                <!-- System Flow Card -->
+                <div class="reader-card flow">
+                    <div class="reader-icon">
+                        <i class="fa fa-sitemap"></i>
+                    </div>
+                    <h3>System Flow</h3>
+                    <p>Visualize the complete flow of a job submission through the CLI client, detailing each system component, message, RPC call, and port involved.</p>
+                    <ul class="reader-features">
+                        <li>End-to-end job submission flow</li>
+                        <li>Component interaction diagrams</li>
+                        <li>API call sequences</li>
+                        <li>Error handling paths</li>
+                        <li>Performance monitoring points</li>
+                    </ul>
+                    <a href="flowchart.html" class="btn">View System Flow</a>
+                </div>
             </div>
 
             <!-- Quick Links -->
@@ -124,7 +160,7 @@
                         <i class="fa fa-book"></i>
                         <span>Full Documentation</span>
                     </a>
-                    <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/main/docs" class="link-item" target="_blank">
+                    <a href="https://gitea.bubuit.net/oib/aitbc/src/branch/master/docs" class="link-item" target="_blank">
                         <i class="fa fa-file-alt"></i>
                         <span>Markdown Docs</span>
                     </a>
@@ -144,51 +180,7 @@
                         <i class="fa fa-envelope"></i>
                         <span>Support</span>
                     </a>
-                    <a href="#" class="link-item">
-                        <i class="fa fa-graduation-cap"></i>
-                        <span>Tutorials</span>
-                    </a>
-                    <a href="#" class="link-item">
-                        <i class="fa fa-video-camera"></i>
-                        <span>Video Guides</span>
-                    </a>
-                </div>
-            </section>
-
-            <!-- Markdown Documentation Notice -->
-            <section class="help-section" style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 15px; margin-top: 3rem;">
-                <h2 style="color: #0c4a6e;">📚 Documentation Formats</h2>
-                <p style="color: #0c4a6e;">Choose your preferred documentation format:</p>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1.5rem;">
-                    <a href="client-documentation.html" class="btn" style="background: #0ea5e9; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-users"></i> Client Docs (HTML)
-                    </a>
-                    <a href="client-documentation-md.html" class="btn" style="background: #10b981; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-users"></i> Client Docs (Web)
-                    </a>
-                    <a href="docs-miners.html" class="btn" style="background: #0ea5e9; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-hammer"></i> Miner Docs (HTML)
-                    </a>
-                    <a href="miner-documentation-md.html" class="btn" style="background: #10b981; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-hammer"></i> Miner Docs (Web)
-                    </a>
-                    <a href="docs-developers.html" class="btn" style="background: #0ea5e9; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-code"></i> Developer Docs (HTML)
-                    </a>
-                    <a href="developer-documentation-md.html" class="btn" style="background: #10b981; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-code"></i> Developer Docs (Web)
-                    </a>
-                    <a href="components.html" class="btn" style="background: #0ea5e9; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-cube"></i> Components (HTML)
-                    </a>
-                    <a href="components-md.html" class="btn" style="background: #10b981; color: white; text-decoration: none; padding: 0.75rem 1.5rem; border-radius: 8px; display: inline-block; text-align: center;">
-                        <i class="fa fa-cube"></i> Components (Web)
-                    </a>
-                </div>
-                <p style="color: #0c4a6e; margin-top: 1rem; font-size: 0.9rem;">
-                    <strong>HTML:</strong> Original documentation with interactive features | 
-                    <strong>Web:</strong> Clean, fast-loading web format
-                </p>
+                                                        </div>
             </section>
 
             <!-- Help Section -->
