@@ -161,6 +161,9 @@ src/aitbc_chain/
 # Coordinator database
 apps/coordinator-api/src/*.db
 
+# Blockchain node data
+apps/blockchain-node/data/
+
 # Explorer build artifacts
 apps/explorer-web/dist/
 
