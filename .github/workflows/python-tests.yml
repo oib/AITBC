@@ -24,7 +24,7 @@ jobs:
           pip install --upgrade pip
           pip install pytest pytest-asyncio httpx fastapi uvicorn pydantic pydantic-settings \
             sqlalchemy aiosqlite sqlmodel python-dotenv slowapi orjson prometheus-client \
-            nacl pycryptodome argon2-cffi websockets
+            PyNaCl pycryptodome argon2-cffi websockets
 
       - name: Install aitbc-crypto package
         run: pip install -e packages/py/aitbc-crypto
