@@ -38,7 +38,7 @@ The Marketplace Web is the primary interface for clients to submit AI compute jo
 
 ```bash
 # Clone the repository
-git clone https://gitea.bubuit.net/oib/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc/apps/marketplace-web
 
 # Install dependencies
@@ -407,4 +407,4 @@ if (import.meta.env.DEV) {
 
 - Documentation: [docs.aitbc.bubuit.net](https://docs.aitbc.bubuit.net)
 - Discord: [discord.gg/aitbc](https://discord.gg/aitbc)
-- Issues: [Gitea Issues](https://gitea.bubuit.net/oib/aitbc/issues)
+- Issues: [GitHub Issues](https://github.com/oib/AITBC/issues)
