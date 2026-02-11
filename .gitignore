@@ -83,6 +83,12 @@ pids/
 .settings/
 
 # ===================
+# Runtime / PID files
+# ===================
+*.pid
+apps/.service_pids
+
+# ===================
 # OS Files
 # ===================
 .DS_Store
@@ -142,6 +148,11 @@ test-results/
 home/client/client_wallet.json
 home/genesis_wallet.json
 home/miner/miner_wallet.json
+
+# ===================
+# Stale source copies
+# ===================
+src/aitbc_chain/
 
 # ===================
 # Project Specific

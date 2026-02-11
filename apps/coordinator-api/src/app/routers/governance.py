@@ -7,6 +7,9 @@ from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..schemas import UserProfile
 from ..storage import SessionDep
@@ -349,7 +352,7 @@ async def execute_parameter_change(target: Dict[str, Any], background_tasks):
     """Execute a parameter change proposal"""
     
     # This would update system parameters
-    print(f"Executing parameter change: {target}")
+    logger.info("Executing parameter change: %s", target)
     # Implementation would depend on the specific parameters
 
 
@@ -357,7 +360,7 @@ async def execute_protocol_upgrade(target: Dict[str, Any], background_tasks):
     """Execute a protocol upgrade proposal"""
     
     # This would trigger a protocol upgrade
-    print(f"Executing protocol upgrade: {target}")
+    logger.info("Executing protocol upgrade: %s", target)
     # Implementation would involve coordinating with nodes
 
 
@@ -365,7 +368,7 @@ async def execute_fund_allocation(target: Dict[str, Any], background_tasks):
     """Execute a fund allocation proposal"""
     
     # This would transfer funds from treasury
-    print(f"Executing fund allocation: {target}")
+    logger.info("Executing fund allocation: %s", target)
     # Implementation would involve treasury management
 
 
@@ -373,7 +376,7 @@ async def execute_policy_change(target: Dict[str, Any], background_tasks):
     """Execute a policy change proposal"""
     
     # This would update system policies
-    print(f"Executing policy change: {target}")
+    logger.info("Executing policy change: %s", target)
     # Implementation would depend on the specific policy
 
 

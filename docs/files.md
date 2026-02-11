@@ -5,7 +5,7 @@ This document categorizes all files and folders in the repository by their statu
 - **Greylist (⚠️)**: Uncertain status, may need review
 - **Blacklist (❌)**: Legacy, unused, outdated, candidates for removal
 
-Last updated: 2026-01-29
+Last updated: 2026-02-11
 
 ---
 
@@ -64,14 +64,6 @@ Last updated: 2026-01-29
 | `docs/developer/integration/skills-framework.md` | ✅ Active | Skills documentation |
 | `docs/guides/` | ✅ Active | Development guides (moved from root) |
 | `docs/reports/` | ✅ Active | Generated reports (moved from root) |
-
-### Cascade Skills (`.windsurf/`)
-
-| Path | Status | Notes |
-|------|--------|-------|
-| `.windsurf/skills/blockchain-operations/` | ✅ Active | Node management skill |
-| `.windsurf/skills/deploy-production/` | ✅ Active | Deployment skill |
-| `.windsurf/workflows/` | ✅ Active | Workflow definitions |
 
 ### CLI Tools (`cli/`)
 
@@ -264,14 +256,82 @@ These empty folders are intentional scaffolding for planned future work per the 
 
 ---
 
+## Issues Found (2026-02-11)
+
+### Empty Directories (Delete)
+
+| Path | Action |
+|------|--------|
+| `apps/blockchain-node/src/aitbc_chain/ledger/` | Delete — empty placeholder, never implemented |
+| `apps/blockchain-node/src/aitbc_chain/mempool/` | Delete — empty dir, mempool logic is in `mempool.py` |
+| `apps/coordinator-api/src/app/ws/` | Delete — empty WebSocket placeholder, never implemented |
+| `apps/explorer-web/public/js/components/` | Delete — empty, TS components are in `src/components/` |
+| `apps/explorer-web/public/js/pages/` | Delete — empty, TS pages are in `src/pages/` |
+| `apps/explorer-web/public/js/vendors/` | Delete — empty vendor dir |
+| `apps/explorer-web/public/assets/` | Delete — empty assets dir |
+| `packages/py/aitbc-crypto/build/bdist.linux-x86_64/` | Delete — build artifact |
+
+### Files in Wrong Location (Move)
+
+| Current Path | Correct Path | Reason |
+|-------------|-------------|--------|
+| `apps/coordinator-api/coordinator.db` | gitignored / `data/` | SQLite database should not be in git |
+| `apps/coordinator-api/.env` | gitignored | Environment file with secrets, should not be in git |
+| `apps/.service_pids` | gitignored | Runtime PID file, should not be in git |
+| `src/aitbc_chain/` | `apps/blockchain-node/src/aitbc_chain/` | Duplicate/stale copy of blockchain node source |
+| `website/docs-clients.html` | `website/docs/docs-clients.html` | Inconsistent location, duplicate of file in `docs/` |
+| `website/docs-developers.html` | `website/docs/docs-developers.html` | Inconsistent location, duplicate of file in `docs/` |
+| `website/docs-miners.html` | `website/docs/docs-miners.html` | Inconsistent location, duplicate of file in `docs/` |
+| `website/docs-index.html` | `website/docs/index.html` | Inconsistent location, duplicate of file in `docs/` |
+
+### Legacy Files (Delete)
+
+| Path | Reason |
+|------|--------|
+| `SECURITY_CLEANUP_GUIDE.md` | One-time cleanup guide, already completed |
+| `apps/trade-exchange/index_working.html` | Backup copy of `index.html` |
+| `apps/trade-exchange/index.prod.html` | Superseded by `build.py` production build |
+| `apps/trade-exchange/index.real.html` | Superseded by `build.py` production build |
+| `tests/conftest_fixtures.py` | Unused alternate conftest |
+| `tests/conftest_full.py` | Unused alternate conftest |
+| `tests/conftest_path.py` | Unused alternate conftest |
+| `tests/pytest_simple.ini` | Duplicate of root `pytest.ini` |
+| `tests/test_blockchain_simple.py` | Superseded by `test_blockchain_nodes.py` |
+| `tests/test_blockchain_final.py` | Superseded by `test_blockchain_nodes.py` |
+| `tests/test_discovery.py` | One-time discovery script |
+| `tests/test_windsurf_integration.py` | IDE-specific test, not for GitHub |
+| `scripts/exchange-router-fixed.py` | One-time fix script |
+| `scripts/start_mock_blockchain.sh` | Superseded by `tests/mock_blockchain_node.py` |
+| `apps/marketplace-web/src/counter.ts` | Vite template boilerplate, unused |
+| `apps/marketplace-web/src/typescript.svg` | Vite template boilerplate, unused |
+| `apps/marketplace-web/public/vite.svg` | Vite template boilerplate, unused |
+| `.vscode/` | IDE-specific, should be gitignored |
+
+### Debug Print Statements (Replace with logging)
+
+| File | Lines | Statement |
+|------|-------|-----------|
+| `apps/coordinator-api/src/app/routers/exchange.py` | 112 | `print(f"Error minting tokens: {e}")` |
+| `apps/coordinator-api/src/app/routers/governance.py` | 352-376 | 4x `print(f"Executing ...")` |
+| `apps/coordinator-api/src/app/services/receipts.py` | 132 | `print(f"Failed to generate ZK proof: {e}")` |
+| `apps/coordinator-api/src/app/services/blockchain.py` | 47 | `print(f"Error getting balance: {e}")` |
+| `apps/coordinator-api/src/app/services/bitcoin_wallet.py` | 34-134 | 8x `print(...)` debug statements |
+| `apps/coordinator-api/src/app/storage/db_pg.py` | 206 | `print("✅ PostgreSQL database initialized successfully!")` |
+
+---
+
 ## Summary Statistics
 
 | Category | Count | Action |
 |----------|-------|--------|
 | **Whitelist ✅** | ~60 items | Keep and maintain |
-| **Greylist ⚠️** | 0 items | All resolved! |
-| **Placeholders 📋** | 12 folders | Fill per roadmap Stage 19 |
+| **Greylist ⚠️** | 0 items | All resolved |
+| **Placeholders 📋** | 12 folders | Fill per roadmap |
 | **Removed ❌** | 35 items | Cleaned up 2026-01-24 |
+| **Empty dirs** | 8 dirs | Delete |
+| **Misplaced files** | 8 files | Move or gitignore |
+| **Legacy files** | 18 files | Delete |
+| **Debug prints** | 17 statements | Replace with logger |
 
 ### Completed Actions (2026-01-24)
 

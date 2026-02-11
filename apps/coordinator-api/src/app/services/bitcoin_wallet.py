@@ -6,8 +6,11 @@ Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 
 import os
 import json
+import logging
 import requests
 from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 # Bitcoin wallet configuration
 WALLET_CONFIG = {
@@ -31,11 +34,11 @@ class BitcoinWallet:
         try:
             result = self._rpc_call('getbalance', ["*", 0, False])
             if result.get('error') is not None:
-                print(f"Bitcoin RPC error: {result['error']}")
+                logger.error("Bitcoin RPC error: %s", result['error'])
                 return 0.0
             return result.get('result', 0.0)
         except Exception as e:
-            print(f"Failed to get balance: {e}")
+            logger.error("Failed to get balance: %s", e)
             return 0.0
     
     def get_new_address(self) -> str:
@@ -43,11 +46,11 @@ class BitcoinWallet:
         try:
             result = self._rpc_call('getnewaddress', ["", "bech32"])
             if result.get('error') is not None:
-                print(f"Bitcoin RPC error: {result['error']}")
+                logger.error("Bitcoin RPC error: %s", result['error'])
                 return self.config['fallback_address']
             return result.get('result', self.config['fallback_address'])
         except Exception as e:
-            print(f"Failed to get new address: {e}")
+            logger.error("Failed to get new address: %s", e)
             return self.config['fallback_address']
     
     def list_transactions(self, count: int = 10) -> list:
@@ -55,11 +58,11 @@ class BitcoinWallet:
         try:
             result = self._rpc_call('listtransactions', ["*", count, 0, True])
             if result.get('error') is not None:
-                print(f"Bitcoin RPC error: {result['error']}")
+                logger.error("Bitcoin RPC error: %s", result['error'])
                 return []
             return result.get('result', [])
         except Exception as e:
-            print(f"Failed to list transactions: {e}")
+            logger.error("Failed to list transactions: %s", e)
             return []
     
     def _rpc_call(self, method: str, params: list = None) -> Dict:
@@ -83,7 +86,7 @@ class BitcoinWallet:
             response.raise_for_status()
             return response.json()
         except Exception as e:
-            print(f"RPC call failed: {e}")
+            logger.error("RPC call failed: %s", e)
             return {"error": str(e)}
 
 # Create a wallet instance
@@ -117,7 +120,7 @@ def get_wallet_info() -> Dict[str, any]:
             "blocks": blockchain_info.get('result', {}).get('blocks', 0) if is_connected else 0
         }
     except Exception as e:
-        print(f"Error getting wallet info: {e}")
+        logger.error("Error getting wallet info: %s", e)
         return {
             "balance": 0.0,
             "address": "tb1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",

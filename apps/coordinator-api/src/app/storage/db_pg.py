@@ -8,8 +8,11 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Generator, Optional, Dict, Any, List
 import json
+import logging
 from datetime import datetime
 from decimal import Decimal
+
+logger = logging.getLogger(__name__)
 
 from .config_pg import settings
 
@@ -203,7 +206,7 @@ def init_db():
     # Create all tables
     Base.metadata.create_all(bind=engine)
     
-    print("✅ PostgreSQL database initialized successfully!")
+    logger.info("PostgreSQL database initialized successfully")
 
 # Health check
 def check_db_health() -> Dict[str, Any]:

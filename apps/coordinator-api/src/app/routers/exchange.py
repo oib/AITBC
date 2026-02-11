@@ -8,6 +8,9 @@ import uuid
 import time
 import json
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 from ..schemas import ExchangePaymentRequest, ExchangePaymentResponse
 from ..services.bitcoin_wallet import get_wallet_balance, get_wallet_info
@@ -109,7 +112,7 @@ async def confirm_payment(
         from ..services.blockchain import mint_tokens
         mint_tokens(payment['user_id'], payment['aitbc_amount'])
     except Exception as e:
-        print(f"Error minting tokens: {e}")
+        logger.error("Error minting tokens: %s", e)
         # In production, handle this error properly
     
     return {

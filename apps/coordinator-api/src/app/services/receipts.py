@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, Optional
 from secrets import token_hex
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 from aitbc_crypto.signing import ReceiptSigner
 
@@ -129,7 +132,7 @@ class ReceiptService:
                     
             except Exception as e:
                 # Log error but don't fail receipt creation
-                print(f"Failed to generate ZK proof: {e}")
+                logger.warning("Failed to generate ZK proof: %s", e)
         
         receipt_row = JobReceipt(job_id=job.id, receipt_id=payload["receipt_id"], payload=payload)
         self.session.add(receipt_row)
