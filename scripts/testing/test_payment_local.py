@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Configuration - Using localhost as we're testing from the server
 COORDINATOR_URL = "http://127.0.0.1:8000/v1"
-CLIENT_KEY = "REDACTED_CLIENT_KEY"
-MINER_KEY = "REDACTED_MINER_KEY"
+CLIENT_KEY = "${CLIENT_API_KEY}"
+MINER_KEY = "${MINER_API_KEY}"
 
 class PaymentIntegrationTest:
     def __init__(self):

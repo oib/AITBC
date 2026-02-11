@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'cli'))
 class AITBCClient:
     def __init__(self):
         self.coordinator_url = "http://localhost:8001"
-        self.api_key = "REDACTED_CLIENT_KEY"
+        self.api_key = "${CLIENT_API_KEY}"
     
     def submit_job(self, prompt, model="llama3.2:latest", wait_for_result=True):
         """Submit a job and optionally wait for result"""

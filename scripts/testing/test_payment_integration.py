@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 # Configuration
 COORDINATOR_URL = "https://aitbc.bubuit.net/api"
 CLIENT_KEY = "test_client_key_123"
-MINER_KEY = "REDACTED_MINER_KEY"
+MINER_KEY = "${MINER_API_KEY}"
 
 class PaymentIntegrationTest:
     def __init__(self):

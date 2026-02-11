@@ -26,7 +26,7 @@ def test_receipt_endpoint_returns_signed_receipt(test_client: TestClient):
     resp = test_client.post(
         "/v1/miners/register",
         json={"capabilities": {"price": 1}, "concurrency": 1},
-        headers={"X-Api-Key": "REDACTED_MINER_KEY"},
+        headers={"X-Api-Key": "${MINER_API_KEY}"},
     )
     assert resp.status_code == 200
 
@@ -37,7 +37,7 @@ def test_receipt_endpoint_returns_signed_receipt(test_client: TestClient):
     resp = test_client.post(
         "/v1/jobs",
         json=job_payload,
-        headers={"X-Api-Key": "REDACTED_CLIENT_KEY"},
+        headers={"X-Api-Key": "${CLIENT_API_KEY}"},
     )
     assert resp.status_code == 201
     job_id = resp.json()["job_id"]
@@ -46,7 +46,7 @@ def test_receipt_endpoint_returns_signed_receipt(test_client: TestClient):
     poll_resp = test_client.post(
         "/v1/miners/poll",
         json={"max_wait_seconds": 1},
-        headers={"X-Api-Key": "REDACTED_MINER_KEY"},
+        headers={"X-Api-Key": "${MINER_API_KEY}"},
     )
     assert poll_resp.status_code in (200, 204)
 
@@ -58,7 +58,7 @@ def test_receipt_endpoint_returns_signed_receipt(test_client: TestClient):
     result_resp = test_client.post(
         f"/v1/miners/{job_id}/result",
         json=result_payload,
-        headers={"X-Api-Key": "REDACTED_MINER_KEY"},
+        headers={"X-Api-Key": "${MINER_API_KEY}"},
     )
     assert result_resp.status_code == 200
     signed_receipt = result_resp.json()["receipt"]
@@ -67,7 +67,7 @@ def test_receipt_endpoint_returns_signed_receipt(test_client: TestClient):
     # fetch receipt via client endpoint
     receipt_resp = test_client.get(
         f"/v1/jobs/{job_id}/receipt",
-        headers={"X-Api-Key": "REDACTED_CLIENT_KEY"},
+        headers={"X-Api-Key": "${CLIENT_API_KEY}"},
     )
     assert receipt_resp.status_code == 200
     payload = receipt_resp.json()

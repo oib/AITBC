@@ -105,8 +105,8 @@ python3 client.py --url http://localhost:8000 --api-key your_key submit inferenc
 ```
 
 Default credentials:
-- Client API Key: `REDACTED_CLIENT_KEY`
-- Miner API Key: `REDACTED_MINER_KEY`
+- Client API Key: `${CLIENT_API_KEY}`
+- Miner API Key: `${MINER_API_KEY}`
 
 ## Examples
 

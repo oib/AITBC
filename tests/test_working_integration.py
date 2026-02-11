@@ -58,7 +58,7 @@ def test_job_endpoint_structure():
         response = client.post(
             "/v1/jobs",
             json={},
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         # Should get validation error, not auth or not found
         assert response.status_code in [400, 422], f"Expected validation error, got {response.status_code}"
@@ -84,7 +84,7 @@ def test_miner_endpoint_structure():
         response = client.post(
             "/v1/miners/register",
             json={},
-            headers={"X-Api-Key": "REDACTED_MINER_KEY"}
+            headers={"X-Api-Key": "${MINER_API_KEY}"}
         )
         # Should get validation error, not auth or not found
         assert response.status_code in [400, 422], f"Expected validation error, got {response.status_code}"

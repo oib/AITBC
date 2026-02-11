@@ -117,7 +117,7 @@ incus exec aitbc -- systemctl reload nginx
 ```bash
 # Check each service
 curl -k https://aitbc.bubuit.net/api/health
-curl -k https://aitbc.bubuit.net/admin/stats -H "X-Api-Key: REDACTED_ADMIN_KEY"
+curl -k https://aitbc.bubuit.net/admin/stats -H "X-Api-Key: ${ADMIN_API_KEY}"
 curl -k https://aitbc.bubuit.net/rpc/head
 ```
 

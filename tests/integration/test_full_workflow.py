@@ -35,7 +35,7 @@ class TestJobToBlockchainWorkflow:
             "/v1/jobs",
             json=job_data,
             headers={
-                "X-Api-Key": "REDACTED_CLIENT_KEY",  # Valid API key from config
+                "X-Api-Key": "${CLIENT_API_KEY}",  # Valid API key from config
                 "X-Tenant-ID": "test-tenant"
             }
         )
@@ -46,7 +46,7 @@ class TestJobToBlockchainWorkflow:
         # 2. Get job status
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         assert response.status_code == 200
         assert response.json()["job_id"] == job_id  # Fixed: use job_id
@@ -54,7 +54,7 @@ class TestJobToBlockchainWorkflow:
         # 3. Test that we can get receipts (even if empty)
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}/receipts",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         assert response.status_code == 200
         receipts = response.json()
@@ -74,7 +74,7 @@ class TestJobToBlockchainWorkflow:
             response = coordinator_client.post(
                 "/v1/jobs",
                 json={"payload": {"job_type": "test", "parameters": {}}, "ttl_seconds": 900},
-                headers={"X-Api-Key": "REDACTED_CLIENT_KEY", "X-Tenant-ID": "tenant-a"}
+                headers={"X-Api-Key": "${CLIENT_API_KEY}", "X-Tenant-ID": "tenant-a"}
             )
             tenant_a_jobs.append(response.json()["job_id"])  # Fixed: use job_id
         
@@ -83,7 +83,7 @@ class TestJobToBlockchainWorkflow:
             response = coordinator_client.post(
                 "/v1/jobs",
                 json={"payload": {"job_type": "test", "parameters": {}}, "ttl_seconds": 900},
-                headers={"X-Api-Key": "REDACTED_CLIENT_KEY", "X-Tenant-ID": "tenant-b"}
+                headers={"X-Api-Key": "${CLIENT_API_KEY}", "X-Tenant-ID": "tenant-b"}
             )
             tenant_b_jobs.append(response.json()["job_id"])  # Fixed: use job_id
         
@@ -91,7 +91,7 @@ class TestJobToBlockchainWorkflow:
         # Try to access other tenant's job (currently returns 200, not 404)
         response = coordinator_client.get(
             f"/v1/jobs/{tenant_b_jobs[0]}",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY", "X-Tenant-ID": "tenant-a"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}", "X-Tenant-ID": "tenant-a"}
         )
         # The API doesn't enforce tenant isolation yet
         assert response.status_code in [200, 404]  # Accept either for now
@@ -122,7 +122,7 @@ class TestWalletToCoordinatorIntegration:
             "/v1/jobs",
             json=job_data,
             headers={
-                "X-Api-Key": "REDACTED_CLIENT_KEY",
+                "X-Api-Key": "${CLIENT_API_KEY}",
                 "X-Tenant-ID": "test-tenant"
             }
         )
@@ -137,7 +137,7 @@ class TestWalletToCoordinatorIntegration:
         # Get payment details
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}/payment",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         assert response.status_code == 200
         payment = response.json()
@@ -155,7 +155,7 @@ class TestWalletToCoordinatorIntegration:
                     "job_id": job_id,
                     "reason": "Job completed successfully"
                 },
-                headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+                headers={"X-Api-Key": "${CLIENT_API_KEY}"}
             )
             # Note: This might fail if wallet daemon is not running
             # That's OK for this test
@@ -253,7 +253,7 @@ class TestMarketplaceIntegration:
         response = coordinator_client.post(
             "/v1/jobs",
             json=job_data,
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         assert response.status_code == 201
         job = response.json()
@@ -285,7 +285,7 @@ class TestSecurityIntegration:
             "/v1/jobs",
             json=job_data,
             headers={
-                "X-Api-Key": "REDACTED_CLIENT_KEY",
+                "X-Api-Key": "${CLIENT_API_KEY}",
                 "X-Tenant-ID": "secure-tenant"
             }
         )
@@ -300,7 +300,7 @@ class TestSecurityIntegration:
         # Test that we can retrieve the job securely
         response = coordinator_client.get(
             f"/v1/jobs/{job_id}",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"}
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"}
         )
         assert response.status_code == 200
         retrieved_job = response.json()

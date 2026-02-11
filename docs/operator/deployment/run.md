@@ -69,7 +69,7 @@ These instructions cover the newly scaffolded services. Install dependencies usi
    python - <<'PY'
    from aitbc_sdk import CoordinatorReceiptClient, verify_receipt
 
-   client = CoordinatorReceiptClient("http://localhost:8011", "REDACTED_CLIENT_KEY")
+   client = CoordinatorReceiptClient("http://localhost:8011", "${CLIENT_API_KEY}")
    receipt = client.fetch_latest("<job_id>")
    verification = verify_receipt(receipt)
    print("miner signature valid:", verification.miner_signature.valid)

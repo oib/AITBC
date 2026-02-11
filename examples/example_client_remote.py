@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Configuration - using the SSH tunnel to remote server
 COORDINATOR_URL = "http://localhost:8001"
-CLIENT_API_KEY = "REDACTED_CLIENT_KEY"
+CLIENT_API_KEY = "${CLIENT_API_KEY}"
 
 def create_job():
     """Create a job on the remote coordinator"""

@@ -190,7 +190,7 @@ def main():
     
     parser = argparse.ArgumentParser(description="AITBC Ollama Client")
     parser.add_argument("--url", default="http://localhost:8001", help="Coordinator URL")
-    parser.add_argument("--api-key", default="REDACTED_CLIENT_KEY", help="API key")
+    parser.add_argument("--api-key", default="${CLIENT_API_KEY}", help="API key")
     
     subparsers = parser.add_subparsers(dest="command", help="Commands")
     

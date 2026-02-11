@@ -107,7 +107,7 @@ def get_job_result(job_id: str) -> Optional[dict]:
     with httpx.Client() as client:
         response = client.get(
             f"{DEFAULT_COORDINATOR}/v1/jobs/{job_id}/result",
-            headers={"X-Api-Key": "REDACTED_CLIENT_KEY"},
+            headers={"X-Api-Key": "${CLIENT_API_KEY}"},
             timeout=10,
         )
         if response.status_code == 200:

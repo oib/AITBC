@@ -17,8 +17,8 @@ All AITBC API endpoints require authentication using API keys.
 
 ### Testing/Development
 For integration tests and development, these test keys are available:
-- `REDACTED_CLIENT_KEY` - For client API access
-- `REDACTED_MINER_KEY` - For miner registration
+- `${CLIENT_API_KEY}` - For client API access
+- `${MINER_API_KEY}` - For miner registration
 - `test-tenant` - Default tenant ID for testing
 
 ## Using API Keys

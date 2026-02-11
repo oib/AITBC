@@ -8,7 +8,7 @@ import json
 # Configuration
 COORDINATOR_URL = "http://127.0.0.1:8000/v1"
 CLIENT_KEY = "test_client_key_123"
-MINER_KEY = "REDACTED_MINER_KEY"
+MINER_KEY = "${MINER_API_KEY}"
 
 async def register_client():
     """Register a test client"""

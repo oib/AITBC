@@ -11,7 +11,7 @@ import sys
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8001"
-DEFAULT_API_KEY = "REDACTED_MINER_KEY"
+DEFAULT_API_KEY = "${MINER_API_KEY}"
 DEFAULT_MINER_ID = "localhost-gpu-miner"
 
 def test_miner_registration(coordinator_url):
@@ -72,7 +72,7 @@ def test_job_processing(coordinator_url):
                 f"{coordinator_url}/v1/jobs",
                 headers={
                     "Content-Type": "application/json",
-                    "X-Api-Key": "REDACTED_CLIENT_KEY"
+                    "X-Api-Key": "${CLIENT_API_KEY}"
                 },
                 json={
                     "payload": {

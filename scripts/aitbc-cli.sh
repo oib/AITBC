@@ -5,9 +5,9 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI_PY="$ROOT_DIR/cli/client.py"
 
 AITBC_URL="${AITBC_URL:-http://127.0.0.1:18000}"
-CLIENT_KEY="${CLIENT_KEY:-REDACTED_CLIENT_KEY}"
-ADMIN_KEY="${ADMIN_KEY:-REDACTED_ADMIN_KEY}"
-MINER_KEY="${MINER_KEY:-REDACTED_MINER_KEY}"
+CLIENT_KEY="${CLIENT_KEY:?Set CLIENT_KEY env var}"
+ADMIN_KEY="${ADMIN_KEY:?Set ADMIN_KEY env var}"
+MINER_KEY="${MINER_KEY:?Set MINER_KEY env var}"
 
 usage() {
   cat <<'EOF'
@@ -28,9 +28,9 @@ Usage:
 
 Environment overrides:
   AITBC_URL   (default: http://127.0.0.1:18000)
-  CLIENT_KEY  (default: REDACTED_CLIENT_KEY)
-  ADMIN_KEY   (default: REDACTED_ADMIN_KEY)
-  MINER_KEY   (default: REDACTED_MINER_KEY)
+  CLIENT_KEY  (required)
+  ADMIN_KEY   (required)
+  MINER_KEY   (required)
 EOF
 }
 

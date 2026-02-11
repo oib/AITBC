@@ -12,7 +12,7 @@ from typing import Optional
 
 # Configuration
 DEFAULT_COORDINATOR = "http://127.0.0.1:18000"
-DEFAULT_API_KEY = "REDACTED_CLIENT_KEY"
+DEFAULT_API_KEY = "${CLIENT_API_KEY}"
 
 class AITBCClient:
     def __init__(self, coordinator_url: str, api_key: str):

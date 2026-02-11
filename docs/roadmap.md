@@ -390,7 +390,7 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Validate receipt payload structure and signature generation
 
 - **Miner Configuration & Optimization**
-  - ✅ Fix miner ID mismatch (host-gpu-miner → REDACTED_MINER_KEY)
+  - ✅ Fix miner ID mismatch (host-gpu-miner → ${MINER_API_KEY})
   - ✅ Enhance logging with explicit flush handlers for systemd journal
   - ✅ Configure unbuffered Python logging environment variables
   - ✅ Create systemd service unit with proper environment configuration

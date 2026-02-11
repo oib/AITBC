@@ -25,7 +25,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 1. Bash script (`aitbc-cli.sh`) parses arguments
 2. Sets environment variables:
    - `AITBC_URL=http://127.0.0.1:18000`
-   - `CLIENT_KEY=REDACTED_CLIENT_KEY`
+   - `CLIENT_KEY=${CLIENT_API_KEY}`
 3. Calls Python client: `python3 cli/client.py --url $AITBC_URL --api-key $CLIENT_KEY submit inference --prompt "..."`
 
 ### 2. Python Client Processing
@@ -40,7 +40,7 @@ This document illustrates the complete flow of a job submission through the CLI 
      "type": "inference",
      "prompt": "What is machine learning?",
      "model": "llama3.2:latest",
-     "client_key": "REDACTED_CLIENT_KEY",
+     "client_key": "${CLIENT_API_KEY}",
      "timestamp": "2025-01-29T14:50:00Z"
    }
    ```
@@ -52,7 +52,7 @@ This document illustrates the complete flow of a job submission through the CLI 
 POST /v1/jobs
 Host: 127.0.0.1:18000
 Content-Type: application/json
-X-Api-Key: REDACTED_CLIENT_KEY
+X-Api-Key: ${CLIENT_API_KEY}
 
 {
   "type": "inference",
@@ -84,7 +84,7 @@ X-Api-Key: REDACTED_CLIENT_KEY
    {
      "type": "submit_job",
      "job_id": "job_123456",
-     "client": "REDACTED_CLIENT_KEY",
+     "client": "${CLIENT_API_KEY}",
      "payload_hash": "abc123...",
      "reward": "100aitbc"
    }
@@ -110,14 +110,14 @@ X-Api-Key: REDACTED_CLIENT_KEY
 2. Miner selection algorithm runs:
    - Check available miners
    - Select based on stake, reputation, capacity
-3. Selected miner: `REDACTED_MINER_KEY`
+3. Selected miner: `${MINER_API_KEY}`
 
 **Coordinator → Miner Daemon (Port 18001):**
 ```http
 POST /v1/jobs/assign
 Host: 127.0.0.1:18001
 Content-Type: application/json
-X-Api-Key: REDACTED_ADMIN_KEY
+X-Api-Key: ${ADMIN_API_KEY}
 
 {
   "job_id": "job_123456",
@@ -183,7 +183,7 @@ Content-Type: application/json
 POST /v1/jobs/job_123456/complete
 Host: 127.0.0.1:18000
 Content-Type: application/json
-X-Miner-Key: REDACTED_MINER_KEY
+X-Miner-Key: ${MINER_API_KEY}
 
 {
   "job_id": "job_123456",
@@ -210,8 +210,8 @@ X-Miner-Key: REDACTED_MINER_KEY
    {
      "receipt_id": "receipt_789",
      "job_id": "job_123456",
-     "client": "REDACTED_CLIENT_KEY",
-     "miner": "REDACTED_MINER_KEY",
+     "client": "${CLIENT_API_KEY}",
+     "miner": "${MINER_API_KEY}",
      "amount_paid": "0.25aitbc",
      "result_hash": "hash_of_result",
      "block_height": 12345,
@@ -244,7 +244,7 @@ X-Miner-Key: REDACTED_MINER_KEY
 ```http
 GET /v1/jobs/job_123456
 Host: 127.0.0.1:18000
-X-Api-Key: REDACTED_CLIENT_KEY
+X-Api-Key: ${CLIENT_API_KEY}
 ```
 
 **Response:**

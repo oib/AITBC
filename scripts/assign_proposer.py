@@ -8,7 +8,7 @@ import json
 
 # Configuration
 COORDINATOR_URL = "http://localhost:8001"
-MINER_API_KEY = "REDACTED_MINER_KEY"
+MINER_API_KEY = "${MINER_API_KEY}"
 MINER_ID = "localhost-gpu-miner"
 
 def assign_proposer_to_latest_block():

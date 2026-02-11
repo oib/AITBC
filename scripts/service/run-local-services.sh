@@ -77,7 +77,7 @@ else
 fi
 
 echo -n "Admin API: "
-if curl -s http://127.0.0.1:8000/v1/admin/stats -H "X-Api-Key: REDACTED_ADMIN_KEY" > /dev/null; then
+if curl -s http://127.0.0.1:8000/v1/admin/stats -H "X-Api-Key: ${ADMIN_API_KEY}" > /dev/null; then
     echo "✅ OK"
 else
     echo "❌ Failed"
