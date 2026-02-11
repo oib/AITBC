@@ -217,7 +217,7 @@ ssh $SERVER "systemctl status aitbc-blockchain --no-pager -l | head -10"
 print_status "Testing endpoints..."
 ssh $SERVER "curl -s http://127.0.0.1:8000/v1/health | head -c 100"
 echo ""
-ssh $SERVER "curl -s http://127.0.0.1:8000/v1/admin/stats -H 'X-Api-Key: REDACTED_ADMIN_KEY' | head -c 100"
+ssh $SERVER "curl -s http://127.0.0.1:8000/v1/admin/stats -H 'X-Api-Key: ${ADMIN_API_KEY}' | head -c 100"
 echo ""
 
 echo ""

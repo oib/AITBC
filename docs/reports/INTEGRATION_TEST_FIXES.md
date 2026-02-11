@@ -22,7 +22,7 @@
 
 ### 4. Missing API Keys
 - **Problem**: Some requests were missing the required `X-Api-Key` header
-- **Solution**: Added `X-Api-Key: REDACTED_CLIENT_KEY` to all requests
+- **Solution**: Added `X-Api-Key: ${CLIENT_API_KEY}` to all requests
 
 ### 5. Non-existent Endpoints
 - **Problem**: Tests were calling endpoints that don't exist (e.g., `/v1/jobs/{id}/complete`)

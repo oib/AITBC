@@ -74,9 +74,9 @@ DATABASE_URL=sqlite:///./coordinator.db
 # or: DATABASE_URL=postgresql://user:pass@localhost:5432/aitbc
 
 # Auth
-CLIENT_API_KEYS=REDACTED_CLIENT_KEY,client_dev_key_2
-MINER_API_KEYS=REDACTED_MINER_KEY,miner_dev_key_2
-ADMIN_API_KEYS=REDACTED_ADMIN_KEY
+CLIENT_API_KEYS=${CLIENT_API_KEY},client_dev_key_2
+MINER_API_KEYS=${MINER_API_KEY},miner_dev_key_2
+ADMIN_API_KEYS=${ADMIN_API_KEY}
 
 # Security
 HMAC_SECRET=change_me
@@ -349,7 +349,7 @@ def match_next_job(miner):
 **Client creates a job**
 ```bash
 curl -sX POST http://127.0.0.1:8011/v1/jobs \
-  -H 'X-Api-Key: REDACTED_CLIENT_KEY' \
+  -H 'X-Api-Key: ${CLIENT_API_KEY}' \
   -H 'Idempotency-Key: 7d4a...' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -361,12 +361,12 @@ curl -sX POST http://127.0.0.1:8011/v1/jobs \
 **Miner registers + polls**
 ```bash
 curl -sX POST http://127.0.0.1:8011/v1/miners/register \
-  -H 'X-Api-Key: REDACTED_MINER_KEY' \
+  -H 'X-Api-Key: ${MINER_API_KEY}' \
   -H 'Content-Type: application/json' \
   -d '{"capabilities":{"gpu":"RTX4060Ti","cuda":"12.3","vram_gb":16},"concurrency":2,"region":"eu-central"}'
 
 curl -i -sX POST http://127.0.0.1:8011/v1/miners/poll \
-  -H 'X-Api-Key: REDACTED_MINER_KEY' \
+  -H 'X-Api-Key: ${MINER_API_KEY}' \
   -H 'Content-Type: application/json' \
   -d '{"max_wait_seconds":10}'
 ```
@@ -374,7 +374,7 @@ curl -i -sX POST http://127.0.0.1:8011/v1/miners/poll \
 **Miner submits result**
 ```bash
 curl -sX POST http://127.0.0.1:8011/v1/miners/<JOB_ID>/result \
-  -H 'X-Api-Key: REDACTED_MINER_KEY' \
+  -H 'X-Api-Key: ${MINER_API_KEY}' \
   -H 'Content-Type: application/json' \
   -d '{"result":{"sum":5},"metrics":{"latency_ms":42}}'
 ```
@@ -382,7 +382,7 @@ curl -sX POST http://127.0.0.1:8011/v1/miners/<JOB_ID>/result \
 **Client fetches result**
 ```bash
 curl -s http://127.0.0.1:8011/v1/jobs/<JOB_ID>/result \
-  -H 'X-Api-Key: REDACTED_CLIENT_KEY'
+  -H 'X-Api-Key: ${CLIENT_API_KEY}'
 ```
 
 ---

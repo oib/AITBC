@@ -68,7 +68,7 @@ def test_client_miner_flow():
     print("\n🔄 Testing Client-Miner Flow...")
     
     # Create client
-    client = OllamaClient("http://localhost:8001", "REDACTED_CLIENT_KEY")
+    client = OllamaClient("http://localhost:8001", "${CLIENT_API_KEY}")
     
     # Submit a job
     print("1. Submitting inference job...")
@@ -89,7 +89,7 @@ def test_client_miner_flow():
     miner_cmd = [
         "python3", "miner_plugin.py",
         "http://localhost:8001",
-        "REDACTED_MINER_KEY",
+        "${MINER_API_KEY}",
         "ollama-miner-test"
     ]
     

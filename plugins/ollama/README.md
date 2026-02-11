@@ -70,7 +70,7 @@ Miners earn 150% of the cost (50% markup).
 ```python
 from client_plugin import OllamaClient
 
-client = OllamaClient("http://localhost:8001", "REDACTED_CLIENT_KEY")
+client = OllamaClient("http://localhost:8001", "${CLIENT_API_KEY}")
 
 job_id = client.submit_generation(
     model="llama3.2:latest",

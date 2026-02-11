@@ -124,7 +124,7 @@ def test_endpoints():
     for name, url in endpoints:
         try:
             if "admin" in url:
-                response = requests.get(url, headers={"X-Api-Key": "REDACTED_ADMIN_KEY"}, timeout=2)
+                response = requests.get(url, headers={"X-Api-Key": "${ADMIN_API_KEY}"}, timeout=2)
             else:
                 response = requests.get(url, timeout=2)
             print(f"   {name}: ✅ {response.status_code}")

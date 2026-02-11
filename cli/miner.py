@@ -13,7 +13,7 @@ from typing import Optional
 
 # Configuration
 DEFAULT_COORDINATOR = "http://localhost:8001"
-DEFAULT_API_KEY = "REDACTED_MINER_KEY"
+DEFAULT_API_KEY = "${MINER_API_KEY}"
 DEFAULT_MINER_ID = "cli-miner"
 
 class AITBCMiner:

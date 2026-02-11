@@ -11,9 +11,9 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./coordinator.db"
 
-    client_api_keys: List[str] = ["REDACTED_CLIENT_KEY"]
-    miner_api_keys: List[str] = ["REDACTED_MINER_KEY"]
-    admin_api_keys: List[str] = ["REDACTED_ADMIN_KEY"]
+    client_api_keys: List[str] = []
+    miner_api_keys: List[str] = []
+    admin_api_keys: List[str] = []
 
     hmac_secret: Optional[str] = None
     allow_origins: List[str] = ["*"]

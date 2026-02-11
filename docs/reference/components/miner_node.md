@@ -11,7 +11,7 @@
 - ✅ Deployed real GPU miner on host with NVIDIA RTX 4060 Ti (16GB)
 - ✅ Integrated Ollama for LLM inference across 13+ models
 - ✅ Configured systemd service (`aitbc-host-gpu-miner.service`)
-- ✅ Fixed miner ID configuration (REDACTED_MINER_KEY)
+- ✅ Fixed miner ID configuration (${MINER_API_KEY})
 - ✅ Enhanced logging with flush handlers for systemd journal visibility
 - ✅ Verified end-to-end workflow: job polling → Ollama inference → result submission → receipt generation
 
@@ -24,7 +24,7 @@
 
 ### Integration Points
 - Coordinator API: http://127.0.0.1:18000 (via Incus proxy)
-- Miner ID: REDACTED_MINER_KEY
+- Miner ID: ${MINER_API_KEY}
 - Heartbeat interval: 15 seconds
 - Job polling: 3-second intervals
 - Result submission: JSON with metrics and execution details

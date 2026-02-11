@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=False)
 
     coordinator_base_url: str = Field(default="http://localhost:8011", alias="COORDINATOR_BASE_URL")
-    coordinator_api_key: str = Field(default="REDACTED_CLIENT_KEY", alias="COORDINATOR_API_KEY")
+    coordinator_api_key: str = Field(default="${CLIENT_API_KEY}", alias="COORDINATOR_API_KEY")
 
     rest_prefix: str = Field(default="/v1", alias="REST_PREFIX")
     ledger_db_path: Path = Field(default=Path("./data/wallet_ledger.db"), alias="LEDGER_DB_PATH")

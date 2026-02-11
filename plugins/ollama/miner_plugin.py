@@ -264,7 +264,7 @@ if __name__ == "__main__":
     import sys
     
     coordinator_url = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8001"
-    api_key = sys.argv[2] if len(sys.argv) > 2 else "REDACTED_MINER_KEY"
+    api_key = sys.argv[2] if len(sys.argv) > 2 else "${MINER_API_KEY}"
     miner_id = sys.argv[3] if len(sys.argv) > 3 else "ollama-miner"
     
     # Create and run miner

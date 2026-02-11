@@ -271,7 +271,7 @@ This document tracks components that have been successfully deployed and are ope
   - Result submission now returns 200 OK instead of 500 Internal Server Error
 
 - ✅ **Miner Configuration Fix**
-  - Updated miner ID from `host-gpu-miner` to `REDACTED_MINER_KEY` for proper job assignment
+  - Updated miner ID from `host-gpu-miner` to `${MINER_API_KEY}` for proper job assignment
   - Added explicit flush logging handler for better systemd journal visibility
   - Enhanced systemd unit with unbuffered logging environment variables
 

@@ -30,7 +30,7 @@ def main():
     print(f"✅ Ollama running with {len(models)} models")
     
     # Create client
-    client = OllamaClient("http://localhost:8001", "REDACTED_CLIENT_KEY")
+    client = OllamaClient("http://localhost:8001", "${CLIENT_API_KEY}")
     
     # Submit a few different jobs
     jobs = []

@@ -112,9 +112,9 @@ python -m pytest -m integration
 
 ### Authentication Issues?
 - Use correct API keys:
-  - Client: `REDACTED_CLIENT_KEY`
-  - Miner: `REDACTED_MINER_KEY`
-  - Admin: `REDACTED_ADMIN_KEY`
+  - Client: `${CLIENT_API_KEY}`
+  - Miner: `${MINER_API_KEY}`
+  - Admin: `${ADMIN_API_KEY}`
 
 ## 📝 Next Steps
 

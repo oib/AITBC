@@ -56,7 +56,7 @@ def main():
     print("   • Professional, production-ready interface")
     
     print("\n💡 Note: Most transactions show:")
-    print("   • From: REDACTED_CLIENT_KEY")
+    print("   • From: ${CLIENT_API_KEY}")
     print("   • To: null (not assigned to miner yet)")
     print("   • Value: 0 (cost shown when completed)")
     print("   • Status: Queued/Running/Expired")

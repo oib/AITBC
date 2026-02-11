@@ -19,7 +19,7 @@ import httpx
 # Configuration
 DEFAULT_COORDINATOR = "http://127.0.0.1:18000"
 DEFAULT_BLOCKCHAIN = "http://127.0.0.1:19000"
-DEFAULT_API_KEY = "REDACTED_CLIENT_KEY"
+DEFAULT_API_KEY = "${CLIENT_API_KEY}"
 DEFAULT_PROMPT = "What is the capital of France?"
 DEFAULT_MODEL = "llama3.2:latest"
 DEFAULT_TIMEOUT = 180
@@ -150,7 +150,7 @@ def main() -> int:
     # Check miner registration
     print("\n📋 Checking miner registration...")
     with httpx.Client() as client:
-        miner_info = get_miner_info(client, args.coordinator_url, "REDACTED_ADMIN_KEY")
+        miner_info = get_miner_info(client, args.coordinator_url, "${ADMIN_API_KEY}")
         if miner_info:
             print(f"✅ Found registered miner: {miner_info.get('miner_id')}")
             print(f"   Status: {miner_info.get('status')}")
