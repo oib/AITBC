@@ -23,7 +23,7 @@ async def mint_tokens(address: str, amount: float) -> dict:
                 "address": address,
                 "amount": amount
             },
-            headers={"X-Api-Key": "REDACTED_ADMIN_KEY"}
+            headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""}
         )
         
         if response.status_code == 200:
@@ -39,7 +39,7 @@ def get_balance(address: str) -> Optional[float]:
         
         response = requests.get(
             f"{BLOCKCHAIN_RPC}/getBalance/{address}",
-            headers={"X-Api-Key": "REDACTED_ADMIN_KEY"}
+            headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""}
         )
         
         if response.status_code == 200:
