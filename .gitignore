@@ -125,6 +125,25 @@ temp/
 *.backup
 
 # ===================
+# Windsurf IDE
+# ===================
+.windsurf/
+.snapshots/
+
+# ===================
+# Test Results & Artifacts
+# ===================
+test-results/
+**/test-results/
+
+# ===================
+# Wallet files (contain keys/balances)
+# ===================
+home/client/client_wallet.json
+home/genesis_wallet.json
+home/miner/miner_wallet.json
+
+# ===================
 # Project Specific
 # ===================
 # Coordinator database
