@@ -24,7 +24,7 @@ Copy the AITBC project to your server and run there:
 
 ```bash
 # On server:
-git clone https://gitea.bubuit.net/oib/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 ./run-local-services.sh
 ```

@@ -87,7 +87,7 @@ AITBC uses a hybrid Proof-of-Authority/Proof-of-Stake consensus:
 
 ```bash
 # Clone repository
-git clone https://gitea.bubuit.net/oib/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 
 # Start all services
@@ -250,7 +250,7 @@ Features:
 
 2. **Install Miner**
    ```bash
-   wget https://gitea.bubuit.net/oib/aitbc/releases/download/latest/aitbc-miner
+   wget https://github.com/oib/AITBC/releases/download/latest/aitbc-miner
    chmod +x aitbc-miner
    ./aitbc-miner init
    ```
@@ -272,7 +272,7 @@ Features:
 
 1. **Setup Development**
    ```bash
-   git clone https://gitea.bubuit.net/oib/aitbc.git
+   git clone https://github.com/oib/AITBC.git
    cd aitbc
    docker-compose -f docker-compose.dev.yml up
    ```
@@ -385,7 +385,7 @@ The platform has been audited by:
 - **Documentation**: https://docs.aitbc.bubuit.net
 - **Discord**: https://discord.gg/aitbc
 - **Email**: aitbc@bubuit.net
-- **Issues**: https://gitea.bubuit.net/oib/aitbc/issues
+- **Issues**: https://github.com/oib/AITBC/issues
 
 ## License
 

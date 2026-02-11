@@ -144,6 +144,20 @@ This document tracks components that have been successfully deployed and are ope
 - Configure additional monitoring and observability
 - Set up automated backup procedures
 
+## Recent Updates (2026-02-11)
+
+### Git & Repository Hygiene
+- ✅ **Branch Cleanup** - Purged all `master` branches from GitHub
+  - Renamed local `master` branch to `main`
+  - Set tracking to `github/main`
+  - Deleted remote `master` branch from GitHub
+  - Set `git config --global init.defaultBranch main` to prevent future `master` branches
+- ✅ **Remote Cleanup** - Removed stale `origin` remote (Gitea)
+  - Only `github` remote remains (https://github.com/oib/AITBC.git)
+- ✅ **Legacy Cleanup** - Removed `.github/` directory
+  - Contained only a legacy RFC pull request template (unused)
+  - No active CI workflows or GitHub Actions
+
 ## Recent Updates (2026-01-29)
 
 ### Cross-Site Synchronization Implementation

@@ -731,6 +731,16 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 | `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Pending extensions |
 | Cross-site synchronization | High | Q1 2026 | ✅ Complete (2026-01-29) |
 
+## Recent Progress (2026-02-11)
+
+### Git & Repository Hygiene ✅ COMPLETE
+- Renamed local `master` branch to `main` and set tracking to `github/main`
+- Deleted remote `master` branch from GitHub (was recreated on each push)
+- Removed stale `origin` remote (Gitea — repo not found)
+- Set `git config --global init.defaultBranch main`
+- Removed `.github/` directory (legacy RFC PR template, no active workflows)
+- Single remote: `github` → `https://github.com/oib/AITBC.git`, branch: `main`
+
 ## Recent Progress (2026-01-29)
 
 ### Testing Infrastructure

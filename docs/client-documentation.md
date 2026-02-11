@@ -48,7 +48,7 @@ Use the bash CLI wrapper for easy job submission:
 ### Web Interface (Fastest)
 
 1. **Visit the Marketplace**
-   - Go to [aitbc.bubuit.net/marketplace](https://gitea.bubuit.net/oib/aitbc)
+   - Go to [aitbc.bubuit.net/marketplace](https://aitbc.bubuit.net/marketplace)
 
 2. **Connect Your Wallet**
    - Connect MetaMask or create a new AITBC wallet

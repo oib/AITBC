@@ -16,7 +16,7 @@ Build on the AITBC platform: SDKs, APIs, bounties, and resources for developers.
 
 ```bash
 # Clone the repository
-git clone https://gitea.bubuit.net/oib/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 
 # Start all services
@@ -40,7 +40,7 @@ The AITBC platform consists of:
 
 ### How to Contribute
 
-1. Fork the repository on Gitea
+1. Fork the repository on GitHub
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
 3. Make your changes
 4. Add tests for new functionality
@@ -64,7 +64,7 @@ The AITBC platform consists of:
 
 ## Bounty Program
 
-Get paid to contribute to AITBC! Check open bounties on Gitea.
+Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Current Bounties
 
@@ -82,7 +82,7 @@ Get paid to contribute to AITBC! Check open bounties on Gitea.
 
 ### How to Apply
 
-1. Check open issues on Gitea
+1. Check open issues on GitHub
 2. Comment on the issue you want to work on
 3. Submit your solution
 4. Get reviewed by core team
@@ -256,4 +256,4 @@ def test_create_feature_invalid():
 - **Documentation**: [https://docs.aitbc.bubuit.net](https://docs.aitbc.bubuit.net)
 - **Discord**: [Join our server](https://discord.gg/aitbc)
 - **Email**: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)
-- **Issues**: [Report on Gitea](https://gitea.bubuit.net/oib/aitbc/issues)
+- **Issues**: [Report on GitHub](https://github.com/oib/AITBC/issues)

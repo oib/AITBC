@@ -24,7 +24,7 @@ Miners are essential to the AITBC network, providing both security through staki
 
 ```bash
 # Download miner binary
-wget https://gitea.bubuit.net/oib/aitbc/releases/download/latest/aitbc-miner-linux-amd64.tar.gz
+wget https://github.com/oib/AITBC/releases/download/latest/aitbc-miner-linux-amd64.tar.gz
 tar -xzf aitbc-miner-linux-amd64.tar.gz
 
 # Initialize miner
@@ -105,7 +105,7 @@ sudo apt update
 sudo apt install -y curl wget gnupg2
 
 # Download miner
-wget https://gitea.bubuit.net/oib/aitbc/releases/download/latest/aitbc-miner-linux-amd64.tar.gz
+wget https://github.com/oib/AITBC/releases/download/latest/aitbc-miner-linux-amd64.tar.gz
 tar -xzf aitbc-miner-linux-amd64.tar.gz
 sudo mv aitbc-miner /usr/local/bin/
 
@@ -302,7 +302,7 @@ Authority nodes require invitation based on community contribution, technical ex
 
 - Check the logs: `./aitbc-miner logs`
 - Visit our Discord community
-- Search issues on Gitea
+- Search issues on GitHub
 - Email support: aitbc@bubuit.net
 
 ## Additional Resources
