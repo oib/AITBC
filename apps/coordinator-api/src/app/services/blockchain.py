@@ -4,9 +4,12 @@ Blockchain service for AITBC token operations
 
 import httpx
 import asyncio
+import logging
 from typing import Optional
 
 from ..config import settings
+
+logger = logging.getLogger(__name__)
 
 BLOCKCHAIN_RPC = f"http://127.0.0.1:9080/rpc"
 
@@ -44,6 +47,6 @@ def get_balance(address: str) -> Optional[float]:
             return float(data.get("balance", 0))
         
     except Exception as e:
-        print(f"Error getting balance: {e}")
+        logger.error("Error getting balance: %s", e)
     
     return None
