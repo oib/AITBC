@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Miner Documentation - AITBC</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section h4 {
+            font-size: 1.2rem;
+            margin: 1.5rem 0 0.5rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        .requirements-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+
+        .requirement-card {
+            background: var(--bg-light);
+            padding: 1.5rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .requirement-card h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .inline-code {
+            background: var(--bg-light);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-left: 4px solid var(--primary-color);
+            color: #1e40af;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-left: 4px solid var(--warning-color);
+            color: #92400e;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border-left: 4px solid var(--success-color);
+            color: #065f46;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .stat-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .stat-label {
+            color: var(--text-light);
+            margin-top: 0.5rem;
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <span>Miner Documentation</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="index.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Documentation
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-hammer"></i> Miner Documentation</h1>
+                <p>Learn how to mine AITBC tokens and contribute to network security. Perfect for those looking to earn rewards through staking or providing compute power.</p>
+            </div>
+
+            <!-- Mining Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">100K+</div>
+                    <div class="stat-label">AITBC Staked</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">30+</div>
+                    <div class="stat-label">Active Miners</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">0.02</div>
+                    <div class="stat-label">AITBC/GPU Second</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">Low</div>
+                    <div class="stat-label">Hardware Requirements</div>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <section class="content-section">
+                <h2>Getting Started</h2>
+                <p>AITBC mining combines Proof of Authority and Proof of Stake, offering multiple ways to participate and earn rewards.</p>
+                
+                <h3>Mining Options</h3>
+                <ul>
+                    <li><strong>Authority Mining</strong>: Become a trusted authority node (invitation only)</li>
+                    <li><strong>Stake Mining</strong>: Stake AITBC tokens and earn rewards</li>
+                    <li><strong>GPU Mining</strong>: ✅ OPERATIONAL - Provide compute power for AI/ML workloads via Ollama (RTX 4060 Ti tested)</li>
+                    <li><strong>Hybrid Mining</strong>: Combine staking with compute provision</li>
+                </ul>
+
+                <h3>Requirements</h3>
+                <div class="requirements-grid">
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-coins"></i> Minimum Stake</h4>
+                        <p>10,000 AITBC tokens</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-microchip"></i> CPU</h4>
+                        <p>4+ cores (8+ recommended for GPU mining)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-memory"></i> RAM</h4>
+                        <p>8GB minimum (16GB+ for GPU mining)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-hdd"></i> Storage</h4>
+                        <p>100GB SSD (500GB+ for full node)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-network-wired"></i> Network</h4>
+                        <p>Stable broadband (100Mbps+)</p>
+                    </div>
+                    <div class="requirement-card">
+                        <h4><i class="fas fa-rocket"></i> GPU (Optional)</h4>
+                        <p><strong>✅ Tested:</strong> NVIDIA RTX 4060 Ti (16GB)</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Quick Start -->
+            <section class="content-section">
+                <h2>Quick Start</h2>
+                
+                <h3>1. Download & Install</h3>
+                <p>Get the AITBC mining software for your platform</p>
+                <pre><code># Linux/macOS
+curl -O https://gitea.bubuit.net/oib/aitbc/releases/download/latest/aitbc-miner-linux-amd64.tar.gz
+tar -xzf aitbc-miner-linux-amd64.tar.gz
+cd aitbc-miner
+
+# Windows
+# Download from https://gitea.bubuit.net/oib/aitbc/releases</code></pre>
+
+                <h3>2. Configure Your Node</h3>
+                <p>Set up your mining configuration</p>
+                <pre><code># Create configuration
+./aitbc-miner init
+
+# Edit config file
+nano ~/.aitbc/miner/config.toml</code></pre>
+
+                <h3>3. Start Mining</h3>
+                <pre><code># Start the miner
+./aitbc-miner start
+
+# Check status
+./aitbc-miner status
+
+# View logs
+./aitbc-miner logs</code></pre>
+            </section>
+
+            <!-- Configuration -->
+            <section class="content-section">
+                <h2>Configuration</h2>
+                
+                <h3>Basic Configuration</h3>
+                <p>Edit <span class="inline-code">~/.aitbc/miner/config.toml</span>:</p>
+                <pre><code># Network settings
+[network]
+rpc_url = "https://aitbc.bubuit.net"
+ws_url = "wss://aitbc.bubuit.net/ws"
+
+# Mining settings
+[mining]
+stake_amount = 10000
+compute_enabled = true
+gpu_devices = [0]  # GPU indices to use
+
+# Wallet settings
+[wallet]
+address = "your-wallet-address"
+private_key = "your-private-key"
+
+# Performance settings
+[performance]
+max_concurrent_jobs = 2
+memory_limit = "8GB"</code></pre>
+
+                <h3>GPU Configuration</h3>
+                <pre><code># GPU mining settings
+[gpu]
+enabled = true
+devices = [0]  # Use first GPU
+memory_fraction = 0.8  # Use 80% of GPU memory
+models = ["llama3.2", "mistral", "deepseek"]  # Supported models</code></pre>
+            </section>
+
+            <!-- Mining Operations -->
+            <section class="content-section">
+                <h2>Mining Operations</h2>
+                
+                <h3>Stake Mining</h3>
+                <ul>
+                    <li>Stake your AITBC tokens to participate in consensus</li>
+                    <li>Earn rewards from transaction fees</li>
+                    <li>No hardware requirements beyond basic node</li>
+                    <li>Rewards proportional to stake amount</li>
+                </ul>
+
+                <h3>GPU Mining</h3>
+                <ul>
+                    <li>Provide AI/ML compute power to the network</li>
+                    <li>Process inference jobs and earn AITBC</li>
+                    <li>Supports 13+ Ollama models</li>
+                    <li>Earnings: 0.02 AITBC per GPU second</li>
+                </ul>
+
+                <h3>Monitoring</h3>
+                <pre><code># Real-time monitoring
+./aitbc-miner monitor
+
+# Check earnings
+./aitbc-miner earnings
+
+# Performance metrics
+./aitbc-miner metrics</code></pre>
+            </section>
+
+            <!-- Troubleshooting -->
+            <section class="content-section">
+                <h2>Troubleshooting</h2>
+                
+                <h3>Common Issues</h3>
+                
+                <div class="alert alert-warning">
+                    <strong>GPU not detected?</strong> Ensure NVIDIA drivers are installed and CUDA is available.
+                </div>
+                
+                <ol>
+                    <li><strong>Connection Issues</strong>
+                        <ul>
+                            <li>Check internet connectivity</li>
+                            <li>Verify RPC endpoint is accessible</li>
+                            <li>Check firewall settings</li>
+                        </ul>
+                    </li>
+                    <li><strong>Low Performance</strong>
+                        <ul>
+                            <li>Reduce concurrent jobs</li>
+                            <li>Check GPU memory usage</li>
+                            <li>Monitor system resources</li>
+                        </ul>
+                    </li>
+                    <li><strong>Sync Issues</strong>
+                        <ul>
+                            <li>Wait for initial sync to complete</li>
+                            <li>Check blockchain status</li>
+                            <li>Restart miner if needed</li>
+                        </ul>
+                    </li>
+                </ol>
+
+                <h3>Getting Help</h3>
+                <ul>
+                    <li>Check the logs: <code>./aitbc-miner logs</code></li>
+                    <li>Visit our Discord community</li>
+                    <li>Search issues on Gitea</li>
+                    <li>Email support: aitbc@bubuit.net</li>
+                </ul>
+            </section>
+
+            <!-- FAQ -->
+            <section class="content-section">
+                <h2>Frequently Asked Questions</h2>
+                
+                <h3>How much can I earn mining AITBC?</h3>
+                <p>Earnings vary based on:
+                - Stake amount (for stake mining)
+                - GPU performance and availability (for GPU mining)
+                - Network demand and transaction volume
+                - Current reward rates: 0.02 AITBC/GPU second</p>
+
+                <h3>What are the minimum requirements?</h3>
+                <p>Basic stake mining requires:
+                - 10,000 AITBC tokens minimum stake
+                - Stable internet connection
+                - Basic computer (4GB RAM, dual-core CPU)
+                
+                GPU mining requires:
+                - NVIDIA GPU with 8GB+ VRAM
+                - 16GB+ RAM recommended
+                - Stable high-speed internet</p>
+
+                <h3>Is mining profitable?</h3>
+                <p>Profitability depends on:
+                - AITBC token value
+                - Electricity costs (for GPU mining)
+                - Network activity
+                - Your stake amount or GPU capabilities</p>
+
+                <h3>How do I become an authority node?</h3>
+                <p>Authority nodes require invitation based on community contribution, technical expertise, and stake amount. Apply through the community forum.</p>
+            </section>
+
+            <!-- Additional Resources -->
+            <section class="content-section">
+                <h2>Additional Resources</h2>
+                <ul>
+                    <li><a href="blockchain-node-md.html">Blockchain Node Documentation</a></li>
+                    <li><a href="full-documentation-md.html">Source Code</a></li>
+                    <li>Network Statistics - available in monitoring dashboard</li>
+                    <li>Mining Calculator - coming soon</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

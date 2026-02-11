@@ -1074,6 +1074,8 @@ footer p {
 .reader-card.client::before { background: var(--success-color); }
 .reader-card.developer::before { background: var(--warning-color); }
 .reader-card.full-doc::before { background: var(--danger-color); }
+.reader-card.components::before { background: #8b5cf6; }
+.reader-card.flow::before { background: #06b6d4; }
 
 .reader-card:hover {
     transform: translateY(-10px);
@@ -1096,6 +1098,8 @@ footer p {
 .reader-card.client .reader-icon { background: var(--success-color); }
 .reader-card.developer .reader-icon { background: var(--warning-color); }
 .reader-card.full-doc .reader-icon { background: var(--danger-color); }
+.reader-card.components .reader-icon { background: #8b5cf6; }
+.reader-card.flow .reader-icon { background: #06b6d4; }
 
 .reader-card h3 {
     font-size: 1.8rem;
@@ -1137,6 +1141,8 @@ footer p {
 .reader-card.client .btn { background: var(--success-color); }
 .reader-card.developer .btn { background: var(--warning-color); }
 .reader-card.full-doc .btn { background: var(--danger-color); }
+.reader-card.components .btn { background: #8b5cf6; }
+.reader-card.flow .btn { background: #06b6d4; }
 
 /* ============================================
    Page-Specific: Search Bar (Index)

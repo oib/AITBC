@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Daemon - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #10b98120;
+            color: var(--success-color);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <a href="#">Components</a>
+                <span>›</span>
+                <span>Wallet Daemon</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="components.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Components
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-wallet"></i> Wallet Daemon</h1>
+                <p>Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities</p>
+                <span class="status-badge">● Live</span>
+            </div>
+
+            <!-- Overview -->
+            <section class="content-section">
+                <h2>Overview</h2>
+                <p>The AITBC Wallet Daemon provides secure wallet management with enterprise-grade encryption and multiple API interfaces for seamless integration.</p>
+                
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Encrypted keystore with Argon2id + XChaCha20-Poly1305</li>
+                    <li>REST and JSON-RPC APIs</li>
+                    <li>Receipt verification capabilities</li>
+                    <li>Hardware wallet support</li>
+                    <li>Multi-signature wallet support</li>
+                </ul>
+            </section>
+
+            <!-- Architecture -->
+            <section class="content-section">
+                <h2>Architecture</h2>
+                <p>The wallet daemon is built with security as the primary focus:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4><i class="fas fa-lock"></i> Encryption</h4>
+                        <p>Argon2id key derivation with XChaCha20-Poly1305 AEAD encryption</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-key"></i> Key Management</h4>
+                        <p>Hierarchical deterministic (HD) wallets with BIP44 support</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-plug"></i> API Layer</h4>
+                        <p>REST and JSON-RPC APIs for easy integration</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-shield-alt"></i> Security</h4>
+                        <p>Sandboxed execution and memory protection</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Reference -->
+            <section class="content-section">
+                <h2>API Reference</h2>
+                
+                <h3>REST API</h3>
+                <pre><code># Create wallet
+POST /api/v1/wallet/create
+{
+  "name": "my-wallet",
+  "password": "strong-password"
+}
+
+# Unlock wallet
+POST /api/v1/wallet/unlock
+{
+  "name": "my-wallet",
+  "password": "strong-password"
+}
+
+# Get address
+GET /api/v1/wallet/address
+
+# Send transaction
+POST /api/v1/wallet/send
+{
+  "to": "0x...",
+  "amount": 1000,
+  "fee": 10
+}</code></pre>
+
+                <h3>JSON-RPC API</h3>
+                <pre><code># Get balance
+curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "get_balance",
+    "params": [],
+    "id": 1
+  }'
+
+# Sign transaction
+curl -X POST http://localhost:8545 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "sign_transaction",
+    "params": [tx_data],
+    "id": 1
+  }'</code></pre>
+            </section>
+
+            <!-- Configuration -->
+            <section class="content-section">
+                <h2>Configuration</h2>
+                <p>The wallet daemon can be configured via environment variables or config file:</p>
+                
+                <pre><code># Configuration file: ~/.aitbc/wallet/config.toml
+
+[wallet]
+keystore_path = "~/.aitbc/wallet/keystore"
+default_network = "mainnet"
+
+[api]
+rest_host = "127.0.0.1"
+rest_port = 8545
+rpc_host = "127.0.0.1"
+rpc_port = 8546
+
+[security]
+argon2_time = 3
+argon2_memory = 67108864  # 64MB
+argon2_parallelism = 4</code></pre>
+            </section>
+
+            <!-- Security -->
+            <section class="content-section">
+                <h2>Security Features</h2>
+                <ul>
+                    <li><strong>Memory Encryption</strong>: All sensitive data encrypted in memory</li>
+                    <li><strong>Secure Erasure</strong>: Memory zeroized after use</li>
+                    <li><strong>Access Control</strong>: API key authentication</li>
+                    <li><strong>Audit Logging</strong>: All operations logged securely</li>
+                    <li><strong>Hardware Support</strong>: Ledger and Trezor integration</li>
+                </ul>
+            </section>
+
+            <!-- Integration -->
+            <section class="content-section">
+                <h2>Integration Examples</h2>
+                
+                <h3>Python Integration</h3>
+                <pre><code>from aitbc_wallet import WalletClient
+
+client = WalletClient("http://localhost:8545")
+
+# Create wallet
+wallet = client.create_wallet("my-wallet", "password")
+print(f"Address: {wallet.address}")
+
+# Send transaction
+tx = client.send_transaction(
+    to="0x123...",
+    amount=1000,
+    password="password"
+)
+print(f"Transaction hash: {tx.hash}")</code></pre>
+
+                <h3>JavaScript Integration</h3>
+                <pre><code>const { WalletClient } = require('@aitbc/wallet');
+
+const client = new WalletClient('http://localhost:8545');
+
+// Create wallet
+const wallet = await client.createWallet('my-wallet', 'password');
+console.log('Address:', wallet.address);
+
+// Get balance
+const balance = await client.getBalance();
+console.log('Balance:', balance);</code></pre>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

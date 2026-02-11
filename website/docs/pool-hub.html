@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pool Hub - AITBC Documentation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --success-color: #10b981;
+            --text-dark: #1f2937;
+            --text-light: #6b7280;
+            --bg-light: #f9fafb;
+            --bg-white: #ffffff;
+            --border-color: #e5e7eb;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: var(--text-dark);
+            background: var(--bg-white);
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: var(--text-dark);
+            color: white;
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .breadcrumb {
+            padding: 1rem 0;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .breadcrumb a {
+            color: var(--text-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb a:hover {
+            color: var(--primary-color);
+        }
+
+        .doc-header {
+            padding: 3rem 0;
+            background: var(--bg-light);
+            margin-bottom: 2rem;
+        }
+
+        .doc-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .doc-header p {
+            font-size: 1.2rem;
+            color: var(--text-light);
+            max-width: 800px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: #10b98120;
+            color: var(--success-color);
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+
+        .content-section {
+            margin-bottom: 3rem;
+        }
+
+        .content-section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: var(--text-dark);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        .content-section h3 {
+            font-size: 1.4rem;
+            margin: 2rem 0 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section p {
+            margin-bottom: 1rem;
+            color: var(--text-dark);
+        }
+
+        .content-section ul {
+            margin-bottom: 1rem;
+            padding-left: 2rem;
+        }
+
+        .content-section li {
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .feature-card {
+            background: var(--bg-white);
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .feature-card h4 {
+            margin-top: 0;
+            color: var(--primary-color);
+        }
+
+        pre {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.9rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-button:hover {
+            color: var(--secondary-color);
+        }
+
+        footer {
+            background: var(--text-dark);
+            color: white;
+            padding: 2rem 0;
+            text-align: center;
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .doc-header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="container">
+            <a href="../index.html" class="logo">AITBC</a>
+            <ul class="nav-links">
+                <li><a href="../index.html">Home</a></li>
+                <li><a href="index.html">Documentation</a></li>
+                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="container">
+            <!-- Breadcrumb -->
+            <div class="breadcrumb">
+                <a href="index.html">Documentation</a>
+                <span>›</span>
+                <a href="#">Components</a>
+                <span>›</span>
+                <span>Pool Hub</span>
+            </div>
+
+            <!-- Back Button -->
+            <a href="components.html" class="back-button">
+                <i class="fas fa-arrow-left"></i>
+                Back to Components
+            </a>
+
+            <!-- Header -->
+            <div class="doc-header">
+                <h1><i class="fas fa-swimming-pool"></i> Pool Hub</h1>
+                <p>Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.</p>
+                <span class="status-badge">● Live</span>
+            </div>
+
+            <!-- Overview -->
+            <section class="content-section">
+                <h2>Overview</h2>
+                <p>The AITBC Pool Hub serves as the central coordination service for miners, providing efficient job matching, reputation scoring, and performance tracking.</p>
+                
+                <h3>Key Features</h3>
+                <ul>
+                    <li>Miner registry with comprehensive metadata</li>
+                    <li>Dynamic scoring engine based on performance</li>
+                    <li>Redis for fast caching and PostgreSQL for persistence</li>
+                    <li>Real-time job matching API</li>
+                    <li>Comprehensive metrics and monitoring</li>
+                    <li>Load balancing and failover support</li>
+                </ul>
+            </section>
+
+            <!-- Architecture -->
+            <section class="content-section">
+                <h2>Architecture</h2>
+                <p>The Pool Hub is designed for high availability and performance:</p>
+                
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h4><i class="fas fa-database"></i> Data Layer</h4>
+                        <p>Redis for hot data, PostgreSQL for historical records</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-chart-line"></i> Scoring Engine</h4>
+                        <p>Dynamic scoring based on success rate, latency, and availability</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-exchange-alt"></i> Matching API</h4>
+                        <p>RESTful API for real-time job-to-miner matching</p>
+                    </div>
+                    <div class="feature-card">
+                        <h4><i class="fas fa-tachometer-alt"></i> Monitoring</h4>
+                        <p>Prometheus metrics and Grafana dashboards</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- API Reference -->
+            <section class="content-section">
+                <h2>API Reference</h2>
+                
+                <h3>Miner Registration</h3>
+                <pre><code># Register miner
+POST /api/v1/miners/register
+{
+  "address": "0x...",
+  "endpoint": "http://miner.example.com:8080",
+  "capabilities": {
+    "models": ["llama3.2", "mistral"],
+    "gpu_memory": 16384,
+    "max_concurrent_jobs": 4
+  },
+  "stake": 10000
+}</code></pre>
+
+                <h3>Job Matching</h3>
+                <pre><code># Find suitable miners
+POST /api/v1/match
+{
+  "job_type": "inference",
+  "model": "llama3.2",
+  "requirements": {
+    "min_gpu_memory": 8192,
+    "max_latency": 5000
+  }
+}
+
+# Response
+{
+  "miners": [
+    {
+      "address": "0x...",
+      "endpoint": "http://miner1.example.com",
+      "score": 0.95,
+      "estimated_time": 2000
+    }
+  ]
+}</code></pre>
+
+                <h3>Miner Status</h3>
+                <pre><code># Update miner status
+POST /api/v1/miners/{address}/status
+{
+  "available": true,
+  "current_load": 2,
+  "gpu_utilization": 0.75,
+  "temperature": 65
+}</code></pre>
+            </section>
+
+            <!-- Scoring System -->
+            <section class="content-section">
+                <h2>Scoring System</h2>
+                <p>The scoring engine evaluates miners based on multiple factors:</p>
+                
+                <h3>Scoring Factors</h3>
+                <ul>
+                    <li><strong>Success Rate (40%)</strong>: Job completion success percentage</li>
+                    <li><strong>Latency (25%)</strong>: Average response time</li>
+                    <li><strong>Availability (20%)</strong>: Uptime percentage</li>
+                    <li><strong>Reputation (15%)</strong>: Historical performance and stake amount</li>
+                </ul>
+
+                <h3>Score Calculation</h3>
+                <pre><code>score = (success_rate * 0.4) +
+        (latency_score * 0.25) +
+        (availability * 0.2) +
+        (reputation_score * 0.15)</code></pre>
+            </section>
+
+            <!-- Configuration -->
+            <section class="content-section">
+                <h2>Configuration</h2>
+                
+                <h3>Environment Variables</h3>
+                <pre><code># Database
+REDIS_URL=redis://localhost:6379
+DATABASE_URL=postgresql://user:pass@localhost/poolhub
+
+# API
+API_HOST=0.0.0.0
+API_PORT=8000
+
+# Scoring
+SCORE_UPDATE_INTERVAL=60
+MAX_MINER_SCORE=1.0
+MIN_SUCCESS_RATE=0.8
+
+# Monitoring
+METRICS_PORT=9090
+LOG_LEVEL=info</code></pre>
+
+                <h3>Scoring Configuration</h3>
+                <pre><code># config/scoring.toml
+[scoring]
+update_interval = 60  # seconds
+decay_factor = 0.95   # daily decay
+
+[weights]
+success_rate = 0.4
+latency = 0.25
+availability = 0.2
+reputation = 0.15
+
+[thresholds]
+min_success_rate = 0.8
+max_latency = 5000
+min_availability = 0.95</code></pre>
+            </section>
+
+            <!-- Deployment -->
+            <section class="content-section">
+                <h2>Deployment</h2>
+                
+                <h3>Docker Compose</h3>
+                <pre><code>version: '3.8'
+services:
+  pool-hub:
+    image: aitbc/pool-hub:latest
+    ports:
+      - "8000:8000"
+      - "9090:9090"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:pass@db:5432/poolhub
+    depends_on:
+      - redis
+      - db
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=poolhub
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=pass
+    volumes:
+      - db_data:/var/lib/postgresql/data</code></pre>
+            </section>
+
+            <!-- Monitoring -->
+            <section class="content-section">
+                <h2>Monitoring</h2>
+                
+                <h3>Key Metrics</h3>
+                <ul>
+                    <li><code>poolhub_miners_total</code> - Total registered miners</li>
+                    <li><code>poolhub_jobs_matched_total</code> - Total jobs matched</li>
+                    <li><code>poolhub_match_duration</code> - Match operation duration</li>
+                    <li><code>poolhub_miner_score</code> - Individual miner scores</li>
+                    <li><code>poolhub_api_requests_total</code> - API request count</li>
+                </ul>
+
+                <h3>Health Checks</h3>
+                <pre><code># Health endpoint
+GET /health
+
+# Detailed status
+GET /api/v1/status
+
+# Metrics endpoint
+GET /metrics</code></pre>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 AITBC. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>
