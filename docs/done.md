@@ -453,3 +453,42 @@ This document tracks components that have been successfully deployed and are ope
   - Created `dev-utils/` and moved `aitbc-pythonpath.pth`
   - Updated `docs/files.md` with new structure
   - Fixed systemd service path for GPU miner
+
+## Recent Updates (2026-02-12)
+
+### CLI Enhancement — All Phases Complete ✅
+- ✅ **Enhanced CLI Tool** - 116/116 tests passing (0 failures)
+  - Location: `/home/oib/windsurf/aitbc/cli/aitbc_cli/`
+  - 11 command groups: client, miner, wallet, auth, config, blockchain, marketplace, simulate, admin, monitor, plugin
+  - CI/CD: `.github/workflows/cli-tests.yml` (Python 3.10/3.11/3.12 matrix)
+
+- ✅ **Phase 1: Core Enhancements**
+  - Client: retry with exponential backoff, job history/filtering, batch submit from CSV/JSON, job templates
+  - Miner: earnings tracking, capability management, deregistration, job filtering, concurrent processing
+  - Wallet: multi-wallet, backup/restore, staking (stake/unstake/staking-info), `--wallet-path` option
+  - Auth: login/logout, token management, multi-environment, API key rotation
+
+- ✅ **Phase 2: New CLI Tools**
+  - blockchain.py, marketplace.py, admin.py, config.py, simulate.py
+
+- ✅ **Phase 3: Testing & Documentation**
+  - 116/116 CLI tests across 8 test files
+  - CLI reference docs (`docs/cli-reference.md` — 560+ lines)
+  - Shell completion script, man page (`cli/man/aitbc.1`)
+
+- ✅ **Phase 4: Backend Integration**
+  - MarketplaceOffer model extended with GPU-specific fields (gpu_model, gpu_memory_gb, gpu_count, cuda_version, price_per_hour, region)
+  - GPU booking system, review system, sync-offers endpoint
+
+- ✅ **Phase 5: Advanced Features**
+  - Scripting: batch CSV/JSON ops, job templates, webhook notifications, plugin system
+  - Monitoring: real-time dashboard, metrics collection/export, alert configuration, historical analysis
+  - Security: multi-signature wallets (create/propose/sign), encrypted config (set-secret/get-secret), audit logging
+  - UX: Rich progress bars, colored output, interactive prompts, auto-completion, man pages
+
+- ✅ **Documentation Updates**
+  - Updated `.windsurf/workflows/ollama-gpu-test.md` with CLI commands
+  - Updated `.windsurf/workflows/test.md` with CLI testing guide
+  - Updated `.windsurf/skills/blockchain-operations/` and `ollama-gpu-provider/`
+  - System requirements updated to Debian Trixie (Linux)
+  - All currentTask.md checkboxes complete (0 unchecked items)

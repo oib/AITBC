@@ -1,155 +1,344 @@
-# AITBC CLI Tools
+# AITBC CLI - Command Line Interface
 
-Command-line tools for interacting with the AITBC network without using the web frontend.
+A powerful and comprehensive command-line interface for interacting with the AITBC (AI Training & Blockchain Computing) network.
 
-## Tools
-
-### 1. Client CLI (`client.py`)
-Submit jobs and check their status.
+## Installation
 
 ```bash
-# Submit an inference job
-python3 client.py submit inference --model llama-2-7b --prompt "What is AITBC?"
+# Clone the repository
+git clone https://github.com/aitbc/aitbc.git
+cd aitbc
 
-# Check job status
-python3 client.py status <job_id>
+# Install in development mode
+pip install -e .
 
-# List recent blocks
-python3 client.py blocks --limit 5
-
-# Submit a quick demo job
-python3 client.py demo
-```
-
-### 2. Miner CLI (`miner.py`)
-Register as a miner, poll for jobs, and earn AITBC.
-
-```bash
-# Register as a miner
-python3 miner.py register --gpu "RTX 4060 Ti" --memory 16
-
-# Poll for a single job
-python3 miner.py poll --wait 5
-
-# Mine continuously (process jobs as they come)
-python3 miner.py mine --jobs 10
-
-# Send heartbeat to coordinator
-python3 miner.py heartbeat
-```
-
-### 3. Wallet CLI (`wallet.py`)
-Track your AITBC earnings and manage your wallet.
-
-```bash
-# Check balance
-python3 wallet.py balance
-
-# Show transaction history
-python3 wallet.py history --limit 10
-
-# Add earnings (after completing a job)
-python3 wallet.py earn 10.0 --job abc123 --desc "Inference task"
-
-# Spend AITBC
-python3 wallet.py spend 5.0 "Coffee break"
-
-# Show wallet address
-python3 wallet.py address
-```
-
-## GPU Testing
-
-Before mining, verify your GPU is accessible:
-
-```bash
-# Quick GPU check
-python3 test_gpu_access.py
-
-# Comprehensive GPU test
-python3 gpu_test.py
-
-# Test miner with GPU
-python3 miner_gpu_test.py --full
+# Or install from PyPI (when published)
+pip install aitbc-cli
 ```
 
 ## Quick Start
 
-1. **Start the SSH tunnel to remote server** (if not already running):
+1. **Set up your API key**:
    ```bash
-   cd /home/oib/windsurf/aitbc
-   ./scripts/start_remote_tunnel.sh
+   export CLIENT_API_KEY=your_api_key_here
+   # Or save permanently
+   aitbc config set api_key your_api_key_here
    ```
 
-2. **Run the complete workflow test**:
+2. **Check your wallet**:
    ```bash
-   cd /home/oib/windsurf/aitbc/cli
-   python3 test_workflow.py
+   aitbc wallet balance
    ```
 
-3. **Start mining continuously**:
+3. **Submit your first job**:
    ```bash
-   # Terminal 1: Start mining
-   python3 miner.py mine
-   
-   # Terminal 2: Submit jobs
-   python3 client.py submit training --model "stable-diffusion"
+   aitbc client submit inference --prompt "What is AI?" --model gpt-4
    ```
+
+## Features
+
+- 🚀 **Fast & Efficient**: Optimized for speed with minimal overhead
+- 🎨 **Rich Output**: Beautiful tables, JSON, and YAML output formats
+- 🔐 **Secure**: Built-in credential management with keyring
+- 📊 **Comprehensive**: 40+ commands covering all aspects of the network
+- 🧪 **Testing Ready**: Full simulation environment for testing
+- 🔧 **Extensible**: Easy to add new commands and features
+
+## Command Groups
+
+### Client Operations
+Submit and manage inference jobs:
+```bash
+aitbc client submit inference --prompt "Your prompt here" --model gpt-4
+aitbc client status <job_id>
+aitbc client history --status completed
+```
+
+### Mining Operations
+Register as a miner and process jobs:
+```bash
+aitbc miner register --gpu-model RTX4090 --memory 24 --price 0.5
+aitbc miner poll --interval 5
+```
+
+### Wallet Management
+Manage your AITBC tokens:
+```bash
+aitbc wallet balance
+aitbc wallet send <address> <amount>
+aitbc wallet history
+```
+
+### Authentication
+Manage API keys and authentication:
+```bash
+aitbc auth login your_api_key
+aitbc auth status
+aitbc auth keys create --name "My Key"
+```
+
+### Blockchain Queries
+Query blockchain information:
+```bash
+aitbc blockchain blocks --limit 10
+aitbc blockchain transaction <tx_hash>
+aitbc blockchain sync-status
+```
+
+### Marketplace
+GPU marketplace operations:
+```bash
+aitbc marketplace gpu list --available
+aitbc marketplace gpu book <gpu_id> --hours 2
+aitbc marketplace reviews <gpu_id>
+```
+
+### System Administration
+Admin operations (requires admin privileges):
+```bash
+aitbc admin status
+aitbc admin analytics --period 24h
+aitbc admin logs --component coordinator
+```
+
+### Configuration
+Manage CLI configuration:
+```bash
+aitbc config show
+aitbc config set coordinator_url http://localhost:8000
+aitbc config profiles save production
+```
+
+### Simulation
+Test and simulate operations:
+```bash
+aitbc simulate init --distribute 10000,5000
+aitbc simulate user create --type client --name testuser
+aitbc simulate workflow --jobs 10
+```
+
+## Output Formats
+
+All commands support multiple output formats:
+
+```bash
+# Table format (default)
+aitbc wallet balance
+
+# JSON format
+aitbc --output json wallet balance
+
+# YAML format
+aitbc --output yaml wallet balance
+```
+
+## Global Options
+
+These options can be used with any command:
+
+- `--url TEXT`: Override coordinator URL
+- `--api-key TEXT`: Override API key
+- `--output [table|json|yaml]`: Output format
+- `-v, --verbose`: Increase verbosity (use -vv, -vvv for more)
+- `--debug`: Enable debug mode
+- `--config-file TEXT`: Path to config file
+- `--help`: Show help
+- `--version`: Show version
+
+## Shell Completion
+
+Enable tab completion for bash/zsh:
+
+```bash
+# For bash
+echo 'source /path/to/aitbc_shell_completion.sh' >> ~/.bashrc
+source ~/.bashrc
+
+# For zsh
+echo 'source /path/to/aitbc_shell_completion.sh' >> ~/.zshrc
+source ~/.zshrc
+```
 
 ## Configuration
 
-All tools default to connecting to `http://localhost:8001` (the remote server via SSH tunnel). You can override this:
+The CLI can be configured in multiple ways:
 
-```bash
-python3 client.py --url http://localhost:8000 --api-key your_key submit inference
-```
+1. **Environment variables**:
+   ```bash
+   export CLIENT_API_KEY=your_key
+   export AITBC_COORDINATOR_URL=http://localhost:8000
+   export AITBC_OUTPUT_FORMAT=json
+   ```
 
-Default credentials:
-- Client API Key: `${CLIENT_API_KEY}`
-- Miner API Key: `${MINER_API_KEY}`
+2. **Config file**:
+   ```bash
+   aitbc config set coordinator_url http://localhost:8000
+   aitbc config set api_key your_key
+   ```
+
+3. **Profiles**:
+   ```bash
+   # Save a profile
+   aitbc config profiles save production
+   
+   # Switch profiles
+   aitbc config profiles load production
+   ```
 
 ## Examples
 
-### Submit and Process a Job
+### Basic Workflow
 
 ```bash
-# 1. Submit a job
-JOB_ID=$(python3 client.py submit inference --prompt "Test" | grep "Job ID" | cut -d' ' -f4)
+# 1. Configure
+export CLIENT_API_KEY=your_key
 
-# 2. In another terminal, mine it
-python3 miner.py poll
+# 2. Check balance
+aitbc wallet balance
 
-# 3. Check the result
-python3 client.py status $JOB_ID
+# 3. Submit job
+job_id=$(aitbc --output json client submit inference --prompt "What is AI?" | jq -r '.job_id')
 
-# 4. See it in the blockchain
-python3 client.py blocks
+# 4. Monitor progress
+watch -n 5 "aitbc client status $job_id"
+
+# 5. Get results
+aitbc client receipts --job-id $job_id
 ```
 
-### Continuous Mining
+### Mining Setup
 
 ```bash
-# Register and start mining
-python3 miner.py register
-python3 miner.py mine --jobs 5
+# 1. Register as miner
+aitbc miner register \
+    --gpu-model RTX4090 \
+    --memory 24 \
+    --price 0.5 \
+    --region us-west
 
-# In another terminal, submit multiple jobs
-for i in {1..5}; do
-    python3 client.py submit inference --prompt "Job $i"
-    sleep 1
-done
+# 2. Start mining
+aitbc miner poll --interval 5
+
+# 3. Check earnings
+aitbc wallet earn
 ```
 
-## Tips
+### Using the Marketplace
 
-- The wallet is stored in `~/.aitbc_wallet.json`
-- Jobs appear as blocks immediately when created
-- The proposer is assigned when a miner polls for the job
-- Use `--help` with any command to see all options
-- Mining earnings are added manually for now (will be automatic in production)
+```bash
+# 1. Find available GPUs
+aitbc marketplace gpu list --available --price-max 1.0
+
+# 2. Book a GPU
+gpu_id=$(aitbc marketplace gpu list --available --output json | jq -r '.[0].id')
+aitbc marketplace gpu book $gpu_id --hours 4
+
+# 3. Use it for your job
+aitbc client submit inference \
+    --prompt "Generate an image of a sunset" \
+    --model stable-diffusion \
+    --gpu $gpu_id
+
+# 4. Release when done
+aitbc marketplace gpu release $gpu_id
+```
+
+### Testing with Simulation
+
+```bash
+# 1. Initialize test environment
+aitbc simulate init --distribute 10000,5000
+
+# 2. Create test users
+aitbc simulate user create --type client --name alice --balance 1000
+aitbc simulate user create --type miner --name bob --balance 500
+
+# 3. Run workflow simulation
+aitbc simulate workflow --jobs 10 --rounds 3
+
+# 4. Check results
+aitbc simulate results sim_123
+```
 
 ## Troubleshooting
 
-- If you get "No jobs available", make sure a job was submitted recently
-- If registration fails, check the coordinator is running and API key is correct
-- If the tunnel is down, restart it with `./scripts/start_remote_tunnel.sh`
+### Common Issues
+
+1. **"API key not found"**
+   ```bash
+   export CLIENT_API_KEY=your_key
+   # or
+   aitbc auth login your_key
+   ```
+
+2. **"Connection refused"**
+   ```bash
+   # Check coordinator URL
+   aitbc config show
+   # Update if needed
+   aitbc config set coordinator_url http://localhost:8000
+   ```
+
+3. **"Permission denied"**
+   ```bash
+   # Check key permissions
+   aitbc auth status
+   # Refresh if needed
+   aitbc auth refresh
+   ```
+
+### Debug Mode
+
+Enable debug mode for detailed error information:
+
+```bash
+aitbc --debug client status <job_id>
+```
+
+### Verbose Output
+
+Increase verbosity for more information:
+
+```bash
+aitbc -vvv wallet balance
+```
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/aitbc/aitbc.git
+cd aitbc
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install in development mode
+pip install -e .[dev]
+
+# Run tests
+pytest tests/cli/
+
+# Run with local changes
+python -m aitbc_cli.main --help
+```
+
+## Support
+
+- 📖 [Documentation](../docs/cli-reference.md)
+- 🐛 [Issue Tracker](https://github.com/aitbc/aitbc/issues)
+- 💬 [Discord Community](https://discord.gg/aitbc)
+- 📧 [Email Support](mailto:support@aitbc.net)
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+
+---
+
+Made with ❤️ by the AITBC team

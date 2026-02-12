@@ -100,4 +100,10 @@ class MarketplaceService:
             sla=offer.sla,
             status=offer.status.value,
             created_at=offer.created_at,
+            gpu_model=offer.gpu_model,
+            gpu_memory_gb=offer.gpu_memory_gb,
+            gpu_count=offer.gpu_count,
+            cuda_version=offer.cuda_version,
+            price_per_hour=offer.price_per_hour,
+            region=offer.region,
         )

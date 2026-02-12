@@ -1,0 +1,10 @@
+{
+  "wallet_id": "my-wallet",
+  "type": "hd",
+  "address": "aitbc1e9056b875c03773b067fd0345248abd3db762af5",
+  "public_key": "0x2619e06fca452e9a524a688ceccbbb07ebdaaa824c3e78c4a406ed2a60cee47f",
+  "private_key": "0xe9056b875c03773b067fd0345248abd3db762af5274c8e30ab304cb04a7b4c79",
+  "created_at": "2026-02-12T16:41:34.206767Z",
+  "balance": 0,
+  "transactions": []
+}

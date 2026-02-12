@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CLI_PY="$ROOT_DIR/cli/client.py"
 
-AITBC_URL="${AITBC_URL:-http://127.0.0.1:18000}"
+AITBC_URL="${AITBC_URL:-http://localhost:8000}"
 CLIENT_KEY="${CLIENT_KEY:?Set CLIENT_KEY env var}"
 ADMIN_KEY="${ADMIN_KEY:?Set ADMIN_KEY env var}"
 MINER_KEY="${MINER_KEY:?Set MINER_KEY env var}"
@@ -27,7 +27,7 @@ Usage:
   aitbc-cli.sh health
 
 Environment overrides:
-  AITBC_URL   (default: http://127.0.0.1:18000)
+  AITBC_URL   (default: http://localhost:8000)
   CLIENT_KEY  (required)
   ADMIN_KEY   (required)
   MINER_KEY   (required)
