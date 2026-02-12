@@ -252,7 +252,7 @@ website/
 
 | Directory | Purpose |
 |-----------|---------|
-| `cli/` | CLI tools for client, miner, wallet operations and GPU testing |
+| `cli/` | AITBC CLI package (11 command groups, 80+ subcommands, 116 tests, CI/CD, man page, plugins) |
 | `plugins/ollama/` | Ollama LLM integration (client plugin, miner plugin, service layer) |
 | `home/` | Local simulation scripts for client/miner workflows |
 | `extensions/` | Firefox wallet extension source code |

@@ -5,7 +5,7 @@ This document categorizes all files and folders in the repository by their statu
 - **Greylist (⚠️)**: Uncertain status, may need review
 - **Blacklist (❌)**: Legacy, unused, outdated, candidates for removal
 
-Last updated: 2026-02-11
+Last updated: 2026-02-12
 
 ---
 
@@ -69,10 +69,22 @@ Last updated: 2026-02-11
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `cli/client.py` | ✅ Active | Client CLI |
-| `cli/miner.py` | ✅ Active | Miner CLI |
-| `cli/wallet.py` | ✅ Active | Wallet CLI |
+| `cli/aitbc_cli/commands/client.py` | ✅ Active | Client CLI (submit, batch-submit, templates, history) |
+| `cli/aitbc_cli/commands/miner.py` | ✅ Active | Miner CLI (register, earnings, capabilities, concurrent) |
+| `cli/aitbc_cli/commands/wallet.py` | ✅ Active | Wallet CLI (balance, staking, multisig, backup/restore) |
+| `cli/aitbc_cli/commands/auth.py` | ✅ Active | Auth CLI (login, tokens, API keys) |
+| `cli/aitbc_cli/commands/blockchain.py` | ✅ Active | Blockchain queries |
+| `cli/aitbc_cli/commands/marketplace.py` | ✅ Active | GPU marketplace operations |
+| `cli/aitbc_cli/commands/admin.py` | ✅ Active | System administration, audit logging |
+| `cli/aitbc_cli/commands/config.py` | ✅ Active | Configuration, profiles, encrypted secrets |
+| `cli/aitbc_cli/commands/monitor.py` | ✅ Active | Dashboard, metrics, alerts, webhooks |
+| `cli/aitbc_cli/commands/simulate.py` | ✅ Active | Test simulation framework |
+| `cli/aitbc_cli/plugins.py` | ✅ Active | Plugin system for custom commands |
+| `cli/aitbc_cli/main.py` | ✅ Active | CLI entry point (11 command groups) |
+| `cli/man/aitbc.1` | ✅ Active | Man page |
+| `cli/aitbc_shell_completion.sh` | ✅ Active | Shell completion script |
 | `cli/test_ollama_gpu_provider.py` | ✅ Active | GPU testing |
+| `.github/workflows/cli-tests.yml` | ✅ Active | CI/CD for CLI tests (Python 3.10/3.11/3.12) |
 
 ### Home Scripts (`home/`)
 

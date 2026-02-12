@@ -17,7 +17,7 @@ import json
 import httpx
 
 # Configuration
-DEFAULT_COORDINATOR = "http://127.0.0.1:18000"
+DEFAULT_COORDINATOR = "http://localhost:8000"
 DEFAULT_BLOCKCHAIN = "http://127.0.0.1:19000"
 DEFAULT_API_KEY = "${CLIENT_API_KEY}"
 DEFAULT_PROMPT = "What is the capital of France?"

@@ -10,6 +10,7 @@ from .routers import (
     miner,
     admin,
     marketplace,
+    marketplace_gpu,
     exchange,
     users,
     services,
@@ -18,7 +19,6 @@ from .routers import (
     explorer,
     payments,
 )
-from .routers import zk_applications
 from .routers.governance import router as governance
 from .routers.partners import router as partners
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
@@ -46,6 +46,7 @@ def create_app() -> FastAPI:
     app.include_router(miner, prefix="/v1")
     app.include_router(admin, prefix="/v1")
     app.include_router(marketplace, prefix="/v1")
+    app.include_router(marketplace_gpu, prefix="/v1")
     app.include_router(exchange, prefix="/v1")
     app.include_router(users, prefix="/v1/users")
     app.include_router(services, prefix="/v1")

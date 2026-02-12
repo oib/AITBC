@@ -731,6 +731,18 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 | `docs/reference/specs/receipt-spec.md` finalize | Low | Q2 2026 | 🔄 Pending extensions |
 | Cross-site synchronization | High | Q1 2026 | ✅ Complete (2026-01-29) |
 
+## Recent Progress (2026-02-12)
+
+### CLI Enhancement — All Phases Complete ✅
+- **116/116 tests passing** (0 failures) across 8 test files
+- **11 command groups**: client, miner, wallet, auth, config, blockchain, marketplace, simulate, admin, monitor, plugin
+- CI/CD: `.github/workflows/cli-tests.yml` (Python 3.10/3.11/3.12)
+
+- **Phase 1–2**: Core enhancements + new CLI tools (client retry, miner earnings/capabilities/deregister, wallet staking/multi-wallet/backup, auth, blockchain, marketplace, admin, config, simulate)
+- **Phase 3**: 116 tests, CLI reference docs (560+ lines), shell completion, man page
+- **Phase 4**: MarketplaceOffer GPU fields, booking system, review system
+- **Phase 5**: Batch CSV/JSON ops, job templates, webhooks, plugin system, real-time dashboard, metrics/alerts, multi-sig wallets, encrypted config, audit logging, progress bars
+
 ## Recent Progress (2026-02-11)
 
 ### Git & Repository Hygiene ✅ COMPLETE

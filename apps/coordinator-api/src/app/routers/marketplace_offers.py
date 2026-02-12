@@ -40,12 +40,14 @@ async def sync_offers(
                 provider=miner.id,
                 capacity=miner.concurrency or 1,
                 price=capabilities.get("pricing_per_hour", 0.50),
+                gpu_model=capabilities.get("gpu", None),
+                gpu_memory_gb=capabilities.get("gpu_memory_gb", None),
+                gpu_count=capabilities.get("gpu_count", 1),
+                cuda_version=capabilities.get("cuda_version", None),
+                price_per_hour=capabilities.get("pricing_per_hour", 0.50),
+                region=miner.region or None,
                 attributes={
-                    "gpu_model": capabilities.get("gpu", "Unknown GPU"),
-                    "gpu_memory_gb": capabilities.get("gpu_memory_gb", 0),
-                    "cuda_version": capabilities.get("cuda_version", "Unknown"),
                     "supported_models": capabilities.get("supported_models", []),
-                    "region": miner.region or "unknown"
                 }
             )
             
