@@ -456,10 +456,92 @@ This document tracks components that have been successfully deployed and are ope
 
 ## Recent Updates (2026-02-12)
 
-### CLI Enhancement — All Phases Complete ✅
-- ✅ **Enhanced CLI Tool** - 116/116 tests passing (0 failures)
+### Persistent GPU Marketplace ✅
+
+- ✅ **SQLModel-backed GPU Marketplace** — replaced in-memory mock with persistent tables
+  - `GPURegistry`, `GPUBooking`, `GPUReview` models in `apps/coordinator-api/src/app/domain/gpu_marketplace.py`
+  - Registered in `domain/__init__.py` and `storage/db.py` (auto-created on `init_db()`)
+  - Rewrote `routers/marketplace_gpu.py` — all 10 endpoints now use DB sessions
+  - Fixed review count bug (auto-flush double-count in `add_gpu_review`)
+  - 22/22 GPU marketplace tests (`apps/coordinator-api/tests/test_gpu_marketplace.py`)
+
+### CLI Integration Tests ✅
+
+- ✅ **End-to-end CLI → Coordinator tests** — 24 tests in `tests/cli/test_cli_integration.py`
+  - `_ProxyClient` shim routes sync `httpx.Client` calls through Starlette TestClient
+  - `APIKeyValidator` monkey-patch bypasses stale key sets from cross-suite `sys.modules` flushes
+  - Covers: client (submit/status/cancel), miner (register/heartbeat/poll), admin (stats/jobs/miners), marketplace GPU (9 tests), explorer, payments, end-to-end lifecycle
+  - 208/208 tests pass when run together with billing + GPU marketplace + CLI unit tests
+
+### Coordinator Billing Stubs ✅
+
+- ✅ **Usage tracking & tenant context** — 21 tests in `apps/coordinator-api/tests/test_billing.py`
+  - `_apply_credit`, `_apply_charge`, `_adjust_quota`, `_reset_daily_quotas`
+  - `_process_pending_events`, `_generate_monthly_invoices`
+  - `_extract_from_token` (HS256 JWT verification)
+
+### Blockchain Node — Stage 20/21/22 Enhancements ✅ (Milestone 3)
+
+- ✅ **Shared Mempool Implementation**
+  - `InMemoryMempool` rewritten with fee-based prioritization, size limits, eviction
+  - `DatabaseMempool` — new SQLite-backed mempool for persistence and cross-service sharing
+  - `init_mempool()` factory function configurable via `MEMPOOL_BACKEND` env var
+
+- ✅ **Advanced Block Production**
+  - Block size limits: `max_block_size_bytes` (1MB), `max_txs_per_block` (500)
+  - Fee prioritization: highest-fee transactions drained first into blocks
+  - Batch processing: proposer drains mempool and batch-inserts `Transaction` records
+  - Metrics: `block_build_duration_seconds`, `last_block_tx_count`, `last_block_total_fees`
+
+- ✅ **Production Hardening**
+  - Circuit breaker pattern (`CircuitBreaker` class with threshold/timeout)
+  - RPC error handling: 400 for fee rejection, 503 for mempool unavailable
+  - PoA stability: retry logic in `_fetch_chain_head`, `poa_proposer_running` gauge
+  - RPC hardening: `RateLimitMiddleware` (200 req/min), `RequestLoggingMiddleware`, CORS, `/health`
+  - Operational runbook: `docs/guides/block-production-runbook.md`
+  - Deployment guide: `docs/guides/blockchain-node-deployment.md`
+
+- ✅ **Cross-Site Sync Enhancements (Stage 21)**
+  - Conflict resolution: `ChainSync._resolve_fork` with longest-chain rule, max reorg depth
+  - Proposer signature validation: `ProposerSignatureValidator` with trusted proposer set
+  - Sync metrics: 15 metrics (received, accepted, rejected, forks, reorgs, duration)
+  - RPC endpoints: `POST /importBlock`, `GET /syncStatus`
+
+- ✅ **Smart Contract & ZK Deployment (Stage 20)**
+  - `contracts/Groth16Verifier.sol` — functional stub with snarkjs regeneration instructions
+  - `contracts/scripts/security-analysis.sh` — Slither + Mythril analysis
+  - `contracts/scripts/deploy-testnet.sh` — testnet deployment workflow
+  - ZK integration test: `tests/test_zk_integration.py` (8 tests)
+
+- ✅ **Receipt Specification v1.1**
+  - Multi-signature receipt format (`signatures` array, threshold, quorum policy)
+  - ZK-proof metadata extension (`metadata.zk_proof` with Groth16/PLONK/STARK)
+  - Merkle proof anchoring spec (`metadata.merkle_anchor` with verification algorithm)
+
+- ✅ **Test Results**
+  - 50/50 blockchain node tests (27 mempool + 23 sync)
+  - 8/8 ZK integration tests
+  - 141/141 CLI tests (unchanged)
+
+### Governance & Incentive Programs ✅ (Milestone 2)
+- ✅ **Governance CLI** (`governance.py`) — propose, vote, list, result commands
+  - Parameter change, feature toggle, funding, and general proposal types
+  - Weighted voting with duplicate prevention and auto-close
+  - 13 governance tests passing
+- ✅ **Liquidity Mining** — wallet liquidity-stake/unstake/rewards
+  - APY tiers: bronze (3%), silver (5%), gold (8%), platinum (12%)
+  - Lock period support with reward calculation
+  - 7 new wallet tests (24 total wallet tests)
+- ✅ **Campaign Telemetry** — monitor campaigns/campaign-stats
+  - TVL, participants, rewards distributed, progress tracking
+  - Auto-seeded default campaigns
+- ✅ **134/134 tests passing** (0 failures) across 9 test files
+- Roadmap Stage 6 items checked off (governance + incentive programs)
+
+### CLI Enhancement — All Phases Complete ✅ (Milestone 1)
+- ✅ **Enhanced CLI Tool** - 141/141 unit tests + 24 integration tests passing (0 failures)
   - Location: `/home/oib/windsurf/aitbc/cli/aitbc_cli/`
-  - 11 command groups: client, miner, wallet, auth, config, blockchain, marketplace, simulate, admin, monitor, plugin
+  - 12 command groups: client, miner, wallet, auth, config, blockchain, marketplace, simulate, admin, monitor, governance, plugin
   - CI/CD: `.github/workflows/cli-tests.yml` (Python 3.10/3.11/3.12 matrix)
 
 - ✅ **Phase 1: Core Enhancements**
@@ -472,7 +554,7 @@ This document tracks components that have been successfully deployed and are ope
   - blockchain.py, marketplace.py, admin.py, config.py, simulate.py
 
 - ✅ **Phase 3: Testing & Documentation**
-  - 116/116 CLI tests across 8 test files
+  - 141/141 CLI unit tests across 9 test files + 24 integration tests
   - CLI reference docs (`docs/cli-reference.md` — 560+ lines)
   - Shell completion script, man page (`cli/man/aitbc.1`)
 

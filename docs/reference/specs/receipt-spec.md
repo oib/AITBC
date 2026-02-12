@@ -88,8 +88,246 @@ Signed form includes:
 }
 ```
 
-## Future Extensions
+## Multi-Signature Receipt Format
 
-- Multi-signature receipts (miner + coordinator attestations).
-- ZK-proof metadata for privacy-preserving verification.
-- On-chain receipt anchors with Merkle proofs.
+Receipts requiring attestation from multiple parties (e.g., miner + coordinator) use a `signatures` array instead of a single `signature` object.
+
+### Schema
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `signatures` | array | conditional | Array of signature objects when multi-sig is used. |
+| `threshold` | integer | optional | Minimum signatures required for validity (default: all). |
+| `quorum_policy` | string | optional | Policy name: `"all"`, `"majority"`, `"threshold"`. |
+
+### Signature Entry
+
+Each entry in the `signatures` array:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `alg` | string | yes | Signature algorithm (`"Ed25519"`, `"secp256k1"`). |
+| `key_id` | string | yes | Signing key identifier. |
+| `signer_role` | string | yes | Role of signer: `"miner"`, `"coordinator"`, `"auditor"`. |
+| `signer_id` | string | yes | Address or account of the signer. |
+| `sig` | string | yes | Base64url-encoded signature over canonical receipt bytes. |
+| `signed_at` | integer | yes | Unix timestamp when signature was created. |
+
+### Validation Rules
+
+- When `signatures` is present, `signature` (singular) MUST be absent.
+- Each signature is computed over the same canonical serialization (excluding all signature fields).
+- `threshold` defaults to `len(signatures)` (all required) when omitted.
+- Signers MUST NOT appear more than once in the array.
+- At least one signer with `signer_role: "miner"` is required.
+
+### Example
+
+```json
+{
+  "version": "1.1",
+  "receipt_id": "rcpt-20260212-ms001",
+  "job_id": "job-xyz789",
+  "provider": "ait1minerabc...",
+  "client": "ait1clientdef...",
+  "units": 3.5,
+  "unit_type": "gpu_seconds",
+  "started_at": 1739376000,
+  "completed_at": 1739376004,
+  "threshold": 2,
+  "quorum_policy": "all",
+  "signatures": [
+    {
+      "alg": "Ed25519",
+      "key_id": "miner-ed25519-2026-02",
+      "signer_role": "miner",
+      "signer_id": "ait1minerabc...",
+      "sig": "Xk9f...",
+      "signed_at": 1739376005
+    },
+    {
+      "alg": "Ed25519",
+      "key_id": "coord-ed25519-2026-01",
+      "signer_role": "coordinator",
+      "signer_id": "coord-eu-west-1",
+      "sig": "Lm3a...",
+      "signed_at": 1739376006
+    }
+  ]
+}
+```
+
+---
+
+## ZK-Proof Metadata Extension
+
+Receipts can carry zero-knowledge proof metadata in the `metadata.zk_proof` field, enabling privacy-preserving verification without revealing sensitive job details.
+
+### Schema (`metadata.zk_proof`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `circuit_id` | string | yes | Identifier of the ZK circuit used (e.g., `"SimpleReceipt_v1"`). |
+| `circuit_version` | integer | yes | Circuit version number. |
+| `proof_system` | string | yes | Proof system: `"groth16"`, `"plonk"`, `"stark"`. |
+| `proof` | object | yes | Proof data (system-specific). |
+| `public_signals` | array | yes | Public inputs to the circuit. |
+| `verifier_contract` | string | optional | On-chain verifier contract address. |
+| `verification_key_hash` | string | optional | SHA-256 hash of the verification key. |
+| `generated_at` | integer | yes | Unix timestamp of proof generation. |
+
+### Groth16 Proof Object
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `a` | array[2] | G1 point (π_A). |
+| `b` | array[2][2] | G2 point (π_B). |
+| `c` | array[2] | G1 point (π_C). |
+
+### Public Signals
+
+For the `SimpleReceipt` circuit, `public_signals` contains:
+- `[0]`: `receiptHash` — Poseidon hash of private receipt data.
+
+For the full `ReceiptAttestation` circuit:
+- `[0]`: `receiptHash`
+- `[1]`: `settlementAmount`
+- `[2]`: `timestamp`
+
+### Validation Rules
+
+- `circuit_id` MUST match a known registered circuit.
+- `public_signals[0]` (receiptHash) MUST NOT be zero.
+- If `verifier_contract` is provided, on-chain verification SHOULD be performed.
+- Proof MUST be verified before the receipt is accepted for settlement.
+
+### Example
+
+```json
+{
+  "version": "1.1",
+  "receipt_id": "rcpt-20260212-zk001",
+  "job_id": "job-priv001",
+  "provider": "ait1minerxyz...",
+  "client": "ait1clientabc...",
+  "units": 2.0,
+  "unit_type": "gpu_seconds",
+  "started_at": 1739376000,
+  "completed_at": 1739376003,
+  "metadata": {
+    "zk_proof": {
+      "circuit_id": "SimpleReceipt_v1",
+      "circuit_version": 1,
+      "proof_system": "groth16",
+      "proof": {
+        "a": ["0x1a2b...", "0x3c4d..."],
+        "b": [["0x5e6f...", "0x7a8b..."], ["0x9c0d...", "0xef12..."]],
+        "c": ["0x3456...", "0x7890..."]
+      },
+      "public_signals": ["0x48fa91c3..."],
+      "verifier_contract": "0xAbCdEf0123456789...",
+      "verification_key_hash": "sha256:a1b2c3d4...",
+      "generated_at": 1739376004
+    }
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "key_id": "miner-ed25519-2026-02",
+    "sig": "Qr7x..."
+  }
+}
+```
+
+---
+
+## Merkle Proof Anchoring Specification
+
+Receipts can be anchored on-chain using Merkle trees, allowing efficient batch verification and compact inclusion proofs.
+
+### Anchoring Process
+
+1. **Batch collection**: Coordinator collects N receipts within a time window.
+2. **Leaf computation**: Each leaf = `sha256(canonical_receipt_bytes)`.
+3. **Tree construction**: Binary Merkle tree with leaves sorted by `receipt_id`.
+4. **Root submission**: Merkle root is submitted on-chain in a single transaction.
+5. **Proof distribution**: Each receipt owner receives their inclusion proof.
+
+### Schema (`metadata.merkle_anchor`)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `root` | string | yes | Hex-encoded Merkle root (`0x...`). |
+| `leaf` | string | yes | Hex-encoded leaf hash of this receipt. |
+| `proof` | array | yes | Array of sibling hashes from leaf to root. |
+| `index` | integer | yes | Leaf index in the tree (0-based). |
+| `tree_size` | integer | yes | Total number of leaves in the tree. |
+| `block_height` | integer | optional | Blockchain block height where root was anchored. |
+| `tx_hash` | string | optional | Transaction hash of the anchoring transaction. |
+| `anchored_at` | integer | yes | Unix timestamp of anchoring. |
+
+### Verification Algorithm
+
+```
+1. leaf_hash = sha256(canonical_receipt_bytes)
+2. assert leaf_hash == anchor.leaf
+3. current = leaf_hash
+4. for i, sibling in enumerate(anchor.proof):
+5.     if bit(anchor.index, i) == 0:
+6.         current = sha256(current || sibling)
+7.     else:
+8.         current = sha256(sibling || current)
+9. assert current == anchor.root
+```
+
+### Validation Rules
+
+- `leaf` MUST equal `sha256(canonical_receipt_bytes)` of the receipt.
+- `proof` length MUST equal `ceil(log2(tree_size))`.
+- `index` MUST be in range `[0, tree_size)`.
+- If `tx_hash` is provided, the root MUST match the on-chain value.
+- Merkle roots MUST be submitted within the network retention window.
+
+### Example
+
+```json
+{
+  "version": "1.1",
+  "receipt_id": "rcpt-20260212-mk001",
+  "job_id": "job-batch42",
+  "provider": "ait1minerxyz...",
+  "client": "ait1clientabc...",
+  "units": 1.0,
+  "unit_type": "gpu_seconds",
+  "started_at": 1739376000,
+  "completed_at": 1739376001,
+  "metadata": {
+    "merkle_anchor": {
+      "root": "0x7f83b1657ff1fc53b92dc18148a1d65dfc2d4b1fa3d677284addd200126d9069",
+      "leaf": "0x3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d",
+      "proof": [
+        "0x2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+        "0x486ea46224d1bb4fb680f34f7c9ad96a8f24ec88be73ea8e5a6c65260e9cb8a7"
+      ],
+      "index": 2,
+      "tree_size": 4,
+      "block_height": 15234,
+      "tx_hash": "0xabc123def456...",
+      "anchored_at": 1739376060
+    }
+  },
+  "signature": {
+    "alg": "Ed25519",
+    "key_id": "coord-ed25519-2026-01",
+    "sig": "Yz4w..."
+  }
+}
+```
+
+---
+
+## Version History
+
+| Version | Date | Changes |
+|---------|------|---------|
+| 1.0 | 2025-09 | Initial receipt schema, Ed25519 signatures, canonical serialization. |
+| 1.1 | 2026-02 | Multi-signature format, ZK-proof metadata extension, Merkle proof anchoring. |

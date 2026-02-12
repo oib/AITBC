@@ -5,7 +5,7 @@ This document categorizes all files and folders in the repository by their statu
 - **Greylist (⚠️)**: Uncertain status, may need review
 - **Blacklist (❌)**: Legacy, unused, outdated, candidates for removal
 
-Last updated: 2026-02-12
+Last updated: 2026-02-12 (evening)
 
 ---
 
@@ -15,12 +15,17 @@ Last updated: 2026-02-12
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `apps/coordinator-api/` | ✅ Active | Main API service, recently updated (Jan 2026) |
+| `apps/coordinator-api/` | ✅ Active | Main API service, recently updated (Feb 2026) |
 | `apps/explorer-web/` | ✅ Active | Blockchain explorer, recently updated |
 | `apps/wallet-daemon/` | ✅ Active | Wallet service, deployed in production |
 | `apps/trade-exchange/` | ✅ Active | Bitcoin exchange, deployed |
 | `apps/zk-circuits/` | ✅ Active | ZK proof circuits, deployed |
 | `apps/marketplace-web/` | ✅ Active | Marketplace frontend, deployed |
+| `apps/coordinator-api/src/app/domain/gpu_marketplace.py` | ✅ Active | GPURegistry, GPUBooking, GPUReview SQLModel tables (Feb 2026) |
+| `apps/coordinator-api/tests/test_gpu_marketplace.py` | ✅ Active | 22 GPU marketplace tests (Feb 2026) |
+| `apps/coordinator-api/tests/test_billing.py` | ✅ Active | 21 billing/usage-tracking tests (Feb 2026) |
+| `apps/coordinator-api/tests/conftest.py` | ✅ Active | App namespace isolation for coordinator tests |
+| `tests/cli/test_cli_integration.py` | ✅ Active | 24 CLI → live coordinator integration tests (Feb 2026) |
 
 ### Scripts (`scripts/`)
 
@@ -63,7 +68,10 @@ Last updated: 2026-02-12
 | `docs/reference/components/coordinator_api.md` | ✅ Active | API documentation |
 | `docs/developer/integration/skills-framework.md` | ✅ Active | Skills documentation |
 | `docs/guides/` | ✅ Active | Development guides (moved from root) |
+| `docs/guides/block-production-runbook.md` | ✅ Active | Block production operational runbook |
+| `docs/guides/blockchain-node-deployment.md` | ✅ Active | Blockchain node deployment guide |
 | `docs/reports/` | ✅ Active | Generated reports (moved from root) |
+| `docs/reference/specs/receipt-spec.md` | ✅ Active | Receipt spec v1.1 (multi-sig, ZK, Merkle) |
 
 ### CLI Tools (`cli/`)
 
@@ -80,7 +88,7 @@ Last updated: 2026-02-12
 | `cli/aitbc_cli/commands/monitor.py` | ✅ Active | Dashboard, metrics, alerts, webhooks |
 | `cli/aitbc_cli/commands/simulate.py` | ✅ Active | Test simulation framework |
 | `cli/aitbc_cli/plugins.py` | ✅ Active | Plugin system for custom commands |
-| `cli/aitbc_cli/main.py` | ✅ Active | CLI entry point (11 command groups) |
+| `cli/aitbc_cli/main.py` | ✅ Active | CLI entry point (12 command groups) |
 | `cli/man/aitbc.1` | ✅ Active | Man page |
 | `cli/aitbc_shell_completion.sh` | ✅ Active | Shell completion script |
 | `cli/test_ollama_gpu_provider.py` | ✅ Active | GPU testing |
@@ -130,13 +138,30 @@ Last updated: 2026-02-12
 
 ---
 
-## Greylist ⚠️ (Needs Review)
-
-### Applications - Uncertain Status
+### Blockchain Node (`apps/blockchain-node/`)
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `apps/blockchain-node/` | 📋 Planned | Has code, SQLModel issues - see roadmap Stage 20 |
+| `apps/blockchain-node/` | ✅ Active | Blockchain node with PoA, mempool, sync (Stage 20/21/22 complete) |
+| `apps/blockchain-node/src/aitbc_chain/mempool.py` | ✅ Active | Dual-backend mempool (memory + SQLite) |
+| `apps/blockchain-node/src/aitbc_chain/sync.py` | ✅ Active | Chain sync with conflict resolution |
+| `apps/blockchain-node/src/aitbc_chain/consensus/poa.py` | ✅ Active | PoA proposer with circuit breaker |
+| `apps/blockchain-node/src/aitbc_chain/app.py` | ✅ Active | FastAPI app with rate limiting middleware |
+| `apps/blockchain-node/tests/test_mempool.py` | ✅ Active | 27 mempool tests |
+| `apps/blockchain-node/tests/test_sync.py` | ✅ Active | 23 sync tests |
+
+### Smart Contracts (`contracts/`)
+
+| Path | Status | Notes |
+|------|--------|-------|
+| `contracts/ZKReceiptVerifier.sol` | ✅ Active | ZK receipt verifier contract |
+| `contracts/Groth16Verifier.sol` | ✅ Active | Groth16 verifier stub (snarkjs-replaceable) |
+| `contracts/scripts/security-analysis.sh` | ✅ Active | Slither + Mythril analysis script |
+| `contracts/scripts/deploy-testnet.sh` | ✅ Active | Testnet deployment script |
+
+---
+
+## Greylist ⚠️ (Needs Review)
 
 ### Packages
 
@@ -171,13 +196,6 @@ Last updated: 2026-02-12
 |------|--------|-------|
 | `extensions/aitbc-wallet-firefox/` | ✅ Keep | Firefox extension source (7 files) |
 | `extensions/aitbc-wallet-firefox-v1.0.5.xpi` | ✅ Keep | Built extension package |
-
-### Other
-
-| Path | Status | Notes |
-|------|--------|-------|
-| `contracts/ZKReceiptVerifier.sol` | 📋 Planned | ZK verifier contract - see roadmap Stage 20 |
-| `docs/reference/specs/receipt-spec.md` | ✅ Keep | Canonical receipt schema (moved from protocols/) |
 
 ---
 

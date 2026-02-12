@@ -10,7 +10,7 @@ AITBC is a full-stack blockchain platform that connects GPU compute providers (m
 
 **Key capabilities:**
 - **Blockchain nodes** — PoA consensus, gossip relay, WebSocket RPC
-- **Coordinator API** — Job lifecycle, miner registry, marketplace, multi-tenancy
+- **Coordinator API** — Job lifecycle, miner registry, GPU marketplace, payments, billing, governance
 - **GPU mining** — Ollama-based LLM inference with host GPU passthrough
 - **Wallet daemon** — Balance tracking, receipt verification, ledger management
 - **Trade exchange** — Bitcoin/AITBC trading with order book and price ticker
@@ -46,7 +46,7 @@ aitbc/
 │   ├── trade-exchange/      # BTC/AITBC exchange (FastAPI + WebSocket)
 │   ├── wallet-daemon/       # Wallet service (FastAPI)
 │   └── zk-circuits/         # ZK proof circuits (Circom)
-├── cli/                     # CLI tools (client, miner, wallet)
+├── cli/                     # CLI tools (12 command groups, 90+ subcommands)
 ├── contracts/               # Solidity smart contracts
 ├── docs/                    # Documentation (structure, guides, reference, reports)
 ├── extensions/              # Browser extensions (Firefox wallet)
@@ -59,7 +59,7 @@ aitbc/
 ├── plugins/ollama/          # Ollama LLM integration
 ├── scripts/                 # Deployment, GPU, service, and test scripts
 ├── systemd/                 # Systemd service units
-├── tests/                   # Test suites (unit, integration, e2e, security, load)
+├── tests/                   # Test suites (unit, integration, e2e, security, CLI)
 └── website/                 # Public website and HTML documentation
 ```
 
@@ -89,30 +89,37 @@ cd apps/wallet-daemon && uvicorn app.main:app --port 8002
 ### Run Tests
 
 ```bash
-# Full test suite
-pytest tests/
+# CLI tests (141 unit + 24 integration)
+pytest tests/cli/
 
-# Unit tests only
-pytest tests/unit/
+# Coordinator API tests (billing + GPU marketplace)
+pytest apps/coordinator-api/tests/
 
-# Integration tests
-pytest tests/integration/
+# Blockchain node tests
+pytest tests/test_blockchain_nodes.py
 
-# CI script (all apps)
-./scripts/ci/run_python_tests.sh
+# All tests together (208 passing)
+pytest apps/coordinator-api/tests/ tests/cli/
 ```
 
 ### CLI Usage
 
 ```bash
-# Submit a job as a client
-python cli/client.py submit --model llama3 --prompt "Hello world"
+pip install -e .
 
-# Start mining
-python cli/miner.py start --gpu 0
+# Submit a job
+aitbc client submit --type inference --prompt "Hello world"
 
-# Check wallet balance
-python cli/wallet.py balance
+# Register as a miner
+aitbc miner register --gpu RTX4090
+
+# GPU marketplace
+aitbc marketplace gpu list
+aitbc marketplace gpu book <gpu_id> --hours 1
+
+# Wallet and governance
+aitbc wallet balance
+aitbc governance propose --type parameter_change --title "Update fee"
 ```
 
 ## Deployment
@@ -127,16 +134,29 @@ Services run in an Incus container with systemd units. See `systemd/` for servic
 ./scripts/deploy/deploy-blockchain.sh
 ```
 
+## Test Results
+
+| Suite | Tests | Source |
+|-------|-------|--------|
+| Blockchain node | 50 | `tests/test_blockchain_nodes.py` |
+| ZK integration | 8 | `tests/test_zk_integration.py` |
+| CLI unit tests | 141 | `tests/cli/test_*.py` (9 files) |
+| CLI integration | 24 | `tests/cli/test_cli_integration.py` |
+| Billing | 21 | `apps/coordinator-api/tests/test_billing.py` |
+| GPU marketplace | 22 | `apps/coordinator-api/tests/test_gpu_marketplace.py` |
+
 ## Documentation
 
 | Document | Description |
 |----------|-------------|
 | [docs/structure.md](docs/structure.md) | Codebase structure and file layout |
-| [docs/files.md](docs/files.md) | File audit and status tracking |
-| [docs/roadmap.md](docs/roadmap.md) | Development roadmap |
 | [docs/components.md](docs/components.md) | Component overview |
-| [docs/infrastructure.md](docs/infrastructure.md) | Infrastructure guide |
-| [docs/full-documentation.md](docs/full-documentation.md) | Complete technical documentation |
+| [docs/coordinator-api.md](docs/coordinator-api.md) | Coordinator API reference |
+| [docs/cli-reference.md](docs/cli-reference.md) | CLI command reference (560+ lines) |
+| [docs/roadmap.md](docs/roadmap.md) | Development roadmap |
+| [docs/done.md](docs/done.md) | Completed deployments and milestones |
+| [docs/files.md](docs/files.md) | File audit and status tracking |
+| [docs/currentTask.md](docs/currentTask.md) | Current task and test results |
 
 ## License
 

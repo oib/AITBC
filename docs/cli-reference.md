@@ -159,6 +159,50 @@ aitbc wallet unstake <stake_id>
 
 # View staking info
 aitbc wallet staking-info
+
+# Liquidity pool staking (APY tiers: bronze/silver/gold/platinum)
+aitbc wallet liquidity-stake 100.0 --pool main --lock-days 30
+
+# Withdraw from liquidity pool with rewards
+aitbc wallet liquidity-unstake <stake_id>
+
+# View all rewards (staking + liquidity)
+aitbc wallet rewards
+```
+
+### Governance Commands
+
+Governance proposals and voting.
+
+```bash
+# Create a general proposal
+aitbc governance propose "Increase block size" --description "Raise limit to 2MB" --duration 7
+
+# Create a parameter change proposal
+aitbc governance propose "Block Size" --description "Change to 2MB" --type parameter_change --parameter block_size --value 2000000
+
+# Create a funding proposal
+aitbc governance propose "Dev Fund" --description "Fund Q2 development" --type funding --amount 10000
+
+# Vote on a proposal
+aitbc governance vote <proposal_id> for --voter alice --weight 1.0
+
+# List proposals
+aitbc governance list --status active
+
+# View voting results
+aitbc governance result <proposal_id>
+```
+
+### Monitor Commands (extended)
+
+```bash
+# List active incentive campaigns
+aitbc monitor campaigns --status active
+
+# View campaign performance metrics
+aitbc monitor campaign-stats
+aitbc monitor campaign-stats staking_launch
 ```
 
 ### Auth Commands

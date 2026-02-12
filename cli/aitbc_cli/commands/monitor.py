@@ -379,3 +379,124 @@ def webhooks(ctx, action: str, name: Optional[str], url: Optional[str], events: 
                 output({"status": "sent", "response_code": resp.status_code}, ctx.obj['output_format'])
         except Exception as e:
             error(f"Webhook test failed: {e}")
+
+
+CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"
+
+
+def _ensure_campaigns():
+    CAMPAIGNS_DIR.mkdir(parents=True, exist_ok=True)
+    campaigns_file = CAMPAIGNS_DIR / "campaigns.json"
+    if not campaigns_file.exists():
+        # Seed with default campaigns
+        default = {"campaigns": [
+            {
+                "id": "staking_launch",
+                "name": "Staking Launch Campaign",
+                "type": "staking",
+                "apy_boost": 2.0,
+                "start_date": "2026-02-01T00:00:00",
+                "end_date": "2026-04-01T00:00:00",
+                "status": "active",
+                "total_staked": 0,
+                "participants": 0,
+                "rewards_distributed": 0
+            },
+            {
+                "id": "liquidity_mining_q1",
+                "name": "Q1 Liquidity Mining",
+                "type": "liquidity",
+                "apy_boost": 3.0,
+                "start_date": "2026-01-15T00:00:00",
+                "end_date": "2026-03-15T00:00:00",
+                "status": "active",
+                "total_staked": 0,
+                "participants": 0,
+                "rewards_distributed": 0
+            }
+        ]}
+        with open(campaigns_file, "w") as f:
+            json.dump(default, f, indent=2)
+    return campaigns_file
+
+
+@monitor.command()
+@click.option("--status", type=click.Choice(["active", "ended", "all"]), default="all", help="Filter by status")
+@click.pass_context
+def campaigns(ctx, status: str):
+    """List active incentive campaigns"""
+    campaigns_file = _ensure_campaigns()
+    with open(campaigns_file) as f:
+        data = json.load(f)
+
+    campaign_list = data.get("campaigns", [])
+
+    # Auto-update status
+    now = datetime.now()
+    for c in campaign_list:
+        end = datetime.fromisoformat(c["end_date"])
+        if now > end and c["status"] == "active":
+            c["status"] = "ended"
+    with open(campaigns_file, "w") as f:
+        json.dump(data, f, indent=2)
+
+    if status != "all":
+        campaign_list = [c for c in campaign_list if c["status"] == status]
+
+    if not campaign_list:
+        output({"message": "No campaigns found"}, ctx.obj['output_format'])
+        return
+
+    output(campaign_list, ctx.obj['output_format'])
+
+
+@monitor.command(name="campaign-stats")
+@click.argument("campaign_id", required=False)
+@click.pass_context
+def campaign_stats(ctx, campaign_id: Optional[str]):
+    """Campaign performance metrics (TVL, participants, rewards)"""
+    campaigns_file = _ensure_campaigns()
+    with open(campaigns_file) as f:
+        data = json.load(f)
+
+    campaign_list = data.get("campaigns", [])
+
+    if campaign_id:
+        campaign = next((c for c in campaign_list if c["id"] == campaign_id), None)
+        if not campaign:
+            error(f"Campaign '{campaign_id}' not found")
+            ctx.exit(1)
+            return
+        targets = [campaign]
+    else:
+        targets = campaign_list
+
+    stats = []
+    for c in targets:
+        start = datetime.fromisoformat(c["start_date"])
+        end = datetime.fromisoformat(c["end_date"])
+        now = datetime.now()
+        duration_days = (end - start).days
+        elapsed_days = min((now - start).days, duration_days)
+        progress_pct = round(elapsed_days / max(duration_days, 1) * 100, 1)
+
+        stats.append({
+            "campaign_id": c["id"],
+            "name": c["name"],
+            "type": c["type"],
+            "status": c["status"],
+            "apy_boost": c.get("apy_boost", 0),
+            "tvl": c.get("total_staked", 0),
+            "participants": c.get("participants", 0),
+            "rewards_distributed": c.get("rewards_distributed", 0),
+            "duration_days": duration_days,
+            "elapsed_days": elapsed_days,
+            "progress_pct": progress_pct,
+            "start_date": c["start_date"],
+            "end_date": c["end_date"]
+        })
+
+    if len(stats) == 1:
+        output(stats[0], ctx.obj['output_format'])
+    else:
+        output(stats, ctx.obj['output_format'])

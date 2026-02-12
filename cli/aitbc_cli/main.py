@@ -20,6 +20,7 @@ from .commands.simulate import simulate
 from .commands.admin import admin
 from .commands.config import config
 from .commands.monitor import monitor
+from .commands.governance import governance
 from .plugins import plugin, load_plugins
 
 
@@ -96,6 +97,7 @@ cli.add_command(simulate)
 cli.add_command(admin)
 cli.add_command(config)
 cli.add_command(monitor)
+cli.add_command(governance)
 cli.add_command(plugin)
 load_plugins(cli)
 

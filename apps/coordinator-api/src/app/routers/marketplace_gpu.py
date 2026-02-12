@@ -1,84 +1,24 @@
 """
-GPU-specific marketplace endpoints to support CLI commands
-Quick implementation with mock data to make CLI functional
+GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+
+from fastapi import APIRouter, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
+from sqlmodel import select, func, col
 
 from ..storage import SessionDep
+from ..domain.gpu_marketplace import GPURegistry, GPUBooking, GPUReview
 
 router = APIRouter(tags=["marketplace-gpu"])
 
-# In-memory storage for bookings (quick fix)
-gpu_bookings: Dict[str, Dict] = {}
-gpu_reviews: Dict[str, List[Dict]] = {}
-gpu_counter = 1
 
-# Mock GPU data
-mock_gpus = [
-    {
-        "id": "gpu_001",
-        "miner_id": "miner_001",
-        "model": "RTX 4090",
-        "memory_gb": 24,
-        "cuda_version": "12.0",
-        "region": "us-west",
-        "price_per_hour": 0.50,
-        "status": "available",
-        "capabilities": ["llama2-7b", "stable-diffusion-xl", "gpt-j"],
-        "created_at": "2025-12-28T10:00:00Z",
-        "average_rating": 4.5,
-        "total_reviews": 12
-    },
-    {
-        "id": "gpu_002",
-        "miner_id": "miner_002",
-        "model": "RTX 3080",
-        "memory_gb": 16,
-        "cuda_version": "11.8",
-        "region": "us-east",
-        "price_per_hour": 0.35,
-        "status": "available",
-        "capabilities": ["llama2-13b", "gpt-j"],
-        "created_at": "2025-12-28T09:30:00Z",
-        "average_rating": 4.2,
-        "total_reviews": 8
-    },
-    {
-        "id": "gpu_003",
-        "miner_id": "miner_003",
-        "model": "A100",
-        "memory_gb": 40,
-        "cuda_version": "12.0",
-        "region": "eu-west",
-        "price_per_hour": 1.20,
-        "status": "booked",
-        "capabilities": ["gpt-4", "claude-2", "llama2-70b"],
-        "created_at": "2025-12-28T08:00:00Z",
-        "average_rating": 4.8,
-        "total_reviews": 25
-    }
-]
-
-# Initialize some reviews
-gpu_reviews = {
-    "gpu_001": [
-        {"rating": 5, "comment": "Excellent performance!", "user": "client_001", "date": "2025-12-27"},
-        {"rating": 4, "comment": "Good value for money", "user": "client_002", "date": "2025-12-26"}
-    ],
-    "gpu_002": [
-        {"rating": 4, "comment": "Solid GPU for smaller models", "user": "client_003", "date": "2025-12-27"}
-    ],
-    "gpu_003": [
-        {"rating": 5, "comment": "Perfect for large models", "user": "client_004", "date": "2025-12-27"},
-        {"rating": 5, "comment": "Fast and reliable", "user": "client_005", "date": "2025-12-26"}
-    ]
-}
-
+# ---------------------------------------------------------------------------
+# Request schemas
+# ---------------------------------------------------------------------------
 
 class GPURegisterRequest(BaseModel):
     miner_id: str
@@ -87,7 +27,7 @@ class GPURegisterRequest(BaseModel):
     cuda_version: str
     region: str
     price_per_hour: float
-    capabilities: List[str]
+    capabilities: List[str] = []
 
 
 class GPUBookRequest(BaseModel):
@@ -100,288 +40,314 @@ class GPUReviewRequest(BaseModel):
     comment: str
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _gpu_to_dict(gpu: GPURegistry) -> Dict[str, Any]:
+    return {
+        "id": gpu.id,
+        "miner_id": gpu.miner_id,
+        "model": gpu.model,
+        "memory_gb": gpu.memory_gb,
+        "cuda_version": gpu.cuda_version,
+        "region": gpu.region,
+        "price_per_hour": gpu.price_per_hour,
+        "status": gpu.status,
+        "capabilities": gpu.capabilities,
+        "created_at": gpu.created_at.isoformat() + "Z",
+        "average_rating": gpu.average_rating,
+        "total_reviews": gpu.total_reviews,
+    }
+
+
+def _get_gpu_or_404(session, gpu_id: str) -> GPURegistry:
+    gpu = session.get(GPURegistry, gpu_id)
+    if not gpu:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"GPU {gpu_id} not found",
+        )
+    return gpu
+
+
+# ---------------------------------------------------------------------------
+# Endpoints
+# ---------------------------------------------------------------------------
+
 @router.post("/marketplace/gpu/register")
 async def register_gpu(
     request: Dict[str, Any],
-    session: SessionDep
+    session: SessionDep,
 ) -> Dict[str, Any]:
-    """Register a GPU in the marketplace"""
-    global gpu_counter
-    
-    # Extract GPU specs from the request
+    """Register a GPU in the marketplace."""
     gpu_specs = request.get("gpu", {})
-    
-    gpu_id = f"gpu_{gpu_counter:03d}"
-    gpu_counter += 1
-    
-    new_gpu = {
-        "id": gpu_id,
-        "miner_id": gpu_specs.get("miner_id", f"miner_{gpu_counter:03d}"),
-        "model": gpu_specs.get("name", "Unknown GPU"),
-        "memory_gb": gpu_specs.get("memory", 0),
-        "cuda_version": gpu_specs.get("cuda_version", "Unknown"),
-        "region": gpu_specs.get("region", "unknown"),
-        "price_per_hour": gpu_specs.get("price_per_hour", 0.0),
-        "status": "available",
-        "capabilities": gpu_specs.get("capabilities", []),
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "average_rating": 0.0,
-        "total_reviews": 0
-    }
-    
-    mock_gpus.append(new_gpu)
-    gpu_reviews[gpu_id] = []
-    
+
+    gpu = GPURegistry(
+        miner_id=gpu_specs.get("miner_id", ""),
+        model=gpu_specs.get("name", "Unknown GPU"),
+        memory_gb=gpu_specs.get("memory", 0),
+        cuda_version=gpu_specs.get("cuda_version", "Unknown"),
+        region=gpu_specs.get("region", "unknown"),
+        price_per_hour=gpu_specs.get("price_per_hour", 0.0),
+        capabilities=gpu_specs.get("capabilities", []),
+    )
+    session.add(gpu)
+    session.commit()
+    session.refresh(gpu)
+
     return {
-        "gpu_id": gpu_id,
+        "gpu_id": gpu.id,
         "status": "registered",
-        "message": f"GPU {gpu_specs.get('name', 'Unknown')} registered successfully"
+        "message": f"GPU {gpu.model} registered successfully",
     }
 
 
 @router.get("/marketplace/gpu/list")
 async def list_gpus(
+    session: SessionDep,
     available: Optional[bool] = Query(default=None),
     price_max: Optional[float] = Query(default=None),
     region: Optional[str] = Query(default=None),
     model: Optional[str] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500)
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> List[Dict[str, Any]]:
-    """List available GPUs"""
-    filtered_gpus = mock_gpus.copy()
-    
-    # Apply filters
+    """List GPUs with optional filters."""
+    stmt = select(GPURegistry)
+
     if available is not None:
-        filtered_gpus = [g for g in filtered_gpus if g["status"] == ("available" if available else "booked")]
-    
+        target_status = "available" if available else "booked"
+        stmt = stmt.where(GPURegistry.status == target_status)
     if price_max is not None:
-        filtered_gpus = [g for g in filtered_gpus if g["price_per_hour"] <= price_max]
-    
+        stmt = stmt.where(GPURegistry.price_per_hour <= price_max)
     if region:
-        filtered_gpus = [g for g in filtered_gpus if g["region"].lower() == region.lower()]
-    
+        stmt = stmt.where(func.lower(GPURegistry.region) == region.lower())
     if model:
-        filtered_gpus = [g for g in filtered_gpus if model.lower() in g["model"].lower()]
-    
-    return filtered_gpus[:limit]
+        stmt = stmt.where(col(GPURegistry.model).contains(model))
+
+    stmt = stmt.limit(limit)
+    gpus = session.exec(stmt).all()
+    return [_gpu_to_dict(g) for g in gpus]
 
 
 @router.get("/marketplace/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str) -> Dict[str, Any]:
-    """Get GPU details"""
-    gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-    
-    if not gpu:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"GPU {gpu_id} not found"
-        )
-    
-    # Add booking info if booked
-    if gpu["status"] == "booked" and gpu_id in gpu_bookings:
-        gpu["current_booking"] = gpu_bookings[gpu_id]
-    
-    return gpu
+async def get_gpu_details(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
+    """Get GPU details."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+    result = _gpu_to_dict(gpu)
+
+    if gpu.status == "booked":
+        booking = session.exec(
+            select(GPUBooking)
+            .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
+            .limit(1)
+        ).first()
+        if booking:
+            result["current_booking"] = {
+                "booking_id": booking.id,
+                "duration_hours": booking.duration_hours,
+                "total_cost": booking.total_cost,
+                "start_time": booking.start_time.isoformat() + "Z",
+                "end_time": booking.end_time.isoformat() + "Z" if booking.end_time else None,
+            }
+    return result
 
 
 @router.post("/marketplace/gpu/{gpu_id}/book", status_code=http_status.HTTP_201_CREATED)
-async def book_gpu(gpu_id: str, request: GPUBookRequest) -> Dict[str, Any]:
-    """Book a GPU"""
-    gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-    
-    if not gpu:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"GPU {gpu_id} not found"
-        )
-    
-    if gpu["status"] != "available":
+async def book_gpu(gpu_id: str, request: GPUBookRequest, session: SessionDep) -> Dict[str, Any]:
+    """Book a GPU."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    if gpu.status != "available":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
-            detail=f"GPU {gpu_id} is not available"
+            detail=f"GPU {gpu_id} is not available",
         )
-    
-    # Create booking
-    booking_id = f"booking_{gpu_id}_{int(datetime.utcnow().timestamp())}"
+
     start_time = datetime.utcnow()
     end_time = start_time + timedelta(hours=request.duration_hours)
-    
-    booking = {
-        "booking_id": booking_id,
-        "gpu_id": gpu_id,
-        "duration_hours": request.duration_hours,
-        "job_id": request.job_id,
-        "start_time": start_time.isoformat() + "Z",
-        "end_time": end_time.isoformat() + "Z",
-        "total_cost": request.duration_hours * gpu["price_per_hour"],
-        "status": "active"
-    }
-    
-    # Update GPU status
-    gpu["status"] = "booked"
-    gpu_bookings[gpu_id] = booking
-    
+    total_cost = request.duration_hours * gpu.price_per_hour
+
+    booking = GPUBooking(
+        gpu_id=gpu_id,
+        job_id=request.job_id,
+        duration_hours=request.duration_hours,
+        total_cost=total_cost,
+        start_time=start_time,
+        end_time=end_time,
+    )
+    gpu.status = "booked"
+    session.add(booking)
+    session.commit()
+    session.refresh(booking)
+
     return {
-        "booking_id": booking_id,
+        "booking_id": booking.id,
         "gpu_id": gpu_id,
         "status": "booked",
-        "total_cost": booking["total_cost"],
-        "start_time": booking["start_time"],
-        "end_time": booking["end_time"]
+        "total_cost": booking.total_cost,
+        "start_time": booking.start_time.isoformat() + "Z",
+        "end_time": booking.end_time.isoformat() + "Z",
     }
 
 
 @router.post("/marketplace/gpu/{gpu_id}/release")
-async def release_gpu(gpu_id: str) -> Dict[str, Any]:
-    """Release a booked GPU"""
-    gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-    
-    if not gpu:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"GPU {gpu_id} not found"
-        )
-    
-    if gpu["status"] != "booked":
+async def release_gpu(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
+    """Release a booked GPU."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    if gpu.status != "booked":
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail=f"GPU {gpu_id} is not booked"
+            detail=f"GPU {gpu_id} is not booked",
         )
-    
-    # Get booking info for refund calculation
-    booking = gpu_bookings.get(gpu_id, {})
+
+    booking = session.exec(
+        select(GPUBooking)
+        .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
+        .limit(1)
+    ).first()
+
     refund = 0.0
-    
     if booking:
-        # Calculate refund (simplified - 50% if released early)
-        refund = booking.get("total_cost", 0.0) * 0.5
-        del gpu_bookings[gpu_id]
-    
-    # Update GPU status
-    gpu["status"] = "available"
-    
+        refund = booking.total_cost * 0.5
+        booking.status = "cancelled"
+
+    gpu.status = "available"
+    session.commit()
+
     return {
         "status": "released",
         "gpu_id": gpu_id,
         "refund": refund,
-        "message": f"GPU {gpu_id} released successfully"
+        "message": f"GPU {gpu_id} released successfully",
     }
 
 
 @router.get("/marketplace/gpu/{gpu_id}/reviews")
 async def get_gpu_reviews(
     gpu_id: str,
-    limit: int = Query(default=10, ge=1, le=100)
+    session: SessionDep,
+    limit: int = Query(default=10, ge=1, le=100),
 ) -> Dict[str, Any]:
-    """Get GPU reviews"""
-    gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-    
-    if not gpu:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"GPU {gpu_id} not found"
-        )
-    
-    reviews = gpu_reviews.get(gpu_id, [])
-    
+    """Get GPU reviews."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    reviews = session.exec(
+        select(GPUReview)
+        .where(GPUReview.gpu_id == gpu_id)
+        .order_by(GPUReview.created_at.desc())
+        .limit(limit)
+    ).all()
+
     return {
         "gpu_id": gpu_id,
-        "average_rating": gpu["average_rating"],
-        "total_reviews": gpu["total_reviews"],
-        "reviews": reviews[:limit]
+        "average_rating": gpu.average_rating,
+        "total_reviews": gpu.total_reviews,
+        "reviews": [
+            {
+                "rating": r.rating,
+                "comment": r.comment,
+                "user": r.user_id,
+                "date": r.created_at.isoformat() + "Z",
+            }
+            for r in reviews
+        ],
     }
 
 
 @router.post("/marketplace/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
-async def add_gpu_review(gpu_id: str, request: GPUReviewRequest) -> Dict[str, Any]:
-    """Add a review for a GPU"""
-    gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-    
-    if not gpu:
-        raise HTTPException(
-            status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"GPU {gpu_id} not found"
-        )
-    
-    # Add review
-    review = {
-        "rating": request.rating,
-        "comment": request.comment,
-        "user": "current_user",  # Would get from auth context
-        "date": datetime.utcnow().isoformat() + "Z"
-    }
-    
-    if gpu_id not in gpu_reviews:
-        gpu_reviews[gpu_id] = []
-    
-    gpu_reviews[gpu_id].append(review)
-    
-    # Update average rating
-    all_reviews = gpu_reviews[gpu_id]
-    gpu["average_rating"] = sum(r["rating"] for r in all_reviews) / len(all_reviews)
-    gpu["total_reviews"] = len(all_reviews)
-    
+async def add_gpu_review(
+    gpu_id: str, request: GPUReviewRequest, session: SessionDep
+) -> Dict[str, Any]:
+    """Add a review for a GPU."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    review = GPUReview(
+        gpu_id=gpu_id,
+        user_id="current_user",
+        rating=request.rating,
+        comment=request.comment,
+    )
+    session.add(review)
+    session.flush()  # ensure the new review is visible to aggregate queries
+
+    # Recalculate average from DB (new review already included after flush)
+    total_count = session.exec(
+        select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)
+    ).one()
+    avg_rating = session.exec(
+        select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)
+    ).one() or 0.0
+
+    gpu.average_rating = round(float(avg_rating), 2)
+    gpu.total_reviews = total_count
+    session.commit()
+    session.refresh(review)
+
     return {
         "status": "review_added",
         "gpu_id": gpu_id,
-        "review_id": f"review_{len(all_reviews)}",
-        "average_rating": gpu["average_rating"]
+        "review_id": review.id,
+        "average_rating": gpu.average_rating,
     }
 
 
 @router.get("/marketplace/orders")
 async def list_orders(
+    session: SessionDep,
     status: Optional[str] = Query(default=None),
-    limit: int = Query(default=100, ge=1, le=500)
+    limit: int = Query(default=100, ge=1, le=500),
 ) -> List[Dict[str, Any]]:
-    """List orders (bookings)"""
-    orders = []
-    
-    for gpu_id, booking in gpu_bookings.items():
-        gpu = next((g for g in mock_gpus if g["id"] == gpu_id), None)
-        if gpu:
-            order = {
-                "order_id": booking["booking_id"],
-                "gpu_id": gpu_id,
-                "gpu_model": gpu["model"],
-                "miner_id": gpu["miner_id"],
-                "duration_hours": booking["duration_hours"],
-                "total_cost": booking["total_cost"],
-                "status": booking["status"],
-                "created_at": booking["start_time"],
-                "job_id": booking.get("job_id")
-            }
-            orders.append(order)
-    
+    """List orders (bookings)."""
+    stmt = select(GPUBooking)
     if status:
-        orders = [o for o in orders if o["status"] == status]
-    
-    return orders[:limit]
+        stmt = stmt.where(GPUBooking.status == status)
+    stmt = stmt.order_by(GPUBooking.created_at.desc()).limit(limit)
+
+    bookings = session.exec(stmt).all()
+    orders = []
+    for b in bookings:
+        gpu = session.get(GPURegistry, b.gpu_id)
+        orders.append({
+            "order_id": b.id,
+            "gpu_id": b.gpu_id,
+            "gpu_model": gpu.model if gpu else "unknown",
+            "miner_id": gpu.miner_id if gpu else "",
+            "duration_hours": b.duration_hours,
+            "total_cost": b.total_cost,
+            "status": b.status,
+            "created_at": b.start_time.isoformat() + "Z",
+            "job_id": b.job_id,
+        })
+    return orders
 
 
 @router.get("/marketplace/pricing/{model}")
-async def get_pricing(model: str) -> Dict[str, Any]:
-    """Get pricing information for a model"""
-    # Find GPUs that support this model
-    compatible_gpus = [
-        gpu for gpu in mock_gpus
-        if any(model.lower() in cap.lower() for cap in gpu["capabilities"])
+async def get_pricing(model: str, session: SessionDep) -> Dict[str, Any]:
+    """Get pricing information for a model."""
+    # SQLite JSON doesn't support array contains, so fetch all and filter in Python
+    all_gpus = session.exec(select(GPURegistry)).all()
+    compatible = [
+        g for g in all_gpus
+        if any(model.lower() in cap.lower() for cap in (g.capabilities or []))
     ]
-    
-    if not compatible_gpus:
+
+    if not compatible:
         raise HTTPException(
             status_code=http_status.HTTP_404_NOT_FOUND,
-            detail=f"No GPUs found for model {model}"
+            detail=f"No GPUs found for model {model}",
         )
-    
-    prices = [gpu["price_per_hour"] for gpu in compatible_gpus]
-    
+
+    prices = [g.price_per_hour for g in compatible]
+    cheapest = min(compatible, key=lambda g: g.price_per_hour)
+
     return {
         "model": model,
         "min_price": min(prices),
         "max_price": max(prices),
         "average_price": sum(prices) / len(prices),
-        "available_gpus": len([g for g in compatible_gpus if g["status"] == "available"]),
-        "total_gpus": len(compatible_gpus),
-        "recommended_gpu": min(compatible_gpus, key=lambda x: x["price_per_hour"])["id"]
+        "available_gpus": len([g for g in compatible if g.status == "available"]),
+        "total_gpus": len(compatible),
+        "recommended_gpu": cheapest.id,
     }

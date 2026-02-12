@@ -449,7 +449,15 @@ async def send_transaction(request: TransactionRequest) -> Dict[str, Any]:
     start = time.perf_counter()
     mempool = get_mempool()
     tx_dict = request.model_dump()
-    tx_hash = mempool.add(tx_dict)
+    try:
+        tx_hash = mempool.add(tx_dict)
+    except ValueError as e:
+        metrics_registry.increment("rpc_send_tx_rejected_total")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        metrics_registry.increment("rpc_send_tx_failed_total")
+        raise HTTPException(status_code=503, detail=f"Mempool unavailable: {e}")
+    recipient = request.payload.get("recipient", "")
     try:
         asyncio.create_task(
             gossip_broker.publish(
@@ -457,7 +465,7 @@ async def send_transaction(request: TransactionRequest) -> Dict[str, Any]:
                 {
                     "tx_hash": tx_hash,
                     "sender": request.sender,
-                    "recipient": request.recipient,
+                    "recipient": recipient,
                     "payload": request.payload,
                     "nonce": request.nonce,
                     "fee": request.fee,
@@ -536,3 +544,63 @@ async def mint_faucet(request: MintFaucetRequest) -> Dict[str, Any]:
     metrics_registry.increment("rpc_mint_faucet_success_total")
     metrics_registry.observe("rpc_mint_faucet_duration_seconds", time.perf_counter() - start)
     return {"address": request.address, "balance": updated_balance}
+
+
+class ImportBlockRequest(BaseModel):
+    height: int
+    hash: str
+    parent_hash: str
+    proposer: str
+    timestamp: str
+    tx_count: int = 0
+    state_root: Optional[str] = None
+    transactions: Optional[list] = None
+
+
+@router.post("/importBlock", summary="Import a block from a remote peer")
+async def import_block(request: ImportBlockRequest) -> Dict[str, Any]:
+    from ..sync import ChainSync, ProposerSignatureValidator
+    from ..config import settings as cfg
+
+    metrics_registry.increment("rpc_import_block_total")
+    start = time.perf_counter()
+
+    trusted = [p.strip() for p in cfg.trusted_proposers.split(",") if p.strip()]
+    validator = ProposerSignatureValidator(trusted_proposers=trusted if trusted else None)
+    sync = ChainSync(
+        session_factory=session_scope,
+        chain_id=cfg.chain_id,
+        max_reorg_depth=cfg.max_reorg_depth,
+        validator=validator,
+        validate_signatures=cfg.sync_validate_signatures,
+    )
+
+    block_data = request.model_dump(exclude={"transactions"})
+    result = sync.import_block(block_data, request.transactions)
+
+    duration = time.perf_counter() - start
+    metrics_registry.observe("rpc_import_block_duration_seconds", duration)
+
+    if result.accepted:
+        metrics_registry.increment("rpc_import_block_accepted_total")
+    else:
+        metrics_registry.increment("rpc_import_block_rejected_total")
+
+    return {
+        "accepted": result.accepted,
+        "height": result.height,
+        "hash": result.block_hash,
+        "reason": result.reason,
+        "reorged": result.reorged,
+        "reorg_depth": result.reorg_depth,
+    }
+
+
+@router.get("/syncStatus", summary="Get chain sync status")
+async def sync_status() -> Dict[str, Any]:
+    from ..sync import ChainSync
+    from ..config import settings as cfg
+
+    metrics_registry.increment("rpc_sync_status_total")
+    sync = ChainSync(session_factory=session_scope, chain_id=cfg.chain_id)
+    return sync.get_sync_status()
