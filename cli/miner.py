@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Optional
 
 # Configuration
-DEFAULT_COORDINATOR = "http://localhost:8001"
+DEFAULT_COORDINATOR = "http://localhost:8000"
 DEFAULT_API_KEY = "${MINER_API_KEY}"
 DEFAULT_MINER_ID = "cli-miner"
 

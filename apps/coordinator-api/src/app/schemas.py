@@ -190,6 +190,12 @@ class MarketplaceOfferView(BaseModel):
     sla: str
     status: str
     created_at: datetime
+    gpu_model: Optional[str] = None
+    gpu_memory_gb: Optional[int] = None
+    gpu_count: Optional[int] = 1
+    cuda_version: Optional[str] = None
+    price_per_hour: Optional[float] = None
+    region: Optional[str] = None
 
 
 class MarketplaceStatsView(BaseModel):

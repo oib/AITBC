@@ -1,0 +1,120 @@
+.TH AITBC 1 "February 2026" "AITBC CLI" "User Commands"
+.SH NAME
+aitbc \- command-line interface for the AITBC network
+.SH SYNOPSIS
+.B aitbc
+[\fIOPTIONS\fR] \fICOMMAND\fR [\fIARGS\fR]...
+.SH DESCRIPTION
+The AITBC CLI provides a comprehensive command-line interface for interacting
+with the AITBC network. It supports job submission, mining operations, wallet
+management, blockchain queries, marketplace operations, system administration,
+monitoring, and test simulations.
+.SH GLOBAL OPTIONS
+.TP
+\fB\-\-url\fR \fITEXT\fR
+Coordinator API URL (overrides config)
+.TP
+\fB\-\-api\-key\fR \fITEXT\fR
+API key (overrides config)
+.TP
+\fB\-\-output\fR [table|json|yaml]
+Output format (default: table)
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+Increase verbosity (use -v, -vv, -vvv)
+.TP
+\fB\-\-debug\fR
+Enable debug mode
+.TP
+\fB\-\-config\-file\fR \fITEXT\fR
+Path to config file
+.TP
+\fB\-\-version\fR
+Show version and exit
+.TP
+\fB\-\-help\fR
+Show help message and exit
+.SH COMMANDS
+.TP
+\fBclient\fR
+Submit and manage inference jobs (submit, status, blocks, receipts, cancel, history, batch-submit, template)
+.TP
+\fBminer\fR
+Register as a miner and process jobs (register, poll, mine, heartbeat, status, earnings, update-capabilities, deregister, jobs, concurrent-mine)
+.TP
+\fBwallet\fR
+Manage wallets and transactions (balance, earn, spend, send, history, address, stats, stake, unstake, staking-info, multisig-create, multisig-propose, multisig-sign, create, list, switch, delete, backup, restore, info, request-payment)
+.TP
+\fBauth\fR
+Manage API keys and authentication (login, logout, token, status, refresh, keys, import-env)
+.TP
+\fBblockchain\fR
+Query blockchain information (blocks, block, transaction, status, sync-status, peers, info, supply, validators)
+.TP
+\fBmarketplace\fR
+GPU marketplace operations (gpu register/list/details/book/release, orders, pricing, reviews)
+.TP
+\fBadmin\fR
+System administration (status, jobs, miners, analytics, logs, maintenance, audit-log)
+.TP
+\fBconfig\fR
+Manage CLI configuration (show, set, path, edit, reset, export, import, validate, environments, profiles, set-secret, get-secret)
+.TP
+\fBmonitor\fR
+Monitoring and alerting (dashboard, metrics, alerts, history, webhooks)
+.TP
+\fBsimulate\fR
+Run simulations (init, user, workflow, load-test, scenario, results, reset)
+.SH EXAMPLES
+.PP
+Submit a job:
+.RS
+aitbc client submit --prompt "What is AI?" --model gpt-4
+.RE
+.PP
+Check wallet balance:
+.RS
+aitbc wallet balance
+.RE
+.PP
+Start mining:
+.RS
+aitbc miner register --gpu-model RTX4090 --memory 24 --price 0.5
+.br
+aitbc miner poll --interval 5
+.RE
+.PP
+Monitor system:
+.RS
+aitbc monitor dashboard --refresh 5
+.RE
+.SH ENVIRONMENT
+.TP
+\fBCLIENT_API_KEY\fR
+API key for authentication
+.TP
+\fBAITBC_COORDINATOR_URL\fR
+Coordinator API URL
+.TP
+\fBAITBC_OUTPUT_FORMAT\fR
+Default output format
+.TP
+\fBAITBC_CONFIG_FILE\fR
+Path to configuration file
+.SH FILES
+.TP
+\fB~/.config/aitbc/config.yaml\fR
+Default configuration file
+.TP
+\fB~/.aitbc/wallets/\fR
+Wallet storage directory
+.TP
+\fB~/.aitbc/audit/audit.jsonl\fR
+Audit log file
+.TP
+\fB~/.aitbc/templates/\fR
+Job template storage
+.SH SEE ALSO
+Full documentation: https://docs.aitbc.net
+.SH AUTHORS
+AITBC Development Team
