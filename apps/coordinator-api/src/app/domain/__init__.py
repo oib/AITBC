@@ -6,6 +6,7 @@ from .job_receipt import JobReceipt
 from .marketplace import MarketplaceOffer, MarketplaceBid
 from .user import User, Wallet
 from .payment import JobPayment, PaymentEscrow
+from .gpu_marketplace import GPURegistry, GPUBooking, GPUReview
 
 __all__ = [
     "Job",
@@ -17,4 +18,7 @@ __all__ = [
     "Wallet",
     "JobPayment",
     "PaymentEscrow",
+    "GPURegistry",
+    "GPUBooking",
+    "GPUReview",
 ]

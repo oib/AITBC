@@ -72,8 +72,9 @@ The AITBC platform consists of 7 core components working together to provide a c
 
 ### CLI & Tooling
 
-- **AITBC CLI** - 11 command groups, 80+ subcommands (116/116 tests passing)
-  - Client, miner, wallet, auth, blockchain, marketplace, admin, config, monitor, simulate, plugin
+- **AITBC CLI** - 12 command groups, 90+ subcommands (165/165 tests passing)
+  - Client, miner, wallet, auth, blockchain, marketplace, admin, config, monitor, simulate, governance, plugin
+  - 141 unit tests + 24 integration tests (CLI → live coordinator)
   - CI/CD via GitHub Actions, man page, shell completion
 
 ## Component Interactions

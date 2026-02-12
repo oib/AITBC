@@ -2,7 +2,7 @@
 
 ## Status: ALL PHASES COMPLETE ✅
 
-**116/116 tests passing** | **0 failures** | **11 command groups** | **80+ subcommands**
+**141/141 tests passing** | **0 failures** | **12 command groups** | **90+ subcommands**
 
 ## Completed Phases
 
@@ -20,7 +20,7 @@
 - blockchain.py, marketplace.py, admin.py, config.py, simulate.py
 
 ### Phase 3: Testing & Documentation ✅
-- 116/116 CLI tests across 8 test files (0 failures)
+- 141/141 CLI unit tests across 9 test files + 24 integration tests (0 failures)
 - CI/CD: `.github/workflows/cli-tests.yml` (Python 3.10/3.11/3.12)
 - CLI reference docs (`docs/cli-reference.md` — 560+ lines)
 - Shell completion script, man page (`cli/man/aitbc.1`)
@@ -35,33 +35,35 @@
 - **Security**: Multi-signature wallets, encrypted config, audit logging
 - **UX**: Rich progress bars, colored output, interactive prompts, auto-completion, man pages
 
-## Test Coverage (116 tests)
+## Test Coverage (141 tests)
 
 | File | Tests |
 |------|-------|
 | test_config.py | 37 |
-| test_wallet.py | 17 |
+| test_wallet.py | 24 |
 | test_auth.py | 15 |
 | test_admin.py | 13 |
+| test_governance.py | 13 |
 | test_simulate.py | 12 |
 | test_marketplace.py | 11 |
 | test_blockchain.py | 10 |
-| test_client.py | 8 |
+| test_client.py | 12 |
 
 ## CLI Structure
 
 ```
 aitbc
-├── client      - Submit/manage jobs, batch submit, templates
+├── client      - Submit/manage jobs, batch submit, templates, payments
 ├── miner       - Register, mine, earnings, capabilities, concurrent
-├── wallet      - Balance, staking, multisig, backup/restore
+├── wallet      - Balance, staking, multisig, backup/restore, liquidity
 ├── auth        - Login/logout, tokens, API keys
 ├── blockchain  - Blocks, transactions, validators, supply
 ├── marketplace - GPU list/book/release, orders, reviews
 ├── admin       - Status, jobs, miners, maintenance, audit-log
 ├── config      - Set/get, profiles, secrets, import/export
-├── monitor     - Dashboard, metrics, alerts, webhooks, history
+├── monitor     - Dashboard, metrics, alerts, webhooks, campaigns
 ├── simulate    - Init, users, workflow, load-test, scenarios
+├── governance  - Propose, vote, list, result
 ├── plugin      - Install/uninstall/list/toggle custom commands
 └── version     - Show version information
 ```

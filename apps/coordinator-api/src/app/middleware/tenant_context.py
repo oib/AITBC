@@ -16,6 +16,7 @@ from sqlmodel import SQLModel as Base
 from ..models.multitenant import Tenant, TenantApiKey
 from ..services.tenant_management import TenantManagementService
 from ..exceptions import TenantError
+from ..storage.db_pg import get_db
 
 
 # Context variable for current tenant
@@ -195,10 +196,44 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
             db.close()
     
     async def _extract_from_token(self, request: Request) -> Optional[Tenant]:
-        """Extract tenant from JWT token"""
-        # TODO: Implement JWT token extraction
-        # This would decode the JWT and extract tenant_id from claims
-        return None
+        """Extract tenant from JWT token (HS256 signed)."""
+        import json, hmac as _hmac, base64 as _b64
+
+        auth_header = request.headers.get("Authorization", "")
+        if not auth_header.startswith("Bearer "):
+            return None
+
+        token = auth_header[7:]
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+
+        try:
+            # Verify HS256 signature
+            secret = request.app.state.jwt_secret if hasattr(request.app.state, "jwt_secret") else ""
+            if not secret:
+                return None
+            expected_sig = _hmac.new(
+                secret.encode(), f"{parts[0]}.{parts[1]}".encode(), "sha256"
+            ).hexdigest()
+            if not _hmac.compare_digest(parts[2], expected_sig):
+                return None
+
+            # Decode payload
+            padded = parts[1] + "=" * (-len(parts[1]) % 4)
+            payload = json.loads(_b64.urlsafe_b64decode(padded))
+            tenant_id = payload.get("tenant_id")
+            if not tenant_id:
+                return None
+
+            db = next(get_db())
+            try:
+                service = TenantManagementService(db)
+                return await service.get_tenant(tenant_id)
+            finally:
+                db.close()
+        except Exception:
+            return None
 
 
 class TenantRowLevelSecurity:

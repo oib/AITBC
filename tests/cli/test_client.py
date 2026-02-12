@@ -242,3 +242,145 @@ class TestClientCommands:
         
         assert result.exit_code != 0
         assert 'Error' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_pay_command_success(self, mock_client_class, runner, mock_config):
+        """Test creating a payment for a job"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 201
+        mock_response.json.return_value = {
+            "job_id": "job_123",
+            "payment_id": "pay_abc",
+            "amount": 10.0,
+            "currency": "AITBC",
+            "status": "escrowed"
+        }
+        mock_client.post.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'pay', 'job_123', '10.0',
+            '--currency', 'AITBC',
+            '--method', 'aitbc_token'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code == 0
+        assert 'pay_abc' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_pay_command_failure(self, mock_client_class, runner, mock_config):
+        """Test payment creation failure"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.text = "Bad Request"
+        mock_client.post.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'pay', 'job_123', '10.0'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code != 0
+        assert 'Payment failed' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_payment_status_success(self, mock_client_class, runner, mock_config):
+        """Test getting payment status for a job"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "job_id": "job_123",
+            "payment_id": "pay_abc",
+            "status": "escrowed",
+            "amount": 10.0
+        }
+        mock_client.get.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'payment-status', 'job_123'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code == 0
+        assert 'escrowed' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_payment_status_not_found(self, mock_client_class, runner, mock_config):
+        """Test payment status when no payment exists"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 404
+        mock_client.get.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'payment-status', 'job_999'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code != 0
+        assert 'No payment found' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_payment_receipt_success(self, mock_client_class, runner, mock_config):
+        """Test getting a payment receipt"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "payment_id": "pay_abc",
+            "job_id": "job_123",
+            "amount": 10.0,
+            "status": "released",
+            "transaction_hash": "0xabc123"
+        }
+        mock_client.get.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'payment-receipt', 'pay_abc'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code == 0
+        assert '0xabc123' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_refund_success(self, mock_client_class, runner, mock_config):
+        """Test requesting a refund"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "refunded",
+            "payment_id": "pay_abc"
+        }
+        mock_client.post.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'refund', 'job_123', 'pay_abc',
+            '--reason', 'Job timed out'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code == 0
+        assert 'refunded' in result.output
+
+    @patch('aitbc_cli.commands.client.httpx.Client')
+    def test_refund_failure(self, mock_client_class, runner, mock_config):
+        """Test refund failure"""
+        mock_client = Mock()
+        mock_client_class.return_value.__enter__.return_value = mock_client
+        mock_response = Mock()
+        mock_response.status_code = 400
+        mock_response.text = "Cannot refund released payment"
+        mock_client.post.return_value = mock_response
+
+        result = runner.invoke(client, [
+            'refund', 'job_123', 'pay_abc',
+            '--reason', 'Changed mind'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+
+        assert result.exit_code != 0
+        assert 'Refund failed' in result.output

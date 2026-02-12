@@ -988,3 +988,199 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     }, ctx.obj.get('output_format', 'table'))
 
 
+@wallet.command(name="liquidity-stake")
+@click.argument("amount", type=float)
+@click.option("--pool", default="main", help="Liquidity pool name")
+@click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
+@click.pass_context
+def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
+    """Stake tokens into a liquidity pool"""
+    wallet_path = ctx.obj.get('wallet_path')
+    if not wallet_path or not Path(wallet_path).exists():
+        error("Wallet not found")
+        ctx.exit(1)
+        return
+
+    with open(wallet_path) as f:
+        wallet_data = json.load(f)
+
+    balance = wallet_data.get('balance', 0)
+    if balance < amount:
+        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
+        ctx.exit(1)
+        return
+
+    # APY tiers based on lock period
+    if lock_days >= 90:
+        apy = 12.0
+        tier = "platinum"
+    elif lock_days >= 30:
+        apy = 8.0
+        tier = "gold"
+    elif lock_days >= 7:
+        apy = 5.0
+        tier = "silver"
+    else:
+        apy = 3.0
+        tier = "bronze"
+
+    import secrets
+    stake_id = f"liq_{secrets.token_hex(6)}"
+    now = datetime.now()
+
+    liq_record = {
+        "stake_id": stake_id,
+        "pool": pool,
+        "amount": amount,
+        "apy": apy,
+        "tier": tier,
+        "lock_days": lock_days,
+        "start_date": now.isoformat(),
+        "unlock_date": (now + timedelta(days=lock_days)).isoformat() if lock_days > 0 else None,
+        "status": "active"
+    }
+
+    wallet_data.setdefault('liquidity', []).append(liq_record)
+    wallet_data['balance'] = balance - amount
+
+    wallet_data['transactions'].append({
+        "type": "liquidity_stake",
+        "amount": -amount,
+        "pool": pool,
+        "stake_id": stake_id,
+        "timestamp": now.isoformat()
+    })
+
+    with open(wallet_path, "w") as f:
+        json.dump(wallet_data, f, indent=2)
+
+    success(f"Staked {amount} AITBC into '{pool}' pool ({tier} tier, {apy}% APY)")
+    output({
+        "stake_id": stake_id,
+        "pool": pool,
+        "amount": amount,
+        "apy": apy,
+        "tier": tier,
+        "lock_days": lock_days,
+        "new_balance": wallet_data['balance']
+    }, ctx.obj.get('output_format', 'table'))
+
+
+@wallet.command(name="liquidity-unstake")
+@click.argument("stake_id")
+@click.pass_context
+def liquidity_unstake(ctx, stake_id: str):
+    """Withdraw from a liquidity pool with rewards"""
+    wallet_path = ctx.obj.get('wallet_path')
+    if not wallet_path or not Path(wallet_path).exists():
+        error("Wallet not found")
+        ctx.exit(1)
+        return
+
+    with open(wallet_path) as f:
+        wallet_data = json.load(f)
+
+    liquidity = wallet_data.get('liquidity', [])
+    record = next((r for r in liquidity if r["stake_id"] == stake_id and r["status"] == "active"), None)
+
+    if not record:
+        error(f"Active liquidity stake '{stake_id}' not found")
+        ctx.exit(1)
+        return
+
+    # Check lock period
+    if record.get("unlock_date"):
+        unlock = datetime.fromisoformat(record["unlock_date"])
+        if datetime.now() < unlock:
+            error(f"Stake is locked until {record['unlock_date']}")
+            ctx.exit(1)
+            return
+
+    # Calculate rewards
+    start = datetime.fromisoformat(record["start_date"])
+    days_staked = max((datetime.now() - start).total_seconds() / 86400, 0.001)
+    rewards = record["amount"] * (record["apy"] / 100) * (days_staked / 365)
+    total = record["amount"] + rewards
+
+    record["status"] = "completed"
+    record["end_date"] = datetime.now().isoformat()
+    record["rewards"] = round(rewards, 6)
+
+    wallet_data['balance'] = wallet_data.get('balance', 0) + total
+
+    wallet_data['transactions'].append({
+        "type": "liquidity_unstake",
+        "amount": total,
+        "principal": record["amount"],
+        "rewards": round(rewards, 6),
+        "pool": record["pool"],
+        "stake_id": stake_id,
+        "timestamp": datetime.now().isoformat()
+    })
+
+    with open(wallet_path, "w") as f:
+        json.dump(wallet_data, f, indent=2)
+
+    success(f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})")
+    output({
+        "stake_id": stake_id,
+        "pool": record["pool"],
+        "principal": record["amount"],
+        "rewards": round(rewards, 6),
+        "total_returned": round(total, 6),
+        "days_staked": round(days_staked, 2),
+        "apy": record["apy"],
+        "new_balance": round(wallet_data['balance'], 6)
+    }, ctx.obj.get('output_format', 'table'))
+
+
+@wallet.command()
+@click.pass_context
+def rewards(ctx):
+    """View all earned rewards (staking + liquidity)"""
+    wallet_path = ctx.obj.get('wallet_path')
+    if not wallet_path or not Path(wallet_path).exists():
+        error("Wallet not found")
+        ctx.exit(1)
+        return
+
+    with open(wallet_path) as f:
+        wallet_data = json.load(f)
+
+    staking = wallet_data.get('staking', [])
+    liquidity = wallet_data.get('liquidity', [])
+
+    # Staking rewards
+    staking_rewards = sum(s.get('rewards', 0) for s in staking if s.get('status') == 'completed')
+    active_staking = sum(s['amount'] for s in staking if s.get('status') == 'active')
+
+    # Liquidity rewards
+    liq_rewards = sum(r.get('rewards', 0) for r in liquidity if r.get('status') == 'completed')
+    active_liquidity = sum(r['amount'] for r in liquidity if r.get('status') == 'active')
+
+    # Estimate pending rewards for active positions
+    pending_staking = 0
+    for s in staking:
+        if s.get('status') == 'active':
+            start = datetime.fromisoformat(s['start_date'])
+            days = max((datetime.now() - start).total_seconds() / 86400, 0)
+            pending_staking += s['amount'] * (s['apy'] / 100) * (days / 365)
+
+    pending_liquidity = 0
+    for r in liquidity:
+        if r.get('status') == 'active':
+            start = datetime.fromisoformat(r['start_date'])
+            days = max((datetime.now() - start).total_seconds() / 86400, 0)
+            pending_liquidity += r['amount'] * (r['apy'] / 100) * (days / 365)
+
+    output({
+        "staking_rewards_earned": round(staking_rewards, 6),
+        "staking_rewards_pending": round(pending_staking, 6),
+        "staking_active_amount": active_staking,
+        "liquidity_rewards_earned": round(liq_rewards, 6),
+        "liquidity_rewards_pending": round(pending_liquidity, 6),
+        "liquidity_active_amount": active_liquidity,
+        "total_earned": round(staking_rewards + liq_rewards, 6),
+        "total_pending": round(pending_staking + pending_liquidity, 6),
+        "total_staked": active_staking + active_liquidity
+    }, ctx.obj.get('output_format', 'table'))

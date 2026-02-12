@@ -72,7 +72,7 @@ apps/coordinator-api/
 │   ├── exceptions.py        # Custom exceptions
 │   ├── logging.py           # Logging config
 │   ├── metrics.py           # Prometheus metrics
-│   ├── domain/              # Domain models (job, miner, payment, user, marketplace)
+│   ├── domain/              # Domain models (job, miner, payment, user, marketplace, gpu_marketplace)
 │   ├── models/              # DB models (registry, confidential, multitenant, services)
 │   ├── routers/             # API endpoints (admin, client, miner, marketplace, payments, governance, exchange, explorer, ZK)
 │   ├── services/            # Business logic (jobs, miners, payments, receipts, ZK proofs, encryption, HSM, blockchain, bitcoin wallet)
@@ -222,6 +222,9 @@ infra/
 
 ```
 tests/
+├── cli/                     # CLI tests (141 unit + 24 integration tests)
+│   ├── test_cli_integration.py  # CLI → live coordinator integration tests
+│   └── test_*.py            # CLI unit tests (admin, auth, blockchain, client, config, etc.)
 ├── unit/                    # Unit tests (blockchain node, coordinator API, wallet daemon)
 ├── integration/             # Integration tests (blockchain node, full workflow)
 ├── e2e/                     # End-to-end tests (user scenarios, wallet daemon)
@@ -252,7 +255,7 @@ website/
 
 | Directory | Purpose |
 |-----------|---------|
-| `cli/` | AITBC CLI package (11 command groups, 80+ subcommands, 116 tests, CI/CD, man page, plugins) |
+| `cli/` | AITBC CLI package (12 command groups, 90+ subcommands, 141 unit + 24 integration tests, CI/CD, man page, plugins) |
 | `plugins/ollama/` | Ollama LLM integration (client plugin, miner plugin, service layer) |
 | `home/` | Local simulation scripts for client/miner workflows |
 | `extensions/` | Firefox wallet extension source code |
