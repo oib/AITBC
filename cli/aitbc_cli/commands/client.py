@@ -371,3 +371,129 @@ def template(ctx, action: str, name: Optional[str], job_type: Optional[str],
             return
         tf.unlink()
         output({"status": "deleted", "name": name}, ctx.obj['output_format'])
+
+
+@client.command(name="pay")
+@click.argument("job_id")
+@click.argument("amount", type=float)
+@click.option("--currency", default="AITBC", help="Payment currency")
+@click.option("--method", "payment_method", default="aitbc_token", type=click.Choice(["aitbc_token", "bitcoin"]), help="Payment method")
+@click.option("--escrow-timeout", type=int, default=3600, help="Escrow timeout in seconds")
+@click.pass_context
+def pay(ctx, job_id: str, amount: float, currency: str, payment_method: str, escrow_timeout: int):
+    """Create a payment for a job"""
+    config = ctx.obj['config']
+
+    try:
+        with httpx.Client() as http_client:
+            response = http_client.post(
+                f"{config.coordinator_url}/v1/payments",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Api-Key": config.api_key or ""
+                },
+                json={
+                    "job_id": job_id,
+                    "amount": amount,
+                    "currency": currency,
+                    "payment_method": payment_method,
+                    "escrow_timeout_seconds": escrow_timeout
+                }
+            )
+            if response.status_code == 201:
+                result = response.json()
+                success(f"Payment created for job {job_id}")
+                output(result, ctx.obj['output_format'])
+            else:
+                error(f"Payment failed: {response.status_code} - {response.text}")
+                ctx.exit(1)
+    except Exception as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+
+
+@client.command(name="payment-status")
+@click.argument("job_id")
+@click.pass_context
+def payment_status(ctx, job_id: str):
+    """Get payment status for a job"""
+    config = ctx.obj['config']
+
+    try:
+        with httpx.Client() as http_client:
+            response = http_client.get(
+                f"{config.coordinator_url}/v1/jobs/{job_id}/payment",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            elif response.status_code == 404:
+                error(f"No payment found for job {job_id}")
+                ctx.exit(1)
+            else:
+                error(f"Failed: {response.status_code}")
+                ctx.exit(1)
+    except Exception as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+
+
+@client.command(name="payment-receipt")
+@click.argument("payment_id")
+@click.pass_context
+def payment_receipt(ctx, payment_id: str):
+    """Get payment receipt with verification"""
+    config = ctx.obj['config']
+
+    try:
+        with httpx.Client() as http_client:
+            response = http_client.get(
+                f"{config.coordinator_url}/v1/payments/{payment_id}/receipt",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            elif response.status_code == 404:
+                error(f"Payment '{payment_id}' not found")
+                ctx.exit(1)
+            else:
+                error(f"Failed: {response.status_code}")
+                ctx.exit(1)
+    except Exception as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+
+
+@client.command(name="refund")
+@click.argument("job_id")
+@click.argument("payment_id")
+@click.option("--reason", required=True, help="Reason for refund")
+@click.pass_context
+def refund(ctx, job_id: str, payment_id: str, reason: str):
+    """Request a refund for a payment"""
+    config = ctx.obj['config']
+
+    try:
+        with httpx.Client() as http_client:
+            response = http_client.post(
+                f"{config.coordinator_url}/v1/payments/{payment_id}/refund",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Api-Key": config.api_key or ""
+                },
+                json={
+                    "job_id": job_id,
+                    "payment_id": payment_id,
+                    "reason": reason
+                }
+            )
+            if response.status_code == 200:
+                result = response.json()
+                success(f"Refund processed for payment {payment_id}")
+                output(result, ctx.obj['output_format'])
+            else:
+                error(f"Refund failed: {response.status_code} - {response.text}")
+                ctx.exit(1)
+    except Exception as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)

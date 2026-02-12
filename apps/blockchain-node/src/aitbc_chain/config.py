@@ -26,6 +26,25 @@ class ChainSettings(BaseSettings):
 
     block_time_seconds: int = 2
 
+    # Block production limits
+    max_block_size_bytes: int = 1_000_000  # 1 MB
+    max_txs_per_block: int = 500
+    min_fee: int = 0  # Minimum fee to accept into mempool
+
+    # Mempool settings
+    mempool_backend: str = "memory"  # "memory" or "database"
+    mempool_max_size: int = 10_000
+    mempool_eviction_interval: int = 60  # seconds
+
+    # Circuit breaker
+    circuit_breaker_threshold: int = 5  # failures before opening
+    circuit_breaker_timeout: int = 30  # seconds before half-open
+
+    # Sync settings
+    trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
+    max_reorg_depth: int = 10  # max blocks to reorg on conflict
+    sync_validate_signatures: bool = True  # validate proposer signatures on import
+
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
 

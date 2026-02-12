@@ -5,9 +5,10 @@ from contextlib import asynccontextmanager
 from typing import Optional
 
 from .config import settings
-from .consensus import PoAProposer, ProposerConfig
+from .consensus import PoAProposer, ProposerConfig, CircuitBreaker
 from .database import init_db, session_scope
 from .logger import get_logger
+from .mempool import init_mempool
 
 logger = get_logger(__name__)
 
@@ -20,6 +21,12 @@ class BlockchainNode:
     async def start(self) -> None:
         logger.info("Starting blockchain node", extra={"chain_id": settings.chain_id})
         init_db()
+        init_mempool(
+            backend=settings.mempool_backend,
+            db_path=str(settings.db_path.parent / "mempool.db"),
+            max_size=settings.mempool_max_size,
+            min_fee=settings.min_fee,
+        )
         self._start_proposer()
         try:
             await self._stop_event.wait()
@@ -39,8 +46,14 @@ class BlockchainNode:
             chain_id=settings.chain_id,
             proposer_id=settings.proposer_id,
             interval_seconds=settings.block_time_seconds,
+            max_block_size_bytes=settings.max_block_size_bytes,
+            max_txs_per_block=settings.max_txs_per_block,
         )
-        self._proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+        cb = CircuitBreaker(
+            threshold=settings.circuit_breaker_threshold,
+            timeout=settings.circuit_breaker_timeout,
+        )
+        self._proposer = PoAProposer(config=proposer_config, session_factory=session_scope, circuit_breaker=cb)
         asyncio.create_task(self._proposer.start())
 
     async def _shutdown(self) -> None:

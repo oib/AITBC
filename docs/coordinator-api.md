@@ -73,6 +73,92 @@ Get current user profile
 `GET /v1/users/{user_id}/balance`
 Get user wallet balance
 
+### GPU Marketplace Endpoints
+
+`POST /v1/marketplace/gpu/register`
+Register a GPU on the marketplace
+
+`GET /v1/marketplace/gpu/list`
+List available GPUs (filter by available, model, price, region)
+
+`GET /v1/marketplace/gpu/{gpu_id}`
+Get GPU details
+
+`POST /v1/marketplace/gpu/{gpu_id}/book`
+Book a GPU for a duration
+
+`POST /v1/marketplace/gpu/{gpu_id}/release`
+Release a booked GPU
+
+`GET /v1/marketplace/gpu/{gpu_id}/reviews`
+Get reviews for a GPU
+
+`POST /v1/marketplace/gpu/{gpu_id}/reviews`
+Add a review for a GPU
+
+`GET /v1/marketplace/orders`
+List marketplace orders
+
+`GET /v1/marketplace/pricing/{model}`
+Get pricing for a GPU model
+
+### Payment Endpoints
+
+`POST /v1/payments`
+Create payment for a job
+
+`GET /v1/payments/{payment_id}`
+Get payment details
+
+`GET /v1/jobs/{job_id}/payment`
+Get payment for a job
+
+`POST /v1/payments/{payment_id}/release`
+Release payment from escrow
+
+`POST /v1/payments/{payment_id}/refund`
+Refund payment
+
+`GET /v1/payments/{payment_id}/receipt`
+Get payment receipt
+
+### Governance Endpoints
+
+`POST /v1/governance/proposals`
+Create a governance proposal
+
+`GET /v1/governance/proposals`
+List proposals (filter by status)
+
+`GET /v1/governance/proposals/{proposal_id}`
+Get proposal details
+
+`POST /v1/governance/vote`
+Submit a vote on a proposal
+
+`GET /v1/governance/voting-power/{user_id}`
+Get voting power for a user
+
+`GET /v1/governance/parameters`
+Get governance parameters
+
+`POST /v1/governance/execute/{proposal_id}`
+Execute an approved proposal
+
+### Explorer Endpoints
+
+`GET /v1/explorer/blocks`
+List recent blocks
+
+`GET /v1/explorer/transactions`
+List recent transactions
+
+`GET /v1/explorer/addresses`
+List address summaries
+
+`GET /v1/explorer/receipts`
+List job receipts
+
 ### Exchange Endpoints
 
 `POST /v1/exchange/create-payment`

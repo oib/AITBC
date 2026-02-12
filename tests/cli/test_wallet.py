@@ -356,3 +356,105 @@ class TestWalletCommands:
         assert data['total_staked'] == 30.0
         assert data['active_stakes'] == 1
         assert len(data['stakes']) == 1
+    
+    def test_liquidity_stake_command(self, runner, temp_wallet, mock_config):
+        """Test liquidity pool staking"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-stake', '40.0',
+            '--pool', 'main',
+            '--lock-days', '0'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        assert data['amount'] == 40.0
+        assert data['pool'] == 'main'
+        assert data['tier'] == 'bronze'
+        assert data['apy'] == 3.0
+        assert data['new_balance'] == 60.0
+        assert 'stake_id' in data
+    
+    def test_liquidity_stake_gold_tier(self, runner, temp_wallet, mock_config):
+        """Test liquidity staking with gold tier (30+ day lock)"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-stake', '30.0',
+            '--lock-days', '30'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        assert data['tier'] == 'gold'
+        assert data['apy'] == 8.0
+    
+    def test_liquidity_stake_insufficient_balance(self, runner, temp_wallet, mock_config):
+        """Test liquidity staking with insufficient balance"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-stake', '500.0'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code != 0
+        assert 'Insufficient balance' in result.output
+    
+    def test_liquidity_unstake_command(self, runner, temp_wallet, mock_config):
+        """Test liquidity pool unstaking with rewards"""
+        # Stake first (no lock)
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-stake', '50.0',
+            '--pool', 'main',
+            '--lock-days', '0'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        assert result.exit_code == 0
+        stake_id = extract_json_from_output(result.output)['stake_id']
+        
+        # Unstake
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-unstake', stake_id
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        assert data['stake_id'] == stake_id
+        assert data['principal'] == 50.0
+        assert 'rewards' in data
+        assert data['total_returned'] >= 50.0
+    
+    def test_liquidity_unstake_invalid_id(self, runner, temp_wallet, mock_config):
+        """Test liquidity unstaking with invalid ID"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-unstake', 'nonexistent'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code != 0
+        assert 'not found' in result.output
+    
+    def test_rewards_command(self, runner, temp_wallet, mock_config):
+        """Test rewards summary command"""
+        # Stake some tokens first
+        runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'stake', '20.0', '--duration', '30'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'liquidity-stake', '20.0', '--pool', 'main'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        result = runner.invoke(wallet, [
+            '--wallet-path', temp_wallet,
+            'rewards'
+        ], obj={'config': mock_config, 'output_format': 'json'})
+        
+        assert result.exit_code == 0
+        data = extract_json_from_output(result.output)
+        assert 'staking_active_amount' in data
+        assert 'liquidity_active_amount' in data
+        assert data['staking_active_amount'] == 20.0
+        assert data['liquidity_active_amount'] == 20.0
+        assert data['total_staked'] == 40.0
