@@ -9,19 +9,19 @@
     </head>
 <body>
     <!-- Header -->
-    <header class="text-white shadow-lg" style="background: var(--bg-white); position: fixed; width: 100%; top: 0; z-index: 1000; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <div class="container" style="max-width: 1200px; margin: 0 auto; padding: 0 20px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; padding: 1rem 0;">
-                <div style="display: flex; align-items: center; gap: 0.75rem;">
-                    <i class="fas fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
-                    <h1 style="font-size: 1.5rem; font-weight: bold; margin: 0; color: var(--text-dark);">AITBC</h1>
-                </div>
-                <nav style="display: flex; align-items: center; gap: 1.5rem;">
-                    <a href="/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Home</a>
-                    <a href="/explorer/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Explorer</a>
-                    <a href="/Exchange/" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Exchange</a>
-                    <a href="/docs/index.html" style="background: transparent !important; color: var(--text-dark) !important; padding: 0.5rem 0.75rem; border-radius: 0.5rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center;">Documentation</a>
-                    <button id="themeToggle" class="theme-toggle" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-size: 1rem;">🌞</button>
+    <header class="site-header">
+        <div class="container">
+            <div class="header-inner">
+                <a href="/" class="brand">
+                    <i class="fas fa-cube"></i>
+                    <span>AITBC</span>
+                </a>
+                <nav class="header-nav">
+                    <a href="/">Home</a>
+                    <a href="/explorer/">Explorer</a>
+                    <a href="/Exchange/">Exchange</a>
+                    <a href="/docs/index.html" class="active">Docs</a>
+                    <button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button>
                 </nav>
             </div>
         </div>
@@ -34,6 +34,10 @@
                 <span class="audience-badge">For Developers</span>
                 <h1>Build on AITBC</h1>
                 <p>Join our developer community and help build the future of decentralized AI</p>
+                <div class="source-links">
+                    <a href="https://github.com/oib/AITBC/tree/main/docs/8_development" target="_blank"><i class="fas fa-file-alt"></i> Markdown Source: docs/8_development/</a>
+                    <a href="https://github.com/oib/AITBC/tree/main/docs/5_reference" target="_blank"><i class="fas fa-book"></i> Technical Reference: docs/5_reference/</a>
+                </div>
             </div>
 
             <!-- Tech Stack -->
@@ -364,34 +368,34 @@ make benchmark</div>
                 <h3>Documentation</h3>
                 <ul>
                     <li><a href="full-documentation.html">Full API Documentation</a></li>
-                    <li><a href="#">Architecture Guide</a></li>
-                    <li><a href="#">Protocol Specification</a></li>
-                    <li><a href="#">Security Best Practices</a></li>
+                    <li><a href="components.html">Architecture Guide</a></li>
+                    <li><a href="full-documentation.html#architecture">Protocol Specification</a></li>
+                    <li><a href="full-documentation.html#security">Security Best Practices</a></li>
                 </ul>
 
                 <h3>Tools & SDKs</h3>
                 <ul>
-                    <li><a href="#">Python SDK</a></li>
-                    <li><a href="#">JavaScript SDK</a></li>
-                    <li><a href="#">Go SDK</a></li>
-                    <li><a href="#">Rust SDK</a></li>
-                    <li><a href="#">CLI Tools</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/8_development/5_developer-guide.md" target="_blank">Python SDK</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/8_development/5_developer-guide.md" target="_blank">JavaScript SDK</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/8_development" target="_blank">Go SDK</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/8_development" target="_blank">Rust SDK</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/5_reference/1_cli-reference.md" target="_blank">CLI Tools</a></li>
                 </ul>
 
                 <h3>Development Environment</h3>
                 <ul>
-                    <li><a href="#">Docker Compose Setup</a></li>
-                    <li><a href="#">Local Testnet</a></li>
-                    <li><a href="#">Faucet for Test Tokens</a></li>
-                    <li><a href="#">Block Explorer</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/7_deployment" target="_blank">Docker Compose Setup</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/4_blockchain/1_quick-start.md" target="_blank">Local Testnet</a></li>
+                    <li><a href="https://github.com/oib/AITBC/tree/main/docs/4_blockchain" target="_blank">Faucet for Test Tokens</a></li>
+                    <li><a href="explorer-web.html">Block Explorer</a></li>
                 </ul>
 
                 <h3>Learning Resources</h3>
                 <ul>
-                    <li><a href="#">Video Tutorials</a></li>
-                    <li><a href="#">Workshop Materials</a></li>
-                    <li><a href="#">Blog Posts</a></li>
-                    <li><a href="#">Research Papers</a></li>
+                    <li><a href="https://github.com/oib/AITBC" target="_blank">Video Tutorials</a></li>
+                    <li><a href="https://github.com/oib/AITBC" target="_blank">Workshop Materials</a></li>
+                    <li><a href="https://github.com/oib/AITBC" target="_blank">Blog Posts</a></li>
+                    <li><a href="https://github.com/oib/AITBC" target="_blank">Research Papers</a></li>
                 </ul>
             </section>
 
@@ -510,28 +514,8 @@ def test_create_feature_invalid():
     <!-- Footer -->
     <footer>
         <div class="container">
-            <p>&copy; 2025 AITBC. All rights reserved.</p>
+            <p>&copy; 2026 AITBC. All rights reserved.</p>
         </div>
-    </footer>
-
-    <script>
-        // Check for saved theme preference or default to dark mode
-        const currentTheme = localStorage.getItem('theme') || 'dark';
-        if (currentTheme === 'light') {
-            document.body.classList.add('light');
-            const btn = document.getElementById('themeToggle');
-            if (btn) btn.textContent = '🌙';
-        }
-
-        // Theme toggle functionality
-        const themeBtn = document.getElementById('themeToggle');
-        if (themeBtn) {
-            themeBtn.addEventListener('click', function() {
-                document.body.classList.toggle('light');
-                const isLight = document.body.classList.contains('light');
-                localStorage.setItem('theme', isLight ? 'light' : 'dark');
-                this.textContent = isLight ? '🌙' : '🌞';
-            });
-        }
-    </script></body>
+    </footer>    <script src="js/theme.js"></script>
+</body>
 </html>

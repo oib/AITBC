@@ -193,3 +193,36 @@ docs/infrastructure.md
 # Workflow files (personal, change frequently)
 docs/1_project/3_currenttask.md
 docs/1_project/4_currentissue.md
+
+# ===================
+# Website (local deployment details)
+# ===================
+website/README.md
+website/aitbc-proxy.conf
+
+# ===================
+# Local Config & Secrets
+# ===================
+.aitbc.yaml
+apps/coordinator-api/.env
+
+# ===================
+# Windsurf IDE (personal dev tooling)
+# ===================
+.windsurf/
+
+# ===================
+# Deploy Scripts (hardcoded local paths & IPs)
+# ===================
+scripts/deploy/*
+!scripts/deploy/*.example
+scripts/gpu/*
+!scripts/gpu/*.example
+scripts/service/*
+
+# ===================
+# Infra Configs (production IPs & secrets)
+# ===================
+infra/nginx/nginx-aitbc*.conf
+infra/helm/values/prod/
+infra/helm/values/prod.yaml

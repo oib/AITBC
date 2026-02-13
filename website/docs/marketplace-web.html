@@ -5,245 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marketplace Web - AITBC Documentation</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        :root {
-            --primary-color: #2563eb;
-            --secondary-color: #1e40af;
-            --success-color: #10b981;
-            --text-dark: #1f2937;
-            --text-light: #6b7280;
-            --bg-light: #f9fafb;
-            --bg-white: #ffffff;
-            --border-color: #e5e7eb;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-dark);
-            background: var(--bg-white);
-            margin: 0;
-            padding: 0;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-
-        header {
-            background: var(--text-dark);
-            color: white;
-            padding: 1rem 0;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-        }
-
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: white;
-            text-decoration: none;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        .nav-links a {
-            color: white;
-            text-decoration: none;
-            transition: color 0.3s;
-        }
-
-        .nav-links a:hover {
-            color: var(--primary-color);
-        }
-
-        .breadcrumb {
-            padding: 1rem 0;
-            color: var(--text-light);
-            font-size: 0.9rem;
-        }
-
-        .breadcrumb a {
-            color: var(--text-light);
-            text-decoration: none;
-        }
-
-        .breadcrumb a:hover {
-            color: var(--primary-color);
-        }
-
-        .doc-header {
-            padding: 3rem 0;
-            background: var(--bg-light);
-            margin-bottom: 2rem;
-        }
-
-        .doc-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-dark);
-        }
-
-        .doc-header p {
-            font-size: 1.2rem;
-            color: var(--text-light);
-            max-width: 800px;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 0.25rem 0.75rem;
-            background: #10b98120;
-            color: var(--success-color);
-            border-radius: 20px;
-            font-size: 0.875rem;
-            font-weight: 600;
-            margin-top: 1rem;
-        }
-
-        .content-section {
-            margin-bottom: 3rem;
-        }
-
-        .content-section h2 {
-            font-size: 1.8rem;
-            margin-bottom: 1.5rem;
-            color: var(--text-dark);
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
-
-        .content-section h3 {
-            font-size: 1.4rem;
-            margin: 2rem 0 1rem;
-            color: var(--text-dark);
-        }
-
-        .content-section p {
-            margin-bottom: 1rem;
-            color: var(--text-dark);
-        }
-
-        .content-section ul {
-            margin-bottom: 1rem;
-            padding-left: 2rem;
-        }
-
-        .content-section li {
-            margin-bottom: 0.5rem;
-        }
-
-        .tech-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
-        }
-
-        .tech-item {
-            background: var(--bg-light);
-            padding: 1rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .tech-item strong {
-            display: block;
-            color: var(--primary-color);
-            margin-bottom: 0.5rem;
-        }
-
-        pre {
-            background: #1f2937;
-            color: #f9fafb;
-            padding: 1.5rem;
-            border-radius: 8px;
-            overflow-x: auto;
-            margin: 1rem 0;
-        }
-
-        code {
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.9rem;
-        }
-
-        pre code {
-            background: none;
-            padding: 0;
-        }
-
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary-color);
-            text-decoration: none;
-            margin-bottom: 2rem;
-            font-weight: 600;
-        }
-
-        .back-button:hover {
-            color: var(--secondary-color);
-        }
-
-        .alert {
-            background: #dbeafe;
-            border: 1px solid #3b82f6;
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-        }
-
-        .alert-info {
-            background: #dbeafe;
-            border-color: #3b82f6;
-            color: #1e40af;
-        }
-
-        footer {
-            background: var(--text-dark);
-            color: white;
-            padding: 2rem 0;
-            text-align: center;
-            margin-top: 4rem;
-        }
-
-        @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
-            
-            .doc-header h1 {
-                font-size: 2rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="css/docs.css">
 </head>
 <body>
-    <header>
-        <nav class="container">
-            <a href="../index.html" class="logo">AITBC</a>
-            <ul class="nav-links">
-                <li><a href="../index.html">Home</a></li>
-                <li><a href="index.html">Documentation</a></li>
-                <li><a href="mailto:aitbc@bubuit.net">Contact</a></li>
-            </ul>
-        </nav>
+    <!-- Header -->
+    <header class="site-header">
+        <div class="container">
+            <div class="header-inner">
+                <a href="/" class="brand">
+                    <i class="fas fa-cube"></i>
+                    <span>AITBC</span>
+                </a>
+                <nav class="header-nav">
+                    <a href="/">Home</a>
+                    <a href="/explorer/">Explorer</a>
+                    <a href="/Exchange/">Exchange</a>
+                    <a href="/docs/index.html" class="active">Docs</a>
+                    <button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button>
+                </nav>
+            </div>
+        </div>
     </header>
 
     <main>
@@ -252,7 +33,7 @@
             <div class="breadcrumb">
                 <a href="index.html">Documentation</a>
                 <span>›</span>
-                <a href="#">Components</a>
+                <a href="components.html">Components</a>
                 <span>›</span>
                 <span>Marketplace Web</span>
             </div>
@@ -478,7 +259,7 @@ docker run -d \
                 <p>For marketplace-specific issues:</p>
                 <ul>
                     <li>Check the <a href="full-documentation.html">issue tracker</a></li>
-                    <li>Join our <a href="#">Discord</a></li>
+                    <li>Join our <a href="https://discord.gg/aitbc">Discord</a></li>
                     <li>Contact: <a href="mailto:aitbc@bubuit.net">aitbc@bubuit.net</a></li>
                 </ul>
             </section>
@@ -487,8 +268,9 @@ docker run -d \
 
     <footer>
         <div class="container">
-            <p>&copy; 2025 AITBC. All rights reserved.</p>
+            <p>&copy; 2026 AITBC. All rights reserved.</p>
         </div>
     </footer>
+    <script src="js/theme.js"></script>
 </body>
 </html>
