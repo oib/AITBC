@@ -7,10 +7,10 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/root/aitbc/apps/wallet-daemon
-Environment=PATH=/root/aitbc/.venv/bin
-Environment=PYTHONPATH=/root/aitbc/apps/wallet-daemon
-ExecStart=/root/aitbc/.venv/bin/python -m wallet_daemon.main --host 0.0.0.0 --port 8001
+WorkingDirectory=/opt/wallet-daemon
+Environment=PATH=/opt/wallet-daemon/.venv/bin
+Environment=PYTHONPATH=/opt/wallet-daemon
+ExecStart=/opt/wallet-daemon/.venv/bin/python -m wallet_daemon.main --host 0.0.0.0 --port 8001
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

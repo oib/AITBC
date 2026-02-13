@@ -184,3 +184,12 @@ scripts/gpu/*.local.py
 # Deployment secrets
 scripts/deploy/*.secret.*
 infra/nginx/*.local.conf
+
+# ===================
+# Documentation
+# ===================
+# Infrastructure docs (contains sensitive network info)
+docs/infrastructure.md
+# Workflow files (personal, change frequently)
+docs/1_project/3_currenttask.md
+docs/1_project/4_currentissue.md

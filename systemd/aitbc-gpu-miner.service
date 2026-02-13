@@ -7,9 +7,9 @@ Wants=network.target
 Type=simple
 User=debian
 Group=debian
-WorkingDirectory=/home/debian/aitbc
-Environment=PYTHONPATH=/home/debian/aitbc
-ExecStart=/home/debian/aitbc/venv/bin/python /home/debian/aitbc/gpu_miner_simple.py
+WorkingDirectory=/opt/gpu-miner
+Environment=PYTHONPATH=/opt/gpu-miner
+ExecStart=/opt/gpu-miner/venv/bin/python /opt/gpu-miner/gpu_miner_simple.py
 Restart=on-failure
 RestartSec=30
 StartLimitInterval=300
@@ -22,7 +22,7 @@ SyslogIdentifier=aitbc-gpu-miner
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/home/debian/aitbc
+ReadWritePaths=/opt/gpu-miner
 
 [Install]
 WantedBy=multi-user.target

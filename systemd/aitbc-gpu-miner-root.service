@@ -7,9 +7,9 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/home/oib/windsurf/aitbc
-Environment=PYTHONPATH=/home/oib/windsurf/aitbc
-ExecStart=/usr/bin/python3 /home/oib/windsurf/aitbc/gpu_miner_with_wait.py
+WorkingDirectory=/opt/gpu-miner
+Environment=PYTHONPATH=/opt/gpu-miner
+ExecStart=/usr/bin/python3 /opt/gpu-miner/gpu_miner_with_wait.py
 Restart=on-failure
 RestartSec=30
 StartLimitInterval=300
