@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://localhost:5432/aitbc_coordinator"
     
     # JWT Configuration
-    jwt_secret: str = "change-me-in-production"
+    jwt_secret: str = ""  # Must be provided via environment
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
     
@@ -51,7 +51,17 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
+    
+    def validate_secrets(self) -> None:
+        """Validate that all required secrets are provided"""
+        if not self.jwt_secret:
+            raise ValueError("JWT_SECRET environment variable is required")
+        if self.jwt_secret == "change-me-in-production":
+            raise ValueError("JWT_SECRET must be changed from default value")
 
 
 # Create global settings instance
 settings = Settings()
+
+# Validate secrets on import
+settings.validate_secrets()

@@ -70,7 +70,16 @@ def create_app() -> Starlette:
     ]
     
     middleware = [
-        Middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"])
+        Middleware(
+            CORSMiddleware, 
+            allow_origins=[
+                "http://localhost:3000",
+                "http://localhost:8080",
+                "http://localhost:8000",
+                "http://localhost:8011"
+            ], 
+            allow_methods=["POST", "GET", "OPTIONS"]
+        )
     ]
     
     return Starlette(routes=routes, middleware=middleware)
