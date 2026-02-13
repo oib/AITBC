@@ -129,6 +129,45 @@ docs/
 | [1_project/5_done.md](./1_project/5_done.md) | Completed features |
 | [GitHub](https://github.com/oib/AITBC) | Source code |
 
+## Component READMEs
+
+Per-component documentation that lives alongside the source code:
+
+### Apps
+
+| Component | README |
+|-----------|--------|
+| Blockchain Node | [apps/blockchain-node/README.md](../apps/blockchain-node/README.md) |
+| Blockchain Schema | [apps/blockchain-node/docs/SCHEMA.md](../apps/blockchain-node/docs/SCHEMA.md) |
+| Observability | [apps/blockchain-node/observability/README.md](../apps/blockchain-node/observability/README.md) |
+| Coordinator API | [apps/coordinator-api/README.md](../apps/coordinator-api/README.md) |
+| Migrations | [apps/coordinator-api/migrations/README.md](../apps/coordinator-api/migrations/README.md) |
+| Explorer Web | [apps/explorer-web/README.md](../apps/explorer-web/README.md) |
+| Marketplace Web | [apps/marketplace-web/README.md](../apps/marketplace-web/README.md) |
+| Pool Hub | [apps/pool-hub/README.md](../apps/pool-hub/README.md) |
+| Wallet Daemon | [apps/wallet-daemon/README.md](../apps/wallet-daemon/README.md) |
+| ZK Circuits | [apps/zk-circuits/README.md](../apps/zk-circuits/README.md) |
+
+### Packages & Plugins
+
+| Component | README |
+|-----------|--------|
+| CLI | [cli/README.md](../cli/README.md) |
+| Ollama Plugin | [plugins/ollama/README.md](../plugins/ollama/README.md) |
+| Firefox Wallet | [extensions/aitbc-wallet-firefox/README.md](../extensions/aitbc-wallet-firefox/README.md) |
+| Extensions | [extensions/README.md](../extensions/README.md) |
+| ZK Verification | [contracts/docs/ZK-VERIFICATION.md](../contracts/docs/ZK-VERIFICATION.md) |
+| Token Deployment | [packages/solidity/aitbc-token/docs/DEPLOYMENT.md](../packages/solidity/aitbc-token/docs/DEPLOYMENT.md) |
+
+### Infrastructure & Testing
+
+| Component | README |
+|-----------|--------|
+| Infrastructure | [infra/README.md](../infra/README.md) |
+| Tests | [tests/README.md](../tests/README.md) |
+| Verification Scripts | [tests/verification/README.md](../tests/verification/README.md) |
+| Example Scripts | [scripts/examples/README.md](../scripts/examples/README.md) |
+
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/oib/AITBC/issues)
