@@ -574,3 +574,48 @@ This document tracks components that have been successfully deployed and are ope
   - Updated `.windsurf/skills/blockchain-operations/` and `ollama-gpu-provider/`
   - System requirements updated to Debian Trixie (Linux)
   - All currentTask.md checkboxes complete (0 unchecked items)
+
+## Recent Updates (2026-02-13)
+
+### Critical Security Fixes ✅
+
+- ✅ **Fixed Hardcoded Secrets** - Removed security vulnerabilities
+  - JWT secret no longer hardcoded in `config_pg.py` - required from environment
+  - PostgreSQL credentials removed from `db_pg.py` - parsed from DATABASE_URL
+  - Added validation to fail-fast if secrets aren't provided
+  - Made PostgreSQL adapter instantiation lazy to avoid import-time issues
+
+- ✅ **Unified Database Sessions** - Consolidated session management
+  - Migrated all routers from `deps.get_session` to `storage.SessionDep`
+  - Removed legacy session code from `deps.py` and `database.py`
+  - Updated `main.py` to use `storage.init_db`
+  - All routers now use unified session dependency
+
+- ✅ **Closed Authentication Gaps** - Secured exchange API
+  - Added session token management with in-memory store
+  - Implemented login/logout endpoints with wallet address authentication
+  - Fixed hardcoded `user_id=1` - now uses authenticated user context
+  - Added user-specific order endpoints (`/api/my/orders`)
+  - Implemented optional authentication for public endpoints
+
+- ✅ **Tightened CORS Defaults** - Restricted cross-origin access
+  - Replaced wildcard origins with specific localhost URLs
+  - Updated all services: Coordinator API, Exchange API, Blockchain Node, Gossip Relay
+  - Restricted methods to only those needed (GET, POST, PUT, DELETE, OPTIONS)
+  - Unauthorized origins now receive 400 Bad Request
+
+- ✅ **Wallet Encryption Enhancement** - Private keys protected at rest
+  - Replaced weak XOR encryption with Fernet (AES-128 in CBC mode)
+  - Added password management with keyring support
+  - Implemented secure key derivation (PBKDF2 with SHA-256)
+  - All wallet private keys now encrypted by default
+
+- ✅ **CI Import Error Fix** - Resolved build issues
+  - Replaced `requests` with `httpx` in `bitcoin_wallet.py` and `blockchain.py`
+  - Added graceful fallback for when httpx is not available
+  - Fixed CI pipeline that was failing due to missing requests dependency
+
+### Deployment Status
+- ✅ **Site A** (aitbc.bubuit.net): All security fixes deployed and active
+- ✅ **Site B** (ns3): No action needed - only blockchain node running
+- ✅ **Commit**: `26edd70` - All changes committed and deployed
