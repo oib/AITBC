@@ -1,5 +1,34 @@
 # AITBC Security Cleanup & GitHub Setup Guide
 
+## ✅ COMPLETED SECURITY FIXES (2026-02-13)
+
+### Critical Vulnerabilities Resolved
+
+1. **Hardcoded Secrets Eliminated**
+   - ✅ JWT secret removed from `config_pg.py` - now required from environment
+   - ✅ PostgreSQL credentials removed from `db_pg.py` - parsed from DATABASE_URL
+   - ✅ Added validation to fail-fast if secrets aren't provided
+
+2. **Authentication Gaps Closed**
+   - ✅ Exchange API now uses session-based authentication
+   - ✅ Fixed hardcoded `user_id=1` - uses authenticated context
+   - ✅ Added login/logout endpoints with wallet authentication
+
+3. **CORS Restrictions Implemented**
+   - ✅ Replaced wildcard origins with specific localhost URLs
+   - ✅ Applied across all services (Coordinator, Exchange, Blockchain, Gossip)
+   - ✅ Unauthorized origins now receive 400 Bad Request
+
+4. **Wallet Encryption Enhanced**
+   - ✅ Replaced weak XOR encryption with Fernet (AES-128 CBC)
+   - ✅ Added PBKDF2 key derivation with SHA-256
+   - ✅ Integrated keyring for password management
+
+5. **Database Sessions Unified**
+   - ✅ Migrated all routers to use `storage.SessionDep`
+   - ✅ Removed legacy session dependencies
+   - ✅ Consistent session management across services
+
 ## 🔐 SECURITY FINDINGS
 
 ### Files Currently Tracked That Should Be Removed
