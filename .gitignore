@@ -150,6 +150,9 @@ home/client/client_wallet.json
 home/genesis_wallet.json
 home/miner/miner_wallet.json
 
+# Root-level wallet backups (contain private keys)
+*.json
+
 # ===================
 # Stale source copies
 # ===================

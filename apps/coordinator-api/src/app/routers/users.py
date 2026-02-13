@@ -10,7 +10,7 @@ import time
 import hashlib
 from datetime import datetime, timedelta
 
-from ..deps import get_session
+from ..storage import SessionDep
 from ..domain import User, Wallet
 from ..schemas import UserCreate, UserLogin, UserProfile, UserBalance
 
@@ -50,7 +50,7 @@ def verify_session_token(token: str) -> Optional[str]:
 @router.post("/register", response_model=UserProfile)
 async def register_user(
     user_data: UserCreate,
-    session: Session = Depends(get_session)
+    session: SessionDep
 ) -> Dict[str, Any]:
     """Register a new user"""
     
@@ -103,7 +103,7 @@ async def register_user(
 @router.post("/login", response_model=UserProfile)
 async def login_user(
     login_data: UserLogin,
-    session: Session = Depends(get_session)
+    session: SessionDep
 ) -> Dict[str, Any]:
     """Login user with wallet address"""
     
@@ -161,7 +161,7 @@ async def login_user(
 @router.get("/users/me", response_model=UserProfile)
 async def get_current_user(
     token: str,
-    session: Session = Depends(get_session)
+    session: SessionDep
 ) -> Dict[str, Any]:
     """Get current user profile"""
     
@@ -190,7 +190,7 @@ async def get_current_user(
 @router.get("/users/{user_id}/balance", response_model=UserBalance)
 async def get_user_balance(
     user_id: str,
-    session: Session = Depends(get_session)
+    session: SessionDep
 ) -> Dict[str, Any]:
     """Get user's AITBC balance"""
     
@@ -223,7 +223,7 @@ async def logout_user(token: str) -> Dict[str, str]:
 @router.get("/users/{user_id}/transactions")
 async def get_user_transactions(
     user_id: str,
-    session: Session = Depends(get_session)
+    session: SessionDep
 ) -> Dict[str, Any]:
     """Get user's transaction history"""
     

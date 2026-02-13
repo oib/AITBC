@@ -76,20 +76,40 @@ class AuditLogger:
         return entries[-limit:]
 
 
-def encrypt_value(value: str, key: str = None) -> str:
-    """Simple XOR-based obfuscation for config values (not cryptographic security)"""
+def _get_fernet_key(key: str = None) -> bytes:
+    """Derive a Fernet key from a password or use default"""
+    from cryptography.fernet import Fernet
     import base64
-    key = key or "aitbc_config_key_2026"
-    encrypted = bytes([ord(c) ^ ord(key[i % len(key)]) for i, c in enumerate(value)])
+    import hashlib
+    
+    if key is None:
+        # Use a default key (should be overridden in production)
+        key = "aitbc_config_key_2026_default"
+    
+    # Derive a 32-byte key suitable for Fernet
+    return base64.urlsafe_b64encode(hashlib.sha256(key.encode()).digest())
+
+
+def encrypt_value(value: str, key: str = None) -> str:
+    """Encrypt a value using Fernet symmetric encryption"""
+    from cryptography.fernet import Fernet
+    import base64
+    
+    fernet_key = _get_fernet_key(key)
+    f = Fernet(fernet_key)
+    encrypted = f.encrypt(value.encode())
     return base64.b64encode(encrypted).decode()
 
 
 def decrypt_value(encrypted: str, key: str = None) -> str:
-    """Decrypt an XOR-obfuscated config value"""
+    """Decrypt a Fernet-encrypted value"""
+    from cryptography.fernet import Fernet
     import base64
-    key = key or "aitbc_config_key_2026"
+    
+    fernet_key = _get_fernet_key(key)
+    f = Fernet(fernet_key)
     data = base64.b64decode(encrypted)
-    return ''.join(chr(b ^ ord(key[i % len(key)])) for i, b in enumerate(data))
+    return f.decrypt(data).decode()
 
 
 def setup_logging(verbosity: int, debug: bool = False) -> str:
