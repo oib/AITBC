@@ -1,0 +1,44 @@
+# AITBC Production Helm Values
+# Copy to prod.yaml and adjust for your cluster
+
+replicaCount: 1
+
+coordinator:
+  image: aitbc/coordinator-api:latest
+  port: 8000
+  env:
+    APP_ENV: production
+    DATABASE_URL: postgresql://aitbc:YOUR_DB_PASSWORD@postgres:5432/aitbc
+    HMAC_SECRET: YOUR_HMAC_SECRET
+    ALLOW_ORIGINS: '["https://YOUR_DOMAIN"]'
+
+blockchain:
+  image: aitbc/blockchain-node:latest
+  rpcPort: 9080
+  p2pPort: 9090
+  env:
+    NETWORK: mainnet
+    CONSENSUS_MODE: BALANCED
+
+ingress:
+  enabled: true
+  host: YOUR_DOMAIN
+  tls:
+    enabled: true
+    secretName: aitbc-tls
+
+resources:
+  coordinator:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  blockchain:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi

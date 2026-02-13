@@ -5,466 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Full Documentation - AITBC</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        /* Dark mode (default) */
-        :root {
-            --primary-color: #3b82f6;
-            --secondary-color: #2563eb;
-            --accent-color: #60a5fa;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --text-dark: #f3f4f6;
-            --text-light: #9ca3af;
-            --bg-light: #111827;
-            --bg-white: #1f2937;
-            --border-color: #374151;
-            --code-bg: #0d1117;
-            --code-text: #e5e7eb;
-        }
-        
-        /* Light mode */
-        body.light {
-            --primary-color: #2563eb;
-            --secondary-color: #1e40af;
-            --accent-color: #3b82f6;
-            --success-color: #10b981;
-            --warning-color: #f59e0b;
-            --danger-color: #ef4444;
-            --text-dark: #1f2937;
-            --text-light: #6b7280;
-            --bg-light: #f9fafb;
-            --bg-white: #ffffff;
-            --border-color: #e5e7eb;
-            --code-bg: #1f2937;
-            --code-text: #e5e7eb;
-        }
-
-        /* Theme toggle button */
-        .theme-toggle {
-            background: none;
-            border: 2px solid var(--border-color);
-            border-radius: 0.5rem;
-            padding: 0.5rem 0.75rem;
-            cursor: pointer;
-            font-size: 1.1rem;
-            color: var(--text-dark);
-            transition: all 0.3s ease;
-        }
-
-        .theme-toggle:hover {
-            background: var(--bg-white);
-            border-color: var(--primary-color);
-            transform: scale(1.05);
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: var(--text-dark);
-            background: var(--bg-light);
-            transition: background 0.3s ease, color 0.3s ease;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 0 20px;
-        }
-        
-        /* Header with gradient border */
-        header {
-            background: var(--bg-white);
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-            position: fixed;
-            width: 100%;
-            top: 0;
-            z-index: 1000;
-            border-bottom: 3px solid transparent;
-            background-image: linear-gradient(var(--bg-white), var(--bg-white)), 
-                              linear-gradient(90deg, var(--primary-color), var(--accent-color), var(--success-color));
-            background-origin: border-box;
-            background-clip: padding-box, border-box;
-        }
-        
-        nav {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem 0;
-        }
-        
-        .logo {
-            font-size: 1.5rem;
-            font-weight: bold;
-            background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            text-decoration: none;
-            transition: transform 0.3s ease;
-        }
-        
-        .logo:hover {
-            transform: scale(1.05);
-        }
-        
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            list-style: none;
-            align-items: center;
-        }
-        
-        .nav-links a {
-            color: var(--text-dark);
-            text-decoration: none;
-            transition: all 0.3s ease;
-            padding: 0.5rem 0;
-            position: relative;
-        }
-        
-        .nav-links a::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 0;
-            height: 2px;
-            background: linear-gradient(90deg, var(--primary-color), var(--accent-color));
-            transition: width 0.3s ease;
-        }
-        
-        .nav-links a:hover::after,
-        .nav-links a.active::after {
-            width: 100%;
-        }
-        
-        .nav-links a:hover {
-            color: var(--primary-color);
-        }
-        
-        /* Main Content */
-        main {
-            margin-top: 80px;
-            padding: 40px 0;
-        }
-        
-        .doc-header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-        
-        .doc-header h1 {
-            font-size: 3rem;
-            color: var(--text-dark);
-            margin-bottom: 1rem;
-        }
-        
-        .doc-header p {
-            font-size: 1.2rem;
-            color: var(--text-light);
-        }
-        
-        /* Documentation Grid */
-        .doc-grid {
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 2rem;
-        }
-        
-        /* Sidebar */
-        .sidebar {
-            background: var(--bg-light);
-            border-radius: 10px;
-            padding: 1.5rem;
-            height: fit-content;
-            position: sticky;
-            top: 100px;
-            max-height: calc(100vh - 120px);
-            overflow-y: auto;
-        }
-        
-        .sidebar h3 {
-            font-size: 1.2rem;
-            margin-bottom: 1rem;
-            color: var(--text-dark);
-        }
-        
-        .sidebar ul {
-            list-style: none;
-        }
-        
-        .sidebar li {
-            margin-bottom: 0.3rem;
-        }
-        
-        .sidebar a {
-            color: var(--text-light);
-            text-decoration: none;
-            display: block;
-            padding: 0.5rem;
-            border-radius: 5px;
-            transition: all 0.3s;
-            font-size: 0.9rem;
-        }
-        
-        .sidebar a:hover,
-        .sidebar a.active {
-            background: var(--bg-white);
-            color: var(--primary-color);
-        }
-        
-        .sidebar .sub-item {
-            padding-left: 1.5rem;
-            font-size: 0.85rem;
-        }
-        
-        /* Content */
-        .content {
-            background: var(--bg-white);
-            border-radius: 10px;
-            padding: 2rem;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-        }
-        
-        .content h1 {
-            font-size: 2.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-dark);
-            border-bottom: 3px solid var(--primary-color);
-            padding-bottom: 0.5rem;
-        }
-        
-        .content h2 {
-            font-size: 2rem;
-            margin: 2.5rem 0 1rem;
-            color: var(--text-dark);
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
-        
-        .content h3 {
-            font-size: 1.5rem;
-            margin: 2rem 0 1rem;
-            color: var(--text-dark);
-        }
-        
-        .content h4 {
-            font-size: 1.2rem;
-            margin: 1.5rem 0 0.5rem;
-            color: var(--primary-color);
-        }
-        
-        .content p {
-            margin-bottom: 1rem;
-            color: var(--text-light);
-            text-align: justify;
-        }
-        
-        .content ul,
-        .content ol {
-            margin-bottom: 1rem;
-            padding-left: 2rem;
-        }
-        
-        .content li {
-            margin-bottom: 0.5rem;
-            color: var(--text-light);
-        }
-        
-        .content code {
-            background: var(--bg-light);
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.9rem;
-            color: var(--primary-color);
-        }
-        
-        .content pre {
-            background: var(--code-bg);
-            color: var(--code-text);
-            padding: 1.5rem;
-            border-radius: 5px;
-            overflow-x: auto;
-            margin: 1rem 0;
-            font-family: 'Fira Code', 'Courier New', monospace;
-            font-size: 0.9rem;
-            line-height: 1.5;
-        }
-        
-        .content pre code {
-            background: none;
-            padding: 0;
-            color: inherit;
-        }
-        
-        .content blockquote {
-            border-left: 4px solid var(--primary-color);
-            padding-left: 1rem;
-            margin: 1rem 0;
-            color: var(--text-light);
-            font-style: italic;
-            background: var(--bg-light);
-            padding: 1rem;
-            border-radius: 0 5px 5px 0;
-        }
-        
-        .content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 1rem 0;
-        }
-        
-        .content th,
-        .content td {
-            padding: 0.75rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-        
-        .content th {
-            background: var(--bg-light);
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-        
-        /* Alert Boxes */
-        .alert {
-            padding: 1rem;
-            border-radius: 5px;
-            margin: 1rem 0;
-        }
-        
-        .alert-info {
-            background: #dbeafe;
-            border-left: 4px solid #3b82f6;
-            color: #1e40af;
-        }
-        
-        .alert-warning {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
-            color: #92400e;
-        }
-        
-        .alert-success {
-            background: #d1fae5;
-            border-left: 4px solid #10b981;
-            color: #065f46;
-        }
-        
-        .alert-danger {
-            background: #fee2e2;
-            border-left: 4px solid #ef4444;
-            color: #991b1b;
-        }
-        
-        /* Tabs */
-        .tabs {
-            margin: 2rem 0;
-        }
-        
-        .tab-buttons {
-            display: flex;
-            gap: 0.5rem;
-            border-bottom: 2px solid var(--border-color);
-        }
-        
-        .tab-button {
-            padding: 0.75rem 1.5rem;
-            background: none;
-            border: none;
-            color: var(--text-light);
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: all 0.3s;
-        }
-        
-        .tab-button.active {
-            color: var(--primary-color);
-            border-bottom-color: var(--primary-color);
-        }
-        
-        .tab-content {
-            display: none;
-            padding: 1rem 0;
-        }
-        
-        .tab-content.active {
-            display: block;
-        }
-        
-        /* Mermaid Diagrams */
-        .mermaid {
-            text-align: center;
-            margin: 2rem 0;
-        }
-        
-        /* Code Groups */
-        .code-group {
-            margin: 1rem 0;
-            border: 1px solid var(--border-color);
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        
-        .code-group-header {
-            background: var(--bg-light);
-            padding: 0.5rem 1rem;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-        
-        .code-group-content {
-            padding: 0;
-        }
-        
-        /* Footer */
-        footer {
-            background: var(--text-dark);
-            color: white;
-            padding: 40px 0;
-            text-align: center;
-            margin-top: 40px;
-        }
-        
-        /* Responsive */
-        @media (max-width: 768px) {
-            .doc-grid {
-                grid-template-columns: 1fr;
-            }
-            
-            .sidebar {
-                position: static;
-                max-height: none;
-            }
-            
-            .doc-header h1 {
-                font-size: 2rem;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="css/docs.css">
 </head>
 <body>
     <!-- Header -->
-    <header>
-        <nav class="container">
-            <a href="index.html" class="logo">AITBC</a>
-            <ul class="nav-links">
-                <li><a href="index.html">Home</a></li>
-                <li><a href="full-documentation.html" class="active">Full Documentation</a></li>
-                <li><a href="#contact">Contact</a></li>
-                <li><button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button></li>
-            </ul>
-        </nav>
+    <header class="site-header">
+        <div class="container">
+            <div class="header-inner">
+                <a href="/" class="brand">
+                    <i class="fas fa-cube"></i>
+                    <span>AITBC</span>
+                </a>
+                <nav class="header-nav">
+                    <a href="/">Home</a>
+                    <a href="/explorer/">Explorer</a>
+                    <a href="/Exchange/">Exchange</a>
+                    <a href="/docs/index.html" class="active">Docs</a>
+                    <button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button>
+                </nav>
+            </div>
+        </div>
     </header>
 
     <!-- Main Content -->
@@ -524,6 +84,19 @@
                                 <li><a href="#support" class="sub-item">Support</a></li>
                             </ul>
                         </li>
+                    </ul>
+                    <h3 style="margin-top: 2rem;">Markdown Docs</h3>
+                    <ul>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/0_getting_started" target="_blank" class="sub-item">0 Getting Started</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/1_project" target="_blank" class="sub-item">1 Project</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/2_clients" target="_blank" class="sub-item">2 Clients</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/3_miners" target="_blank" class="sub-item">3 Miners</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/4_blockchain" target="_blank" class="sub-item">4 Blockchain</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/5_reference" target="_blank" class="sub-item">5 Reference</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/6_architecture" target="_blank" class="sub-item">6 Architecture</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/7_deployment" target="_blank" class="sub-item">7 Deployment</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/8_development" target="_blank" class="sub-item">8 Development</a></li>
+                        <li><a href="https://github.com/oib/AITBC/tree/main/docs/9_security" target="_blank" class="sub-item">9 Security</a></li>
                     </ul>
                 </aside>
 
@@ -1085,24 +658,7 @@ gosec ./...</code></pre>
 
     <script src="/js/mermaid.min.js"></script>
     <script src="/js/mermaid-init.js"></script>
-    <script>
-        // Theme toggle functionality
-        const themeToggle = document.getElementById('theme-toggle');
-        if (themeToggle) {
-            themeToggle.addEventListener('click', () => {
-                document.body.classList.toggle('light');
-                const isLight = document.body.classList.contains('light');
-                themeToggle.innerHTML = isLight ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
-                localStorage.setItem('theme', isLight ? 'light' : 'dark');
-            });
-            
-            // Load saved theme
-            const savedTheme = localStorage.getItem('theme');
-            if (savedTheme === 'light') {
-                document.body.classList.add('light');
-                themeToggle.innerHTML = '<i class="fas fa-moon"></i>';
-            }
-        }
-    </script>
+    
+    <script src="js/theme.js"></script>
 </body>
 </html>
