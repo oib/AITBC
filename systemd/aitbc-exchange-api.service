@@ -7,9 +7,9 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/root/aitbc/apps/trade-exchange
-Environment=PATH=/root/aitbc/.venv/bin
-ExecStart=/root/aitbc/.venv/bin/python simple_exchange_api.py
+WorkingDirectory=/opt/exchange-api
+Environment=PATH=/opt/exchange-api/.venv/bin
+ExecStart=/opt/exchange-api/.venv/bin/python simple_exchange_api.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

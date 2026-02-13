@@ -7,11 +7,11 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/root/aitbc/apps/node
-Environment=PATH=/root/aitbc/.venv/bin
-Environment=PYTHONPATH=/root/aitbc/apps/node
+WorkingDirectory=/opt/blockchain-node
+Environment=PATH=/opt/blockchain-node/.venv/bin
+Environment=PYTHONPATH=/opt/blockchain-node
 Environment=RUST_LOG=info
-ExecStart=/root/aitbc/.venv/bin/python -m node.main --datadir /root/aitbc/data --rpc-bind 0.0.0.0:8545
+ExecStart=/opt/blockchain-node/.venv/bin/python -m node.main --datadir /opt/blockchain-node/data --rpc-bind 0.0.0.0:8545
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

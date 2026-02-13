@@ -7,9 +7,9 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/root/aitbc/apps/trade-exchange
-Environment=PATH=/root/aitbc/.venv/bin
-ExecStart=/root/aitbc/.venv/bin/python server.py --port 3002
+WorkingDirectory=/opt/exchange-frontend
+Environment=PATH=/opt/exchange-frontend/.venv/bin
+ExecStart=/opt/exchange-frontend/.venv/bin/python server.py --port 3002
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

@@ -7,10 +7,10 @@ Wants=network.target
 Type=simple
 User=oib
 Group=oib
-WorkingDirectory=/home/oib/windsurf/aitbc/apps/coordinator-api
-Environment=PATH=/home/oib/windsurf/aitbc/apps/coordinator-api/.venv/bin
-Environment=PYTHONPATH=/home/oib/windsurf/aitbc/apps/coordinator-api/src
-ExecStart=/home/oib/windsurf/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/opt/coordinator-api
+Environment=PATH=/opt/coordinator-api/.venv/bin
+Environment=PYTHONPATH=/opt/coordinator-api/src
+ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
