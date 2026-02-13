@@ -7,14 +7,14 @@ Wants=network.target
 Type=simple
 User=oib
 Group=oib
-WorkingDirectory=/home/oib/windsurf/aitbc
-Environment=PYTHONPATH=/home/oib/windsurf/aitbc
-Environment=VIRTUAL_ENV=/home/oib/windsurf/aitbc/.venv
+WorkingDirectory=/opt/gpu-miner
+Environment=PYTHONPATH=/opt/gpu-miner
+Environment=VIRTUAL_ENV=/opt/gpu-miner/.venv
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONIOENCODING=utf-8
 Environment=FORCE_COLOR=1
-Environment=PATH=/home/oib/windsurf/aitbc/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/bin/bash -c 'exec /home/oib/windsurf/aitbc/.venv/bin/python -u /home/oib/windsurf/aitbc/scripts/gpu/gpu_miner_host.py 2>&1 | tee -a /home/oib/windsurf/aitbc/logs/host_gpu_miner.log'
+Environment=PATH=/opt/gpu-miner/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/bin/bash -c 'exec /opt/gpu-miner/.venv/bin/python -u /opt/gpu-miner/scripts/gpu/gpu_miner_host.py 2>&1 | tee -a /opt/gpu-miner/logs/host_gpu_miner.log'
 Restart=on-failure
 RestartSec=30
 StartLimitInterval=300

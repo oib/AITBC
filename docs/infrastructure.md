@@ -26,8 +26,8 @@ Four-site view: A) localhost (redacted-host, runs miner & Windsurf), B) remote h
 #### Site A Access
 ```bash
 ssh aitbc-cascade
-curl http://localhost:8082/rpc/head   # Node 1 RPC
-curl http://localhost:8081/rpc/head   # Node 2 RPC
+curl http://localhost:8081/rpc/head   # Node 1 RPC (aitbc-blockchain-node-1)
+curl http://localhost:8082/rpc/head   # Node 2 RPC (aitbc-blockchain-node-2)
 ```
 
 ### Site B: Remote Host redacted-host (physical)
@@ -51,12 +51,12 @@ ssh redacted-host-root
 - **Container IP**: 192.0.2.10
 - **Access**: `ssh redacted-host-root` → `incus shell aitbc`
 - **Domain**: aitbc.keisanki.net
-- **Blockchain Nodes**: Node 3 (rpc 8082) — provided by services `blockchain-node` + `blockchain-rpc`
+- **Blockchain Nodes**: Node 3 (rpc 8082) — provided by services `aitbc-blockchain-node-3` + `aitbc-blockchain-rpc-3`
 
 #### Site C Services
 | Service | Port | Protocol | Node | Status | URL |
 |---------|------|----------|------|--------|-----|
-| Blockchain Node 3 RPC | 8082 | HTTP | Node 3 | ✅ Active (service names: blockchain-node/blockchain-rpc) | http://aitbc.keisanki.net/rpc/ |
+| Blockchain Node 3 RPC | 8082 | HTTP | Node 3 | ✅ Active (service names: aitbc-blockchain-node-3/aitbc-blockchain-rpc-3) | http://aitbc.keisanki.net/rpc/ |
 
 #### Site C Access
 ```bash
@@ -304,12 +304,13 @@ curl -s http://aitbc.keisanki.net:8000/v1/health
 
 ### Health Check Commands
 ```bash
-# Localhost
-ssh aitbc-cascade "systemctl status blockchain-node blockchain-node-2"
-ssh aitbc-cascade "curl -s http://localhost:8082/rpc/head | jq .height"
+# Localhost (Site A)
+ssh aitbc-cascade "systemctl status aitbc-blockchain-node-1 aitbc-blockchain-node-2"
+ssh aitbc-cascade "curl -s http://localhost:8081/rpc/head | jq .height"  # Node 1
+ssh aitbc-cascade "curl -s http://localhost:8082/rpc/head | jq .height"  # Node 2
 
-# Remote
-ssh redacted-host-root "systemctl status blockchain-node-3"
+# Remote (Site B)
+ssh redacted-host-root "incus exec aitbc -- systemctl status aitbc-blockchain-node-3"
 ssh redacted-host-root "curl -s http://192.0.2.10:8082/rpc/head | jq .height"
 ```
 

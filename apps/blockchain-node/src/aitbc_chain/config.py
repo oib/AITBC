@@ -32,7 +32,7 @@ class ChainSettings(BaseSettings):
     min_fee: int = 0  # Minimum fee to accept into mempool
 
     # Mempool settings
-    mempool_backend: str = "memory"  # "memory" or "database"
+    mempool_backend: str = "database"  # "database" or "memory" (database recommended for persistence)
     mempool_max_size: int = 10_000
     mempool_eviction_interval: int = 60  # seconds
 

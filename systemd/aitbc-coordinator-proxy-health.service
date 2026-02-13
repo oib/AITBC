@@ -5,4 +5,4 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/home/oib/windsurf/aitbc/scripts/check_coordinator_proxy.sh
+ExecStart=/opt/coordinator-api/scripts/check_coordinator_proxy.sh
