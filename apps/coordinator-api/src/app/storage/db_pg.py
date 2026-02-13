@@ -30,12 +30,16 @@ Base = declarative_base()
 # Direct PostgreSQL connection for performance
 def get_pg_connection():
     """Get direct PostgreSQL connection"""
+    # Parse database URL from settings
+    from urllib.parse import urlparse
+    parsed = urlparse(settings.database_url)
+    
     return psycopg2.connect(
-        host="localhost",
-        database="aitbc_coordinator",
-        user="aitbc_user",
-        password="aitbc_password",
-        port=5432,
+        host=parsed.hostname or "localhost",
+        database=parsed.path[1:] if parsed.path else "aitbc_coordinator",
+        user=parsed.username or "aitbc_user",
+        password=parsed.password or "aitbc_password",
+        port=parsed.port or 5432,
         cursor_factory=RealDictCursor
     )
 
@@ -194,8 +198,16 @@ class PostgreSQLAdapter:
         if self.connection:
             self.connection.close()
 
-# Global adapter instance
-db_adapter = PostgreSQLAdapter()
+# Global adapter instance (lazy initialization)
+db_adapter: Optional[PostgreSQLAdapter] = None
+
+
+def get_db_adapter() -> PostgreSQLAdapter:
+    """Get or create database adapter instance"""
+    global db_adapter
+    if db_adapter is None:
+        db_adapter = PostgreSQLAdapter()
+    return db_adapter
 
 # Database initialization
 def init_db():
@@ -212,7 +224,8 @@ def init_db():
 def check_db_health() -> Dict[str, Any]:
     """Check database health"""
     try:
-        result = db_adapter.execute_query("SELECT 1 as health_check")
+        adapter = get_db_adapter()
+        result = adapter.execute_query("SELECT 1 as health_check")
         return {
             "status": "healthy",
             "database": "postgresql",

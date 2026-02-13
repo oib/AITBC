@@ -5,11 +5,14 @@ FastAPI backend for the AITBC Trade Exchange
 
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import desc, func, and_
 from sqlalchemy.orm import Session
+import hashlib
+import time
+from typing import Annotated
 
 from database import init_db, get_db_session
 from models import User, Order, Trade, Balance
@@ -17,13 +20,59 @@ from models import User, Order, Trade, Balance
 # Initialize FastAPI app
 app = FastAPI(title="AITBC Trade Exchange API", version="1.0.0")
 
+# In-memory session storage (use Redis in production)
+user_sessions = {}
+
+def verify_session_token(token: str = Header(..., alias="Authorization")) -> int:
+    """Verify session token and return user_id"""
+    # Remove "Bearer " prefix if present
+    if token.startswith("Bearer "):
+        token = token[7:]
+    
+    if token not in user_sessions:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token"
+        )
+    
+    session = user_sessions[token]
+    
+    # Check if expired
+    if int(time.time()) > session["expires_at"]:
+        del user_sessions[token]
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token expired"
+        )
+    
+    return session["user_id"]
+
+def optional_auth(token: Optional[str] = Header(None, alias="Authorization")) -> Optional[int]:
+    """Optional authentication - returns user_id if token is valid, None otherwise"""
+    if not token:
+        return None
+    
+    try:
+        return verify_session_token(token)
+    except HTTPException:
+        return None
+
+# Type annotations for dependencies
+UserDep = Annotated[int, Depends(verify_session_token)]
+OptionalUserDep = Annotated[Optional[int], Depends(optional_auth)]
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:8000",
+        "http://localhost:3003"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["*"],  # Allow all headers for auth tokens
 )
 
 # Pydantic models
@@ -110,6 +159,41 @@ def get_recent_trades(limit: int = 20, db: Session = Depends(get_db_session)):
     trades = db.query(Trade).order_by(desc(Trade.created_at)).limit(limit).all()
     return trades
 
+@app.get("/api/orders", response_model=List[OrderResponse])
+def get_orders(
+    status_filter: Optional[str] = None,
+    user_only: bool = False,
+    db: Session = Depends(get_db_session),
+    user_id: OptionalUserDep = None
+):
+    """Get all orders with optional status filter"""
+    query = db.query(Order)
+    
+    # Filter by user if requested and authenticated
+    if user_only and user_id:
+        query = query.filter(Order.user_id == user_id)
+    
+    if status_filter:
+        query = query.filter(Order.status == status_filter.upper())
+    
+    orders = query.order_by(Order.created_at.desc()).all()
+    return orders
+
+@app.get("/api/my/orders", response_model=List[OrderResponse])
+def get_my_orders(
+    user_id: UserDep,
+    status_filter: Optional[str] = None,
+    db: Session = Depends(get_db_session)
+):
+    """Get current user's orders"""
+    query = db.query(Order).filter(Order.user_id == user_id)
+    
+    if status_filter:
+        query = query.filter(Order.status == status_filter.upper())
+    
+    orders = query.order_by(Order.created_at.desc()).all()
+    return orders
+
 @app.get("/api/orders/orderbook", response_model=OrderBookResponse)
 def get_orderbook(db: Session = Depends(get_db_session)):
     """Get current order book"""
@@ -127,7 +211,11 @@ def get_orderbook(db: Session = Depends(get_db_session)):
     return OrderBookResponse(buys=buys, sells=sells)
 
 @app.post("/api/orders", response_model=OrderResponse)
-def create_order(order: OrderCreate, db: Session = Depends(get_db_session)):
+def create_order(
+    order: OrderCreate, 
+    db: Session = Depends(get_db_session),
+    user_id: UserDep
+):
     """Create a new order"""
     
     # Validate order type
@@ -140,7 +228,7 @@ def create_order(order: OrderCreate, db: Session = Depends(get_db_session)):
     # Create order
     total = order.amount * order.price
     db_order = Order(
-        user_id=1,  # TODO: Get from authentication
+        user_id=user_id,  # Use authenticated user_id
         order_type=order.order_type,
         amount=order.amount,
         price=order.price,
@@ -218,6 +306,45 @@ def try_match_order(order: Order, db: Session):
             match.status = 'PARTIALLY_FILLED'
     
     db.commit()
+
+@app.post("/api/auth/login")
+def login_user(wallet_address: str, db: Session = Depends(get_db_session)):
+    """Login with wallet address"""
+    # Find or create user
+    user = db.query(User).filter(User.wallet_address == wallet_address).first()
+    if not user:
+        user = User(
+            wallet_address=wallet_address,
+            email=f"{wallet_address}@aitbc.local",
+            is_active=True
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    
+    # Create session token
+    token_data = f"{user.id}:{int(time.time())}"
+    token = hashlib.sha256(token_data.encode()).hexdigest()
+    
+    # Store session
+    user_sessions[token] = {
+        "user_id": user.id,
+        "created_at": int(time.time()),
+        "expires_at": int(time.time()) + 86400  # 24 hours
+    }
+    
+    return {"token": token, "user_id": user.id}
+
+@app.post("/api/auth/logout")
+def logout_user(token: str = Header(..., alias="Authorization")):
+    """Logout user"""
+    if token.startswith("Bearer "):
+        token = token[7:]
+    
+    if token in user_sessions:
+        del user_sessions[token]
+    
+    return {"message": "Logged out successfully"}
 
 @app.get("/api/health")
 def health_check():

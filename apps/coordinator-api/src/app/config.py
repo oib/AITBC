@@ -1,5 +1,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
+from pathlib import Path
+import os
 
 
 class Settings(BaseSettings):
@@ -9,14 +11,35 @@ class Settings(BaseSettings):
     app_host: str = "127.0.0.1"
     app_port: int = 8011
 
-    database_url: str = "sqlite:///./coordinator.db"
+    # Use absolute path to avoid database duplicates in different working directories
+    @property
+    def database_url(self) -> str:
+        # Find project root by looking for .git directory
+        current = Path(__file__).resolve()
+        while current.parent != current:
+            if (current / ".git").exists():
+                project_root = current
+                break
+            current = current.parent
+        else:
+            # Fallback to relative path if .git not found
+            project_root = Path(__file__).resolve().parents[3]
+        
+        db_path = project_root / "data" / "coordinator.db"
+        db_path.parent.mkdir(parents=True, exist_ok=True)
+        return f"sqlite:///{db_path}"
 
     client_api_keys: List[str] = []
     miner_api_keys: List[str] = []
     admin_api_keys: List[str] = []
 
     hmac_secret: Optional[str] = None
-    allow_origins: List[str] = ["*"]
+    allow_origins: List[str] = [
+        "http://localhost:3000",
+        "http://localhost:8080", 
+        "http://localhost:8000",
+        "http://localhost:8011"
+    ]
 
     job_ttl_seconds: int = 900
     heartbeat_interval_seconds: int = 10

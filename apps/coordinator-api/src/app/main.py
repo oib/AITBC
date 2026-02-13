@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from .config import settings
-from .database import create_db_and_tables
 from .storage import init_db
 from .routers import (
     client,
@@ -38,8 +37,8 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.allow_origins,
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"]
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        allow_headers=["*"]  # Allow all headers for API keys and content types
     )
 
     app.include_router(client, prefix="/v1")
