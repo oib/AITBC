@@ -150,6 +150,72 @@ nav {
     color: var(--primary-color);
 }
 
+/* Site Header (unified) */
+.site-header {
+    background: var(--bg-white);
+    position: fixed;
+    width: 100%;
+    top: 0;
+    z-index: 1000;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.site-header .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 0;
+}
+
+.site-header .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+}
+
+.site-header .brand i {
+    font-size: 2rem;
+    color: var(--primary-color);
+}
+
+.site-header .brand span {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--text-dark);
+}
+
+.site-header .header-nav {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    list-style: none;
+}
+
+.site-header .header-nav a {
+    color: var(--text-dark);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.site-header .header-nav a:hover,
+.site-header .header-nav a.active {
+    color: var(--primary-color);
+}
+
+@media (max-width: 768px) {
+    .site-header .header-nav {
+        gap: 0.5rem;
+    }
+    .site-header .header-nav a {
+        padding: 0.4rem 0.5rem;
+        font-size: 0.85rem;
+    }
+}
+
 /* Theme Toggle Button */
 .theme-toggle {
     background: none;
@@ -1235,4 +1301,570 @@ footer p {
         flex-direction: column;
         align-items: center;
     }
+    
+    .doc-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .sidebar {
+        position: static;
+        max-height: none;
+    }
+    
+    .components-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .api-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   Component Pages: Layout
+   ============================================ */
+
+.breadcrumb {
+    margin-bottom: 2rem;
+}
+
+.breadcrumb a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.breadcrumb span {
+    color: var(--text-light);
+    margin: 0 0.5rem;
+}
+
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    margin-bottom: 2rem;
+    font-weight: 600;
+}
+
+.back-button:hover {
+    color: var(--secondary-color);
+}
+
+.doc-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 2rem;
+    align-items: start;
+}
+
+.sidebar {
+    background: var(--bg-white);
+    border-radius: 10px;
+    padding: 1.5rem;
+    position: sticky;
+    top: 100px;
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.sidebar h3 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--text-dark);
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar li {
+    margin-bottom: 0.25rem;
+}
+
+.sidebar a {
+    display: block;
+    padding: 0.4rem 0.75rem;
+    color: var(--text-light);
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.sidebar a:hover,
+.sidebar a.active {
+    background: rgba(59, 130, 246, 0.1);
+    color: var(--primary-color);
+}
+
+.sidebar .sub-item {
+    padding-left: 1.5rem;
+    font-size: 0.85rem;
+}
+
+.sidebar ul ul {
+    margin-top: 0.25rem;
+}
+
+/* ============================================
+   Component Pages: Cards
+   ============================================ */
+
+.components-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.component-card {
+    background: var(--bg-white);
+    border-radius: 12px;
+    padding: 2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    border: 1px solid var(--border-color);
+}
+
+.component-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    border-color: var(--primary-color);
+}
+
+.component-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #fff;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    margin-bottom: 1.5rem;
+}
+
+.component-card h3 {
+    font-size: 1.4rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+}
+
+.component-card p {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    line-height: 1.7;
+}
+
+.component-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.component-status.live {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--success-color);
+}
+
+.component-status.live i {
+    font-size: 0.5rem;
+}
+
+.component-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+}
+
+.component-link:hover {
+    color: var(--secondary-color);
+    transform: translateX(5px);
+}
+
+/* ============================================
+   Component Pages: Section blocks
+   ============================================ */
+
+.section {
+    background: var(--bg-white);
+    padding: 2.5rem;
+    margin-bottom: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.section h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-dark);
+}
+
+.inline-code {
+    background: var(--bg-light);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    color: var(--accent-color);
+}
+
+/* ============================================
+   API Pages
+   ============================================ */
+
+.api-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.api-card {
+    background: var(--bg-light);
+    border-radius: 10px;
+    padding: 1.5rem;
+    border-left: 4px solid var(--primary-color);
+}
+
+.api-card h4 {
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+.api-endpoint,
+.endpoint {
+    background: var(--bg-light);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+}
+
+.method {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #fff;
+    margin-right: 0.5rem;
+}
+
+.method.get, .get { background: var(--success-color); }
+.method.post, .post { background: var(--primary-color); }
+.method.delete, .delete { background: var(--danger-color); }
+
+.http-request {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.9rem;
+}
+
+.error-box {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid var(--danger-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* ============================================
+   Tabs
+   ============================================ */
+
+.tabs {
+    margin: 1.5rem 0;
+}
+
+.tab-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0;
+}
+
+.tab-button {
+    padding: 0.75rem 1.5rem;
+    background: none;
+    border: none;
+    color: var(--text-light);
+    cursor: pointer;
+    font-weight: 600;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.3s;
+}
+
+.tab-button:hover,
+.tab-button.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+
+.tab-content {
+    display: none;
+    padding: 1rem 0;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+/* ============================================
+   Code Groups
+   ============================================ */
+
+.code-group {
+    margin: 1rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.code-group-header {
+    background: var(--bg-light);
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.code-group-content {
+    padding: 0;
+}
+
+/* ============================================
+   Mermaid Diagrams
+   ============================================ */
+
+.mermaid {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+/* ============================================
+   Flow Diagram
+   ============================================ */
+
+.flow-diagram {
+    background: var(--bg-white);
+    border-radius: 10px;
+    padding: 2rem;
+    margin: 2rem 0;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    overflow-x: auto;
+}
+
+/* ============================================
+   Misc: Timeline, Security, CTA, Browser
+   ============================================ */
+
+.timeline {
+    position: relative;
+    padding-left: 2rem;
+    margin: 1.5rem 0;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--primary-color);
+}
+
+.security-icon {
+    font-size: 2rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.cta-button {
+    display: inline-block;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: #fff;
+    border-radius: 50px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.cta-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 20px rgba(59, 130, 246, 0.4);
+    color: #fff;
+}
+
+.hero-gradient {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border-radius: 15px;
+    padding: 2rem;
+    margin: 2rem 0;
+}
+
+.browser-button, .chrome-button, .firefox-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s;
+}
+
+.chrome-button {
+    background: #4285f4;
+    color: #fff;
+}
+
+.firefox-button {
+    background: #ff7139;
+    color: #fff;
+}
+
+/* ============================================
+   Announcement Banners
+   ============================================ */
+
+.announce-banner {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(16, 185, 129, 0.1) 100%);
+    border-radius: 15px;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+}
+
+.announce-banner.green {
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.announce-banner h3 {
+    color: var(--success-color);
+    margin-bottom: 0.5rem;
+    font-size: 1.2rem;
+}
+
+.announce-banner p {
+    color: var(--text-light);
+    margin: 0;
+}
+
+/* ============================================
+   Markdown Source Links
+   ============================================ */
+
+.source-links {
+    margin-top: 1rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.source-links a {
+    color: var(--primary-color);
+    font-size: 0.9rem;
+    text-decoration: none;
+}
+
+.source-links a:hover {
+    text-decoration: underline;
+}
+
+/* ============================================
+   Search Results
+   ============================================ */
+
+.search-results {
+    max-width: 600px;
+    margin: -3rem auto 2rem;
+    background: var(--bg-white);
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.search-results a {
+    display: block;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-dark);
+    text-decoration: none;
+}
+
+.search-results a:hover {
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.search-results small {
+    color: var(--text-light);
+}
+
+.search-results .no-results {
+    padding: 1rem;
+    color: var(--text-light);
+}
+
+/* ============================================
+   Inline Code Blocks (pre/code in content)
+   ============================================ */
+
+.code-inline {
+    background: #1f2937;
+    color: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-family: 'Fira Code', 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+}
+
+/* ============================================
+   Quick-link Grid (components page)
+   ============================================ */
+
+.quicklink-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.quicklink-grid a {
+    padding: 1rem;
+    background: var(--bg-light);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text-dark);
+    transition: all 0.3s;
+}
+
+.quicklink-grid a:hover {
+    background: var(--primary-color);
+    color: #fff;
 }

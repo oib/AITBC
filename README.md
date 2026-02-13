@@ -63,7 +63,7 @@ aitbc/
 └── website/                 # Public website and HTML documentation
 ```
 
-See [docs/structure.md](docs/structure.md) for detailed file-level documentation.
+See [docs/README.md](docs/README.md) for the full documentation index.
 
 ## Quick Start
 
@@ -147,17 +147,18 @@ Services run in an Incus container with systemd units. See `systemd/` for servic
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [docs/structure.md](docs/structure.md) | Codebase structure and file layout |
-| [docs/components.md](docs/components.md) | Component overview |
-| [docs/coordinator-api.md](docs/coordinator-api.md) | Coordinator API reference |
-| [docs/cli-reference.md](docs/cli-reference.md) | CLI command reference (560+ lines) |
-| [docs/roadmap.md](docs/roadmap.md) | Development roadmap |
-| [docs/done.md](docs/done.md) | Completed deployments and milestones |
-| [docs/files.md](docs/files.md) | File audit and status tracking |
-| [docs/currentTask.md](docs/currentTask.md) | Current task and test results |
+| Section | Path | Description |
+|---------|------|-------------|
+| Getting Started | [docs/0_getting_started/](docs/0_getting_started/) | Intro, installation, CLI usage |
+| Clients | [docs/2_clients/](docs/2_clients/) | Job submission, wallet, pricing, API |
+| Miners | [docs/3_miners/](docs/3_miners/) | GPU setup, registration, earnings |
+| Blockchain | [docs/4_blockchain/](docs/4_blockchain/) | Node operation, configuration |
+| Reference | [docs/5_reference/](docs/5_reference/) | CLI reference, architecture specs |
+| Architecture | [docs/6_architecture/](docs/6_architecture/) | System flow, component details |
+| Deployment | [docs/7_deployment/](docs/7_deployment/) | Remote deployment, backups |
+| Development | [docs/8_development/](docs/8_development/) | Setup, contributing, examples |
+| Security | [docs/9_security/](docs/9_security/) | Security architecture, audit |
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2025 AITBC
+[MIT](LICENSE) — Copyright (c) 2026 AITBC
