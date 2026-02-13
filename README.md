@@ -48,16 +48,21 @@ aitbc/
 │   └── zk-circuits/         # ZK proof circuits (Circom)
 ├── cli/                     # CLI tools (12 command groups, 90+ subcommands)
 ├── contracts/               # Solidity smart contracts
-├── docs/                    # Documentation (structure, guides, reference, reports)
+├── docs/                    # Documentation (10 numbered sections)
 ├── extensions/              # Browser extensions (Firefox wallet)
-├── home/                    # Local simulation scripts
 ├── infra/                   # Infrastructure (nginx, k8s, helm, terraform)
 ├── packages/                # Shared libraries
 │   ├── py/aitbc-crypto/     # Cryptographic primitives
 │   ├── py/aitbc-sdk/        # Python SDK
 │   └── solidity/aitbc-token/# ERC-20 token contract
 ├── plugins/ollama/          # Ollama LLM integration
-├── scripts/                 # Deployment, GPU, service, and test scripts
+├── scripts/                 # All scripts, organized by purpose
+│   ├── blockchain/          # Genesis, proposer, mock chain
+│   ├── ci/                  # CI/CD pipeline
+│   ├── dev/                 # Dev tools, local services
+│   ├── examples/            # Usage examples and simulations
+│   ├── ops/                 # Coordinator proxy, tunnels
+│   └── test/                # Integration and verification
 ├── systemd/                 # Systemd service units
 ├── tests/                   # Test suites (unit, integration, e2e, security, CLI)
 └── website/                 # Public website and HTML documentation

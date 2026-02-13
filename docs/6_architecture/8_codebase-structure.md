@@ -10,17 +10,21 @@ aitbc/
 ├── assets/                  # Shared frontend assets (CSS, JS, fonts)
 ├── cli/                     # Command-line interface tools
 ├── contracts/               # Solidity smart contracts (standalone)
-├── dev-utils/               # Developer utilities and path configs
-├── docs/                    # Markdown documentation
-├── examples/                # Usage examples and demos
+├── docs/                    # Markdown documentation (10 numbered sections)
 ├── extensions/              # Browser extensions (Firefox wallet)
-├── home/                    # Local workflow scripts (client/miner simulation)
 ├── infra/                   # Infrastructure configs (nginx, k8s, terraform, helm)
 ├── packages/                # Shared libraries and SDKs
 ├── plugins/                 # Plugin integrations (Ollama)
-├── protocols/               # Protocol specs and sample data
-├── scripts/                 # Operational and deployment scripts
-├── src/                     # Shared Python source (cross-site sync, RPC)
+├── scripts/                 # All scripts, organized by purpose
+│   ├── blockchain/          # Genesis, proposer, mock chain, testnet
+│   ├── ci/                  # CI/CD pipeline scripts
+│   ├── deploy/              # Container and service deployment (gitignored)
+│   ├── dev/                 # Dev tools, local services, OpenAPI gen
+│   ├── examples/            # Usage examples and simulation scripts
+│   ├── gpu/                 # GPU miner setup and management (gitignored)
+│   ├── ops/                 # Coordinator proxy, remote tunnel
+│   ├── service/             # Service management (gitignored)
+│   └── test/                # Integration and verification scripts
 ├── systemd/                 # Systemd service unit files
 ├── tests/                   # Pytest test suites (unit, integration, e2e, security, load)
 ├── website/                 # Public-facing website and HTML documentation
@@ -257,12 +261,8 @@ website/
 |-----------|---------|
 | `cli/` | AITBC CLI package (12 command groups, 90+ subcommands, 141 unit + 24 integration tests, CI/CD, man page, plugins) |
 | `plugins/ollama/` | Ollama LLM integration (client plugin, miner plugin, service layer) |
-| `home/` | Local simulation scripts for client/miner workflows |
 | `extensions/` | Firefox wallet extension source code |
 | `contracts/` | Standalone Solidity contracts (ZKReceiptVerifier) |
-| `protocols/` | Protocol sample data (signed receipts) |
-| `src/` | Shared Python modules (cross-site sync, RPC router) |
 | `systemd/` | Systemd unit files for all AITBC services |
-| `dev-utils/` | Developer utilities (Python path config) |
-| `docs/` | Markdown documentation (guides, reports, reference, tutorials, operator docs) |
+| `docs/` | Markdown documentation (10 numbered sections, guides, reference, architecture) |
 | `assets/` | Shared frontend assets (Tailwind CSS, FontAwesome, Lucide icons, Axios) |
