@@ -759,6 +759,44 @@ Current Status: Canonical receipt schema specification moved from `protocols/rec
 - **Phase 4**: MarketplaceOffer GPU fields, booking system, review system
 - **Phase 5**: Batch CSV/JSON ops, job templates, webhooks, plugin system, real-time dashboard, metrics/alerts, multi-sig wallets, encrypted config, audit logging, progress bars
 
+## Recent Progress (2026-02-13)
+
+### Critical Security Fixes ✅ COMPLETE
+- **Fixed Hardcoded Secrets**
+  - JWT secret now required from environment (no longer hardcoded)
+  - PostgreSQL credentials parsed from DATABASE_URL
+  - Added fail-fast validation for missing secrets
+  
+- **Unified Database Sessions**
+  - Migrated all routers to use `storage.SessionDep`
+  - Removed legacy session dependencies
+  - Consistent database session management across services
+  
+- **Closed Authentication Gaps**
+  - Implemented session-based authentication in exchange API
+  - Fixed hardcoded user IDs - now uses authenticated context
+  - Added login/logout endpoints with wallet authentication
+  
+- **Tightened CORS Defaults**
+  - Replaced wildcard origins with specific localhost URLs
+  - Restricted HTTP methods to only those needed
+  - Applied across all services (Coordinator, Exchange, Blockchain, Gossip)
+  
+- **Enhanced Wallet Encryption**
+  - Replaced weak XOR with Fernet (AES-128 CBC)
+  - Added secure key derivation (PBKDF2 with SHA-256)
+  - Integrated keyring for password management
+  
+- **CI Import Error Fix**
+  - Replaced `requests` with `httpx` (already a dependency)
+  - Fixed build pipeline failures
+  - Added graceful fallback for missing dependencies
+
+### Deployment Status
+- ✅ Site A (aitbc.bubuit.net): All fixes deployed and active
+- ✅ Site B (ns3): No action needed (blockchain node only)
+- ✅ Commit: `26edd70` - Changes committed and deployed
+
 ## Recent Progress (2026-02-11)
 
 ### Git & Repository Hygiene ✅ COMPLETE

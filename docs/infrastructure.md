@@ -347,3 +347,59 @@ ssh ns3-root "curl -s http://192.168.100.10:8082/rpc/head | jq .height"
 3. **Monitoring**: Add Prometheus + Grafana
 4. **CI/CD**: Automated deployment pipeline
 5. **Security**: OAuth2/JWT authentication, rate limiting
+
+## Security Configuration (Updated 2026-02-13)
+
+### Implemented Security Measures
+
+#### CORS Restrictions
+- **Coordinator API**: Only allows localhost origins (3000, 8080, 8000, 8011)
+- **Exchange API**: Restricted to localhost origins
+- **Blockchain Node**: Limited to localhost origins
+- **Gossip Relay**: Specific origin whitelist
+- Unauthorized origins receive 400 Bad Request
+
+#### Authentication
+- **Exchange API**: Session-based authentication implemented
+  - Login/logout endpoints with wallet address authentication
+  - Session tokens expire after 24 hours
+  - User-specific endpoints require authentication
+  - Optional authentication for public endpoints
+
+#### Secret Management
+- **JWT Secrets**: Required from environment variables
+  - No longer hardcoded in configuration files
+  - Fail-fast validation on startup
+- **Database Credentials**: Parsed from DATABASE_URL
+  - PostgreSQL credentials no longer hardcoded
+  - Lazy initialization to avoid import issues
+
+#### Encryption
+- **Wallet Private Keys**: Encrypted at rest
+  - Fernet encryption (AES-128 in CBC mode)
+  - PBKDF2 key derivation with SHA-256
+  - Keyring integration for password management
+  - Replaced weak XOR encryption
+
+#### Database Security
+- **Unified Sessions**: All routers use `storage.SessionDep`
+  - Removed legacy session dependencies
+  - Consistent session management
+  - Prevents duplicate database connections
+
+### Environment Variables Required
+```bash
+# Coordinator API
+JWT_SECRET=<your-secret-here>
+DATABASE_URL=postgresql://user:pass@host/db
+
+# Exchange API
+SESSION_SECRET=<session-secret>
+WALLET_ENCRYPTION_KEY=<encryption-key>
+```
+
+### Security Testing
+- All endpoints tested for CORS restrictions
+- Authentication flows verified
+- Encryption/decryption validated
+- CI pipeline passes security checks

@@ -2,7 +2,19 @@
 
 No active task. All recent work documented in `done.md`.
 
-## Last Completed (2026-02-12)
+## Last Completed (2026-02-13)
+
+### Critical Security Fixes
+- ✅ Fixed hardcoded secrets (JWT, PostgreSQL credentials)
+- ✅ Unified database sessions (storage.SessionDep)
+- ✅ Closed authentication gaps in exchange API
+- ✅ Tightened CORS defaults across all services
+- ✅ Enhanced wallet encryption (Fernet, PBKDF2)
+- ✅ Fixed CI import error (requests → httpx)
+- ✅ Deployed to Site A (aitbc.bubuit.net)
+- ✅ Site B no action needed (blockchain node only)
+
+### Previous (2026-02-12)
 
 - ✅ Persistent GPU marketplace (SQLModel) — see `done.md`
 - ✅ CLI integration tests (24 tests) — see `done.md`
