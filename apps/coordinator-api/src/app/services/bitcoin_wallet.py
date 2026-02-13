@@ -7,8 +7,14 @@ Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 import os
 import json
 import logging
-import requests
 from typing import Dict, Optional
+
+try:
+    import httpx
+    HTTP_CLIENT_AVAILABLE = True
+except ImportError:
+    HTTP_CLIENT_AVAILABLE = False
+    logging.warning("httpx not available, bitcoin wallet functions will be disabled")
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +31,12 @@ WALLET_CONFIG = {
 class BitcoinWallet:
     def __init__(self):
         self.config = WALLET_CONFIG
-        self.session = requests.Session()
-        self.session.auth = (self.config['rpc_user'], self.config['rpc_password'])
+        if not HTTP_CLIENT_AVAILABLE:
+            logger.error("httpx not available - bitcoin wallet functions disabled")
+            self.session = None
+        else:
+            self.session = httpx.Client()
+            self.session.auth = (self.config['rpc_user'], self.config['rpc_password'])
         
     def get_balance(self) -> float:
         """Get the current Bitcoin balance"""
@@ -68,6 +78,9 @@ class BitcoinWallet:
         """Make an RPC call to Bitcoin Core"""
         if params is None:
             params = []
+        
+        if not self.session:
+            return {"error": "httpx not available"}
             
         payload = {
             "jsonrpc": "2.0",

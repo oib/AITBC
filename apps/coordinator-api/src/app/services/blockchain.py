@@ -35,16 +35,15 @@ def get_balance(address: str) -> Optional[float]:
     """Get AITBC balance for an address"""
     
     try:
-        import requests
-        
-        response = requests.get(
-            f"{BLOCKCHAIN_RPC}/getBalance/{address}",
-            headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""}
-        )
-        
-        if response.status_code == 200:
-            data = response.json()
-            return float(data.get("balance", 0))
+        with httpx.Client() as client:
+            response = client.get(
+                f"{BLOCKCHAIN_RPC}/getBalance/{address}",
+                headers={"X-Api-Key": settings.admin_api_keys[0] if settings.admin_api_keys else ""}
+            )
+            
+            if response.status_code == 200:
+                data = response.json()
+                return float(data.get("balance", 0))
         
     except Exception as e:
         logger.error("Error getting balance: %s", e)
