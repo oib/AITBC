@@ -112,6 +112,97 @@ body {
   overflow-x: auto;
 }
 
+.offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
+}
+
+.offer-card {
+  background: #ffffff;
+  border: 1px solid #e5e9f1;
+  border-radius: 14px;
+  padding: 20px;
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+
+.offer-card:hover {
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.12);
+  transform: translateY(-2px);
+}
+
+.offer-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 4px;
+}
+
+.offer-gpu-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1d2736;
+}
+
+.offer-provider {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-bottom: 16px;
+}
+
+.offer-specs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.spec-item {
+  text-align: center;
+}
+
+.spec-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  margin-bottom: 4px;
+}
+
+.spec-value {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.offer-pricing {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.offer-price {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #6366f1;
+}
+
+.offer-price small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+.offer-sla {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

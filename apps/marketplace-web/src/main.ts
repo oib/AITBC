@@ -124,38 +124,43 @@ function renderOffers(offers: MarketplaceOffer[]): void {
     return;
   }
 
-  const rows = offers
+  const cards = offers
     .map(
       (offer) => `
-        <tr>
-          <td>${offer.id}</td>
-          <td>${offer.provider}</td>
-          <td>${formatNumber(offer.capacity)} units</td>
-          <td>${formatNumber(offer.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-          <td>${offer.sla}</td>
-          <td><span class="${statusClass(offer.status)}">${offer.status}</span></td>
-        </tr>
+        <article class="offer-card">
+          <div class="offer-card-header">
+            <div class="offer-gpu-name">${offer.gpu_model || 'Unknown GPU'}</div>
+            <span class="${statusClass(offer.status)}">${offer.status}</span>
+          </div>
+          <div class="offer-provider">${offer.provider}${offer.region ? ` · ${offer.region}` : ''}</div>
+          <div class="offer-specs">
+            <div class="spec-item">
+              <span class="spec-label">VRAM</span>
+              <span class="spec-value">${offer.gpu_memory_gb ? `${offer.gpu_memory_gb} GB` : '—'}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">GPUs</span>
+              <span class="spec-value">${offer.gpu_count ?? 1}×</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">CUDA</span>
+              <span class="spec-value">${offer.cuda_version || '—'}</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-label">Capacity</span>
+              <span class="spec-value">${formatNumber(offer.capacity)} units</span>
+            </div>
+          </div>
+          <div class="offer-pricing">
+            <div class="offer-price">${formatNumber(offer.price_per_hour ?? offer.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <small>credits/hr</small></div>
+            <div class="offer-sla">${offer.sla}</div>
+          </div>
+        </article>
       `,
     )
     .join('');
 
-  selectors.offersWrapper.innerHTML = `
-    <div class="table-responsive">
-      <table class="offers-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Provider</th>
-            <th>Capacity</th>
-            <th>Price</th>
-            <th>SLA</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  `;
+  selectors.offersWrapper.innerHTML = `<div class="offers-grid">${cards}</div>`;
 }
 
 function showToast(message: string, duration = 2500): void {
