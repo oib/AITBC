@@ -9,6 +9,13 @@ interface OfferRecord {
   price: number;
   sla: string;
   status: string;
+  created_at?: string;
+  gpu_model?: string;
+  gpu_memory_gb?: number;
+  gpu_count?: number;
+  cuda_version?: string;
+  price_per_hour?: number;
+  region?: string;
 }
 
 interface OffersResponse {
