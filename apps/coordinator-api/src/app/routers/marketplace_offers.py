@@ -63,43 +63,6 @@ async def sync_offers(
     }
 
 
-@router.get("/marketplace/offers", summary="List all marketplace offers")
-async def list_offers() -> list[dict]:
-    """List all marketplace offers"""
-    
-    # Return simple mock data
-    return [
-        {
-            "id": "mock-offer-1",
-            "provider_id": "miner_001",
-            "provider_name": "GPU Miner Alpha",
-            "capacity": 4,
-            "price": 0.50,
-            "gpu_model": "RTX 4090",
-            "gpu_memory_gb": 24,
-            "cuda_version": "12.0",
-            "supported_models": ["llama2-7b", "stable-diffusion-xl"],
-            "region": "us-west",
-            "status": "OPEN",
-            "created_at": "2025-12-28T10:00:00Z",
-        },
-        {
-            "id": "mock-offer-2",
-            "provider_id": "miner_002",
-            "provider_name": "GPU Miner Beta",
-            "capacity": 2,
-            "price": 0.35,
-            "gpu_model": "RTX 3080",
-            "gpu_memory_gb": 16,
-            "cuda_version": "11.8",
-            "supported_models": ["llama2-13b", "gpt-j"],
-            "region": "us-east",
-            "status": "OPEN",
-            "created_at": "2025-12-28T09:30:00Z",
-        },
-    ]
-
-
 @router.get("/marketplace/miner-offers", summary="List all miner offers", response_model=list[MarketplaceOfferView])
 async def list_miner_offers(session: SessionDep) -> list[MarketplaceOfferView]:
     """List all offers created from miners"""

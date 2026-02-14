@@ -26,39 +26,19 @@ class MarketplaceService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[MarketplaceOfferView]:
-        # Return simple mock data as dicts to avoid schema issues
-        return [
-            {
-                "id": "mock-offer-1",
-                "provider": "miner_001",
-                "provider_name": "GPU Miner Alpha",
-                "capacity": 4,
-                "price": 0.50,
-                "sla": "Standard SLA",
-                "gpu_model": "RTX 4090",
-                "gpu_memory_gb": 24,
-                "cuda_version": "12.0",
-                "supported_models": ["llama2-7b", "stable-diffusion-xl"],
-                "region": "us-west",
-                "status": "OPEN",
-                "created_at": "2025-12-28T10:00:00Z",
-            },
-            {
-                "id": "mock-offer-2",
-                "provider": "miner_002",
-                "provider_name": "GPU Miner Beta",
-                "capacity": 2,
-                "price": 0.35,
-                "sla": "Standard SLA",
-                "gpu_model": "RTX 3080",
-                "gpu_memory_gb": 16,
-                "cuda_version": "11.8",
-                "supported_models": ["llama2-13b", "gpt-j"],
-                "region": "us-east",
-                "status": "OPEN",
-                "created_at": "2025-12-28T09:30:00Z",
-            },
-        ][:limit]
+        stmt = select(MarketplaceOffer).order_by(MarketplaceOffer.created_at.desc())
+
+        if status is not None:
+            normalised = status.strip().lower()
+            valid = {s.value for s in MarketplaceOffer.status.type.__class__.__mro__}  # type: ignore[union-attr]
+            # Simple validation – accept any non-empty string that matches a known value
+            if normalised not in ("open", "reserved", "closed", "booked"):
+                raise ValueError(f"invalid status: {status}")
+            stmt = stmt.where(MarketplaceOffer.status == normalised)
+
+        stmt = stmt.offset(offset).limit(limit)
+        offers = self.session.exec(stmt).all()
+        return [self._to_offer_view(o) for o in offers]
 
     def get_stats(self) -> MarketplaceStatsView:
         offers = self.session.exec(select(MarketplaceOffer)).all()
@@ -92,13 +72,14 @@ class MarketplaceService:
 
     @staticmethod
     def _to_offer_view(offer: MarketplaceOffer) -> MarketplaceOfferView:
+        status_val = offer.status.value if hasattr(offer.status, "value") else offer.status
         return MarketplaceOfferView(
             id=offer.id,
             provider=offer.provider,
             capacity=offer.capacity,
             price=offer.price,
             sla=offer.sla,
-            status=offer.status.value,
+            status=status_val,
             created_at=offer.created_at,
             gpu_model=offer.gpu_model,
             gpu_memory_gb=offer.gpu_memory_gb,
