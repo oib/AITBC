@@ -196,6 +196,7 @@ class MarketplaceOfferView(BaseModel):
     cuda_version: Optional[str] = None
     price_per_hour: Optional[float] = None
     region: Optional[str] = None
+    attributes: Optional[dict] = None
 
 
 class MarketplaceStatsView(BaseModel):
