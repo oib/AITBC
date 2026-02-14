@@ -16,6 +16,13 @@ interface OfferRecord {
   cuda_version?: string;
   price_per_hour?: number;
   region?: string;
+  attributes?: {
+    ollama_host?: string;
+    models?: string[];
+    vram_mb?: number;
+    driver?: string;
+    [key: string]: unknown;
+  };
 }
 
 interface OffersResponse {

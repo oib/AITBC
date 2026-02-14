@@ -151,6 +151,14 @@ function renderOffers(offers: MarketplaceOffer[]): void {
               <span class="spec-value">${formatNumber(offer.capacity)} units</span>
             </div>
           </div>
+          ${offer.attributes?.models?.length ? `
+          <div class="offer-plugins">
+            <span class="plugin-badge">Ollama</span>
+          </div>
+          <div class="offer-models">
+            <span class="models-label">Available Models</span>
+            <div class="model-tags">${offer.attributes.models.map(m => `<span class="model-tag">${m}</span>`).join('')}</div>
+          </div>` : ''}
           <div class="offer-pricing">
             <div class="offer-price">${formatNumber(offer.price_per_hour ?? offer.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <small>credits/hr</small></div>
             <div class="offer-sla">${offer.sla}</div>
