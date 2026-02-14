@@ -1,406 +1,285 @@
 # AITBC Infrastructure Documentation
 
+> Last updated: 2026-02-14
+
 ## Overview
-Four-site view: A) localhost (at1, runs miner & Windsurf), B) remote host ns3, C) ns3 container, D) shared capabilities.
 
-## Environment Summary (four sites)
+Two-tier architecture: **incus host** (localhost) runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services.
 
-### Site A: Localhost (at1)
-- **Role**: Developer box running Windsurf and miner
-- **Container**: incus `aitbc`
-- **IP**: 10.1.223.93
-- **Access**: `ssh aitbc-cascade`
-- **Domain**: aitbc.bubuit.net
-- **Blockchain Nodes**: Node 1 (rpc 8082), Node 2 (rpc 8081)
+```
+Internet → aitbc.bubuit.net (HTTPS :443)
+    │
+    ▼
+┌──────────────────────────────────────────────┐
+│  Incus Host (localhost / at1)                │
+│  Nginx reverse proxy (:443 SSL → :80)       │
+│  Config: /etc/nginx/sites-available/         │
+│          aitbc-proxy.conf                    │
+│                                              │
+│  ┌────────────────────────────────────────┐  │
+│  │  Container: aitbc (10.1.223.93)       │  │
+│  │  Access: ssh aitbc-cascade            │  │
+│  │                                        │  │
+│  │  Nginx (:80) → routes to services:    │  │
+│  │    /              → static website     │  │
+│  │    /explorer/     → Vite SPA           │  │
+│  │    /marketplace/  → Vite SPA           │  │
+│  │    /Exchange      → :3002 (Python)     │  │
+│  │    /docs/         → static HTML        │  │
+│  │    /wallet/       → :8002 (daemon)     │  │
+│  │    /api/          → :8000 (coordinator)│  │
+│  │    /rpc/          → :8081 (blockchain) │  │
+│  │    /admin/        → :8000 (coordinator)│  │
+│  │    /health        → 200 OK             │  │
+│  │                                        │  │
+│  │  Config: /etc/nginx/sites-enabled/     │  │
+│  │          aitbc.bubuit.net              │  │
+│  └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
+```
 
-#### Site A Services
-| Service | Port | Protocol | Node | Status | URL |
-|---------|------|----------|------|--------|-----|
-| Coordinator API | 8000 | HTTP | - | ✅ Active | https://aitbc.bubuit.net/api/ |
-| Blockchain Node 1 RPC | 8082 | HTTP | Node 1 | ✅ Active | https://aitbc.bubuit.net/rpc/ |
-| Blockchain Node 2 RPC | 8081 | HTTP | Node 2 | ✅ Active | https://aitbc.bubuit.net/rpc2/ |
-| Exchange API | 9080 | HTTP | - | ✅ Active | https://aitbc.bubuit.net/exchange/ |
-| Explorer | 3000 | HTTP | - | ✅ Active | https://aitbc.bubuit.net/ |
-| Marketplace | 3000 | HTTP | - | ✅ Active | https://aitbc.bubuit.net/marketplace/ |
+## Incus Host (localhost)
 
-#### Site A Access
+### Nginx Reverse Proxy
+
+The host runs a simple reverse proxy that forwards all traffic to the container. SSL is terminated here via Let's Encrypt.
+
+- **Config**: `/etc/nginx/sites-available/aitbc-proxy.conf`
+- **Enabled**: symlinked in `/etc/nginx/sites-enabled/`
+- **SSL**: Let's Encrypt cert for `bubuit.net` (managed by Certbot)
+- **Upstream**: `http://10.1.223.93` (container IP)
+- **WebSocket**: supported (Upgrade/Connection headers forwarded)
+
+```nginx
+# /etc/nginx/sites-available/aitbc-proxy.conf (active)
+server {
+    server_name aitbc.bubuit.net;
+    location / {
+        proxy_pass http://10.1.223.93;
+        proxy_set_header Host $host;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+    listen 443 ssl;  # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/bubuit.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bubuit.net/privkey.pem;
+}
+# HTTP → HTTPS redirect (managed by Certbot)
+```
+
+**Purged legacy configs** (2026-02-14):
+- `aitbc-website-new.conf` — served files directly from host, bypassing container. Deleted.
+
+## Container: aitbc (10.1.223.93)
+
+### Access
 ```bash
-ssh aitbc-cascade
-curl http://localhost:8081/rpc/head   # Node 1 RPC (aitbc-blockchain-node-1)
-curl http://localhost:8082/rpc/head   # Node 2 RPC (aitbc-blockchain-node-2)
+ssh aitbc-cascade                    # Direct SSH to container
 ```
 
-### Site B: Remote Host ns3 (physical)
-- **Host IP**: 95.216.198.140
-- **Access**: `ssh ns3-root`
-- **Bridge**: incusbr0 192.168.100.1/24
-- **Purpose**: runs incus container `aitbc` with bc node 3
+### Services
 
-#### Site B Services
-| Service | Port | Protocol | Purpose | Status | URL |
-|---------|------|----------|---------|--------|-----|
-| incus host bridge | 192.168.100.1/24 | n/a | L2 bridge for container | ✅ Active | n/a |
-| SSH | 22 | SSH | Host management | ✅ Active | ssh ns3-root |
+| Service | Port | Process | Public URL |
+|---------|------|---------|------------|
+| Nginx (web) | 80 | nginx | https://aitbc.bubuit.net/ |
+| Coordinator API | 8000 | python (uvicorn) | /api/ → /v1/ |
+| Blockchain Node RPC | 8081 | python3 | /rpc/ |
+| Wallet Daemon | 8002 | python | /wallet/ |
+| Trade Exchange | 3002 | python (server.py) | /Exchange |
+| Exchange API | 8085 | python | /api/trades/*, /api/orders/* |
 
-#### Site B Access
-```bash
-ssh ns3-root
+### Nginx Routes (container)
+
+Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
+
+| Route | Target | Type |
+|-------|--------|------|
+| `/` | static files (`/var/www/aitbc.bubuit.net/`) | try_files |
+| `/explorer/` | Vite SPA (`/var/www/aitbc.bubuit.net/explorer/`) | try_files |
+| `/marketplace/` | Vite SPA (`/var/www/aitbc.bubuit.net/marketplace/`) | try_files |
+| `/docs/` | static HTML (`/var/www/aitbc.bubuit.net/docs/`) | alias |
+| `/Exchange` | proxy → `127.0.0.1:3002` | proxy_pass |
+| `/exchange` | 301 → `/Exchange` | redirect |
+| `/api/` | proxy → `127.0.0.1:8000/v1/` | proxy_pass |
+| `/api/explorer/` | proxy → `127.0.0.1:8000/v1/explorer/` | proxy_pass |
+| `/api/users/` | proxy → `127.0.0.1:8000/v1/users/` | proxy_pass |
+| `/api/trades/recent` | proxy → `127.0.0.1:8085` | proxy_pass |
+| `/api/orders/orderbook` | proxy → `127.0.0.1:8085` | proxy_pass |
+| `/admin/` | proxy → `127.0.0.1:8000/v1/admin/` | proxy_pass |
+| `/rpc/` | proxy → `127.0.0.1:8081` | proxy_pass |
+| `/wallet/` | proxy → `127.0.0.1:8002` | proxy_pass |
+| `/v1/` | proxy → `10.1.223.1:8090` (mock coordinator) | proxy_pass |
+| `/health` | 200 OK | direct |
+| `/Marketplace` | 301 → `/marketplace/` | redirect (legacy) |
+| `/BrowserWallet` | 301 → `/docs/browser-wallet.html` | redirect (legacy) |
+
+### Web Root (`/var/www/aitbc.bubuit.net/`)
+
+```
+/var/www/aitbc.bubuit.net/
+├── index.html              # Main website
+├── 404.html                # Error page
+├── favicon.ico
+├── favicon.svg
+├── font-awesome-local.css
+├── docs/                   # HTML documentation (16 pages + css/js)
+│   ├── index.html
+│   ├── clients.html
+│   ├── miners.html
+│   ├── developers.html
+│   ├── css/docs.css
+│   └── js/theme.js
+├── explorer/               # Blockchain explorer (Vite build)
+│   ├── index.html
+│   ├── assets/
+│   ├── css/
+│   └── js/
+├── marketplace/            # GPU marketplace (Vite build)
+│   ├── index.html
+│   └── assets/
+├── wallet/                 # Browser wallet redirect
+│   └── index.html
+└── firefox-wallet/         # Firefox extension download
 ```
 
-### Site C: Remote Container ns3/aitbc
-- **Container IP**: 192.168.100.10
-- **Access**: `ssh ns3-root` → `incus shell aitbc`
-- **Domain**: aitbc.keisanki.net
-- **Blockchain Nodes**: Node 3 (rpc 8082) — provided by services `aitbc-blockchain-node-3` + `aitbc-blockchain-rpc-3`
+### Data Storage (container)
 
-#### Site C Services
-| Service | Port | Protocol | Node | Status | URL |
-|---------|------|----------|------|--------|-----|
-| Blockchain Node 3 RPC | 8082 | HTTP | Node 3 | ✅ Active (service names: aitbc-blockchain-node-3/aitbc-blockchain-rpc-3) | http://aitbc.keisanki.net/rpc/ |
-
-#### Site C Access
-```bash
-ssh ns3-root "incus shell aitbc"
-curl http://192.168.100.10:8082/rpc/head       # Node 3 RPC (direct)
-curl http://aitbc.keisanki.net/rpc/head         # Node 3 RPC (via /rpc/)
-```
-
-### Site D: Shared Features
-- Transaction-dependent block creation on all nodes
-- HTTP polling of RPC mempool
-- PoA consensus with 2s intervals
-- Cross-site RPC synchronization (transaction propagation)
-- Independent chain state; P2P not connected yet
-
-## Network Architecture (YAML)
-
-```yaml
-environments:
-  site_a_localhost:
-    ip: 10.1.223.93
-    domain: aitbc.bubuit.net
-    container: aitbc
-    access: ssh aitbc-cascade
-    blockchain_nodes:
-      - id: 1
-        rpc_port: 8082
-        p2p_port: 7070
-        status: active
-      - id: 2
-        rpc_port: 8081
-        p2p_port: 7071
-        status: active
-
-  site_b_ns3_host:
-    ip: 95.216.198.140
-    access: ssh ns3-root
-    bridge: 192.168.100.1/24
-
-  site_c_ns3_container:
-    container_ip: 192.168.100.10
-    domain: aitbc.keisanki.net
-    access: ssh ns3-root → incus shell aitbc
-    blockchain_nodes:
-      - id: 3
-        rpc_port: 8082
-        p2p_port: 7072
-        status: active
-
-shared_features:
-  transaction_dependent_blocks: true
-  rpc_mempool_polling: true
-  consensus: PoA
-  block_interval_seconds: 2
-  cross_site_sync: true
-  cross_site_sync_interval: 10
-  p2p_connected: false
-```
-
-### Site A Extras (dev)
-
-#### Local dev services
-| Service | Port | Protocol | Purpose | Status | URL |
-|---------|------|----------|---------|--------|-----|
-| Test Coordinator | 8001 | HTTP | Local coordinator testing | ⚠️ Optional | http://127.0.0.1:8001 |
-| Test Blockchain | 8080 | HTTP | Local blockchain testing | ⚠️ Optional | http://127.0.0.1:8080 |
-| Ollama (GPU) | 11434 | HTTP | Local LLM serving | ✅ Available | http://127.0.0.1:11434 |
-
-#### Client applications
-| Application | Port | Protocol | Purpose | Connection |
-|-------------|------|----------|---------|------------|
-| Client Wallet | Variable | HTTP | Submits jobs to coordinator | → 10.1.223.93:8000 |
-| Miner Client | Variable | HTTP | Polls for jobs | → 10.1.223.93:8000 |
-| Browser Wallet | Browser | HTTP | Web wallet extension | → 10.1.223.93 |
-
-### Site B Extras (host)
-- Port forwarding managed via firehol (8000, 8081, 8082, 9080 → 192.168.100.10)
-- Firewall host rules: 80, 443 open for nginx; legacy ports optional (8000, 8081, 8082, 9080, 3000)
-
-### Site C Extras (container)
-- Internal ports: 8000, 8081, 8082, 9080, 3000, 8080
-- Systemd core services: coordinator-api, blockchain-node{,-2,-3}, blockchain-rpc{,-2,-3}, aitbc-exchange; web: nginx, dashboard_server, aitbc-marketplace-ui
-
-### Site D: Shared
-- Deployment status:
-```yaml
-deployment:
-  localhost:
-    blockchain_nodes: 2
-    updated_codebase: true
-    transaction_dependent_blocks: true
-    last_updated: 2026-01-28
-  remote:
-    blockchain_nodes: 1
-    updated_codebase: true
-    transaction_dependent_blocks: true
-    last_updated: 2026-01-28
-```
-- Reverse proxy: nginx (config `/etc/nginx/sites-available/aitbc-reverse-proxy.conf`)
-- Service routes: explorer/api/rpc/rpc2/rpc3/exchange/admin on aitbc.bubuit.net
-- Alternative subdomains: api.aitbc.bubuit.net, rpc.aitbc.bubuit.net
-- Notes: external domains use nginx; legacy direct ports via firehol rules
-```
-
-Note: External domains require port forwarding to be configured on the host.
-
-## Data Storage Locations
-
-### Container Paths
 ```
 /opt/coordinator-api/          # Coordinator application
 ├── src/coordinator.db         # Main database
 └── .venv/                     # Python environment
 
 /opt/blockchain-node/          # Blockchain Node 1
-├── data/chain.db             # Chain database
-└── .venv/                    # Python environment
+├── data/chain.db              # Chain database
+└── .venv/                     # Python environment
 
 /opt/blockchain-node-2/        # Blockchain Node 2
-├── data/chain2.db            # Chain database
-└── .venv/                    # Python environment
+├── data/chain2.db             # Chain database
+└── .venv/                     # Python environment
 
 /opt/exchange/                 # Exchange API
-├── data/                     # Exchange data
-└── .venv/                    # Python environment
-
-/var/www/html/                # Static web assets
-├── assets/                   # CSS/JS files
-└── explorer/                 # Explorer web app
+├── data/                      # Exchange data
+└── .venv/                     # Python environment
 ```
 
-### Local Paths
-```
-/home/oib/windsurf/aitbc/      # Development workspace
-├── apps/                      # Application source
-├── cli/                       # Command-line tools
-├── home/                      # Client/miner scripts
-└── tests/                     # Test suites
-```
-
-## Network Topology
-
-### Physical Layout
-```
-Internet
-    │
-    ▼
-┌─────────────────────┐
-│   ns3-root         │  ← Host Server (95.216.198.140)
-│   ┌─────────────┐  │
-│   │  incus      │  │
-│   │  aitbc      │  │  ← Container (192.168.100.10/24)
-│   │             │  │      NAT → 10.1.223.93
-│   └─────────────┘  │
-└─────────────────────┘
-```
-
-### Access Paths
-1. **Direct Container Access**: `ssh aitbc-cascade` → 10.1.223.93
-2. **Via Host**: `ssh ns3-root` → `incus shell aitbc`
-3. **Service Access**: All services via 10.1.223.93:PORT
-
-## Monitoring and Logging
-
-### Log Locations
-```bash
-# System logs
-journalctl -u coordinator-api
-journalctl -u blockchain-node
-journalctl -u aitbc-exchange
-
-# Application logs
-tail -f /opt/coordinator-api/logs/app.log
-tail -f /opt/blockchain-node/logs/chain.log
-```
-
-### Health Checks
-```bash
-# From host server
-ssh ns3-root "curl -s http://192.168.100.10:8000/v1/health"
-ssh ns3-root "curl -s http://192.168.100.10:8082/rpc/head"
-ssh ns3-root "curl -s http://192.168.100.10:9080/health"
-
-# From within container
-ssh ns3-root "incus exec aitbc -- curl -s http://localhost:8000/v1/health"
-ssh ns3-root "incus exec aitbc -- curl -s http://localhost:8082/rpc/head"
-ssh ns3-root "incus exec aitbc -- curl -s http://localhost:9080/health"
-
-# External testing (with port forwarding configured)
-curl -s http://aitbc.bubuit.net:8000/v1/health
-curl -s http://aitbc.bubuit.net:8082/rpc/head
-curl -s http://aitbc.bubuit.net:9080/health
-```
-
-## Development Workflow
-
-### 1. Local Development
-```bash
-# Start local services
-cd apps/coordinator-api
-python -m uvicorn src.app.main:app --reload --port 8001
-
-# Run tests
-python -m pytest tests/
-```
-
-### 2. Container Deployment
-```bash
-# Deploy to container
-bash scripts/deploy/deploy-to-server.sh
-
-# Update specific service
-scp src/app/main.py ns3-root:/tmp/
-ssh ns3-root "incus exec aitbc -- sudo systemctl restart coordinator-api"
-```
-
-### 3. Testing Endpoints
-```bash
-# Local testing
-curl http://127.0.0.1:8001/v1/health
-
-# Remote testing (from host)
-ssh ns3-root "curl -s http://192.168.100.10:8000/v1/health"
-
-# Remote testing (from container)
-ssh ns3-root "incus exec aitbc -- curl -s http://localhost:8000/v1/health"
-
-# External testing (with port forwarding)
-curl -s http://aitbc.keisanki.net:8000/v1/health
-```
-
-## Security Considerations
-
-### Access Control
-- API keys required for coordinator (X-Api-Key header)
-- Firewall blocks unnecessary ports
-- Nginx handles SSL termination
-
-### Isolation
-- Services run as non-root users where possible
-- Databases in separate directories
-- Virtual environments for Python dependencies
-
-## Monitoring
-
-### Health Check Commands
-```bash
-# Localhost (Site A)
-ssh aitbc-cascade "systemctl status aitbc-blockchain-node-1 aitbc-blockchain-node-2"
-ssh aitbc-cascade "curl -s http://localhost:8081/rpc/head | jq .height"  # Node 1
-ssh aitbc-cascade "curl -s http://localhost:8082/rpc/head | jq .height"  # Node 2
-
-# Remote (Site B)
-ssh ns3-root "incus exec aitbc -- systemctl status aitbc-blockchain-node-3"
-ssh ns3-root "curl -s http://192.168.100.10:8082/rpc/head | jq .height"
-```
-
-## Configuration Files
-
-### Localhost Configuration
+### Configuration (container)
 - Node 1: `/opt/blockchain-node/src/aitbc_chain/config.py`
 - Node 2: `/opt/blockchain-node-2/src/aitbc_chain/config.py`
 
-### Remote Configuration
-- Node 3: `/opt/blockchain-node/src/aitbc_chain/config.py`
+## Remote Site (ns3)
 
-## Notes
-- Nodes are not currently connected via P2P
-- Each node maintains independent blockchain state
-- All nodes implement transaction-dependent block creation
-- Cross-site synchronization enabled for transaction propagation
-- Domain aitbc.bubuit.net points to localhost environment
-- Domain aitbc.keisanki.net points to remote environment
+### Host (ns3-root)
+- **IP**: 95.216.198.140
+- **Access**: `ssh ns3-root`
+- **Bridge**: incusbr0 `192.168.100.1/24`
+- **Port forwarding**: firehol (8000, 8081, 8082, 9080 → 192.168.100.10)
+
+### Container (ns3/aitbc)
+- **IP**: 192.168.100.10
+- **Domain**: aitbc.keisanki.net
+- **Access**: `ssh ns3-root` → `incus shell aitbc`
+- **Blockchain Node 3**: RPC on port 8082
+
+```bash
+curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC
+```
 
 ## Cross-Site Synchronization
-- **Status**: Active on all nodes (fully functional)
+
+- **Status**: Active on all 3 nodes
 - **Method**: RPC-based polling every 10 seconds
-- **Features**: 
-  - Transaction propagation between sites
-  - Height difference detection
-  - ✅ Block import with transaction support (`/blocks/import` endpoint)
+- **Features**: Transaction propagation, height detection, block import
 - **Endpoints**:
-  - Local nodes: https://aitbc.bubuit.net/rpc/ (port 8081)
-  - Remote node: http://aitbc.keisanki.net/rpc/
-- **Nginx Configuration**:
-  - Site A: `/etc/nginx/sites-available/aitbc.bubuit.net` → `127.0.0.1:8081`
-  - Fixed routing issue (was pointing to 8082, now correctly routes to 8081)
+  - Local: https://aitbc.bubuit.net/rpc/ (Node 1, port 8081)
+  - Remote: http://aitbc.keisanki.net/rpc/ (Node 3, port 8082)
+- **Consensus**: PoA with 2s block intervals
+- **P2P**: Not connected yet; nodes maintain independent chain state
 
-3. **Monitoring**: Add Prometheus + Grafana
-4. **CI/CD**: Automated deployment pipeline
-5. **Security**: OAuth2/JWT authentication, rate limiting
+## Development Workspace
 
-## Security Configuration (Updated 2026-02-13)
+```
+/home/oib/windsurf/aitbc/      # Local development
+├── apps/                      # Application source (8 apps)
+├── cli/                       # CLI tools (12 command groups)
+├── scripts/                   # Organized scripts (8 subfolders)
+│   ├── blockchain/            # Genesis, proposer, mock chain
+│   ├── dev/                   # Dev tools, local services
+│   └── examples/              # Usage examples and simulations
+├── tests/                     # Pytest suites + verification scripts
+├── docs/                      # Markdown documentation (10 sections)
+└── website/                   # Public website source
+```
 
-### Implemented Security Measures
+### Deploying to Container
+```bash
+# Push website files
+scp -r website/* aitbc-cascade:/var/www/aitbc.bubuit.net/
 
-#### CORS Restrictions
-- **Coordinator API**: Only allows localhost origins (3000, 8080, 8000, 8011)
-- **Exchange API**: Restricted to localhost origins
-- **Blockchain Node**: Limited to localhost origins
-- **Gossip Relay**: Specific origin whitelist
-- Unauthorized origins receive 400 Bad Request
+# Push app updates
+scp -r apps/explorer-web/dist/* aitbc-cascade:/var/www/aitbc.bubuit.net/explorer/
 
-#### Authentication
-- **Exchange API**: Session-based authentication implemented
-  - Login/logout endpoints with wallet address authentication
-  - Session tokens expire after 24 hours
-  - User-specific endpoints require authentication
-  - Optional authentication for public endpoints
+# Restart a service
+ssh aitbc-cascade "systemctl restart coordinator-api"
+```
 
-#### Secret Management
-- **JWT Secrets**: Required from environment variables
-  - No longer hardcoded in configuration files
-  - Fail-fast validation on startup
-- **Database Credentials**: Parsed from DATABASE_URL
-  - PostgreSQL credentials no longer hardcoded
-  - Lazy initialization to avoid import issues
+## Health Checks
 
-#### Encryption
-- **Wallet Private Keys**: Encrypted at rest
-  - Fernet encryption (AES-128 in CBC mode)
-  - PBKDF2 key derivation with SHA-256
-  - Keyring integration for password management
-  - Replaced weak XOR encryption
+```bash
+# From localhost (via container)
+ssh aitbc-cascade "curl -s http://localhost:8000/v1/health"
+ssh aitbc-cascade "curl -s http://localhost:8081/rpc/head | jq .height"
 
-#### Database Security
-- **Unified Sessions**: All routers use `storage.SessionDep`
-  - Removed legacy session dependencies
-  - Consistent session management
-  - Prevents duplicate database connections
+# From internet
+curl -s https://aitbc.bubuit.net/health
+curl -s https://aitbc.bubuit.net/api/explorer/blocks
 
-### Environment Variables Required
+# Remote site
+ssh ns3-root "curl -s http://192.168.100.10:8082/rpc/head | jq .height"
+```
+
+## Monitoring and Logging
+
+```bash
+# Container systemd logs
+ssh aitbc-cascade "journalctl -u coordinator-api --no-pager -n 20"
+ssh aitbc-cascade "journalctl -u aitbc-blockchain-node-1 --no-pager -n 20"
+
+# Container nginx logs
+ssh aitbc-cascade "tail -20 /var/log/nginx/aitbc.bubuit.net.error.log"
+
+# Host nginx logs
+sudo tail -20 /var/log/nginx/error.log
+```
+
+## Security
+
+### SSL/TLS
+- Let's Encrypt certificate for `bubuit.net` (wildcard)
+- SSL termination at incus host nginx
+- HTTP → HTTPS redirect (Certbot managed)
+
+### CORS
+- Coordinator API: localhost origins only (3000, 8080, 8000, 8011)
+- Exchange API: localhost origins only
+- Blockchain Node: localhost origins only
+
+### Authentication
+- Coordinator API: `X-Api-Key` header required
+- Exchange API: session-based (wallet address login, 24h expiry)
+- JWT secrets from environment variables (fail-fast on startup)
+
+### Encryption
+- Wallet private keys: Fernet (AES-128-CBC) with PBKDF2-SHA256 key derivation
+- Database credentials: parsed from `DATABASE_URL` env var
+
+### Environment Variables
 ```bash
 # Coordinator API
-JWT_SECRET=<your-secret-here>
+JWT_SECRET=<secret>
 DATABASE_URL=postgresql://user:pass@host/db
 
 # Exchange API
-SESSION_SECRET=<session-secret>
-WALLET_ENCRYPTION_KEY=<encryption-key>
+SESSION_SECRET=<secret>
+WALLET_ENCRYPTION_KEY=<key>
 ```
-
-### Security Testing
-- All endpoints tested for CORS restrictions
-- Authentication flows verified
-- Encryption/decryption validated
-- CI pipeline passes security checks
