@@ -87,4 +87,5 @@ class MarketplaceService:
             cuda_version=offer.cuda_version,
             price_per_hour=offer.price_per_hour,
             region=offer.region,
+            attributes=offer.attributes,
         )
