@@ -69,7 +69,7 @@ export async function fetchMarketplaceStats(): Promise<MarketplaceStats> {
     return request<MarketplaceStats>(`${CONFIG.mockBase}/stats.json`);
   }
 
-  return request<MarketplaceStats>(`${CONFIG.apiBase}/v1/marketplace/stats`);
+  return request<MarketplaceStats>(`${CONFIG.apiBase}/marketplace/stats`);
 }
 
 export async function fetchMarketplaceOffers(): Promise<MarketplaceOffer[]> {
@@ -78,7 +78,7 @@ export async function fetchMarketplaceOffers(): Promise<MarketplaceOffer[]> {
     return payload.offers;
   }
 
-  return request<MarketplaceOffer[]>(`${CONFIG.apiBase}/v1/marketplace/offers`);
+  return request<MarketplaceOffer[]>(`${CONFIG.apiBase}/marketplace/offers`);
 }
 
 export async function submitMarketplaceBid(input: {
@@ -100,7 +100,7 @@ export async function submitMarketplaceBid(input: {
     throw new Error("Authentication required to submit bids");
   }
 
-  const response = await fetch(`${CONFIG.apiBase}/v1/marketplace/bids`, {
+  const response = await fetch(`${CONFIG.apiBase}/marketplace/bids`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
