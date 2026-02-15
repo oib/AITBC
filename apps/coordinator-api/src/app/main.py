@@ -19,6 +19,7 @@ from .routers import (
     zk_applications,
     explorer,
     payments,
+    web_vitals,
 )
 from .routers.governance import router as governance
 from .routers.partners import router as partners
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(governance, prefix="/v1")
     app.include_router(partners, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
+    app.include_router(web_vitals, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
