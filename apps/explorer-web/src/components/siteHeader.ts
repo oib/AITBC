@@ -4,6 +4,7 @@ export function siteHeader(title: string): string {
   return `
     <header class="site-header">
       <div class="site-header__inner">
+        <a class="site-header__back" href="/" title="Back to AITBC Home">← Home</a>
         <a class="site-header__brand" href="${basePath}/">AITBC Explorer</a>
         <div class="site-header__controls">
           <div data-role="data-mode-toggle"></div>
@@ -14,6 +15,7 @@ export function siteHeader(title: string): string {
           <a href="${basePath}/transactions">Transactions</a>
           <a href="${basePath}/addresses">Addresses</a>
           <a href="${basePath}/receipts">Receipts</a>
+          <a href="/marketplace/">Marketplace</a>
         </nav>
       </div>
     </header>

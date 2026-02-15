@@ -18,35 +18,12 @@ class DatabaseConfig(BaseSettings):
     max_overflow: int = 20
     pool_pre_ping: bool = True
     
-    @property
-    def effective_url(self) -> str:
-        """Get the effective database URL."""
-        if self.url:
-            return self.url
-        # Auto-generate SQLite URL based on environment
-        if self.adapter == "sqlite":
-            project_root = self._find_project_root()
-            db_path = project_root / "data" / "coordinator.db"
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            return f"sqlite:///{db_path}"
-        elif self.adapter == "postgresql":
-            return "postgresql://localhost:5432/aitbc_coordinator"
-        return "sqlite:///:memory:"
-    
-    @staticmethod
-    def _find_project_root() -> Path:
-        """Find project root by looking for .git directory."""
-        current = Path(__file__).resolve()
-        while current.parent != current:
-            if (current / ".git").exists():
-                return current
-            current = current.parent
-        return Path(__file__).resolve().parents[3]
-    
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="allow"
+    )
 
 
 class Settings(BaseSettings):
@@ -116,7 +93,10 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """Get the database URL (backward compatibility)."""
-        return self.database.effective_url
+        if self.database.url:
+            return self.database.url
+        # Default SQLite path for backward compatibility
+        return f"sqlite:///./aitbc_coordinator.db"
 
 
 settings = Settings()
