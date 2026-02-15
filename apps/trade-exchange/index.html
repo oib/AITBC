@@ -58,6 +58,9 @@
                     <h1 class="text-2xl font-bold">AITBC Trade Exchange</h1>
                 </div>
                 <nav class="flex items-center space-x-6">
+                    <a href="https://aitbc.bubuit.net/" class="nav-button" title="Back to AITBC Home">
+                        <i data-lucide="home" class="w-5 h-5"></i>
+                    </a>
                     <button onclick="showSection('trade')" class="nav-button">Trade</button>
                     <button onclick="showSection('marketplace')" class="nav-button">Marketplace</button>
                     <button onclick="showSection('wallet')" class="nav-button">Wallet</button>
@@ -443,38 +446,314 @@
             document.getElementById('btcAmount').addEventListener('input', updateAITBCAmount);
             document.getElementById('aitbcAmount').addEventListener('input', updateBTCAmount);
             
-            // Check for saved dark mode preference
-            if (localStorage.getItem('darkMode') === 'true' || 
-                (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                document.documentElement.classList.add('dark');
-                updateDarkModeIcon(true);
-            }
+            // Initialize enhanced dark mode
+            initializeTheme();
+            
+            // Initialize touch navigation
+            new ExchangeTouchNavigation();
         });
         
-        // Dark mode toggle
+        // Enhanced Dark mode functionality with system preference detection
         function toggleDarkMode() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('darkMode', isDark);
-            updateDarkModeIcon(isDark);
-        }
-        
-        function updateDarkModeIcon(isDark) {
-            const icon = document.getElementById('darkModeIcon');
-            if (isDark) {
-                icon.setAttribute('data-lucide', 'sun');
-            } else {
-                icon.setAttribute('data-lucide', 'moon');
-            }
-            lucide.createIcons();
+            const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
         }
 
-        // Section Navigation
-        function showSection(section) {
-            document.querySelectorAll('.section').forEach(s => s.classList.add('hidden'));
-            document.getElementById(section + 'Section').classList.remove('hidden');
+        function setTheme(theme) {
+            // Apply theme immediately
+            if (theme === 'dark') {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
             
-            if (section === 'marketplace') {
-                loadGPUOffers();
+            // Save to localStorage for persistence
+            localStorage.setItem('exchangeTheme', theme);
+            
+            // Update button display
+            updateThemeButton(theme);
+            
+            // Send analytics event if available
+            if (window.analytics) {
+                window.analytics.track('exchange_theme_changed', { theme });
+            }
+        }
+
+        function updateThemeButton(theme) {
+            const icon = document.getElementById('darkModeIcon');
+            if (icon) {
+                if (theme === 'dark') {
+                    icon.setAttribute('data-lucide', 'sun');
+                } else {
+                    icon.setAttribute('data-lucide', 'moon');
+                }
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+            }
+        }
+
+        function getPreferredTheme() {
+            // 1. Check localStorage first (user preference for exchange)
+            const saved = localStorage.getItem('exchangeTheme');
+            if (saved) {
+                return saved;
+            }
+            
+            // 2. Check main site preference for consistency
+            const mainSiteTheme = localStorage.getItem('theme');
+            if (mainSiteTheme) {
+                return mainSiteTheme;
+            }
+            
+            // 3. Check system preference
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                return 'dark';
+            }
+            
+            // 4. Default to dark (AITBC brand preference)
+            return 'dark';
+        }
+
+        function initializeTheme() {
+            const theme = getPreferredTheme();
+            setTheme(theme);
+            
+            // Listen for system preference changes
+            if (window.matchMedia) {
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                    // Only auto-switch if user hasn't manually set a preference
+                    if (!localStorage.getItem('exchangeTheme') && !localStorage.getItem('theme')) {
+                        setTheme(e.matches ? 'dark' : 'light');
+                    }
+                });
+            }
+        }
+
+        // Touch Navigation for Mobile
+        class ExchangeTouchNavigation {
+            constructor() {
+                this.touchStartX = 0;
+                this.touchStartY = 0;
+                this.touchEndX = 0;
+                this.touchEndY = 0;
+                this.minSwipeDistance = 50;
+                this.maxVerticalDistance = 100;
+                
+                // Exchange sections for navigation
+                this.sections = ['trade', 'marketplace', 'wallet'];
+                this.currentSectionIndex = 0;
+                
+                this.bindEvents();
+                this.setupMobileOptimizations();
+                this.updateCurrentSection();
+            }
+            
+            bindEvents() {
+                document.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
+                document.addEventListener('touchmove', this.handleTouchMove.bind(this), { passive: false });
+                document.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+            }
+            
+            handleTouchStart(e) {
+                this.touchStartX = e.touches[0].clientX;
+                this.touchStartY = e.touches[0].clientY;
+            }
+            
+            handleTouchMove(e) {
+                // Prevent scrolling when detecting horizontal swipes
+                const touchCurrentX = e.touches[0].clientX;
+                const touchCurrentY = e.touches[0].clientY;
+                const deltaX = Math.abs(touchCurrentX - this.touchStartX);
+                const deltaY = Math.abs(touchCurrentY - this.touchStartY);
+                
+                // If horizontal movement is greater than vertical, prevent default scrolling
+                if (deltaX > deltaY && deltaX > 10) {
+                    e.preventDefault();
+                }
+            }
+            
+            handleTouchEnd(e) {
+                this.touchEndX = e.changedTouches[0].clientX;
+                this.touchEndY = e.changedTouches[0].clientY;
+                
+                const deltaX = this.touchEndX - this.touchStartX;
+                const deltaY = Math.abs(this.touchEndY - this.touchStartY);
+                
+                // Only process swipe if vertical movement is minimal
+                if (deltaY < this.maxVerticalDistance && Math.abs(deltaX) > this.minSwipeDistance) {
+                    if (deltaX > 0) {
+                        this.swipeRight();
+                    } else {
+                        this.swipeLeft();
+                    }
+                }
+            }
+            
+            swipeLeft() {
+                // Navigate to next section
+                const nextIndex = Math.min(this.currentSectionIndex + 1, this.sections.length - 1);
+                this.navigateToSection(nextIndex);
+            }
+            
+            swipeRight() {
+                // Navigate to previous section
+                const prevIndex = Math.max(this.currentSectionIndex - 1, 0);
+                this.navigateToSection(prevIndex);
+            }
+            
+            navigateToSection(index) {
+                const section = this.sections[index];
+                showSection(section);
+                this.currentSectionIndex = index;
+                
+                // Update URL hash without triggering scroll
+                history.replaceState(null, null, `#${section}`);
+                
+                // Add visual feedback
+                this.showSwipeIndicator();
+            }
+            
+            showSwipeIndicator() {
+                // Create a temporary visual indicator
+                const indicator = document.createElement('div');
+                indicator.textContent = '← Swipe to navigate →';
+                indicator.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0,0,0,0.8);
+                    color: white;
+                    padding: 8px 16px;
+                    border-radius: 20px;
+                    font-size: 12px;
+                    z-index: 1000;
+                    pointer-events: none;
+                    animation: fadeInOut 2s ease-in-out;
+                `;
+                
+                // Add fade animation
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes fadeInOut {
+                        0% { opacity: 0; }
+                        20% { opacity: 1; }
+                        80% { opacity: 1; }
+                        100% { opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+                
+                document.body.appendChild(indicator);
+                setTimeout(() => {
+                    document.body.removeChild(indicator);
+                    document.head.removeChild(style);
+                }, 2000);
+            }
+            
+            setupMobileOptimizations() {
+                this.setupTouchButtons();
+                this.setupMobileMenu();
+                this.setupScrollOptimizations();
+            }
+            
+            setupTouchButtons() {
+                // Make buttons more touch-friendly
+                const buttons = document.querySelectorAll('button, input[type="submit"], .cta-button');
+                buttons.forEach(button => {
+                    button.addEventListener('touchstart', () => {
+                        button.style.transform = 'scale(0.98)';
+                    }, { passive: true });
+                    
+                    button.addEventListener('touchend', () => {
+                        button.style.transform = '';
+                    }, { passive: true });
+                });
+            }
+            
+            setupMobileMenu() {
+                // On very small screens, create a hamburger menu for nav buttons
+                if (window.innerWidth < 640) {
+                    this.createMobileNavMenu();
+                }
+                
+                // Re-check on resize
+                window.addEventListener('resize', () => {
+                    if (window.innerWidth < 640) {
+                        this.createMobileNavMenu();
+                    }
+                });
+            }
+            
+            createMobileNavMenu() {
+                const nav = document.querySelector('nav');
+                if (!nav || nav.querySelector('.mobile-menu-toggle')) return;
+                
+                // Create hamburger button
+                const menuToggle = document.createElement('button');
+                menuToggle.className = 'mobile-menu-toggle';
+                menuToggle.innerHTML = '☰';
+                menuToggle.setAttribute('aria-label', 'Toggle navigation menu');
+                menuToggle.style.cssText = `
+                    display: none;
+                    background: rgba(255,255,255,0.1);
+                    border: none;
+                    color: white;
+                    font-size: 18px;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    margin-left: auto;
+                    cursor: pointer;
+                `;
+                
+                // Hide original nav buttons and show hamburger on mobile
+                const navButtons = nav.querySelectorAll('button:not(.mobile-menu-toggle)');
+                navButtons.forEach(btn => btn.style.display = 'none');
+                menuToggle.style.display = 'block';
+                
+                // Toggle menu on click
+                menuToggle.addEventListener('click', () => {
+                    const isOpen = menuToggle.textContent === '✕';
+                    if (isOpen) {
+                        navButtons.forEach(btn => btn.style.display = 'none');
+                        menuToggle.innerHTML = '☰';
+                    } else {
+                        navButtons.forEach(btn => btn.style.display = 'inline-flex');
+                        menuToggle.innerHTML = '✕';
+                    }
+                });
+                
+                nav.appendChild(menuToggle);
+            }
+            
+            setupScrollOptimizations() {
+                // Improve momentum scrolling on iOS
+                if ('webkitOverflowScrolling' in document.body.style) {
+                    document.body.style.webkitOverflowScrolling = 'touch';
+                }
+                
+                // Add touch feedback for interactive elements
+                document.querySelectorAll('a, button, input, select').forEach(el => {
+                    el.addEventListener('touchstart', () => {
+                        el.style.opacity = '0.8';
+                    }, { passive: true });
+                    
+                    el.addEventListener('touchend', () => {
+                        el.style.opacity = '';
+                    }, { passive: true });
+                });
+            }
+            
+            updateCurrentSection() {
+                // Update current section based on visible section
+                this.sections.forEach((sectionId, index) => {
+                    const element = document.getElementById(sectionId + 'Section');
+                    if (element && !element.classList.contains('hidden')) {
+                        this.currentSectionIndex = index;
+                    }
+                });
             }
         }
 

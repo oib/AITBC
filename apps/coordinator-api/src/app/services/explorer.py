@@ -70,7 +70,8 @@ class ExplorerService:
         items: list[TransactionSummary] = []
         for index, job in enumerate(jobs):
             height = _DEFAULT_HEIGHT_BASE + offset + index
-            status_label = _STATUS_LABELS.get(job.state, job.state.value.title())
+            state_val = job.state.value if hasattr(job.state, "value") else job.state
+            status_label = _STATUS_LABELS.get(job.state) or state_val.title()
             
             # Try to get payment amount from receipt
             value_str = "0"
@@ -118,14 +119,26 @@ class ExplorerService:
             }
         )
 
-        def touch(address: Optional[str], tx_id: str, when: datetime, earned: float = 0.0, spent: float = 0.0) -> None:
+        def _ensure_dt(val: object) -> datetime:
+            if isinstance(val, datetime):
+                return val.replace(tzinfo=None)
+            if isinstance(val, str):
+                try:
+                    dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+                    return dt.replace(tzinfo=None)
+                except ValueError:
+                    return datetime.min
+            return datetime.min
+
+        def touch(address: Optional[str], tx_id: str, when: object, earned: float = 0.0, spent: float = 0.0) -> None:
             if not address:
                 return
             entry = address_map[address]
             entry["address"] = address
             entry["tx_count"] = int(entry["tx_count"]) + 1
-            if when > entry["last_active"]:
-                entry["last_active"] = when
+            when_dt = _ensure_dt(when)
+            if when_dt > _ensure_dt(entry["last_active"]):
+                entry["last_active"] = when_dt
             # Track earnings and spending
             entry["earned"] = float(entry["earned"]) + earned
             entry["spent"] = float(entry["spent"]) + spent

@@ -1,9 +1,17 @@
+// Type declarations for global objects
+declare global {
+  interface Window {
+    analytics?: {
+      track: (event: string, data: any) => void;
+    };
+  }
+}
+
 import './style.css';
 import {
   fetchMarketplaceOffers,
   fetchMarketplaceStats,
   submitMarketplaceBid,
-  MARKETPLACE_CONFIG,
 } from './lib/api';
 import type { MarketplaceOffer, MarketplaceStats } from './lib/api';
 
@@ -16,9 +24,21 @@ if (!app) {
 app.innerHTML = `
   <main>
     <header class="page-header">
-      <p>Data mode: <strong>${MARKETPLACE_CONFIG.dataMode.toUpperCase()}</strong></p>
-      <h1>Marketplace Control Center</h1>
-      <p>Monitor available offers, submit bids, and review marketplace health at a glance.</p>
+      <nav class="page-header__nav">
+        <a href="/" class="back-link">← Home</a>
+        <a href="/explorer/">Explorer</a>
+        <a href="/Exchange/">Exchange</a>
+      </nav>
+      <div class="page-header-content">
+        <div class="page-header-title">
+          <h1>Marketplace Control Center</h1>
+          <p>Monitor available offers, submit bids, and review marketplace health at a glance.</p>
+        </div>
+        <button onclick="toggleDarkMode()" class="dark-mode-toggle" title="Toggle dark mode">
+          <span id="darkModeEmoji">🌙</span>
+          <span id="darkModeText">Dark</span>
+        </button>
+      </div>
     </header>
 
     <section class="dashboard-grid" id="stats-panel">
@@ -80,13 +100,13 @@ app.innerHTML = `
 `;
 
 const selectors = {
-  totalOffers: document.querySelector<HTMLSpanElement>('#stat-total-offers'),
-  openCapacity: document.querySelector<HTMLSpanElement>('#stat-open-capacity'),
-  averagePrice: document.querySelector<HTMLSpanElement>('#stat-average-price'),
-  activeBids: document.querySelector<HTMLSpanElement>('#stat-active-bids'),
-  offersWrapper: document.querySelector<HTMLDivElement>('#offers-table-wrapper'),
-  bidForm: document.querySelector<HTMLFormElement>('#bid-form'),
-  toast: document.querySelector<HTMLDivElement>('#toast'),
+  totalOffers: document.querySelector<HTMLSpanElement>('#stat-total-offers')!,
+  openCapacity: document.querySelector<HTMLSpanElement>('#stat-open-capacity')!,
+  averagePrice: document.querySelector<HTMLSpanElement>('#stat-average-price')!,
+  activeBids: document.querySelector<HTMLSpanElement>('#stat-active-bids')!,
+  offersWrapper: document.querySelector<HTMLDivElement>('#offers-table-wrapper')!,
+  bidForm: document.querySelector<HTMLFormElement>('#bid-form')!,
+  toast: document.querySelector<HTMLDivElement>('#toast')!,
 };
 
 function formatNumber(value: number, options: Intl.NumberFormatOptions = {}): string {
@@ -94,13 +114,13 @@ function formatNumber(value: number, options: Intl.NumberFormatOptions = {}): st
 }
 
 function renderStats(stats: MarketplaceStats): void {
-  selectors.totalOffers!.textContent = formatNumber(stats.totalOffers);
-  selectors.openCapacity!.textContent = `${formatNumber(stats.openCapacity)} units`;
-  selectors.averagePrice!.textContent = `${formatNumber(stats.averagePrice, {
+  selectors.totalOffers.textContent = formatNumber(stats.totalOffers);
+  selectors.openCapacity.textContent = `${formatNumber(stats.openCapacity)} units`;
+  selectors.averagePrice.textContent = `${formatNumber(stats.averagePrice, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })} credits`; 
-  selectors.activeBids!.textContent = formatNumber(stats.activeBids);
+  selectors.activeBids.textContent = formatNumber(stats.activeBids);
 }
 
 function statusClass(status: string): string {
@@ -115,12 +135,11 @@ function statusClass(status: string): string {
 }
 
 function renderOffers(offers: MarketplaceOffer[]): void {
-  if (!selectors.offersWrapper) {
-    return;
-  }
+  const wrapper = selectors.offersWrapper;
+  if (!wrapper) return;
 
   if (offers.length === 0) {
-    selectors.offersWrapper.innerHTML = '<p class="empty-state">No offers available right now. Check back soon or submit a bid.</p>';
+    wrapper.innerHTML = '<p class="empty-state">No offers available right now. Check back soon or submit a bid.</p>';
     return;
   }
 
@@ -157,7 +176,7 @@ function renderOffers(offers: MarketplaceOffer[]): void {
           </div>
           <div class="offer-models">
             <span class="models-label">Available Models</span>
-            <div class="model-tags">${offer.attributes.models.map(m => `<span class="model-tag">${m}</span>`).join('')}</div>
+            <div class="model-tags">${offer.attributes.models.map((m: string) => `<span class="model-tag">${m}</span>`).join('')}</div>
           </div>` : ''}
           <div class="offer-pricing">
             <div class="offer-price">${formatNumber(offer.price_per_hour ?? offer.price, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <small>credits/hr</small></div>
@@ -168,7 +187,7 @@ function renderOffers(offers: MarketplaceOffer[]): void {
     )
     .join('');
 
-  selectors.offersWrapper.innerHTML = `<div class="offers-grid">${cards}</div>`;
+  wrapper.innerHTML = `<div class="offers-grid">${cards}</div>`;
 }
 
 function showToast(message: string, duration = 2500): void {
@@ -192,8 +211,9 @@ async function loadDashboard(): Promise<void> {
     renderOffers(offers);
   } catch (error) {
     console.error(error);
-    if (selectors.offersWrapper) {
-      selectors.offersWrapper.innerHTML = '<p class="empty-state">Failed to load offers. Please retry shortly.</p>';
+    const wrapper = selectors.offersWrapper;
+    if (wrapper) {
+      wrapper.innerHTML = '<p class="empty-state">Failed to load offers. Please retry shortly.</p>';
     }
     showToast('Failed to load marketplace data.');
   }
@@ -202,7 +222,10 @@ async function loadDashboard(): Promise<void> {
 selectors.bidForm?.addEventListener('submit', async (event) => {
   event.preventDefault();
 
-  const formData = new FormData(selectors.bidForm!);
+  const form = selectors.bidForm;
+  if (!form) return;
+
+  const formData = new FormData(form);
   const provider = formData.get('provider')?.toString().trim();
   const capacity = Number(formData.get('capacity'));
   const price = Number(formData.get('price'));
@@ -214,16 +237,109 @@ selectors.bidForm?.addEventListener('submit', async (event) => {
   }
 
   try {
-    selectors.bidForm!.querySelector('button')!.setAttribute('disabled', 'disabled');
+    const submitButton = form.querySelector('button');
+    if (submitButton) {
+      submitButton.setAttribute('disabled', 'disabled');
+    }
+    
     await submitMarketplaceBid({ provider, capacity, price, notes });
-    selectors.bidForm!.reset();
+    form.reset();
     showToast('Bid submitted successfully!');
   } catch (error) {
     console.error(error);
     showToast('Unable to submit bid. Please try again.');
   } finally {
-    selectors.bidForm!.querySelector('button')!.removeAttribute('disabled');
+    const submitButton = form.querySelector('button');
+    if (submitButton) {
+      submitButton.removeAttribute('disabled');
+    }
   }
 });
 
 loadDashboard();
+
+// Dark mode functionality with system preference detection
+function toggleDarkMode() {
+  const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  setTheme(newTheme);
+}
+
+function setTheme(theme: string) {
+  // Apply theme immediately
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+  
+  // Save to localStorage for persistence
+  localStorage.setItem('marketplaceTheme', theme);
+  
+  // Update button display
+  updateThemeButton(theme);
+  
+  // Send analytics event if available
+  if (typeof window !== 'undefined' && window.analytics) {
+    window.analytics.track('marketplace_theme_changed', { theme });
+  }
+}
+
+function updateThemeButton(theme: string) {
+  const emoji = document.getElementById('darkModeEmoji');
+  const text = document.getElementById('darkModeText');
+  
+  if (emoji && text) {
+    if (theme === 'dark') {
+      emoji.textContent = '🌙';
+      text.textContent = 'Dark';
+    } else {
+      emoji.textContent = '☀️';
+      text.textContent = 'Light';
+    }
+  }
+}
+
+function getPreferredTheme(): string {
+  // 1. Check localStorage first (user preference for marketplace)
+  const saved = localStorage.getItem('marketplaceTheme');
+  if (saved) {
+    return saved;
+  }
+  
+  // 2. Check main site preference for consistency
+  const mainSiteTheme = localStorage.getItem('theme');
+  if (mainSiteTheme) {
+    return mainSiteTheme;
+  }
+  
+  // 3. Check system preference
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  
+  // 4. Default to dark (AITBC brand preference)
+  return 'dark';
+}
+
+function initializeTheme() {
+  const theme = getPreferredTheme();
+  setTheme(theme);
+  
+  // Listen for system preference changes
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      // Only auto-switch if user hasn't manually set a preference
+      if (!localStorage.getItem('marketplaceTheme') && !localStorage.getItem('theme')) {
+        setTheme(e.matches ? 'dark' : 'light');
+      }
+    });
+  }
+}
+
+// Initialize theme immediately (before DOM loads)
+initializeTheme();
+
+// Reference to suppress TypeScript "never used" warning
+// @ts-ignore - function called from HTML onclick
+window.toggleDarkMode = toggleDarkMode;
