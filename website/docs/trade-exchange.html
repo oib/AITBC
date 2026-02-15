@@ -8,26 +8,9 @@
     <link rel="stylesheet" href="css/docs.css">
 </head>
 <body>
-    <!-- Header -->
-    <header class="site-header">
-        <div class="container">
-            <div class="header-inner">
-                <a href="/" class="brand">
-                    <i class="fas fa-cube"></i>
-                    <span>AITBC</span>
-                </a>
-                <nav class="header-nav">
-                    <a href="/">Home</a>
-                    <a href="/explorer/">Explorer</a>
-                    <a href="/Exchange/">Exchange</a>
-                    <a href="/docs/index.html" class="active">Docs</a>
-                    <button id="theme-toggle" class="theme-toggle" title="Toggle theme"><i class="fas fa-sun"></i></button>
-                </nav>
-            </div>
-        </div>
-    </header>
+    <div data-global-header></div>
 
-    <!-- Main Content -->
+<!-- Main Content -->
     <main>
         <div class="container">
             <!-- Breadcrumb -->
@@ -271,5 +254,6 @@ BITCOIN_RPC_PASS=password</code></pre>
         // Add any interactive functionality here
     </script>
     <script src="js/theme.js"></script>
+    <script src="../assets/js/global-header.js"></script>
 </body>
 </html>
