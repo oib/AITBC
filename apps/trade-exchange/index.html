@@ -8,8 +8,9 @@
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
     <link rel="stylesheet" href="/assets/css/aitbc.css?v=20241229-1305">
-    <script src="/assets/js/axios.min.js?v=20241229-1305"></script>
-    <script src="/assets/js/lucide.js?v=20241229-1305"></script>
+    <link rel="stylesheet" href="/assets/css/site-header.css">
+    <script src="/assets/js/axios.min.js?v=20260215-2015"></script>
+    <script src="/assets/js/lucide.js?v=20260215-2015"></script>
     <style>
         .gradient-bg {
             background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
@@ -49,40 +50,7 @@
     </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-    <!-- Header -->
-    <header class="gradient-bg text-white shadow-lg">
-        <div class="container mx-auto px-4 py-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <i data-lucide="trending-up" class="w-8 h-8"></i>
-                    <h1 class="text-2xl font-bold">AITBC Trade Exchange</h1>
-                </div>
-                <nav class="flex items-center space-x-6">
-                    <a href="https://aitbc.bubuit.net/" class="nav-button" title="Back to AITBC Home">
-                        <i data-lucide="home" class="w-5 h-5"></i>
-                    </a>
-                    <button onclick="showSection('trade')" class="nav-button">Trade</button>
-                    <button onclick="showSection('marketplace')" class="nav-button">Marketplace</button>
-                    <button onclick="showSection('wallet')" class="nav-button">Wallet</button>
-                    <button onclick="toggleDarkMode()" class="nav-button" title="Toggle dark mode">
-                        <i data-lucide="moon" class="w-5 h-5" id="darkModeIcon"></i>
-                    </button>
-                    <button id="navConnectBtn" onclick="connectWallet()" class="bg-white text-orange-600 px-4 py-2 rounded-lg hover:bg-orange-100 transition">
-                        <i data-lucide="wallet" class="w-4 h-4 inline mr-2"></i>Connect Wallet
-                    </button>
-                    <div id="navUserInfo" class="hidden flex items-center space-x-3">
-                        <span class="text-sm text-white" id="navUsername">-</span>
-                        <button onclick="showSection('wallet')" class="nav-button">
-                            <i data-lucide="user" class="w-5 h-5"></i>
-                        </button>
-                        <button onclick="logout()" class="nav-button">
-                            <i data-lucide="log-out" class="w-5 h-5"></i>
-                        </button>
-                    </div>
-                </nav>
-            </div>
-        </div>
-    </header>
+    <div data-global-header></div>
 
     <!-- Price Ticker -->
     <section class="bg-white dark:bg-gray-800 border-b dark:border-gray-700">
@@ -423,6 +391,8 @@
     </div>
 
     <script>
+        console.log('Exchange script loaded and executing globally.');
+        console.log('Script execution initiated.');
         // API Configuration
         const API_BASE = window.location.origin + '/api';
         const BLOCKCHAIN_API = window.location.origin + '/rpc';
@@ -435,6 +405,7 @@
 
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOMContentLoaded event fired, starting script execution.');
             lucide.createIcons();
             updatePrices();
             loadGPUOffers();
@@ -477,20 +448,6 @@
             // Send analytics event if available
             if (window.analytics) {
                 window.analytics.track('exchange_theme_changed', { theme });
-            }
-        }
-
-        function updateThemeButton(theme) {
-            const icon = document.getElementById('darkModeIcon');
-            if (icon) {
-                if (theme === 'dark') {
-                    icon.setAttribute('data-lucide', 'sun');
-                } else {
-                    icon.setAttribute('data-lucide', 'moon');
-                }
-                if (window.lucide) {
-                    lucide.createIcons();
-                }
             }
         }
 
@@ -1084,23 +1041,26 @@
 
         // Load GPU Offers
         async function loadGPUOffers() {
+            console.log('Switch to real GPU offers initiated from:', API_BASE + '/miners/list');
             try {
-                const response = await axios.get(`${API_BASE}/marketplace/offers`);
-                displayGPUOffers(response.data);
+                const response = await fetch(API_BASE + '/miners/list');
+                console.log('API response status:', response.status, 'OK:', response.ok);
+                console.log('Response headers:', response.headers);
+                const responseText = await response.text();
+                console.log('Raw response text:', responseText);
+                if (!response.ok) throw new Error(`HTTP error: status ${response.status}, message: ${response.statusText}`);
+                const data = JSON.parse(responseText);
+                console.log('Parsed API data:', data);
+                if (data.gpus && data.gpus.length > 0) {
+                    displayRealGPUOffers(data.gpus);
+                } else {
+                    console.log('No GPU data from API, falling back to demo offers temporarily.');
+                    displayDemoOffers();
+                }
             } catch (error) {
-                // Display demo offers
-                displayGPUOffers([{
-                    id: '1',
-                    provider: '${MINER_API_KEY}',
-                    capacity: 1,
-                    price: 50,
-                    attributes: {
-                        gpu_model: 'NVIDIA RTX 4060 Ti',
-                        gpu_memory_gb: 16,
-                        cuda_version: '12.4',
-                        supported_models: ['stable-diffusion', 'llama2-7b']
-                    }
-                }]);
+                console.log('API error details:', error.message, 'Stack:', error.stack);
+                console.log('Falling back to demo offers as a temporary measure.');
+                displayDemoOffers();
             }
         }
 
@@ -1221,18 +1181,48 @@
 
     <script>
     // GPU Integration
+    function displayDemoOffers() {
+        console.log('Exchange script loaded, displayDemoOffers defined.');
+        const container = document.getElementById('gpuList');
+        if (!container) return;
+        container.innerHTML = `
+            <div class="bg-white rounded-lg shadow-lg p-6 card-hover">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-lg font-semibold">Demo RTX 4090</h3>
+                    <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">Demo</span>
+                </div>
+                <div class="space-y-2 text-sm text-gray-600 mb-4">
+                    <p><i data-lucide="monitor" class="w-4 h-4 inline mr-1"></i>Memory: 24 GB</p>
+                    <p><i data-lucide="zap" class="w-4 h-4 inline mr-1"></i>CUDA: 12.4</p>
+                    <p><i data-lucide="cpu" class="w-4 h-4 inline mr-1"></i>Concurrency: 4 jobs</p>
+                    <p><i data-lucide="map-pin" class="w-4 h-4 inline mr-1"></i>Region: EU-West</p>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-2xl font-bold text-purple-600">42 AITBC/hr</span>
+                    <button onclick="purchaseGPU('demo-rtx4090')" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 transition">Purchase</button>
+                </div>
+            </div>
+        `;
+        if (window.lucide) {
+            window.lucide.createIcons();
+        }
+    }
+
     async function loadRealGPUOffers() {
+        console.log('Switching to production: loadRealGPUOffers called with API_BASE:', API_BASE + '/miners/list');
         try {
-            const response = await fetch('http://localhost:8091/miners/list');
+            const response = await fetch(API_BASE + '/miners/list');
+            console.log('Production API response status:', response.status);
+            if (!response.ok) throw new Error(`HTTP error: status ${response.status}`);
             const data = await response.json();
-            
+            console.log('Production API data:', data);
             if (data.gpus && data.gpus.length > 0) {
                 displayRealGPUOffers(data.gpus);
             } else {
-                displayDemoOffers();
+                throw new Error('No GPU data from production API');
             }
         } catch (error) {
-            console.log('Using demo GPU offers');
+            console.log('Production API error:', error.message, 'Using demo offers as fallback.');
             displayDemoOffers();
         }
     }
@@ -1271,6 +1261,9 @@
     // Override the loadGPUOffers function
     const originalLoadGPUOffers = loadGPUOffers;
     loadGPUOffers = loadRealGPUOffers;
+    </script>
+    <script>
+        console.log('Exchange script loaded, displayDemoOffers defined.');
     </script>
     </body>
 </html>

@@ -5,12 +5,16 @@
     'use strict';
     
     function sendToAnalytics(metric) {
+        const safeEntries = Array.isArray(metric.entries) ? metric.entries : [];
+        const safeValue = Number.isFinite(metric.value) ? Math.round(metric.value) : 0;
+        const safeDelta = Number.isFinite(metric.delta) ? Math.round(metric.delta) : 0;
+        
         const data = {
             name: metric.name,
-            value: Math.round(metric.value),
-            id: metric.id,
-            delta: Math.round(metric.delta),
-            entries: metric.entries.map(e => ({
+            value: safeValue,
+            id: metric.id || 'unknown',
+            delta: safeDelta,
+            entries: safeEntries.map(e => ({
                 name: e.name,
                 startTime: e.startTime,
                 duration: e.duration
@@ -19,9 +23,27 @@
             timestamp: new Date().toISOString()
         };
         
+        const payload = JSON.stringify(data);
+        
         // Send to analytics endpoint
         if (navigator.sendBeacon) {
-            navigator.sendBeacon('/api/web-vitals', JSON.stringify(data));
+            const blob = new Blob([payload], { type: 'application/json' });
+            const ok = navigator.sendBeacon('/api/web-vitals', blob);
+            if (!ok) {
+                fetch('/api/web-vitals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: payload,
+                    keepalive: true
+                }).catch(() => {});
+            }
+        } else {
+            fetch('/api/web-vitals', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: payload,
+                keepalive: true
+            }).catch(() => {});
         }
         
         // Also log to console in development

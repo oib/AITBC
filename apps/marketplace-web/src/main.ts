@@ -63,6 +63,7 @@ app.innerHTML = `
         <span>Open bids awaiting match</span>
       </article>
     </section>
+    <section id="stats-grid">
 
     <section class="panels">
       <article class="panel" id="offers-panel">
@@ -104,6 +105,7 @@ const selectors = {
   openCapacity: document.querySelector<HTMLSpanElement>('#stat-open-capacity')!,
   averagePrice: document.querySelector<HTMLSpanElement>('#stat-average-price')!,
   activeBids: document.querySelector<HTMLSpanElement>('#stat-active-bids')!,
+  statsWrapper: document.querySelector<HTMLDivElement>('#stats-grid')!,
   offersWrapper: document.querySelector<HTMLDivElement>('#offers-table-wrapper')!,
   bidForm: document.querySelector<HTMLFormElement>('#bid-form')!,
   toast: document.querySelector<HTMLDivElement>('#toast')!,
@@ -201,6 +203,9 @@ function showToast(message: string, duration = 2500): void {
 }
 
 async function loadDashboard(): Promise<void> {
+  // Show skeleton loading states
+  showSkeletons();
+  
   try {
     const [stats, offers] = await Promise.all([
       fetchMarketplaceStats(),
@@ -216,6 +221,31 @@ async function loadDashboard(): Promise<void> {
       wrapper.innerHTML = '<p class="empty-state">Failed to load offers. Please retry shortly.</p>';
     }
     showToast('Failed to load marketplace data.');
+  }
+}
+
+function showSkeletons() {
+  const statsWrapper = selectors.statsWrapper;
+  const offersWrapper = selectors.offersWrapper;
+  
+  if (statsWrapper) {
+    statsWrapper.innerHTML = `
+      <div class="skeleton-grid">
+        ${Array(4).fill('').map(() => `
+          <div class="skeleton skeleton-card"></div>
+        `).join('')}
+      </div>
+    `;
+  }
+  
+  if (offersWrapper) {
+    offersWrapper.innerHTML = `
+      <div class="skeleton-list">
+        ${Array(6).fill('').map(() => `
+          <div class="skeleton skeleton-card"></div>
+        `).join('')}
+      </div>
+    `;
   }
 }
 
