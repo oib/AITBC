@@ -16,35 +16,47 @@
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://aitbc.bubuit.net">
     <meta name="twitter:card" content="summary_large_image">
+    <!-- Performance optimization: resource hints -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="//aitbc.bubuit.net">
+    <link rel="dns-prefetch" href="//github.com">
         <style>
         /* Critical CSS for above-the-fold content */
-        :root{--primary-color:#2563eb;--secondary-color:#1e40af;--accent-color:#3b82f6;--text-dark:#1f2937;--bg-white:#ffffff;--gradient:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}[data-theme="dark"]{--primary-color:#3b82f6;--secondary-color:#2563eb;--accent-color:#60a5fa;--text-dark:#f9fafb;--bg-white:#1f2937;--gradient:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;line-height:1.6;color:var(--text-dark);background-color:var(--bg-light);transition:background-color .3s ease,color .3s ease}.container{max-width:1200px;margin:0 auto;padding:0 20px}header{background:var(--bg-white);box-shadow:0 1px 3px rgba(0,0,0,.1);position:fixed;width:100%;top:0;z-index:1000}nav{display:flex;justify-content:space-between;align-items:center;padding:1rem 0}.logo{font-size:1.5rem;font-weight:700;color:var(--primary-color);text-decoration:none}.nav-button{background:transparent!important;color:var(--text-dark)!important;padding:.5rem .75rem;border-radius:.5rem;font-weight:500;transition:all .2s ease;text-decoration:none;display:inline-flex;align-items:center}.nav-button:hover{background:rgba(59,130,246,.1)!important;color:var(--primary-color)!important}.hero{background:var(--gradient);color:#fff;padding:100px 0 80px;text-align:center}.hero h1{font-size:3.5rem;margin-bottom:1rem;animation:fadeInUp .8s ease}.hero p{font-size:1.25rem;margin-bottom:2rem;opacity:.9;animation:fadeInUp .8s ease .2s both}.cta-button{display:inline-block;padding:12px 30px;background:var(--bg-white);color:var(--primary-color);text-decoration:none;border-radius:5px;font-weight:600;transition:transform .3s,box-shadow .3s;animation:fadeInUp .8s ease .4s both}.cta-button:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.1)}@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}@media (max-width:768px){.hero h1{font-size:2.5rem}}
+        :root{--primary-color:#2563eb;--secondary-color:#7c3aed;--accent-color:#0ea5e9;--text-dark:#1f2937;--bg-white:#ffffff;--gradient:linear-gradient(135deg,#2563eb 0%,#7c3aed 100%)}[data-theme="dark"]{--primary-color:#60a5fa;--secondary-color:#a855f7;--accent-color:#38bdf8;--text-dark:#f9fafb;--bg-white:#1f2937;--gradient:linear-gradient(135deg,#1d4ed8 0%,#7c3aed 100%)}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,sans-serif;line-height:1.6;color:var(--text-dark);background-color:var(--bg-light);transition:background-color .3s ease,color .3s ease}.container{max-width:1200px;margin:0 auto;padding:0 20px}.hero{background:var(--gradient);color:#fff;padding:100px 0 80px;text-align:center}.hero h1{font-size:3.5rem;margin-bottom:1rem;animation:fadeInUp .8s ease}.hero p{font-size:1.25rem;margin-bottom:2rem;opacity:.9;animation:fadeInUp .8s ease .2s both}.cta-button{display:inline-block;padding:12px 30px;background:var(--bg-white);color:var(--primary-color);text-decoration:none;border-radius:5px;font-weight:600;transition:transform .3s,box-shadow .3s;animation:fadeInUp .8s ease .4s both}.cta-button:hover{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.1)}@keyframes fadeInUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}@media (max-width:768px){.hero h1{font-size:2.5rem}}
     </style>
     <link rel="preload" href="/assets/css/font-awesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="preload" href="/assets/css/main.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="/assets/css/font-awesome.min.css"><link rel="stylesheet" href="/assets/css/main.css"></noscript>
+    <link rel="stylesheet" href="/assets/css/site-header.css">
     <!-- Font Awesome CDN fallback -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" media="print" onload="this.media='all'; this.onload=null;">
 </head>
 <body>
     <!-- Header -->
-    <header class="text-white shadow-lg" style="background: var(--bg-white);">
-        <div class="container mx-auto px-4 py-6">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                    <i class="fas fa-cube" style="font-size: 2rem; color: var(--primary-color);"></i>
-                    <h1 class="text-2xl font-bold" style="color: var(--text-dark);">AITBC</h1>
+    <header class="global-header">
+        <div class="global-header__inner">
+            <a class="global-brand" href="/">
+                <div class="global-brand__icon">
+                    <i class="fas fa-cube"></i>
                 </div>
-                <nav class="flex items-center space-x-6">
-                    <a href="/explorer/" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Explorer</a>
-                    <a href="/marketplace/" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Marketplace</a>
-                    <a href="/Exchange/" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Exchange</a>
-                    <a href="docs/index.html" class="nav-button" style="background: transparent !important; color: var(--text-dark) !important;">Docs</a>
-                    <button onclick="toggleDarkMode()" class="nav-button" title="Toggle dark mode" style="background: rgba(59, 130, 246, 0.1) !important; color: var(--primary-color) !important; border: 2px solid var(--primary-color); padding: 0.5rem 1rem;">
-                        <span id="darkModeEmoji">🌙</span>
-                        <span id="darkModeText" style="margin-left: 0.5rem;">Dark</span>
-                    </button>
-                </nav>
+                <div class="global-brand__text">
+                    <span>AITBC Platform</span>
+                    <small>AI Blockchain Network</small>
+                </div>
+            </a>
+            <nav class="global-nav">
+                <a href="/" class="global-nav__link active">Home</a>
+                <a href="/explorer/" class="global-nav__link">Explorer</a>
+                <a href="/marketplace/" class="global-nav__link">Marketplace</a>
+                <a href="/Exchange/" class="global-nav__link">Exchange</a>
+                <a href="/docs/index.html" class="global-nav__link">Docs</a>
+            </nav>
+            <div class="global-header__actions">
+                <button onclick="toggleDarkMode()" class="global-dark-toggle" title="Toggle dark mode">
+                    <span id="darkModeEmoji">🌙</span>
+                    <span id="darkModeText">Dark</span>
+                </button>
+                <a href="/marketplace/" class="global-nav__cta">Launch Marketplace</a>
             </div>
         </div>
     </header>
