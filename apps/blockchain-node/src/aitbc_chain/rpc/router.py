@@ -105,36 +105,35 @@ async def get_block(height: int) -> Dict[str, Any]:
     }
 
 
-@router.get("/blocks", summary="Get latest blocks")
-async def get_blocks(limit: int = 10, offset: int = 0) -> Dict[str, Any]:
-    metrics_registry.increment("rpc_get_blocks_total")
-    start = time.perf_counter()
+@router.get("/blocks-range", summary="Get blocks in height range")
+async def get_blocks_range(start: int, end: int) -> Dict[str, Any]:
+    metrics_registry.increment("rpc_get_blocks_range_total")
+    start_time = time.perf_counter()
     
     # Validate parameters
-    if limit < 1 or limit > 100:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
-    if offset < 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    if start < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="start must be non-negative")
+    if end < start:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="end must be greater than or equal to start")
+    if end - start > 1000:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="range cannot exceed 1000 blocks")
     
     with session_scope() as session:
-        # Get blocks in descending order (newest first)
+        # Get blocks in the specified height range (ascending order by height)
         blocks = session.exec(
             select(Block)
-            .order_by(Block.height.desc())
-            .offset(offset)
-            .limit(limit)
+            .where(Block.height >= start)
+            .where(Block.height <= end)
+            .order_by(Block.height.asc())
         ).all()
         
-        # Get total count for pagination info
-        total_count = len(session.exec(select(Block)).all())
-        
         if not blocks:
-            metrics_registry.increment("rpc_get_blocks_empty_total")
+            metrics_registry.increment("rpc_get_blocks_range_empty_total")
             return {
                 "blocks": [],
-                "total": total_count,
-                "limit": limit,
-                "offset": offset,
+                "start": start,
+                "end": end,
+                "count": 0,
             }
         
         # Serialize blocks
@@ -149,14 +148,14 @@ async def get_blocks(limit: int = 10, offset: int = 0) -> Dict[str, Any]:
                 "state_root": block.state_root,
             })
         
-        metrics_registry.increment("rpc_get_blocks_success_total")
-    metrics_registry.observe("rpc_get_blocks_duration_seconds", time.perf_counter() - start)
+        metrics_registry.increment("rpc_get_blocks_range_success_total")
+    metrics_registry.observe("rpc_get_blocks_range_duration_seconds", time.perf_counter() - start_time)
     
     return {
         "blocks": block_list,
-        "total": total_count,
-        "limit": limit,
-        "offset": offset,
+        "start": start,
+        "end": end,
+        "count": len(block_list),
     }
 
 

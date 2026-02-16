@@ -14,6 +14,8 @@ class WebVitalsEntry(BaseModel):
     name: str
     startTime: Optional[float] = None
     duration: Optional[float] = None
+    value: Optional[float] = None
+    hadRecentInput: Optional[bool] = None
 
 class WebVitalsMetric(BaseModel):
     name: str
@@ -31,6 +33,20 @@ async def collect_web_vitals(metric: WebVitalsMetric):
     This endpoint receives Core Web Vitals (LCP, FID, CLS, TTFB, FCP) for monitoring.
     """
     try:
+        # Filter entries to only include supported fields
+        filtered_entries = []
+        for entry in metric.entries:
+            filtered_entry = {
+                "name": entry.name,
+                "startTime": entry.startTime,
+                "duration": entry.duration,
+                "value": entry.value,
+                "hadRecentInput": entry.hadRecentInput
+            }
+            # Remove None values
+            filtered_entry = {k: v for k, v in filtered_entry.items() if v is not None}
+            filtered_entries.append(filtered_entry)
+        
         # Log the metric for monitoring/analysis
         logging.info(f"Web Vitals - {metric.name}: {metric.value}ms (ID: {metric.id}) from {metric.url or 'unknown'}")
         

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import httpx
 from collections import defaultdict, deque
 from datetime import datetime
 from typing import Optional
@@ -38,25 +39,51 @@ class ExplorerService:
         self.session = session
 
     def list_blocks(self, *, limit: int = 20, offset: int = 0) -> BlockListResponse:
-        statement = select(Job).order_by(Job.requested_at.desc())
-        jobs = self.session.exec(statement.offset(offset).limit(limit)).all()
+        # Fetch real blockchain data from RPC API
+        try:
+            # Use the blockchain RPC API running on localhost:8082
+            with httpx.Client(timeout=10.0) as client:
+                response = client.get("http://localhost:8082/rpc/blocks", params={"limit": limit, "offset": offset})
+                response.raise_for_status()
+                rpc_data = response.json()
+                
+                items: list[BlockSummary] = []
+                for block in rpc_data.get("blocks", []):
+                    items.append(
+                        BlockSummary(
+                            height=block["height"],
+                            hash=block["hash"],
+                            timestamp=datetime.fromisoformat(block["timestamp"]),
+                            txCount=block["tx_count"],
+                            proposer=block["proposer"],
+                        )
+                    )
+                
+                next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
+                return BlockListResponse(items=items, next_offset=next_offset)
+                
+        except Exception as e:
+            # Fallback to fake data if RPC is unavailable
+            print(f"Warning: Failed to fetch blocks from RPC: {e}, falling back to fake data")
+            statement = select(Job).order_by(Job.requested_at.desc())
+            jobs = self.session.exec(statement.offset(offset).limit(limit)).all()
 
-        items: list[BlockSummary] = []
-        for index, job in enumerate(jobs):
-            height = _DEFAULT_HEIGHT_BASE + offset + index
-            proposer = job.assigned_miner_id or "unassigned"
-            items.append(
-                BlockSummary(
-                    height=height,
-                    hash=job.id,
-                    timestamp=job.requested_at,
-                    txCount=1,
-                    proposer=proposer,
+            items: list[BlockSummary] = []
+            for index, job in enumerate(jobs):
+                height = _DEFAULT_HEIGHT_BASE + offset + index
+                proposer = job.assigned_miner_id or "unassigned"
+                items.append(
+                    BlockSummary(
+                        height=height,
+                        hash=job.id,
+                        timestamp=job.requested_at,
+                        txCount=1,
+                        proposer=proposer,
+                    )
                 )
-            )
 
-        next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
-        return BlockListResponse(items=items, next_offset=next_offset)
+            next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
+            return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
         statement = (

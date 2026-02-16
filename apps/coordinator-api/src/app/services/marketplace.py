@@ -10,6 +10,7 @@ from ..schemas import (
     MarketplaceBidRequest,
     MarketplaceOfferView,
     MarketplaceStatsView,
+    MarketplaceBidView,
 )
 
 
@@ -69,6 +70,47 @@ class MarketplaceService:
         self.session.commit()
         self.session.refresh(bid)
         return bid
+
+    def list_bids(
+        self,
+        *,
+        status: Optional[str] = None,
+        provider: Optional[str] = None,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> list[MarketplaceBidView]:
+        stmt = select(MarketplaceBid).order_by(MarketplaceBid.submitted_at.desc())
+
+        if status is not None:
+            normalised = status.strip().lower()
+            if normalised not in ("pending", "accepted", "rejected"):
+                raise ValueError(f"invalid status: {status}")
+            stmt = stmt.where(MarketplaceBid.status == normalised)
+
+        if provider is not None:
+            stmt = stmt.where(MarketplaceBid.provider == provider)
+
+        stmt = stmt.offset(offset).limit(limit)
+        bids = self.session.exec(stmt).all()
+        return [self._to_bid_view(bid) for bid in bids]
+
+    def get_bid(self, bid_id: str) -> Optional[MarketplaceBidView]:
+        bid = self.session.get(MarketplaceBid, bid_id)
+        if bid:
+            return self._to_bid_view(bid)
+        return None
+
+    @staticmethod
+    def _to_bid_view(bid: MarketplaceBid) -> MarketplaceBidView:
+        return MarketplaceBidView(
+            id=bid.id,
+            provider=bid.provider,
+            capacity=bid.capacity,
+            price=bid.price,
+            notes=bid.notes,
+            status=bid.status,
+            submitted_at=bid.submitted_at,
+        )
 
     @staticmethod
     def _to_offer_view(offer: MarketplaceOffer) -> MarketplaceOfferView:
