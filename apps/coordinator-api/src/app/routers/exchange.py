@@ -12,7 +12,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from ..schemas import ExchangePaymentRequest, ExchangePaymentResponse
+from ..schemas import (
+    ExchangePaymentRequest, 
+    ExchangePaymentResponse,
+    ExchangeRatesResponse,
+    PaymentStatusResponse,
+    MarketStatsResponse,
+    WalletBalanceResponse,
+    WalletInfoResponse
+)
 from ..services.bitcoin_wallet import get_wallet_balance, get_wallet_info
 
 router = APIRouter(tags=["exchange"])
@@ -70,7 +78,8 @@ async def create_payment(
     
     return payment
 
-@router.get("/exchange/payment-status/{payment_id}")
+
+@router.get("/exchange/payment-status/{payment_id}", response_model=PaymentStatusResponse)
 async def get_payment_status(payment_id: str) -> Dict[str, Any]:
     """Get payment status"""
     
@@ -84,6 +93,7 @@ async def get_payment_status(payment_id: str) -> Dict[str, Any]:
         payment['status'] = 'expired'
     
     return payment
+
 
 @router.post("/exchange/confirm-payment/{payment_id}")
 async def confirm_payment(
@@ -121,18 +131,20 @@ async def confirm_payment(
         'aitbc_amount': payment['aitbc_amount']
     }
 
-@router.get("/exchange/rates")
-async def get_exchange_rates() -> Dict[str, float]:
+
+@router.get("/exchange/rates", response_model=ExchangeRatesResponse)
+async def get_exchange_rates() -> ExchangeRatesResponse:
     """Get current exchange rates"""
     
-    return {
-        'btc_to_aitbc': BITCOIN_CONFIG['exchange_rate'],
-        'aitbc_to_btc': 1.0 / BITCOIN_CONFIG['exchange_rate'],
-        'fee_percent': 0.5
-    }
+    return ExchangeRatesResponse(
+        btc_to_aitbc=BITCOIN_CONFIG['exchange_rate'],
+        aitbc_to_btc=1.0 / BITCOIN_CONFIG['exchange_rate'],
+        fee_percent=0.5
+    )
 
-@router.get("/exchange/market-stats")
-async def get_market_stats() -> Dict[str, Any]:
+
+@router.get("/exchange/market-stats", response_model=MarketStatsResponse)
+async def get_market_stats() -> MarketStatsResponse:
     """Get market statistics"""
     
     # Calculate 24h volume from payments
@@ -148,28 +160,32 @@ async def get_market_stats() -> Dict[str, Any]:
     base_price = 1.0 / BITCOIN_CONFIG['exchange_rate']
     price_change_percent = 5.2  # Simulated +5.2%
     
-    return {
-        'price': base_price,
-        'price_change_24h': price_change_percent,
-        'daily_volume': daily_volume,
-        'daily_volume_btc': daily_volume / BITCOIN_CONFIG['exchange_rate'],
-        'total_payments': len([p for p in payments.values() if p['status'] == 'confirmed']),
-        'pending_payments': len([p for p in payments.values() if p['status'] == 'pending'])
-    }
+    return MarketStatsResponse(
+        price=base_price,
+        price_change_24h=price_change_percent,
+        daily_volume=daily_volume,
+        daily_volume_btc=daily_volume / BITCOIN_CONFIG['exchange_rate'],
+        total_payments=len([p for p in payments.values() if p['status'] == 'confirmed']),
+        pending_payments=len([p for p in payments.values() if p['status'] == 'pending'])
+    )
 
-@router.get("/exchange/wallet/balance")
-async def get_wallet_balance_api() -> Dict[str, Any]:
+
+@router.get("/exchange/wallet/balance", response_model=WalletBalanceResponse)
+async def get_wallet_balance_api() -> WalletBalanceResponse:
     """Get Bitcoin wallet balance"""
     try:
-        return get_wallet_balance()
+        balance_data = get_wallet_balance()
+        return WalletBalanceResponse(**balance_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/exchange/wallet/info")
-async def get_wallet_info_api() -> Dict[str, Any]:
+
+@router.get("/exchange/wallet/info", response_model=WalletInfoResponse)
+async def get_wallet_info_api() -> WalletInfoResponse:
     """Get comprehensive wallet information"""
     try:
-        return get_wallet_info()
+        wallet_data = get_wallet_info()
+        return WalletInfoResponse(**wallet_data)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

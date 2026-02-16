@@ -40,6 +40,66 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 
 ## Incus Host (localhost)
 
+### Services (Host)
+
+| Service | Port | Process | Python Version | Purpose | Status |
+|---------|------|---------|----------------|---------|--------|
+| Mock Coordinator | 8090 | python3 | 3.11+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
+| Blockchain Node | N/A | python3 | 3.11+ | Local blockchain node | systemd: aitbc-blockchain-node.service |
+| Blockchain RPC API | 9080 | python3 | 3.11+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
+| GPU Miner Client | N/A | python3 | 3.11+ | GPU mining client | systemd: aitbc-gpu-miner.service |
+| Local Development Tools | Varies | python3 | 3.11+ | CLI tools, scripts, testing | Manual/venv |
+
+### Systemd Services (Host)
+
+All services are configured as systemd units but currently inactive:
+
+```bash
+# Service files location: /etc/systemd/system/
+aitbc-blockchain-node.service      # Blockchain node main process
+aitbc-blockchain-rpc.service       # RPC API on port 9080
+aitbc-gpu-miner.service           # GPU mining client
+aitbc-mock-coordinator.service     # Mock coordinator on port 8090
+```
+
+**Service Details:**
+- **Working Directory**: `/home/oib/windsurf/aitbc/apps/blockchain-node`
+- **Python Environment**: `/home/oib/windsurf/aitbc/apps/blockchain-node/.venv/bin/python`
+- **User**: oib
+- **Restart Policy**: always (with 5s delay)
+
+**Verification Commands:**
+```bash
+# Check service status
+sc-status aitbc-blockchain-node.service aitbc-blockchain-rpc.service aitbc-gpu-miner.service aitbc-mock-coordinator.service
+
+# Start services
+sudo systemctl start aitbc-mock-coordinator.service
+sudo systemctl start aitbc-blockchain-node.service
+
+# Check logs
+journalctl -u aitbc-mock-coordinator --no-pager -n 20
+```
+
+### Python Environment (Host)
+
+Development and testing services on localhost use **Python 3.11+**:
+
+```bash
+# Localhost development workspace
+/home/oib/windsurf/aitbc/               # Local development
+├── .venv/                              # Primary Python environment
+├── cli/                                # CLI tools (12 command groups)
+├── scripts/                            # Development scripts
+└── tests/                              # Pytest suites
+```
+
+**Verification Commands:**
+```bash
+python3 --version                      # Should show Python 3.11+
+ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check venv
+```
+
 ### Nginx Reverse Proxy
 
 The host runs a simple reverse proxy that forwards all traffic to the container. SSL is terminated here via Let's Encrypt.
@@ -80,14 +140,32 @@ ssh aitbc-cascade                    # Direct SSH to container
 
 ### Services
 
-| Service | Port | Process | Public URL |
-|---------|------|---------|------------|
-| Nginx (web) | 80 | nginx | https://aitbc.bubuit.net/ |
-| Coordinator API | 8000 | python (uvicorn) | /api/ → /v1/ |
-| Blockchain Node RPC | 8081 | python3 | /rpc/ |
-| Wallet Daemon | 8002 | python | /wallet/ |
-| Trade Exchange | 3002 | python (server.py) | /Exchange |
-| Exchange API | 8085 | python | /api/trades/*, /api/orders/* |
+| Service | Port | Process | Python Version | Public URL |
+|---------|------|---------|----------------|------------|
+| Nginx (web) | 80 | nginx | N/A | https://aitbc.bubuit.net/ |
+| Coordinator API | 8000 | python (uvicorn) | 3.11+ | /api/ → /v1/ |
+| Blockchain Node RPC | 8081 | python3 | 3.11+ | /rpc/ |
+| Wallet Daemon | 8002 | python | 3.11+ | /wallet/ |
+| Trade Exchange | 3002 | python (server.py) | 3.11+ | /Exchange |
+| Exchange API | 8085 | python | 3.11+ | /api/trades/*, /api/orders/* |
+
+### Python Environment Details
+
+All Python services in the AITBC container run on **Python 3.11+** with isolated virtual environments:
+
+```bash
+# Container: aitbc (10.1.223.93)
+/opt/coordinator-api/.venv/          # Coordinator API (uvicorn, FastAPI)
+/opt/blockchain-node/.venv/          # Blockchain Node 1 (aitbc_chain)
+/opt/blockchain-node-2/.venv/        # Blockchain Node 2 (aitbc_chain)
+/opt/exchange/.venv/                  # Exchange API (Flask/specific framework)
+```
+
+**Verification Commands:**
+```bash
+ssh aitbc-cascade "python3 --version"  # Should show Python 3.11+
+ssh aitbc-cascade "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
+```
 
 ### Nginx Routes (container)
 

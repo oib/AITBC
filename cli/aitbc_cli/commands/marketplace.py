@@ -305,3 +305,164 @@ def review(ctx, gpu_id: str, rating: int, comment: Optional[str]):
                 error(f"Failed to add review: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
+
+
+@marketplace.group()
+def bid():
+    """Marketplace bid operations"""
+    pass
+
+
+@bid.command()
+@click.option("--provider", required=True, help="Provider ID (e.g., miner123)")
+@click.option("--capacity", type=int, required=True, help="Bid capacity (number of units)")
+@click.option("--price", type=float, required=True, help="Price per unit in AITBC")
+@click.option("--notes", help="Additional notes for the bid")
+@click.pass_context
+def submit(ctx, provider: str, capacity: int, price: float, notes: Optional[str]):
+    """Submit a bid to the marketplace"""
+    config = ctx.obj['config']
+    
+    # Validate inputs
+    if capacity <= 0:
+        error("Capacity must be greater than 0")
+        return
+    if price <= 0:
+        error("Price must be greater than 0")
+        return
+    
+    # Build bid data
+    bid_data = {
+        "provider": provider,
+        "capacity": capacity,
+        "price": price
+    }
+    if notes:
+        bid_data["notes"] = notes
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/marketplace/bids",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Api-Key": config.api_key or ""
+                },
+                json=bid_data
+            )
+            
+            if response.status_code == 202:
+                result = response.json()
+                success(f"Bid submitted successfully: {result.get('id')}")
+                output(result, ctx.obj['output_format'])
+            else:
+                error(f"Failed to submit bid: {response.status_code}")
+                if response.text:
+                    error(f"Error details: {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@bid.command()
+@click.option("--status", help="Filter by bid status (pending, accepted, rejected)")
+@click.option("--provider", help="Filter by provider ID")
+@click.option("--limit", type=int, default=20, help="Maximum number of results")
+@click.pass_context
+def list(ctx, status: Optional[str], provider: Optional[str], limit: int):
+    """List marketplace bids"""
+    config = ctx.obj['config']
+    
+    # Build query params
+    params = {"limit": limit}
+    if status:
+        params["status"] = status
+    if provider:
+        params["provider"] = provider
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/marketplace/bids",
+                params=params,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                bids = response.json()
+                output(bids, ctx.obj['output_format'])
+            else:
+                error(f"Failed to list bids: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@bid.command()
+@click.argument("bid_id")
+@click.pass_context
+def details(ctx, bid_id: str):
+    """Get bid details"""
+    config = ctx.obj['config']
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/marketplace/bids/{bid_id}",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                bid_data = response.json()
+                output(bid_data, ctx.obj['output_format'])
+            else:
+                error(f"Bid not found: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@marketplace.group()
+def offers():
+    """Marketplace offers operations"""
+    pass
+
+
+@offers.command()
+@click.option("--status", help="Filter by offer status (open, reserved, closed)")
+@click.option("--gpu-model", help="Filter by GPU model")
+@click.option("--price-max", type=float, help="Maximum price per hour")
+@click.option("--memory-min", type=int, help="Minimum memory in GB")
+@click.option("--region", help="Filter by region")
+@click.option("--limit", type=int, default=20, help="Maximum number of results")
+@click.pass_context
+def list(ctx, status: Optional[str], gpu_model: Optional[str], price_max: Optional[float],
+         memory_min: Optional[int], region: Optional[str], limit: int):
+    """List marketplace offers"""
+    config = ctx.obj['config']
+    
+    # Build query params
+    params = {"limit": limit}
+    if status:
+        params["status"] = status
+    if gpu_model:
+        params["gpu_model"] = gpu_model
+    if price_max:
+        params["price_max"] = price_max
+    if memory_min:
+        params["memory_min"] = memory_min
+    if region:
+        params["region"] = region
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/marketplace/offers",
+                params=params,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                offers = response.json()
+                output(offers, ctx.obj['output_format'])
+            else:
+                error(f"Failed to list offers: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")

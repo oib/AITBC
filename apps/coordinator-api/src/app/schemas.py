@@ -109,6 +109,7 @@ class TransactionHistory(BaseModel):
     user_id: str
     transactions: List[Transaction]
     total: int
+
 class ExchangePaymentRequest(BaseModel):
     user_id: str
     aitbc_amount: float
@@ -124,6 +125,48 @@ class ExchangePaymentResponse(BaseModel):
     created_at: int
     expires_at: int
 
+class ExchangeRatesResponse(BaseModel):
+    btc_to_aitbc: float
+    aitbc_to_btc: float
+    fee_percent: float
+
+class PaymentStatusResponse(BaseModel):
+    payment_id: str
+    user_id: str
+    aitbc_amount: float
+    btc_amount: float
+    payment_address: str
+    status: str
+    created_at: int
+    expires_at: int
+    confirmations: int = 0
+    tx_hash: Optional[str] = None
+    confirmed_at: Optional[int] = None
+
+class MarketStatsResponse(BaseModel):
+    price: float
+    price_change_24h: float
+    daily_volume: float
+    daily_volume_btc: float
+    total_payments: int
+    pending_payments: int
+
+class WalletBalanceResponse(BaseModel):
+    address: str
+    balance: float
+    unconfirmed_balance: float
+    total_received: float
+    total_sent: float
+
+class WalletInfoResponse(BaseModel):
+    address: str
+    balance: float
+    unconfirmed_balance: float
+    total_received: float
+    total_sent: float
+    transactions: list
+    network: str
+    block_height: int
 
 class JobCreate(BaseModel):
     payload: Dict[str, Any]
@@ -211,6 +254,16 @@ class MarketplaceBidRequest(BaseModel):
     capacity: int = Field(..., gt=0)
     price: float = Field(..., gt=0)
     notes: Optional[str] = Field(default=None, max_length=1024)
+
+
+class MarketplaceBidView(BaseModel):
+    id: str
+    provider: str
+    capacity: int
+    price: float
+    notes: Optional[str] = None
+    status: str
+    submitted_at: datetime
 
 
 class BlockSummary(BaseModel):
