@@ -18,6 +18,19 @@ class DatabaseConfig(BaseSettings):
     max_overflow: int = 20
     pool_pre_ping: bool = True
     
+    @property
+    def effective_url(self) -> str:
+        """Get the effective database URL."""
+        if self.url:
+            return self.url
+        
+        # Default SQLite path
+        if self.adapter == "sqlite":
+            return "sqlite:///./coordinator.db"
+        
+        # Default PostgreSQL connection string
+        return f"{self.adapter}://localhost:5432/coordinator"
+    
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
