@@ -251,6 +251,22 @@ class TestConfigCommands:
             assert data['coordinator_url'] == 'http://test:8000'
             assert data['api_key'] == '***REDACTED***'
     
+
+    def test_export_empty_yaml(self, runner, mock_config, tmp_path):
+        """Test exporting an empty YAML config file"""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            local_config = Path.cwd() / ".aitbc.yaml"
+            local_config.write_text("")
+
+            result = runner.invoke(config, [
+                'export',
+                '--format', 'json'
+            ], obj={'config': mock_config, 'output_format': 'table'})
+
+            assert result.exit_code == 0
+            data = json.loads(result.output)
+            assert data == {}
+
     def test_export_no_config(self, runner, mock_config):
         """Test export when no config file exists"""
         with runner.isolated_filesystem():
