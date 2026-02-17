@@ -2,6 +2,8 @@
 
 import click
 import os
+import shlex
+import subprocess
 import yaml
 import json
 from pathlib import Path
@@ -128,8 +130,9 @@ def edit(ctx, global_config: bool):
             yaml.dump(config_data, f, default_flow_style=False)
     
     # Open in editor
-    editor = os.getenv('EDITOR', 'nano')
-    os.system(f"{editor} {config_file}")
+    editor = os.getenv('EDITOR', 'nano').strip() or 'nano'
+    editor_cmd = shlex.split(editor)
+    subprocess.run([*editor_cmd, str(config_file)], check=False)
 
 
 @config.command()
@@ -174,7 +177,7 @@ def export(ctx, output_format: str, global_config: bool):
         ctx.exit(1)
     
     with open(config_file) as f:
-        config_data = yaml.safe_load(f)
+        config_data = yaml.safe_load(f) or {}
     
     # Redact sensitive data
     if 'api_key' in config_data:
