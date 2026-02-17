@@ -153,7 +153,7 @@ Choose a tutorial based on your interest:
 
 ### Community
 - [Discord](https://discord.gg/aitbc)
-- [GitHub Discussions](https://github.com/aitbc/discussions)
+- [GitHub Discussions](https://github.com/oib/AITBC/discussions)
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/aitbc)
 
 ## Development Workflow
