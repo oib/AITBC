@@ -18,140 +18,154 @@ def _get_wallet_password(wallet_name: str) -> str:
     # Try to get from keyring first
     try:
         import keyring
+
         password = keyring.get_password("aitbc-wallet", wallet_name)
         if password:
             return password
-    except:
+    except Exception:
         pass
-    
+
     # Prompt for password
     while True:
         password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
         if not password:
             error("Password cannot be empty")
             continue
-        
+
         confirm = getpass.getpass("Confirm password: ")
         if password != confirm:
             error("Passwords do not match")
             continue
-        
+
         # Store in keyring for future use
         try:
             import keyring
+
             keyring.set_password("aitbc-wallet", wallet_name, password)
-        except:
+        except Exception:
             pass
-        
+
         return password
 
 
 def _save_wallet(wallet_path: Path, wallet_data: Dict[str, Any], password: str = None):
     """Save wallet with encrypted private key"""
     # Encrypt private key if provided
-    if password and 'private_key' in wallet_data:
-        wallet_data['private_key'] = encrypt_value(wallet_data['private_key'], password)
-        wallet_data['encrypted'] = True
-    
+    if password and "private_key" in wallet_data:
+        wallet_data["private_key"] = encrypt_value(wallet_data["private_key"], password)
+        wallet_data["encrypted"] = True
+
     # Save wallet
-    with open(wallet_path, 'w') as f:
+    with open(wallet_path, "w") as f:
         json.dump(wallet_data, f, indent=2)
 
 
 def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
     """Load wallet and decrypt private key if needed"""
-    with open(wallet_path, 'r') as f:
+    with open(wallet_path, "r") as f:
         wallet_data = json.load(f)
-    
+
     # Decrypt private key if encrypted
-    if wallet_data.get('encrypted') and 'private_key' in wallet_data:
+    if wallet_data.get("encrypted") and "private_key" in wallet_data:
         password = _get_wallet_password(wallet_name)
         try:
-            wallet_data['private_key'] = decrypt_value(wallet_data['private_key'], password)
+            wallet_data["private_key"] = decrypt_value(
+                wallet_data["private_key"], password
+            )
         except Exception:
             error("Invalid password for wallet")
             raise click.Abort()
-    
+
     return wallet_data
 
 
 @click.group()
 @click.option("--wallet-name", help="Name of the wallet to use")
-@click.option("--wallet-path", help="Direct path to wallet file (overrides --wallet-name)")
+@click.option(
+    "--wallet-path", help="Direct path to wallet file (overrides --wallet-name)"
+)
 @click.pass_context
 def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
     """Manage your AITBC wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
-    
+
     # If direct wallet path is provided, use it
     if wallet_path:
         wp = Path(wallet_path)
         wp.parent.mkdir(parents=True, exist_ok=True)
-        ctx.obj['wallet_name'] = wp.stem
-        ctx.obj['wallet_dir'] = wp.parent
-        ctx.obj['wallet_path'] = wp
+        ctx.obj["wallet_name"] = wp.stem
+        ctx.obj["wallet_dir"] = wp.parent
+        ctx.obj["wallet_path"] = wp
         return
-    
+
     # Set wallet directory
     wallet_dir = Path.home() / ".aitbc" / "wallets"
     wallet_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Set active wallet
     if not wallet_name:
         # Try to get from config or use 'default'
         config_file = Path.home() / ".aitbc" / "config.yaml"
         if config_file.exists():
-            with open(config_file, 'r') as f:
+            with open(config_file, "r") as f:
                 config = yaml.safe_load(f)
                 if config:
-                    wallet_name = config.get('active_wallet', 'default')
+                    wallet_name = config.get("active_wallet", "default")
                 else:
-                    wallet_name = 'default'
+                    wallet_name = "default"
         else:
-            wallet_name = 'default'
-    
-    ctx.obj['wallet_name'] = wallet_name
-    ctx.obj['wallet_dir'] = wallet_dir
-    ctx.obj['wallet_path'] = wallet_dir / f"{wallet_name}.json"
+            wallet_name = "default"
+
+    ctx.obj["wallet_name"] = wallet_name
+    ctx.obj["wallet_dir"] = wallet_dir
+    ctx.obj["wallet_path"] = wallet_dir / f"{wallet_name}.json"
 
 
 @wallet.command()
-@click.argument('name')
-@click.option('--type', 'wallet_type', default='hd', help='Wallet type (hd, simple)')
-@click.option('--no-encrypt', is_flag=True, help='Skip wallet encryption (not recommended)')
+@click.argument("name")
+@click.option("--type", "wallet_type", default="hd", help="Wallet type (hd, simple)")
+@click.option(
+    "--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)"
+)
 @click.pass_context
 def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     """Create a new wallet"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
-    
+
     if wallet_path.exists():
         error(f"Wallet '{name}' already exists")
         return
-    
+
     # Generate new wallet
-    if wallet_type == 'hd':
+    if wallet_type == "hd":
         # Hierarchical Deterministic wallet
         import secrets
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, NoEncryption, PrivateFormat
+        from cryptography.hazmat.primitives.serialization import (
+            Encoding,
+            PublicFormat,
+            NoEncryption,
+            PrivateFormat,
+        )
         import base64
-        
+
         # Generate private key
         private_key_bytes = secrets.token_bytes(32)
         private_key = f"0x{private_key_bytes.hex()}"
-        
+
         # Derive public key from private key using ECDSA
-        priv_key = ec.derive_private_key(int.from_bytes(private_key_bytes, 'big'), ec.SECP256K1())
+        priv_key = ec.derive_private_key(
+            int.from_bytes(private_key_bytes, "big"), ec.SECP256K1()
+        )
         pub_key = priv_key.public_key()
         pub_key_bytes = pub_key.public_bytes(
-            encoding=Encoding.X962,
-            format=PublicFormat.UncompressedPoint
+            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
         )
         public_key = f"0x{pub_key_bytes.hex()}"
-        
+
         # Generate address from public key (simplified)
         digest = hashes.Hash(hashes.SHA256())
         digest.update(pub_key_bytes)
@@ -160,10 +174,11 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     else:
         # Simple wallet
         import secrets
+
         private_key = f"0x{secrets.token_hex(32)}"
         public_key = f"0x{secrets.token_hex(32)}"
         address = f"aitbc1{secrets.token_hex(20)}"
-    
+
     wallet_data = {
         "wallet_id": name,
         "type": wallet_type,
@@ -172,267 +187,284 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         "private_key": private_key,
         "created_at": datetime.utcnow().isoformat() + "Z",
         "balance": 0,
-        "transactions": []
+        "transactions": [],
     }
-    
+
     # Get password for encryption unless skipped
     password = None
     if not no_encrypt:
-        success("Wallet encryption is enabled. Your private key will be encrypted at rest.")
+        success(
+            "Wallet encryption is enabled. Your private key will be encrypted at rest."
+        )
         password = _get_wallet_password(name)
-    
+
     # Save wallet
     _save_wallet(wallet_path, wallet_data, password)
-    
+
     success(f"Wallet '{name}' created successfully")
-    output({
-        "name": name,
-        "type": wallet_type,
-        "address": address,
-        "path": str(wallet_path)
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "name": name,
+            "type": wallet_type,
+            "address": address,
+            "path": str(wallet_path),
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
 @click.pass_context
 def list(ctx):
     """List all wallets"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     config_file = Path.home() / ".aitbc" / "config.yaml"
-    
+
     # Get active wallet
-    active_wallet = 'default'
+    active_wallet = "default"
     if config_file.exists():
-        with open(config_file, 'r') as f:
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-            active_wallet = config.get('active_wallet', 'default')
-    
+            active_wallet = config.get("active_wallet", "default")
+
     wallets = []
     for wallet_file in wallet_dir.glob("*.json"):
-        with open(wallet_file, 'r') as f:
+        with open(wallet_file, "r") as f:
             wallet_data = json.load(f)
             wallet_info = {
-                "name": wallet_data['wallet_id'],
-                "type": wallet_data.get('type', 'simple'),
-                "address": wallet_data['address'],
-                "created_at": wallet_data['created_at'],
-                "active": wallet_data['wallet_id'] == active_wallet
+                "name": wallet_data["wallet_id"],
+                "type": wallet_data.get("type", "simple"),
+                "address": wallet_data["address"],
+                "created_at": wallet_data["created_at"],
+                "active": wallet_data["wallet_id"] == active_wallet,
             }
-            if wallet_data.get('encrypted'):
-                wallet_info['encrypted'] = True
+            if wallet_data.get("encrypted"):
+                wallet_info["encrypted"] = True
             wallets.append(wallet_info)
-    
-    output(wallets, ctx.obj.get('output_format', 'table'))
+
+    output(wallets, ctx.obj.get("output_format", "table"))
 
 
 @wallet.command()
-@click.argument('name')
+@click.argument("name")
 @click.pass_context
 def switch(ctx, name: str):
     """Switch to a different wallet"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
-    
+
     if not wallet_path.exists():
         error(f"Wallet '{name}' does not exist")
         return
-    
+
     # Update config
     config_file = Path.home() / ".aitbc" / "config.yaml"
     config = {}
-    
+
     if config_file.exists():
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f) or {}
-    
-    config['active_wallet'] = name
-    
+
+    config["active_wallet"] = name
+
     # Save config
     config_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(config_file, 'w') as f:
+    with open(config_file, "w") as f:
         yaml.dump(config, f, default_flow_style=False)
-    
+
     success(f"Switched to wallet '{name}'")
     # Load wallet to get address (will handle encryption)
     wallet_data = _load_wallet(wallet_path, name)
-    output({
-        "active_wallet": name,
-        "address": wallet_data['address']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {"active_wallet": name, "address": wallet_data["address"]},
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
-@click.argument('name')
-@click.option('--confirm', is_flag=True, help='Skip confirmation prompt')
+@click.argument("name")
+@click.option("--confirm", is_flag=True, help="Skip confirmation prompt")
 @click.pass_context
 def delete(ctx, name: str, confirm: bool):
     """Delete a wallet"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
-    
+
     if not wallet_path.exists():
         error(f"Wallet '{name}' does not exist")
         return
-    
+
     if not confirm:
-        if not click.confirm(f"Are you sure you want to delete wallet '{name}'? This cannot be undone."):
+        if not click.confirm(
+            f"Are you sure you want to delete wallet '{name}'? This cannot be undone."
+        ):
             return
-    
+
     wallet_path.unlink()
     success(f"Wallet '{name}' deleted")
-    
+
     # If deleted wallet was active, reset to default
     config_file = Path.home() / ".aitbc" / "config.yaml"
     if config_file.exists():
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f) or {}
-        
-        if config.get('active_wallet') == name:
-            config['active_wallet'] = 'default'
-            with open(config_file, 'w') as f:
+
+        if config.get("active_wallet") == name:
+            config["active_wallet"] = "default"
+            with open(config_file, "w") as f:
                 yaml.dump(config, f, default_flow_style=False)
 
 
 @wallet.command()
-@click.argument('name')
-@click.option('--destination', help='Destination path for backup file')
+@click.argument("name")
+@click.option("--destination", help="Destination path for backup file")
 @click.pass_context
 def backup(ctx, name: str, destination: Optional[str]):
     """Backup a wallet"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
-    
+
     if not wallet_path.exists():
         error(f"Wallet '{name}' does not exist")
         return
-    
+
     if not destination:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         destination = f"{name}_backup_{timestamp}.json"
-    
+
     # Copy wallet file
     shutil.copy2(wallet_path, destination)
     success(f"Wallet '{name}' backed up to '{destination}'")
-    output({
-        "wallet": name,
-        "backup_path": destination,
-        "timestamp": datetime.utcnow().isoformat() + "Z"
-    })
+    output(
+        {
+            "wallet": name,
+            "backup_path": destination,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+        }
+    )
 
 
 @wallet.command()
-@click.argument('backup_path')
-@click.argument('name')
-@click.option('--force', is_flag=True, help='Override existing wallet')
+@click.argument("backup_path")
+@click.argument("name")
+@click.option("--force", is_flag=True, help="Override existing wallet")
 @click.pass_context
 def restore(ctx, backup_path: str, name: str, force: bool):
     """Restore a wallet from backup"""
-    wallet_dir = ctx.obj['wallet_dir']
+    wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
-    
+
     if wallet_path.exists() and not force:
         error(f"Wallet '{name}' already exists. Use --force to override.")
         return
-    
+
     if not Path(backup_path).exists():
         error(f"Backup file '{backup_path}' not found")
         return
-    
+
     # Load and verify backup
-    with open(backup_path, 'r') as f:
+    with open(backup_path, "r") as f:
         wallet_data = json.load(f)
-    
+
     # Update wallet name if needed
-    wallet_data['wallet_id'] = name
-    wallet_data['restored_at'] = datetime.utcnow().isoformat() + "Z"
-    
+    wallet_data["wallet_id"] = name
+    wallet_data["restored_at"] = datetime.utcnow().isoformat() + "Z"
+
     # Save restored wallet (preserve encryption state)
     # If wallet was encrypted, we save it as-is (still encrypted with original password)
-    with open(wallet_path, 'w') as f:
+    with open(wallet_path, "w") as f:
         json.dump(wallet_data, f, indent=2)
-    
+
     success(f"Wallet '{name}' restored from backup")
-    output({
-        "wallet": name,
-        "restored_from": backup_path,
-        "address": wallet_data['address']
-    })
+    output(
+        {
+            "wallet": name,
+            "restored_from": backup_path,
+            "address": wallet_data["address"],
+        }
+    )
 
 
 @wallet.command()
 @click.pass_context
 def info(ctx):
     """Show current wallet information"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
     config_file = Path.home() / ".aitbc" / "config.yaml"
-    
+
     if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one.")
+        error(
+            f"Wallet '{wallet_name}' not found. Use 'aitbc wallet create' to create one."
+        )
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
+
     # Get active wallet from config
-    active_wallet = 'default'
+    active_wallet = "default"
     if config_file.exists():
         import yaml
-        with open(config_file, 'r') as f:
+
+        with open(config_file, "r") as f:
             config = yaml.safe_load(f)
-            active_wallet = config.get('active_wallet', 'default')
-    
+            active_wallet = config.get("active_wallet", "default")
+
     wallet_info = {
-        "name": wallet_data['wallet_id'],
-        "type": wallet_data.get('type', 'simple'),
-        "address": wallet_data['address'],
-        "public_key": wallet_data['public_key'],
-        "created_at": wallet_data['created_at'],
-        "active": wallet_data['wallet_id'] == active_wallet,
-        "path": str(wallet_path)
+        "name": wallet_data["wallet_id"],
+        "type": wallet_data.get("type", "simple"),
+        "address": wallet_data["address"],
+        "public_key": wallet_data["public_key"],
+        "created_at": wallet_data["created_at"],
+        "active": wallet_data["wallet_id"] == active_wallet,
+        "path": str(wallet_path),
     }
-    
-    if 'balance' in wallet_data:
-        wallet_info['balance'] = wallet_data['balance']
-    
-    output(wallet_info, ctx.obj.get('output_format', 'table'))
+
+    if "balance" in wallet_data:
+        wallet_info["balance"] = wallet_data["balance"]
+
+    output(wallet_info, ctx.obj.get("output_format", "table"))
 
 
 @wallet.command()
 @click.pass_context
 def balance(ctx):
     """Check wallet balance"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    config = ctx.obj.get('config')
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+    config = ctx.obj.get("config")
+
     # Auto-create wallet if it doesn't exist
     if not wallet_path.exists():
         import secrets
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import ec
         from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-        
+
         # Generate proper key pair
         private_key_bytes = secrets.token_bytes(32)
         private_key = f"0x{private_key_bytes.hex()}"
-        
+
         # Derive public key from private key
-        priv_key = ec.derive_private_key(int.from_bytes(private_key_bytes, 'big'), ec.SECP256K1())
+        priv_key = ec.derive_private_key(
+            int.from_bytes(private_key_bytes, "big"), ec.SECP256K1()
+        )
         pub_key = priv_key.public_key()
         pub_key_bytes = pub_key.public_bytes(
-            encoding=Encoding.X962,
-            format=PublicFormat.UncompressedPoint
+            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
         )
         public_key = f"0x{pub_key_bytes.hex()}"
-        
+
         # Generate address from public key
         digest = hashes.Hash(hashes.SHA256())
         digest.update(pub_key_bytes)
         address_hash = digest.finalize()
         address = f"aitbc1{address_hash[:20].hex()}"
-        
+
         wallet_data = {
             "wallet_id": wallet_name,
             "type": "simple",
@@ -441,7 +473,7 @@ def balance(ctx):
             "private_key": private_key,
             "created_at": datetime.utcnow().isoformat() + "Z",
             "balance": 0.0,
-            "transactions": []
+            "transactions": [],
         }
         wallet_path.parent.mkdir(parents=True, exist_ok=True)
         # Auto-create with encryption
@@ -450,36 +482,43 @@ def balance(ctx):
         _save_wallet(wallet_path, wallet_data, password)
     else:
         wallet_data = _load_wallet(wallet_path, wallet_name)
-    
+
     # Try to get balance from blockchain if available
     if config:
         try:
             with httpx.Client() as client:
                 response = client.get(
                     f"{config.coordinator_url.replace('/api', '')}/rpc/balance/{wallet_data['address']}",
-                    timeout=5
+                    timeout=5,
                 )
-                
+
                 if response.status_code == 200:
-                    blockchain_balance = response.json().get('balance', 0)
-                    output({
-                        "wallet": wallet_name,
-                        "address": wallet_data['address'],
-                        "local_balance": wallet_data.get('balance', 0),
-                        "blockchain_balance": blockchain_balance,
-                        "synced": wallet_data.get('balance', 0) == blockchain_balance
-                    }, ctx.obj.get('output_format', 'table'))
+                    blockchain_balance = response.json().get("balance", 0)
+                    output(
+                        {
+                            "wallet": wallet_name,
+                            "address": wallet_data["address"],
+                            "local_balance": wallet_data.get("balance", 0),
+                            "blockchain_balance": blockchain_balance,
+                            "synced": wallet_data.get("balance", 0)
+                            == blockchain_balance,
+                        },
+                        ctx.obj.get("output_format", "table"),
+                    )
                     return
-        except:
+        except Exception:
             pass
-    
+
     # Fallback to local balance only
-    output({
-        "wallet": wallet_name,
-        "address": wallet_data['address'],
-        "balance": wallet_data.get('balance', 0),
-        "note": "Local balance only (blockchain not accessible)"
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "address": wallet_data["address"],
+            "balance": wallet_data.get("balance", 0),
+            "note": "Local balance only (blockchain not accessible)",
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -487,32 +526,37 @@ def balance(ctx):
 @click.pass_context
 def history(ctx, limit: int):
     """Show transaction history"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
-    transactions = wallet_data.get('transactions', [])[-limit:]
-    
+
+    transactions = wallet_data.get("transactions", [])[-limit:]
+
     # Format transactions
     formatted_txs = []
     for tx in transactions:
-        formatted_txs.append({
-            "type": tx['type'],
-            "amount": tx['amount'],
-            "description": tx.get('description', ''),
-            "timestamp": tx['timestamp']
-        })
-    
-    output({
-        "wallet": wallet_name,
-        "address": wallet_data['address'],
-        "transactions": formatted_txs
-    }, ctx.obj.get('output_format', 'table'))
+        formatted_txs.append(
+            {
+                "type": tx["type"],
+                "amount": tx["amount"],
+                "description": tx.get("description", ""),
+                "timestamp": tx["timestamp"],
+            }
+        )
+
+    output(
+        {
+            "wallet": wallet_name,
+            "address": wallet_data["address"],
+            "transactions": formatted_txs,
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -522,40 +566,43 @@ def history(ctx, limit: int):
 @click.pass_context
 def earn(ctx, amount: float, job_id: str, desc: Optional[str]):
     """Add earnings from completed job"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
+
     # Add transaction
     transaction = {
         "type": "earn",
         "amount": amount,
         "job_id": job_id,
         "description": desc or f"Job {job_id}",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
-    
-    wallet_data['transactions'].append(transaction)
-    wallet_data['balance'] = wallet_data.get('balance', 0) + amount
-    
+
+    wallet_data["transactions"].append(transaction)
+    wallet_data["balance"] = wallet_data.get("balance", 0) + amount
+
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(wallet_path, wallet_data, password)
-    
+
     success(f"Earnings added: {amount} AITBC")
-    output({
-        "wallet": wallet_name,
-        "amount": amount,
-        "job_id": job_id,
-        "new_balance": wallet_data['balance']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "amount": amount,
+            "job_id": job_id,
+            "new_balance": wallet_data["balance"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -564,64 +611,67 @@ def earn(ctx, amount: float, job_id: str, desc: Optional[str]):
 @click.pass_context
 def spend(ctx, amount: float, description: str):
     """Spend AITBC"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
-    balance = wallet_data.get('balance', 0)
+
+    balance = wallet_data.get("balance", 0)
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
         return
-    
+
     # Add transaction
     transaction = {
         "type": "spend",
         "amount": -amount,
         "description": description,
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
-    
-    wallet_data['transactions'].append(transaction)
-    wallet_data['balance'] = balance - amount
-    
+
+    wallet_data["transactions"].append(transaction)
+    wallet_data["balance"] = balance - amount
+
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(wallet_path, wallet_data, password)
-    
+
     success(f"Spent: {amount} AITBC")
-    output({
-        "wallet": wallet_name,
-        "amount": amount,
-        "description": description,
-        "new_balance": wallet_data['balance']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "amount": amount,
+            "description": description,
+            "new_balance": wallet_data["balance"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
 @click.pass_context
 def address(ctx):
     """Show wallet address"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
-    output({
-        "wallet": wallet_name,
-        "address": wallet_data['address']
-    }, ctx.obj.get('output_format', 'table'))
+
+    output(
+        {"wallet": wallet_name, "address": wallet_data["address"]},
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -631,22 +681,22 @@ def address(ctx):
 @click.pass_context
 def send(ctx, to_address: str, amount: float, description: Optional[str]):
     """Send AITBC to another address"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    config = ctx.obj.get('config')
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+    config = ctx.obj.get("config")
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
-    balance = wallet_data.get('balance', 0)
+
+    balance = wallet_data.get("balance", 0)
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
         return
-    
+
     # Try to send via blockchain
     if config:
         try:
@@ -654,14 +704,14 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
                 response = client.post(
                     f"{config.coordinator_url.replace('/api', '')}/rpc/transactions",
                     json={
-                        "from": wallet_data['address'],
+                        "from": wallet_data["address"],
                         "to": to_address,
                         "amount": amount,
-                        "description": description or ""
+                        "description": description or "",
                     },
-                    headers={"X-Api-Key": getattr(config, 'api_key', '') or ""}
+                    headers={"X-Api-Key": getattr(config, "api_key", "") or ""},
                 )
-                
+
                 if response.status_code == 201:
                     tx = response.json()
                     # Update local wallet
@@ -669,29 +719,32 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
                         "type": "send",
                         "amount": -amount,
                         "to_address": to_address,
-                        "tx_hash": tx.get('hash'),
+                        "tx_hash": tx.get("hash"),
                         "description": description or "",
-                        "timestamp": datetime.now().isoformat()
+                        "timestamp": datetime.now().isoformat(),
                     }
-                    
-                    wallet_data['transactions'].append(transaction)
-                    wallet_data['balance'] = balance - amount
-                    
-                    with open(wallet_path, 'w') as f:
+
+                    wallet_data["transactions"].append(transaction)
+                    wallet_data["balance"] = balance - amount
+
+                    with open(wallet_path, "w") as f:
                         json.dump(wallet_data, f, indent=2)
-                    
+
                     success(f"Sent {amount} AITBC to {to_address}")
-                    output({
-                        "wallet": wallet_name,
-                        "tx_hash": tx.get('hash'),
-                        "amount": amount,
-                        "to": to_address,
-                        "new_balance": wallet_data['balance']
-                    }, ctx.obj.get('output_format', 'table'))
+                    output(
+                        {
+                            "wallet": wallet_name,
+                            "tx_hash": tx.get("hash"),
+                            "amount": amount,
+                            "to": to_address,
+                            "new_balance": wallet_data["balance"],
+                        },
+                        ctx.obj.get("output_format", "table"),
+                    )
                     return
         except Exception as e:
             error(f"Network error: {e}")
-    
+
     # Fallback: just record locally
     transaction = {
         "type": "send",
@@ -699,25 +752,28 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
         "to_address": to_address,
         "description": description or "",
         "timestamp": datetime.now().isoformat(),
-        "pending": True
+        "pending": True,
     }
-    
-    wallet_data['transactions'].append(transaction)
-    wallet_data['balance'] = balance - amount
-    
+
+    wallet_data["transactions"].append(transaction)
+    wallet_data["balance"] = balance - amount
+
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(wallet_path, wallet_data, password)
-    
-    output({
-        "wallet": wallet_name,
-        "amount": amount,
-        "to": to_address,
-        "new_balance": wallet_data['balance'],
-        "note": "Transaction recorded locally (pending blockchain confirmation)"
-    }, ctx.obj.get('output_format', 'table'))
+
+    output(
+        {
+            "wallet": wallet_name,
+            "amount": amount,
+            "to": to_address,
+            "new_balance": wallet_data["balance"],
+            "note": "Transaction recorded locally (pending blockchain confirmation)",
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -727,61 +783,73 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
 @click.pass_context
 def request_payment(ctx, to_address: str, amount: float, description: Optional[str]):
     """Request payment from another address"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
+
     # Create payment request
     request = {
         "from_address": to_address,
-        "to_address": wallet_data['address'],
+        "to_address": wallet_data["address"],
         "amount": amount,
         "description": description or "",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
-    
-    output({
-        "wallet": wallet_name,
-        "payment_request": request,
-        "note": "Share this with the payer to request payment"
-    }, ctx.obj.get('output_format', 'table'))
+
+    output(
+        {
+            "wallet": wallet_name,
+            "payment_request": request,
+            "note": "Share this with the payer to request payment",
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
 @click.pass_context
 def stats(ctx):
     """Show wallet statistics"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
-    
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
+
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
-    
+
     wallet_data = _load_wallet(wallet_path, wallet_name)
-    
-    transactions = wallet_data.get('transactions', [])
-    
+
+    transactions = wallet_data.get("transactions", [])
+
     # Calculate stats
-    total_earned = sum(tx['amount'] for tx in transactions if tx['type'] == 'earn' and tx['amount'] > 0)
-    total_spent = sum(abs(tx['amount']) for tx in transactions if tx['type'] in ['spend', 'send'] and tx['amount'] < 0)
-    jobs_completed = len([tx for tx in transactions if tx['type'] == 'earn'])
-    
-    output({
-        "wallet": wallet_name,
-        "address": wallet_data['address'],
-        "current_balance": wallet_data.get('balance', 0),
-        "total_earned": total_earned,
-        "total_spent": total_spent,
-        "jobs_completed": jobs_completed,
-        "transaction_count": len(transactions),
-        "wallet_created": wallet_data.get('created_at')
-    }, ctx.obj.get('output_format', 'table'))
+    total_earned = sum(
+        tx["amount"] for tx in transactions if tx["type"] == "earn" and tx["amount"] > 0
+    )
+    total_spent = sum(
+        abs(tx["amount"])
+        for tx in transactions
+        if tx["type"] in ["spend", "send"] and tx["amount"] < 0
+    )
+    jobs_completed = len([tx for tx in transactions if tx["type"] == "earn"])
+
+    output(
+        {
+            "wallet": wallet_name,
+            "address": wallet_data["address"],
+            "current_balance": wallet_data.get("balance", 0),
+            "total_earned": total_earned,
+            "total_spent": total_spent,
+            "jobs_completed": jobs_completed,
+            "transaction_count": len(transactions),
+            "wallet_created": wallet_data.get("created_at"),
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -790,8 +858,8 @@ def stats(ctx):
 @click.pass_context
 def stake(ctx, amount: float, duration: int):
     """Stake AITBC tokens"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
@@ -799,7 +867,7 @@ def stake(ctx, amount: float, duration: int):
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
 
-    balance = wallet_data.get('balance', 0)
+    balance = wallet_data.get("balance", 0)
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -814,37 +882,42 @@ def stake(ctx, amount: float, duration: int):
         "start_date": datetime.now().isoformat(),
         "end_date": (datetime.now() + timedelta(days=duration)).isoformat(),
         "status": "active",
-        "apy": 5.0 + (duration / 30) * 1.5  # Higher APY for longer stakes
+        "apy": 5.0 + (duration / 30) * 1.5,  # Higher APY for longer stakes
     }
 
-    staking = wallet_data.setdefault('staking', [])
+    staking = wallet_data.setdefault("staking", [])
     staking.append(stake_record)
-    wallet_data['balance'] = balance - amount
+    wallet_data["balance"] = balance - amount
 
     # Add transaction
-    wallet_data['transactions'].append({
-        "type": "stake",
-        "amount": -amount,
-        "stake_id": stake_id,
-        "description": f"Staked {amount} AITBC for {duration} days",
-        "timestamp": datetime.now().isoformat()
-    })
+    wallet_data["transactions"].append(
+        {
+            "type": "stake",
+            "amount": -amount,
+            "stake_id": stake_id,
+            "description": f"Staked {amount} AITBC for {duration} days",
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(wallet_path, wallet_data, password)
 
     success(f"Staked {amount} AITBC for {duration} days")
-    output({
-        "wallet": wallet_name,
-        "stake_id": stake_id,
-        "amount": amount,
-        "duration_days": duration,
-        "apy": stake_record['apy'],
-        "new_balance": wallet_data['balance']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "stake_id": stake_id,
+            "amount": amount,
+            "duration_days": duration,
+            "apy": stake_record["apy"],
+            "new_balance": wallet_data["balance"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
@@ -852,18 +925,21 @@ def stake(ctx, amount: float, duration: int):
 @click.pass_context
 def unstake(ctx, stake_id: str):
     """Unstake AITBC tokens"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    with open(wallet_path, 'r') as f:
+    with open(wallet_path, "r") as f:
         wallet_data = json.load(f)
 
-    staking = wallet_data.get('staking', [])
-    stake_record = next((s for s in staking if s['stake_id'] == stake_id and s['status'] == 'active'), None)
+    staking = wallet_data.get("staking", [])
+    stake_record = next(
+        (s for s in staking if s["stake_id"] == stake_id and s["status"] == "active"),
+        None,
+    )
 
     if not stake_record:
         error(f"Active stake '{stake_id}' not found")
@@ -871,52 +947,57 @@ def unstake(ctx, stake_id: str):
         return
 
     # Calculate rewards
-    start = datetime.fromisoformat(stake_record['start_date'])
+    start = datetime.fromisoformat(stake_record["start_date"])
     days_staked = max(1, (datetime.now() - start).days)
-    daily_rate = stake_record['apy'] / 100 / 365
-    rewards = stake_record['amount'] * daily_rate * days_staked
+    daily_rate = stake_record["apy"] / 100 / 365
+    rewards = stake_record["amount"] * daily_rate * days_staked
 
     # Return principal + rewards
-    returned = stake_record['amount'] + rewards
-    wallet_data['balance'] = wallet_data.get('balance', 0) + returned
-    stake_record['status'] = 'completed'
-    stake_record['rewards'] = rewards
-    stake_record['completed_date'] = datetime.now().isoformat()
+    returned = stake_record["amount"] + rewards
+    wallet_data["balance"] = wallet_data.get("balance", 0) + returned
+    stake_record["status"] = "completed"
+    stake_record["rewards"] = rewards
+    stake_record["completed_date"] = datetime.now().isoformat()
 
     # Add transaction
-    wallet_data['transactions'].append({
-        "type": "unstake",
-        "amount": returned,
-        "stake_id": stake_id,
-        "rewards": rewards,
-        "description": f"Unstaked {stake_record['amount']} AITBC + {rewards:.4f} rewards",
-        "timestamp": datetime.now().isoformat()
-    })
+    wallet_data["transactions"].append(
+        {
+            "type": "unstake",
+            "amount": returned,
+            "stake_id": stake_id,
+            "rewards": rewards,
+            "description": f"Unstaked {stake_record['amount']} AITBC + {rewards:.4f} rewards",
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(wallet_path, wallet_data, password)
 
     success(f"Unstaked {stake_record['amount']} AITBC + {rewards:.4f} rewards")
-    output({
-        "wallet": wallet_name,
-        "stake_id": stake_id,
-        "principal": stake_record['amount'],
-        "rewards": rewards,
-        "total_returned": returned,
-        "days_staked": days_staked,
-        "new_balance": wallet_data['balance']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "stake_id": stake_id,
+            "principal": stake_record["amount"],
+            "rewards": rewards,
+            "total_returned": returned,
+            "days_staked": days_staked,
+            "new_balance": wallet_data["balance"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="staking-info")
 @click.pass_context
 def staking_info(ctx):
     """Show staking information"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj['wallet_path']
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj["wallet_path"]
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
@@ -924,41 +1005,46 @@ def staking_info(ctx):
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
 
-    staking = wallet_data.get('staking', [])
-    active_stakes = [s for s in staking if s['status'] == 'active']
-    completed_stakes = [s for s in staking if s['status'] == 'completed']
+    staking = wallet_data.get("staking", [])
+    active_stakes = [s for s in staking if s["status"] == "active"]
+    completed_stakes = [s for s in staking if s["status"] == "completed"]
 
-    total_staked = sum(s['amount'] for s in active_stakes)
-    total_rewards = sum(s.get('rewards', 0) for s in completed_stakes)
+    total_staked = sum(s["amount"] for s in active_stakes)
+    total_rewards = sum(s.get("rewards", 0) for s in completed_stakes)
 
-    output({
-        "wallet": wallet_name,
-        "total_staked": total_staked,
-        "total_rewards_earned": total_rewards,
-        "active_stakes": len(active_stakes),
-        "completed_stakes": len(completed_stakes),
-        "stakes": [
-            {
-                "stake_id": s['stake_id'],
-                "amount": s['amount'],
-                "apy": s['apy'],
-                "duration_days": s['duration_days'],
-                "status": s['status'],
-                "start_date": s['start_date']
-            }
-            for s in staking
-        ]
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "wallet": wallet_name,
+            "total_staked": total_staked,
+            "total_rewards_earned": total_rewards,
+            "active_stakes": len(active_stakes),
+            "completed_stakes": len(completed_stakes),
+            "stakes": [
+                {
+                    "stake_id": s["stake_id"],
+                    "amount": s["amount"],
+                    "apy": s["apy"],
+                    "duration_days": s["duration_days"],
+                    "status": s["status"],
+                    "start_date": s["start_date"],
+                }
+                for s in staking
+            ],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="multisig-create")
 @click.argument("signers", nargs=-1, required=True)
-@click.option("--threshold", type=int, required=True, help="Required signatures to approve")
+@click.option(
+    "--threshold", type=int, required=True, help="Required signatures to approve"
+)
 @click.option("--name", required=True, help="Multisig wallet name")
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     """Create a multi-signature wallet"""
-    wallet_dir = ctx.obj.get('wallet_dir', Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     wallet_dir.mkdir(parents=True, exist_ok=True)
     multisig_path = wallet_dir / f"{name}_multisig.json"
 
@@ -967,10 +1053,13 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
         return
 
     if threshold > len(signers):
-        error(f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})")
+        error(
+            f"Threshold ({threshold}) cannot exceed number of signers ({len(signers)})"
+        )
         return
 
     import secrets
+
     multisig_data = {
         "wallet_id": name,
         "type": "multisig",
@@ -980,19 +1069,22 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
         "created_at": datetime.now().isoformat(),
         "balance": 0.0,
         "transactions": [],
-        "pending_transactions": []
+        "pending_transactions": [],
     }
 
     with open(multisig_path, "w") as f:
         json.dump(multisig_data, f, indent=2)
 
     success(f"Multisig wallet '{name}' created ({threshold}-of-{len(signers)})")
-    output({
-        "name": name,
-        "address": multisig_data["address"],
-        "signers": list(signers),
-        "threshold": threshold
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "name": name,
+            "address": multisig_data["address"],
+            "signers": list(signers),
+            "threshold": threshold,
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="multisig-propose")
@@ -1001,9 +1093,11 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
 @click.argument("amount", type=float)
 @click.option("--description", help="Transaction description")
 @click.pass_context
-def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, description: Optional[str]):
+def multisig_propose(
+    ctx, wallet_name: str, to_address: str, amount: float, description: Optional[str]
+):
     """Propose a multisig transaction"""
-    wallet_dir = ctx.obj.get('wallet_dir', Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
@@ -1014,11 +1108,14 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
         ms_data = json.load(f)
 
     if ms_data.get("balance", 0) < amount:
-        error(f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}")
+        error(
+            f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}"
+        )
         ctx.exit(1)
         return
 
     import secrets
+
     tx_id = f"mstx_{secrets.token_hex(8)}"
     pending_tx = {
         "tx_id": tx_id,
@@ -1028,7 +1125,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
         "proposed_at": datetime.now().isoformat(),
         "proposed_by": os.environ.get("USER", "unknown"),
         "signatures": [],
-        "status": "pending"
+        "status": "pending",
     }
 
     ms_data.setdefault("pending_transactions", []).append(pending_tx)
@@ -1036,13 +1133,16 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
         json.dump(ms_data, f, indent=2)
 
     success(f"Transaction proposed: {tx_id}")
-    output({
-        "tx_id": tx_id,
-        "to": to_address,
-        "amount": amount,
-        "signatures_needed": ms_data["threshold"],
-        "status": "pending"
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "tx_id": tx_id,
+            "to": to_address,
+            "amount": amount,
+            "signatures_needed": ms_data["threshold"],
+            "status": "pending",
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="multisig-sign")
@@ -1052,7 +1152,7 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: float, desc
 @click.pass_context
 def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     """Sign a pending multisig transaction"""
-    wallet_dir = ctx.obj.get('wallet_dir', Path.home() / ".aitbc" / "wallets")
+    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
     if not multisig_path.exists():
@@ -1068,7 +1168,9 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         return
 
     pending = ms_data.get("pending_transactions", [])
-    tx = next((t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None)
+    tx = next(
+        (t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None
+    )
 
     if not tx:
         error(f"Pending transaction '{tx_id}' not found")
@@ -1086,38 +1188,47 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         tx["status"] = "approved"
         # Execute the transaction
         ms_data["balance"] = ms_data.get("balance", 0) - tx["amount"]
-        ms_data["transactions"].append({
-            "type": "multisig_send",
-            "amount": -tx["amount"],
-            "to": tx["to"],
-            "tx_id": tx["tx_id"],
-            "signatures": tx["signatures"],
-            "timestamp": datetime.now().isoformat()
-        })
+        ms_data["transactions"].append(
+            {
+                "type": "multisig_send",
+                "amount": -tx["amount"],
+                "to": tx["to"],
+                "tx_id": tx["tx_id"],
+                "signatures": tx["signatures"],
+                "timestamp": datetime.now().isoformat(),
+            }
+        )
         success(f"Transaction {tx_id} approved and executed!")
     else:
-        success(f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected")
+        success(
+            f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected"
+        )
 
     with open(multisig_path, "w") as f:
         json.dump(ms_data, f, indent=2)
 
-    output({
-        "tx_id": tx_id,
-        "signatures": tx["signatures"],
-        "threshold": ms_data["threshold"],
-        "status": tx["status"]
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "tx_id": tx_id,
+            "signatures": tx["signatures"],
+            "threshold": ms_data["threshold"],
+            "status": tx["status"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="liquidity-stake")
 @click.argument("amount", type=float)
 @click.option("--pool", default="main", help="Liquidity pool name")
-@click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
+@click.option(
+    "--lock-days", type=int, default=0, help="Lock period in days (higher APY)"
+)
 @click.pass_context
 def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
     """Stake tokens into a liquidity pool"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj.get('wallet_path')
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
         error("Wallet not found")
         ctx.exit(1)
@@ -1125,7 +1236,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
 
-    balance = wallet_data.get('balance', 0)
+    balance = wallet_data.get("balance", 0)
     if balance < amount:
         error(f"Insufficient balance. Available: {balance}, Required: {amount}")
         ctx.exit(1)
@@ -1146,6 +1257,7 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
         tier = "bronze"
 
     import secrets
+
     stake_id = f"liq_{secrets.token_hex(6)}"
     now = datetime.now()
 
@@ -1157,37 +1269,44 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
         "tier": tier,
         "lock_days": lock_days,
         "start_date": now.isoformat(),
-        "unlock_date": (now + timedelta(days=lock_days)).isoformat() if lock_days > 0 else None,
-        "status": "active"
+        "unlock_date": (now + timedelta(days=lock_days)).isoformat()
+        if lock_days > 0
+        else None,
+        "status": "active",
     }
 
-    wallet_data.setdefault('liquidity', []).append(liq_record)
-    wallet_data['balance'] = balance - amount
+    wallet_data.setdefault("liquidity", []).append(liq_record)
+    wallet_data["balance"] = balance - amount
 
-    wallet_data['transactions'].append({
-        "type": "liquidity_stake",
-        "amount": -amount,
-        "pool": pool,
-        "stake_id": stake_id,
-        "timestamp": now.isoformat()
-    })
+    wallet_data["transactions"].append(
+        {
+            "type": "liquidity_stake",
+            "amount": -amount,
+            "pool": pool,
+            "stake_id": stake_id,
+            "timestamp": now.isoformat(),
+        }
+    )
 
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password)
 
     success(f"Staked {amount} AITBC into '{pool}' pool ({tier} tier, {apy}% APY)")
-    output({
-        "stake_id": stake_id,
-        "pool": pool,
-        "amount": amount,
-        "apy": apy,
-        "tier": tier,
-        "lock_days": lock_days,
-        "new_balance": wallet_data['balance']
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "stake_id": stake_id,
+            "pool": pool,
+            "amount": amount,
+            "apy": apy,
+            "tier": tier,
+            "lock_days": lock_days,
+            "new_balance": wallet_data["balance"],
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command(name="liquidity-unstake")
@@ -1195,8 +1314,8 @@ def liquidity_stake(ctx, amount: float, pool: str, lock_days: int):
 @click.pass_context
 def liquidity_unstake(ctx, stake_id: str):
     """Withdraw from a liquidity pool with rewards"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj.get('wallet_path')
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
         error("Wallet not found")
         ctx.exit(1)
@@ -1204,8 +1323,11 @@ def liquidity_unstake(ctx, stake_id: str):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
 
-    liquidity = wallet_data.get('liquidity', [])
-    record = next((r for r in liquidity if r["stake_id"] == stake_id and r["status"] == "active"), None)
+    liquidity = wallet_data.get("liquidity", [])
+    record = next(
+        (r for r in liquidity if r["stake_id"] == stake_id and r["status"] == "active"),
+        None,
+    )
 
     if not record:
         error(f"Active liquidity stake '{stake_id}' not found")
@@ -1230,43 +1352,50 @@ def liquidity_unstake(ctx, stake_id: str):
     record["end_date"] = datetime.now().isoformat()
     record["rewards"] = round(rewards, 6)
 
-    wallet_data['balance'] = wallet_data.get('balance', 0) + total
+    wallet_data["balance"] = wallet_data.get("balance", 0) + total
 
-    wallet_data['transactions'].append({
-        "type": "liquidity_unstake",
-        "amount": total,
-        "principal": record["amount"],
-        "rewards": round(rewards, 6),
-        "pool": record["pool"],
-        "stake_id": stake_id,
-        "timestamp": datetime.now().isoformat()
-    })
+    wallet_data["transactions"].append(
+        {
+            "type": "liquidity_unstake",
+            "amount": total,
+            "principal": record["amount"],
+            "rewards": round(rewards, 6),
+            "pool": record["pool"],
+            "stake_id": stake_id,
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
 
     # Save wallet with encryption
     password = None
-    if wallet_data.get('encrypted'):
+    if wallet_data.get("encrypted"):
         password = _get_wallet_password(wallet_name)
     _save_wallet(Path(wallet_path), wallet_data, password)
 
-    success(f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})")
-    output({
-        "stake_id": stake_id,
-        "pool": record["pool"],
-        "principal": record["amount"],
-        "rewards": round(rewards, 6),
-        "total_returned": round(total, 6),
-        "days_staked": round(days_staked, 2),
-        "apy": record["apy"],
-        "new_balance": round(wallet_data['balance'], 6)
-    }, ctx.obj.get('output_format', 'table'))
+    success(
+        f"Withdrawn {total:.6f} AITBC (principal: {record['amount']}, rewards: {rewards:.6f})"
+    )
+    output(
+        {
+            "stake_id": stake_id,
+            "pool": record["pool"],
+            "principal": record["amount"],
+            "rewards": round(rewards, 6),
+            "total_returned": round(total, 6),
+            "days_staked": round(days_staked, 2),
+            "apy": record["apy"],
+            "new_balance": round(wallet_data["balance"], 6),
+        },
+        ctx.obj.get("output_format", "table"),
+    )
 
 
 @wallet.command()
 @click.pass_context
 def rewards(ctx):
     """View all earned rewards (staking + liquidity)"""
-    wallet_name = ctx.obj['wallet_name']
-    wallet_path = ctx.obj.get('wallet_path')
+    wallet_name = ctx.obj["wallet_name"]
+    wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
         error("Wallet not found")
         ctx.exit(1)
@@ -1274,40 +1403,49 @@ def rewards(ctx):
 
     wallet_data = _load_wallet(Path(wallet_path), wallet_name)
 
-    staking = wallet_data.get('staking', [])
-    liquidity = wallet_data.get('liquidity', [])
+    staking = wallet_data.get("staking", [])
+    liquidity = wallet_data.get("liquidity", [])
 
     # Staking rewards
-    staking_rewards = sum(s.get('rewards', 0) for s in staking if s.get('status') == 'completed')
-    active_staking = sum(s['amount'] for s in staking if s.get('status') == 'active')
+    staking_rewards = sum(
+        s.get("rewards", 0) for s in staking if s.get("status") == "completed"
+    )
+    active_staking = sum(s["amount"] for s in staking if s.get("status") == "active")
 
     # Liquidity rewards
-    liq_rewards = sum(r.get('rewards', 0) for r in liquidity if r.get('status') == 'completed')
-    active_liquidity = sum(r['amount'] for r in liquidity if r.get('status') == 'active')
+    liq_rewards = sum(
+        r.get("rewards", 0) for r in liquidity if r.get("status") == "completed"
+    )
+    active_liquidity = sum(
+        r["amount"] for r in liquidity if r.get("status") == "active"
+    )
 
     # Estimate pending rewards for active positions
     pending_staking = 0
     for s in staking:
-        if s.get('status') == 'active':
-            start = datetime.fromisoformat(s['start_date'])
+        if s.get("status") == "active":
+            start = datetime.fromisoformat(s["start_date"])
             days = max((datetime.now() - start).total_seconds() / 86400, 0)
-            pending_staking += s['amount'] * (s['apy'] / 100) * (days / 365)
+            pending_staking += s["amount"] * (s["apy"] / 100) * (days / 365)
 
     pending_liquidity = 0
     for r in liquidity:
-        if r.get('status') == 'active':
-            start = datetime.fromisoformat(r['start_date'])
+        if r.get("status") == "active":
+            start = datetime.fromisoformat(r["start_date"])
             days = max((datetime.now() - start).total_seconds() / 86400, 0)
-            pending_liquidity += r['amount'] * (r['apy'] / 100) * (days / 365)
+            pending_liquidity += r["amount"] * (r["apy"] / 100) * (days / 365)
 
-    output({
-        "staking_rewards_earned": round(staking_rewards, 6),
-        "staking_rewards_pending": round(pending_staking, 6),
-        "staking_active_amount": active_staking,
-        "liquidity_rewards_earned": round(liq_rewards, 6),
-        "liquidity_rewards_pending": round(pending_liquidity, 6),
-        "liquidity_active_amount": active_liquidity,
-        "total_earned": round(staking_rewards + liq_rewards, 6),
-        "total_pending": round(pending_staking + pending_liquidity, 6),
-        "total_staked": active_staking + active_liquidity
-    }, ctx.obj.get('output_format', 'table'))
+    output(
+        {
+            "staking_rewards_earned": round(staking_rewards, 6),
+            "staking_rewards_pending": round(pending_staking, 6),
+            "staking_active_amount": active_staking,
+            "liquidity_rewards_earned": round(liq_rewards, 6),
+            "liquidity_rewards_pending": round(pending_liquidity, 6),
+            "liquidity_active_amount": active_liquidity,
+            "total_earned": round(staking_rewards + liq_rewards, 6),
+            "total_pending": round(pending_staking + pending_liquidity, 6),
+            "total_staked": active_staking + active_liquidity,
+        },
+        ctx.obj.get("output_format", "table"),
+    )

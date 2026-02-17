@@ -52,6 +52,7 @@ from ..schemas import (
 from ..domain import (
     Job,
     Miner,
+    JobReceipt,
     MarketplaceOffer,
     MarketplaceBid,
     User,
@@ -93,6 +94,7 @@ __all__ = [
     "Constraints",
     "Job",
     "Miner",
+    "JobReceipt",
     "MarketplaceOffer",
     "MarketplaceBid",
     "ServiceType",

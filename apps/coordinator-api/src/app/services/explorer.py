@@ -7,6 +7,7 @@ from typing import Optional
 
 from sqlmodel import Session, select
 
+from ..config import settings
 from ..domain import Job, JobReceipt
 from ..schemas import (
     BlockListResponse,
@@ -39,29 +40,45 @@ class ExplorerService:
         self.session = session
 
     def list_blocks(self, *, limit: int = 20, offset: int = 0) -> BlockListResponse:
-        # Fetch real blockchain data from RPC API
+        # Fetch real blockchain data via /rpc/head and /rpc/blocks-range
+        rpc_base = settings.blockchain_rpc_url.rstrip("/")
         try:
-            # Use the blockchain RPC API running on localhost:8082
             with httpx.Client(timeout=10.0) as client:
-                response = client.get("http://localhost:8082/rpc/blocks", params={"limit": limit, "offset": offset})
-                response.raise_for_status()
-                rpc_data = response.json()
-                
+                head_resp = client.get(f"{rpc_base}/rpc/head")
+                if head_resp.status_code == 404:
+                    return BlockListResponse(items=[], next_offset=None)
+                head_resp.raise_for_status()
+                head = head_resp.json()
+                height = head.get("height", 0)
+                start = max(0, height - offset - limit + 1)
+                end = height - offset
+                if start > end:
+                    return BlockListResponse(items=[], next_offset=None)
+                range_resp = client.get(
+                    f"{rpc_base}/rpc/blocks-range",
+                    params={"start": start, "end": end},
+                )
+                range_resp.raise_for_status()
+                rpc_data = range_resp.json()
+                raw_blocks = rpc_data.get("blocks", [])
+                # Node returns ascending by height; explorer expects newest first
+                raw_blocks = list(reversed(raw_blocks))
                 items: list[BlockSummary] = []
-                for block in rpc_data.get("blocks", []):
+                for block in raw_blocks:
+                    ts = block.get("timestamp")
+                    if isinstance(ts, str):
+                        ts = datetime.fromisoformat(ts.replace("Z", "+00:00"))
                     items.append(
                         BlockSummary(
                             height=block["height"],
                             hash=block["hash"],
-                            timestamp=datetime.fromisoformat(block["timestamp"]),
-                            txCount=block["tx_count"],
-                            proposer=block["proposer"],
+                            timestamp=ts,
+                            txCount=block.get("tx_count", 0),
+                            proposer=block.get("proposer", "—"),
                         )
                     )
-                
-                next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
+                next_offset = offset + len(items) if len(items) == limit else None
                 return BlockListResponse(items=items, next_offset=next_offset)
-                
         except Exception as e:
             # Fallback to fake data if RPC is unavailable
             print(f"Warning: Failed to fetch blocks from RPC: {e}, falling back to fake data")
