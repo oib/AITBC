@@ -142,7 +142,7 @@ Choose a tutorial based on your interest:
 
 ### Documentation
 - [API Reference](../api/)
-- [SDK Guides](sdks/)
+- [SDK Guides](4_examples.md)
 - [Examples](examples.md)
 - [Best Practices](best-practices.md)
 
@@ -250,7 +250,7 @@ We welcome contributions! Areas where you can help:
 - Community support
 - Integration examples
 
-See our [Contributing Guide](contributing.md) for details.
+See our [Contributing Guide](3_contributing.md) for details.
 
 ## Support
 
@@ -261,9 +261,9 @@ See our [Contributing Guide](contributing.md) for details.
 
 ## Next Steps
 
-1. [Set up your environment](setup.md)
-2. [Learn about authentication](api-authentication.md)
-3. [Choose an SDK](sdks/)
-4. [Build your first app](../../tutorials/)
+1. [Set up your environment](2_setup.md)
+2. [Learn about authentication](6_api-authentication.md)
+3. [Choose an SDK](4_examples.md)
+4. [Build your first app](4_examples.md)
 
 Happy building! 🚀
