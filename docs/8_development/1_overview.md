@@ -141,15 +141,15 @@ Choose a tutorial based on your interest:
 ## Developer Resources
 
 ### Documentation
-- [API Reference](../api/)
+- [API Reference](../5_reference/0_index.md)
 - [SDK Guides](4_examples.md)
-- [Examples](examples.md)
-- [Best Practices](best-practices.md)
+- [Examples](4_examples.md)
+- [Best Practices](5_developer-guide.md)
 
 ### Tools
-- [AITBC CLI](tools/cli.md)
-- [IDE Plugins](tools/ide-plugins.md)
-- [Testing Framework](tools/testing.md)
+- [AITBC CLI](../0_getting_started/3_cli.md)
+- [IDE Plugins](15_ecosystem-initiatives.md)
+- [Testing Framework](17_windsurf-testing.md)
 
 ### Community
 - [Discord](https://discord.gg/aitbc)
@@ -256,7 +256,7 @@ See our [Contributing Guide](3_contributing.md) for details.
 
 - 📖 [Documentation](../)
 - 💬 [Discord](https://discord.gg/aitbc)
-- 🐛 [Issue Tracker](https://github.com/aitbc/issues)
+- 🐛 [Issue Tracker](https://github.com/oib/AITBC/issues)
 - 📧 [dev-support@aitbc.io](mailto:dev-support@aitbc.io)
 
 ## Next Steps
