@@ -4,7 +4,9 @@ Minimal conftest for pytest discovery without complex imports
 
 import pytest
 import sys
+import os
 from pathlib import Path
+from unittest.mock import Mock
 
 # Configure Python path for test discovery
 project_root = Path(__file__).parent.parent
@@ -18,6 +20,30 @@ sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-sdk" / "src"))
 sys.path.insert(0, str(project_root / "apps" / "coordinator-api" / "src"))
 sys.path.insert(0, str(project_root / "apps" / "wallet-daemon" / "src"))
 sys.path.insert(0, str(project_root / "apps" / "blockchain-node" / "src"))
+
+# Set up test environment
+os.environ["TEST_MODE"] = "true"
+os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
+os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
+
+# Mock missing optional dependencies
+sys.modules['slowapi'] = Mock()
+sys.modules['slowapi.util'] = Mock()
+sys.modules['slowapi.limiter'] = Mock()
+sys.modules['web3'] = Mock()
+sys.modules['aitbc_crypto'] = Mock()
+
+# Mock aitbc_crypto functions
+def mock_encrypt_data(data, key):
+    return f"encrypted_{data}"
+def mock_decrypt_data(data, key):
+    return data.replace("encrypted_", "")
+def mock_generate_viewing_key():
+    return "test_viewing_key"
+
+sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
+sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
+sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
 
 
 @pytest.fixture

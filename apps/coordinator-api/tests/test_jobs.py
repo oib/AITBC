@@ -1,5 +1,5 @@
 import pytest
-from sqlmodel import Session, delete
+from sqlmodel import Session, delete, text
 
 from app.domain import Job, Miner
 from app.models import JobCreate
@@ -14,7 +14,26 @@ def _init_db(tmp_path_factory):
     from app.config import settings
 
     settings.database_url = f"sqlite:///{db_file}"
+    
+    # Initialize database and create tables
     init_db()
+    
+    # Ensure payment_id column exists (handle schema migration)
+    with session_scope() as sess:
+        try:
+            # Check if columns exist and add them if needed
+            result = sess.exec(text("PRAGMA table_info(job)"))
+            columns = [row[1] for row in result.fetchall()]
+            
+            if 'payment_id' not in columns:
+                sess.exec(text("ALTER TABLE job ADD COLUMN payment_id TEXT"))
+            if 'payment_status' not in columns:
+                sess.exec(text("ALTER TABLE job ADD COLUMN payment_status TEXT"))
+            sess.commit()
+        except Exception as e:
+            print(f"Schema migration error: {e}")
+            sess.rollback()
+    
     yield
 
 

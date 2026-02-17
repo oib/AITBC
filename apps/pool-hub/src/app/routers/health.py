@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 from datetime import datetime
+from sqlalchemy import text
 
 router = APIRouter(tags=["health"])
 
@@ -12,7 +13,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "pool-hub",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -20,17 +21,14 @@ async def health_check():
 async def readiness_check():
     """Readiness check for Kubernetes."""
     # Check dependencies
-    checks = {
-        "database": await check_database(),
-        "redis": await check_redis()
-    }
-    
+    checks = {"database": await check_database(), "redis": await check_redis()}
+
     all_ready = all(checks.values())
-    
+
     return {
         "ready": all_ready,
         "checks": checks,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
     }
 
 
@@ -43,7 +41,12 @@ async def liveness_check():
 async def check_database() -> bool:
     """Check database connectivity."""
     try:
-        # TODO: Implement actual database check
+        from ..database import get_engine
+        from sqlalchemy import text
+
+        engine = get_engine()
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False
@@ -52,7 +55,10 @@ async def check_database() -> bool:
 async def check_redis() -> bool:
     """Check Redis connectivity."""
     try:
-        # TODO: Implement actual Redis check
+        from ..redis_cache import get_redis_client
+
+        client = get_redis_client()
+        await client.ping()
         return True
     except Exception:
         return False

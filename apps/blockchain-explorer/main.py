@@ -299,13 +299,67 @@ HTML_TEMPLATE = """
             if (!query) return;
             
             // Try block height first
-            if (/^\\d+$/.test(query)) {
+            if (/^\d+$/.test(query)) {
                 showBlockDetails(parseInt(query));
                 return;
             }
             
-            // TODO: Add transaction hash search
-            alert('Search by block height is currently supported');
+            // Try transaction hash search (hex string, 64 chars)
+            if (/^[a-fA-F0-9]{64}$/.test(query)) {
+                try {
+                    const tx = await fetch(`/api/transactions/${query}`).then(r => {
+                        if (!r.ok) throw new Error('Transaction not found');
+                        return r.json();
+                    });
+                    // Show transaction details - reuse block modal
+                    const modal = document.getElementById('block-modal');
+                    const details = document.getElementById('block-details');
+                    details.innerHTML = `
+                        <div class="space-y-6">
+                            <div>
+                                <h3 class="text-lg font-semibold mb-2">Transaction</h3>
+                                <div class="bg-gray-50 rounded p-4 space-y-2">
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Hash:</span>
+                                        <span class="font-mono text-sm">${tx.hash || '-'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Type:</span>
+                                        <span>${tx.type || '-'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">From:</span>
+                                        <span class="font-mono text-sm">${tx.from || '-'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">To:</span>
+                                        <span class="font-mono text-sm">${tx.to || '-'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Amount:</span>
+                                        <span>${tx.amount || '0'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Fee:</span>
+                                        <span>${tx.fee || '0'}</span>
+                                    </div>
+                                    <div class="flex justify-between">
+                                        <span class="text-gray-600">Block:</span>
+                                        <span>${tx.block_height || '-'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    modal.classList.remove('hidden');
+                    return;
+                } catch (e) {
+                    alert('Transaction not found');
+                    return;
+                }
+            }
+            
+            alert('Search by block height or transaction hash (64 char hex) is supported');
         }
 
         // Format timestamp
@@ -321,6 +375,7 @@ HTML_TEMPLATE = """
 </html>
 """
 
+
 async def get_chain_head() -> Dict[str, Any]:
     """Get the current chain head"""
     try:
@@ -331,6 +386,7 @@ async def get_chain_head() -> Dict[str, Any]:
     except Exception as e:
         print(f"Error getting chain head: {e}")
     return {}
+
 
 async def get_block(height: int) -> Dict[str, Any]:
     """Get a specific block by height"""
@@ -343,20 +399,24 @@ async def get_block(height: int) -> Dict[str, Any]:
         print(f"Error getting block {height}: {e}")
     return {}
 
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the explorer UI"""
     return HTML_TEMPLATE.format(node_url=BLOCKCHAIN_RPC_URL)
+
 
 @app.get("/api/chain/head")
 async def api_chain_head():
     """API endpoint for chain head"""
     return await get_chain_head()
 
+
 @app.get("/api/blocks/{height}")
 async def api_block(height: int):
     """API endpoint for block data"""
     return await get_block(height)
+
 
 @app.get("/health")
 async def health():
@@ -365,8 +425,9 @@ async def health():
     return {
         "status": "ok" if head else "error",
         "node_url": BLOCKCHAIN_RPC_URL,
-        "chain_height": head.get("height", 0)
+        "chain_height": head.get("height", 0),
     }
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=3000)
