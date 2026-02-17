@@ -145,8 +145,8 @@ class TestConfigCommands:
         assert result.exit_code == 0
         assert '.config/aitbc/config.yaml' in result.output
     
-    @patch('os.system')
-    def test_edit_command(self, mock_system, runner, mock_config, tmp_path):
+    @patch('aitbc_cli.commands.config.subprocess.run')
+    def test_edit_command(self, mock_run, runner, mock_config, tmp_path):
         """Test editing configuration file"""
         
         # Change to the tmp_path directory
@@ -160,9 +160,10 @@ class TestConfigCommands:
             
             assert result.exit_code == 0
             # Verify editor was called
-            mock_system.assert_called_once()
-            assert 'nano' in mock_system.call_args[0][0]
-            assert str(actual_config_file) in mock_system.call_args[0][0]
+            mock_run.assert_called_once()
+            args = mock_run.call_args[0][0]
+            assert args[0] == 'nano'
+            assert str(actual_config_file) in args
     
     def test_reset_config_cancelled(self, runner, mock_config, temp_config_file):
         """Test config reset cancelled by user"""
@@ -265,6 +266,22 @@ class TestConfigCommands:
 
             assert result.exit_code == 0
             data = json.loads(result.output)
+            assert data == {}
+
+
+    def test_export_empty_yaml_yaml_format(self, runner, mock_config, tmp_path):
+        """Test exporting an empty YAML config file as YAML"""
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            local_config = Path.cwd() / ".aitbc.yaml"
+            local_config.write_text("")
+
+            result = runner.invoke(config, [
+                'export',
+                '--format', 'yaml'
+            ], obj={'config': mock_config, 'output_format': 'table'})
+
+            assert result.exit_code == 0
+            data = yaml.safe_load(result.output)
             assert data == {}
 
     def test_export_no_config(self, runner, mock_config):
