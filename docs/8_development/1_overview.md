@@ -141,19 +141,19 @@ Choose a tutorial based on your interest:
 ## Developer Resources
 
 ### Documentation
-- [API Reference](../api/)
-- [SDK Guides](sdks/)
-- [Examples](examples.md)
-- [Best Practices](best-practices.md)
+- [API Reference](../5_reference/0_index.md)
+- [SDK Guides](4_examples.md)
+- [Examples](4_examples.md)
+- [Best Practices](5_developer-guide.md)
 
 ### Tools
-- [AITBC CLI](tools/cli.md)
-- [IDE Plugins](tools/ide-plugins.md)
-- [Testing Framework](tools/testing.md)
+- [AITBC CLI](../0_getting_started/3_cli.md)
+- [IDE Plugins](15_ecosystem-initiatives.md)
+- [Testing Framework](17_windsurf-testing.md)
 
 ### Community
 - [Discord](https://discord.gg/aitbc)
-- [GitHub Discussions](https://github.com/aitbc/discussions)
+- [GitHub Discussions](https://github.com/oib/AITBC/discussions)
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/aitbc)
 
 ## Development Workflow
@@ -250,20 +250,20 @@ We welcome contributions! Areas where you can help:
 - Community support
 - Integration examples
 
-See our [Contributing Guide](contributing.md) for details.
+See our [Contributing Guide](3_contributing.md) for details.
 
 ## Support
 
 - 📖 [Documentation](../)
 - 💬 [Discord](https://discord.gg/aitbc)
-- 🐛 [Issue Tracker](https://github.com/aitbc/issues)
+- 🐛 [Issue Tracker](https://github.com/oib/AITBC/issues)
 - 📧 [dev-support@aitbc.io](mailto:dev-support@aitbc.io)
 
 ## Next Steps
 
-1. [Set up your environment](setup.md)
-2. [Learn about authentication](api-authentication.md)
-3. [Choose an SDK](sdks/)
-4. [Build your first app](../../tutorials/)
+1. [Set up your environment](2_setup.md)
+2. [Learn about authentication](6_api-authentication.md)
+3. [Choose an SDK](4_examples.md)
+4. [Build your first app](4_examples.md)
 
 Happy building! 🚀
