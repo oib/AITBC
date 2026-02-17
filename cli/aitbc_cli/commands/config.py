@@ -174,7 +174,7 @@ def export(ctx, output_format: str, global_config: bool):
         ctx.exit(1)
     
     with open(config_file) as f:
-        config_data = yaml.safe_load(f)
+        config_data = yaml.safe_load(f) or {}
     
     # Redact sensitive data
     if 'api_key' in config_data:
