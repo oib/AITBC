@@ -83,7 +83,7 @@ journalctl -u aitbc-mock-coordinator --no-pager -n 20
 
 ### Python Environment (Host)
 
-Development and testing services on localhost use **Python 3.11+**:
+Development and testing services on localhost use **Python 3.8+**:
 
 ```bash
 # Localhost development workspace
@@ -96,7 +96,7 @@ Development and testing services on localhost use **Python 3.11+**:
 
 **Verification Commands:**
 ```bash
-python3 --version                      # Should show Python 3.11+
+python3 --version                      # Should show Python 3.8+
 ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check venv
 ```
 
@@ -151,7 +151,7 @@ ssh aitbc-cascade                    # Direct SSH to container
 
 ### Python Environment Details
 
-All Python services in the AITBC container run on **Python 3.11+** with isolated virtual environments:
+All Python services in the AITBC container run on **Python 3.8+** with isolated virtual environments:
 
 ```bash
 # Container: aitbc (10.1.223.93)
@@ -163,7 +163,7 @@ All Python services in the AITBC container run on **Python 3.11+** with isolated
 
 **Verification Commands:**
 ```bash
-ssh aitbc-cascade "python3 --version"  # Should show Python 3.11+
+ssh aitbc-cascade "python3 --version"  # Should show Python 3.8+
 ssh aitbc-cascade "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
 ```
 
