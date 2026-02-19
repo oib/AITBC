@@ -1,34 +1,3 @@
-Metadata-Version: 2.4
-Name: aitbc-sdk
-Version: 0.1.0
-Summary: AITBC client SDK for interacting with coordinator services
-Author-email: AITBC Team <team@aitbc.dev>
-License: MIT
-Project-URL: Homepage, https://github.com/oib/AITBC
-Project-URL: Documentation, https://aitbc.bubuit.net/docs/
-Project-URL: Repository, https://github.com/oib/AITBC.git
-Project-URL: Bug Tracker, https://github.com/oib/AITBC/issues
-Keywords: ai-compute,blockchain,gpu-marketplace,zk-proofs
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-Requires-Dist: httpx>=0.27.0
-Requires-Dist: pydantic>=2.7.0
-Requires-Dist: aitbc-crypto>=0.1.0
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0.0; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
-Requires-Dist: black>=23.0.0; extra == "dev"
-Requires-Dist: isort>=5.12.0; extra == "dev"
-Requires-Dist: mypy>=1.5.0; extra == "dev"
-
 # AITBC SDK
 
 Python client SDK for interacting with AITBC coordinator services, blockchain nodes, and marketplace components.
