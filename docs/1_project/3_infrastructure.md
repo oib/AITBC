@@ -28,7 +28,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 │  │    /docs/         → static HTML        │  │
 │  │    /wallet/       → :8002 (daemon)     │  │
 │  │    /api/          → :8000 (coordinator)│  │
-│  │    /rpc/          → :8081 (blockchain) │  │
+│  │    /rpc/          → :9080 (blockchain) │  │
 │  │    /admin/        → :8000 (coordinator)│  │
 │  │    /health        → 200 OK             │  │
 │  │                                        │  │
@@ -46,7 +46,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 |---------|------|---------|----------------|---------|--------|
 | Mock Coordinator | 8090 | python3 | 3.11+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
 | Blockchain Node | N/A | python3 | 3.11+ | Local blockchain node | systemd: aitbc-blockchain-node.service |
-| Blockchain RPC API | 9080 | python3 | 3.11+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
+| Blockchain Node RPC | 9080 | python3 | 3.11+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
 | GPU Miner Client | N/A | python3 | 3.11+ | GPU mining client | systemd: aitbc-gpu-miner.service |
 | Local Development Tools | Varies | python3 | 3.11+ | CLI tools, scripts, testing | Manual/venv |
 
@@ -144,7 +144,7 @@ ssh aitbc-cascade                    # Direct SSH to container
 |---------|------|---------|----------------|------------|
 | Nginx (web) | 80 | nginx | N/A | https://aitbc.bubuit.net/ |
 | Coordinator API | 8000 | python (uvicorn) | 3.11+ | /api/ → /v1/ |
-| Blockchain Node RPC | 8081 | python3 | 3.11+ | /rpc/ |
+| Blockchain Node RPC | 9080 | python3 | 3.11+ | /rpc/ |
 | Wallet Daemon | 8002 | python | 3.11+ | /wallet/ |
 | Trade Exchange | 3002 | python (server.py) | 3.11+ | /Exchange |
 | Exchange API | 8085 | python | 3.11+ | /api/trades/*, /api/orders/* |
@@ -185,7 +185,7 @@ Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
 | `/api/trades/recent` | proxy → `127.0.0.1:8085` | proxy_pass |
 | `/api/orders/orderbook` | proxy → `127.0.0.1:8085` | proxy_pass |
 | `/admin/` | proxy → `127.0.0.1:8000/v1/admin/` | proxy_pass |
-| `/rpc/` | proxy → `127.0.0.1:8081` | proxy_pass |
+| `/rpc/` | proxy → `127.0.0.1:9080` | proxy_pass |
 | `/wallet/` | proxy → `127.0.0.1:8002` | proxy_pass |
 | `/v1/` | proxy → `10.1.223.1:8090` (mock coordinator) | proxy_pass |
 | `/health` | 200 OK | direct |
