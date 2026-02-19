@@ -1,0 +1,36 @@
+# Exclude known broken external links that are not critical for documentation
+http://localhost:*
+http://aitbc.keisanki.net:*
+http://aitbc-cascade:*
+https://docs.aitbc.net/
+https://docs.aitbc.io/
+https://dashboard.aitbc.io/*
+https://aitbc.bubuit.net/admin/*
+https://aitbc.bubuit.net/api/*
+https://docs.aitbc.bubuit.net/*
+https://aitbc.io/*
+
+# Exclude external services that may be temporarily unavailable
+https://www.cert.org/
+https://pydantic-docs.helpmanual.io/
+
+# Exclude GitHub links that point to wrong organization (should be oib/AITBC)
+https://github.com/aitbc/*
+
+# Exclude GitHub discussions (may not be enabled yet)
+https://github.com/oib/AITBC/discussions
+
+# Exclude Stack Overflow tag (may not exist yet)
+https://stackoverflow.com/questions/tagged/aitbc
+
+# Exclude root-relative paths that need web server context
+/assets/*
+/docs/*
+/Exchange/*
+/explorer/*
+/firefox-wallet/*
+/ecosystem-extensions/*
+/ecosystem-analytics/*
+
+# Exclude issue tracker links that may change
+https://github.com/oib/AITBC/issues
