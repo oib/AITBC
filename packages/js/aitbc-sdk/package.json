@@ -1,25 +1,68 @@
 {
   "name": "@aitbc/aitbc-sdk",
   "version": "0.1.0",
-  "description": "AITBC JavaScript SDK for coordinator receipts",
+  "description": "AITBC JavaScript/TypeScript SDK for coordinator services, blockchain, and marketplace",
   "type": "module",
   "main": "dist/index.js",
   "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "format": "prettier --write src/**/*.ts",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "cross-fetch": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.0",
     "typescript": "^5.4.5",
     "vitest": "^1.6.0"
   },
-  "keywords": ["aitbc", "sdk", "receipts"],
-  "author": "AITBC Team",
-  "license": "MIT"
+  "keywords": [
+    "aitbc",
+    "sdk",
+    "ai-compute",
+    "blockchain",
+    "gpu-marketplace",
+    "zk-proofs",
+    "receipts",
+    "marketplace",
+    "coordinator",
+    "typescript"
+  ],
+  "author": {
+    "name": "AITBC Team",
+    "email": "team@aitbc.dev",
+    "url": "https://aitbc.bubuit.net"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/oib/AITBC.git",
+    "directory": "packages/js/aitbc-sdk"
+  },
+  "bugs": {
+    "url": "https://github.com/oib/AITBC/issues"
+  },
+  "homepage": "https://aitbc.bubuit.net/docs/",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
 }

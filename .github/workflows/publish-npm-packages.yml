@@ -1,0 +1,69 @@
+name: Publish NPM Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package to publish (aitbc-sdk or all)'
+        required: true
+        default: 'aitbc-sdk'
+      dry_run:
+        description: 'Dry run (build only, no publish)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        registry-url: 'https://registry.npmjs.org'
+
+    - name: Install dependencies
+      run: |
+        cd packages/js/aitbc-sdk
+        npm ci
+
+    - name: Run tests
+      run: |
+        cd packages/js/aitbc-sdk
+        npm test
+
+    - name: Build package
+      run: |
+        cd packages/js/aitbc-sdk
+        npm run build
+
+    - name: Check package
+      run: |
+        cd packages/js/aitbc-sdk
+        npm pack --dry-run
+
+    - name: Publish to NPM
+      if: ${{ github.event.inputs.dry_run != 'true' }}
+      run: |
+        cd packages/js/aitbc-sdk
+        npm publish --access public --provenance
+
+    - name: Dry run - check only
+      if: ${{ github.event.inputs.dry_run == 'true' }}
+      run: |
+        cd packages/js/aitbc-sdk
+        echo "Dry run complete - package built and checked but not published"
+        npm pack --dry-run
