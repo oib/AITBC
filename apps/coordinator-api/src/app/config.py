@@ -27,7 +27,7 @@ class DatabaseConfig(BaseSettings):
 
         # Default SQLite path
         if self.adapter == "sqlite":
-            return "sqlite:///./coordinator.db"
+            return "sqlite:///../data/coordinator.db"
 
         # Default PostgreSQL connection string
         return f"{self.adapter}://localhost:5432/coordinator"

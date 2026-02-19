@@ -1,33 +1,3 @@
-Metadata-Version: 2.4
-Name: aitbc-crypto
-Version: 0.1.0
-Summary: AITBC cryptographic utilities for zero-knowledge proofs and digital signatures
-Author-email: AITBC Team <team@aitbc.dev>
-License: MIT
-Project-URL: Homepage, https://github.com/oib/AITBC
-Project-URL: Documentation, https://aitbc.bubuit.net/docs/
-Project-URL: Repository, https://github.com/oib/AITBC.git
-Project-URL: Bug Tracker, https://github.com/oib/AITBC/issues
-Keywords: cryptography,zero-knowledge,ed25519,signatures,zk-proofs
-Classifier: Development Status :: 4 - Beta
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Topic :: Security :: Cryptography
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-Requires-Dist: pydantic>=2.7.0
-Requires-Dist: pynacl>=1.5.0
-Provides-Extra: dev
-Requires-Dist: pytest>=7.0.0; extra == "dev"
-Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
-Requires-Dist: black>=23.0.0; extra == "dev"
-Requires-Dist: isort>=5.12.0; extra == "dev"
-Requires-Dist: mypy>=1.5.0; extra == "dev"
-
 # AITBC Crypto
 
 Cryptographic utilities for AITBC including digital signatures, zero-knowledge proofs, and receipt verification.
