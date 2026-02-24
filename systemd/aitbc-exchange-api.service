@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Exchange API Service
+Description=AITBC Exchange API Service (Python 3.11+)
 After=network.target
 Wants=network.target
 
@@ -9,6 +9,8 @@ User=root
 Group=root
 WorkingDirectory=/opt/exchange-api
 Environment=PATH=/opt/exchange-api/.venv/bin
+# Python version validation
+ExecStartPre=/bin/bash -c "python3.11 --version || (echo 'Python 3.11+ required' && exit 1)"
 ExecStart=/opt/exchange-api/.venv/bin/python simple_exchange_api.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always

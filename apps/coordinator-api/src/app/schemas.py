@@ -202,6 +202,9 @@ class MinerHeartbeat(BaseModel):
     inflight: int = 0
     status: str = "ONLINE"
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    architecture: Optional[str] = None
+    edge_optimized: Optional[bool] = None
+    network_latency_ms: Optional[float] = None
 
 
 class PollRequest(BaseModel):

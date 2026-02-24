@@ -118,7 +118,7 @@ class Settings(BaseSettings):
         if self.database.url:
             return self.database.url
         # Default SQLite path for backward compatibility
-        return f"sqlite:///./aitbc_coordinator.db"
+        return "sqlite:////home/oib/windsurf/aitbc/data/coordinator.db"
 
     @database_url.setter
     def database_url(self, value: str):

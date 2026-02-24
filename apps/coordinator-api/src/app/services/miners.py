@@ -47,7 +47,14 @@ class MinerService:
             raise KeyError("miner not registered")
         miner.inflight = payload.inflight
         miner.status = payload.status
-        miner.extra_metadata = payload.metadata
+        metadata = dict(payload.metadata)
+        if payload.architecture is not None:
+            metadata["architecture"] = payload.architecture
+        if payload.edge_optimized is not None:
+            metadata["edge_optimized"] = payload.edge_optimized
+        if payload.network_latency_ms is not None:
+            metadata["network_latency_ms"] = payload.network_latency_ms
+        miner.extra_metadata = metadata
         miner.last_heartbeat = datetime.utcnow()
         self.session.add(miner)
         self.session.commit()

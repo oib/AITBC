@@ -22,6 +22,12 @@ from .commands.config import config
 from .commands.monitor import monitor
 from .commands.governance import governance
 from .commands.exchange import exchange
+from .commands.agent import agent
+from .commands.multimodal import multimodal
+from .commands.optimize import optimize
+from .commands.openclaw import openclaw
+from .commands.marketplace_advanced import advanced
+from .commands.swarm import swarm
 from .plugins import plugin, load_plugins
 
 
@@ -100,6 +106,12 @@ cli.add_command(config)
 cli.add_command(monitor)
 cli.add_command(governance)
 cli.add_command(exchange)
+cli.add_command(agent)
+cli.add_command(multimodal)
+cli.add_command(optimize)
+cli.add_command(openclaw)
+cli.add_command(advanced)
+cli.add_command(swarm)
 cli.add_command(plugin)
 load_plugins(cli)
 

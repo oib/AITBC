@@ -88,7 +88,7 @@ Last updated: 2026-02-22
 | `cli/man/aitbc.1` | ✅ Active | Man page |
 | `cli/aitbc_shell_completion.sh` | ✅ Active | Shell completion script |
 | `cli/test_ollama_gpu_provider.py` | ✅ Active | GPU testing |
-| `.github/workflows/cli-tests.yml` | ✅ Active | CI/CD for CLI tests (Python 3.10/3.11/3.12) |
+| `.github/workflows/cli-tests.yml` | ✅ Active | CI/CD for CLI tests (Python 3.11/3.12/3.13) |
 
 ### Home Scripts (`home/`)
 

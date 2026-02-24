@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Coordinator API Service
+Description=AITBC Coordinator API Service (Python 3.11+)
 After=network.target
 Wants=network.target
 
@@ -10,6 +10,8 @@ Group=oib
 WorkingDirectory=/opt/coordinator-api
 Environment=PATH=/opt/coordinator-api/.venv/bin
 Environment=PYTHONPATH=/opt/coordinator-api/src
+# Python version validation
+ExecStartPre=/bin/bash -c "python3.11 --version || (echo 'Python 3.11+ required' && exit 1)"
 ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always

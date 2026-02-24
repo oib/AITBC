@@ -11,31 +11,38 @@ from .config import settings
 from .storage import SessionDep
 
 
-class APIKeyValidator:
-    """Validator for API key authentication."""
-    
-    def __init__(self, allowed_keys: list[str]):
-        self.allowed_keys = {key.strip() for key in allowed_keys if key}
-
-    def __call__(self, api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
-        if not api_key or api_key not in self.allowed_keys:
-            raise HTTPException(status_code=401, detail="invalid api key")
-        return api_key
+def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
+    allowed = {key.strip() for key in allowed_keys if key}
+    if not api_key or api_key not in allowed:
+        raise HTTPException(status_code=401, detail="invalid api key")
+    return api_key
 
 
 def require_client_key() -> Callable[[str | None], str]:
-    """Dependency for client API key authentication."""
-    return APIKeyValidator(settings.client_api_keys)
+    """Dependency for client API key authentication (reads live settings)."""
+
+    def validator(api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
+        return _validate_api_key(settings.client_api_keys, api_key)
+
+    return validator
 
 
 def require_miner_key() -> Callable[[str | None], str]:
-    """Dependency for miner API key authentication."""
-    return APIKeyValidator(settings.miner_api_keys)
+    """Dependency for miner API key authentication (reads live settings)."""
+
+    def validator(api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
+        return _validate_api_key(settings.miner_api_keys, api_key)
+
+    return validator
 
 
 def require_admin_key() -> Callable[[str | None], str]:
-    """Dependency for admin API key authentication."""
-    return APIKeyValidator(settings.admin_api_keys)
+    """Dependency for admin API key authentication (reads live settings)."""
+
+    def validator(api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
+        return _validate_api_key(settings.admin_api_keys, api_key)
+
+    return validator
 
 
 # Legacy aliases for backward compatibility
