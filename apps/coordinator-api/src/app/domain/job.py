@@ -11,6 +11,7 @@ from sqlmodel import Field, SQLModel
 
 class Job(SQLModel, table=True):
     __tablename__ = "job"
+    __table_args__ = {"extend_existing": True}
     
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
     client_id: str = Field(index=True)

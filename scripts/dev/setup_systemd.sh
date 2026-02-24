@@ -1,7 +1,28 @@
 #!/bin/bash
 
 # Setup AITBC Systemd Services
+# Requirements: Python 3.11+, systemd, sudo access
+
 echo "🔧 Setting up AITBC systemd services..."
+
+# Validate Python version
+echo "🐍 Checking Python version..."
+if ! python3.11 --version >/dev/null 2>&1; then
+    echo "❌ Error: Python 3.11+ is required but not found"
+    echo "   Please install Python 3.11+ and try again"
+    exit 1
+fi
+
+PYTHON_VERSION=$(python3.11 --version | cut -d' ' -f2)
+echo "✅ Found Python $PYTHON_VERSION"
+
+# Validate systemctl is available
+if ! command -v systemctl >/dev/null 2>&1; then
+    echo "❌ Error: systemctl not found. This script requires systemd."
+    exit 1
+fi
+
+echo "✅ Systemd available"
 
 # Copy service files
 echo "📁 Copying service files..."

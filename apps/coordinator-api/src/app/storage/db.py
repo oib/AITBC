@@ -15,7 +15,18 @@ from sqlalchemy.pool import QueuePool
 from sqlmodel import Session, SQLModel, create_engine
 
 from ..config import settings
-from ..domain import Job, Miner, MarketplaceOffer, MarketplaceBid, JobPayment, PaymentEscrow, GPURegistry, GPUBooking, GPUReview
+from ..domain import (
+    Job,
+    Miner,
+    MarketplaceOffer,
+    MarketplaceBid,
+    JobPayment,
+    PaymentEscrow,
+    GPURegistry,
+    GPUBooking,
+    GPUReview,
+)
+from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics
 from .models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 
 _engine: Engine | None = None
@@ -26,25 +37,35 @@ def get_engine() -> Engine:
     global _engine
 
     if _engine is None:
+        # Allow tests to override via settings.database_url (fixtures set this directly)
+        db_override = getattr(settings, "database_url", None)
+
         db_config = settings.database
-        connect_args = {"check_same_thread": False} if "sqlite" in db_config.effective_url else {}
-        
-        _engine = create_engine(
-            db_config.effective_url,
-            echo=False,
-            connect_args=connect_args,
-            poolclass=QueuePool if "postgresql" in db_config.effective_url else None,
-            pool_size=db_config.pool_size,
-            max_overflow=db_config.max_overflow,
-            pool_pre_ping=db_config.pool_pre_ping,
-        )
+        effective_url = db_override or db_config.effective_url
+
+        if "sqlite" in effective_url:
+            _engine = create_engine(
+                effective_url,
+                echo=False,
+                connect_args={"check_same_thread": False},
+            )
+        else:
+            _engine = create_engine(
+                effective_url,
+                echo=False,
+                poolclass=QueuePool,
+                pool_size=db_config.pool_size,
+                max_overflow=db_config.max_overflow,
+                pool_pre_ping=db_config.pool_pre_ping,
+            )
     return _engine
 
 
-def init_db() -> None:
+def init_db() -> Engine:
     """Initialize database tables."""
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
+    return engine
 
 
 @contextmanager

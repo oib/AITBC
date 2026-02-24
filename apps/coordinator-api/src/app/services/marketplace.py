@@ -31,8 +31,6 @@ class MarketplaceService:
 
         if status is not None:
             normalised = status.strip().lower()
-            valid = {s.value for s in MarketplaceOffer.status.type.__class__.__mro__}  # type: ignore[union-attr]
-            # Simple validation – accept any non-empty string that matches a known value
             if normalised not in ("open", "reserved", "closed", "booked"):
                 raise ValueError(f"invalid status: {status}")
             stmt = stmt.where(MarketplaceOffer.status == normalised)
@@ -107,21 +105,20 @@ class MarketplaceService:
             provider=bid.provider,
             capacity=bid.capacity,
             price=bid.price,
-            notes=bid.notes,
-            status=bid.status,
+            status=str(bid.status),
             submitted_at=bid.submitted_at,
+            notes=bid.notes,
         )
 
     @staticmethod
     def _to_offer_view(offer: MarketplaceOffer) -> MarketplaceOfferView:
-        status_val = offer.status.value if hasattr(offer.status, "value") else offer.status
         return MarketplaceOfferView(
             id=offer.id,
             provider=offer.provider,
             capacity=offer.capacity,
             price=offer.price,
             sla=offer.sla,
-            status=status_val,
+            status=str(offer.status),
             created_at=offer.created_at,
             gpu_model=offer.gpu_model,
             gpu_memory_gb=offer.gpu_memory_gb,

@@ -4,6 +4,10 @@ import sys
 import os
 import tempfile
 from pathlib import Path
+import pytest
+from sqlmodel import SQLModel, create_engine, Session
+from app.models import MarketplaceOffer, MarketplaceBid
+from app.domain.gpu_marketplace import ConsumerGPUProfile
 
 _src = str(Path(__file__).resolve().parent.parent / "src")
 
@@ -23,3 +27,11 @@ os.environ["TEST_MODE"] = "true"
 project_root = Path(__file__).resolve().parent.parent.parent
 os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
 os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
+
+@pytest.fixture(scope="function")
+def db_session():
+    """Create a fresh database session for each test."""
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as session:
+        yield session

@@ -97,7 +97,22 @@ class TestWalletCommands:
         assert result.exit_code == 0
         assert wallet_path.exists()
         
-        data = json.loads(result.output)
+        # Strip ANSI color codes from output before JSON parsing
+        import re
+        ansi_escape = re.compile(r'\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+        clean_output = ansi_escape.sub('', result.output)
+        
+        # Extract JSON from the cleaned output
+        first_brace = clean_output.find('{')
+        last_brace = clean_output.rfind('}')
+        
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            json_part = clean_output[first_brace:last_brace+1]
+            data = json.loads(json_part)
+        else:
+            # Fallback to original behavior if no JSON found
+            data = json.loads(clean_output)
+        
         assert data['balance'] == 0.0
         assert 'address' in data
     

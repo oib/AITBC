@@ -71,9 +71,48 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Fixed GitHub repository references to point to oib/AITBC
   - ✅ Updated documentation paths to use docs/11_agents/ structure
 
+## Stage 26 — Enhanced Services Deployment [COMPLETED: 2026-02-24]
+
+- **Health Check Endpoints**
+  - ✅ Add /health to all 6 enhanced services with comprehensive monitoring
+  - ✅ Implement deep health checks with detailed validation
+  - ✅ Add performance metrics and GPU availability checks
+  - ✅ Create unified monitoring dashboard for all services
+
+- **Service Management**
+  - ✅ Create simple monitoring dashboard with real-time metrics
+  - ✅ Automate 6-service deployment process with systemd integration
+  - ✅ Implement service status checking and management scripts
+  - ✅ Add comprehensive health validation and error handling
+
+- **Quick Wins Implementation**
+  - ✅ Health Check Endpoints: Complete health monitoring for all services
+  - ✅ Service Dashboard: Unified monitoring system with real-time metrics
+  - ✅ Deployment Scripts: Automated deployment and management automation
+
+## Stage 27 — End-to-End Testing Framework [COMPLETED: 2026-02-24]
+
+- **Test Suite Implementation**
+  - ✅ Create 3 comprehensive test suites: workflow, pipeline, performance
+  - ✅ Implement complete coverage for all 6 enhanced services
+  - ✅ Add automated test runner with multiple execution options
+  - ✅ Create mock testing framework for demonstration and validation
+
+- **Testing Capabilities**
+  - ✅ End-to-end workflow validation with real-world scenarios
+  - ✅ Performance benchmarking with statistical analysis
+  - ✅ Service integration testing with cross-service communication
+  - ✅ Load testing with concurrent request handling
+
+- **Framework Features**
+  - ✅ Health check integration with pre-test validation
+  - ✅ CI/CD ready automation with comprehensive documentation
+  - ✅ Performance validation against deployment report targets
+  - ✅ Complete documentation and usage guides
+
 ## Current Status: Agent-First Transformation Complete
 
-**Milestone Achievement**: Successfully transformed AITBC to agent-first architecture with comprehensive CLI tools for advanced AI agent capabilities. All 22 commands from README are fully implemented with complete test coverage and documentation.
+**Milestone Achievement**: Successfully transformed AITBC to agent-first architecture with comprehensive CLI tools, enhanced services deployment, and complete end-to-end testing framework. All 22 commands from README are fully implemented with complete test coverage and documentation.
 
 **Next Phase**: OpenClaw Integration Enhancement and Advanced Marketplace Operations (see docs/10_plan/00_nextMileston.md)
   - ✅ Ship devnet scripts (`apps/blockchain-node/scripts/`).

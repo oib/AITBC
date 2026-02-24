@@ -1,0 +1,32 @@
+[Unit]
+Description=AITBC Adaptive Learning Service
+After=network.target aitbc-coordinator-api.service
+Wants=aitbc-coordinator-api.service
+
+[Service]
+Type=simple
+User=debian
+Group=debian
+WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
+Environment=PATH=/home/oib/aitbc/apps/coordinator-api/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/oib/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn src.app.services.adaptive_learning_app:app --host 127.0.0.1 --port 8005
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-adaptive-learning
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
+
+[Install]
+WantedBy=multi-user.target

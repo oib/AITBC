@@ -8,6 +8,25 @@ Python client SDK for interacting with AITBC coordinator services, blockchain no
 pip install aitbc-sdk
 ```
 
+## Requirements
+
+- **Python**: 3.11 or later
+- **Dependencies**: httpx, pydantic, aitbc-crypto
+
+## Compatibility & Stability
+
+### Python Version Support
+- **Minimum Version**: Python 3.11+
+- **Recommended**: Python 3.11 or 3.12
+- **Guarantee**: All APIs maintain backward compatibility within Python 3.11+
+- **Security**: Cryptographic operations maintain security properties across versions
+
+### API Stability
+- **Major Version**: 0.x (pre-1.0, APIs may change with notice)
+- **Deprecation Policy**: Deprecated features marked with warnings for 2+ releases
+- **Breaking Changes**: Announced in release notes with migration guides
+- **Semantic Versioning**: Follows semver.org specifications
+
 ## Quick Start
 
 ```python

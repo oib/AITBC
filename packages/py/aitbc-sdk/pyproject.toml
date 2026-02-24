@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "AITBC client SDK for interacting with coordinator services"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 authors = [
     {name = "AITBC Team", email = "team@aitbc.dev"}
 ]
@@ -16,6 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: Artificial Intelligence"
 ]

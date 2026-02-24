@@ -1,5 +1,6 @@
 #!/bin/bash
 # PostgreSQL Backup Script for AITBC
+# Requirements: Python 3.11+, kubectl, pg_dump
 # Usage: ./backup_postgresql.sh [namespace] [backup_name]
 
 set -euo pipefail
@@ -29,8 +30,16 @@ warn() {
     echo -e "${YELLOW}[$(date +'%Y-%m-%d %H:%M:%S')] WARNING:${NC} $1"
 }
 
-# Check dependencies
+# Check dependencies and Python version
 check_dependencies() {
+    # Check Python version
+    if ! python3.11 --version >/dev/null 2>&1; then
+        error "Python 3.11+ is required but not found"
+        exit 1
+    fi
+    
+    log "Python version: $(python3.11 --version)"
+    
     if ! command -v kubectl &> /dev/null; then
         error "kubectl is not installed or not in PATH"
         exit 1

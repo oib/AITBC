@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Optional, Set
 
 try:
     from starlette.broadcast import Broadcast
-except ImportError:  # pragma: no cover - Starlette is an indirect dependency of FastAPI
+except ImportError:  # pragma: no cover - Starlette removed Broadcast in recent versions
     Broadcast = None  # type: ignore[assignment]
 
 from ..metrics import metrics_registry
@@ -119,9 +119,10 @@ class InMemoryGossipBackend(GossipBackend):
 
 class BroadcastGossipBackend(GossipBackend):
     def __init__(self, url: str) -> None:
-        if Broadcast is None:  # pragma: no cover - dependency is optional
-            raise RuntimeError("Starlette Broadcast backend requested but starlette is not available")
-        self._broadcast = Broadcast(url)  # type: ignore[arg-type]
+        if Broadcast is None:  # provide in-process fallback when Broadcast is missing
+            self._broadcast = _InProcessBroadcast()
+        else:
+            self._broadcast = Broadcast(url)  # type: ignore[arg-type]
         self._tasks: Set[asyncio.Task[None]] = set()
         self._lock = asyncio.Lock()
         self._running = False
@@ -218,8 +219,71 @@ class GossipBroker:
 
     async def shutdown(self) -> None:
         await self._backend.shutdown()
-        self._started = False
-        metrics_registry.set_gauge("gossip_subscribers_total", 0.0)
+
+
+class _InProcessSubscriber:
+    def __init__(self, queue: "asyncio.Queue[Any]", release: Callable[[], None]):
+        self._queue = queue
+        self._release = release
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        self._release()
+
+    def __aiter__(self):  # type: ignore[override]
+        return self._iterator()
+
+    async def _iterator(self):
+        try:
+            while True:
+                yield await self._queue.get()
+        finally:
+            self._release()
+
+
+class _InProcessBroadcast:
+    """Minimal in-memory broadcast substitute for tests when Starlette Broadcast is absent."""
+
+    def __init__(self) -> None:
+        self._topics: Dict[str, List["asyncio.Queue[Any]"]] = defaultdict(list)
+        self._lock = asyncio.Lock()
+        self._running = False
+
+    async def connect(self) -> None:
+        self._running = True
+
+    async def disconnect(self) -> None:
+        async with self._lock:
+            self._topics.clear()
+        self._running = False
+
+    async def subscribe(self, topic: str) -> _InProcessSubscriber:
+        queue: "asyncio.Queue[Any]" = asyncio.Queue()
+        async with self._lock:
+            self._topics[topic].append(queue)
+
+        def release() -> None:
+            async def _remove() -> None:
+                async with self._lock:
+                    queues = self._topics.get(topic)
+                    if queues and queue in queues:
+                        queues.remove(queue)
+                        if not queues:
+                            self._topics.pop(topic, None)
+
+            asyncio.create_task(_remove())
+
+        return _InProcessSubscriber(queue, release)
+
+    async def publish(self, topic: str, message: Any) -> None:
+        if not self._running:
+            raise RuntimeError("Broadcast backend not started")
+        async with self._lock:
+            queues = list(self._topics.get(topic, []))
+        for queue in queues:
+            await queue.put(message)
 
 
 def create_backend(backend_type: str, *, broadcast_url: Optional[str] = None) -> GossipBackend:

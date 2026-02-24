@@ -9,6 +9,9 @@ from sqlmodel import Field, SQLModel
 
 
 class MarketplaceOffer(SQLModel, table=True):
+    __tablename__ = "marketplaceoffer"
+    __table_args__ = {"extend_existing": True}
+    
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     provider: str = Field(index=True)
     capacity: int = Field(default=0, nullable=False)
@@ -27,6 +30,9 @@ class MarketplaceOffer(SQLModel, table=True):
 
 
 class MarketplaceBid(SQLModel, table=True):
+    __tablename__ = "marketplacebid"
+    __table_args__ = {"extend_existing": True}
+    
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
     provider: str = Field(index=True)
     capacity: int = Field(default=0, nullable=False)

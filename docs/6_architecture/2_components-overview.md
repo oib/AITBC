@@ -46,8 +46,26 @@ Bitcoin-to-AITBC exchange with QR payments, user management, and real-time tradi
 
 [Learn More →](trade-exchange.md)
 
-### Pool Hub
+### ZK Circuits Engine
 <span class="component-status live">● Live</span>
+
+Zero-knowledge proof circuits for privacy-preserving ML operations. Includes inference verification, training verification, and cryptographic proof generation using Groth16.
+
+[Learn More →](../8_development/zk-circuits.md)
+
+### FHE Service
+<span class="component-status live">● Live</span>
+
+Fully Homomorphic Encryption service for encrypted computation on sensitive ML data. TenSEAL integration with CKKS/BFV scheme support.
+
+[Learn More →](../8_development/fhe-service.md)
+
+### Enhanced Edge GPU
+<span class="component-status live">● Live</span>
+
+Consumer GPU optimization with dynamic discovery, latency measurement, and edge-aware scheduling. Supports Turing, Ampere, and Ada Lovelace architectures.
+
+[Learn More →](../6_architecture/edge_gpu_setup.md)
 
 Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.
 

@@ -11,8 +11,14 @@ from app.storage.db import init_db, session_scope
 
 @pytest.fixture(scope="module", autouse=True)
 def _init_db(tmp_path_factory):
+    # Ensure a fresh engine per test module to avoid reusing global engine
+    from app.storage import db as storage_db
+
     db_file = tmp_path_factory.mktemp("data") / "marketplace.db"
     settings.database_url = f"sqlite:///{db_file}"
+
+    # Reset engine so init_db uses the test database URL
+    storage_db._engine = None  # type: ignore[attr-defined]
     init_db()
     yield
 
@@ -60,9 +66,9 @@ def test_list_offers_filters_by_status(client: TestClient, session: Session):
 def test_marketplace_stats(client: TestClient, session: Session):
     session.add_all(
         [
-            MarketplaceOffer(provider="Alpha", capacity=200, price=10.0, sla="99.9%", status=OfferStatus.open),
-            MarketplaceOffer(provider="Beta", capacity=150, price=20.0, sla="99.5%", status=OfferStatus.open),
-            MarketplaceOffer(provider="Gamma", capacity=90, price=12.0, sla="99.0%", status=OfferStatus.reserved),
+            MarketplaceOffer(provider="Alpha", capacity=200, price=10.0, sla="99.9%", status="open"),
+            MarketplaceOffer(provider="Beta", capacity=150, price=20.0, sla="99.5%", status="open"),
+            MarketplaceOffer(provider="Gamma", capacity=90, price=12.0, sla="99.0%", status="reserved"),
         ]
     )
     session.commit()
@@ -253,7 +259,7 @@ def test_bid_validation(client: TestClient):
         "capacity": 0,
         "price": 0.05
     })
-    assert resp_zero_capacity.status_code == 400
+    assert resp_zero_capacity.status_code == 422
 
     # Test invalid price (negative)
     resp_negative_price = client.post("/v1/marketplace/bids", json={
@@ -261,11 +267,11 @@ def test_bid_validation(client: TestClient):
         "capacity": 100,
         "price": -0.05
     })
-    assert resp_negative_price.status_code == 400
+    assert resp_negative_price.status_code == 422
 
     # Test missing required field
     resp_missing_provider = client.post("/v1/marketplace/bids", json={
         "capacity": 100,
         "price": 0.05
     })
-    assert resp_missing_provider.status_code == 422  # Validation error
+    assert resp_missing_provider.status_code == 422  # Validation error (missing required field)

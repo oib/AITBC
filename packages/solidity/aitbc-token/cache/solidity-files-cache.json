@@ -123,6 +123,42 @@
         "ERC20"
       ]
     },
+    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
+      "lastModificationDate": 1758948616491,
+      "contentHash": "81de029d56aa803972be03c5d277cb6c",
+      "sourceName": "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
+      "solcConfig": {
+        "version": "0.8.24",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ECDSA"
+      ]
+    },
     "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol": {
       "lastModificationDate": 1758948616595,
       "contentHash": "260f3968eefa3bbd30520cff5384cd93",
@@ -159,42 +195,6 @@
       ],
       "artifacts": [
         "MessageHashUtils"
-      ]
-    },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
-      "lastModificationDate": 1758948616491,
-      "contentHash": "81de029d56aa803972be03c5d277cb6c",
-      "sourceName": "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ECDSA"
       ]
     },
     "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/access/IAccessControl.sol": {

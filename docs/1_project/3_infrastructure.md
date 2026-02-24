@@ -83,7 +83,7 @@ journalctl -u aitbc-mock-coordinator --no-pager -n 20
 
 ### Python Environment (Host)
 
-Development and testing services on localhost use **Python 3.8+**:
+Development and testing services on localhost use **Python 3.13.5**:
 
 ```bash
 # Localhost development workspace
@@ -96,7 +96,7 @@ Development and testing services on localhost use **Python 3.8+**:
 
 **Verification Commands:**
 ```bash
-python3 --version                      # Should show Python 3.8+
+python3 --version                      # Should show Python 3.13.5
 ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check venv
 ```
 
@@ -143,15 +143,21 @@ ssh aitbc-cascade                    # Direct SSH to container
 | Service | Port | Process | Python Version | Public URL |
 |---------|------|---------|----------------|------------|
 | Nginx (web) | 80 | nginx | N/A | https://aitbc.bubuit.net/ |
-| Coordinator API | 8000 | python (uvicorn) | 3.11+ | /api/ → /v1/ |
-| Blockchain Node RPC | 9080 | python3 | 3.11+ | /rpc/ |
-| Wallet Daemon | 8002 | python | 3.11+ | /wallet/ |
-| Trade Exchange | 3002 | python (server.py) | 3.11+ | /Exchange |
-| Exchange API | 8085 | python | 3.11+ | /api/trades/*, /api/orders/* |
+| Coordinator API | 8000 | python (uvicorn) | 3.13.5 | /api/ → /v1/ |
+| Blockchain Node RPC | 9080 | python3 | 3.13.5 | /rpc/ |
+| Wallet Daemon | 8002 | python | 3.13.5 | /wallet/ |
+| Trade Exchange | 3002 | python (server.py) | 3.13.5 | /Exchange |
+| Exchange API | 8085 | python | 3.13.5 | /api/trades/*, /api/orders/* |
+
+**Python 3.13.5 Upgrade Complete** (2026-02-23):
+- All services upgraded to Python 3.13.5
+- Virtual environments updated and verified
+- API routing fixed for external access
+- Services fully operational with enhanced performance
 
 ### Python Environment Details
 
-All Python services in the AITBC container run on **Python 3.8+** with isolated virtual environments:
+All Python services in the AITBC container run on **Python 3.13.5** with isolated virtual environments:
 
 ```bash
 # Container: aitbc (10.1.223.93)
@@ -163,8 +169,10 @@ All Python services in the AITBC container run on **Python 3.8+** with isolated 
 
 **Verification Commands:**
 ```bash
-ssh aitbc-cascade "python3 --version"  # Should show Python 3.8+
+ssh aitbc-cascade "python3 --version"  # Should show Python 3.13.5
 ssh aitbc-cascade "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
+ssh aitbc-cascade "curl -s http://127.0.0.1:8000/v1/health"  # Coordinator API health
+curl -s https://aitbc.bubuit.net/api/v1/health  # External API access
 ```
 
 ### Nginx Routes (container)
@@ -179,7 +187,7 @@ Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
 | `/docs/` | static HTML (`/var/www/aitbc.bubuit.net/docs/`) | alias |
 | `/Exchange` | proxy → `127.0.0.1:3002` | proxy_pass |
 | `/exchange` | 301 → `/Exchange` | redirect |
-| `/api/` | proxy → `127.0.0.1:8000/v1/` | proxy_pass |
+| `/api/` | proxy → `127.0.0.1:8000/` | proxy_pass |
 | `/api/explorer/` | proxy → `127.0.0.1:8000/v1/explorer/` | proxy_pass |
 | `/api/users/` | proxy → `127.0.0.1:8000/v1/users/` | proxy_pass |
 | `/api/trades/recent` | proxy → `127.0.0.1:8085` | proxy_pass |
@@ -191,6 +199,10 @@ Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
 | `/health` | 200 OK | direct |
 | `/Marketplace` | 301 → `/marketplace/` | redirect (legacy) |
 | `/BrowserWallet` | 301 → `/docs/browser-wallet.html` | redirect (legacy) |
+
+**API Routing Fixed** (2026-02-23):
+- Updated `/api/` proxy_pass from `http://127.0.0.1:8000/v1/` to `http://127.0.0.1:8000/`
+- External API access now working: `https://aitbc.bubuit.net/api/v1/health` → `{"status":"ok","env":"dev"}`
 
 ### Web Root (`/var/www/aitbc.bubuit.net/`)
 
@@ -269,7 +281,7 @@ curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC
 - **Method**: RPC-based polling every 10 seconds
 - **Features**: Transaction propagation, height detection, block import
 - **Endpoints**:
-  - Local: https://aitbc.bubuit.net/rpc/ (Node 1, port 8081)
+  - Local: https://aitbc.bubuit.net/rpc/ (Node 1, port 9080)
   - Remote: http://aitbc.keisanki.net/rpc/ (Node 3, port 8082)
 - **Consensus**: PoA with 2s block intervals
 - **P2P**: Not connected yet; nodes maintain independent chain state
@@ -306,14 +318,18 @@ ssh aitbc-cascade "systemctl restart coordinator-api"
 ```bash
 # From localhost (via container)
 ssh aitbc-cascade "curl -s http://localhost:8000/v1/health"
-ssh aitbc-cascade "curl -s http://localhost:8081/rpc/head | jq .height"
+ssh aitbc-cascade "curl -s http://localhost:9080/rpc/head | jq .height"
 
-# From internet
+# From internet (Python 3.13.5 upgraded services)
 curl -s https://aitbc.bubuit.net/health
+curl -s https://aitbc.bubuit.net/api/v1/health  # ✅ Fixed API routing
 curl -s https://aitbc.bubuit.net/api/explorer/blocks
 
 # Remote site
 ssh ns3-root "curl -s http://192.168.100.10:8082/rpc/head | jq .height"
+
+# Python version verification
+ssh aitbc-cascade "python3 --version"  # Python 3.13.5
 ```
 
 ## Monitoring and Logging

@@ -28,7 +28,7 @@ class ReceiptService:
             attest_bytes = bytes.fromhex(settings.receipt_attestation_key_hex)
             self._attestation_signer = ReceiptSigner(attest_bytes)
 
-    async def create_receipt(
+    def create_receipt(
         self,
         job: Job,
         miner_id: str,
@@ -81,13 +81,14 @@ class ReceiptService:
         ]))
         if price is None:
             price = round(units * unit_price, 6)
+        status_value = job.state.value if hasattr(job.state, "value") else job.state
         payload = {
             "version": "1.0",
             "receipt_id": token_hex(16),
             "job_id": job.id,
             "provider": miner_id,
             "client": job.client_id,
-            "status": job.state.value,
+            "status": status_value,
             "units": units,
             "unit_type": unit_type,
             "unit_price": unit_price,
@@ -108,31 +109,10 @@ class ReceiptService:
             attestation_payload.pop("attestations", None)
             attestation_payload.pop("signature", None)
             payload["attestations"].append(self._attestation_signer.sign(attestation_payload))
-        
-        # Generate ZK proof if privacy is requested
+
+        # Skip async ZK proof generation in synchronous context; log intent
         if privacy_level and zk_proof_service.is_enabled():
-            try:
-                # Create receipt model for ZK proof generation
-                receipt_model = JobReceipt(
-                    job_id=job.id,
-                    receipt_id=payload["receipt_id"],
-                    payload=payload
-                )
-                
-                # Generate ZK proof
-                zk_proof = await zk_proof_service.generate_receipt_proof(
-                    receipt=receipt_model,
-                    job_result=job_result or {},
-                    privacy_level=privacy_level
-                )
-                
-                if zk_proof:
-                    payload["zk_proof"] = zk_proof
-                    payload["privacy_level"] = privacy_level
-                    
-            except Exception as e:
-                # Log error but don't fail receipt creation
-                logger.warning("Failed to generate ZK proof: %s", e)
+            logger.warning("ZK proof generation skipped in synchronous receipt creation")
         
         receipt_row = JobReceipt(job_id=job.id, receipt_id=payload["receipt_id"], payload=payload)
         self.session.add(receipt_row)

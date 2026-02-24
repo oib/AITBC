@@ -5,6 +5,7 @@ Encryption service for confidential transactions
 import os
 import json
 import base64
+import asyncio
 from typing import Dict, List, Optional, Tuple, Any
 from datetime import datetime, timedelta
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -96,6 +97,9 @@ class EncryptionService:
             EncryptedData container with ciphertext and encrypted keys
         """
         try:
+            if not participants:
+                raise EncryptionError("At least one participant is required")
+
             # Generate random DEK (Data Encryption Key)
             dek = os.urandom(32)  # 256-bit key for AES-256
             nonce = os.urandom(12)  # 96-bit nonce for GCM
@@ -219,12 +223,15 @@ class EncryptionService:
             Decrypted data as dictionary
         """
         try:
-            # Verify audit authorization
-            if not self.key_manager.verify_audit_authorization(audit_authorization):
+            # Verify audit authorization (sync helper only)
+            auth_ok = self.key_manager.verify_audit_authorization_sync(
+                audit_authorization
+            )
+            if not auth_ok:
                 raise AccessDeniedError("Invalid audit authorization")
 
-            # Get audit private key
-            audit_private_key = self.key_manager.get_audit_private_key(
+            # Get audit private key (sync helper only)
+            audit_private_key = self.key_manager.get_audit_private_key_sync(
                 audit_authorization
             )
 
