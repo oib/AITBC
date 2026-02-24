@@ -1,0 +1,152 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aitbc-agent-sdk"
+version = "0.1.0"
+description = "Python SDK for AITBC AI Agent Network"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "AITBC Agent Network", email = "dev@aitbc.bubuit.net"}
+]
+maintainers = [
+    {name = "AITBC Agent Network", email = "dev@aitbc.bubuit.net"}
+]
+keywords = ["ai", "agents", "blockchain", "decentralized", "computing", "swarm", "intelligence"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing",
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.4.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.12.0",
+    "redis>=5.0.0",
+    "cryptography>=41.0.0",
+    "web3>=6.11.0",
+    "requests>=2.31.0",
+    "psutil>=5.9.0",
+    "asyncio-mqtt>=0.16.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.9.0",
+    "flake8>=6.1.0",
+    "mypy>=1.6.0",
+    "pre-commit>=3.4.0",
+]
+gpu = [
+    "torch>=2.1.0",
+    "torchvision>=0.16.0",
+    "torchaudio>=2.1.0",
+    "nvidia-ml-py>=12.535.0",
+]
+edge = [
+    "paho-mqtt>=1.6.0",
+    "aiohttp>=3.9.0",
+    "cryptography>=41.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/oib/AITBC"
+Documentation = "https://docs.aitbc.bubuit.net"
+Repository = "https://github.com/oib/AITBC"
+"Bug Tracker" = "https://github.com/oib/AITBC/issues"
+
+[project.scripts]
+aitbc-agent = "aitbc_agent.cli:main"
+aitbc-agent-provider = "aitbc_agent.provider:main"
+aitbc-agent-consumer = "aitbc_agent.consumer:main"
+aitbc-agent-coordinator = "aitbc_agent.coordinator:main"
+
+[tool.setuptools]
+packages = ["aitbc_agent"]
+
+[tool.setuptools.package-data]
+aitbc_agent = [
+    "config/*.yaml",
+    "templates/*.json",
+    "schemas/*.json",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["aitbc_agent"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
