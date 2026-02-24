@@ -52,7 +52,6 @@ build/
 .npm/
 .pnpm/
 yarn.lock
-package-lock.json
 pnpm-lock.yaml
 .next/
 .nuxt/
