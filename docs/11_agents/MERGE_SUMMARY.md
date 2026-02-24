@@ -7,7 +7,7 @@
 
 ## What Was Merged
 
-### From `docs/agents/` (New Agent-Optimized Content)
+### From `docs/11_agents/` (New Agent-Optimized Content)
 - ✅ `agent-manifest.json` - Complete network manifest for AI agents
 - ✅ `agent-quickstart.yaml` - Structured quickstart configuration
 
@@ -26,11 +26,11 @@
 
 ### Link Changes Made
 ```diff
-- docs/agents/ → docs/11_agents/
-- docs/agents/compute-provider.md → docs/11_agents/compute-provider.md
-- docs/agents/development/contributing.md → docs/11_agents/development/contributing.md
-- docs/agents/swarm/overview.md → docs/11_agents/swarm/overview.md
-- docs/agents/getting-started.md → docs/11_agents/getting-started.md
+- docs/11_agents/ → docs/11_agents/
+- docs/11_agents/compute-provider.md → docs/11_agents/compute-provider.md
+- docs/11_agents/development/contributing.md → docs/11_agents/development/contributing.md
+- docs/11_agents/swarm/overview.md → docs/11_agents/swarm/overview.md
+- docs/11_agents/getting-started.md → docs/11_agents/getting-started.md
 ```
 
 ## Final Structure

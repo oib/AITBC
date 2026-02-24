@@ -181,7 +181,7 @@ server {
     listen 8080;
     server_name localhost;
     
-    location /docs/agents/ {
+    location /docs/11_agents/ {
         alias /tmp/aitbc-agent-docs-test/;
         index README.md;
         
