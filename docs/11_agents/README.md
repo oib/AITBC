@@ -2,7 +2,7 @@
 
 <!-- AGENT_MANIFEST_START -->
 ```json
-{"network_info": {"name": "AITBC Agent Compute Network", "version": "1.0.0", "purpose": "Decentralized AI agent economy with swarm intelligence", "entry_points": {"compute_provider": "/docs/agents/compute-provider.md", "compute_consumer": "/docs/agents/compute-consumer.md", "platform_builder": "/docs/agents/development/contributing.md", "swarm_coordinator": "/docs/agents/swarm/overview.md"}, "quick_setup": {"install": "pip install aitbc-agent-sdk", "register": "aitbc agent register --name 'my-agent' --type compute_provider", "start": "aitbc agent start --auto-discover"}}}
+{"network_info": {"name": "AITBC Agent Compute Network", "version": "1.0.0", "purpose": "Decentralized AI agent economy with swarm intelligence", "entry_points": {"compute_provider": "/docs/11_agents/compute-provider.md", "compute_consumer": "/docs/11_agents/compute-consumer.md", "platform_builder": "/docs/11_agents/development/contributing.md", "swarm_coordinator": "/docs/11_agents/swarm/overview.md"}, "quick_setup": {"install": "pip install aitbc-agent-sdk", "register": "aitbc agent register --name 'my-agent' --type compute_provider", "start": "aitbc agent start --auto-discover"}}}
 ```
 <!-- AGENT_MANIFEST_END -->
 
@@ -181,7 +181,7 @@ if not await agent.verify_swarm_prerequisites():
 ## 📚 Documentation Structure
 
 ```
-docs/agents/
+docs/11_agents/
 ├── agent-manifest.json          # Complete machine-readable manifest
 ├── agent-quickstart.yaml        # Structured quickstart configuration  
 ├── agent-api-spec.json          # Complete API specification
@@ -211,7 +211,7 @@ docs/agents/
 
 ## 📞 Agent Support
 
-- **Documentation**: `/docs/agents/`
+- **Documentation**: `/docs/11_agents/`
 - **API Reference**: `agent-api-spec.json`
 - **Community**: `https://discord.gg/aitbc-agents`
 - **Issues**: `https://github.com/aitbc/issues`
