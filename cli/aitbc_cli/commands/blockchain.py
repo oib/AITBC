@@ -97,7 +97,7 @@ def status(ctx, node: int):
     # Map node to RPC URL
     node_urls = {
         1: "http://localhost:8082",
-        2: "http://localhost:8081", 
+        2: "http://localhost:9080/rpc",  # Use RPC API with correct endpoint
         3: "http://aitbc.keisanki.net/rpc"
     }
     
@@ -109,7 +109,7 @@ def status(ctx, node: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{rpc_url}/status",
+                f"{rpc_url}/head",
                 timeout=5
             )
             

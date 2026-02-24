@@ -19,6 +19,8 @@ from starlette.testclient import TestClient as StarletteTestClient
 # Ensure coordinator-api src is importable
 # ---------------------------------------------------------------------------
 _COORD_SRC = str(Path(__file__).resolve().parents[2] / "apps" / "coordinator-api" / "src")
+_CRYPTO_SRC = str(Path(__file__).resolve().parents[2] / "packages" / "py" / "aitbc-crypto" / "src")
+_SDK_SRC = str(Path(__file__).resolve().parents[2] / "packages" / "py" / "aitbc-sdk" / "src")
 
 _existing = sys.modules.get("app")
 if _existing is not None:
@@ -27,9 +29,11 @@ if _existing is not None:
         for _k in [k for k in sys.modules if k == "app" or k.startswith("app.")]:
             del sys.modules[_k]
 
-if _COORD_SRC in sys.path:
-    sys.path.remove(_COORD_SRC)
-sys.path.insert(0, _COORD_SRC)
+# Add all necessary paths to sys.path
+for src_path in [_COORD_SRC, _CRYPTO_SRC, _SDK_SRC]:
+    if src_path in sys.path:
+        sys.path.remove(src_path)
+    sys.path.insert(0, src_path)
 
 from app.config import settings  # noqa: E402
 from app.main import create_app  # noqa: E402

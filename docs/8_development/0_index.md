@@ -23,6 +23,8 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 | 15 | [15_ecosystem-initiatives.md](./15_ecosystem-initiatives.md) | Ecosystem roadmap |
 | 16 | [16_local-assets.md](./16_local-assets.md) | Local asset management |
 | 17 | [17_windsurf-testing.md](./17_windsurf-testing.md) | Testing with Windsurf |
+| 18 | [zk-circuits.md](./zk-circuits.md) | ZK proof circuits for ML |
+| 19 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |
 
 ## Related
 

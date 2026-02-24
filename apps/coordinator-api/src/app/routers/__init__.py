@@ -12,6 +12,22 @@ from .exchange import router as exchange
 from .marketplace_offers import router as marketplace_offers
 from .payments import router as payments
 from .web_vitals import router as web_vitals
+from .edge_gpu import router as edge_gpu
 # from .registry import router as registry
 
-__all__ = ["client", "miner", "admin", "marketplace", "marketplace_gpu", "explorer", "services", "users", "exchange", "marketplace_offers", "payments", "web_vitals", "registry"]
+__all__ = [
+    "client",
+    "miner",
+    "admin",
+    "marketplace",
+    "marketplace_gpu",
+    "explorer",
+    "services",
+    "users",
+    "exchange",
+    "marketplace_offers",
+    "payments",
+    "web_vitals",
+    "edge_gpu",
+    "registry",
+]

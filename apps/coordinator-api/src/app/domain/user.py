@@ -10,6 +10,9 @@ from typing import Optional, List
 
 class User(SQLModel, table=True):
     """User model"""
+    __tablename__ = "users"
+    __table_args__ = {"extend_existing": True}
+    
     id: str = Field(primary_key=True)
     email: str = Field(unique=True, index=True)
     username: str = Field(unique=True, index=True)
@@ -25,6 +28,9 @@ class User(SQLModel, table=True):
 
 class Wallet(SQLModel, table=True):
     """Wallet model for storing user balances"""
+    __tablename__ = "wallets"
+    __table_args__ = {"extend_existing": True}
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="user.id")
     address: str = Field(unique=True, index=True)
@@ -39,6 +45,9 @@ class Wallet(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     """Transaction model"""
+    __tablename__ = "transactions"
+    __table_args__ = {"extend_existing": True}
+    
     id: str = Field(primary_key=True)
     user_id: str = Field(foreign_key="user.id")
     wallet_id: Optional[int] = Field(foreign_key="wallet.id")
@@ -58,6 +67,9 @@ class Transaction(SQLModel, table=True):
 
 class UserSession(SQLModel, table=True):
     """User session model"""
+    __tablename__ = "user_sessions"
+    __table_args__ = {"extend_existing": True}
+    
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="user.id")
     token: str = Field(unique=True, index=True)

@@ -8,6 +8,9 @@ from sqlmodel import Field, SQLModel
 
 
 class Miner(SQLModel, table=True):
+    __tablename__ = "miner"
+    __table_args__ = {"extend_existing": True}
+    
     id: str = Field(primary_key=True, index=True)
     region: Optional[str] = Field(default=None, index=True)
     capabilities: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))

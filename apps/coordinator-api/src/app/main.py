@@ -20,13 +20,19 @@ from .routers import (
     explorer,
     payments,
     web_vitals,
+    edge_gpu
 )
+from .routers.ml_zk_proofs import router as ml_zk_proofs
 from .routers.governance import router as governance
 from .routers.partners import router as partners
+from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
+from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
+from .routers.monitoring_dashboard import router as monitoring_dashboard
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
 from .logging import get_logger
-
+from .config import settings
+from .storage.db import init_db
 
 logger = get_logger(__name__)
 
@@ -77,6 +83,11 @@ def create_app() -> FastAPI:
     app.include_router(partners, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
+    app.include_router(edge_gpu)
+    app.include_router(ml_zk_proofs)
+    app.include_router(marketplace_enhanced, prefix="/v1")
+    app.include_router(openclaw_enhanced, prefix="/v1")
+    app.include_router(monitoring_dashboard, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
@@ -120,11 +131,20 @@ def create_app() -> FastAPI:
 
     @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:
-        return {"status": "ok", "env": settings.app_env}
+        import sys
+        return {
+            "status": "ok", 
+            "env": settings.app_env,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        }
 
     @app.get("/health/live", tags=["health"], summary="Liveness probe")
     async def liveness() -> dict[str, str]:
-        return {"status": "alive"}
+        import sys
+        return {
+            "status": "alive",
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        }
 
     @app.get("/health/ready", tags=["health"], summary="Readiness probe")
     async def readiness() -> dict[str, str]:
@@ -134,7 +154,12 @@ def create_app() -> FastAPI:
             engine = get_engine()
             with engine.connect() as conn:
                 conn.execute("SELECT 1")
-            return {"status": "ready", "database": "connected"}
+            import sys
+            return {
+                "status": "ready", 
+                "database": "connected",
+                "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            }
         except Exception as e:
             logger.error("Readiness check failed", extra={"error": str(e)})
             return JSONResponse(

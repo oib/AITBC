@@ -38,7 +38,7 @@ authors = [
 ]
 readme = "cli/README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 dependencies = [
     "click>=8.0.0",
     "httpx>=0.24.0",
@@ -51,6 +51,17 @@ dependencies = [
     "tabulate>=0.9.0",
     "colorama>=0.4.4",
     "python-dotenv>=0.19.0"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
 ]
 
 [project.optional-dependencies]

@@ -1,8 +1,10 @@
 # AITBC Documentation
 
-**AI Training Blockchain - Decentralized GPU Computing Platform**
+**AI Training Blockchain - Privacy-Preserving ML & Edge Computing Platform**
 
 Welcome to the AITBC documentation! This guide will help you navigate the documentation based on your role.
+
+AITBC now features **advanced privacy-preserving machine learning** with zero-knowledge proofs, **fully homomorphic encryption**, and **edge GPU optimization** for consumer hardware. The platform combines decentralized GPU computing with cutting-edge cryptographic techniques for secure, private AI inference and training.
 
 ## Quick Navigation
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.13+
 - Git
 - (Optional) PostgreSQL 14+ for production
 - (Optional) NVIDIA GPU + CUDA for mining

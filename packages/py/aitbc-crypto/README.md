@@ -146,8 +146,28 @@ pytest tests/security/
 ## Dependencies
 
 - **pynacl**: Cryptographic primitives (Ed25519, X25519)
-- **pydantic**: Data validation and serialization
+- **Dependencies**: pynacl>=1.5.0, pydantic>=2.0.0
 - **Python 3.11+**: Modern Python features and performance
+
+## Compatibility & Stability
+
+### Python Version Support
+- **Minimum Version**: Python 3.11+
+- **Recommended**: Python 3.11 or 3.12  
+- **Security Guarantee**: All cryptographic operations maintain security properties
+- **Performance**: Optimized for Python 3.11+ performance improvements
+
+### Cryptographic Security
+- **Algorithm**: Ed25519 digital signatures (constant-time implementation)
+- **Key Security**: 256-bit keys with proper entropy requirements
+- **Signature Verification**: Timing-attack resistant verification
+- **Randomness**: Uses cryptographically secure random number generation
+
+### API Stability
+- **Major Version**: 0.x (pre-1.0, APIs may evolve)
+- **Backward Compatibility**: Maintained within Python 3.11+ versions
+- **Security Updates**: Non-breaking security improvements may be added
+- **Deprecation Notice**: 2+ releases for deprecated cryptographic features
 
 ## License
 

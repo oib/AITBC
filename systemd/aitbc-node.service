@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Blockchain Node Service
+Description=AITBC Blockchain Node Service (Python 3.11+)
 After=network.target
 Wants=network.target
 
@@ -11,6 +11,8 @@ WorkingDirectory=/opt/blockchain-node
 Environment=PATH=/opt/blockchain-node/.venv/bin
 Environment=PYTHONPATH=/opt/blockchain-node
 Environment=RUST_LOG=info
+# Python version validation
+ExecStartPre=/bin/bash -c "python3.11 --version || (echo 'Python 3.11+ required' && exit 1)"
 ExecStart=/opt/blockchain-node/.venv/bin/python -m node.main --datadir /opt/blockchain-node/data --rpc-bind 0.0.0.0:8545
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always

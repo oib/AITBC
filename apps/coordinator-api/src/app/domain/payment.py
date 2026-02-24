@@ -15,6 +15,7 @@ class JobPayment(SQLModel, table=True):
     """Payment record for a job"""
     
     __tablename__ = "job_payments"
+    __table_args__ = {"extend_existing": True}
     
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
     job_id: str = Field(index=True)
@@ -52,6 +53,7 @@ class PaymentEscrow(SQLModel, table=True):
     """Escrow record for holding payments"""
     
     __tablename__ = "payment_escrows"
+    __table_args__ = {"extend_existing": True}
     
     id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
     payment_id: str = Field(index=True)

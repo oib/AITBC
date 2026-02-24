@@ -199,7 +199,7 @@ export class AitbcClient {
     await this.request<void>("POST", "/v1/users/logout", options);
   }
 
-  private async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
     const response = await this.rawRequest(method, path, options);
     const text = await response.text();
     if (!response.ok) {
@@ -208,7 +208,7 @@ export class AitbcClient {
     return text ? (JSON.parse(text) as T) : ({} as T);
   }
 
-  private async rawRequest(method: string, path: string, options: RequestOptions = {}): Promise<Response> {
+  async rawRequest(method: string, path: string, options: RequestOptions = {}): Promise<Response> {
     const url = this.buildUrl(path, options.query);
     const headers = this.buildHeaders(options.headers);
 
