@@ -1303,8 +1303,6 @@ Prepare for the v0.1 public release with comprehensive packaging, deployment, an
 |-----------|-------------|----------|--------|
 | PyPI packages | Q2 2026 | High | 🔄 In Progress |
 | npm packages | Q2 2026 | High | 🔄 In Progress |
-| Docker Compose setup | Q2 2026 | High | 🔄 Planned |
-| Security audit | Q3 2026 | Critical | 🔄 Planned |
 | Prebuilt binaries | Q2 2026 | Medium | 🔄 Planned |
 | Documentation | Q2 2026 | High | 🔄 In Progress |
 
