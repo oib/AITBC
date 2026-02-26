@@ -8,6 +8,8 @@
 
 Phase 6.5 focuses on enhancing the on-chain AI model marketplace with advanced features, sophisticated royalty distribution mechanisms, and comprehensive analytics. This phase builds upon the existing marketplace infrastructure to create a more robust, feature-rich trading platform for AI models.
 
+**Implementation approach**: Extend the current marketplace stack (`apps/coordinator-api/src/app/services/marketplace_enhanced.py`, payments, zk proofs, blockchain integration) rather than rebuilding. Reuse existing royalty/licensing/verification foundations and iterate incrementally.
+
 ## Phase 6.5.1: Advanced Marketplace Features (Weeks 16-17)
 
 ### Objectives

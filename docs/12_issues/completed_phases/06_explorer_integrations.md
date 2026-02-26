@@ -12,6 +12,8 @@ This plan outlines the implementation of third-party explorer integrations to en
 - **Receipt System**: Cryptographic receipt verification and attestation
 - **Token Integration**: AIToken.sol with receipt-based minting
 
+**Implementation approach**: Extend existing coordinator API routers and services (add explorer router/endpoints, not a rebuild). Reuse current receipt/zk/token integration layers and incrementally add explorer APIs and SDKs.
+
 ### Integration Points
 - **Block Explorer Compatibility**: Standard blockchain data APIs
 - **Wallet Integration**: Token balance and transaction history
