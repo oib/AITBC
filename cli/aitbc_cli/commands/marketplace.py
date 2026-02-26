@@ -3,7 +3,8 @@
 import click
 import httpx
 import json
-from typing import Optional, List
+import asyncio
+from typing import Optional, List, Dict, Any
 from ..utils import output, error, success
 
 
@@ -466,3 +467,492 @@ def list(ctx, status: Optional[str], gpu_model: Optional[str], price_max: Option
                 error(f"Failed to list offers: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
+
+
+# OpenClaw Agent Marketplace Commands
+@marketplace.group()
+def agents():
+    """OpenClaw agent marketplace operations"""
+    pass
+
+
+@agents.command()
+@click.option("--agent-id", required=True, help="Agent ID")
+@click.option("--agent-type", required=True, help="Agent type (compute_provider, compute_consumer, power_trader)")
+@click.option("--capabilities", help="Agent capabilities (comma-separated)")
+@click.option("--region", help="Agent region")
+@click.option("--reputation", type=float, default=0.8, help="Initial reputation score")
+@click.pass_context
+def register(ctx, agent_id: str, agent_type: str, capabilities: Optional[str], 
+            region: Optional[str], reputation: float):
+    """Register agent on OpenClaw marketplace"""
+    config = ctx.obj['config']
+    
+    agent_data = {
+        "agent_id": agent_id,
+        "agent_type": agent_type,
+        "capabilities": capabilities.split(",") if capabilities else [],
+        "region": region,
+        "initial_reputation": reputation
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/agents/register",
+                json=agent_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 201:
+                success(f"Agent {agent_id} registered successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to register agent: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--agent-id", help="Filter by agent ID")
+@click.option("--agent-type", help="Filter by agent type")
+@click.option("--region", help="Filter by region")
+@click.option("--reputation-min", type=float, help="Minimum reputation score")
+@click.option("--limit", type=int, default=20, help="Maximum number of results")
+@click.pass_context
+def list_agents(ctx, agent_id: Optional[str], agent_type: Optional[str],
+                region: Optional[str], reputation_min: Optional[float], limit: int):
+    """List registered agents"""
+    config = ctx.obj['config']
+    
+    params = {"limit": limit}
+    if agent_id:
+        params["agent_id"] = agent_id
+    if agent_type:
+        params["agent_type"] = agent_type
+    if region:
+        params["region"] = region
+    if reputation_min:
+        params["reputation_min"] = reputation_min
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/agents",
+                params=params,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                agents = response.json()
+                output(agents, ctx.obj['output_format'])
+            else:
+                error(f"Failed to list agents: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--resource-id", required=True, help="AI resource ID")
+@click.option("--resource-type", required=True, help="Resource type (nvidia_a100, nvidia_h100, edge_gpu)")
+@click.option("--compute-power", type=float, required=True, help="Compute power (TFLOPS)")
+@click.option("--gpu-memory", type=int, required=True, help="GPU memory in GB")
+@click.option("--price-per-hour", type=float, required=True, help="Price per hour in AITBC")
+@click.option("--provider-id", required=True, help="Provider agent ID")
+@click.pass_context
+def list_resource(ctx, resource_id: str, resource_type: str, compute_power: float,
+                 gpu_memory: int, price_per_hour: float, provider_id: str):
+    """List AI resource on marketplace"""
+    config = ctx.obj['config']
+    
+    resource_data = {
+        "resource_id": resource_id,
+        "resource_type": resource_type,
+        "compute_power": compute_power,
+        "gpu_memory": gpu_memory,
+        "price_per_hour": price_per_hour,
+        "provider_id": provider_id,
+        "availability": True
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/marketplace/list",
+                json=resource_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 201:
+                success(f"Resource {resource_id} listed successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to list resource: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--resource-id", required=True, help="AI resource ID to rent")
+@click.option("--consumer-id", required=True, help="Consumer agent ID")
+@click.option("--duration", type=int, required=True, help="Rental duration in hours")
+@click.option("--max-price", type=float, help="Maximum price per hour")
+@click.pass_context
+def rent(ctx, resource_id: str, consumer_id: str, duration: int, max_price: Optional[float]):
+    """Rent AI resource from marketplace"""
+    config = ctx.obj['config']
+    
+    rental_data = {
+        "resource_id": resource_id,
+        "consumer_id": consumer_id,
+        "duration_hours": duration,
+        "max_price_per_hour": max_price or 10.0,
+        "requirements": {
+            "min_compute_power": 50.0,
+            "min_gpu_memory": 8,
+            "gpu_required": True
+        }
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/marketplace/rent",
+                json=rental_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 201:
+                success("AI resource rented successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to rent resource: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--contract-type", required=True, help="Smart contract type")
+@click.option("--params", required=True, help="Contract parameters (JSON string)")
+@click.option("--gas-limit", type=int, default=1000000, help="Gas limit")
+@click.pass_context
+def execute_contract(ctx, contract_type: str, params: str, gas_limit: int):
+    """Execute blockchain smart contract"""
+    config = ctx.obj['config']
+    
+    try:
+        contract_params = json.loads(params)
+    except json.JSONDecodeError:
+        error("Invalid JSON parameters")
+        return
+    
+    contract_data = {
+        "contract_type": contract_type,
+        "parameters": contract_params,
+        "gas_limit": gas_limit,
+        "value": contract_params.get("value", 0)
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/blockchain/contracts/execute",
+                json=contract_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                success("Smart contract executed successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to execute contract: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--from-agent", required=True, help="From agent ID")
+@click.option("--to-agent", required=True, help="To agent ID")
+@click.option("--amount", type=float, required=True, help="Amount in AITBC")
+@click.option("--payment-type", default="ai_power_rental", help="Payment type")
+@click.pass_context
+def pay(ctx, from_agent: str, to_agent: str, amount: float, payment_type: str):
+    """Process AITBC payment between agents"""
+    config = ctx.obj['config']
+    
+    payment_data = {
+        "from_agent": from_agent,
+        "to_agent": to_agent,
+        "amount": amount,
+        "currency": "AITBC",
+        "payment_type": payment_type
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/payments/process",
+                json=payment_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                success(f"Payment of {amount} AITBC processed successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to process payment: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--agent-id", required=True, help="Agent ID")
+@click.pass_context
+def reputation(ctx, agent_id: str):
+    """Get agent reputation information"""
+    config = ctx.obj['config']
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/agents/{agent_id}/reputation",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get reputation: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--agent-id", required=True, help="Agent ID")
+@click.pass_context
+def balance(ctx, agent_id: str):
+    """Get agent AITBC balance"""
+    config = ctx.obj['config']
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/agents/{agent_id}/balance",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get balance: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@agents.command()
+@click.option("--time-range", default="daily", help="Time range (daily, weekly, monthly)")
+@click.pass_context
+def analytics(ctx, time_range: str):
+    """Get marketplace analytics"""
+    config = ctx.obj['config']
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/analytics/marketplace",
+                params={"time_range": time_range},
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get analytics: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+# Governance Commands
+@marketplace.group()
+def governance():
+    """OpenClaw agent governance operations"""
+    pass
+
+
+@governance.command()
+@click.option("--title", required=True, help="Proposal title")
+@click.option("--description", required=True, help="Proposal description")
+@click.option("--proposal-type", required=True, help="Proposal type")
+@click.option("--params", required=True, help="Proposal parameters (JSON string)")
+@click.option("--voting-period", type=int, default=72, help="Voting period in hours")
+@click.pass_context
+def create_proposal(ctx, title: str, description: str, proposal_type: str, 
+                   params: str, voting_period: int):
+    """Create governance proposal"""
+    config = ctx.obj['config']
+    
+    try:
+        proposal_params = json.loads(params)
+    except json.JSONDecodeError:
+        error("Invalid JSON parameters")
+        return
+    
+    proposal_data = {
+        "title": title,
+        "description": description,
+        "proposal_type": proposal_type,
+        "proposed_changes": proposal_params,
+        "voting_period_hours": voting_period
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/proposals/create",
+                json=proposal_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 201:
+                success("Proposal created successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to create proposal: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@governance.command()
+@click.option("--proposal-id", required=True, help="Proposal ID")
+@click.option("--vote", required=True, type=click.Choice(["for", "against", "abstain"]), help="Vote type")
+@click.option("--reasoning", help="Vote reasoning")
+@click.pass_context
+def vote(ctx, proposal_id: str, vote: str, reasoning: Optional[str]):
+    """Vote on governance proposal"""
+    config = ctx.obj['config']
+    
+    vote_data = {
+        "proposal_id": proposal_id,
+        "vote": vote,
+        "reasoning": reasoning or ""
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/voting/cast-vote",
+                json=vote_data,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 201:
+                success(f"Vote '{vote}' cast successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to cast vote: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@governance.command()
+@click.option("--status", help="Filter by status")
+@click.option("--limit", type=int, default=20, help="Maximum number of results")
+@click.pass_context
+def list_proposals(ctx, status: Optional[str], limit: int):
+    """List governance proposals"""
+    config = ctx.obj['config']
+    
+    params = {"limit": limit}
+    if status:
+        params["status"] = status
+    
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.coordinator_url}/v1/proposals",
+                params=params,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to list proposals: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+# Performance Testing Commands
+@marketplace.group()
+def test():
+    """OpenClaw marketplace testing operations"""
+    pass
+
+
+@test.command()
+@click.option("--concurrent-users", type=int, default=10, help="Concurrent users")
+@click.option("--rps", type=int, default=50, help="Requests per second")
+@click.option("--duration", type=int, default=30, help="Test duration in seconds")
+@click.pass_context
+def load(ctx, concurrent_users: int, rps: int, duration: int):
+    """Run marketplace load test"""
+    config = ctx.obj['config']
+    
+    test_config = {
+        "concurrent_users": concurrent_users,
+        "requests_per_second": rps,
+        "test_duration_seconds": duration,
+        "ramp_up_period_seconds": 5
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/testing/load-test",
+                json=test_config,
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                success("Load test completed successfully")
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to run load test: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@test.command()
+@click.pass_context
+def health(ctx):
+    """Test marketplace health endpoints"""
+    config = ctx.obj['config']
+    
+    endpoints = [
+        "/health",
+        "/v1/marketplace/status",
+        "/v1/agents/health",
+        "/v1/blockchain/health"
+    ]
+    
+    results = {}
+    
+    for endpoint in endpoints:
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{config.coordinator_url}{endpoint}",
+                    headers={"X-Api-Key": config.api_key or ""}
+                )
+                results[endpoint] = {
+                    "status_code": response.status_code,
+                    "healthy": response.status_code == 200
+                }
+        except Exception as e:
+            results[endpoint] = {
+                "status_code": 0,
+                "healthy": False,
+                "error": str(e)
+            }
+    
+    output(results, ctx.obj['output_format'])

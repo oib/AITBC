@@ -93,7 +93,7 @@ class EdgeGPUMetrics(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     
     id: str = Field(default_factory=lambda: f"egm_{uuid4().hex[:8]}", primary_key=True)
-    gpu_id: str = Field(foreign_key="gpuregistry.id")
+    gpu_id: str = Field(foreign_key="gpu_registry.id")
 
     # Latency metrics
     network_latency_ms: float = Field()
