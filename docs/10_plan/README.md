@@ -1,31 +1,24 @@
-# Planning Index (docs/10_plan)
+# AITBC Development Plan & Roadmap
 
-Quick index of planning documents for the current and upcoming milestones.
+## Active Planning Documents
+This directory contains the active planning documents for the current development phase. All completed phase plans have been archived to `docs/12_issues/completed_phases/`.
 
-## Weekly Plan (Current)
-- **00_nextMileston.md** — Week plan (2026-02-23 to 2026-03-01) with success metrics and risks
-- **99_currentissue.md** — Current issues, progress, and status tracker for this milestone
+### Core Roadmap
+- `00_nextMileston.md`: The overarching milestone plan for Q2-Q3 2026, focusing on OpenClaw Agent Economics & Scalability.
+- `99_currentissue.md`: Active tracking of the current week's tasks and daily progress.
 
-## Detailed Task Breakdowns
-- **01_js_sdk_enhancement.md** — JS SDK receipt verification parity (Day 1-2)
-- **02_edge_gpu_implementation.md** — Consumer GPU optimization and edge features (Day 3-4)
-- **03_zk_circuits_foundation.md** — ML ZK circuits + FHE foundations (Day 5)
-- **04_integration_documentation.md** — API integration, E2E coverage, documentation updates (Day 6-7)
+### Active Phase Plans
+- `01_openclaw_economics.md`: Detailed plan for autonomous agent wallets, bid-strategy engines, and multi-agent orchestration.
+- `02_decentralized_memory.md`: Detailed plan for IPFS/Filecoin integration, on-chain data anchoring, and shared knowledge graphs.
+- `03_developer_ecosystem.md`: Detailed plan for hackathon bounties, reputation yield farming, and the developer metrics dashboard.
 
-## Operational Strategies
-- **05_testing_strategy.md** — Testing pyramid, coverage targets, CI/CD, risk-based testing
-- **06_deployment_strategy.md** — Blue-green/canary deployment, monitoring, rollback plan
-- **07_preflight_checklist.md** — Preflight checks before implementation (tools, env, baselines)
+### Reference & Testing
+- `14_test`: Manual E2E test scenarios for cross-container marketplace workflows.
+- `01_preflight_checklist.md`: The pre-deployment security and verification checklist.
 
-## Reference / Future Initiatives
-- **Edge_Consumer_GPU_Focus.md** — Deep-dive plan for edge/consumer GPUs
-- **Full_zkML_FHE_Integration.md** — Plan for full zkML + FHE integration
-- **On-Chain_Model_Marketplace.md** — Model marketplace strategy
-- **Verifiable_AI_Agent_Orchestration.md** — Agent orchestration plan
-- **openclaw.md** — Additional planning notes
-
-## How to Use
-1. Start with **00_nextMileston.md** for the week scope.
-2. Jump to the detailed task file for the day’s work (01-04).
-3. Consult **05_testing_strategy.md** and **06_deployment_strategy.md** before merging/releasing.
-4. Use the reference plans for deeper context or future phases.
+## Workflow Integration
+To automate the transition of completed items out of this folder, use the Windsurf workflow:
+```
+/documentation-updates
+```
+This will automatically update status tags to ✅ COMPLETE and move finished phase documents to the archive directory.
