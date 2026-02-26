@@ -418,6 +418,34 @@ async def api_block(height: int):
     return await get_block(height)
 
 
+
+@app.get("/api/transactions/{tx_hash}")
+async def api_transaction(tx_hash: str):
+    """API endpoint for transaction data, normalized for frontend"""
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/tx/{tx_hash}")
+            if response.status_code == 200:
+                tx = response.json()
+                # Normalize for frontend expectations
+                payload = tx.get("payload", {})
+                return {
+                    "hash": tx.get("tx_hash"),
+                    "block_height": tx.get("block_height"),
+                    "from": tx.get("sender"),
+                    "to": tx.get("recipient"),
+                    "type": payload.get("type", "transfer"),
+                    "amount": payload.get("amount", 0),
+                    "fee": payload.get("fee", 0),
+                    "timestamp": tx.get("created_at")
+                }
+            elif response.status_code == 404:
+                raise HTTPException(status_code=404, detail="Transaction not found")
+        except httpx.RequestError as e:
+            print(f"Error fetching transaction: {e}")
+    raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
