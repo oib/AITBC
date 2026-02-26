@@ -1,4 +1,5 @@
 from __future__ import annotations
+from sqlalchemy import func
 
 import asyncio
 import json
@@ -200,8 +201,9 @@ async def get_transactions(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
             .limit(limit)
         ).all()
         
-        # Get total count for pagination info
-        total_count = len(session.exec(select(Transaction)).all())
+# Get total count for pagination info using optimized SQL count
+        total_count = session.exec(select(func.count()).select_from(Transaction)).one()
+
         
         if not transactions:
             metrics_registry.increment("rpc_get_transactions_empty_total")
@@ -350,8 +352,8 @@ async def get_address_details(address: str, limit: int = 20, offset: int = 0) ->
         ).all()
         
         # Get total counts
-        total_sent = len(session.exec(select(Transaction).where(Transaction.sender == address)).all())
-        total_received = len(session.exec(select(Transaction).where(Transaction.recipient == address)).all())
+        total_sent = session.exec(select(func.count()).select_from(Transaction).where(Transaction.sender == address)).one()
+        total_received = session.exec(select(func.count()).select_from(Transaction).where(Transaction.recipient == address)).one()
         
         # Serialize transactions
         serialize_tx = lambda tx: {
@@ -419,8 +421,8 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
         address_list = []
         for addr in addresses:
             # Get transaction counts
-            sent_count = len(session.exec(select(Transaction).where(Transaction.sender == addr.address)).all())
-            received_count = len(session.exec(select(Transaction).where(Transaction.recipient == addr.address)).all())
+            sent_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.sender == addr.address)).one()
+            received_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.recipient == addr.address)).one()
             
             address_list.append({
                 "address": addr.address,
