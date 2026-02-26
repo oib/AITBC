@@ -138,6 +138,48 @@ server {
 ssh aitbc-cascade                    # Direct SSH to container
 ```
 
+**GPU Access**: No GPU passthrough. All GPU workloads must run on localhost (windsurf host), not inside incus containers.
+
+**Host Proxies (for localhost GPU clients)**
+- `127.0.0.1:18000` → container `127.0.0.1:8000` (coordinator/marketplace API)
+- Use this to submit offers/bids/contracts/mining requests from localhost GPU miners/dev clients.
+
+## Container: aitbc1 (10.1.223.40) — New Dev Server
+
+### Access
+```bash
+ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
+```
+
+### Notes
+- Purpose: secondary AITBC dev environment (incus container)
+- Host: 10.1.223.40 (Debian trixie), accessible via new SSH alias `aitbc1-cascade`
+- Proxy device: incus proxy on host maps 127.0.0.1:18001 → 127.0.0.1:8000 inside container
+- AppArmor profile: unconfined (incus raw.lxc)
+- Use same deployment patterns as `aitbc` (nginx + services) once provisioned
+- **GPU Access**: None. Run GPU-dependent tasks on localhost (windsurf host) only.
+
+**Host Proxies (for localhost GPU clients)**
+- `127.0.0.1:18001` → container `127.0.0.1:8000` (coordinator/marketplace API)
+- Use this to hit the second marketplace/coordinator from localhost GPU miners/dev clients.
+- (Optional) Expose marketplace frontend for aitbc1 via an additional proxy/port if needed for UI tests.
+- Health check suggestion: `curl -s http://127.0.0.1:18001/v1/health`
+
+**Localhost dual-miner/dual-client test (shared GPU)**
+- Run two miners on localhost (GPU shared), targeting each marketplace:
+  - Miner A → `http://127.0.0.1:18000`
+  - Miner B → `http://127.0.0.1:18001`
+- Run two clients on localhost for bids/contracts/Ollama answers:
+  - Client 1 → `http://127.0.0.1:18000`
+  - Client 2 → `http://127.0.0.1:18001`
+- Use a shared dev chain so both marketplaces see the same on-chain events.
+- Example commands (adjust to your scripts/flags):
+  - `miner --id miner-A --gpu 0 --api http://127.0.0.1:18000`
+  - `miner --id miner-B --gpu 0 --api http://127.0.0.1:18001`
+  - `client --id client-1 --api http://127.0.0.1:18000 --ollama-model <model>`
+  - `client --id client-2 --api http://127.0.0.1:18001 --ollama-model <model>`
+
+
 ### Services
 
 | Service | Port | Process | Python Version | Public URL |
