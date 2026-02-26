@@ -23,11 +23,13 @@ from .routers import (
     edge_gpu
 )
 from .routers.ml_zk_proofs import router as ml_zk_proofs
-from .routers.governance import router as governance
+from .routers.community import router as community_router
+from .routers.governance import router as new_governance_router
 from .routers.partners import router as partners
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .routers.monitoring_dashboard import router as monitoring_dashboard
+from .routers.multi_modal_rl import router as multi_modal_rl_router
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
 from .logging import get_logger
@@ -79,7 +81,8 @@ def create_app() -> FastAPI:
     app.include_router(payments, prefix="/v1")
     app.include_router(marketplace_offers, prefix="/v1")
     app.include_router(zk_applications.router, prefix="/v1")
-    app.include_router(governance, prefix="/v1")
+    app.include_router(new_governance_router, prefix="/v1")
+    app.include_router(community_router, prefix="/v1")
     app.include_router(partners, prefix="/v1")
     app.include_router(explorer, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
@@ -88,6 +91,7 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_enhanced, prefix="/v1")
     app.include_router(openclaw_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
+    app.include_router(multi_modal_rl_router, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
