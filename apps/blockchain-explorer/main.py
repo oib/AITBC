@@ -21,7 +21,7 @@ BLOCKCHAIN_RPC_URL = "http://localhost:8082"  # Local blockchain node
 EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
 
 # HTML Template
-HTML_TEMPLATE = """
+HTML_TEMPLATE = r"""
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -458,4 +458,4 @@ async def health():
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=3000)
+    uvicorn.run(app, host="0.0.0.0", port=3001)

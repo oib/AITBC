@@ -1,0 +1,21 @@
+[Unit]
+Description=AITBC Blockchain Explorer UI
+After=network.target aitbc-blockchain-rpc-1.service aitbc-blockchain-rpc-2.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/blockchain-explorer
+# Assuming we will use the venv from coordinator-api or blockchain-node as standard
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin:/usr/local/bin:/usr/bin:/bin
+# Need to make sure fastapi and uvicorn are available
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python main.py
+Restart=always
+RestartSec=5
+# Adjust logging
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=aitbc-explorer
+
+[Install]
+WantedBy=multi-user.target
