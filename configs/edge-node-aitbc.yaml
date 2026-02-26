@@ -1,0 +1,60 @@
+# Edge Node Configuration - aitbc (Primary Container)
+edge_node_config:
+  node_id: "aitbc-edge-primary"
+  region: "us-east"
+  location: "primary-dev-container"
+  
+  services:
+    - name: "marketplace-api"
+      port: 8000
+      health_check: "/health/live"
+      enabled: true
+    - name: "cache-layer"
+      port: 6379
+      type: "redis"
+      enabled: true
+    - name: "monitoring-agent"
+      port: 9090
+      type: "prometheus"
+      enabled: true
+      
+  network:
+    cdn_integration: true
+    tcp_optimization: true
+    ipv6_support: true
+    bandwidth_mbps: 1000
+    latency_optimization: true
+    
+  resources:
+    cpu_cores: 8
+    memory_gb: 32
+    storage_gb: 500
+    gpu_access: false  # No GPU in containers
+    
+  caching:
+    redis_enabled: true
+    cache_ttl_seconds: 300
+    max_memory_mb: 1024
+    cache_strategy: "lru"
+    
+  monitoring:
+    metrics_enabled: true
+    health_check_interval: 30
+    performance_tracking: true
+    log_level: "info"
+    
+  security:
+    firewall_enabled: true
+    rate_limiting: true
+    ssl_termination: true
+    
+  load_balancing:
+    algorithm: "weighted_round_robin"
+    weight: 3
+    backup_nodes: ["aitbc1-edge-secondary"]
+    
+  performance_targets:
+    response_time_ms: 50
+    throughput_rps: 1000
+    cache_hit_rate: 0.9
+    error_rate: 0.01

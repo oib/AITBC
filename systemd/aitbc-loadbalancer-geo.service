@@ -1,0 +1,32 @@
+[Unit]
+Description=AITBC Geographic Load Balancer
+After=network.target aitbc-coordinator-api.service aitbc-marketplace-enhanced.service
+Wants=aitbc-coordinator-api.service aitbc-marketplace-enhanced.service
+
+[Service]
+Type=simple
+User=oib
+Group=oib
+WorkingDirectory=/home/oib/windsurf/aitbc
+Environment=PATH=/home/oib/windsurf/aitbc/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/oib/windsurf/aitbc/.venv/bin/python /home/oib/windsurf/aitbc/scripts/geo_load_balancer.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-loadbalancer-geo
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/home/oib/windsurf/aitbc
+
+[Install]
+WantedBy=multi-user.target

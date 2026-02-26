@@ -5,11 +5,11 @@ Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
-User=debian
-Group=debian
-WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
-Environment=PATH=/home/oib/aitbc/apps/coordinator-api/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/home/oib/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8006
+User=oib
+Group=oib
+WorkingDirectory=/home/oib/windsurf/aitbc/apps/coordinator-api
+Environment=PATH=/home/oib/windsurf/aitbc/apps/coordinator-api/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/oib/windsurf/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8006
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
@@ -26,7 +26,7 @@ SyslogIdentifier=aitbc-marketplace-enhanced
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
+ReadWritePaths=/home/oib/windsurf/aitbc/apps/coordinator-api
 
 [Install]
 WantedBy=multi-user.target

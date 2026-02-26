@@ -32,7 +32,7 @@ class Wallet(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: str = Field(foreign_key="user.id")
+    user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
     balance: float = Field(default=0.0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -49,8 +49,8 @@ class Transaction(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     
     id: str = Field(primary_key=True)
-    user_id: str = Field(foreign_key="user.id")
-    wallet_id: Optional[int] = Field(foreign_key="wallet.id")
+    user_id: str = Field(foreign_key="users.id")
+    wallet_id: Optional[int] = Field(foreign_key="wallets.id")
     type: str = Field(max_length=20)
     status: str = Field(default="pending", max_length=20)
     amount: float
@@ -71,7 +71,7 @@ class UserSession(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_id: str = Field(foreign_key="user.id")
+    user_id: str = Field(foreign_key="users.id")
     token: str = Field(unique=True, index=True)
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
