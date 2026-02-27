@@ -146,14 +146,27 @@ Last updated: 2026-02-22
 | `apps/blockchain-node/tests/test_mempool.py` | ✅ Active | 27 mempool tests |
 | `apps/blockchain-node/tests/test_sync.py` | ✅ Active | 23 sync tests |
 
-### Smart Contracts (`contracts/`)
+### Smart Contracts (`contracts/`) 📜 **EXPANDED**
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `contracts/ZKReceiptVerifier.sol` | ✅ Active | ZK receipt verifier contract |
-| `contracts/Groth16Verifier.sol` | ✅ Active | Groth16 verifier stub (snarkjs-replaceable) |
-| `contracts/scripts/security-analysis.sh` | ✅ Active | Slither + Mythril analysis script |
-| `contracts/scripts/deploy-testnet.sh` | ✅ Active | Testnet deployment script |
+| `contracts/contracts/AIPowerRental.sol` | ✅ Active | Handles decentralized GPU/AI compute rentals |
+| `contracts/contracts/AITBCPaymentProcessor.sol` | ✅ Active | AITBC token flow and automated settlements |
+| `contracts/contracts/DisputeResolution.sol` | ✅ Active | Arbitration for OpenClaw marketplace disputes |
+| `contracts/contracts/EscrowService.sol` | ✅ Active | Multi-signature execution escrow locks |
+| `contracts/contracts/DynamicPricing.sol` | ✅ Active | Supply/Demand algorithmic pricing |
+| `contracts/contracts/PerformanceVerifier.sol` | ✅ Active | On-chain ZK verification of AI inference quality |
+| `contracts/contracts/AgentStaking.sol` | ✅ Active | Agent ecosystem reputation staking |
+| `contracts/contracts/AgentBounty.sol` | ✅ Active | Crowdsourced task resolution logic |
+| `contracts/contracts/ZKReceiptVerifier.sol` | ✅ Active | ZK receipt verifier contract |
+| `contracts/contracts/BountyIntegration.sol` | ✅ Active | Cross-contract event handling |
+| `contracts/AgentWallet.sol` | ✅ Active | Isolated agent-specific wallets |
+| `contracts/AgentMemory.sol` | ✅ Active | IPFS CID anchoring for agent memory |
+| `contracts/KnowledgeGraphMarket.sol` | ✅ Active | Shared knowledge graph marketplace |
+| `contracts/MemoryVerifier.sol` | ✅ Active | ZK-proof verification for data retrieval |
+| `contracts/CrossChainReputation.sol` | ✅ Active | Portable reputation scores |
+| `contracts/AgentCommunication.sol` | ✅ Active | Secure agent messaging |
+| `contracts/scripts/` | ✅ Active | Hardhat deployment & verification scripts |
 
 ---
 
