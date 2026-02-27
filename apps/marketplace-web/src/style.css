@@ -555,3 +555,11 @@ body {
     font-size: 0.95rem;
   }
 }
+/* Add padding to account for the fixed global header */
+main {
+  margin-top: 80px;
+  padding: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
