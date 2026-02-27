@@ -61,7 +61,6 @@ function render(): void {
   const page = routes[normalizedPath] ?? null;
 
   root.innerHTML = `
-    ${siteHeader(page?.title ?? "Explorer")}
     <main class="page">${(page ?? notFoundPageConfig).render()}</main>
     ${siteFooter()}
   `;
