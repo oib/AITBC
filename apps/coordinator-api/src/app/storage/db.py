@@ -1,35 +1,26 @@
 """
-Database storage module for AITBC Coordinator API
+Unified database configuration for AITBC Coordinator API
 
-Provides unified database session management with connection pooling.
+Provides SQLite and PostgreSQL support with connection pooling.
 """
 
 from __future__ import annotations
 
+import os
 from contextlib import contextmanager
-from typing import Annotated, Generator
+from contextlib import asynccontextmanager
+from typing import Generator, AsyncGenerator
 
-from fastapi import Depends
-from sqlalchemy.engine import Engine
-from sqlalchemy.pool import QueuePool
-from sqlmodel import Session, SQLModel, create_engine
+from sqlalchemy import create_engine
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import Session, sessionmaker
+
+from sqlmodel import SQLModel
 
 from ..config import settings
-from ..domain import (
-    Job,
-    Miner,
-    MarketplaceOffer,
-    MarketplaceBid,
-    JobPayment,
-    PaymentEscrow,
-    GPURegistry,
-    GPUBooking,
-    GPUReview,
-)
-from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics
-from .models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 
-_engine: Engine | None = None
+_engine = None
+_async_engine = None
 
 
 def get_engine() -> Engine:
@@ -53,7 +44,6 @@ def get_engine() -> Engine:
             _engine = create_engine(
                 effective_url,
                 echo=False,
-                poolclass=QueuePool,
                 pool_size=db_config.pool_size,
                 max_overflow=db_config.max_overflow,
                 pool_pre_ping=db_config.pool_pre_ping,
@@ -62,8 +52,20 @@ def get_engine() -> Engine:
 
 
 def init_db() -> Engine:
-    """Initialize database tables."""
+    """Initialize database tables and ensure data directory exists."""
     engine = get_engine()
+    
+    # Ensure data directory exists for SQLite (consistent with blockchain-node pattern)
+    if "sqlite" in str(engine.url):
+        db_path = engine.url.database
+        if db_path:
+            from pathlib import Path
+            # Extract directory path from database file path
+            if db_path.startswith("./"):
+                db_path = db_path[2:]  # Remove ./
+            data_dir = Path(db_path).parent
+            data_dir.mkdir(parents=True, exist_ok=True)
+    
     SQLModel.metadata.create_all(engine)
     return engine
 
@@ -72,21 +74,55 @@ def init_db() -> Engine:
 def session_scope() -> Generator[Session, None, None]:
     """Context manager for database sessions."""
     engine = get_engine()
-    session = Session(engine)
-    try:
-        yield session
-        session.commit()
-    except Exception:
-        session.rollback()
-        raise
-    finally:
-        session.close()
-
-
-def get_session() -> Generator[Session, None, None]:
-    """Get a database session (for FastAPI dependency)."""
-    with session_scope() as session:
+    with Session(engine) as session:
         yield session
 
 
-SessionDep = Annotated[Session, Depends(get_session)]
+# Dependency for FastAPI
+SessionDep = Session
+
+
+def get_session() -> Session:
+    """Get a database session."""
+    engine = get_engine()
+    return Session(engine)
+
+
+# Async support for future use
+async def get_async_engine() -> AsyncEngine:
+    """Get or create async database engine."""
+    global _async_engine
+
+    if _async_engine is None:
+        db_config = settings.database
+        effective_url = db_config.effective_url
+
+        # Convert SQLite to async SQLite
+        if "sqlite" in effective_url:
+            async_url = effective_url.replace("sqlite:///", "sqlite+aiosqlite:///")
+        else:
+            # Convert PostgreSQL to async PostgreSQL
+            async_url = effective_url.replace("postgresql://", "postgresql+asyncpg://")
+
+        _async_engine = create_async_engine(
+            async_url,
+            echo=False,
+            pool_size=db_config.pool_size,
+            max_overflow=db_config.max_overflow,
+            pool_pre_ping=db_config.pool_pre_ping,
+        )
+    return _async_engine
+
+
+@asynccontextmanager
+async def async_session_scope() -> AsyncGenerator[AsyncSession, None]:
+    """Async context manager for database sessions."""
+    engine = await get_async_engine()
+    async with AsyncSession(engine) as session:
+        yield session
+
+
+async def get_async_session() -> AsyncSession:
+    """Get an async database session."""
+    engine = await get_async_engine()
+    return async_sessionmaker(engine)()
