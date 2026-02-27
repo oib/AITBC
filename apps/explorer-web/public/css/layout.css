@@ -376,5 +376,5 @@
 
 /* Global Header spacing fix */
 .page {
-  margin-top: 80px; /* Make space for the fixed global header */
+  margin-top: 90px; /* Make space for the fixed global header */
 }
