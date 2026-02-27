@@ -1,0 +1,392 @@
+# AITBC Advanced Agent Features Production Monitoring
+# Docker Compose configuration for production monitoring services
+version: '3.8'
+
+services:
+  # Cross-Chain Reputation Monitoring
+  reputation-monitor:
+    image: prom/prometheus:v2.45.0
+    container_name: reputation-monitor
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./rules:/etc/prometheus/rules
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=200h'
+      - '--storage.tsdb.retention.size=50GB'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-admin-api'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=prometheus"
+
+  # Agent Communication Monitoring
+  communication-monitor:
+    image: grafana/grafana:10.0.0
+    container_name: communication-monitor
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel,grafana-clock-panel,grafana-simple-json-datasource
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SERVER_PROTOCOL=http
+      - GF_SERVER_HTTP_PORT=3001
+      - GF_SERVER_ENFORCE_DOMAIN=false
+      - GF_SMTP_ENABLED=false
+      - GF_LOG_LEVEL=info
+      - GF_LOG_MODE=file
+      - GF_PATHS_LOGS=/var/log/grafana
+      - GF_PATHS_PLUGINS=/var/lib/grafana/plugins
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_PATHS_DATA=/var/lib/grafana
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - grafana-data:/var/lib/grafana
+      - grafana-logs:/var/log/grafana
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=grafana"
+
+  # Advanced Learning Monitoring
+  learning-monitor:
+    image: node:18-alpine
+    container_name: learning-monitor
+    working_dir: /app
+    volumes:
+      - ./learning-monitor:/app
+      - learning-monitor-logs:/app/logs
+    command: npm start
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=learning-monitor"
+
+  # Agent Collaboration Monitoring
+  collaboration-monitor:
+    image: node:18-alpine
+    container_name: collaboration-monitor
+    working_dir: /app
+    volumes:
+      - ./collaboration-monitor:/app
+      - collaboration-monitor-logs:/app/logs
+    command: npm start
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=collaboration-monitor"
+
+  # Log Aggregation
+  log-aggregator:
+    image: fluent/fluent-bit:v2.2.0
+    container_name: log-aggregator
+    volumes:
+      - ./fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf
+      - /var/log:/var/log:ro
+      - /var/log/containers:/var/log/containers:ro
+      - /var/log/pods:/var/log/pods:ro
+      - fluent-bit-data:/var/log/fluent-bit
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "fluent-bit --version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=fluent-bit"
+
+  # Alert Manager
+  alert-manager:
+    image: prom/alertmanager:v0.25.0
+    container_name: alert-manager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager-data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.external-url=http://localhost:9093'
+      - '--web.route-prefix=/'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9093/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=alertmanager"
+
+  # Node Exporter (System Metrics)
+  node-exporter:
+    image: prom/node-exporter:v1.6.0
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9100/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=node-exporter"
+
+  # Process Exporter (Application Metrics)
+  process-exporter:
+    image: ncabatoff/process-exporter:v0.7.0
+    container_name: process-exporter
+    ports:
+      - "9256:9256"
+    volumes:
+      - /proc:/host/proc:ro
+    command:
+      - '--procfs=/host/proc'
+      - '--path.procfs=/host/proc'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9256/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=process-exporter"
+
+  # Blackbox Exporter (External Monitoring)
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.22.0
+    container_name: blackbox-exporter
+    ports:
+      - "9115:9115"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox/blackbox.yml
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9115/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=blackbox-exporter"
+
+  # Loki (Log Aggregation)
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki.yml:/etc/loki/local-config.yaml
+      - loki-data:/loki
+    command:
+      - '-config.file=/etc/loki/local-config.yaml'
+      - '-config.expand-env=true'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3100/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=loki"
+
+  # Promtail (Log Collection)
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - ./promtail.yml:/etc/promtail/config.yml
+      - /var/log:/var/log:ro
+      - /var/log/containers:/var/log/containers:ro
+      - /var/log/pods:/var/log/pods:ro
+    command:
+      - '-config.file=/etc/promtail/config.yml'
+      - '-config.expand-env=true'
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9081/ready || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=promtail"
+
+  # Jaeger (Tracing)
+  jaeger:
+    image: jaegertracing/all-in-one:1.47.0
+    container_name: jaeger
+    ports:
+      - "16686:16686"
+      - "14250:14250"
+      - "14268:14268"
+      - "14269:14269"
+      - "5778:5778"
+      - "5775:5775"
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=9411
+      - COLLECTOR_OTLP_HOST_PORT=14250
+      - COLLECTOR_JAEGER_AGENT_HOST_PORT=14268
+      - QUERY_BASE_PATH=/
+      - SPAN_STORAGE_TYPE=badger
+      - BADGER_EPHEMERAL_SPREAD=2000000
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:16686/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=jaeger"
+
+  # Redis (Cache)
+  redis:
+    image: redis:7.2.3-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=redis"
+
+  # Grafana Loki Data Source
+  grafana-loki-datasource:
+    image: grafana/grafana-image-renderer:3.8.2
+    container_name: grafana-loki-datasource
+    ports:
+      - "8081:8081"
+    environment:
+      - RENDERING_SERVER_URL=http://localhost:8081/render
+      - RENDERING_CALLBACK_URL=http://localhost:3001/
+      - RENDERING_HOST=localhost
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8081/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    labels:
+      - "service=monitoring"
+      - "component=grafana-image-renderer"
+
+networks:
+  monitoring:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+        - gateway: 172.20.0.1
+
+volumes:
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  alertmanager-data:
+    driver: local
+  fluent-bit-data:
+    driver: local
+  loki-data:
+    driver: local
+  redis-data:
+    driver: local
+  grafana-logs:
+    driver: local
+  learning-monitor-logs:
+    driver: local
+  collaboration-monitor-logs:
+    driver: local
+
+# Logging configuration
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"

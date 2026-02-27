@@ -178,13 +178,13 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         
         uint256 mappingId = integrationCounter++;
         
-        PerformanceMapping storage mapping = performanceMappings[mappingId];
-        mapping.mappingId = mappingId;
-        mapping.performanceHash = _performanceHash;
-        mapping.bountyId = _bountyId;
-        mapping.submissionId = _submissionId;
-        mapping.status = IntegrationStatus.PENDING;
-        mapping.createdAt = block.timestamp;
+        PerformanceMapping storage perfMap = performanceMappings[mappingId];
+        perfMap.mappingId = mappingId;
+        perfMap.performanceHash = _performanceHash;
+        perfMap.bountyId = _bountyId;
+        perfMap.submissionId = _submissionId;
+        perfMap.status = IntegrationStatus.PENDING;
+        perfMap.createdAt = block.timestamp;
         
         performanceHashToMapping[_performanceHash] = mappingId;
         pendingMappings.push(mappingId);
@@ -306,14 +306,14 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         // Check if this performance is mapped to any bounties
         uint256 mappingId = performanceHashToMapping[_performanceHash];
         if (mappingId > 0) {
-            PerformanceMapping storage mapping = performanceMappings[mappingId];
+            PerformanceMapping storage perfMap = performanceMappings[mappingId];
             
             // Update agent staking metrics
-            (address submitter,,,,,,,) = agentBounty.getSubmission(mapping.submissionId);
+            (address submitter,,,,,,,) = agentBounty.getSubmission(perfMap.submissionId);
             agentStaking.updateAgentPerformance(submitter, _accuracy, _accuracy >= autoVerificationThreshold);
             
             // Auto-verify bounty if conditions are met
-            _autoVerifyBounty(mapping.bountyId, mapping.submissionId, _accuracy, _responseTime);
+            _autoVerifyBounty(perfMap.bountyId, perfMap.submissionId, _accuracy, _responseTime);
         }
     }
     
@@ -407,15 +407,15 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         uint256 processedAt,
         string memory errorMessage
     ) {
-        PerformanceMapping storage mapping = performanceMappings[_mappingId];
+        PerformanceMapping storage perfMap = performanceMappings[_mappingId];
         return (
-            mapping.performanceHash,
-            mapping.bountyId,
-            mapping.submissionId,
-            mapping.status,
-            mapping.createdAt,
-            mapping.processedAt,
-            mapping.errorMessage
+            perfMap.performanceHash,
+            perfMap.bountyId,
+            perfMap.submissionId,
+            perfMap.status,
+            perfMap.createdAt,
+            perfMap.processedAt,
+            perfMap.errorMessage
         );
     }
     
@@ -489,12 +489,12 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         uint256 processedCount = 0;
         
         for (uint256 i = 0; i < integrationCounter; i++) {
-            PerformanceMapping storage mapping = performanceMappings[i];
-            if (mapping.status == IntegrationStatus.COMPLETED) {
+            PerformanceMapping storage perfMap = performanceMappings[i];
+            if (perfMap.status == IntegrationStatus.COMPLETED) {
                 completed++;
-                totalTime += mapping.processedAt - mapping.createdAt;
+                totalTime += perfMap.processedAt - perfMap.createdAt;
                 processedCount++;
-            } else if (mapping.status == IntegrationStatus.FAILED) {
+            } else if (perfMap.status == IntegrationStatus.FAILED) {
                 failed++;
             }
         }
@@ -513,27 +513,27 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     // Internal functions
     
     function _processMapping(uint256 _mappingId) internal {
-        PerformanceMapping storage mapping = performanceMappings[_mappingId];
+        PerformanceMapping storage perfMap = performanceMappings[_mappingId];
         
-        if (mapping.status != IntegrationStatus.PENDING) {
+        if (perfMap.status != IntegrationStatus.PENDING) {
             return;
         }
         
         try this._processMappingInternal(_mappingId) {
-            mapping.status = IntegrationStatus.COMPLETED;
-            mapping.processedAt = block.timestamp;
+            perfMap.status = IntegrationStatus.COMPLETED;
+            perfMap.processedAt = block.timestamp;
         } catch Error(string memory reason) {
-            mapping.status = IntegrationStatus.FAILED;
-            mapping.errorMessage = reason;
-            mapping.processedAt = block.timestamp;
+            perfMap.status = IntegrationStatus.FAILED;
+            perfMap.errorMessage = reason;
+            perfMap.processedAt = block.timestamp;
             
-            emit IntegrationFailed(_mappingId, reason, mapping.performanceHash);
+            emit IntegrationFailed(_mappingId, reason, perfMap.performanceHash);
         } catch {
-            mapping.status = IntegrationStatus.FAILED;
-            mapping.errorMessage = "Unknown error";
-            mapping.processedAt = block.timestamp;
+            perfMap.status = IntegrationStatus.FAILED;
+            perfMap.errorMessage = "Unknown error";
+            perfMap.processedAt = block.timestamp;
             
-            emit IntegrationFailed(_mappingId, "Unknown error", mapping.performanceHash);
+            emit IntegrationFailed(_mappingId, "Unknown error", perfMap.performanceHash);
         }
         
         // Remove from pending
@@ -541,23 +541,23 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     }
     
     function _processMappingInternal(uint256 _mappingId) external {
-        PerformanceMapping storage mapping = performanceMappings[_mappingId];
+        PerformanceMapping storage perfMap = performanceMappings[_mappingId];
         
         // Get bounty details
-        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,, bool requiresZKProof) = agentBounty.getBounty(mapping.bountyId);
+        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,, bool requiresZKProof) = agentBounty.getBounty(perfMap.bountyId);
         
         // Get submission details
-        (address submitter, bytes32 submissionHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(mapping.submissionId);
+        (address submitter, bytes32 submissionHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(perfMap.submissionId);
         
         // Verify performance criteria match
-        require(mapping.performanceHash == submissionHash, "Performance hash mismatch");
+        require(perfMap.performanceHash == submissionHash, "Performance hash mismatch");
         
         // Check if accuracy meets requirements
         require(accuracy >= minAccuracy, "Accuracy below minimum");
         
         // Auto-verify if conditions are met
         if (accuracy >= autoVerificationThreshold) {
-            agentBounty.verifySubmission(mapping.bountyId, mapping.submissionId, true, address(this));
+            agentBounty.verifySubmission(perfMap.bountyId, perfMap.submissionId, true, address(this));
             
             // Update agent staking metrics
             agentStaking.updateAgentPerformance(submitter, accuracy, true);
