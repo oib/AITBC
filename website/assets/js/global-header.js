@@ -41,8 +41,7 @@
               <span class="global-dark-toggle__emoji">🌙</span>
               <span class="global-dark-toggle__text">Dark</span>
             </button>
-            <a href="${CTA.href}" class="global-nav__cta">${CTA.label}</a>
-          </div>
+            </div>
         </div>
       </header>
     `;
