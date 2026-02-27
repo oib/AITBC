@@ -421,7 +421,7 @@
             document.getElementById('aitbcAmount').addEventListener('input', updateBTCAmount);
             
             // Initialize enhanced dark mode
-            initializeTheme();
+            // initializeTheme(); handled by global-header.js
             
             // Initialize touch navigation
             new ExchangeTouchNavigation();
@@ -446,7 +446,7 @@
             localStorage.setItem('exchangeTheme', theme);
             
             // Update button display
-            updateThemeButton(theme);
+            
             
             // Send analytics event if available
             if (window.analytics) {
@@ -789,7 +789,7 @@
         async function fetchMarketData() {
             try {
                 // Get market stats from API
-                const response = await axios.get(`${API_BASE}/exchange/market-stats`);
+                const response = await axios.get(`${API_BASE}/marketplace/stats`);
                 const stats = response.data;
                 
                 // Update price
@@ -1046,7 +1046,7 @@
         async function loadGPUOffers() {
             console.log('Switch to real GPU offers initiated from:', API_BASE + '/miners/list');
             try {
-                const response = await fetch(API_BASE + '/miners/list');
+                const response = await fetch(API_BASE + '/marketplace/offers');
                 console.log('API response status:', response.status, 'OK:', response.ok);
                 console.log('Response headers:', response.headers);
                 const responseText = await response.text();
@@ -1214,7 +1214,7 @@
     async function loadRealGPUOffers() {
         console.log('Switching to production: loadRealGPUOffers called with API_BASE:', API_BASE + '/miners/list');
         try {
-            const response = await fetch(API_BASE + '/miners/list');
+            const response = await fetch(API_BASE + '/marketplace/offers');
             console.log('Production API response status:', response.status);
             if (!response.ok) throw new Error(`HTTP error: status ${response.status}`);
             const data = await response.json();
