@@ -239,21 +239,4 @@ contract ZKReceiptVerifier is Groth16Verifier {
         return true;
     }
 
-    /**
-     * @dev Verify a performance proof
-     * @return valid Whether the proof is valid
-     */
-    function verifyPerformanceProof(
-        uint256 agreementId,
-        uint256 responseTime,
-        uint256 accuracy,
-        uint256 availability,
-        uint256 computePower,
-        bytes memory zkProof
-    ) external pure returns (bool valid) {
-        // Implementation for performance proof verification
-        // This is a placeholder since the actual implementation would need
-        // to parse the zkProof bytes and call the appropriate Circom verifier
-        return true;
     }
-}

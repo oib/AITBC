@@ -280,17 +280,17 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         require(bytes(_reason).length > 0, "Reason required");
         
         // Verify agreement exists and get participants
-        (, address provider, address consumer, , , , , , , ) = aiPowerRental.getRentalAgreement(_agreementId);
-        require(provider != address(0), "Invalid agreement");
+        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(_agreementId);
+        require(agreement.provider != address(0), "Invalid agreement");
         
         // Verify caller is a participant
         require(
-            msg.sender == provider || msg.sender == consumer,
+            msg.sender == agreement.provider || msg.sender == agreement.consumer,
             "Not agreement participant"
         );
         
         // Verify respondent is the other participant
-        address otherParticipant = msg.sender == provider ? consumer : provider;
+        address otherParticipant = msg.sender == agreement.provider ? agreement.consumer : agreement.provider;
         require(_respondent == otherParticipant, "Respondent not in agreement");
         
         uint256 disputeId = disputeCounter++;
@@ -561,10 +561,10 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         dispute.status = DisputeStatus.Resolved;
         
         // Calculate resolution amount based on agreement
-        (, address provider, address consumer, uint256 duration, uint256 price, , , , , ) = aiPowerRental.getRentalAgreement(dispute.agreementId);
+        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(dispute.agreementId);
         
         if (initiatorWins) {
-            dispute.resolutionAmount = price; // Full refund/compensation
+            dispute.resolutionAmount = agreement.price; // Full refund/compensation
         } else {
             dispute.resolutionAmount = 0; // No compensation
         }
@@ -679,12 +679,13 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             }
         }
         
-        // Resize array to active count
-        assembly {
-            mstore(activeArbitrators, activeCount)
+        // Create correctly sized array and copy elements
+        address[] memory result = new address[](activeCount);
+        for (uint256 i = 0; i < activeCount; i++) {
+            result[i] = activeArbitrators[i];
         }
         
-        return activeArbitrators;
+        return result;
     }
     
     /**
@@ -706,12 +707,13 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
             }
         }
         
-        // Resize array to active count
-        assembly {
-            mstore(active, activeCount)
+        // Create correctly sized array and copy elements
+        uint256[] memory result = new uint256[](activeCount);
+        for (uint256 i = 0; i < activeCount; i++) {
+            result[i] = active[i];
         }
         
-        return active;
+        return result;
     }
     
     /**
