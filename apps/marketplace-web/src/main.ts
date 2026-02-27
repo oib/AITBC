@@ -47,7 +47,7 @@ app.innerHTML = `
         <span>Open bids awaiting match</span>
       </article>
     </section>
-    <section id="stats-grid">
+    
 
     <section class="panels">
       <article class="panel" id="offers-panel">
