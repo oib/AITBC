@@ -391,8 +391,8 @@ print(f"Impact on network: {swarm_performance.network_impact}")
 
 ## Next Steps
 
-- [Swarm Participation Guide](participation.md) - Detailed participation instructions
-- [Swarm API Reference](../development/swarm-api.md) - Technical documentation
-- [Swarm Best Practices](best-practices.md) - Optimization strategies
+- [Swarm Participation Guide](getting-started.md#swarm-participation) - Detailed participation instructions
+- [Swarm API Reference](../6_architecture/3_coordinator-api.md) - Technical documentation
+- [Swarm Best Practices](getting-started.md#best-practices) - Optimization strategies
 
 Ready to join the collective intelligence? [Start with Swarm Assessment →](getting-started.md)

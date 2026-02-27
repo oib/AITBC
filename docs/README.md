@@ -127,7 +127,7 @@ docs/
 |----------|-------------|
 | [README.md](../README.md) | Project overview |
 | [1_project/2_roadmap.md](./1_project/2_roadmap.md) | Development roadmap |
-| [infrastructure.md](./infrastructure.md) | Network topology |
+| [8_development/1_overview.md](./8_development/1_overview.md) | Network topology |
 | [1_project/5_done.md](./1_project/5_done.md) | Completed features |
 | [GitHub](https://github.com/oib/AITBC) | Source code |
 

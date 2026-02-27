@@ -307,10 +307,10 @@ The ecosystem is positioned to become a leading platform for decentralized busin
 - **Analytics**: analytics@aitbc.io
 
 ### C. Additional Resources
-- [Hackathon Framework](/docs/hackathon-framework.md)
-- [Grant Program Details](/docs/grant-program.md)
-- [Extension SDK Documentation](/ecosystem-extensions/README.md)
-- [Analytics API Reference](/ecosystem-analytics/API.md)
+- [Hackathon Framework](#hackathon-program)
+- [Grant Program Details](#grant-program)
+- [Extension SDK Documentation](#marketplace-extension-sdk)
+- [Analytics API Reference](#analytics-and-monitoring)
 
 ---
 
