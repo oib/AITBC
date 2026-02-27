@@ -1,4 +1,16 @@
 (function () {
+  // Immediately restore theme on script load
+  const savedTheme = localStorage.getItem('theme') || localStorage.getItem('exchangeTheme');
+  if (savedTheme) {
+    if (savedTheme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.classList.remove('dark');
+    }
+  }
+
   const NAV_ITEMS = [
     { key: 'home', label: 'Home', href: '/' },
     { key: 'explorer', label: 'Explorer', href: '/explorer/' },
@@ -69,22 +81,39 @@
     }
   }
 
+    function setGlobalTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.documentElement.classList.add('dark');
+      document.body.classList.remove('light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      document.documentElement.classList.remove('dark');
+      document.body.classList.add('light');
+    }
+    localStorage.setItem('theme', theme);
+    localStorage.setItem('exchangeTheme', theme); // for backwards compat
+  }
+
+  function getGlobalTheme() {
+    return localStorage.getItem('theme') || localStorage.getItem('exchangeTheme') || 'dark';
+  }
+
   function bindThemeToggle() {
     const toggle = document.querySelector('[data-role="global-theme-toggle"]');
     if (!toggle) return;
 
     toggle.addEventListener('click', () => {
-      if (typeof window.toggleDarkMode === 'function') {
-        window.toggleDarkMode();
-      } else if (typeof window.toggleTheme === 'function') {
-        window.toggleTheme();
-      } else {
-        const isDark = document.documentElement.classList.toggle('dark');
-        if (isDark) {
-          document.documentElement.setAttribute('data-theme', 'dark');
-        } else {
-          document.documentElement.removeAttribute('data-theme');
-        }
+      // Don't call window.toggleDarkMode anymore because it causes state desync.
+      // We take full control of the global theme here.
+      const current = getCurrentTheme();
+      const next = current === 'dark' ? 'light' : 'dark';
+      
+      setGlobalTheme(next);
+      
+      // If the page has a specific app-level override, trigger it
+      if (typeof window.setTheme === 'function' && window.location.pathname === '/') {
+          window.setTheme(next);
       }
 
       setTimeout(() => updateToggleLabel(getCurrentTheme()), 0);
@@ -92,6 +121,7 @@
 
     updateToggleLabel(getCurrentTheme());
   }
+
 
   function initHeader() {
     const activeKey = determineActiveKey(window.location.pathname);
