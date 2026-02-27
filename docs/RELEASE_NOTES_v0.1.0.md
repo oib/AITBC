@@ -116,17 +116,10 @@ python3 -m aitbc_agent.agent start
 
 ## 🔮 Roadmap
 
-### Next Releases
-- **v0.2.0**: Windows/macOS support
-- **v0.3.0**: AMD GPU support
-- **v0.4.0**: Advanced agent capabilities
-- **v1.0.0**: Production-ready ecosystem
-
 ### Future Features
 - Multi-modal processing capabilities
 - Advanced swarm intelligence
 - Edge computing integration
-- Quantum computing preparation
 
 ## 🤝 Contributing
 
