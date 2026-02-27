@@ -13,7 +13,7 @@
     <script src="/assets/js/lucide.js?v=20260215-2015"></script>
     <style>
         .gradient-bg {
-            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); /* Changed to blue to match global theme */
         }
         .card-hover {
             transition: all 0.3s ease;
@@ -86,12 +86,12 @@
                         Buy AITBC with Bitcoin
                     </h2>
                     
-                    <div id="tradeConnectPrompt" class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-4">
-                        <p class="text-sm text-orange-800 dark:text-orange-200 mb-3">
+                    <div id="tradeConnectPrompt" class="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-blue-800 text-gray-100 dark:text-blue-100 mb-3">
                             <i data-lucide="wallet" class="w-4 h-4 inline mr-1"></i>
                             Connect your wallet to start trading
                         </p>
-                        <button onclick="connectWallet()" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition">
+                        <button onclick="connectWallet()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
                             <i data-lucide="wallet" class="w-4 h-4 inline mr-2"></i>Connect Wallet
                         </button>
                     </div>
@@ -234,7 +234,7 @@
                     <div>
                         <h2 class="text-2xl font-bold mb-2">Ready to Use Your AITBC?</h2>
                         <p class="mb-4">Purchase GPU compute time for AI workloads on our decentralized marketplace</p>
-                        <button onclick="showSection('marketplace')" class="bg-white text-purple-600 px-6 py-3 rounded-lg hover:bg-purple-100 transition font-semibold">
+                        <button onclick="window.location.href='/marketplace/'" class="bg-white text-purple-600 px-6 py-3 rounded-lg hover:bg-purple-100 transition font-semibold">
                             Browse GPU Marketplace
                         </button>
                     </div>
@@ -247,7 +247,7 @@
         <section id="marketplaceSection" class="section hidden">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Available GPU Compute</h2>
-                <button onclick="showSection('trade')" class="bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition">
+                <button onclick="showSection('trade')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
                     <i data-lucide="arrow-left" class="w-4 h-4 inline mr-2"></i>Back to Trading
                 </button>
             </div>
@@ -272,7 +272,7 @@
                         
                         <div id="notLoggedIn" class="space-y-4">
                             <p class="text-gray-600 dark:text-gray-400">Please connect your wallet to access your profile</p>
-                            <button onclick="connectWallet()" id="connectWalletBtn" class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition">
+                            <button onclick="connectWallet()" id="connectWalletBtn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
                                 <i data-lucide="wallet" class="w-4 h-4 inline mr-2"></i>Connect Wallet
                             </button>
                         </div>
@@ -809,7 +809,7 @@
                 const variation = (Math.random() - 0.5) * 0.000001;
                 const newPrice = EXCHANGE_RATE + variation;
                 document.getElementById('aitbcBtcPrice').textContent = newPrice.toFixed(5);
-                document.getElementById('dailyVolume').textContent = 'API unavailable';
+                document.getElementById('dailyVolume').textContent = '0 AITBC';
                 document.getElementById('lastUpdated').textContent = new Date().toLocaleTimeString();
             }
         }
@@ -1265,5 +1265,6 @@
     <script>
         console.log('Exchange script loaded, displayDemoOffers defined.');
     </script>
-    </body>
+    <script src="/assets/js/global-header.js"></script>
+</body>
 </html>
