@@ -511,7 +511,7 @@ aitbc openclaw deploy healthcare_ai \
 
 - [Advanced AI Agents](advanced-ai-agents.md) - Multi-modal processing capabilities
 - [Agent Collaboration](collaborative-agents.md) - Network coordination
-- [Swarm Intelligence](swarm/overview.md) - Collective optimization
+- [Swarm Intelligence](swarm.md) - Collective optimization
 
 ---
 

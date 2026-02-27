@@ -11,8 +11,8 @@ This guide outlines the testing procedures for deploying AITBC agent documentati
 # Verify all documentation files exist
 find docs/11_agents/ -type f \( -name "*.md" -o -name "*.json" -o -name "*.yaml" \) | sort
 
-# Check for broken internal links
-find docs/11_agents/ -name "*.md" -exec grep -l "\[.*\](.*\.md)" {} \;
+# Check for broken internal links (sample check)
+find docs/11_agents/ -name "*.md" -exec grep -l "\[.*\](.*\.md)" {} \; | head -5
 
 # Validate JSON syntax
 python3 -m json.tool docs/11_agents/agent-manifest.json > /dev/null

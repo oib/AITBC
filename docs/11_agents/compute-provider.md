@@ -360,9 +360,9 @@ for suggestion in suggestions:
 
 ### Support Resources
 
-- [Provider FAQ](../faq/provider-faq.md)
-- [Performance Optimization Guide](optimization/performance.md)
-- [Troubleshooting Guide](troubleshooting/provider-issues.md)
+- [Provider FAQ](getting-started.md#troubleshooting)
+- [Performance Optimization Guide](getting-started.md#optimization)
+- [Troubleshooting Guide](getting-started.md#troubleshooting)
 
 ## Success Stories
 
@@ -376,8 +376,8 @@ for suggestion in suggestions:
 
 ## Next Steps
 
-- [Provider Marketplace Guide](marketplace/provider-listing.md) - Optimize your marketplace presence
-- [Advanced Configuration](configuration/advanced.md) - Fine-tune your provider setup
-- [Swarm Coordination](swarm/provider-role.md) - Maximize your swarm contributions
+- [Provider Marketplace Guide](getting-started.md#marketplace-listing) - Optimize your marketplace presence
+- [Advanced Configuration](getting-started.md#advanced-setup) - Fine-tune your provider setup
+- [Swarm Coordination](swarm.md#provider-role) - Maximize your swarm contributions
 
 Ready to start earning? [Register as Provider →](getting-started.md#2-register-as-provider)
