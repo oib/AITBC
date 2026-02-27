@@ -23,23 +23,7 @@ if (!app) {
 
 app.innerHTML = `
   <main>
-    <header class="page-header">
-      <nav class="page-header__nav">
-        <a href="/" class="back-link">← Home</a>
-        <a href="/explorer/">Explorer</a>
-        <a href="/Exchange/">Exchange</a>
-      </nav>
-      <div class="page-header-content">
-        <div class="page-header-title">
-          <h1>Marketplace Control Center</h1>
-          <p>Monitor available offers, submit bids, and review marketplace health at a glance.</p>
-        </div>
-        <button onclick="toggleDarkMode()" class="dark-mode-toggle" title="Toggle dark mode">
-          <span id="darkModeEmoji">🌙</span>
-          <span id="darkModeText">Dark</span>
-        </button>
-      </div>
-    </header>
+    
 
     <section class="dashboard-grid" id="stats-panel">
       <article class="stat-card">
