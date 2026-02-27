@@ -30,22 +30,6 @@
     --code-text: #e6edf3;
 }
 
-/* Light mode */
-body.light {
-    --primary-color: #2563eb;
-    --secondary-color: #7c3aed;
-    --accent-color: #0ea5e9;
-    --success-color: #10b981;
-    --warning-color: #f59e0b;
-    --danger-color: #ef4444;
-    --text-dark: #1f2937;
-    --text-light: #6b7280;
-    --bg-light: #f9fafb;
-    --bg-white: #ffffff;
-    --border-color: #e5e7eb;
-    --code-bg: #1f2937;
-    --code-text: #e5e7eb;
-}
 
 /* ============================================
    Base Styles

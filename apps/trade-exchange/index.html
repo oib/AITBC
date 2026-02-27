@@ -428,17 +428,9 @@
         });
         
         // Enhanced Dark mode functionality with system preference detection
-        function toggleDarkMode() {
-            const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            setTheme(newTheme);
-        }
+        
 
-        function setTheme(theme) {
-            // Apply theme immediately
-            if (theme === 'dark') {
-                document.documentElement.classList.add('dark');
-            } else {
+         else {
                 document.documentElement.classList.remove('dark');
             }
             
@@ -454,12 +446,7 @@
             }
         }
 
-        function getPreferredTheme() {
-            // 1. Check localStorage first (user preference for exchange)
-            const saved = localStorage.getItem('exchangeTheme');
-            if (saved) {
-                return saved;
-            }
+        
             
             // 2. Check main site preference for consistency
             const mainSiteTheme = localStorage.getItem('theme');
@@ -476,17 +463,7 @@
             return 'dark';
         }
 
-        function initializeTheme() {
-            const theme = getPreferredTheme();
-            setTheme(theme);
-            
-            // Listen for system preference changes
-            if (window.matchMedia) {
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-                    // Only auto-switch if user hasn't manually set a preference
-                    if (!localStorage.getItem('exchangeTheme') && !localStorage.getItem('theme')) {
-                        setTheme(e.matches ? 'dark' : 'light');
-                    }
+        
                 });
             }
         }

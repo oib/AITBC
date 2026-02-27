@@ -21,16 +21,6 @@ body.dark {
   --global-header-cta-text: #0f172a;
 }
 
-body.light {
-  --global-header-bg: rgba(255, 255, 255, 0.97);
-  --global-header-border: rgba(15, 23, 42, 0.08);
-  --global-header-text: #111827;
-  --global-header-muted: #6b7280;
-  --global-header-pill: rgba(37, 99, 235, 0.07);
-  --global-header-pill-hover: rgba(37, 99, 235, 0.15);
-  --global-header-accent: #2563eb;
-  --global-header-cta-text: #fff;
-}
 
 .global-header {
   height: 90px;
@@ -45,7 +35,7 @@ body.light {
 }
 
 .global-header__inner {
-  max-width: 1200px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 0 1.25rem;
   height: 100%;
@@ -137,27 +127,10 @@ body.light {
   flex-wrap: wrap;
 }
 
-.global-dark-toggle {
-  border: 1px solid var(--global-header-border);
-  background: transparent;
-  color: var(--global-header-text);
-  padding: 0.35rem 0.9rem;
-  border-radius: 999px;
-  font-size: 0.9rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
 
-.global-dark-toggle:hover {
-  border-color: var(--global-header-accent);
-  color: var(--global-header-accent);
-}
 
 .global-subnav {
-  max-width: 1200px;
+  max-width: 1160px;
   margin: 0 auto;
   padding: 0 1.25rem 0.75rem;
   display: flex;
