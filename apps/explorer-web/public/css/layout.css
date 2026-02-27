@@ -373,3 +373,8 @@
   color: rgba(244, 246, 251, 0.7);
   font-size: 0.9rem;
 }
+
+/* Global Header spacing fix */
+.page {
+  margin-top: 80px; /* Make space for the fixed global header */
+}
