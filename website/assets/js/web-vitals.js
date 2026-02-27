@@ -14,7 +14,7 @@
 
     // Load web-vitals from CDN
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/web-vitals@3/dist/web-vitals.iife.js'\;
+    script.src = 'https://unpkg.com/web-vitals@3/dist/web-vitals.iife.js';
     script.onload = function() {
         if (window.webVitals) {
             window.webVitals.onCLS(sendToAnalytics);
