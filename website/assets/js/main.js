@@ -38,49 +38,12 @@ document.querySelectorAll('.feature-card, .arch-component').forEach(el => {
 });
 
 // Dark mode functionality with enhanced persistence and system preference detection
-function toggleDarkMode() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    setTheme(newTheme);
+
 }
 
-function setTheme(theme) {
-    // Apply theme immediately
-    document.documentElement.setAttribute('data-theme', theme);
-    
-    // Save to localStorage for persistence
-    localStorage.setItem('theme', theme);
-    
-    // Update button display if it exists
-    updateThemeButton(theme);
-    
-    // Send analytics event
-    if (window.analytics) {
-        window.analytics.track('theme_changed', { theme });
     }
 }
 
-function updateThemeButton(theme) {
-    const emoji = document.getElementById('darkModeEmoji');
-    const text = document.getElementById('darkModeText');
-    
-    if (emoji && text) {
-        if (theme === 'dark') {
-            emoji.textContent = '🌙';
-            text.textContent = 'Dark';
-        } else {
-            emoji.textContent = '☀️';
-            text.textContent = 'Light';
-        }
-    }
-}
-
-function getPreferredTheme() {
-    // 1. Check localStorage first (user preference)
-    const saved = localStorage.getItem('theme');
-    if (saved) {
-        return saved;
-    }
     
     // 2. Check system preference
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -107,7 +70,6 @@ function initializeTheme() {
 }
 
 // Initialize theme immediately (before DOM loads)
-initializeTheme();
 
 // Touch gesture support for mobile navigation
 class TouchNavigation {
