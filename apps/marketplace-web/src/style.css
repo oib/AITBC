@@ -557,7 +557,7 @@ body {
 }
 /* Add padding to account for the fixed global header */
 main {
-  margin-top: 80px;
+  margin-top: 90px;
   padding: 2rem;
   max-width: 1200px;
   margin-left: auto;
