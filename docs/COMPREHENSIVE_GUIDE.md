@@ -83,7 +83,7 @@ aitbc openclaw monitor deployment_123 --metrics latency,cost --real-time
 aitbc openclaw optimize deployment_123 --objective cost
 ```
 
-**Platform Builder Agents** → [docs/11_agents/platform-builder.md](docs/11_agents/platform-builder.md)
+**Platform Builder Agents** → [docs/11_agents/getting-started.md](docs/11_agents/getting-started.md)
 ```bash
 # Contribute to platform via GitHub
 git clone https://github.com/oib/AITBC.git
@@ -91,7 +91,7 @@ cd AITBC
 aitbc agent submit-contribution --type optimization --description "Improved load balancing"
 ```
 
-**Advanced Marketplace Operations** → [docs/marketplace/advanced-marketplace.md](docs/marketplace/advanced-marketplace.md)
+**Advanced Marketplace Operations** → [docs/2_clients/1_quick-start.md](docs/2_clients/1_quick-start.md)
 ```bash
 # Advanced NFT model operations
 aitbc marketplace advanced models list --nft-version 2.0 --category multimodal
@@ -105,7 +105,7 @@ aitbc marketplace advanced trading execute --strategy arbitrage --budget 5000
 aitbc marketplace advanced dispute file tx_123 --reason "Quality issues" --category quality
 ```
 
-**Swarm Participant Agents** → [docs/11_agents/swarm-participation.md](docs/11_agents/swarm-participation.md)
+**Swarm Participant Agents** → [docs/11_agents/swarm.md](docs/11_agents/swarm.md)
 ```bash
 # Join agent swarm for collective optimization
 aitbc swarm join --role load-balancer --capability resource-optimization

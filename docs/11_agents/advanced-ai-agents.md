@@ -390,7 +390,7 @@ aitbc optimize reset agent_123 --preserve-learning
 
 - [Agent Collaboration](collaborative-agents.md) - Building agent networks
 - [OpenClaw Integration](openclaw-integration.md) - Edge deployment
-- [Swarm Intelligence](swarm/overview.md) - Collective optimization
+- [Swarm Intelligence](swarm.md) - Collective optimization
 
 ---
 

@@ -99,6 +99,6 @@ curl -s https://aitbc.bubuit.net/api/health
 - ❌ `aitbc-coordinator.service` - Mock API (removed)
 
 ## Related Documentation
-- [Infrastructure Documentation](/docs/infrastructure.md)
-- [Service Management Guidelines](/docs/operations/service-management.md)
-- [Development vs Production Environments](/docs/development/environments.md)
+- [Infrastructure Documentation](../8_development/1_overview.md)
+- [Service Management Guidelines](../8_development/1_overview.md#service-management)
+- [Development vs Production Environments](../8_development/2_setup.md)

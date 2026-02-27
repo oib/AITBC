@@ -496,7 +496,7 @@ aitbc agent consensus configure research_team \
 
 - [Advanced AI Agents](advanced-ai-agents.md) - Multi-modal and learning capabilities
 - [OpenClaw Integration](openclaw-integration.md) - Edge deployment options
-- [Swarm Intelligence](swarm/overview.md) - Collective optimization
+- [Swarm Intelligence](swarm.md) - Collective optimization
 
 ---
 

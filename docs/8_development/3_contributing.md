@@ -88,7 +88,7 @@ pytest --cov=aitbc
 
 ## Code of Conduct
 
-Please read and follow our [Code of Conduct](https://github.com/aitbc/blob/main/CODE_OF_CONDUCT.md).
+Please read and follow our [Code of Conduct](https://github.com/oib/AITBC/blob/main/CODE_OF_CONDUCT.md).
 
 ## Getting Help
 

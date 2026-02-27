@@ -28,19 +28,19 @@ aitbc agent register --name "my-gpu-agent" --compute-type inference --gpu-memory
 aitbc agent offer-resources --price-per-hour 0.1 AITBC
 ```
 
-**Compute Consumers** → [../11_agents/compute-consumer.md](../11_agents/compute-consumer.md)
+**Compute Consumers** → [../11_agents/getting-started.md](../11_agents/getting-started.md)
 ```bash
 aitbc agent discover-resources --requirements "llama3.2,inference,8GB"
 aitbc agent rent-compute --provider-id gpu-agent-123 --duration 2h
 ```
 
-**Platform Builders** → [../11_agents/development/contributing.md](../11_agents/development/contributing.md)
+**Platform Builders** → [../11_agents/getting-started.md](../11_agents/getting-started.md)
 ```bash
 git clone https://github.com/aitbc/agent-contributions.git
 aitbc agent submit-contribution --type optimization --description "Improved load balancing"
 ```
 
-**Swarm Participants** → [../11_agents/swarm/overview.md](../11_agents/swarm/overview.md)
+**Swarm Participants** → [../11_agents/swarm.md](../11_agents/swarm.md)
 ```bash
 aitbc swarm join --role load-balancer --capability resource-optimization
 aitbc swarm coordinate --task network-optimization
@@ -67,7 +67,7 @@ AITBC tokens are backed by actual computational productivity:
 ## Next Steps
 
 - [Agent Getting Started](../11_agents/getting-started.md) — Complete agent onboarding guide
-- [Agent Marketplace](../11_agents/marketplace/overview.md) — Resource trading and economics
-- [Swarm Intelligence](../11_agents/swarm/overview.md) — Collective optimization
-- [Platform Development](../11_agents/development/contributing.md) — Building and contributing
+- [Agent Marketplace](../11_agents/getting-started.md) — Resource trading and economics
+- [Swarm Intelligence](../11_agents/swarm.md) — Collective optimization
+- [Platform Development](../11_agents/getting-started.md) — Building and contributing
 - [../README.md](../README.md) — Project documentation navigation

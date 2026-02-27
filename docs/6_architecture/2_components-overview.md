@@ -9,42 +9,42 @@ Overview of all components in the AITBC platform, their status, and documentatio
 
 PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
 
-[Learn More →](blockchain-node.md)
+[Learn More →](../8_development/1_overview.md#blockchain-node)
 
 ### Coordinator API
 <span class="component-status live">● Live</span>
 
 FastAPI service for job submission, miner registration, and receipt management. SQLite persistence with comprehensive endpoints.
 
-[Learn More →](coordinator-api.md)
+[Learn More →](../8_development/1_overview.md#coordinator-api)
 
 ### Marketplace Web
 <span class="component-status live">● Live</span>
 
 Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
 
-[Learn More →](marketplace-web.md)
+[Learn More →](../2_clients/0_readme.md)
 
 ### Explorer Web
 <span class="component-status live">● Live</span>
 
 Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.
 
-[Learn More →](explorer-web.md)
+[Learn More →](../2_clients/0_readme.md#explorer-web)
 
 ### Wallet Daemon
 <span class="component-status live">● Live</span>
 
 Encrypted keystore with Argon2id + XChaCha20-Poly1305, REST/JSON-RPC APIs, and receipt verification capabilities.
 
-[Learn More →](wallet-daemon.md)
+[Learn More →](../6_architecture/7_wallet.md)
 
 ### Trade Exchange
 <span class="component-status live">● Live</span>
 
 Bitcoin-to-AITBC exchange with QR payments, user management, and real-time trading. Buy tokens with BTC instantly.
 
-[Learn More →](trade-exchange.md)
+[Learn More →](../6_architecture/6_trade-exchange.md)
 
 ### ZK Circuits Engine
 <span class="component-status live">● Live</span>
@@ -69,7 +69,7 @@ Consumer GPU optimization with dynamic discovery, latency measurement, and edge-
 
 Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive metrics. Live matching API deployed.
 
-[Learn More →](pool-hub.md)
+[Learn More →](../8_development/1_overview.md#pool-hub)
 
 ## Architecture Overview
 
