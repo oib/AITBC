@@ -243,12 +243,34 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         require(authorizedPayees[_to], "Recipient not authorized");
         
         uint256 paymentId = paymentCounter++;
+        
+        // Calculate fees and create payment
+        _createPaymentWithFees(paymentId, _to, _amount, _agreementId, _paymentPurpose, _releaseCondition);
+        
+        // Update tracking arrays
+        _updatePaymentTracking(paymentId, _to, _agreementId);
+        
+        // Transfer tokens
+        _transferTokensForPayment(_amount);
+        
+        emit PaymentCreated(paymentId, msg.sender, _to, _amount, _agreementId, _paymentPurpose);
+        
+        return paymentId;
+    }
+    
+    function _createPaymentWithFees(
+        uint256 _paymentId,
+        address _to,
+        uint256 _amount,
+        bytes32 _agreementId,
+        string memory _paymentPurpose,
+        ReleaseCondition _releaseCondition
+    ) internal {
         uint256 platformFee = (_amount * platformFeePercentage) / 10000;
         uint256 disputeFee = (_amount * disputeResolutionFee) / 10000;
-        uint256 totalAmount = _amount + platformFee + disputeFee;
         
-        payments[paymentId] = Payment({
-            paymentId: paymentId,
+        payments[_paymentId] = Payment({
+            paymentId: _paymentId,
             from: msg.sender,
             to: _to,
             amount: _amount,
@@ -263,23 +285,26 @@ contract AITBCPaymentProcessor is Ownable, ReentrancyGuard, Pausable {
             releaseCondition: _releaseCondition,
             conditionHash: bytes32(0)
         });
-        
-        senderPayments[msg.sender].push(paymentId);
-        recipientPayments[_to].push(paymentId);
+    }
+    
+    function _updatePaymentTracking(uint256 _paymentId, address _to, bytes32 _agreementId) internal {
+        senderPayments[msg.sender].push(_paymentId);
+        recipientPayments[_to].push(_paymentId);
         
         if (_agreementId != bytes32(0)) {
-            agreementPayments[_agreementId] = paymentId;
+            agreementPayments[_agreementId] = _paymentId;
         }
+    }
+    
+    function _transferTokensForPayment(uint256 _amount) internal {
+        uint256 platformFee = (_amount * platformFeePercentage) / 10000;
+        uint256 disputeFee = (_amount * disputeResolutionFee) / 10000;
+        uint256 totalAmount = _amount + platformFee + disputeFee;
         
-        // Transfer tokens to contract
         require(
             aitbcToken.transferFrom(msg.sender, address(this), totalAmount),
             "Payment transfer failed"
         );
-        
-        emit PaymentCreated(paymentId, msg.sender, _to, _amount, _agreementId, _paymentPurpose);
-        
-        return paymentId;
     }
     
     /**

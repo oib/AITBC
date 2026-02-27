@@ -38,7 +38,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     struct PerformanceMetrics {
         uint256 verificationId;
         uint256 agreementId;
-        address agreement.provider;
+        address provider;
         uint256 responseTime;
         uint256 accuracy;
         uint256 availability;
@@ -46,6 +46,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         uint256 throughput;
         uint256 memoryUsage;
         uint256 energyEfficiency;
+        uint256 score;
         bool withinSLA;
         uint256 timestamp;
         bytes32 zkProof;
@@ -110,9 +111,9 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => PerformanceMetrics) public performanceMetrics;
     mapping(uint256 => SLAParameters) public slaParameters;
     mapping(address => OracleData) public oracles;
-    mapping(address => PerformanceHistory) public agreement.providerHistory;
+    mapping(address => PerformanceHistory) public providerHistory;
     mapping(uint256 => uint256[]) public agreementVerifications;
-    mapping(address => uint256[]) public agreement.providerVerifications;
+    mapping(address => uint256[]) public providerVerifications;
     mapping(bytes32 => uint256) public proofToVerification;
     
     // Arrays for authorized oracles
@@ -122,7 +123,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     event PerformanceSubmitted(
         uint256 indexed verificationId,
         uint256 indexed agreementId,
-        address indexed agreement.provider,
+        address indexed provider,
         uint256 responseTime,
         uint256 accuracy,
         uint256 availability
@@ -166,13 +167,13 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     
     event PenaltyApplied(
         uint256 indexed agreementId,
-        address indexed agreement.provider,
+        address indexed provider,
         uint256 penaltyAmount
     );
     
     event RewardIssued(
         uint256 indexed agreementId,
-        address indexed agreement.provider,
+        address indexed provider,
         uint256 rewardAmount
     );
     
@@ -254,7 +255,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         performanceMetrics[verificationId] = PerformanceMetrics({
             verificationId: verificationId,
             agreementId: _agreementId,
-            agreement.provider: agreement.provider,
+            provider: agreement.provider,
             responseTime: _responseTime,
             accuracy: _accuracy,
             availability: _availability,
@@ -262,6 +263,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             throughput: _throughput,
             memoryUsage: _memoryUsage,
             energyEfficiency: _energyEfficiency,
+            score: 0,
             withinSLA: false,
             timestamp: block.timestamp,
             zkProof: keccak256(_zkProof),
@@ -272,7 +274,7 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         });
         
         agreementVerifications[_agreementId].push(verificationId);
-        agreement.providerVerifications[agreement.provider].push(verificationId);
+        providerVerifications[agreement.provider].push(verificationId);
         proofToVerification[keccak256(_zkProof)] = verificationId;
         
         emit PerformanceSubmitted(
@@ -497,15 +499,15 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     }
     
     /**
-     * @dev Gets performance history for a agreement.provider
-     * @param _agreement.provider Address of the agreement.provider
+     * @dev Gets performance history for a provider
+     * @param _provider Address of the provider
      */
-    function getProviderHistory(address _agreement.provider) 
+    function getProviderHistory(address _provider) 
         external 
         view 
         returns (PerformanceHistory memory) 
     {
-        return agreement.providerHistory[_agreement.provider];
+        return providerHistory[_provider];
     }
     
     /**
@@ -522,14 +524,14 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     
     /**
      * @dev Gets all verifications for a agreement.provider
-     * @param _agreement.provider Address of the agreement.provider
+     * @param _provider Address of the provider
      */
-    function getProviderVerifications(address _agreement.provider) 
+    function getProviderVerifications(address _provider) 
         external 
         view 
         returns (uint256[] memory) 
     {
-        return agreement.providerVerifications[_agreement.provider];
+        return providerVerifications[_provider];
     }
     
     /**
@@ -562,12 +564,13 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
             }
         }
         
-        // Resize array to active count
-        assembly {
-            mstore(activeOracles, activeCount)
+        // Create correctly sized array and copy elements
+        address[] memory result = new address[](activeCount);
+        for (uint256 i = 0; i < activeCount; i++) {
+            result[i] = activeOracles[i];
         }
         
-        return activeOracles;
+        return result;
     }
     
     // Internal functions
@@ -595,14 +598,26 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         return zkValid && groth16Valid;
     }
     
-function _verifyPerformance(uint256 _verificationId) internal {
+function verifyPerformanceProof(
+        uint256 agreementId,
+        uint256 responseTime,
+        uint256 accuracy,
+        uint256 availability,
+        uint256 computePower,
+        bytes memory zkProof
+    ) external pure returns (bool valid) {
+        // Placeholder implementation - delegate to ZKReceiptVerifier
+        return true;
+    }
+
+    function _verifyPerformance(uint256 _verificationId) internal {
         PerformanceMetrics storage metrics = performanceMetrics[_verificationId];
         
         // Setup optimistic rollup finalization time
         verificationFinalizedAt[_verificationId] = block.timestamp + disputeWindow;
         metrics.status = VerificationStatus.Verified;
         
-        emit PerformanceVerified(_verificationId, metrics.score, metrics.zkProof);
+        emit PerformanceVerified(_verificationId, metrics.withinSLA, metrics.penaltyAmount, metrics.rewardAmount);
     }
     
     /**
@@ -614,13 +629,16 @@ function _verifyPerformance(uint256 _verificationId) internal {
         require(metrics.status == VerificationStatus.Verified, "Verification not in verified status");
         require(block.timestamp >= verificationFinalizedAt[_verificationId], "Dispute window still open");
         
-        metrics.status = VerificationStatus.Completed;
+        metrics.status = VerificationStatus.Verified;
+        
+        // Get agreement details for reward/penalty
+        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
         
         // Execute SLA logic (distribute rewards/penalties)
         if (metrics.score >= minAccuracy) {
-            _rewardProvider(agreement.agreement.provider, metrics.agreementId);
+            _rewardProvider(agreement.provider, metrics.agreementId);
         } else {
-            _penalizeProvider(agreement.agreement.provider, metrics.agreementId);
+            _penalizeProvider(agreement.provider, metrics.agreementId);
         }
     }
     
@@ -636,12 +654,12 @@ function _verifyPerformance(uint256 _verificationId) internal {
         
         // A watcher node challenges the verification
         // Switch to manual review or on-chain full ZK validation
-        metrics.status = VerificationStatus.Challenged;
+        metrics.status = VerificationStatus.Disputed;
         emit VerificationChallenged(_verificationId, msg.sender, _challengeData);
     }
     
-    function _updateProviderHistory(address _agreement.provider, bool _withinSLA) internal {
-        PerformanceHistory storage history = agreement.providerHistory[_agreement.provider];
+    function _updateProviderHistory(address _provider, bool _withinSLA) internal {
+        PerformanceHistory storage history = providerHistory[_provider];
         
         history.totalVerifications++;
         if (_withinSLA) {
@@ -670,12 +688,12 @@ function _verifyPerformance(uint256 _verificationId) internal {
     /**
      * @dev Unpause function
      */
-    function _rewardProvider(address _agreement.provider, uint256 _agreementId) internal {
-        emit RewardIssued(_agreementId, _agreement.provider, 0);
+    function _rewardProvider(address _provider, uint256 _agreementId) internal {
+        emit RewardIssued(_agreementId, _provider, 0);
     }
     
-    function _penalizeProvider(address _agreement.provider, uint256 _agreementId) internal {
-        emit PenaltyApplied(_agreementId, _agreement.provider, 0);
+    function _penalizeProvider(address _provider, uint256 _agreementId) internal {
+        emit PenaltyApplied(_agreementId, _provider, 0);
     }
 
     function unpause() external onlyOwner {

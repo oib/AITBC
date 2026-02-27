@@ -270,7 +270,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         nonReentrant 
     {
         // Get bounty details
-        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,, bool requiresZKProof) = agentBounty.getBounty(_bountyId);
+        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,,,) = agentBounty.getBounty(_bountyId);
         
         // Check if auto-verification conditions are met
         if (_accuracy >= autoVerificationThreshold && _accuracy >= minAccuracy) {
@@ -278,7 +278,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
             agentBounty.verifySubmission(_bountyId, _submissionId, true, address(this));
             
             // Get submission details to calculate rewards
-            (address submitter,,,,,,,) = agentBounty.getSubmission(_submissionId);
+            (uint256 bountyId, address submitter, bytes32 performanceHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(_submissionId);
             
             // Trigger staking rewards if applicable
             _triggerStakingRewards(submitter, _accuracy);
@@ -309,7 +309,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
             PerformanceMapping storage perfMap = performanceMappings[mappingId];
             
             // Update agent staking metrics
-            (address submitter,,,,,,,) = agentBounty.getSubmission(perfMap.submissionId);
+            (uint256 bountyId, address submitter, bytes32 performanceHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(perfMap.submissionId);
             agentStaking.updateAgentPerformance(submitter, _accuracy, _accuracy >= autoVerificationThreshold);
             
             // Auto-verify bounty if conditions are met
@@ -544,13 +544,13 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         PerformanceMapping storage perfMap = performanceMappings[_mappingId];
         
         // Get bounty details
-        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,, bool requiresZKProof) = agentBounty.getBounty(perfMap.bountyId);
+        (,,,,,, bytes32 performanceCriteria, uint256 minAccuracy,,,,,) = agentBounty.getBounty(perfMap.bountyId);
         
         // Get submission details
-        (address submitter, bytes32 submissionHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(perfMap.submissionId);
+        (uint256 bountyId, address submitter, bytes32 performanceHash, uint256 accuracy, uint256 responseTime,,,) = agentBounty.getSubmission(perfMap.submissionId);
         
         // Verify performance criteria match
-        require(perfMap.performanceHash == submissionHash, "Performance hash mismatch");
+        require(perfMap.performanceHash == performanceHash, "Performance hash mismatch");
         
         // Check if accuracy meets requirements
         require(accuracy >= minAccuracy, "Accuracy below minimum");

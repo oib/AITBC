@@ -60,7 +60,7 @@
   },
   "homepage": "https://aitbc.bubuit.net/docs/",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.22.0"
   },
   "publishConfig": {
     "access": "public"

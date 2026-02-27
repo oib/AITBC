@@ -6,7 +6,16 @@ const PRIVATE_KEY = process.env.PRIVATE_KEY || "0x" + "0".repeat(64);
 const INFURA_PROJECT_ID = process.env.INFURA_PROJECT_ID || "";
 
 const config = {
-  solidity: "0.8.20",
+  solidity: {
+    version: "0.8.19",
+    settings: {
+      optimizer: {
+        enabled: true,
+        runs: 200
+      },
+      viaIR: true
+    }
+  },
   networks: {
     hardhat: {},
     localhost: {
