@@ -9,6 +9,7 @@ from ..services import JobService
 from ..services.payments import PaymentService
 from ..config import settings
 from ..storage import SessionDep
+from ..utils.cache import cached, get_cache_config
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["client"])
@@ -44,6 +45,7 @@ async def submit_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
+@cached(**get_cache_config("job_list"))  # Cache job status for 1 minute
 async def get_job(
     job_id: str,
     session: SessionDep,

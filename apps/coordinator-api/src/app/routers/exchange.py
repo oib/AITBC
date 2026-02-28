@@ -25,6 +25,8 @@ from ..schemas import (
     WalletInfoResponse
 )
 from ..services.bitcoin_wallet import get_wallet_balance, get_wallet_info
+from ..utils.cache import cached, get_cache_config
+from ..config import settings
 
 router = APIRouter(tags=["exchange"])
 
@@ -85,6 +87,7 @@ async def create_payment(
 
 
 @router.get("/exchange/payment-status/{payment_id}", response_model=PaymentStatusResponse)
+@cached(**get_cache_config("user_balance"))  # Cache payment status for 30 seconds
 async def get_payment_status(payment_id: str) -> Dict[str, Any]:
     """Get payment status"""
     

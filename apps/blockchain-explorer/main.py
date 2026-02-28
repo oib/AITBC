@@ -362,10 +362,29 @@ HTML_TEMPLATE = r"""
             alert('Search by block height or transaction hash (64 char hex) is supported');
         }
 
-        // Format timestamp
+        // Format timestamp - robust for both numeric and ISO string timestamps
         function formatTimestamp(timestamp) {
             if (!timestamp) return '-';
-            return new Date(timestamp * 1000).toLocaleString();
+            
+            // Handle ISO string timestamps
+            if (typeof timestamp === 'string') {
+                try {
+                    return new Date(timestamp).toLocaleString();
+                } catch (e) {
+                    return '-';
+                }
+            }
+            
+            // Handle numeric timestamps (Unix seconds)
+            if (typeof timestamp === 'number') {
+                try {
+                    return new Date(timestamp * 1000).toLocaleString();
+                } catch (e) {
+                    return '-';
+                }
+            }
+            
+            return '-';
         }
 
         // Auto-refresh every 30 seconds
@@ -376,15 +395,15 @@ HTML_TEMPLATE = r"""
 """
 
 
-async def get_chain_head() -> Dict[str, Any]:
-    """Get the current chain head"""
+async def get_transaction(tx_hash: str) -> Dict[str, Any]:
+    """Get transaction by hash"""
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/head")
+            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
             if response.status_code == 200:
                 return response.json()
     except Exception as e:
-        print(f"Error getting chain head: {e}")
+        print(f"Error getting transaction: {e}")
     return {}
 
 
@@ -424,7 +443,7 @@ async def api_transaction(tx_hash: str):
     """API endpoint for transaction data, normalized for frontend"""
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/tx/{tx_hash}")
+            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
             if response.status_code == 200:
                 tx = response.json()
                 # Normalize for frontend expectations

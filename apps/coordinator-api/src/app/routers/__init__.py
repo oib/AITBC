@@ -13,6 +13,7 @@ from .marketplace_offers import router as marketplace_offers
 from .payments import router as payments
 from .web_vitals import router as web_vitals
 from .edge_gpu import router as edge_gpu
+from .cache_management import router as cache_management
 # from .registry import router as registry
 
 __all__ = [
@@ -29,5 +30,6 @@ __all__ = [
     "payments",
     "web_vitals",
     "edge_gpu",
+    "cache_management",
     "registry",
 ]
