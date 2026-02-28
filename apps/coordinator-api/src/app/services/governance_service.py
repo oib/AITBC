@@ -1,6 +1,7 @@
 """
 Decentralized Governance Service
 Implements the OpenClaw DAO, voting mechanisms, and proposal lifecycle
+Enhanced with multi-jurisdictional support and regional governance
 """
 
 from typing import Optional, List, Dict, Any
@@ -50,18 +51,18 @@ class GovernanceService:
             old_delegatee = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator.delegate_to)).first()
             if old_delegatee:
                 old_delegatee.delegated_power -= delegator.voting_power
-                self.session.add(old_delegatee)
                 
-        # Set new delegation
-        delegator.delegate_to = delegatee.profile_id
+        # Apply new delegation
+        delegator.delegate_to = delegatee_id
         delegatee.delegated_power += delegator.voting_power
         
-        self.session.add(delegator)
-        self.session.add(delegatee)
         self.session.commit()
+        self.session.refresh(delegator)
+        self.session.refresh(delegatee)
         
+        logger.info(f"Votes delegated from {delegator_id} to {delegatee_id}")
         return delegator
-        
+
     async def create_proposal(self, proposer_id: str, data: Dict[str, Any]) -> Proposal:
         """Create a new governance proposal"""
         proposer = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposer_id)).first()
