@@ -126,6 +126,16 @@ class Settings(BaseSettings):
     rate_limit_requests: int = 60
     rate_limit_window_seconds: int = 60
 
+    # Configurable Rate Limits (per minute)
+    rate_limit_jobs_submit: str = "100/minute"
+    rate_limit_miner_register: str = "30/minute"
+    rate_limit_miner_heartbeat: str = "60/minute"
+    rate_limit_admin_stats: str = "20/minute"
+    rate_limit_marketplace_list: str = "100/minute"
+    rate_limit_marketplace_stats: str = "50/minute"
+    rate_limit_marketplace_bid: str = "30/minute"
+    rate_limit_exchange_payment: str = "20/minute"
+
     # Receipt Signing
     receipt_signing_key_hex: Optional[str] = None
     receipt_attestation_key_hex: Optional[str] = None
