@@ -20,7 +20,7 @@ from .routers.marketplace_offers import router as marketplace_offers
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .exceptions import AITBCError, ErrorResponse
-from .logging import get_logger
+from aitbc.logging import get_logger
 
 logger = get_logger(__name__)
 

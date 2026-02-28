@@ -30,7 +30,7 @@ from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
-from .logging import get_logger
+from aitbc.logging import get_logger
 from .config import settings
 from .storage.db import init_db
 

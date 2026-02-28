@@ -1,3 +1,6 @@
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -32,14 +35,28 @@ from .routers.monitoring_dashboard import router as monitoring_dashboard
 from .routers.multi_modal_rl import router as multi_modal_rl_router
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
-from .logging import get_logger
+from aitbc.logging import get_logger
 from .config import settings
 from .storage.db import init_db
 
 logger = get_logger(__name__)
 
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle events for the Coordinator API."""
+    logger.info("Starting Coordinator API")
+    # Initialize database if needed
+    init_db()
+    yield
+    logger.info("Shutting down Coordinator API")
+
 def create_app() -> FastAPI:
+    # Initialize rate limiter
+    limiter = Limiter(key_func=get_remote_address)
+    
     app = FastAPI(
         title="AITBC Coordinator API",
         version="0.1.0",
@@ -47,6 +64,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_url="/openapi.json",
+        lifespan=lifespan,
         openapi_tags=[
             {"name": "health", "description": "Health check endpoints"},
             {"name": "client", "description": "Client operations"},
@@ -59,8 +77,11 @@ def create_app() -> FastAPI:
         ]
     )
     
-    # Create database tables
-    init_db()
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    
+    # Create database tables (now handled in lifespan)
+    # init_db()
 
     app.add_middleware(
         CORSMiddleware,

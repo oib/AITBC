@@ -86,29 +86,45 @@ class JobService:
         return AssignedJob(job_id=job.id, payload=job.payload, constraints=constraints)
 
     def acquire_next_job(self, miner: Miner) -> Optional[Job]:
-        now = datetime.utcnow()
-        statement = (
-            select(Job)
-            .where(Job.state == JobState.queued)
-            .order_by(Job.requested_at.asc())
-        )
+        try:
+            now = datetime.utcnow()
+            statement = (
+                select(Job)
+                .where(Job.state == JobState.queued)
+                .order_by(Job.requested_at.asc())
+            )
 
-        jobs = self.session.exec(statement).all()
-        for job in jobs:
-            job = self._ensure_not_expired(job)
-            if job.state != JobState.queued:
-                continue
-            if job.expires_at <= now:
-                continue
-            if not self._satisfies_constraints(job, miner):
-                continue
-            job.state = JobState.running
-            job.assigned_miner_id = miner.id
-            self.session.add(job)
-            self.session.commit()
-            self.session.refresh(job)
-            return job
-        return None
+            jobs = self.session.exec(statement).all()
+            for job in jobs:
+                try:
+                    job = self._ensure_not_expired(job)
+                    if job.state != JobState.queued:
+                        continue
+                    if job.expires_at <= now:
+                        continue
+                    if not self._satisfies_constraints(job, miner):
+                        continue
+                    
+                    # Update job state
+                    job.state = JobState.running
+                    job.assigned_miner_id = miner.id
+                    self.session.add(job)
+                    self.session.commit()
+                    self.session.refresh(job)
+                    return job
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"Error checking job {job.id}: {e}")
+                    self.session.rollback()  # Rollback on individual job failure
+                    continue
+                    
+            return None
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error acquiring next job: {e}")
+            raise  # Propagate for caller to handle
 
     def _ensure_not_expired(self, job: Job) -> Job:
         if job.state in {JobState.queued, JobState.running} and job.expires_at <= datetime.utcnow():
