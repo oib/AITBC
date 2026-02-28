@@ -6,6 +6,8 @@ from slowapi.util import get_remote_address
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
 from ..storage import SessionDep
+from ..utils.cache import cached, get_cache_config
+from ..config import settings
 from aitbc.logging import get_logger
 
 logger = get_logger(__name__)
@@ -14,7 +16,8 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/stats", summary="Get coordinator stats")
-@limiter.limit("20/minute")
+@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@cached(**get_cache_config("job_list"))  # Cache admin stats for 1 minute
 async def get_stats(
     request: Request,
     session: SessionDep, 
