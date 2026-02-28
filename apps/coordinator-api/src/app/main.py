@@ -30,7 +30,9 @@ from .routers import (
     agent_identity,
     global_marketplace,
     cross_chain_integration,
-    global_marketplace_integration
+    global_marketplace_integration,
+    developer_platform,
+    governance_enhanced
 )
 from .routers.ml_zk_proofs import router as ml_zk_proofs
 from .routers.community import router as community_router
@@ -231,6 +233,8 @@ def create_app() -> FastAPI:
     app.include_router(global_marketplace, prefix="/v1")
     app.include_router(cross_chain_integration, prefix="/v1")
     app.include_router(global_marketplace_integration, prefix="/v1")
+    app.include_router(developer_platform, prefix="/v1")
+    app.include_router(governance_enhanced, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
