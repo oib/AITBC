@@ -3,14 +3,17 @@ Bitcoin Exchange Router for AITBC
 """
 
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
 import uuid
 import time
 import json
 import os
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from aitbc.logging import get_logger
 
 logger = get_logger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 
 from ..schemas import (
     ExchangePaymentRequest, 
@@ -38,30 +41,32 @@ BITCOIN_CONFIG = {
 }
 
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
+@limiter.limit("20/minute")
 async def create_payment(
-    request: ExchangePaymentRequest,
+    request: Request,
+    payment_request: ExchangePaymentRequest,
     background_tasks: BackgroundTasks
 ) -> Dict[str, Any]:
     """Create a new Bitcoin payment request"""
     
     # Validate request
-    if request.aitbc_amount <= 0 or request.btc_amount <= 0:
+    if payment_request.aitbc_amount <= 0 or payment_request.btc_amount <= 0:
         raise HTTPException(status_code=400, detail="Invalid amount")
     
     # Calculate expected BTC amount
-    expected_btc = request.aitbc_amount / BITCOIN_CONFIG['exchange_rate']
+    expected_btc = payment_request.aitbc_amount / BITCOIN_CONFIG['exchange_rate']
     
     # Allow small difference for rounding
-    if abs(request.btc_amount - expected_btc) > 0.00000001:
+    if abs(payment_request.btc_amount - expected_btc) > 0.00000001:
         raise HTTPException(status_code=400, detail="Amount mismatch")
     
     # Create payment record
     payment_id = str(uuid.uuid4())
     payment = {
         'payment_id': payment_id,
-        'user_id': request.user_id,
-        'aitbc_amount': request.aitbc_amount,
-        'btc_amount': request.btc_amount,
+        'user_id': payment_request.user_id,
+        'aitbc_amount': payment_request.aitbc_amount,
+        'btc_amount': payment_request.btc_amount,
         'payment_address': BITCOIN_CONFIG['main_address'],
         'status': 'pending',
         'created_at': int(time.time()),

@@ -148,6 +148,35 @@ def create_app() -> FastAPI:
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
 
+    @app.exception_handler(Exception)
+    async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Handle all unhandled exceptions with structured error responses."""
+        request_id = request.headers.get("X-Request-ID")
+        logger.error(f"Unhandled exception: {exc}", extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "method": request.method,
+            "error_type": type(exc).__name__
+        })
+        
+        error_response = ErrorResponse(
+            error={
+                "code": "INTERNAL_SERVER_ERROR",
+                "message": "An unexpected error occurred",
+                "status": 500,
+                "details": [{
+                    "field": "internal",
+                    "message": str(exc),
+                    "code": type(exc).__name__
+                }]
+            },
+            request_id=request_id
+        )
+        return JSONResponse(
+            status_code=500,
+            content=error_response.model_dump()
+        )
+
     @app.exception_handler(AITBCError)
     async def aitbc_error_handler(request: Request, exc: AITBCError) -> JSONResponse:
         """Handle AITBC exceptions with structured error responses."""
@@ -162,6 +191,13 @@ def create_app() -> FastAPI:
     async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         """Handle FastAPI validation errors with structured error responses."""
         request_id = request.headers.get("X-Request-ID")
+        logger.warning(f"Validation error: {exc}", extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "method": request.method,
+            "validation_errors": exc.errors()
+        })
+        
         details = []
         for error in exc.errors():
             details.append({

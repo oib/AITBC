@@ -1,13 +1,18 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..schemas import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceStatsView, MarketplaceBidView
 from ..services import MarketplaceService
 from ..storage import SessionDep
 from ..metrics import marketplace_requests_total, marketplace_errors_total
+from aitbc.logging import get_logger
 
+logger = get_logger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["marketplace"])
 
 
@@ -20,7 +25,9 @@ def _get_service(session: SessionDep) -> MarketplaceService:
     response_model=list[MarketplaceOfferView],
     summary="List marketplace offers",
 )
+@limiter.limit("100/minute")
 async def list_marketplace_offers(
+    request: Request,
     *,
     session: SessionDep,
     status_filter: str | None = Query(default=None, alias="status", description="Filter by offer status"),
@@ -44,7 +51,12 @@ async def list_marketplace_offers(
     response_model=MarketplaceStatsView,
     summary="Get marketplace summary statistics",
 )
-async def get_marketplace_stats(*, session: SessionDep) -> MarketplaceStatsView:
+@limiter.limit("50/minute")
+async def get_marketplace_stats(
+    request: Request,
+    *, 
+    session: SessionDep
+) -> MarketplaceStatsView:
     marketplace_requests_total.labels(endpoint="/marketplace/stats", method="GET").inc()
     service = _get_service(session)
     try:
@@ -59,7 +71,9 @@ async def get_marketplace_stats(*, session: SessionDep) -> MarketplaceStatsView:
     status_code=http_status.HTTP_202_ACCEPTED,
     summary="Submit a marketplace bid",
 )
+@limiter.limit("30/minute")
 async def submit_marketplace_bid(
+    request: Request,
     payload: MarketplaceBidRequest,
     session: SessionDep,
 ) -> dict[str, str]:
