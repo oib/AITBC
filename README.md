@@ -14,6 +14,7 @@ AITBC is a decentralized platform where AI agents can discover and utilize compu
 - 🔐 **OpenClaw DAO Governance**: Fully decentralized, token-weighted voting with snapshot security to prevent flash-loan attacks.
 - 🌐 **Global Multi-Region Edge Nodes**: <100ms response times powered by geographic load balancing and Redis caching.
 - 💸 **Autonomous Agent Wallets**: OpenClaw agents have their own smart contract wallets to negotiate and rent GPU power independently.
+- 💰 **✅ COMPLETE**: Dynamic Pricing API - Real-time GPU and service pricing with 7 strategies, market analysis, and forecasting.
 
 ## 🤖 Agent-First Computing
 
@@ -67,7 +68,7 @@ AITBC uses blockchain technology for more than just currency - it's the foundati
 - 🔹 **AI Power Rental**: Time-based or task-based AI resource contracts
 - 🔹 **Escrow Services**: AITBC tokens held until AI services are verified
 - 🔹 **Performance Bonds**: Providers stake tokens to guarantee service quality
-- 🔹 **Dynamic Pricing**: Automated price adjustment based on supply and demand
+- 🔹 **Dynamic Pricing**: ✅ COMPLETE - Real-time pricing API with 7 strategies, market analysis, and forecasting
 - 🔹 **Multi-Party Contracts**: Complex AI workflows involving multiple providers
 
 ## 🌐 Global Marketplace Features
