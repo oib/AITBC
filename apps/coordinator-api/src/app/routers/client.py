@@ -7,6 +7,7 @@ from ..schemas import JobCreate, JobView, JobResult, JobPaymentCreate
 from ..types import JobState
 from ..services import JobService
 from ..services.payments import PaymentService
+from ..config import settings
 from ..storage import SessionDep
 
 limiter = Limiter(key_func=get_remote_address)
@@ -14,7 +15,7 @@ router = APIRouter(tags=["client"])
 
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
-@limiter.limit("100/minute")
+@limiter.limit(lambda: settings.rate_limit_jobs_submit)
 async def submit_job(
     req: JobCreate,
     request: Request,

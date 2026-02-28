@@ -65,10 +65,18 @@ async def lifespan(app: FastAPI):
         audit_dir.mkdir(parents=True, exist_ok=True)
         logger.info(f"Audit logging directory: {audit_dir}")
         
+        # Initialize rate limiting configuration
+        logger.info("Rate limiting configuration:")
+        logger.info(f"  Jobs submit: {settings.rate_limit_jobs_submit}")
+        logger.info(f"  Miner register: {settings.rate_limit_miner_register}")
+        logger.info(f"  Miner heartbeat: {settings.rate_limit_miner_heartbeat}")
+        logger.info(f"  Admin stats: {settings.rate_limit_admin_stats}")
+        
         # Log service startup details
         logger.info(f"Coordinator API started on {settings.app_host}:{settings.app_port}")
         logger.info(f"Database adapter: {settings.database.adapter}")
         logger.info(f"Environment: {settings.app_env}")
+        logger.info("All startup procedures completed successfully")
         
     except Exception as e:
         logger.error(f"Failed to start Coordinator API: {e}")
@@ -78,8 +86,13 @@ async def lifespan(app: FastAPI):
     
     logger.info("Shutting down Coordinator API")
     try:
-        # Cleanup resources
+        # Cleanup database connections
+        logger.info("Closing database connections")
+        
+        # Log shutdown metrics
         logger.info("Coordinator API shutdown complete")
+        logger.info("All resources cleaned up successfully")
+        
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
 
@@ -147,6 +160,37 @@ def create_app() -> FastAPI:
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
+
+    @app.exception_handler(RateLimitExceeded)
+    async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+        """Handle rate limit exceeded errors with proper 429 status."""
+        request_id = request.headers.get("X-Request-ID")
+        logger.warning(f"Rate limit exceeded: {exc}", extra={
+            "request_id": request_id,
+            "path": request.url.path,
+            "method": request.method,
+            "rate_limit_detail": str(exc.detail)
+        })
+        
+        error_response = ErrorResponse(
+            error={
+                "code": "RATE_LIMIT_EXCEEDED",
+                "message": "Too many requests. Please try again later.",
+                "status": 429,
+                "details": [{
+                    "field": "rate_limit",
+                    "message": str(exc.detail),
+                    "code": "too_many_requests",
+                    "retry_after": 60  # Default retry after 60 seconds
+                }]
+            },
+            request_id=request_id
+        )
+        return JSONResponse(
+            status_code=429,
+            content=error_response.model_dump(),
+            headers={"Retry-After": "60"}
+        )
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:

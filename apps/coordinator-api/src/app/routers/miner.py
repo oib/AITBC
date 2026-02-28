@@ -9,6 +9,7 @@ from ..deps import require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
+from ..config import settings
 from ..storage import SessionDep
 from aitbc.logging import get_logger
 
@@ -18,7 +19,7 @@ router = APIRouter(tags=["miner"])
 
 
 @router.post("/miners/register", summary="Register or update miner")
-@limiter.limit("30/minute")
+@limiter.limit(lambda: settings.rate_limit_miner_register)
 async def register(
     req: MinerRegister,
     request: Request,
@@ -30,7 +31,7 @@ async def register(
     return {"status": "ok", "session_token": record.session_token}
 
 @router.post("/miners/heartbeat", summary="Send miner heartbeat")
-@limiter.limit("60/minute")
+@limiter.limit(lambda: settings.rate_limit_miner_heartbeat)
 async def heartbeat(
     req: MinerHeartbeat,
     request: Request,
