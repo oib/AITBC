@@ -1,12 +1,16 @@
 """
-Multi-Modal Agent Fusion Service
+Multi-Modal Agent Fusion Service - Enhanced Implementation
 Implements advanced fusion models and cross-domain capability integration
+Phase 5.1: Advanced AI Capabilities Enhancement
 """
 
 import asyncio
 import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from uuid import uuid4
 from aitbc.logging import get_logger
 
@@ -21,10 +25,232 @@ from ..domain.agent_performance import (
 logger = get_logger(__name__)
 
 
+class CrossModalAttention(nn.Module):
+    """Cross-modal attention mechanism for multi-modal fusion"""
+    
+    def __init__(self, embed_dim: int, num_heads: int = 8):
+        super(CrossModalAttention, self).__init__()
+        self.embed_dim = embed_dim
+        self.num_heads = num_heads
+        self.head_dim = embed_dim // num_heads
+        
+        assert self.head_dim * num_heads == embed_dim, "embed_dim must be divisible by num_heads"
+        
+        self.query = nn.Linear(embed_dim, embed_dim)
+        self.key = nn.Linear(embed_dim, embed_dim)
+        self.value = nn.Linear(embed_dim, embed_dim)
+        self.dropout = nn.Dropout(0.1)
+        
+    def forward(self, query_modal: torch.Tensor, key_modal: torch.Tensor, 
+                value_modal: torch.Tensor, mask: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            query_modal: (batch_size, seq_len_q, embed_dim)
+            key_modal: (batch_size, seq_len_k, embed_dim)
+            value_modal: (batch_size, seq_len_v, embed_dim)
+            mask: (batch_size, seq_len_q, seq_len_k)
+        """
+        batch_size, seq_len_q, _ = query_modal.size()
+        seq_len_k = key_modal.size(1)
+        
+        # Linear projections
+        Q = self.query(query_modal)  # (batch_size, seq_len_q, embed_dim)
+        K = self.key(key_modal)      # (batch_size, seq_len_k, embed_dim)
+        V = self.value(value_modal)  # (batch_size, seq_len_v, embed_dim)
+        
+        # Reshape for multi-head attention
+        Q = Q.view(batch_size, seq_len_q, self.num_heads, self.head_dim).transpose(1, 2)
+        K = K.view(batch_size, seq_len_k, self.num_heads, self.head_dim).transpose(1, 2)
+        V = V.view(batch_size, seq_len_k, self.num_heads, self.head_dim).transpose(1, 2)
+        
+        # Scaled dot-product attention
+        scores = torch.matmul(Q, K.transpose(-2, -1)) / np.sqrt(self.head_dim)
+        
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, -1e9)
+        
+        attention_weights = F.softmax(scores, dim=-1)
+        attention_weights = self.dropout(attention_weights)
+        
+        # Apply attention to values
+        context = torch.matmul(attention_weights, V)
+        
+        # Concatenate heads
+        context = context.transpose(1, 2).contiguous().view(
+            batch_size, seq_len_q, self.embed_dim
+        )
+        
+        return context, attention_weights
+
+
+class MultiModalTransformer(nn.Module):
+    """Transformer-based multi-modal fusion architecture"""
+    
+    def __init__(self, modality_dims: Dict[str, int], embed_dim: int = 512, 
+                 num_layers: int = 6, num_heads: int = 8):
+        super(MultiModalTransformer, self).__init__()
+        self.modality_dims = modality_dims
+        self.embed_dim = embed_dim
+        
+        # Modality-specific encoders
+        self.modality_encoders = nn.ModuleDict()
+        for modality, dim in modality_dims.items():
+            self.modality_encoders[modality] = nn.Sequential(
+                nn.Linear(dim, embed_dim),
+                nn.ReLU(),
+                nn.Dropout(0.1)
+            )
+        
+        # Cross-modal attention layers
+        self.cross_attention_layers = nn.ModuleList([
+            CrossModalAttention(embed_dim, num_heads) for _ in range(num_layers)
+        ])
+        
+        # Feed-forward networks
+        self.feed_forward = nn.ModuleList([
+            nn.Sequential(
+                nn.Linear(embed_dim, embed_dim * 4),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(embed_dim * 4, embed_dim)
+            ) for _ in range(num_layers)
+        ])
+        
+        # Layer normalization
+        self.layer_norms = nn.ModuleList([
+            nn.LayerNorm(embed_dim) for _ in range(num_layers * 2)
+        ])
+        
+        # Output projection
+        self.output_projection = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(embed_dim, embed_dim)
+        )
+        
+    def forward(self, modal_inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+        Args:
+            modal_inputs: Dict mapping modality names to input tensors
+        """
+        # Encode each modality
+        encoded_modalities = {}
+        for modality, input_tensor in modal_inputs.items():
+            if modality in self.modality_encoders:
+                encoded_modalities[modality] = self.modality_encoders[modality](input_tensor)
+        
+        # Cross-modal fusion
+        modality_names = list(encoded_modalities.keys())
+        fused_features = list(encoded_modalities.values())
+        
+        for i, attention_layer in enumerate(self.cross_attention_layers):
+            # Apply attention between all modality pairs
+            new_features = []
+            
+            for j, modality in enumerate(modality_names):
+                # Query from current modality, keys/values from all modalities
+                query = fused_features[j]
+                
+                # Concatenate all modalities for keys and values
+                keys = torch.cat([feat for k, feat in enumerate(fused_features) if k != j], dim=1)
+                values = torch.cat([feat for k, feat in enumerate(fused_features) if k != j], dim=1)
+                
+                # Apply cross-modal attention
+                attended_feat, _ = attention_layer(query, keys, values)
+                new_features.append(attended_feat)
+            
+            # Residual connection and layer norm
+            fused_features = []
+            for j, feat in enumerate(new_features):
+                residual = encoded_modalities[modality_names[j]]
+                fused = self.layer_norms[i * 2](residual + feat)
+                
+                # Feed-forward
+                ff_output = self.feed_forward[i](fused)
+                fused = self.layer_norms[i * 2 + 1](fused + ff_output)
+                fused_features.append(fused)
+            
+            encoded_modalities = dict(zip(modality_names, fused_features))
+        
+        # Global fusion - concatenate all modalities
+        global_fused = torch.cat(list(encoded_modalities.values()), dim=1)
+        
+        # Global attention pooling
+        pooled = torch.mean(global_fused, dim=1)  # Global average pooling
+        
+        # Output projection
+        output = self.output_projection(pooled)
+        
+        return output
+
+
+class AdaptiveModalityWeighting(nn.Module):
+    """Dynamic modality weighting based on context and performance"""
+    
+    def __init__(self, num_modalities: int, embed_dim: int = 256):
+        super(AdaptiveModalityWeighting, self).__init__()
+        self.num_modalities = num_modalities
+        
+        # Context encoder
+        self.context_encoder = nn.Sequential(
+            nn.Linear(embed_dim, embed_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(embed_dim // 2, num_modalities)
+        )
+        
+        # Performance-based weighting
+        self.performance_encoder = nn.Sequential(
+            nn.Linear(num_modalities, embed_dim // 2),
+            nn.ReLU(),
+            nn.Dropout(0.1),
+            nn.Linear(embed_dim // 2, num_modalities)
+        )
+        
+        # Weight normalization
+        self.weight_normalization = nn.Softmax(dim=-1)
+        
+    def forward(self, modality_features: torch.Tensor, context: torch.Tensor,
+                performance_scores: Optional[torch.Tensor] = None) -> torch.Tensor:
+        """
+        Args:
+            modality_features: (batch_size, num_modalities, feature_dim)
+            context: (batch_size, context_dim)
+            performance_scores: (batch_size, num_modalities) - optional performance metrics
+        """
+        batch_size, num_modalities, feature_dim = modality_features.size()
+        
+        # Context-based weights
+        context_weights = self.context_encoder(context)  # (batch_size, num_modalities)
+        
+        # Combine with performance scores if available
+        if performance_scores is not None:
+            perf_weights = self.performance_encoder(performance_scores)
+            combined_weights = context_weights + perf_weights
+        else:
+            combined_weights = context_weights
+        
+        # Normalize weights
+        weights = self.weight_normalization(combined_weights)  # (batch_size, num_modalities)
+        
+        # Apply weights to features
+        weighted_features = modality_features * weights.unsqueeze(-1)
+        
+        # Weighted sum
+        fused_features = torch.sum(weighted_features, dim=1)  # (batch_size, feature_dim)
+        
+        return fused_features, weights
+
+
 class MultiModalFusionEngine:
-    """Advanced multi-modal agent fusion system"""
+    """Advanced multi-modal agent fusion system - Enhanced Implementation"""
     
     def __init__(self):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.fusion_models = {}  # Store trained fusion models
+        self.performance_history = {}  # Track fusion performance
+        
         self.fusion_strategies = {
             'ensemble_fusion': self.ensemble_fusion,
             'attention_fusion': self.attention_fusion,
@@ -35,11 +261,11 @@ class MultiModalFusionEngine:
         }
         
         self.modality_types = {
-            'text': {'weight': 0.3, 'encoder': 'transformer'},
-            'image': {'weight': 0.25, 'encoder': 'cnn'},
-            'audio': {'weight': 0.2, 'encoder': 'wav2vec'},
-            'video': {'weight': 0.15, 'encoder': '3d_cnn'},
-            'structured': {'weight': 0.1, 'encoder': 'tabular'}
+            'text': {'weight': 0.3, 'encoder': 'transformer', 'dim': 768},
+            'image': {'weight': 0.25, 'encoder': 'cnn', 'dim': 2048},
+            'audio': {'weight': 0.2, 'encoder': 'wav2vec', 'dim': 1024},
+            'video': {'weight': 0.15, 'encoder': '3d_cnn', 'dim': 1024},
+            'structured': {'weight': 0.1, 'encoder': 'tabular', 'dim': 256}
         }
         
         self.fusion_objectives = {
@@ -47,6 +273,285 @@ class MultiModalFusionEngine:
             'efficiency': 0.3,
             'robustness': 0.2,
             'adaptability': 0.1
+        }
+    
+    async def transformer_fusion(
+        self, 
+        session: Session,
+        modal_data: Dict[str, Any],
+        fusion_config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Enhanced transformer-based multi-modal fusion"""
+        
+        # Default configuration
+        default_config = {
+            'embed_dim': 512,
+            'num_layers': 6,
+            'num_heads': 8,
+            'learning_rate': 0.001,
+            'batch_size': 32,
+            'epochs': 100
+        }
+        
+        if fusion_config:
+            default_config.update(fusion_config)
+        
+        # Prepare modality dimensions
+        modality_dims = {}
+        for modality, data in modal_data.items():
+            if modality in self.modality_types:
+                modality_dims[modality] = self.modality_types[modality]['dim']
+        
+        # Initialize transformer fusion model
+        fusion_model = MultiModalTransformer(
+            modality_dims=modality_dims,
+            embed_dim=default_config['embed_dim'],
+            num_layers=default_config['num_layers'],
+            num_heads=default_config['num_heads']
+        ).to(self.device)
+        
+        # Initialize adaptive weighting
+        adaptive_weighting = AdaptiveModalityWeighting(
+            num_modalities=len(modality_dims),
+            embed_dim=default_config['embed_dim']
+        ).to(self.device)
+        
+        # Training loop (simplified for demonstration)
+        optimizer = torch.optim.Adam(
+            list(fusion_model.parameters()) + list(adaptive_weighting.parameters()),
+            lr=default_config['learning_rate']
+        )
+        
+        training_history = {
+            'losses': [],
+            'attention_weights': [],
+            'modality_weights': []
+        }
+        
+        for epoch in range(default_config['epochs']):
+            # Simulate training data
+            batch_modal_inputs = self.prepare_batch_modal_data(modal_data, default_config['batch_size'])
+            
+            # Forward pass
+            fused_output = fusion_model(batch_modal_inputs)
+            
+            # Adaptive weighting
+            modality_features = torch.stack(list(batch_modal_inputs.values()), dim=1)
+            context = torch.randn(default_config['batch_size'], default_config['embed_dim']).to(self.device)
+            weighted_output, modality_weights = adaptive_weighting(modality_features, context)
+            
+            # Simulate loss (in production, use actual task-specific loss)
+            loss = torch.mean((fused_output - weighted_output) ** 2)
+            
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
+            training_history['losses'].append(loss.item())
+            training_history['modality_weights'].append(modality_weights.mean(dim=0).cpu().numpy())
+        
+        # Save model
+        model_id = f"transformer_fusion_{uuid4().hex[:8]}"
+        self.fusion_models[model_id] = {
+            'fusion_model': fusion_model.state_dict(),
+            'adaptive_weighting': adaptive_weighting.state_dict(),
+            'config': default_config,
+            'modality_dims': modality_dims
+        }
+        
+        return {
+            'fusion_strategy': 'transformer_fusion',
+            'model_id': model_id,
+            'training_history': training_history,
+            'final_loss': training_history['losses'][-1],
+            'modality_importance': training_history['modality_weights'][-1].tolist()
+        }
+    
+    async def cross_modal_attention(
+        self, 
+        session: Session,
+        modal_data: Dict[str, Any],
+        fusion_config: Optional[Dict[str, Any]] = None
+    ) -> Dict[str, Any]:
+        """Enhanced cross-modal attention fusion"""
+        
+        # Default configuration
+        default_config = {
+            'embed_dim': 512,
+            'num_heads': 8,
+            'learning_rate': 0.001,
+            'epochs': 50
+        }
+        
+        if fusion_config:
+            default_config.update(fusion_config)
+        
+        # Prepare modality data
+        modality_names = list(modal_data.keys())
+        num_modalities = len(modality_names)
+        
+        # Initialize cross-modal attention networks
+        attention_networks = nn.ModuleDict()
+        for modality in modality_names:
+            attention_networks[modality] = CrossModalAttention(
+                embed_dim=default_config['embed_dim'],
+                num_heads=default_config['num_heads']
+            ).to(self.device)
+        
+        optimizer = torch.optim.Adam(attention_networks.parameters(), lr=default_config['learning_rate'])
+        
+        training_history = {
+            'losses': [],
+            'attention_patterns': {}
+        }
+        
+        for epoch in range(default_config['epochs']):
+            epoch_loss = 0
+            
+            # Simulate batch processing
+            for batch_idx in range(10):  # 10 batches per epoch
+                # Prepare batch data
+                batch_data = self.prepare_batch_modal_data(modal_data, 16)
+                
+                # Apply cross-modal attention
+                attention_outputs = {}
+                total_loss = 0
+                
+                for i, modality in enumerate(modality_names):
+                    query = batch_data[modality]
+                    
+                    # Use other modalities as keys and values
+                    other_modalities = [m for m in modality_names if m != modality]
+                    if other_modalities:
+                        keys = torch.cat([batch_data[m] for m in other_modalities], dim=1)
+                        values = torch.cat([batch_data[m] for m in other_modalities], dim=1)
+                        
+                        attended_output, attention_weights = attention_networks[modality](query, keys, values)
+                        attention_outputs[modality] = attended_output
+                        
+                        # Simulate reconstruction loss
+                        reconstruction_loss = torch.mean((attended_output - query) ** 2)
+                        total_loss += reconstruction_loss
+                
+                # Backward pass
+                optimizer.zero_grad()
+                total_loss.backward()
+                optimizer.step()
+                
+                epoch_loss += total_loss.item()
+            
+            training_history['losses'].append(epoch_loss / 10)
+        
+        # Save model
+        model_id = f"cross_modal_attention_{uuid4().hex[:8]}"
+        self.fusion_models[model_id] = {
+            'attention_networks': {name: net.state_dict() for name, net in attention_networks.items()},
+            'config': default_config,
+            'modality_names': modality_names
+        }
+        
+        return {
+            'fusion_strategy': 'cross_modal_attention',
+            'model_id': model_id,
+            'training_history': training_history,
+            'final_loss': training_history['losses'][-1],
+            'attention_modalities': modality_names
+        }
+    
+    def prepare_batch_modal_data(self, modal_data: Dict[str, Any], batch_size: int) -> Dict[str, torch.Tensor]:
+        """Prepare batch data for multi-modal fusion"""
+        batch_modal_inputs = {}
+        
+        for modality, data in modal_data.items():
+            if modality in self.modality_types:
+                dim = self.modality_types[modality]['dim']
+                
+                # Simulate batch data (in production, use real data)
+                batch_tensor = torch.randn(batch_size, 10, dim).to(self.device)
+                batch_modal_inputs[modality] = batch_tensor
+        
+        return batch_modal_inputs
+    
+    async def evaluate_fusion_performance(
+        self, 
+        model_id: str, 
+        test_data: Dict[str, Any]
+    ) -> Dict[str, float]:
+        """Evaluate fusion model performance"""
+        
+        if model_id not in self.fusion_models:
+            return {'error': 'Model not found'}
+        
+        model_info = self.fusion_models[model_id]
+        fusion_strategy = model_info.get('config', {}).get('strategy', 'unknown')
+        
+        # Load model
+        if fusion_strategy == 'transformer_fusion':
+            modality_dims = model_info['modality_dims']
+            config = model_info['config']
+            
+            fusion_model = MultiModalTransformer(
+                modality_dims=modality_dims,
+                embed_dim=config['embed_dim'],
+                num_layers=config['num_layers'],
+                num_heads=config['num_heads']
+            ).to(self.device)
+            
+            fusion_model.load_state_dict(model_info['fusion_model'])
+            fusion_model.eval()
+            
+            # Evaluate
+            with torch.no_grad():
+                batch_data = self.prepare_batch_modal_data(test_data, 32)
+                fused_output = fusion_model(batch_data)
+                
+                # Calculate metrics (simplified)
+                output_variance = torch.var(fused_output).item()
+                output_mean = torch.mean(fused_output).item()
+                
+            return {
+                'output_variance': output_variance,
+                'output_mean': output_mean,
+                'model_complexity': sum(p.numel() for p in fusion_model.parameters()),
+                'fusion_quality': 1.0 / (1.0 + output_variance)  # Lower variance = better fusion
+            }
+        
+        return {'error': 'Unsupported fusion strategy for evaluation'}
+    
+    async def adaptive_fusion_selection(
+        self, 
+        modal_data: Dict[str, Any],
+        performance_requirements: Dict[str, float]
+    ) -> Dict[str, Any]:
+        """Automatically select best fusion strategy based on requirements"""
+        
+        available_strategies = ['transformer_fusion', 'cross_modal_attention', 'ensemble_fusion']
+        strategy_scores = {}
+        
+        for strategy in available_strategies:
+            # Simulate strategy selection based on requirements
+            if strategy == 'transformer_fusion':
+                # Good for complex interactions, higher computational cost
+                score = 0.8 if performance_requirements.get('accuracy', 0) > 0.8 else 0.6
+                score *= 0.7 if performance_requirements.get('efficiency', 0) > 0.7 else 1.0
+            elif strategy == 'cross_modal_attention':
+                # Good for interpretability, moderate cost
+                score = 0.7 if performance_requirements.get('interpretability', 0) > 0.7 else 0.5
+                score *= 0.8 if performance_requirements.get('efficiency', 0) > 0.6 else 1.0
+            else:
+                # Baseline strategy
+                score = 0.5
+            
+            strategy_scores[strategy] = score
+        
+        # Select best strategy
+        best_strategy = max(strategy_scores, key=strategy_scores.get)
+        
+        return {
+            'selected_strategy': best_strategy,
+            'strategy_scores': strategy_scores,
+            'recommendation': f"Use {best_strategy} for optimal performance"
         }
     
     async def create_fusion_model(
