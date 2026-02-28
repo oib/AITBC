@@ -9,6 +9,8 @@ from ..schemas import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceSt
 from ..services import MarketplaceService
 from ..storage import SessionDep
 from ..metrics import marketplace_requests_total, marketplace_errors_total
+from ..utils.cache import cached, get_cache_config
+from ..config import settings
 from aitbc.logging import get_logger
 
 logger = get_logger(__name__)
@@ -51,7 +53,8 @@ async def list_marketplace_offers(
     response_model=MarketplaceStatsView,
     summary="Get marketplace summary statistics",
 )
-@limiter.limit("50/minute")
+@limiter.limit(lambda: settings.rate_limit_marketplace_stats)
+@cached(**get_cache_config("marketplace_stats"))
 async def get_marketplace_stats(
     request: Request,
     *, 
