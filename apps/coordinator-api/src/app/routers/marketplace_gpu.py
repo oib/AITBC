@@ -4,16 +4,48 @@ GPU marketplace endpoints backed by persistent SQLModel tables.
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+import statistics
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlmodel import select, func, col
 
 from ..storage import SessionDep
 from ..domain.gpu_marketplace import GPURegistry, GPUBooking, GPUReview
+from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
+from ..services.market_data_collector import MarketDataCollector
 
 router = APIRouter(tags=["marketplace-gpu"])
+
+# Global instances (in production, these would be dependency injected)
+pricing_engine = None
+market_collector = None
+
+
+async def get_pricing_engine() -> DynamicPricingEngine:
+    """Get pricing engine instance"""
+    global pricing_engine
+    if pricing_engine is None:
+        pricing_engine = DynamicPricingEngine({
+            "min_price": 0.001,
+            "max_price": 1000.0,
+            "update_interval": 300,
+            "forecast_horizon": 72
+        })
+        await pricing_engine.initialize()
+    return pricing_engine
+
+
+async def get_market_collector() -> MarketDataCollector:
+    """Get market data collector instance"""
+    global market_collector
+    if market_collector is None:
+        market_collector = MarketDataCollector({
+            "websocket_port": 8765
+        })
+        await market_collector.initialize()
+    return market_collector
 
 
 # ---------------------------------------------------------------------------
@@ -79,9 +111,28 @@ def _get_gpu_or_404(session, gpu_id: str) -> GPURegistry:
 async def register_gpu(
     request: Dict[str, Any],
     session: SessionDep,
+    engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> Dict[str, Any]:
-    """Register a GPU in the marketplace."""
+    """Register a GPU in the marketplace with dynamic pricing."""
     gpu_specs = request.get("gpu", {})
+
+    # Get initial price from request or calculate dynamically
+    base_price = gpu_specs.get("price_per_hour", 0.05)
+    
+    # Calculate dynamic price for new GPU
+    try:
+        dynamic_result = await engine.calculate_dynamic_price(
+            resource_id=f"new_gpu_{gpu_specs.get('miner_id', 'unknown')}",
+            resource_type=ResourceType.GPU,
+            base_price=base_price,
+            strategy=PricingStrategy.MARKET_BALANCE,
+            region=gpu_specs.get("region", "global")
+        )
+        # Use dynamic price for initial listing
+        initial_price = dynamic_result.recommended_price
+    except Exception:
+        # Fallback to base price if dynamic pricing fails
+        initial_price = base_price
 
     gpu = GPURegistry(
         miner_id=gpu_specs.get("miner_id", ""),
@@ -89,17 +140,26 @@ async def register_gpu(
         memory_gb=gpu_specs.get("memory", 0),
         cuda_version=gpu_specs.get("cuda_version", "Unknown"),
         region=gpu_specs.get("region", "unknown"),
-        price_per_hour=gpu_specs.get("price_per_hour", 0.0),
+        price_per_hour=initial_price,
         capabilities=gpu_specs.get("capabilities", []),
     )
     session.add(gpu)
     session.commit()
     session.refresh(gpu)
 
+    # Set up pricing strategy for this GPU provider
+    await engine.set_provider_strategy(
+        provider_id=gpu.miner_id,
+        strategy=PricingStrategy.MARKET_BALANCE
+    )
+
     return {
         "gpu_id": gpu.id,
         "status": "registered",
         "message": f"GPU {gpu.model} registered successfully",
+        "base_price": base_price,
+        "dynamic_price": initial_price,
+        "pricing_strategy": "market_balance"
     }
 
 
@@ -154,8 +214,13 @@ async def get_gpu_details(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
 
 
 @router.post("/marketplace/gpu/{gpu_id}/book", status_code=http_status.HTTP_201_CREATED)
-async def book_gpu(gpu_id: str, request: GPUBookRequest, session: SessionDep) -> Dict[str, Any]:
-    """Book a GPU."""
+async def book_gpu(
+    gpu_id: str, 
+    request: GPUBookRequest, 
+    session: SessionDep,
+    engine: DynamicPricingEngine = Depends(get_pricing_engine)
+) -> Dict[str, Any]:
+    """Book a GPU with dynamic pricing."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
     if gpu.status != "available":
@@ -166,7 +231,23 @@ async def book_gpu(gpu_id: str, request: GPUBookRequest, session: SessionDep) ->
 
     start_time = datetime.utcnow()
     end_time = start_time + timedelta(hours=request.duration_hours)
-    total_cost = request.duration_hours * gpu.price_per_hour
+    
+    # Calculate dynamic price at booking time
+    try:
+        dynamic_result = await engine.calculate_dynamic_price(
+            resource_id=gpu_id,
+            resource_type=ResourceType.GPU,
+            base_price=gpu.price_per_hour,
+            strategy=PricingStrategy.MARKET_BALANCE,
+            region=gpu.region
+        )
+        # Use dynamic price for this booking
+        current_price = dynamic_result.recommended_price
+    except Exception:
+        # Fallback to stored price if dynamic pricing fails
+        current_price = gpu.price_per_hour
+    
+    total_cost = request.duration_hours * current_price
 
     booking = GPUBooking(
         gpu_id=gpu_id,
@@ -186,8 +267,13 @@ async def book_gpu(gpu_id: str, request: GPUBookRequest, session: SessionDep) ->
         "gpu_id": gpu_id,
         "status": "booked",
         "total_cost": booking.total_cost,
+        "base_price": gpu.price_per_hour,
+        "dynamic_price": current_price,
+        "price_per_hour": current_price,
         "start_time": booking.start_time.isoformat() + "Z",
         "end_time": booking.end_time.isoformat() + "Z",
+        "pricing_factors": dynamic_result.factors_exposed if 'dynamic_result' in locals() else {},
+        "confidence_score": dynamic_result.confidence_score if 'dynamic_result' in locals() else 0.8
     }
 
 
@@ -324,8 +410,13 @@ async def list_orders(
 
 
 @router.get("/marketplace/pricing/{model}")
-async def get_pricing(model: str, session: SessionDep) -> Dict[str, Any]:
-    """Get pricing information for a model."""
+async def get_pricing(
+    model: str, 
+    session: SessionDep,
+    engine: DynamicPricingEngine = Depends(get_pricing_engine),
+    collector: MarketDataCollector = Depends(get_market_collector)
+) -> Dict[str, Any]:
+    """Get enhanced pricing information for a model with dynamic pricing."""
     # SQLite JSON doesn't support array contains, so fetch all and filter in Python
     all_gpus = session.exec(select(GPURegistry)).all()
     compatible = [
@@ -339,15 +430,97 @@ async def get_pricing(model: str, session: SessionDep) -> Dict[str, Any]:
             detail=f"No GPUs found for model {model}",
         )
 
-    prices = [g.price_per_hour for g in compatible]
+    # Get static pricing information
+    static_prices = [g.price_per_hour for g in compatible]
     cheapest = min(compatible, key=lambda g: g.price_per_hour)
+    
+    # Calculate dynamic prices for compatible GPUs
+    dynamic_prices = []
+    for gpu in compatible:
+        try:
+            dynamic_result = await engine.calculate_dynamic_price(
+                resource_id=gpu.id,
+                resource_type=ResourceType.GPU,
+                base_price=gpu.price_per_hour,
+                strategy=PricingStrategy.MARKET_BALANCE,
+                region=gpu.region
+            )
+            dynamic_prices.append({
+                "gpu_id": gpu.id,
+                "static_price": gpu.price_per_hour,
+                "dynamic_price": dynamic_result.recommended_price,
+                "price_change": dynamic_result.recommended_price - gpu.price_per_hour,
+                "price_change_percent": ((dynamic_result.recommended_price - gpu.price_per_hour) / gpu.price_per_hour) * 100,
+                "confidence": dynamic_result.confidence_score,
+                "trend": dynamic_result.price_trend.value,
+                "reasoning": dynamic_result.reasoning
+            })
+        except Exception as e:
+            # Fallback to static price if dynamic pricing fails
+            dynamic_prices.append({
+                "gpu_id": gpu.id,
+                "static_price": gpu.price_per_hour,
+                "dynamic_price": gpu.price_per_hour,
+                "price_change": 0.0,
+                "price_change_percent": 0.0,
+                "confidence": 0.5,
+                "trend": "unknown",
+                "reasoning": ["Dynamic pricing unavailable"]
+            })
+    
+    # Calculate aggregate dynamic pricing metrics
+    dynamic_price_values = [dp["dynamic_price"] for dp in dynamic_prices]
+    avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)
+    
+    # Find best value GPU (considering price and confidence)
+    best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])
+    
+    # Get market analysis
+    market_analysis = None
+    try:
+        # Get market data for the most common region
+        regions = [gpu.region for gpu in compatible]
+        most_common_region = max(set(regions), key=regions.count) if regions else "global"
+        
+        market_data = await collector.get_aggregated_data("gpu", most_common_region)
+        if market_data:
+            market_analysis = {
+                "demand_level": market_data.demand_level,
+                "supply_level": market_data.supply_level,
+                "market_volatility": market_data.price_volatility,
+                "utilization_rate": market_data.utilization_rate,
+                "market_sentiment": market_data.market_sentiment,
+                "confidence_score": market_data.confidence_score
+            }
+    except Exception:
+        market_analysis = None
 
     return {
         "model": model,
-        "min_price": min(prices),
-        "max_price": max(prices),
-        "average_price": sum(prices) / len(prices),
-        "available_gpus": len([g for g in compatible if g.status == "available"]),
-        "total_gpus": len(compatible),
-        "recommended_gpu": cheapest.id,
+        "static_pricing": {
+            "min_price": min(static_prices),
+            "max_price": max(static_prices),
+            "average_price": sum(static_prices) / len(static_prices),
+            "available_gpus": len([g for g in compatible if g.status == "available"]),
+            "total_gpus": len(compatible),
+            "recommended_gpu": cheapest.id,
+        },
+        "dynamic_pricing": {
+            "min_price": min(dynamic_price_values),
+            "max_price": max(dynamic_price_values),
+            "average_price": avg_dynamic_price,
+            "price_volatility": statistics.stdev(dynamic_price_values) if len(dynamic_price_values) > 1 else 0,
+            "avg_confidence": sum(dp["confidence"] for dp in dynamic_prices) / len(dynamic_prices),
+            "recommended_gpu": best_value_gpu["gpu_id"],
+            "recommended_price": best_value_gpu["dynamic_price"],
+        },
+        "price_comparison": {
+            "avg_price_change": avg_dynamic_price - (sum(static_prices) / len(static_prices)),
+            "avg_price_change_percent": ((avg_dynamic_price - (sum(static_prices) / len(static_prices))) / (sum(static_prices) / len(static_prices))) * 100,
+            "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
+            "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
+        },
+        "individual_gpu_pricing": dynamic_prices,
+        "market_analysis": market_analysis,
+        "pricing_timestamp": datetime.utcnow().isoformat() + "Z"
     }
