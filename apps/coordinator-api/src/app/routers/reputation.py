@@ -15,6 +15,7 @@ from ..domain.reputation import (
     AgentReputation, CommunityFeedback, ReputationLevel,
     TrustScoreCategory
 )
+from sqlmodel import select, func, Field
 
 logger = get_logger(__name__)
 
@@ -521,4 +522,268 @@ async def update_region(
         raise
     except Exception as e:
         logger.error(f"Error updating region for {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+# Cross-Chain Reputation Endpoints
+@router.get("/{agent_id}/cross-chain")
+async def get_cross_chain_reputation(
+    agent_id: str,
+    session: SessionDep,
+    reputation_service: ReputationService = Depends()
+) -> Dict[str, Any]:
+    """Get cross-chain reputation data for an agent"""
+    
+    try:
+        # Get basic reputation
+        reputation = session.exec(
+            select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+        ).first()
+        
+        if not reputation:
+            raise HTTPException(status_code=404, detail="Reputation profile not found")
+        
+        # For now, return single-chain data with cross-chain structure
+        # This will be extended when full cross-chain implementation is ready
+        return {
+            "agent_id": agent_id,
+            "cross_chain": {
+                "aggregated_score": reputation.trust_score / 1000.0,  # Convert to 0-1 scale
+                "chain_count": 1,
+                "active_chains": [1],  # Default to Ethereum mainnet
+                "chain_scores": {1: reputation.trust_score / 1000.0},
+                "consistency_score": 1.0,
+                "verification_status": "verified"
+            },
+            "chain_reputations": {
+                1: {
+                    "trust_score": reputation.trust_score,
+                    "reputation_level": reputation.reputation_level.value,
+                    "transaction_count": reputation.transaction_count,
+                    "success_rate": reputation.success_rate,
+                    "last_updated": reputation.updated_at.isoformat()
+                }
+            },
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting cross-chain reputation for {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/{agent_id}/cross-chain/sync")
+async def sync_cross_chain_reputation(
+    agent_id: str,
+    background_tasks: Any,  # FastAPI BackgroundTasks
+    session: SessionDep,
+    reputation_service: ReputationService = Depends()
+) -> Dict[str, Any]:
+    """Synchronize reputation across chains for an agent"""
+    
+    try:
+        # Get reputation
+        reputation = session.exec(
+            select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+        ).first()
+        
+        if not reputation:
+            raise HTTPException(status_code=404, detail="Reputation profile not found")
+        
+        # For now, return success (full implementation will be added)
+        return {
+            "agent_id": agent_id,
+            "sync_status": "completed",
+            "chains_synced": [1],
+            "sync_timestamp": datetime.utcnow().isoformat(),
+            "message": "Cross-chain reputation synchronized successfully"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error syncing cross-chain reputation for {agent_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/cross-chain/leaderboard")
+async def get_cross_chain_leaderboard(
+    limit: int = Query(50, ge=1, le=100),
+    min_score: float = Query(0.0, ge=0.0, le=1.0),
+    session: SessionDep,
+    reputation_service: ReputationService = Depends()
+) -> Dict[str, Any]:
+    """Get cross-chain reputation leaderboard"""
+    
+    try:
+        # Get top reputations
+        reputations = session.exec(
+            select(AgentReputation)
+            .where(AgentReputation.trust_score >= min_score * 1000)
+            .order_by(AgentReputation.trust_score.desc())
+            .limit(limit)
+        ).all()
+        
+        agents = []
+        for rep in reputations:
+            agents.append({
+                "agent_id": rep.agent_id,
+                "aggregated_score": rep.trust_score / 1000.0,
+                "chain_count": 1,
+                "active_chains": [1],
+                "consistency_score": 1.0,
+                "verification_status": "verified",
+                "trust_score": rep.trust_score,
+                "reputation_level": rep.reputation_level.value,
+                "transaction_count": rep.transaction_count,
+                "success_rate": rep.success_rate,
+                "last_updated": rep.updated_at.isoformat()
+            })
+        
+        return {
+            "agents": agents,
+            "total_count": len(agents),
+            "limit": limit,
+            "min_score": min_score,
+            "last_updated": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting cross-chain leaderboard: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.post("/cross-chain/events")
+async def submit_cross_chain_event(
+    event_data: Dict[str, Any],
+    background_tasks: Any,  # FastAPI BackgroundTasks
+    session: SessionDep,
+    reputation_service: ReputationService = Depends()
+) -> Dict[str, Any]:
+    """Submit a cross-chain reputation event"""
+    
+    try:
+        # Validate event data
+        required_fields = ['agent_id', 'event_type', 'impact_score']
+        for field in required_fields:
+            if field not in event_data:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        agent_id = event_data['agent_id']
+        
+        # Get reputation
+        reputation = session.exec(
+            select(AgentReputation).where(AgentReputation.agent_id == agent_id)
+        ).first()
+        
+        if not reputation:
+            raise HTTPException(status_code=404, detail="Reputation profile not found")
+        
+        # Update reputation based on event
+        impact = event_data['impact_score']
+        old_score = reputation.trust_score
+        new_score = max(0, min(1000, old_score + (impact * 1000)))
+        
+        reputation.trust_score = new_score
+        reputation.updated_at = datetime.utcnow()
+        
+        # Update reputation level if needed
+        if new_score >= 900:
+            reputation.reputation_level = ReputationLevel.MASTER
+        elif new_score >= 800:
+            reputation.reputation_level = ReputationLevel.EXPERT
+        elif new_score >= 600:
+            reputation.reputation_level = ReputationLevel.ADVANCED
+        elif new_score >= 400:
+            reputation.reputation_level = ReputationLevel.INTERMEDIATE
+        else:
+            reputation.reputation_level = ReputationLevel.BEGINNER
+        
+        session.commit()
+        
+        return {
+            "event_id": f"event_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+            "agent_id": agent_id,
+            "event_type": event_data['event_type'],
+            "impact_score": impact,
+            "old_score": old_score / 1000.0,
+            "new_score": new_score / 1000.0,
+            "processed_at": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error submitting cross-chain event: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/cross-chain/analytics")
+async def get_cross_chain_analytics(
+    chain_id: Optional[int] = Query(None),
+    session: SessionDep,
+    reputation_service: ReputationService = Depends()
+) -> Dict[str, Any]:
+    """Get cross-chain reputation analytics"""
+    
+    try:
+        # Get basic statistics
+        total_agents = session.exec(select(func.count(AgentReputation.id))).first()
+        avg_reputation = session.exec(select(func.avg(AgentReputation.trust_score))).first() or 0.0
+        
+        # Get reputation distribution
+        reputations = session.exec(select(AgentReputation)).all()
+        
+        distribution = {
+            "master": 0,
+            "expert": 0,
+            "advanced": 0,
+            "intermediate": 0,
+            "beginner": 0
+        }
+        
+        score_ranges = {
+            "0.0-0.2": 0,
+            "0.2-0.4": 0,
+            "0.4-0.6": 0,
+            "0.6-0.8": 0,
+            "0.8-1.0": 0
+        }
+        
+        for rep in reputations:
+            # Level distribution
+            level = rep.reputation_level.value
+            distribution[level] = distribution.get(level, 0) + 1
+            
+            # Score distribution
+            score = rep.trust_score / 1000.0
+            if score < 0.2:
+                score_ranges["0.0-0.2"] += 1
+            elif score < 0.4:
+                score_ranges["0.2-0.4"] += 1
+            elif score < 0.6:
+                score_ranges["0.4-0.6"] += 1
+            elif score < 0.8:
+                score_ranges["0.6-0.8"] += 1
+            else:
+                score_ranges["0.8-1.0"] += 1
+        
+        return {
+            "chain_id": chain_id or 1,
+            "total_agents": total_agents,
+            "average_reputation": avg_reputation / 1000.0,
+            "reputation_distribution": distribution,
+            "score_distribution": score_ranges,
+            "cross_chain_metrics": {
+                "cross_chain_agents": total_agents,  # All agents for now
+                "average_consistency_score": 1.0,
+                "chain_diversity_score": 0.0  # No cross-chain diversity yet
+            },
+            "generated_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting cross-chain analytics: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")

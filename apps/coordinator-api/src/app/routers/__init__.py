@@ -14,6 +14,7 @@ from .payments import router as payments
 from .web_vitals import router as web_vitals
 from .edge_gpu import router as edge_gpu
 from .cache_management import router as cache_management
+from .agent_identity import router as agent_identity
 # from .registry import router as registry
 
 __all__ = [
@@ -31,5 +32,6 @@ __all__ = [
     "web_vitals",
     "edge_gpu",
     "cache_management",
+    "agent_identity",
     "registry",
 ]

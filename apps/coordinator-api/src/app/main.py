@@ -26,7 +26,8 @@ from .routers import (
     payments,
     web_vitals,
     edge_gpu,
-    cache_management
+    cache_management,
+    agent_identity
 )
 from .routers.ml_zk_proofs import router as ml_zk_proofs
 from .routers.community import router as community_router
@@ -223,6 +224,7 @@ def create_app() -> FastAPI:
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(multi_modal_rl_router, prefix="/v1")
     app.include_router(cache_management, prefix="/v1")
+    app.include_router(agent_identity, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
