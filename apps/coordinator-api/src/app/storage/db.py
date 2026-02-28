@@ -12,6 +12,7 @@ from contextlib import asynccontextmanager
 from typing import Generator, AsyncGenerator
 
 from sqlalchemy import create_engine
+from sqlalchemy.pool import QueuePool
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -37,16 +38,22 @@ def get_engine() -> Engine:
         if "sqlite" in effective_url:
             _engine = create_engine(
                 effective_url,
-                echo=False,
+                echo=settings.db_echo,
                 connect_args={"check_same_thread": False},
+                poolclass=QueuePool,
+                pool_size=5,
+                max_overflow=10,
+                pool_pre_ping=settings.db_pool_pre_ping,
             )
         else:
             _engine = create_engine(
                 effective_url,
-                echo=False,
-                pool_size=db_config.pool_size,
-                max_overflow=db_config.max_overflow,
-                pool_pre_ping=db_config.pool_pre_ping,
+                echo=settings.db_echo,
+                poolclass=QueuePool,
+                pool_size=settings.db_pool_size,
+                max_overflow=settings.db_max_overflow,
+                pool_recycle=settings.db_pool_recycle,
+                pool_pre_ping=settings.db_pool_pre_ping,
             )
     return _engine
 
@@ -106,10 +113,12 @@ async def get_async_engine() -> AsyncEngine:
 
         _async_engine = create_async_engine(
             async_url,
-            echo=False,
-            pool_size=db_config.pool_size,
-            max_overflow=db_config.max_overflow,
-            pool_pre_ping=db_config.pool_pre_ping,
+            echo=settings.db_echo,
+            poolclass=QueuePool,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_recycle=settings.db_pool_recycle,
+            pool_pre_ping=settings.db_pool_pre_ping,
         )
     return _async_engine
 

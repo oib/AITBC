@@ -26,29 +26,40 @@ class PaymentService:
         self.exchange_base_url = "http://127.0.0.1:23000"  # Exchange API URL
     
     async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
-        """Create a new payment for a job"""
-        
-        # Create payment record
-        payment = JobPayment(
-            job_id=job_id,
-            amount=payment_data.amount,
-            currency=payment_data.currency,
-            payment_method=payment_data.payment_method,
-            expires_at=datetime.utcnow() + timedelta(seconds=payment_data.escrow_timeout_seconds)
-        )
-        
-        self.session.add(payment)
-        self.session.commit()
-        self.session.refresh(payment)
-        
-        # For AITBC token payments, use token escrow
-        if payment_data.payment_method == "aitbc_token":
-            await self._create_token_escrow(payment)
-        # Bitcoin payments only for exchange purchases
-        elif payment_data.payment_method == "bitcoin":
-            await self._create_bitcoin_escrow(payment)
-        
-        return payment
+        """Create a new payment for a job with ACID compliance"""
+        try:
+            # Create payment record
+            payment = JobPayment(
+                job_id=job_id,
+                amount=payment_data.amount,
+                currency=payment_data.currency,
+                payment_method=payment_data.payment_method,
+                expires_at=datetime.utcnow() + timedelta(seconds=payment_data.escrow_timeout_seconds)
+            )
+            
+            self.session.add(payment)
+            
+            # For AITBC token payments, use token escrow
+            if payment_data.payment_method == "aitbc_token":
+                escrow = await self._create_token_escrow(payment)
+                self.session.add(escrow)
+            # Bitcoin payments only for exchange purchases
+            elif payment_data.payment_method == "bitcoin":
+                escrow = await self._create_bitcoin_escrow(payment)
+                self.session.add(escrow)
+            
+            # Single atomic commit - all or nothing
+            self.session.commit()
+            self.session.refresh(payment)
+            
+            logger.info(f"Payment created successfully: {payment.id}")
+            return payment
+            
+        except Exception as e:
+            # Rollback all changes on any error
+            self.session.rollback()
+            logger.error(f"Failed to create payment: {e}")
+            raise
     
     async def _create_token_escrow(self, payment: JobPayment) -> None:
         """Create an escrow for AITBC token payments"""
