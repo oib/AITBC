@@ -4,7 +4,7 @@ REST API endpoints for advanced marketplace features including royalties, licens
 """
 
 from typing import List, Optional
-import logging
+from aitbc.logging import get_logger
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -20,7 +20,7 @@ from ..schemas.marketplace_enhanced import (
     MarketplaceAnalyticsRequest, MarketplaceAnalyticsResponse
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"])
 

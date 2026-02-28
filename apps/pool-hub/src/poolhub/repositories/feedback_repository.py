@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import logging
+from aitbc.logging import get_logger
 from typing import Iterable, List, Optional
 from uuid import UUID
 
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..models import Feedback
 from ..storage.redis_keys import RedisKeys
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FeedbackRepository:

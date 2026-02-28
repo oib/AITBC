@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
 import json
-import logging
+from aitbc.logging import get_logger
 
 from sqlmodel import Session, select, update, delete
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,7 +24,7 @@ class CoordinatorClient:
     """Mock coordinator client for agent orchestration"""
     pass
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AgentStateManager:

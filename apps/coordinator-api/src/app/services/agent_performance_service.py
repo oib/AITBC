@@ -8,7 +8,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
-import logging
+from aitbc.logging import get_logger
 
 from sqlmodel import Session, select, update, delete, and_, or_, func
 from sqlalchemy.exc import SQLAlchemyError
@@ -21,7 +21,7 @@ from ..domain.agent_performance import (
     OptimizationTarget
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MetaLearningEngine:

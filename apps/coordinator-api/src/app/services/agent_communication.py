@@ -4,7 +4,7 @@ Implements secure agent-to-agent messaging with reputation-based access control
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from enum import Enum
@@ -15,7 +15,7 @@ from dataclasses import dataclass, asdict, field
 
 from .cross_chain_reputation import CrossChainReputationService, ReputationTier
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MessageType(str, Enum):

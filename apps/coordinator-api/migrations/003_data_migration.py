@@ -13,7 +13,7 @@ Usage:
 import argparse
 import asyncio
 import json
-import logging
+from aitbc.logging import get_logger
 from datetime import datetime
 from pathlib import Path
 from typing import List, Dict, Any
@@ -21,7 +21,7 @@ from typing import List, Dict, Any
 import asyncpg
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DataMigration:

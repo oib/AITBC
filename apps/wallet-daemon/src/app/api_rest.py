@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 
-import logging
+from aitbc.logging import get_logger
 import base64
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
@@ -28,7 +28,7 @@ from .ledger_mock import SQLiteLedgerAdapter
 from .receipts.service import ReceiptValidationResult, ReceiptVerifierService
 from .security import RateLimiter, wipe_buffer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 _rate_limiter = RateLimiter(max_requests=30, window_seconds=60)
 
 

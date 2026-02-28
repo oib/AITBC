@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from pydantic import BaseModel, Field
-import logging
+from aitbc.logging import get_logger
 
 from ..storage import SessionDep
 import sys
@@ -20,7 +20,7 @@ from aitbc.gpu_acceleration.parallel_processing.marketplace_cache_optimizer impo
 from aitbc.gpu_acceleration.parallel_processing.marketplace_monitor import monitor as marketplace_monitor
 from aitbc.gpu_acceleration.parallel_processing.marketplace_scaler import ResourceScaler, ScalingPolicy
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/marketplace/performance", tags=["marketplace-performance"])
 
