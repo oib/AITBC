@@ -5,12 +5,12 @@ Week 9-12: Enterprise scaling and agent marketplace development
 
 import asyncio
 import json
-import logging
+from aitbc.logging import get_logger
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class Phase5Implementation:

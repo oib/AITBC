@@ -4,7 +4,7 @@ Advanced AI agent capabilities with unified multi-modal processing pipeline
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
 from enum import Enum
@@ -13,7 +13,7 @@ import json
 from ..storage import SessionDep
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ModalityType(str, Enum):

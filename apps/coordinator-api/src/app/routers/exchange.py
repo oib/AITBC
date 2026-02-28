@@ -8,9 +8,9 @@ import uuid
 import time
 import json
 import os
-import logging
+from aitbc.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from ..schemas import (
     ExchangePaymentRequest, 

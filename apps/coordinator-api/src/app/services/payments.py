@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import httpx
-import logging
+from aitbc.logging import get_logger
 
 from ..domain.payment import JobPayment, PaymentEscrow
 from ..schemas import (
@@ -14,7 +14,7 @@ from ..schemas import (
 )
 from ..storage import SessionDep
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class PaymentService:

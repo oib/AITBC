@@ -4,7 +4,7 @@ Advanced GPU optimization for cross-modal attention mechanisms
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 from datetime import datetime
@@ -12,7 +12,7 @@ from datetime import datetime
 from ..storage import SessionDep
 from .multimodal_agent import ModalityType, ProcessingMode
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class GPUAcceleratedMultiModal:

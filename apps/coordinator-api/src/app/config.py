@@ -5,9 +5,12 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 from pathlib import Path
+import secrets
+import string
 
 
 class DatabaseConfig(BaseSettings):
@@ -58,11 +61,53 @@ class Settings(BaseSettings):
     miner_api_keys: List[str] = []
     admin_api_keys: List[str] = []
 
+    @field_validator('client_api_keys', 'miner_api_keys', 'admin_api_keys')
+    @classmethod
+    def validate_api_keys(cls, v: List[str]) -> List[str]:
+        # Allow empty API keys in development/test environments
+        import os
+        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+            return v
+        if not v:
+            raise ValueError('API keys cannot be empty in production')
+        for key in v:
+            if not key or key.startswith('$') or key == 'your_api_key_here':
+                raise ValueError('API keys must be set to valid values')
+            if len(key) < 16:
+                raise ValueError('API keys must be at least 16 characters long')
+        return v
+
     # Security
     hmac_secret: Optional[str] = None
     jwt_secret: Optional[str] = None
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
+
+    @field_validator('hmac_secret')
+    @classmethod
+    def validate_hmac_secret(cls, v: Optional[str]) -> Optional[str]:
+        # Allow None in development/test environments
+        import os
+        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+            return v
+        if not v or v.startswith('$') or v == 'your_secret_here':
+            raise ValueError('HMAC_SECRET must be set to a secure value')
+        if len(v) < 32:
+            raise ValueError('HMAC_SECRET must be at least 32 characters long')
+        return v
+
+    @field_validator('jwt_secret')
+    @classmethod
+    def validate_jwt_secret(cls, v: Optional[str]) -> Optional[str]:
+        # Allow None in development/test environments
+        import os
+        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+            return v
+        if not v or v.startswith('$') or v == 'your_secret_here':
+            raise ValueError('JWT_SECRET must be set to a secure value')
+        if len(v) < 32:
+            raise ValueError('JWT_SECRET must be at least 32 characters long')
+        return v
 
     # CORS
     allow_origins: List[str] = [

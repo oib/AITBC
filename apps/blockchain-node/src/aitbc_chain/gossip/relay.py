@@ -6,7 +6,7 @@ Uses Starlette Broadcast to share messages between nodes
 
 import argparse
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Any, Dict
 
 from starlette.applications import Starlette
@@ -19,7 +19,7 @@ import uvicorn
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Global broadcast instance
 broadcast = Broadcast("memory://")

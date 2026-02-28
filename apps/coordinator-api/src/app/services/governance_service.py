@@ -6,7 +6,7 @@ Implements the OpenClaw DAO, voting mechanisms, and proposal lifecycle
 from typing import Optional, List, Dict, Any
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
-import logging
+from aitbc.logging import get_logger
 from uuid import uuid4
 
 from ..domain.governance import (
@@ -14,7 +14,7 @@ from ..domain.governance import (
     ProposalStatus, VoteType, GovernanceRole
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class GovernanceService:
     """Core service for managing DAO operations and voting"""

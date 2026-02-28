@@ -48,10 +48,40 @@ from contextlib import asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events for the Coordinator API."""
     logger.info("Starting Coordinator API")
-    # Initialize database if needed
-    init_db()
+    
+    try:
+        # Initialize database
+        init_db()
+        logger.info("Database initialized successfully")
+        
+        # Validate configuration
+        if settings.app_env == "production":
+            logger.info("Production environment detected, validating configuration")
+            # Configuration validation happens automatically via Pydantic validators
+            
+        # Initialize audit logging directory
+        from pathlib import Path
+        audit_dir = Path(settings.audit_log_dir)
+        audit_dir.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Audit logging directory: {audit_dir}")
+        
+        # Log service startup details
+        logger.info(f"Coordinator API started on {settings.app_host}:{settings.app_port}")
+        logger.info(f"Database adapter: {settings.database.adapter}")
+        logger.info(f"Environment: {settings.app_env}")
+        
+    except Exception as e:
+        logger.error(f"Failed to start Coordinator API: {e}")
+        raise
+    
     yield
+    
     logger.info("Shutting down Coordinator API")
+    try:
+        # Cleanup resources
+        logger.info("Coordinator API shutdown complete")
+    except Exception as e:
+        logger.error(f"Error during shutdown: {e}")
 
 def create_app() -> FastAPI:
     # Initialize rate limiter

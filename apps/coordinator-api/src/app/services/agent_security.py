@@ -6,7 +6,7 @@ Implements comprehensive security, auditing, and trust establishment for agent e
 import asyncio
 import hashlib
 import json
-import logging
+from aitbc.logging import get_logger
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Set
 from uuid import uuid4
@@ -20,7 +20,7 @@ from ..domain.agent import (
     AgentStatus, VerificationLevel
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecurityLevel(str, Enum):

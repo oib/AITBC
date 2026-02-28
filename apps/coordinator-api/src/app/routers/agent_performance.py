@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
-import logging
+from aitbc.logging import get_logger
 
 from ..storage import SessionDep
 from ..services.agent_performance_service import (
@@ -21,7 +21,7 @@ from ..domain.agent_performance import (
     OptimizationTarget
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/agent-performance", tags=["agent-performance"])
 

@@ -5,7 +5,7 @@ Settlement hooks for coordinator API integration
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import asyncio
-import logging
+from aitbc.logging import get_logger
 
 from .manager import BridgeManager
 from .bridges.base import (
@@ -16,7 +16,7 @@ from .bridges.base import (
 from ..models.job import Job
 from ..models.receipt import Receipt
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SettlementHook:

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 from dataclasses import dataclass
-import logging
+from aitbc.logging import get_logger
 
 @dataclass
 class FHEContext:

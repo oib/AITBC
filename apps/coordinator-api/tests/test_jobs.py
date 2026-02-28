@@ -40,8 +40,10 @@ def _init_db(tmp_path_factory):
 @pytest.fixture()
 def session():
     with session_scope() as sess:
-        sess.exec(delete(Job))
-        sess.exec(delete(Miner))
+        from sqlmodel import select
+        # Clear all data
+        sess.query(Job).delete()
+        sess.query(Miner).delete()
         sess.commit()
         yield sess
 

@@ -6,7 +6,7 @@ Web Vitals API endpoint for collecting performance metrics
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
-import logging
+from aitbc.logging import get_logger
 
 router = APIRouter()
 

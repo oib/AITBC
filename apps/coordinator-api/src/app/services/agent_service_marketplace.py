@@ -4,7 +4,7 @@ Implements a sophisticated marketplace where agents can offer specialized servic
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from enum import Enum
@@ -12,7 +12,7 @@ import json
 import hashlib
 from dataclasses import dataclass, asdict, field
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ServiceStatus(str, Enum):

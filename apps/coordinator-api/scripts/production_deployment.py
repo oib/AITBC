@@ -5,12 +5,12 @@ Complete deployment procedures for the agent orchestration system
 
 import asyncio
 import json
-import logging
+from aitbc.logging import get_logger
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AgentOrchestrationDeployment:
