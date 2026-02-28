@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobView, JobResult, JobPaymentCreate
@@ -7,12 +9,15 @@ from ..services import JobService
 from ..services.payments import PaymentService
 from ..storage import SessionDep
 
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["client"])
 
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
+@limiter.limit("100/minute")
 async def submit_job(
     req: JobCreate,
+    request: Request,
     session: SessionDep,
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
