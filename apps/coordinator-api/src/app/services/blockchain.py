@@ -4,12 +4,12 @@ Blockchain service for AITBC token operations
 
 import httpx
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Optional
 
 from ..config import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 BLOCKCHAIN_RPC = f"http://127.0.0.1:9080/rpc"
 

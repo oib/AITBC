@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
-import logging
+from aitbc.logging import get_logger
 
 from ..storage import SessionDep
 from ..services.analytics_service import MarketplaceAnalytics
@@ -16,7 +16,7 @@ from ..domain.analytics import (
     AnalyticsPeriod, MetricType, InsightType, ReportType
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/v1/analytics", tags=["analytics"])
 

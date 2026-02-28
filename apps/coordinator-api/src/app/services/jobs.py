@@ -113,16 +113,16 @@ class JobService:
                     self.session.refresh(job)
                     return job
                 except Exception as e:
-                    import logging
-                    logger = logging.getLogger(__name__)
+                    from aitbc.logging import get_logger
+                    logger = get_logger(__name__)
                     logger.warning(f"Error checking job {job.id}: {e}")
                     self.session.rollback()  # Rollback on individual job failure
                     continue
                     
             return None
         except Exception as e:
-            import logging
-            logger = logging.getLogger(__name__)
+            from aitbc.logging import get_logger
+            logger = get_logger(__name__)
             logger.error(f"Error acquiring next job: {e}")
             raise  # Propagate for caller to handle
 

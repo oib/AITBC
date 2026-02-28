@@ -4,7 +4,7 @@ Handles IPFS/Filecoin integration for persistent agent memory storage
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -21,7 +21,7 @@ except ImportError as e:
     logging.error(f"IPFS/Web3 dependencies not installed: {e}")
     raise
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

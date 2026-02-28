@@ -4,7 +4,7 @@ Basic marketplace enhancement features compatible with existing domain models
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from uuid import uuid4
@@ -13,7 +13,7 @@ from enum import Enum
 from sqlmodel import Session, select, update
 from ..domain import MarketplaceOffer, MarketplaceBid
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RoyaltyTier(str, Enum):

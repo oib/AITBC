@@ -4,7 +4,7 @@ REST API endpoints for OpenClaw integration features
 """
 
 from typing import List, Optional, Dict, Any
-import logging
+from aitbc.logging import get_logger
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -14,7 +14,7 @@ from ..storage import SessionDep
 from ..deps import require_admin_key
 from sqlmodel import Session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/openclaw/enhanced", tags=["OpenClaw Enhanced"])
 

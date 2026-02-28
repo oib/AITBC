@@ -4,7 +4,7 @@ Reinforcement learning frameworks for agent self-improvement
 """
 
 import asyncio
-import logging
+from aitbc.logging import get_logger
 from typing import Dict, List, Any, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from enum import Enum
@@ -14,7 +14,7 @@ import json
 from ..storage import SessionDep
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LearningAlgorithm(str, Enum):

@@ -1,15 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import select
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
 from ..storage import SessionDep
+from aitbc.logging import get_logger
 
+logger = get_logger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/stats", summary="Get coordinator stats")
-async def get_stats(session: SessionDep, admin_key: str = Depends(require_admin_key())) -> dict[str, int]:  # type: ignore[arg-type]
+@limiter.limit("20/minute")
+async def get_stats(
+    request: Request,
+    session: SessionDep, 
+    admin_key: str = Depends(require_admin_key())
+) -> dict[str, int]:  # type: ignore[arg-type]
     service = JobService(session)
     from sqlmodel import func, select
     from ..domain import Job

@@ -13,7 +13,7 @@ import asyncio
 import aiohttp
 import time
 import argparse
-import logging
+from aitbc.logging import get_logger
 import json
 from typing import List, Dict, Any
 from datetime import datetime
@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AutoscalingTest:

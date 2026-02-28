@@ -1,23 +1,27 @@
 from datetime import datetime
 from typing import Any
-import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from ..deps import require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
 from ..storage import SessionDep
+from aitbc.logging import get_logger
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
+limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["miner"])
 
 
 @router.post("/miners/register", summary="Register or update miner")
+@limiter.limit("30/minute")
 async def register(
     req: MinerRegister,
+    request: Request,
     session: SessionDep,
     miner_id: str = Depends(require_miner_key()),
 ) -> dict[str, Any]:  # type: ignore[arg-type]
@@ -26,8 +30,10 @@ async def register(
     return {"status": "ok", "session_token": record.session_token}
 
 @router.post("/miners/heartbeat", summary="Send miner heartbeat")
+@limiter.limit("60/minute")
 async def heartbeat(
     req: MinerHeartbeat,
+    request: Request,
     session: SessionDep,
     miner_id: str = Depends(require_miner_key()),
 ) -> dict[str, str]:  # type: ignore[arg-type]

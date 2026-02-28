@@ -5,9 +5,9 @@ from psycopg2.extras import RealDictCursor
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import json
-import logging
+from aitbc.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class PostgreSQLLedgerAdapter:
     """PostgreSQL implementation of the wallet ledger"""
