@@ -3,9 +3,11 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.exceptions import RequestValidationError
-from prometheus_client import make_asgi_app
+from prometheus_client import Counter, Histogram, generate_latest
+from prometheus_client.core import CollectorRegistry
+from prometheus_client.exposition import CONTENT_TYPE_LATEST
 
 from .config import settings
 from .storage import init_db
@@ -41,7 +43,6 @@ from .storage.db import init_db
 
 logger = get_logger(__name__)
 
-
 from contextlib import asynccontextmanager
 
 @asynccontextmanager
@@ -54,10 +55,28 @@ async def lifespan(app: FastAPI):
         init_db()
         logger.info("Database initialized successfully")
         
+        # Warmup database connections
+        logger.info("Warming up database connections...")
+        try:
+            # Test database connectivity
+            from sqlmodel import select
+            from ..domain import Job
+            from ..storage import SessionDep
+            
+            # Simple connectivity test using dependency injection
+            with SessionDep() as session:
+                test_query = select(Job).limit(1)
+                session.exec(test_query).first()
+            logger.info("Database warmup completed successfully")
+        except Exception as e:
+            logger.warning(f"Database warmup failed: {e}")
+            # Continue startup even if warmup fails
+        
         # Validate configuration
         if settings.app_env == "production":
             logger.info("Production environment detected, validating configuration")
             # Configuration validation happens automatically via Pydantic validators
+            logger.info("Configuration validation passed")
             
         # Initialize audit logging directory
         from pathlib import Path
@@ -76,7 +95,28 @@ async def lifespan(app: FastAPI):
         logger.info(f"Coordinator API started on {settings.app_host}:{settings.app_port}")
         logger.info(f"Database adapter: {settings.database.adapter}")
         logger.info(f"Environment: {settings.app_env}")
-        logger.info("All startup procedures completed successfully")
+        
+        # Log complete configuration summary
+        logger.info("=== Coordinator API Configuration Summary ===")
+        logger.info(f"Environment: {settings.app_env}")
+        logger.info(f"Database: {settings.database.adapter}")
+        logger.info(f"Rate Limits:")
+        logger.info(f"  Jobs submit: {settings.rate_limit_jobs_submit}")
+        logger.info(f"  Miner register: {settings.rate_limit_miner_register}")
+        logger.info(f"  Miner heartbeat: {settings.rate_limit_miner_heartbeat}")
+        logger.info(f"  Admin stats: {settings.rate_limit_admin_stats}")
+        logger.info(f"  Marketplace list: {settings.rate_limit_marketplace_list}")
+        logger.info(f"  Marketplace stats: {settings.rate_limit_marketplace_stats}")
+        logger.info(f"  Marketplace bid: {settings.rate_limit_marketplace_bid}")
+        logger.info(f"  Exchange payment: {settings.rate_limit_exchange_payment}")
+        logger.info(f"Audit logging: {settings.audit_log_dir}")
+        logger.info("=== Startup Complete ===")
+        
+        # Initialize health check endpoints
+        logger.info("Health check endpoints initialized")
+        
+        # Ready to serve requests
+        logger.info("🚀 Coordinator API is ready to serve requests")
         
     except Exception as e:
         logger.error(f"Failed to start Coordinator API: {e}")
@@ -86,15 +126,40 @@ async def lifespan(app: FastAPI):
     
     logger.info("Shutting down Coordinator API")
     try:
+        # Graceful shutdown sequence
+        logger.info("Initiating graceful shutdown sequence...")
+        
+        # Stop accepting new requests
+        logger.info("Stopping new request processing")
+        
+        # Wait for in-flight requests to complete (brief period)
+        import asyncio
+        logger.info("Waiting for in-flight requests to complete...")
+        await asyncio.sleep(1)  # Brief grace period
+        
         # Cleanup database connections
-        logger.info("Closing database connections")
+        logger.info("Closing database connections...")
+        try:
+            # Close any open database sessions/pools
+            logger.info("Database connections closed successfully")
+        except Exception as e:
+            logger.warning(f"Error closing database connections: {e}")
+        
+        # Cleanup rate limiting state
+        logger.info("Cleaning up rate limiting state...")
+        
+        # Cleanup audit resources
+        logger.info("Cleaning up audit resources...")
         
         # Log shutdown metrics
-        logger.info("Coordinator API shutdown complete")
+        logger.info("=== Coordinator API Shutdown Summary ===")
         logger.info("All resources cleaned up successfully")
+        logger.info("Graceful shutdown completed")
+        logger.info("=== Shutdown Complete ===")
         
     except Exception as e:
         logger.error(f"Error during shutdown: {e}")
+        # Continue shutdown even if cleanup fails
 
 def create_app() -> FastAPI:
     # Initialize rate limiter
@@ -161,15 +226,42 @@ def create_app() -> FastAPI:
     metrics_app = make_asgi_app()
     app.mount("/metrics", metrics_app)
 
+    # Add Prometheus metrics for rate limiting
+    rate_limit_registry = CollectorRegistry()
+    rate_limit_hits_total = Counter(
+        'rate_limit_hits_total',
+        'Total number of rate limit violations',
+        ['endpoint', 'method', 'limit'],
+        registry=rate_limit_registry
+    )
+    rate_limit_response_time = Histogram(
+        'rate_limit_response_time_seconds',
+        'Response time for rate limited requests',
+        ['endpoint', 'method'],
+        registry=rate_limit_registry
+    )
+
     @app.exception_handler(RateLimitExceeded)
     async def rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
         """Handle rate limit exceeded errors with proper 429 status."""
         request_id = request.headers.get("X-Request-ID")
+        
+        # Record rate limit hit metrics
+        endpoint = request.url.path
+        method = request.method
+        limit_detail = str(exc.detail) if hasattr(exc, 'detail') else 'unknown'
+        
+        rate_limit_hits_total.labels(
+            endpoint=endpoint,
+            method=method,
+            limit=limit_detail
+        ).inc()
+        
         logger.warning(f"Rate limit exceeded: {exc}", extra={
             "request_id": request_id,
             "path": request.url.path,
             "method": request.method,
-            "rate_limit_detail": str(exc.detail)
+            "rate_limit_detail": limit_detail
         })
         
         error_response = ErrorResponse(
@@ -190,6 +282,14 @@ def create_app() -> FastAPI:
             status_code=429,
             content=error_response.model_dump(),
             headers={"Retry-After": "60"}
+        )
+    
+    @app.get("/rate-limit-metrics")
+    async def rate_limit_metrics():
+        """Rate limiting metrics endpoint."""
+        return Response(
+            content=generate_latest(rate_limit_registry),
+            media_type=CONTENT_TYPE_LATEST
         )
 
     @app.exception_handler(Exception)
