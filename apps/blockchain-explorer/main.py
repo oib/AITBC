@@ -9,7 +9,7 @@ import httpx
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
