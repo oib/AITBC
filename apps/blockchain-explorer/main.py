@@ -31,8 +31,8 @@ HTML_TEMPLATE = r"""
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .fade-in {{ animation: fadeIn 0.3s ease-in; }}
+        @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
     </style>
 </head>
 <body class="bg-gray-50">
@@ -422,7 +422,7 @@ async def get_block(height: int) -> Dict[str, Any]:
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the explorer UI"""
-    return HTML_TEMPLATE.format(node_url=BLOCKCHAIN_RPC_URL)
+    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URL)
 
 
 @app.get("/api/chain/head")
@@ -468,11 +468,23 @@ async def api_transaction(tx_hash: str):
 @app.get("/health")
 async def health():
     """Health check endpoint"""
-    head = await get_chain_head()
+    try:
+        # Test blockchain node connectivity
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/head", timeout=5.0)
+            node_status = "ok" if response.status_code == 200 else "error"
+    except Exception:
+        node_status = "error"
+    
     return {
-        "status": "ok" if head else "error",
+        "status": "ok" if node_status == "ok" else "degraded",
+        "node_status": node_status,
         "node_url": BLOCKCHAIN_RPC_URL,
-        "chain_height": head.get("height", 0),
+        "endpoints": {
+            "transactions": "/api/transactions/{tx_hash}",
+            "chain_head": "/api/chain/head", 
+            "blocks": "/api/blocks/{height}"
+        }
     }
 
 
