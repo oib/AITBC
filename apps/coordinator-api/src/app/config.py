@@ -55,6 +55,13 @@ class Settings(BaseSettings):
 
     # Database
     database: DatabaseConfig = DatabaseConfig()
+    
+    # Database Connection Pooling
+    db_pool_size: int = Field(default=20, description="Database connection pool size")
+    db_max_overflow: int = Field(default=40, description="Maximum overflow connections")
+    db_pool_recycle: int = Field(default=3600, description="Connection recycle time in seconds")
+    db_pool_pre_ping: bool = Field(default=True, description="Test connections before using")
+    db_echo: bool = Field(default=False, description="Enable SQL query logging")
 
     # API Keys
     client_api_keys: List[str] = []

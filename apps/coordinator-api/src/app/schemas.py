@@ -4,8 +4,9 @@ from datetime import datetime
 from typing import Any, Dict, Optional, List
 from base64 import b64encode, b64decode
 from enum import Enum
+import re
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
 from .types import JobState, Constraints
 
@@ -13,11 +14,36 @@ from .types import JobState, Constraints
 # Payment schemas
 class JobPaymentCreate(BaseModel):
     """Request to create a payment for a job"""
-    job_id: str
-    amount: float
-    currency: str = "AITBC"  # Jobs paid with AITBC tokens
-    payment_method: str = "aitbc_token"  # Primary method for job payments
-    escrow_timeout_seconds: int = 3600  # 1 hour default
+    job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
+    amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount in AITBC")
+    currency: str = Field(default="AITBC", description="Payment currency")
+    payment_method: str = Field(default="aitbc_token", description="Payment method")
+    escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
+    
+    @field_validator('job_id')
+    @classmethod
+    def validate_job_id(cls, v: str) -> str:
+        """Validate job ID format to prevent injection attacks"""
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
+            raise ValueError('Job ID contains invalid characters')
+        return v
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v: float) -> float:
+        """Validate and round payment amount"""
+        if v < 0.01:
+            raise ValueError('Minimum payment amount is 0.01 AITBC')
+        return round(v, 8)  # Prevent floating point precision issues
+    
+    @field_validator('currency')
+    @classmethod
+    def validate_currency(cls, v: str) -> str:
+        """Validate currency code"""
+        allowed_currencies = ['AITBC', 'BTC', 'ETH', 'USDT']
+        if v.upper() not in allowed_currencies:
+            raise ValueError(f'Currency must be one of: {allowed_currencies}')
+        return v.upper()
 
 
 class JobPaymentView(BaseModel):
@@ -40,10 +66,37 @@ class JobPaymentView(BaseModel):
 
 class PaymentRequest(BaseModel):
     """Request to pay for a job"""
-    job_id: str
-    amount: float
-    currency: str = "BTC"
-    refund_address: Optional[str] = None
+    job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
+    amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount")
+    currency: str = Field(default="BTC", description="Payment currency")
+    refund_address: Optional[str] = Field(None, min_length=1, max_length=255, description="Refund address")
+    
+    @field_validator('job_id')
+    @classmethod
+    def validate_job_id(cls, v: str) -> str:
+        """Validate job ID format"""
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
+            raise ValueError('Job ID contains invalid characters')
+        return v
+    
+    @field_validator('amount')
+    @classmethod
+    def validate_amount(cls, v: float) -> float:
+        """Validate payment amount"""
+        if v < 0.0001:  # Minimum BTC amount
+            raise ValueError('Minimum payment amount is 0.0001')
+        return round(v, 8)
+    
+    @field_validator('refund_address')
+    @classmethod
+    def validate_refund_address(cls, v: Optional[str]) -> Optional[str]:
+        """Validate refund address format"""
+        if v is None:
+            return v
+        # Basic Bitcoin address validation
+        if not re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{8,87}$', v):
+            raise ValueError('Invalid Bitcoin address format')
+        return v
 
 
 class PaymentReceipt(BaseModel):
@@ -111,9 +164,44 @@ class TransactionHistory(BaseModel):
     total: int
 
 class ExchangePaymentRequest(BaseModel):
-    user_id: str
-    aitbc_amount: float
-    btc_amount: float
+    """Request for Bitcoin exchange payment"""
+    user_id: str = Field(..., min_length=1, max_length=128, description="User identifier")
+    aitbc_amount: float = Field(..., gt=0, le=1_000_000, description="AITBC amount to exchange")
+    btc_amount: float = Field(..., gt=0, le=100, description="BTC amount to receive")
+    
+    @field_validator('user_id')
+    @classmethod
+    def validate_user_id(cls, v: str) -> str:
+        """Validate user ID format"""
+        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
+            raise ValueError('User ID contains invalid characters')
+        return v
+    
+    @field_validator('aitbc_amount')
+    @classmethod
+    def validate_aitbc_amount(cls, v: float) -> float:
+        """Validate AITBC amount"""
+        if v < 0.01:
+            raise ValueError('Minimum AITBC amount is 0.01')
+        return round(v, 8)
+    
+    @field_validator('btc_amount')
+    @classmethod
+    def validate_btc_amount(cls, v: float) -> float:
+        """Validate BTC amount"""
+        if v < 0.0001:
+            raise ValueError('Minimum BTC amount is 0.0001')
+        return round(v, 8)
+    
+    @model_validator(mode='after')
+    def validate_exchange_ratio(self) -> 'ExchangePaymentRequest':
+        """Validate that the exchange ratio is reasonable"""
+        if self.aitbc_amount > 0 and self.btc_amount > 0:
+            ratio = self.aitbc_amount / self.btc_amount
+            # AITBC/BTC ratio should be reasonable (e.g., 100,000 AITBC = 1 BTC)
+            if ratio < 1000 or ratio > 1000000:
+                raise ValueError('Exchange ratio is outside reasonable bounds')
+        return self
 
 class ExchangePaymentResponse(BaseModel):
     payment_id: str
