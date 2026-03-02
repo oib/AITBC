@@ -1,0 +1,41 @@
+name: File Organization Check
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  check-file-organization:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check file organization
+      run: |
+        chmod +x scripts/check-file-organization.sh
+        ./scripts/check-file-organization.sh
+    
+    - name: Generate organization report
+      if: failure()
+      run: |
+        chmod +x scripts/check-file-organization.sh
+        ./scripts/check-file-organization.sh > organization-report.txt 2>&1 || true
+    
+    - name: Comment PR with issues
+      if: failure()
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const output = fs.readFileSync('organization-report.txt', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `🚨 **File Organization Issues Found**\n\n\`\`\`\n${output}\n\`\`\`\n\nPlease run \`./scripts/move-to-right-folder.sh --auto\` to fix these issues.\n\nSee [Development Guidelines](https://github.com/oib/AITBC/blob/main/docs/DEVELOPMENT_GUIDELINES.md) for more information.`
+            });
+          } catch (error) {
+            console.log('Could not read organization report');
+          }

@@ -54,7 +54,7 @@ done
 
 # Check for forbidden directories at root
 for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
-    if [[ -d "$dir" ]]; then
+    if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." ]]; then
         echo "❌ ERROR: Found directory '$dir' at root level"
         echo "📁 Suggested location:"
         
