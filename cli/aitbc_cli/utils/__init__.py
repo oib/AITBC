@@ -133,7 +133,7 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
     return log_level
 
 
-def output(data: Any, format_type: str = "table"):
+def output(data: Any, format_type: str = "table", title: str = None):
     """Format and output data"""
     if format_type == "json":
         console.print(json.dumps(data, indent=2, default=str))
@@ -142,7 +142,7 @@ def output(data: Any, format_type: str = "table"):
     elif format_type == "table":
         if isinstance(data, dict) and not isinstance(data, list):
             # Simple key-value table
-            table = Table(show_header=False, box=None)
+            table = Table(show_header=False, box=None, title=title)
             table.add_column("Key", style="cyan")
             table.add_column("Value", style="green")
             

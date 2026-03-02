@@ -6,10 +6,20 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+from pydantic import BaseModel
+
+class ProposerConfig(BaseModel):
+    chain_id: str
+    proposer_id: str
+    interval_seconds: int
+    max_block_size_bytes: int
+    max_txs_per_block: int
+
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
     chain_id: str = "ait-devnet"
+    supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
     db_path: Path = Path("./data/chain.db")
 
     rpc_bind_host: str = "127.0.0.1"

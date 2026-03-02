@@ -47,7 +47,7 @@ def list(ctx, nft_version: str, category: Optional[str], tags: Optional[str],
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models",
+                f"{config.coordinator_url}/marketplace/advanced/models",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -105,7 +105,7 @@ def mint(ctx, model_file: str, metadata, price: Optional[float], royalty: float,
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models/mint",
+                f"{config.coordinator_url}/marketplace/advanced/models/mint",
                 headers={"X-Api-Key": config.api_key or ""},
                 data=nft_data,
                 files=files
@@ -157,7 +157,7 @@ def update(ctx, nft_id: str, new_version: str, version_notes: str, compatibility
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models/{nft_id}/update",
+                f"{config.coordinator_url}/marketplace/advanced/models/{nft_id}/update",
                 headers={"X-Api-Key": config.api_key or ""},
                 data=update_data,
                 files=files
@@ -196,7 +196,7 @@ def verify(ctx, nft_id: str, deep_scan: bool, check_integrity: bool, verify_perf
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models/{nft_id}/verify",
+                f"{config.coordinator_url}/marketplace/advanced/models/{nft_id}/verify",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=verify_data
             )
@@ -253,7 +253,7 @@ def analytics(ctx, period: str, metrics: str, category: Optional[str], output_fo
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/advanced/analytics",
+                f"{config.coordinator_url}/marketplace/advanced/analytics",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -295,7 +295,7 @@ def benchmark(ctx, model_id: str, competitors: bool, datasets: str, iterations: 
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models/{model_id}/benchmark",
+                f"{config.coordinator_url}/marketplace/advanced/models/{model_id}/benchmark",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=benchmark_data
             )
@@ -334,7 +334,7 @@ def trends(ctx, category: Optional[str], forecast: str, confidence: float):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/advanced/trends",
+                f"{config.coordinator_url}/marketplace/advanced/trends",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -371,7 +371,7 @@ def report(ctx, format: str, email: Optional[str], sections: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/reports/generate",
+                f"{config.coordinator_url}/marketplace/advanced/reports/generate",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=report_data
             )
@@ -420,7 +420,7 @@ def bid(ctx, auction_id: str, amount: float, max_auto_bid: Optional[float], prox
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/auctions/{auction_id}/bid",
+                f"{config.coordinator_url}/marketplace/advanced/auctions/{auction_id}/bid",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=bid_data
             )
@@ -466,7 +466,7 @@ def royalties(ctx, model_id: str, recipients: str, smart_contract: bool):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/models/{model_id}/royalties",
+                f"{config.coordinator_url}/marketplace/advanced/models/{model_id}/royalties",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=royalty_data
             )
@@ -569,7 +569,7 @@ def file(ctx, transaction_id: str, reason: str, evidence, category: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/disputes",
+                f"{config.coordinator_url}/marketplace/advanced/disputes",
                 headers={"X-Api-Key": config.api_key or ""},
                 data=dispute_data,
                 files=files
@@ -599,7 +599,7 @@ def status(ctx, dispute_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/advanced/disputes/{dispute_id}",
+                f"{config.coordinator_url}/marketplace/advanced/disputes/{dispute_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -634,7 +634,7 @@ def resolve(ctx, dispute_id: str, resolution: str, evidence):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/advanced/disputes/{dispute_id}/resolve",
+                f"{config.coordinator_url}/marketplace/advanced/disputes/{dispute_id}/resolve",
                 headers={"X-Api-Key": config.api_key or ""},
                 data=resolution_data,
                 files=files

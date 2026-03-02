@@ -6,6 +6,7 @@ from pydantic import field_validator
 from sqlalchemy import Column
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, SQLModel
+from sqlalchemy import UniqueConstraint
 
 _HEX_PATTERN = re.compile(r"^(0x)?[0-9a-fA-F]+$")
 
@@ -24,9 +25,11 @@ def _validate_optional_hex(value: Optional[str], field_name: str) -> Optional[st
 
 class Block(SQLModel, table=True):
     __tablename__ = "block"
+    __table_args__ = (UniqueConstraint("chain_id", "height", name="uix_block_chain_height"),)
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    height: int = Field(index=True, unique=True)
+    chain_id: str = Field(index=True)
+    height: int = Field(index=True)
     hash: str = Field(index=True, unique=True)
     parent_hash: str
     proposer: str
@@ -37,11 +40,19 @@ class Block(SQLModel, table=True):
     # Relationships - use sa_relationship_kwargs for lazy loading
     transactions: List["Transaction"] = Relationship(
         back_populates="block",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        sa_relationship_kwargs={
+            "lazy": "selectin",
+            "primaryjoin": "and_(Transaction.block_height==Block.height, Transaction.chain_id==Block.chain_id)",
+            "foreign_keys": "[Transaction.block_height, Transaction.chain_id]"
+        }
     )
     receipts: List["Receipt"] = Relationship(
         back_populates="block",
-        sa_relationship_kwargs={"lazy": "selectin"}
+        sa_relationship_kwargs={
+            "lazy": "selectin",
+            "primaryjoin": "and_(Receipt.block_height==Block.height, Receipt.chain_id==Block.chain_id)",
+            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]"
+        }
     )
 
     @field_validator("hash", mode="before")
@@ -62,13 +73,14 @@ class Block(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     __tablename__ = "transaction"
+    __table_args__ = (UniqueConstraint("chain_id", "tx_hash", name="uix_tx_chain_hash"),)
     
     id: Optional[int] = Field(default=None, primary_key=True)
-    tx_hash: str = Field(index=True, unique=True)
+    chain_id: str = Field(index=True)
+    tx_hash: str = Field(index=True)
     block_height: Optional[int] = Field(
         default=None,
         index=True,
-        foreign_key="block.height",
     )
     sender: str
     recipient: str
@@ -79,7 +91,13 @@ class Transaction(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Relationship
-    block: Optional["Block"] = Relationship(back_populates="transactions")
+    block: Optional["Block"] = Relationship(
+        back_populates="transactions",
+        sa_relationship_kwargs={
+            "primaryjoin": "and_(Transaction.block_height==Block.height, Transaction.chain_id==Block.chain_id)",
+            "foreign_keys": "[Transaction.block_height, Transaction.chain_id]"
+        }
+    )
 
     @field_validator("tx_hash", mode="before")
     @classmethod
@@ -89,14 +107,15 @@ class Transaction(SQLModel, table=True):
 
 class Receipt(SQLModel, table=True):
     __tablename__ = "receipt"
+    __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"),)
     
     id: Optional[int] = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
     job_id: str = Field(index=True)
-    receipt_id: str = Field(index=True, unique=True)
+    receipt_id: str = Field(index=True)
     block_height: Optional[int] = Field(
         default=None,
         index=True,
-        foreign_key="block.height",
     )
     payload: dict = Field(
         default_factory=dict,
@@ -114,7 +133,13 @@ class Receipt(SQLModel, table=True):
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Relationship
-    block: Optional["Block"] = Relationship(back_populates="receipts")
+    block: Optional["Block"] = Relationship(
+        back_populates="receipts",
+        sa_relationship_kwargs={
+            "primaryjoin": "and_(Receipt.block_height==Block.height, Receipt.chain_id==Block.chain_id)",
+            "foreign_keys": "[Receipt.block_height, Receipt.chain_id]"
+        }
+    )
 
     @field_validator("receipt_id", mode="before")
     @classmethod
@@ -125,6 +150,7 @@ class Receipt(SQLModel, table=True):
 class Account(SQLModel, table=True):
     __tablename__ = "account"
     
+    chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
     balance: int = 0
     nonce: int = 0

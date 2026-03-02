@@ -51,7 +51,7 @@ def register(ctx, name: str, memory: Optional[int], cuda_cores: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/gpu/register",
+                f"{config.coordinator_url}/marketplace/gpu/register",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or "",
@@ -96,7 +96,7 @@ def list(ctx, available: bool, model: Optional[str], memory_min: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/gpu/list",
+                f"{config.coordinator_url}/marketplace/gpu/list",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -120,7 +120,7 @@ def details(ctx, gpu_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}",
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -152,7 +152,7 @@ def book(ctx, gpu_id: str, hours: float, job_id: Optional[str]):
             
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book",
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/book",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -180,7 +180,7 @@ def release(ctx, gpu_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}/release",
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/release",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -208,7 +208,7 @@ def orders(ctx, status: Optional[str], limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/orders",
+                f"{config.coordinator_url}/marketplace/orders",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -232,7 +232,7 @@ def pricing(ctx, model: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/pricing/{model}",
+                f"{config.coordinator_url}/marketplace/pricing/{model}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -256,7 +256,7 @@ def reviews(ctx, gpu_id: str, limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}/reviews",
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/reviews",
                 params={"limit": limit},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -291,7 +291,7 @@ def review(ctx, gpu_id: str, rating: int, comment: Optional[str]):
         
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}/reviews",
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/reviews",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -344,7 +344,7 @@ def submit(ctx, provider: str, capacity: int, price: float, notes: Optional[str]
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/bids",
+                f"{config.coordinator_url}/marketplace/bids",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -383,7 +383,7 @@ def list(ctx, status: Optional[str], provider: Optional[str], limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/bids",
+                f"{config.coordinator_url}/marketplace/bids",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -407,7 +407,7 @@ def details(ctx, bid_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/bids/{bid_id}",
+                f"{config.coordinator_url}/marketplace/bids/{bid_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -455,7 +455,7 @@ def list(ctx, status: Optional[str], gpu_model: Optional[str], price_max: Option
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/marketplace/offers",
+                f"{config.coordinator_url}/marketplace/offers",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -499,7 +499,7 @@ def register(ctx, agent_id: str, agent_type: str, capabilities: Optional[str],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/agents/register",
+                f"{config.coordinator_url}/agents/register",
                 json=agent_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -538,7 +538,7 @@ def list_agents(ctx, agent_id: Optional[str], agent_type: Optional[str],
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/agents",
+                f"{config.coordinator_url}/agents",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -578,7 +578,7 @@ def list_resource(ctx, resource_id: str, resource_type: str, compute_power: floa
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/list",
+                f"{config.coordinator_url}/marketplace/list",
                 json=resource_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -617,7 +617,7 @@ def rent(ctx, resource_id: str, consumer_id: str, duration: int, max_price: Opti
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/marketplace/rent",
+                f"{config.coordinator_url}/marketplace/rent",
                 json=rental_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -656,7 +656,7 @@ def execute_contract(ctx, contract_type: str, params: str, gas_limit: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/blockchain/contracts/execute",
+                f"{config.coordinator_url}/blockchain/contracts/execute",
                 json=contract_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -691,7 +691,7 @@ def pay(ctx, from_agent: str, to_agent: str, amount: float, payment_type: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/payments/process",
+                f"{config.coordinator_url}/payments/process",
                 json=payment_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -715,7 +715,7 @@ def reputation(ctx, agent_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/agents/{agent_id}/reputation",
+                f"{config.coordinator_url}/agents/{agent_id}/reputation",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -737,7 +737,7 @@ def balance(ctx, agent_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/agents/{agent_id}/balance",
+                f"{config.coordinator_url}/agents/{agent_id}/balance",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -759,7 +759,7 @@ def analytics(ctx, time_range: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/analytics/marketplace",
+                f"{config.coordinator_url}/analytics/marketplace",
                 params={"time_range": time_range},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -808,7 +808,7 @@ def create_proposal(ctx, title: str, description: str, proposal_type: str,
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/proposals/create",
+                f"{config.coordinator_url}/proposals/create",
                 json=proposal_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -840,7 +840,7 @@ def vote(ctx, proposal_id: str, vote: str, reasoning: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/voting/cast-vote",
+                f"{config.coordinator_url}/voting/cast-vote",
                 json=vote_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -869,7 +869,7 @@ def list_proposals(ctx, status: Optional[str], limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/proposals",
+                f"{config.coordinator_url}/proposals",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -908,7 +908,7 @@ def load(ctx, concurrent_users: int, rps: int, duration: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/testing/load-test",
+                f"{config.coordinator_url}/testing/load-test",
                 json=test_config,
                 headers={"X-Api-Key": config.api_key or ""}
             )

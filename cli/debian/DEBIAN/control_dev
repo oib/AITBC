@@ -1,0 +1,12 @@
+Package: aitbc-cli-dev
+Version: 0.1.0
+Section: devel
+Priority: optional
+Architecture: all
+Installed-Size: 50
+Depends: aitbc-cli, python3-dev, build-essential, python3-build
+Maintainer: AITBC Team <team@aitbc.net>
+Description: AITBC CLI Development Tools
+ Development tools and headers for the AITBC CLI.
+ Includes build tools, testing frameworks, and development
+ dependencies for extending or modifying the AITBC CLI.

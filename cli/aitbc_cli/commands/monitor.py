@@ -41,7 +41,7 @@ def dashboard(ctx, refresh: int, duration: int):
                     # Node status
                     try:
                         resp = client.get(
-                            f"{config.coordinator_url}/v1/status",
+                            f"{config.coordinator_url}/status",
                             headers={"X-Api-Key": config.api_key or ""}
                         )
                         if resp.status_code == 200:
@@ -59,7 +59,7 @@ def dashboard(ctx, refresh: int, duration: int):
                     # Jobs summary
                     try:
                         resp = client.get(
-                            f"{config.coordinator_url}/v1/jobs",
+                            f"{config.coordinator_url}/jobs",
                             headers={"X-Api-Key": config.api_key or ""},
                             params={"limit": 5}
                         )
@@ -78,7 +78,7 @@ def dashboard(ctx, refresh: int, duration: int):
                     # Miners summary
                     try:
                         resp = client.get(
-                            f"{config.coordinator_url}/v1/miners",
+                            f"{config.coordinator_url}/miners",
                             headers={"X-Api-Key": config.api_key or ""}
                         )
                         if resp.status_code == 200:
@@ -128,7 +128,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Coordinator metrics
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/v1/status",
+                    f"{config.coordinator_url}/status",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 if resp.status_code == 200:
@@ -142,7 +142,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Job metrics
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/v1/jobs",
+                    f"{config.coordinator_url}/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 100}
                 )
@@ -161,7 +161,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Miner metrics
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/v1/miners",
+                    f"{config.coordinator_url}/miners",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 if resp.status_code == 200:
@@ -287,7 +287,7 @@ def history(ctx, period: str):
         with httpx.Client(timeout=10) as client:
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/v1/jobs",
+                    f"{config.coordinator_url}/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 500}
                 )

@@ -8,6 +8,18 @@ aitbc config set coordinator_url http://localhost:8000
 export AITBC_API_KEY=your-key                       # or use --api-key
 ```
 
+## Verify Installation
+
+```bash
+# Check CLI version and platform
+aitbc --version
+aitbc --debug
+
+# Test connectivity
+aitbc blockchain status
+aitbc --config
+```
+
 ## Global Options
 
 | Option | Description |
@@ -16,36 +28,191 @@ export AITBC_API_KEY=your-key                       # or use --api-key
 | `--api-key KEY` | API key for authentication |
 | `--output table\|json\|yaml` | Output format |
 | `-v / -vv / -vvv` | Verbosity level |
-| `--debug` | Debug mode |
+| `--debug` | Debug mode with system information |
+| `--config` | Show current configuration |
 
-## Command Groups
+## Enhanced Command Groups
 
 | Group | Key commands |
 |-------|-------------|
-| `agent` | `create`, `execute`, `network`, `learning` |
+| `agent` | `workflow create`, `execute`, `network`, `learning enable` |
 | `multimodal` | `agent`, `process`, `convert`, `search` |
-| `optimize` | `self-opt`, `predict`, `tune` |
-| `openclaw` | `deploy`, `edge`, `routing`, `ecosystem` |
-| `marketplace advanced` | `models`, `analytics`, `trading`, `dispute` |
+| `optimize` | `enable`, `status`, `recommendations`, `apply`, `predict`, `tune` |
+| `openclaw` | `deploy`, `status`, `optimize`, `edge`, `routing`, `ecosystem` |
+| `marketplace` | `list`, `gpu list`, `offer create`, `gpu rent`, `orders`, `reviews` |
 | `swarm` | `join`, `coordinate`, `consensus` |
 | `client` | `submit`, `status`, `list`, `cancel`, `download`, `batch-submit` |
 | `miner` | `register`, `poll`, `mine`, `earnings`, `deregister` |
-| `wallet` | `balance`, `send`, `stake`, `backup`, `multisig-create` |
+| `wallet` | `create`, `balance`, `send`, `stake`, `backup`, `multisig-create` |
 | `auth` | `login`, `logout`, `token`, `keys` |
-| `blockchain` | `status`, `blocks`, `transaction`, `validators` |
-| `marketplace` | `gpu list`, `gpu book`, `orders`, `reviews` |
+| `blockchain` | `status`, `sync`, `info`, `peers`, `blocks`, `transaction`, `validators` |
 | `admin` | `status`, `jobs`, `miners`, `audit-log` |
-| `config` | `set`, `show`, `profiles`, `secrets` |
+| `config` | `set`, `show`, `profiles`, `secrets`, `get` |
 | `monitor` | `dashboard`, `metrics`, `alerts`, `webhooks` |
 | `simulate` | `workflow`, `load-test`, `scenario` |
 
-## Client Workflow
+## Enhanced Client Workflow
 
 ```bash
-aitbc wallet balance                                # check funds
-aitbc client submit --prompt "What is AI?"          # submit job
+# Setup and configuration
+aitbc wallet create --name my-wallet               # create wallet
+aitbc wallet balance                                 # check funds
+aitbc config show                                   # verify configuration
+
+# Job submission with enhanced options
+aitbc client submit --prompt "What is AI?" \
+  --model gpt2 \
+  --priority normal \
+  --timeout 3600
+
+# Job tracking and management
 aitbc client status --job-id <JOB_ID>               # check progress
 aitbc client download --job-id <JOB_ID> --output ./ # get results
+aitbc client list --status completed                 # list completed jobs
+```
+
+## Agent Workflow (New)
+
+```bash
+# Agent workflow management
+aitbc agent workflow create \
+  --name "ai_inference" \
+  --description "AI inference workflow" \
+  --config '{"model": "gpt2", "type": "inference"}'
+
+# Execute agent workflow
+aitbc agent execute ai_inference \
+  --input '{"prompt": "Hello world"}' \
+  --priority normal
+
+# Agent learning and optimization
+aitbc agent learning enable --agent-id agent_123 \
+  --mode performance \
+  --auto-tune
+
+# Agent networks
+aitbc agent network create \
+  --name "compute_network" \
+  --type "resource_sharing"
+```
+
+## OpenClaw Deployment (New)
+
+```bash
+# Deploy applications
+aitbc openclaw deploy \
+  --name "web_app" \
+  --image "nginx:latest" \
+  --replicas 3 \
+  --region "us-west"
+
+# Monitor and optimize deployments
+aitbc openclaw status web_app
+aitbc openclaw optimize web_app \
+  --target performance \
+  --auto-tune
+
+# Edge deployments
+aitbc openclaw edge deploy \
+  --name "edge_service" \
+  --compute "gpu" \
+  --region "edge_location"
+```
+
+## Optimization Features (New)
+
+```bash
+# Enable agent optimization
+aitbc optimize enable --agent-id agent_123 \
+  --mode performance \
+  --auto-tune
+
+# Get optimization recommendations
+aitbc optimize recommendations --agent-id agent_123
+
+# Apply optimizations
+aitbc optimize apply --agent-id agent_123 \
+  --recommendation-id rec_456
+
+# Predictive scaling
+aitbc optimize predict --agent-id agent_123 \
+  --metric cpu_usage \
+  --horizon 1h
+
+# Auto-tuning
+aitbc optimize tune --agent-id agent_123 \
+  --objective performance \
+  --constraints '{"cost": "<100"}'
+```
+
+## Enhanced Marketplace Operations
+
+```bash
+# List available GPUs
+aitbc marketplace gpu list
+
+# Register GPU offer
+aitbc marketplace offer create \
+  --miner-id gpu_miner_123 \
+  --gpu-model "RTX-4090" \
+  --gpu-memory "24GB" \
+  --price-per-hour "0.05" \
+  --models "gpt2,llama" \
+  --endpoint "http://localhost:11434"
+
+# Rent GPU
+aitbc marketplace gpu rent --gpu-id gpu_789 --duration 2h
+
+# Track orders and reviews
+aitbc marketplace orders --status active
+aitbc marketplace reviews --miner-id gpu_miner_123
+```
+
+## Enhanced Blockchain Operations
+
+```bash
+# Blockchain status and synchronization
+aitbc blockchain status
+aitbc blockchain sync
+aitbc blockchain info
+
+# Network and peers
+aitbc blockchain peers
+aitbc blockchain blocks --limit 10
+
+# Transactions and validators
+aitbc blockchain transaction <TX_ID>
+aitbc blockchain validators
+```
+
+## Enhanced Configuration Management
+
+```bash
+# Configuration management
+aitbc config show
+aitbc config set coordinator_url http://localhost:8000
+aitbc config get api_key
+aitbc config profiles list
+aitbc config profiles create development
+
+# Secrets management
+aitbc config secrets set api_key your_secret_key
+aitbc config secrets get api_key
+```
+
+## Debug and Troubleshooting
+
+```bash
+# Debug mode with system information
+aitbc --debug
+
+# Monitor CLI performance
+aitbc monitor dashboard
+aitbc monitor metrics --component cli
+
+# Simulation and testing
+aitbc simulate workflow --test-scenario basic
+aitbc simulate load-test --concurrent-users 10
 ```
 
 ## Miner Workflow

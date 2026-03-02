@@ -95,7 +95,7 @@ async def lifespan(app: FastAPI):
         broadcast_url=settings.gossip_broadcast_url,
     )
     await gossip_broker.set_backend(backend)
-    _app_logger.info("Blockchain node started", extra={"chain_id": settings.chain_id})
+    _app_logger.info("Blockchain node started", extra={"supported_chains": settings.supported_chains})
     try:
         yield
     finally:
@@ -134,7 +134,7 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {
             "status": "ok",
-            "chain_id": settings.chain_id,
+            "supported_chains": [c.strip() for c in settings.supported_chains.split(",") if c.strip()],
             "proposer_id": settings.proposer_id,
         }
 

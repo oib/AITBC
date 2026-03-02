@@ -32,7 +32,26 @@ python -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
-This installs the CLI, coordinator API, and blockchain node from the monorepo.
+This installs the enhanced AITBC CLI, coordinator API, and blockchain node from the monorepo.
+
+## Verify CLI Installation
+
+```bash
+# Check CLI version and installation
+aitbc --version
+aitbc --help
+
+# Test CLI connectivity
+aitbc blockchain status
+```
+
+Expected output:
+```
+AITBC CLI v0.1.0
+Platform: Linux/MacOS
+Architecture: x86_64/arm64
+✓ CLI installed successfully
+```
 
 ## Environment Configuration
 

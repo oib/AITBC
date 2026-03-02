@@ -23,7 +23,7 @@ def rates(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/exchange/rates",
+                f"{config.coordinator_url}/exchange/rates",
                 timeout=10
             )
             
@@ -65,7 +65,7 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
     try:
         with httpx.Client() as client:
             rates_response = client.get(
-                f"{config.coordinator_url}/v1/exchange/rates",
+                f"{config.coordinator_url}/exchange/rates",
                 timeout=10
             )
             
@@ -94,7 +94,7 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
             
             # Create payment
             response = client.post(
-                f"{config.coordinator_url}/v1/exchange/create-payment",
+                f"{config.coordinator_url}/exchange/create-payment",
                 json=payment_data,
                 timeout=10
             )
@@ -124,7 +124,7 @@ def payment_status(ctx, payment_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/exchange/payment-status/{payment_id}",
+                f"{config.coordinator_url}/exchange/payment-status/{payment_id}",
                 timeout=10
             )
             
@@ -158,7 +158,7 @@ def market_stats(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/exchange/market-stats",
+                f"{config.coordinator_url}/exchange/market-stats",
                 timeout=10
             )
             
@@ -187,7 +187,7 @@ def balance(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/exchange/wallet/balance",
+                f"{config.coordinator_url}/exchange/wallet/balance",
                 timeout=10
             )
             
@@ -210,7 +210,7 @@ def info(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/exchange/wallet/info",
+                f"{config.coordinator_url}/exchange/wallet/info",
                 timeout=10
             )
             
