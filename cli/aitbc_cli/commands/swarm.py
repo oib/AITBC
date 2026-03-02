@@ -39,7 +39,7 @@ def join(ctx, role: str, capability: str, region: Optional[str], priority: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/swarm/join",
+                f"{config.coordinator_url}/swarm/join",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=swarm_data
             )
@@ -80,7 +80,7 @@ def coordinate(ctx, task: str, collaborators: int, strategy: str, timeout: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/swarm/coordinate",
+                f"{config.coordinator_url}/swarm/coordinate",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=coordination_data
             )
@@ -117,7 +117,7 @@ def list(ctx, swarm_id: Optional[str], status: Optional[str], limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/swarm/list",
+                f"{config.coordinator_url}/swarm/list",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -146,7 +146,7 @@ def status(ctx, task_id: str, real_time: bool, interval: int):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/v1/swarm/tasks/{task_id}/status",
+                    f"{config.coordinator_url}/swarm/tasks/{task_id}/status",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 
@@ -194,7 +194,7 @@ def leave(ctx, swarm_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/swarm/{swarm_id}/leave",
+                f"{config.coordinator_url}/swarm/{swarm_id}/leave",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -227,7 +227,7 @@ def consensus(ctx, task_id: str, consensus_threshold: float):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/swarm/tasks/{task_id}/consensus",
+                f"{config.coordinator_url}/swarm/tasks/{task_id}/consensus",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=consensus_data
             )

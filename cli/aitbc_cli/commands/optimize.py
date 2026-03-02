@@ -48,7 +48,7 @@ def enable(ctx, agent_id: str, mode: str, scope: str, aggressiveness: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/enable",
+                f"{config.coordinator_url}/optimize/agents/{agent_id}/enable",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=optimization_config
             )
@@ -83,7 +83,7 @@ def status(ctx, agent_id: str, metrics: str, real_time: bool, interval: int):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/status",
+                    f"{config.coordinator_url}/optimize/agents/{agent_id}/status",
                     headers={"X-Api-Key": config.api_key or ""},
                     params=params
                 )
@@ -151,7 +151,7 @@ def objectives(ctx, agent_id: str, targets: str, priority: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/objectives",
+                f"{config.coordinator_url}/optimize/agents/{agent_id}/objectives",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=objectives_data
             )
@@ -190,7 +190,7 @@ def recommendations(ctx, agent_id: str, priority: str, category: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/recommendations",
+                f"{config.coordinator_url}/optimize/agents/{agent_id}/recommendations",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -223,7 +223,7 @@ def apply(ctx, agent_id: str, recommendation_id: str, confirm: bool):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/apply/{recommendation_id}",
+                f"{config.coordinator_url}/optimize/agents/{agent_id}/apply/{recommendation_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -249,7 +249,6 @@ def predict():
 
 optimize.add_command(predict)
 
-
 @predict.command()
 @click.argument("agent_id")
 @click.option("--horizon", default=24, help="Prediction horizon in hours")
@@ -269,7 +268,7 @@ def predict(ctx, agent_id: str, horizon: int, resources: str, confidence: float)
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/predict/agents/{agent_id}/resources",
+                f"{config.coordinator_url}/predict/agents/{agent_id}/resources",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=prediction_data
             )
@@ -288,7 +287,6 @@ def predict(ctx, agent_id: str, horizon: int, resources: str, confidence: float)
         ctx.exit(1)
 
 
-@predict.command()
 @click.argument("agent_id")
 @click.option("--policy", default="cost-efficiency", 
               type=click.Choice(["cost-efficiency", "performance", "availability", "hybrid"]),
@@ -311,7 +309,7 @@ def autoscale(ctx, agent_id: str, policy: str, min_instances: int, max_instances
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/predict/agents/{agent_id}/autoscale",
+                f"{config.coordinator_url}/predict/agents/{agent_id}/autoscale",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=autoscale_config
             )
@@ -330,7 +328,6 @@ def autoscale(ctx, agent_id: str, policy: str, min_instances: int, max_instances
         ctx.exit(1)
 
 
-@predict.command()
 @click.argument("agent_id")
 @click.option("--metric", required=True, help="Metric to forecast (throughput, latency, cost, etc.)")
 @click.option("--period", default=7, help="Forecast period in days")
@@ -351,7 +348,7 @@ def forecast(ctx, agent_id: str, metric: str, period: int, granularity: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/predict/agents/{agent_id}/forecast",
+                f"{config.coordinator_url}/predict/agents/{agent_id}/forecast",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=forecast_params
             )
@@ -400,7 +397,7 @@ def auto(ctx, agent_id: str, parameters: Optional[str], objective: str, iteratio
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/tune/agents/{agent_id}/auto",
+                f"{config.coordinator_url}/tune/agents/{agent_id}/auto",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=tuning_data
             )
@@ -431,7 +428,7 @@ def status(ctx, tuning_id: str, watch: bool):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/v1/tune/sessions/{tuning_id}",
+                    f"{config.coordinator_url}/tune/sessions/{tuning_id}",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 
@@ -475,7 +472,7 @@ def results(ctx, tuning_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/tune/sessions/{tuning_id}/results",
+                f"{config.coordinator_url}/tune/sessions/{tuning_id}/results",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -500,7 +497,7 @@ def disable(ctx, agent_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/optimize/agents/{agent_id}/disable",
+                f"{config.coordinator_url}/optimize/agents/{agent_id}/disable",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             

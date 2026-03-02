@@ -48,7 +48,7 @@ def agent(ctx, name: str, modalities: str, description: str, model_config, gpu_a
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents",
+                f"{config.coordinator_url}/multimodal/agents",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=agent_data
             )
@@ -138,7 +138,7 @@ def process(ctx, agent_id: str, text: Optional[str], image: Optional[str],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/process",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/process",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=process_data
             )
@@ -176,7 +176,7 @@ def benchmark(ctx, agent_id: str, dataset: str, metrics: str, iterations: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/benchmark",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/benchmark",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=benchmark_data
             )
@@ -213,7 +213,7 @@ def optimize(ctx, agent_id: str, objective: str, target: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/optimize",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/optimize",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=optimization_data
             )
@@ -274,7 +274,7 @@ def convert(ctx, input_path: str, output_format: str, model: str, output_file: O
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/convert",
+                f"{config.coordinator_url}/multimodal/convert",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=conversion_data
             )
@@ -329,7 +329,7 @@ def search(ctx, query: str, modalities: str, limit: int, threshold: float):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/search",
+                f"{config.coordinator_url}/multimodal/search",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=search_data
             )
@@ -378,7 +378,7 @@ def attention(ctx, agent_id: str, inputs, visualize: bool, output: Optional[str]
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/attention",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/attention",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=attention_data
             )
@@ -414,7 +414,7 @@ def capabilities(ctx, agent_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/capabilities",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/capabilities",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -451,7 +451,7 @@ def test(ctx, agent_id: str, modality: str, test_data):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/multimodal/agents/{agent_id}/test/{modality}",
+                f"{config.coordinator_url}/multimodal/agents/{agent_id}/test/{modality}",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=test_input
             )

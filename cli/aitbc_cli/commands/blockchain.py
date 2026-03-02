@@ -2,6 +2,18 @@
 
 import click
 import httpx
+
+def _get_node_endpoint(ctx):
+    try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            return "http://127.0.0.1:8082"
+        # Return the first node's endpoint
+        return list(config.nodes.values())[0].endpoint
+    except:
+        return "http://127.0.0.1:8082"
+
 from typing import Optional, List
 from ..utils import output, error
 
@@ -27,7 +39,7 @@ def blocks(ctx, limit: int, from_height: Optional[int]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/explorer/blocks",
+                f"{config.coordinator_url}/explorer/blocks",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -51,7 +63,7 @@ def block(ctx, block_hash: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/explorer/blocks/{block_hash}",
+                f"{config.coordinator_url}/explorer/blocks/{block_hash}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -74,7 +86,7 @@ def transaction(ctx, tx_hash: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/explorer/transactions/{tx_hash}",
+                f"{config.coordinator_url}/explorer/transactions/{tx_hash}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -108,8 +120,10 @@ def status(ctx, node: int):
     
     try:
         with httpx.Client() as client:
+            # First get health for general status
+            health_url = rpc_url.replace("/rpc", "") + "/health" if "/rpc" in rpc_url else rpc_url + "/health"
             response = client.get(
-                f"{rpc_url}/head",
+                health_url,
                 timeout=5
             )
             
@@ -135,7 +149,7 @@ def sync_status(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/blockchain/sync",
+                f"{config.coordinator_url}/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -157,7 +171,7 @@ def peers(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/blockchain/peers",
+                f"{config.coordinator_url}/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -179,7 +193,7 @@ def info(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/blockchain/info",
+                f"{config.coordinator_url}/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -201,7 +215,7 @@ def supply(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/blockchain/supply",
+                f"{config.coordinator_url}/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -223,7 +237,7 @@ def validators(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/blockchain/validators",
+                f"{config.coordinator_url}/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -232,5 +246,150 @@ def validators(ctx):
                 output(validators_data, ctx.obj['output_format'])
             else:
                 error(f"Failed to get validators: {response.status_code}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+@blockchain.command()
+@click.option('--chain-id', required=True, help='Chain ID')
+@click.pass_context
+def genesis(ctx, chain_id):
+    """Get the genesis block of a chain"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        with httpx.Client() as client:
+            # We assume node 1 is running on port 8082, but let's just hit the first configured node
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/blocks/0?chain_id={chain_id}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get genesis block: {response.status_code} - {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+@blockchain.command()
+@click.option('--chain-id', required=True, help='Chain ID')
+@click.pass_context
+def transactions(ctx, chain_id):
+    """Get latest transactions on a chain"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        with httpx.Client() as client:
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/transactions?chain_id={chain_id}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get transactions: {response.status_code} - {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+@blockchain.command()
+@click.option('--chain-id', required=True, help='Chain ID')
+@click.pass_context
+def head(ctx, chain_id):
+    """Get the head block of a chain"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        with httpx.Client() as client:
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/head?chain_id={chain_id}",
+                timeout=5
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get head block: {response.status_code} - {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@blockchain.command()
+@click.option('--chain-id', required=True, help='Chain ID')
+@click.option('--from', 'from_addr', required=True, help='Sender address')
+@click.option('--to', required=True, help='Recipient address')
+@click.option('--data', required=True, help='Transaction data payload')
+@click.option('--nonce', type=int, default=0, help='Nonce')
+@click.pass_context
+def send(ctx, chain_id, from_addr, to, data, nonce):
+    """Send a transaction to a chain"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        with httpx.Client() as client:
+            tx_payload = {
+                "type": "TRANSFER",
+                "chain_id": chain_id,
+                "from_address": from_addr,
+                "to_address": to,
+                "value": 0,
+                "gas_limit": 100000,
+                "gas_price": 1,
+                "nonce": nonce,
+                "data": data,
+                "signature": "mock_signature"
+            }
+            
+            response = client.post(
+                f"{_get_node_endpoint(ctx)}/rpc/sendTx",
+                json=tx_payload,
+                timeout=5
+            )
+            if response.status_code in (200, 201):
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to send transaction: {response.status_code} - {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@blockchain.command()
+@click.option('--address', required=True, help='Wallet address')
+@click.pass_context
+def balance(ctx, address):
+    """Get the balance of an address across all chains"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        # Balance is typically served by the coordinator API or blockchain node directly
+        # The node has /rpc/getBalance/{address} but it expects chain_id param. Let's just query devnet for now.
+        with httpx.Client() as client:
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/getBalance/{address}?chain_id=ait-devnet",
+                timeout=5
+            )
+            if response.status_code == 200:
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to get balance: {response.status_code} - {response.text}")
+    except Exception as e:
+        error(f"Network error: {e}")
+
+@blockchain.command()
+@click.option('--address', required=True, help='Wallet address')
+@click.option('--amount', type=int, default=1000, help='Amount to mint')
+@click.pass_context
+def faucet(ctx, address, amount):
+    """Mint devnet funds to an address"""
+    config = ctx.obj['config']
+    try:
+        import httpx
+        with httpx.Client() as client:
+            response = client.post(
+                f"{_get_node_endpoint(ctx)}/rpc/admin/mintFaucet",
+                json={"address": address, "amount": amount, "chain_id": "ait-devnet"},
+                timeout=5
+            )
+            if response.status_code in (200, 201):
+                output(response.json(), ctx.obj['output_format'])
+            else:
+                error(f"Failed to use faucet: {response.status_code} - {response.text}")
     except Exception as e:
         error(f"Network error: {e}")

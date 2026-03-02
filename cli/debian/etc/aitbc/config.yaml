@@ -1,0 +1,29 @@
+# AITBC CLI Configuration File
+# Default configuration for AITBC CLI
+
+# Coordinator API settings
+coordinator_url: http://localhost:8000
+api_key: null
+
+# Output settings
+output_format: table
+timeout: 30
+
+# Logging
+log_level: INFO
+
+# Wallet settings
+default_wallet: default
+wallet_dir: ~/.aitbc/wallets
+
+# Blockchain settings
+chain_id: mainnet
+
+# Marketplace settings
+default_region: localhost
+
+# Analytics settings
+analytics_enabled: true
+
+# Security settings
+verify_ssl: true

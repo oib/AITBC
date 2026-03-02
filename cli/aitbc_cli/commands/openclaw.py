@@ -31,8 +31,8 @@ openclaw.add_command(deploy)
 @click.option("--edge-locations", help="Comma-separated edge locations")
 @click.option("--auto-scale", is_flag=True, help="Enable auto-scaling")
 @click.pass_context
-def deploy(ctx, agent_id: str, region: str, instances: int, instance_type: str, 
-           edge_locations: Optional[str], auto_scale: bool):
+def deploy_agent(ctx, agent_id: str, region: str, instances: int, instance_type: str, 
+                edge_locations: Optional[str], auto_scale: bool):
     """Deploy agent to OpenClaw network"""
     config = ctx.obj['config']
     
@@ -50,7 +50,7 @@ def deploy(ctx, agent_id: str, region: str, instances: int, instance_type: str,
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/deploy",
+                f"{config.coordinator_url}/openclaw/deploy",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=deployment_data
             )
@@ -69,7 +69,6 @@ def deploy(ctx, agent_id: str, region: str, instances: int, instance_type: str,
         ctx.exit(1)
 
 
-@deploy.command()
 @click.argument("deployment_id")
 @click.option("--instances", required=True, type=int, help="New number of instances")
 @click.option("--auto-scale", is_flag=True, help="Enable auto-scaling")
@@ -90,7 +89,7 @@ def scale(ctx, deployment_id: str, instances: int, auto_scale: bool, min_instanc
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/deployments/{deployment_id}/scale",
+                f"{config.coordinator_url}/openclaw/deployments/{deployment_id}/scale",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=scale_data
             )
@@ -124,7 +123,7 @@ def optimize(ctx, deployment_id: str, objective: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/deployments/{deployment_id}/optimize",
+                f"{config.coordinator_url}/openclaw/deployments/{deployment_id}/optimize",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=optimization_data
             )
@@ -168,7 +167,7 @@ def monitor(ctx, deployment_id: str, metrics: str, real_time: bool, interval: in
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/v1/openclaw/deployments/{deployment_id}/metrics",
+                    f"{config.coordinator_url}/openclaw/deployments/{deployment_id}/metrics",
                     headers={"X-Api-Key": config.api_key or ""},
                     params=params
                 )
@@ -218,7 +217,7 @@ def status(ctx, deployment_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/openclaw/deployments/{deployment_id}/status",
+                f"{config.coordinator_url}/openclaw/deployments/{deployment_id}/status",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -264,7 +263,7 @@ def deploy(ctx, agent_id: str, locations: str, strategy: str, replicas: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/edge/deploy",
+                f"{config.coordinator_url}/openclaw/edge/deploy",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=edge_data
             )
@@ -297,7 +296,7 @@ def resources(ctx, location: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/openclaw/edge/resources",
+                f"{config.coordinator_url}/openclaw/edge/resources",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -335,7 +334,7 @@ def optimize(ctx, deployment_id: str, latency_target: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/edge/deployments/{deployment_id}/optimize",
+                f"{config.coordinator_url}/openclaw/edge/deployments/{deployment_id}/optimize",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=optimization_data
             )
@@ -369,7 +368,7 @@ def compliance(ctx, deployment_id: str, standards: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/openclaw/edge/deployments/{deployment_id}/compliance",
+                f"{config.coordinator_url}/openclaw/edge/deployments/{deployment_id}/compliance",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -412,7 +411,7 @@ def optimize(ctx, deployment_id: str, algorithm: str, weights: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/routing/deployments/{deployment_id}/optimize",
+                f"{config.coordinator_url}/openclaw/routing/deployments/{deployment_id}/optimize",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=routing_data
             )
@@ -441,7 +440,7 @@ def status(ctx, deployment_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/openclaw/routing/deployments/{deployment_id}/status",
+                f"{config.coordinator_url}/openclaw/routing/deployments/{deployment_id}/status",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -490,7 +489,7 @@ def create(ctx, name: str, type: str, description: str, package):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/ecosystem/solutions",
+                f"{config.coordinator_url}/openclaw/ecosystem/solutions",
                 headers={"X-Api-Key": config.api_key or ""},
                 data=solution_data,
                 files=files
@@ -528,7 +527,7 @@ def list(ctx, type: Optional[str], category: Optional[str], limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/openclaw/ecosystem/solutions",
+                f"{config.coordinator_url}/openclaw/ecosystem/solutions",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -554,7 +553,7 @@ def install(ctx, solution_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/openclaw/ecosystem/solutions/{solution_id}/install",
+                f"{config.coordinator_url}/openclaw/ecosystem/solutions/{solution_id}/install",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -586,7 +585,7 @@ def terminate(ctx, deployment_id: str):
     try:
         with httpx.Client() as client:
             response = client.delete(
-                f"{config.coordinator_url}/v1/openclaw/deployments/{deployment_id}",
+                f"{config.coordinator_url}/openclaw/deployments/{deployment_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
