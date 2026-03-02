@@ -25,7 +25,7 @@ pip install -r "$APP_DIR/requirements.txt" || true
 
 deactivate
 
-install -m 644 "$(pwd)/configs/systemd/${SERVICE_NAME}.service" "$SYSTEMD_PATH"
+install -m 644 "$(pwd)/config/systemd/${SERVICE_NAME}.service" "$SYSTEMD_PATH"
 
 systemctl daemon-reload
 systemctl enable --now "$SERVICE_NAME"
