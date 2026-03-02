@@ -4,7 +4,7 @@
 echo "🔍 Checking file locations before commit..."
 
 # Change to project root
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Files that should not be at root
 ROOT_FORBIDDEN_PATTERNS=(
@@ -54,7 +54,7 @@ done
 
 # Check for forbidden directories at root
 for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
-    if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." ]]; then
+    if [[ -d "$dir" && "$dir" != "." && "$dir" != ".." && ! "$dir" =~ ^\.git ]]; then
         echo "❌ ERROR: Found directory '$dir' at root level"
         echo "📁 Suggested location:"
         
