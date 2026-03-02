@@ -432,7 +432,7 @@ This document tracks components that have been successfully deployed and are ope
   - `apps/miner-node/`, `apps/miner-dashboard/`
   - `packages/py/aitbc-core/`, `aitbc-p2p/`, `aitbc-scheduler/`
   - `packages/js/ui-widgets/`
-  - `python-sdk/`, `windsurf/`, `configs/`, `docs/user-guide/`, `docs/bootstrap/`
+  - `python-sdk/`, `windsurf/`, `config/`, `docs/user-guide/`, `docs/bootstrap/`
   - `api/`, `governance/`, `protocols/`
   - 5 GPU miner variants, 3 extension variants
 
