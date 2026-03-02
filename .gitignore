@@ -58,6 +58,16 @@ pnpm-lock.yaml
 .cache/
 
 # ===================
+# Development Tests
+# ===================
+dev/tests/__pycache__/
+dev/tests/*.pyc
+dev/tests/test_results/
+dev/tests/simple_test_results.json
+dev/tests/data/
+dev/tests/*.db
+
+# ===================
 # Logs & Runtime
 # ===================
 logs/
