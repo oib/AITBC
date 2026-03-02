@@ -22,7 +22,7 @@ def status(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/status",
+                f"{config.coordinator_url}/admin/status",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -52,7 +52,7 @@ def jobs(ctx, limit: int, status: Optional[str]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/jobs",
+                f"{config.coordinator_url}/admin/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -77,7 +77,7 @@ def job_details(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/jobs/{job_id}",
+                f"{config.coordinator_url}/admin/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -104,7 +104,7 @@ def delete_job(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.delete(
-                f"{config.coordinator_url}/v1/admin/jobs/{job_id}",
+                f"{config.coordinator_url}/admin/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -133,7 +133,7 @@ def miners(ctx, limit: int, status: Optional[str]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/miners",
+                f"{config.coordinator_url}/admin/miners",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -158,7 +158,7 @@ def miner_details(ctx, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/miners/{miner_id}",
+                f"{config.coordinator_url}/admin/miners/{miner_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -185,7 +185,7 @@ def deactivate_miner(ctx, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/miners/{miner_id}/deactivate",
+                f"{config.coordinator_url}/admin/miners/{miner_id}/deactivate",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -209,7 +209,7 @@ def activate_miner(ctx, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/miners/{miner_id}/activate",
+                f"{config.coordinator_url}/admin/miners/{miner_id}/activate",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -233,7 +233,7 @@ def analytics(ctx, days: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/analytics",
+                f"{config.coordinator_url}/admin/analytics",
                 params={"days": days},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -259,7 +259,7 @@ def logs(ctx, level: str, limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/admin/logs",
+                f"{config.coordinator_url}/admin/logs",
                 params={"level": level, "limit": limit},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -285,7 +285,7 @@ def prioritize_job(ctx, job_id: str, reason: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/jobs/{job_id}/prioritize",
+                f"{config.coordinator_url}/admin/jobs/{job_id}/prioritize",
                 json={"reason": reason or "Admin priority"},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -324,7 +324,7 @@ def execute(ctx, action: str, target: Optional[str], data: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/execute/{action}",
+                f"{config.coordinator_url}/admin/execute/{action}",
                 json=parsed_data,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -357,7 +357,7 @@ def cleanup(ctx):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/maintenance/cleanup",
+                f"{config.coordinator_url}/admin/maintenance/cleanup",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -384,7 +384,7 @@ def reindex(ctx):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/maintenance/reindex",
+                f"{config.coordinator_url}/admin/maintenance/reindex",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -408,7 +408,7 @@ def backup(ctx):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/admin/maintenance/backup",
+                f"{config.coordinator_url}/admin/maintenance/backup",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             

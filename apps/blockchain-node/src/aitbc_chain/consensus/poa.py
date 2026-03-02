@@ -4,7 +4,6 @@ import re
 from datetime import datetime
 from typing import Callable, ContextManager, Optional
 
-import httpx
 from sqlmodel import Session, select
 
 from ..logger import get_logger
@@ -20,6 +19,42 @@ def _sanitize_metric_suffix(value: str) -> str:
     sanitized = _METRIC_KEY_SANITIZE.sub("_", value).strip("_")
     return sanitized or "unknown"
 
+
+
+import time
+
+class CircuitBreaker:
+    def __init__(self, threshold: int, timeout: int):
+        self._threshold = threshold
+        self._timeout = timeout
+        self._failures = 0
+        self._last_failure_time = 0.0
+        self._state = "closed"
+
+    @property
+    def state(self) -> str:
+        if self._state == "open":
+            if time.time() - self._last_failure_time > self._timeout:
+                self._state = "half-open"
+        return self._state
+
+    def allow_request(self) -> bool:
+        state = self.state
+        if state == "closed":
+            return True
+        if state == "half-open":
+            return True
+        return False
+
+    def record_failure(self) -> None:
+        self._failures += 1
+        self._last_failure_time = time.time()
+        if self._failures >= self._threshold:
+            self._state = "open"
+
+    def record_success(self) -> None:
+        self._failures = 0
+        self._state = "closed"
 
 class PoAProposer:
     """Proof-of-Authority block proposer.
@@ -83,26 +118,13 @@ class PoAProposer:
             return
 
     def _propose_block(self) -> None:
-        # Check RPC mempool for transactions
-        try:
-            response = httpx.get("http://localhost:8082/metrics")
-            if response.status_code == 200:
-                has_transactions = False
-                for line in response.text.split("\n"):
-                    if line.startswith("mempool_size"):
-                        size = float(line.split(" ")[1])
-                        if size > 0:
-                            has_transactions = True
-                        break
-                
-                if not has_transactions:
-                    return
-        except Exception as exc:
-            self._logger.error(f"Error checking RPC mempool: {exc}")
+        # Check internal mempool
+        from ..mempool import get_mempool
+        if get_mempool().size(self._config.chain_id) == 0:
             return
 
         with self._session_factory() as session:
-            head = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
+            head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             next_height = 0
             parent_hash = "0x00"
             interval_seconds: Optional[float] = None
@@ -115,6 +137,7 @@ class PoAProposer:
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp)
 
             block = Block(
+                chain_id=self._config.chain_id,
                 height=next_height,
                 hash=block_hash,
                 parent_hash=parent_hash,
@@ -163,13 +186,15 @@ class PoAProposer:
 
     def _ensure_genesis_block(self) -> None:
         with self._session_factory() as session:
-            head = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
+            head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             if head is not None:
                 return
 
-            timestamp = datetime.utcnow()
+            # Use a deterministic genesis timestamp so all nodes agree on the genesis block hash
+            timestamp = datetime(2025, 1, 1, 0, 0, 0)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
             genesis = Block(
+                chain_id=self._config.chain_id,
                 height=0,
                 hash=block_hash,
                 parent_hash="0x00",

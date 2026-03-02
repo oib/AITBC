@@ -49,7 +49,7 @@ def register(ctx, gpu: Optional[str], memory: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/miners/register?miner_id={miner_id}",
+                f"{config.coordinator_url}/miners/register?miner_id={miner_id}",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -80,7 +80,7 @@ def poll(ctx, wait: int, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/miners/poll",
+                f"{config.coordinator_url}/miners/poll",
                 headers={
                     "X-Api-Key": config.api_key or "",
                     "X-Miner-ID": miner_id
@@ -116,7 +116,7 @@ def mine(ctx, jobs: int, miner_id: str):
             with httpx.Client() as client:
                 # Poll for job
                 response = client.get(
-                    f"{config.coordinator_url}/v1/miners/poll",
+                    f"{config.coordinator_url}/miners/poll",
                     headers={
                         "X-Api-Key": config.api_key or "",
                         "X-Miner-ID": miner_id
@@ -139,7 +139,7 @@ def mine(ctx, jobs: int, miner_id: str):
                         
                         # Submit result
                         result_response = client.post(
-                            f"{config.coordinator_url}/v1/miners/{job_id}/result",
+                            f"{config.coordinator_url}/miners/{job_id}/result",
                             headers={
                                 "Content-Type": "application/json",
                                 "X-Api-Key": config.api_key or "",
@@ -183,7 +183,7 @@ def heartbeat(ctx, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/miners/heartbeat?miner_id={miner_id}",
+                f"{config.coordinator_url}/miners/heartbeat?miner_id={miner_id}",
                 headers={
                     "X-Api-Key": config.api_key or ""
                 }
@@ -235,7 +235,7 @@ def earnings(ctx, miner_id: str, from_time: Optional[str], to_time: Optional[str
         
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/miners/{miner_id}/earnings",
+                f"{config.coordinator_url}/miners/{miner_id}/earnings",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -281,7 +281,7 @@ def update_capabilities(ctx, gpu: Optional[str], memory: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.put(
-                f"{config.coordinator_url}/v1/miners/{miner_id}/capabilities",
+                f"{config.coordinator_url}/miners/{miner_id}/capabilities",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -319,7 +319,7 @@ def deregister(ctx, miner_id: str, force: bool):
     try:
         with httpx.Client() as client:
             response = client.delete(
-                f"{config.coordinator_url}/v1/miners/{miner_id}",
+                f"{config.coordinator_url}/miners/{miner_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -359,7 +359,7 @@ def jobs(ctx, limit: int, job_type: Optional[str], min_reward: Optional[float],
         
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/miners/{miner_id}/jobs",
+                f"{config.coordinator_url}/miners/{miner_id}/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -380,7 +380,7 @@ def _process_single_job(config, miner_id: str, worker_id: int) -> Dict[str, Any]
     try:
         with httpx.Client() as http_client:
             response = http_client.get(
-                f"{config.coordinator_url}/v1/miners/poll",
+                f"{config.coordinator_url}/miners/poll",
                 headers={
                     "X-Api-Key": config.api_key or "",
                     "X-Miner-ID": miner_id
@@ -395,7 +395,7 @@ def _process_single_job(config, miner_id: str, worker_id: int) -> Dict[str, Any]
                     time.sleep(2)  # Simulate processing
                     
                     result_response = http_client.post(
-                        f"{config.coordinator_url}/v1/miners/{job_id}/result",
+                        f"{config.coordinator_url}/miners/{job_id}/result",
                         headers={
                             "Content-Type": "application/json",
                             "X-Api-Key": config.api_key or "",

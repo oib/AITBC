@@ -140,14 +140,14 @@ class ChainSync:
 
             # Get our chain head
             our_head = session.exec(
-                select(Block).order_by(Block.height.desc()).limit(1)
+                select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
             our_height = our_head.height if our_head else -1
 
             # Case 1: Block extends our chain directly
             if height == our_height + 1:
                 parent_exists = session.exec(
-                    select(Block).where(Block.hash == parent_hash)
+                    select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
                 if parent_exists or (height == 0 and parent_hash == "0x00"):
                     result = self._append_block(session, block_data, transactions)
@@ -159,7 +159,7 @@ class ChainSync:
             if height <= our_height:
                 # Check if it's a fork at a previous height
                 existing_at_height = session.exec(
-                    select(Block).where(Block.height == height)
+                    select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)
                 ).first()
                 if existing_at_height and existing_at_height.hash != block_hash:
                     # Fork detected — resolve by longest chain rule
@@ -191,6 +191,7 @@ class ChainSync:
             tx_count = len(transactions)
 
         block = Block(
+            chain_id=self._chain_id,
             height=block_data["height"],
             hash=block_data["hash"],
             parent_hash=block_data["parent_hash"],
@@ -205,6 +206,7 @@ class ChainSync:
         if transactions:
             for tx_data in transactions:
                 tx = Transaction(
+                    chain_id=self._chain_id,
                     tx_hash=tx_data.get("tx_hash", ""),
                     block_height=block_data["height"],
                     sender=tx_data.get("sender", ""),
@@ -271,14 +273,14 @@ class ChainSync:
 
         # Perform reorg: remove blocks from fork_height onwards, then append
         blocks_to_remove = session.exec(
-            select(Block).where(Block.height >= fork_height).order_by(Block.height.desc())
+            select(Block).where(Block.chain_id == self._chain_id).where(Block.height >= fork_height).order_by(Block.height.desc())
         ).all()
 
         removed_count = 0
         for old_block in blocks_to_remove:
             # Remove transactions in the block
             old_txs = session.exec(
-                select(Transaction).where(Transaction.block_height == old_block.height)
+                select(Transaction).where(Transaction.chain_id == self._chain_id).where(Transaction.block_height == old_block.height)
             ).all()
             for tx in old_txs:
                 session.delete(tx)
@@ -304,11 +306,11 @@ class ChainSync:
         """Get current sync status and metrics."""
         with self._session_factory() as session:
             head = session.exec(
-                select(Block).order_by(Block.height.desc()).limit(1)
+                select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
 
-            total_blocks = session.exec(select(Block)).all()
-            total_txs = session.exec(select(Transaction)).all()
+            total_blocks = session.exec(select(Block).where(Block.chain_id == self._chain_id)).all()
+            total_txs = session.exec(select(Transaction).where(Transaction.chain_id == self._chain_id)).all()
 
         return {
             "chain_id": self._chain_id,

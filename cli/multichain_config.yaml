@@ -1,0 +1,26 @@
+# Multi-chain configuration for AITBC CLI
+nodes:
+  default-node:
+    id: default-node
+    endpoint: http://localhost:8545
+    timeout: 30
+    retry_count: 3
+    max_connections: 10
+  
+  aitbc-main:
+    id: aitbc-main
+    endpoint: http://10.1.223.93:8545
+    timeout: 30
+    retry_count: 3
+    max_connections: 10
+
+chains:
+  default_gas_limit: 10000000
+  default_gas_price: 20000000000
+  max_block_size: 1048576
+  backup_path: ./backups
+  max_concurrent_chains: 100
+
+logging_level: INFO
+enable_caching: true
+cache_ttl: 300

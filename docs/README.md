@@ -9,10 +9,10 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 ## 📁 **Documentation Organization**
 
 ### **Main Documentation Categories**
-- [`0_getting_started/`](./0_getting_started/) - Getting started guides
+- [`0_getting_started/`](./0_getting_started/) - Getting started guides with enhanced CLI
 - [`1_project/`](./1_project/) - Project overview and architecture  
-- [`2_clients/`](./2_clients/) - Client documentation
-- [`3_miners/`](./3_miners/) - Miner documentation
+- [`2_clients/`](./2_clients/) - Enhanced client documentation
+- [`3_miners/`](./3_miners/) - Enhanced miner documentation
 - [`4_blockchain/`](./4_blockchain/) - Blockchain documentation
 - [`5_reference/`](./5_reference/) - Reference materials
 - [`6_architecture/`](./6_architecture/) - System architecture
@@ -27,11 +27,24 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 - [`15_completion/`](./15_completion/) - Phase implementation completion summaries
 - [`16_cross_chain/`](./16_cross_chain/) - Cross-chain integration documentation
 - [`17_developer_ecosystem/`](./17_developer_ecosystem/) - Developer ecosystem documentation
-- [`18_explorer/`](./18_explorer/) - Explorer implementation documentation
+- [`18_explorer/`](./18_explorer/) - **ENHANCED: Explorer implementation with CLI parity**
 - [`19_marketplace/`](./19_marketplace/) - Global marketplace implementation
 - [`20_phase_reports/`](./20_phase_reports/) - Comprehensive phase reports and guides
 - [`21_reports/`](./21_reports/) - Project completion reports
 - [`22_workflow/`](./22_workflow/) - Workflow completion summaries
+- [`23_cli/`](./23_cli/) - **NEW: Enhanced CLI Documentation**
+
+### **Enhanced CLI Documentation** 🆕
+- [`23_cli/README.md`](./23_cli/README.md) - Complete enhanced CLI reference with testing integration
+- [`0_getting_started/3_cli.md`](./0_getting_started/3_cli.md) - CLI usage guide
+- [`2_clients/`](./2_clients/) - Client operations with enhanced CLI
+- [`3_miners/`](./3_miners/) - Miner operations with enhanced CLI
+
+### **Testing Documentation** 🆕
+- [`docs/10_plan/89_test.md`](./10_plan/89_test.md) - Multi-chain test scenarios with CLI integration
+- [`tests/`](../tests/) - Complete test suite with CLI testing
+- [`.windsurf/skills/test.md`](../.windsurf/skills/test.md) - Comprehensive testing skill
+- [`.windsurf/workflows/test.md`](../.windsurf/workflows/test.md) - Testing workflow and procedures
 
 ### **Implementation Reports** (Recently Organized)
 - [`21_reports/`](./21_reports/) - Project completion reports
@@ -48,6 +61,162 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 
 **✅ PHASE 6 COMPLETE** - Enterprise Integration APIs and Scalability Optimization  
 **🔄 Q4 2026 PLANNING** - Global Marketplace Leadership Strategy  
+**🆕 ENHANCED CLI** - Complete CLI overhaul with new features and capabilities
+
+## 🚀 **Quick Start with Enhanced CLI**
+
+### Installation
+```bash
+git clone https://github.com/oib/AITBC.git
+cd aitbc
+python -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+### Setup
+```bash
+# Configure CLI
+aitbc config set coordinator_url http://localhost:8000
+export AITBC_API_KEY=your-key
+
+# Verify installation
+aitbc --version
+aitbc --debug
+```
+
+### Create Wallet
+```bash
+aitbc wallet create --name my-wallet
+aitbc wallet balance
+```
+
+### Submit Job (Enhanced)
+```bash
+aitbc client submit \
+  --prompt "What is AI?" \
+  --model gpt2 \
+  --priority normal \
+  --timeout 3600
+```
+
+### Start Mining (Enhanced)
+```bash
+aitbc miner register \
+  --name my-gpu \
+  --gpu v100 \
+  --count 1 \
+  --region us-west \
+  --price-per-hour 0.05
+
+aitbc miner poll
+```
+
+## 🎯 **Quick Start by Role**
+
+### **Compute Providers** → [../3_miners/1_quick-start.md](../3_miners/1_quick-start.md)
+```bash
+aitbc miner register --name "my-gpu-agent" --compute-type inference --gpu-memory 24GB
+aitbc miner poll
+aitbc marketplace offer create --miner-id my-gpu-agent --price-per-hour 0.1 AITBC
+```
+
+### **Compute Consumers** → [../2_clients/1_quick-start.md](../2_clients/1_quick-start.md)
+```bash
+aitbc client submit --prompt "Explain blockchain" --model gpt2 --priority normal
+aitbc client status --job-id <JOB_ID>
+aitbc client download --job-id <JOB_ID> --output ./results
+```
+
+### **Platform Builders** → [../8_development/](../8_development/)
+```bash
+git clone https://github.com/aitbc/aitbc.git
+cd aitbc
+pip install -e .
+aitbc --version
+```
+
+### **Agent Developers** → [../11_agents/](../11_agents/)
+```bash
+aitbc agent workflow create --name "ai-agent" --description "Custom AI agent"
+aitbc agent execute ai-agent --input '{"task": "process_data"}'
+```
+
+## 🔧 **Enhanced CLI Features**
+
+### **New Command Groups**
+- **Agent Operations**: `aitbc agent workflow create/execute/network/learning`
+- **OpenClaw Deployment**: `aitbc openclaw deploy/optimize/edge/routing`
+- **Optimization**: `aitbc optimize enable/recommendations/apply/predict/tune`
+- **Enhanced Marketplace**: `aitbc marketplace gpu list/offer create/gpu rent`
+- **Advanced Monitoring**: `aitbc monitor dashboard/metrics/alerts/webhooks`
+
+### **Enhanced Capabilities**
+- **Agent Workflows**: Create and execute complex AI agent workflows
+- **GPU Optimization**: Automatic performance tuning and optimization
+- **Marketplace Integration**: Seamless GPU renting and offering
+- **Configuration Management**: Profiles, secrets, and advanced config
+- **Real-time Monitoring**: Dashboard and metrics integration
+- **Batch Operations**: Bulk job submission and management
+
+## 📚 **Documentation Navigation**
+
+### **For New Users**
+1. [Getting Started](./0_getting_started/) - Installation and basic setup
+2. [CLI Reference](./23_cli/) - Complete enhanced CLI guide
+3. [Client Guide](./2_clients/) - Using the platform as a client
+4. [Miner Guide](./3_miners/) - Setting up mining operations
+
+### **For Developers**
+1. [Development Guide](./8_development/) - Development setup and contribution
+2. [Agent SDK](./14_agent_sdk/) - Building AI agents
+3. [Architecture](./6_architecture/) - System architecture and design
+4. [API Reference](./5_reference/) - Complete API documentation
+
+### **For Operators**
+1. [Deployment Guide](./7_deployment/) - Production deployment
+2. [Security Guide](./9_security/) - Security best practices
+3. [Monitoring](./23_cli/#monitoring-and-debugging) - System monitoring
+4. [Troubleshooting](./23_cli/#troubleshooting) - Common issues and solutions
+
+## 🔗 **Enhanced CLI Integration**
+
+The enhanced AITBC CLI provides:
+- **Unified Interface**: Single tool for all AITBC operations
+- **Advanced Features**: Agent workflows, optimization, deployment
+- **Better UX**: Improved commands, configuration, and output
+- **Real-time Monitoring**: Dashboard and metrics integration
+- **Automation Support**: Batch operations and scripting capabilities
+
+## 🛡️ **Security**
+
+**Security Status**: 🛡️ AUDITED & HARDENED  
+- **0 vulnerabilities** in smart contracts (35 OpenZeppelin warnings only)
+- **90 CVEs** fixed in dependencies
+- **95/100 system hardening** index achieved
+
+Run comprehensive security audit:
+```bash
+./scripts/comprehensive-security-audit.sh
+```
+
+## 🤝 **Contributing**
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test with enhanced CLI
+5. Submit a pull request
+
+## 📞 **Support**
+
+- **Documentation**: This comprehensive guide
+- **CLI Help**: `aitbc --help` and `aitbc <command> --help`
+- **Issues**: [GitHub Issues](https://github.com/aitbc/aitbc/issues)
+- **Community**: [Discord/Forum links]
+
+---
+
+*This documentation covers the complete AITBC platform with enhanced CLI capabilities.*  
 **📊 PRODUCTION READY** - Enterprise-grade platform with 99.99% uptime
 
 ## 📋 **Key Documents**

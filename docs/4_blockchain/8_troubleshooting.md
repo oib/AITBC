@@ -1,13 +1,44 @@
 # Troubleshooting
-Common issues and solutions for blockchain nodes.
+
+Common issues and solutions for blockchain nodes using the enhanced AITBC CLI.
+
+## Enhanced CLI Diagnostics
+
+The enhanced AITBC CLI provides comprehensive diagnostic tools:
+
+```bash
+# Full system diagnostics
+aitbc blockchain diagnose --full
+
+# Network diagnostics
+aitbc blockchain diagnose --network
+
+# Sync diagnostics
+aitbc blockchain diagnose --sync
+
+# Performance diagnostics
+aitbc blockchain diagnose --performance
+
+# Startup diagnostics
+aitbc blockchain diagnose --startup
+```
 
 ## Common Issues
 
 ### Node Won't Start
 
 ```bash
-# Check logs
-tail -f ~/.aitbc/logs/chain.log
+# Enhanced CLI diagnostics
+aitbc blockchain diagnose --startup
+
+# Check configuration
+aitbc blockchain config validate
+
+# View detailed logs
+aitbc blockchain logs --level error --follow
+
+# Check port usage
+aitbc blockchain diagnose --network
 
 # Common causes:
 # - Port already in use
@@ -17,137 +48,349 @@ tail -f ~/.aitbc/logs/chain.log
 
 **Solutions:**
 ```bash
-# Kill existing process
+# Enhanced CLI port check
+aitbc blockchain diagnose --network --check-ports
+
+# Kill existing process (if needed)
 sudo lsof -i :8080
 sudo kill $(sudo lsof -t -i :8080)
 
-# Reset database
+# Reset database with enhanced CLI
+aitbc blockchain reset --hard
+
+# Validate and fix configuration
+aitbc blockchain config validate
+aitbc blockchain config fix
+
+# Legacy approach
+tail -f ~/.aitbc/logs/chain.log
 rm -rf ~/.aitbc/data/chain.db
 aitbc-chain init
-
-# Validate config
-aitbc-chain validate-config
 ```
 
 ### Sync Stuck
 
 ```bash
-# Check sync status
-aitbc-chain sync-status
+# Enhanced CLI sync diagnostics
+aitbc blockchain diagnose --sync
 
-# Force sync from scratch
-aitbc-chain reset --hard
+# Check sync status with details
+aitbc blockchain sync --verbose
+
+# Force resync
+aitbc blockchain sync --force
 
 # Check peer connectivity
-aitbc-chain p2p connections
+aitbc blockchain peers --status connected
+
+# Network health check
+aitbc blockchain diagnose --network
+
+# Monitor sync progress
+aitbc blockchain sync --watch
 ```
 
 **Solutions:**
 ```bash
-# Add more peers
-aitbc-chain p2p add-bootstrap /dns4/new-peer.example.com/tcp/7070/p2p/...
+# Enhanced CLI peer management
+aitbc blockchain peers add --peer <MULTIADDR> --validate
+
+# Add more bootstrap peers
+aitbc blockchain peers add --bootstrap /dns4/new-peer.example.com/tcp/7070/p2p/...
 
 # Clear peer database
-rm -rf ~/.aitbc/data/peers.db
+aitbc blockchain peers clear
 
-# Restart with fresh sync
-aitbc-chain start --sync-mode full
+# Reset and resync
+aitbc blockchain reset --sync
+aitbc blockchain sync --force
+
+# Check network connectivity
+aitbc blockchain test-connectivity
 ```
 
-### P2P Connection Issues
+### High CPU/Memory Usage
 
 ```bash
-# Check connectivity
-aitbc-chain p2p check-connectivity
+# Enhanced CLI performance diagnostics
+aitbc blockchain diagnose --performance
 
-# Test port forwarding
-curl http://localhost:8080/rpc/net_info
-```
+# Monitor resource usage
+aitbc blockchain metrics --resource --follow
 
-**Solutions:**
-```bash
-# Open firewall
-sudo ufw allow 7070/tcp
-sudo ufw allow 8080/tcp
+# Check for bottlenecks
+aitbc blockchain metrics --detailed
 
-# Check NAT configuration
-aitbc-chain p2p nat-status
-
-# Use relay mode
-aitbc-chain start --p2p-relay-enabled
-```
-
-### High Memory Usage
-
-```bash
-# Check memory usage
-htop | grep aitbc-chain
-
-# Check database size
-du -sh ~/.aitbc/data/
+# Historical performance data
+aitbc blockchain metrics --history 24h
 ```
 
 **Solutions:**
 ```bash
-# Prune old data
-aitbc-chain prune --keep-blocks 10000
+# Optimize configuration
+aitbc blockchain config set max_peers 50
+aitbc blockchain config set cache_size 1GB
 
-# Reduce peer count
-# Edit config: max_peers: 25
+# Enable performance mode
+aitbc blockchain optimize --performance
 
-# Enable compression
-aitbc-chain start --db-compression
+# Monitor improvements
+aitbc blockchain metrics --resource --follow
 ```
 
-### RPC Not Responding
+### Peer Connection Issues
 
 ```bash
-# Check RPC status
-curl http://localhost:8080/rpc/health
+# Enhanced CLI peer diagnostics
+aitbc blockchain diagnose --network
 
-# Check if RPC is enabled
-aitbc-chain status | grep RPC
-```
+# Check peer status
+aitbc blockchain peers --detailed
 
-**Solutions:**
-```bash
-# Restart with RPC enabled
-aitbc-chain start --rpc-enabled
-
-# Check CORS settings
-# Edit config: rpc.cors_origins
-
-# Increase rate limits
-# Edit config: rpc.rate_limit: 2000
-```
-
-## Diagnostic Commands
-
-```bash
-# Full system check
-aitbc-chain doctor
+# Test connectivity
+aitbc blockchain test-connectivity
 
 # Network diagnostics
-aitbc-chain diagnose network
-
-# Database diagnostics
-aitbc-chain diagnose database
-
-# Log analysis
-aitbc-chain logs --analyze
+aitbc blockchain diagnose --network --full
 ```
 
-## Getting Help
+**Solutions:**
+```bash
+# Add reliable peers
+aitbc blockchain peers add --bootstrap <MULTIADDR>
+
+# Update peer configuration
+aitbc blockchain config set bootstrap_nodes <NODES>
+
+# Reset peer database
+aitbc blockchain peers reset
+
+# Check firewall settings
+aitbc blockchain diagnose --network --firewall
+```
+
+### Validator Issues
 
 ```bash
-# Generate debug report
-aitbc-chain debug-report > debug.txt
+# Enhanced CLI validator diagnostics
+aitbc blockchain validators --diagnose
 
-# Share on Discord or GitHub Issues
+# Check validator status
+aitbc blockchain validators --status active
+
+# Validator rewards tracking
+aitbc blockchain validators --rewards
+
+# Performance metrics
+aitbc blockchain validators --metrics
+```
+
+**Solutions:**
+```bash
+# Re-register as validator
+aitbc blockchain validators register --stake 1000
+
+# Check stake requirements
+aitbc blockchain validators --requirements
+
+# Monitor validator performance
+aitbc blockchain validators --monitor
+```
+
+## Advanced Troubleshooting
+
+### Database Corruption
+
+```bash
+# Enhanced CLI database diagnostics
+aitbc blockchain diagnose --database
+
+# Database integrity check
+aitbc blockchain database check
+
+# Repair database
+aitbc blockchain database repair
+
+# Rebuild database
+aitbc blockchain database rebuild
+```
+
+### Configuration Issues
+
+```bash
+# Enhanced CLI configuration diagnostics
+aitbc blockchain config diagnose
+
+# Validate configuration
+aitbc blockchain config validate
+
+# Reset to defaults
+aitbc blockchain config reset
+
+# Generate new configuration
+aitbc blockchain config generate
+```
+
+### Network Issues
+
+```bash
+# Enhanced CLI network diagnostics
+aitbc blockchain diagnose --network --full
+
+# Test all network endpoints
+aitbc blockchain test-connectivity --all
+
+# Check DNS resolution
+aitbc blockchain diagnose --network --dns
+
+# Firewall diagnostics
+aitbc blockchain diagnose --network --firewall
+```
+
+## Monitoring and Alerting
+
+### Real-time Monitoring
+
+```bash
+# Enhanced CLI monitoring
+aitbc monitor dashboard --component blockchain
+
+# Set up alerts
+aitbc monitor alerts create --type blockchain_sync --threshold 90%
+
+# Resource monitoring
+aitbc blockchain metrics --resource --follow
+
+# Export metrics
+aitbc blockchain metrics --export prometheus
+```
+
+### Log Analysis
+
+```bash
+# Enhanced CLI log analysis
+aitbc blockchain logs --analyze --level error
+
+# Export logs for analysis
+aitbc blockchain logs --export /tmp/blockchain-logs.json --format json
+
+# Filter by time range
+aitbc blockchain logs --since "1 hour ago" --level error
+
+# Real-time log monitoring
+aitbc blockchain logs --follow --level warn
+```
+
+## Recovery Procedures
+
+### Complete Node Recovery
+
+```bash
+# Enhanced CLI recovery sequence
+aitbc blockchain backup --emergency
+
+# Stop node safely
+aitbc blockchain node stop --force
+
+# Reset everything
+aitbc blockchain reset --hard
+
+# Restore from backup
+aitbc blockchain restore --input /backup/emergency-backup.tar.gz --verify
+
+# Start node
+aitbc blockchain node start
+
+# Monitor recovery
+aitbc blockchain sync --watch
+```
+
+### Emergency Procedures
+
+```bash
+# Emergency stop
+aitbc blockchain node stop --emergency
+
+# Emergency backup
+aitbc blockchain backup --emergency --compress
+
+# Emergency reset
+aitbc blockchain reset --emergency
+
+# Emergency recovery
+aitbc blockchain recover --from-backup /backup/emergency.tar.gz
+```
+
+## Best Practices
+
+### Prevention
+
+1. **Regular monitoring** with enhanced CLI tools
+2. **Automated backups** using enhanced backup options
+3. **Configuration validation** before changes
+4. **Performance monitoring** for early detection
+5. **Network diagnostics** for connectivity issues
+
+### Maintenance
+
+1. **Weekly diagnostics** with `aitbc blockchain diagnose --full`
+2. **Monthly backups** with verification
+3. **Quarterly performance reviews**
+4. **Configuration audits**
+5. **Security scans**
+
+### Troubleshooting Workflow
+
+1. **Run diagnostics**: `aitbc blockchain diagnose --full`
+2. **Check logs**: `aitbc blockchain logs --level error --follow`
+3. **Verify configuration**: `aitbc blockchain config validate`
+4. **Test connectivity**: `aitbc blockchain test-connectivity`
+5. **Apply fixes**: Use enhanced CLI commands
+6. **Monitor recovery**: `aitbc blockchain status --watch`
+
+## Integration with Support
+
+### Export Diagnostic Data
+
+```bash
+# Export full diagnostic report
+aitbc blockchain diagnose --full --export /tmp/diagnostic-report.json
+
+# Export logs for support
+aitbc blockchain logs --export /tmp/support-logs.tar.gz --compress
+
+# Export configuration
+aitbc blockchain config export --output /tmp/config-backup.yaml
+```
+
+### Support Commands
+
+```bash
+# Generate support bundle
+aitbc blockchain support-bundle --output /tmp/support-bundle.tar.gz
+
+# System information
+aitbc blockchain system-info --export /tmp/system-info.json
+
+# Performance report
+aitbc blockchain metrics --report --output /tmp/performance-report.json
+```
+
+## Legacy Command Equivalents
+
+For users transitioning from legacy commands:
+
+```bash
+# Old → New
+tail -f ~/.aitbc/logs/chain.log → aitbc blockchain logs --follow
+aitbc-chain validate-config → aitbc blockchain config validate
+aitbc-chain reset --hard → aitbc blockchain reset --hard
+aitbc-chain p2p connections → aitbc blockchain peers --status connected
 ```
 
 ## Next
 
-- [Quick Start](./1_quick-start.md) — Get started
-- [Configuration](./2_configuration.md) - Configure your node
-- [Operations](./3_operations.md) — Day-to-day ops
+- [Operations](./3_operations.md) — Day-to-day operations
+- [Configuration](./2_configuration.md) — Node configuration
+- [Enhanced CLI](../23_cli/README.md) — Complete CLI reference
+- [Monitoring](./7_monitoring.md) — Monitoring and alerting

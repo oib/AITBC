@@ -1,0 +1,12 @@
+# AITBC macOS Merged CLI Package Checksums
+# Generated on Mo 02 Mär 2026 13:22:19 CET
+# Platform: Mac Studio (Apple Silicon M1/M2/M3/M4)
+# Algorithm: SHA256
+
+# Merged CLI Package
+aitbc-cli-0.1.0-apple-silicon.pkg sha256:4e8251978085d986f857c2fb1cc2419bb41c45a544fdca6d3029ee0dcc174037
+
+# Installer Scripts
+install-macos-apple-silicon.sh sha256:2bba9e4837504dc00cd4df4d0cca229dfbc7afc9b87adcc3f9a3030ea909253d
+install-macos-complete.sh sha256:11090a3f5ed1e917678f6fc6a495e35a3b35dab61563a912644f84f351adec4e
+install-macos-services.sh sha256:1cf3cf26aad47550ca02aec0dbf671f01a6c6846d004a4cbcc478c94c6c218ce

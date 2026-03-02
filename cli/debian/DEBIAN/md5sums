@@ -1,0 +1,6 @@
+b10f843a0cddbf9207a6358b8ab64527  usr/share/aitbc/dist/aitbc_cli-0.1.0-py3-none-any.whl
+01d0497370c8d0cb45244cd30f41f01f  usr/share/aitbc/man/aitbc.1
+005144c9f237dd641663663d1330b1c2  usr/share/aitbc/completion/aitbc_completion.sh
+01d0497370c8d0cb45244cd30f41f01f  usr/share/man/man1/aitbc.1
+6b880571794eca4896f66a56751460ac  etc/bash_completion.d/aitbc
+5d9930e8cf02efd5e312987c4d7d6a5d  etc/aitbc/config.yaml

@@ -1,5 +1,5 @@
 """
-Minimal conftest for pytest discovery without complex imports
+Enhanced conftest for pytest with AITBC CLI support
 """
 
 import pytest
@@ -7,10 +7,14 @@ import sys
 import os
 from pathlib import Path
 from unittest.mock import Mock
+from click.testing import CliRunner
 
 # Configure Python path for test discovery
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
+
+# Add CLI path
+sys.path.insert(0, str(project_root / "cli"))
 
 # Add necessary source paths
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
@@ -44,6 +48,37 @@ def mock_generate_viewing_key():
 sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
 sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
 sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
+
+
+@pytest.fixture
+def aitbc_cli_runner():
+    """Create AITBC CLI runner with test configuration"""
+    from aitbc_cli.main import cli
+    
+    runner = CliRunner()
+    
+    # Default test configuration
+    default_config = {
+        'coordinator_url': 'http://test:8000',
+        'api_key': 'test_api_key',
+        'output_format': 'json',
+        'log_level': 'INFO'
+    }
+    
+    return runner, default_config
+
+
+@pytest.fixture
+def mock_aitbc_config():
+    """Mock AITBC configuration for testing"""
+    config = Mock()
+    config.coordinator_url = "http://test:8000"
+    config.api_key = "test_api_key"
+    config.wallet_path = "/tmp/test_wallet.json"
+    config.default_chain = "testnet"
+    config.timeout = 30
+    config.retry_attempts = 3
+    return config
 
 
 @pytest.fixture

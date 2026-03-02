@@ -67,11 +67,11 @@ class MintFaucetRequest(BaseModel):
 
 
 @router.get("/head", summary="Get current chain head")
-async def get_head() -> Dict[str, Any]:
+async def get_head(chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_head_total")
     start = time.perf_counter()
     with session_scope() as session:
-        result = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
+        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
         if result is None:
             metrics_registry.increment("rpc_get_head_not_found_total")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no blocks yet")
@@ -161,11 +161,11 @@ async def get_blocks_range(start: int, end: int) -> Dict[str, Any]:
 
 
 @router.get("/tx/{tx_hash}", summary="Get transaction by hash")
-async def get_transaction(tx_hash: str) -> Dict[str, Any]:
+async def get_transaction(tx_hash: str, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_transaction_total")
     start = time.perf_counter()
     with session_scope() as session:
-        tx = session.exec(select(Transaction).where(Transaction.tx_hash == tx_hash)).first()
+        tx = session.exec(select(Transaction).where(Transaction.chain_id == chain_id).where(Transaction.tx_hash == tx_hash)).first()
         if tx is None:
             metrics_registry.increment("rpc_get_transaction_not_found_total")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="transaction not found")
@@ -304,7 +304,7 @@ async def get_balance(address: str) -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_balance_total")
     start = time.perf_counter()
     with session_scope() as session:
-        account = session.get(Account, address)
+        account = session.get(Account, (chain_id, address))
         if account is None:
             metrics_registry.increment("rpc_get_balance_empty_total")
             metrics_registry.observe("rpc_get_balance_duration_seconds", time.perf_counter() - start)
@@ -332,7 +332,7 @@ async def get_address_details(address: str, limit: int = 20, offset: int = 0) ->
     
     with session_scope() as session:
         # Get account info
-        account = session.get(Account, address)
+        account = session.get(Account, (chain_id, address))
         
         # Get transactions where this address is sender or recipient
         sent_txs = session.exec(
@@ -399,6 +399,7 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
         # Get addresses with balance >= min_balance
         addresses = session.exec(
             select(Account)
+            .where(Account.chain_id == chain_id)
             .where(Account.balance >= min_balance)
             .order_by(Account.balance.desc())
             .offset(offset)
@@ -406,7 +407,7 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
         ).all()
         
         # Get total count
-        total_count = len(session.exec(select(Account).where(Account.balance >= min_balance)).all())
+        total_count = len(session.exec(select(Account).where(Account.chain_id == chain_id).where(Account.balance >= min_balance)).all())
         
         if not addresses:
             metrics_registry.increment("rpc_get_addresses_empty_total")
@@ -421,8 +422,8 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
         address_list = []
         for addr in addresses:
             # Get transaction counts
-            sent_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.sender == addr.address)).one()
-            received_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.recipient == addr.address)).one()
+            sent_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.chain_id == chain_id).where(Transaction.sender == addr.address)).one()
+            received_count = session.exec(select(func.count()).select_from(Transaction).where(Transaction.chain_id == chain_id).where(Transaction.recipient == addr.address)).one()
             
             address_list.append({
                 "address": addr.address,
@@ -445,13 +446,13 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
 
 
 @router.post("/sendTx", summary="Submit a new transaction")
-async def send_transaction(request: TransactionRequest) -> Dict[str, Any]:
+async def send_transaction(request: TransactionRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_send_tx_total")
     start = time.perf_counter()
     mempool = get_mempool()
     tx_dict = request.model_dump()
     try:
-        tx_hash = mempool.add(tx_dict)
+        tx_hash = mempool.add(tx_dict, chain_id=chain_id)
     except ValueError as e:
         metrics_registry.increment("rpc_send_tx_rejected_total")
         raise HTTPException(status_code=400, detail=str(e))
@@ -484,7 +485,7 @@ async def send_transaction(request: TransactionRequest) -> Dict[str, Any]:
 
 
 @router.post("/submitReceipt", summary="Submit receipt claim transaction")
-async def submit_receipt(request: ReceiptSubmissionRequest) -> Dict[str, Any]:
+async def submit_receipt(request: ReceiptSubmissionRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_submit_receipt_total")
     start = time.perf_counter()
     tx_payload = {
@@ -497,7 +498,7 @@ async def submit_receipt(request: ReceiptSubmissionRequest) -> Dict[str, Any]:
     }
     tx_request = TransactionRequest.model_validate(tx_payload)
     try:
-        response = await send_transaction(tx_request)
+        response = await send_transaction(tx_request, chain_id)
         metrics_registry.increment("rpc_submit_receipt_success_total")
         return response
     except HTTPException:
@@ -530,13 +531,13 @@ async def estimate_fee(request: EstimateFeeRequest) -> Dict[str, Any]:
 
 
 @router.post("/admin/mintFaucet", summary="Mint devnet funds to an address")
-async def mint_faucet(request: MintFaucetRequest) -> Dict[str, Any]:
+async def mint_faucet(request: MintFaucetRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_mint_faucet_total")
     start = time.perf_counter()
     with session_scope() as session:
-        account = session.get(Account, request.address)
+        account = session.get(Account, (chain_id, request.address))
         if account is None:
-            account = Account(address=request.address, balance=request.amount)
+            account = Account(chain_id=chain_id, address=request.address, balance=request.amount)
             session.add(account)
         else:
             account.balance += request.amount
@@ -559,7 +560,7 @@ class ImportBlockRequest(BaseModel):
 
 
 @router.post("/importBlock", summary="Import a block from a remote peer")
-async def import_block(request: ImportBlockRequest) -> Dict[str, Any]:
+async def import_block(request: ImportBlockRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     from ..sync import ChainSync, ProposerSignatureValidator
     from ..config import settings as cfg
 
@@ -570,7 +571,7 @@ async def import_block(request: ImportBlockRequest) -> Dict[str, Any]:
     validator = ProposerSignatureValidator(trusted_proposers=trusted if trusted else None)
     sync = ChainSync(
         session_factory=session_scope,
-        chain_id=cfg.chain_id,
+        chain_id=chain_id,
         max_reorg_depth=cfg.max_reorg_depth,
         validator=validator,
         validate_signatures=cfg.sync_validate_signatures,
@@ -598,10 +599,10 @@ async def import_block(request: ImportBlockRequest) -> Dict[str, Any]:
 
 
 @router.get("/syncStatus", summary="Get chain sync status")
-async def sync_status() -> Dict[str, Any]:
+async def sync_status(chain_id: str = "ait-devnet") -> Dict[str, Any]:
     from ..sync import ChainSync
     from ..config import settings as cfg
 
     metrics_registry.increment("rpc_sync_status_total")
-    sync = ChainSync(session_factory=session_scope, chain_id=cfg.chain_id)
+    sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
     return sync.get_sync_status()

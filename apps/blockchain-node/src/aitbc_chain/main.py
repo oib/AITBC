@@ -16,10 +16,10 @@ logger = get_logger(__name__)
 class BlockchainNode:
     def __init__(self) -> None:
         self._stop_event = asyncio.Event()
-        self._proposer: Optional[PoAProposer] = None
+        self._proposers: dict[str, PoAProposer] = {}
 
     async def start(self) -> None:
-        logger.info("Starting blockchain node", extra={"chain_id": settings.chain_id})
+        logger.info("Starting blockchain node", extra={"supported_chains": getattr(settings, 'supported_chains', settings.chain_id)})
         init_db()
         init_mempool(
             backend=settings.mempool_backend,
@@ -27,7 +27,7 @@ class BlockchainNode:
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee,
         )
-        self._start_proposer()
+        self._start_proposers()
         try:
             await self._stop_event.wait()
         finally:
@@ -38,29 +38,29 @@ class BlockchainNode:
         self._stop_event.set()
         await self._shutdown()
 
-    def _start_proposer(self) -> None:
-        if self._proposer is not None:
-            return
+    def _start_proposers(self) -> None:
+        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
+        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        for chain_id in chains:
+            if chain_id in self._proposers:
+                continue
 
-        proposer_config = ProposerConfig(
-            chain_id=settings.chain_id,
-            proposer_id=settings.proposer_id,
-            interval_seconds=settings.block_time_seconds,
-            max_block_size_bytes=settings.max_block_size_bytes,
-            max_txs_per_block=settings.max_txs_per_block,
-        )
-        cb = CircuitBreaker(
-            threshold=settings.circuit_breaker_threshold,
-            timeout=settings.circuit_breaker_timeout,
-        )
-        self._proposer = PoAProposer(config=proposer_config, session_factory=session_scope, circuit_breaker=cb)
-        asyncio.create_task(self._proposer.start())
+            proposer_config = ProposerConfig(
+                chain_id=chain_id,
+                proposer_id=settings.proposer_id,
+                interval_seconds=settings.block_time_seconds,
+                max_block_size_bytes=settings.max_block_size_bytes,
+                max_txs_per_block=settings.max_txs_per_block,
+            )
+            
+            proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+            self._proposers[chain_id] = proposer
+            asyncio.create_task(proposer.start())
 
     async def _shutdown(self) -> None:
-        if self._proposer is None:
-            return
-        await self._proposer.stop()
-        self._proposer = None
+        for chain_id, proposer in list(self._proposers.items()):
+            await proposer.stop()
+        self._proposers.clear()
 
 
 @asynccontextmanager

@@ -1,0 +1,33 @@
+description: Private chain template for trusted agent collaboration
+genesis:
+  chain_type: "private"
+  purpose: "collaboration"
+  name: "Private Collaboration Chain"
+  description: "A private chain for trusted agent collaboration"
+  
+  consensus:
+    algorithm: "poa"
+    block_time: 5
+    max_validators: 10
+    authorities: []
+  
+  privacy:
+    visibility: "private"
+    access_control: "invite_only"
+    require_invitation: true
+    encryption_enabled: true
+  
+  parameters:
+    max_block_size: 524288      # 512KB
+    max_gas_per_block: 5000000
+    min_gas_price: 1000000000   # 1 gwei
+    block_reward: "2000000000000000000"  # 2 ETH
+  
+  limits:
+    max_participants: 10
+    max_contracts: 5
+    max_transactions_per_block: 50
+    max_storage_size: 536870912  # 512MB
+  
+  accounts: []
+  contracts: []

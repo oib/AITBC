@@ -1,0 +1,15 @@
+Package: aitbc-cli
+Version: 0.1.0
+Section: utils
+Priority: optional
+Architecture: all
+Installed-Size: 1
+Depends: python3 (>= 3.13), python3-pip, python3-venv
+Maintainer: AITBC Team <team@aitbc.net>
+Description: AITBC Command Line Interface
+ A comprehensive CLI for interacting with the AITBC network,
+ supporting job submission, mining operations, wallet management,
+ blockchain queries, marketplace operations, and more.
+ .
+ This package includes the AITBC CLI with all dependencies
+ and virtual environment setup for easy deployment on Debian systems.

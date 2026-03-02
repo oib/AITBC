@@ -25,9 +25,11 @@ from .commands.exchange import exchange
 from .commands.agent import agent
 from .commands.multimodal import multimodal
 from .commands.optimize import optimize
-from .commands.openclaw import openclaw
-from .commands.marketplace_advanced import advanced
+# from .commands.openclaw import openclaw  # Temporarily disabled due to command registration issues
+# from .commands.marketplace_advanced import advanced  # Temporarily disabled due to command registration issues
 from .commands.swarm import swarm
+from .commands.chain import chain
+from .commands.genesis import genesis
 from .plugins import plugin, load_plugins
 
 
@@ -109,9 +111,23 @@ cli.add_command(exchange)
 cli.add_command(agent)
 cli.add_command(multimodal)
 cli.add_command(optimize)
-cli.add_command(openclaw)
-cli.add_command(advanced)
+# cli.add_command(openclaw)  # Temporarily disabled due to command registration issues
+# cli.add_command(advanced)  # Temporarily disabled due to command registration issues
 cli.add_command(swarm)
+from .commands.chain import chain      # NEW: Multi-chain management
+from .commands.genesis import genesis  # NEW: Genesis block commands
+from .commands.node import node        # NEW: Node management commands
+from .commands.analytics import analytics  # NEW: Analytics and monitoring
+from .commands.agent_comm import agent_comm  # NEW: Cross-chain agent communication
+# from .commands.marketplace_cmd import marketplace  # NEW: Global chain marketplace - disabled due to conflict
+from .commands.deployment import deploy  # NEW: Production deployment and scaling
+cli.add_command(chain)      # NEW: Multi-chain management
+cli.add_command(genesis)    # NEW: Genesis block commands
+cli.add_command(node)        # NEW: Node management commands
+cli.add_command(analytics)  # NEW: Analytics and monitoring
+cli.add_command(agent_comm)  # NEW: Cross-chain agent communication
+# cli.add_command(marketplace)  # NEW: Global chain marketplace - disabled due to conflict
+cli.add_command(deploy)      # NEW: Production deployment and scaling
 cli.add_command(plugin)
 load_plugins(cli)
 
