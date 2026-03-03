@@ -8,7 +8,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.13"
+python = ">=3.13,<3.15"
 fastapi = "^0.111.0"
 uvicorn = { extras = ["standard"], version = "^0.30.0" }
 pydantic = ">=2.7.0"
@@ -26,6 +26,7 @@ aitbc-crypto = {path = "../../packages/py/aitbc-crypto"}
 asyncpg = ">=0.29.0"
 aitbc-core = {path = "../../packages/py/aitbc-core"}
 numpy = "^2.4.2"
+torch = "^2.10.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

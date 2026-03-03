@@ -81,7 +81,7 @@ class PoAProposer:
         if self._task is not None:
             return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
-        self._ensure_genesis_block()
+        await self._ensure_genesis_block()
         self._stop_event.clear()
         self._task = asyncio.create_task(self._run_loop())
 
@@ -99,7 +99,7 @@ class PoAProposer:
             if self._stop_event.is_set():
                 break
             try:
-                self._propose_block()
+                await self._propose_block()
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._logger.exception("Failed to propose block", extra={"error": str(exc)})
 
@@ -117,7 +117,7 @@ class PoAProposer:
         except asyncio.TimeoutError:
             return
 
-    def _propose_block(self) -> None:
+    async def _propose_block(self) -> None:
         # Check internal mempool
         from ..mempool import get_mempool
         if get_mempool().size(self._config.chain_id) == 0:
@@ -171,7 +171,7 @@ class PoAProposer:
             )
             
             # Broadcast the new block
-            gossip_broker.publish(
+            await gossip_broker.publish(
                 "blocks",
                 {
                     "height": block.height,
@@ -184,7 +184,7 @@ class PoAProposer:
                 }
             )
 
-    def _ensure_genesis_block(self) -> None:
+    async def _ensure_genesis_block(self) -> None:
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             if head is not None:
@@ -207,7 +207,7 @@ class PoAProposer:
             session.commit()
             
             # Broadcast genesis block for initial sync
-            gossip_broker.publish(
+            await gossip_broker.publish(
                 "blocks",
                 {
                     "height": genesis.height,

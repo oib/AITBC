@@ -91,7 +91,7 @@ for dir in node_modules .venv cli_env; do
 done
 
 # Move cache directories
-for dir in .pytest_cache .ruff_cache logs .vscode; do
+for dir in .pytest_cache .ruff_cache .vscode; do
     move_dir "$dir" "dev/cache"
 done
 
