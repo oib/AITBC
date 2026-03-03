@@ -184,6 +184,21 @@ packages/solidity/aitbc-token/typechain-types/
 packages/solidity/aitbc-token/artifacts/
 packages/solidity/aitbc-token/cache/
 
+# Local test fixtures and E2E testing
+tests/e2e/fixtures/home/**/.aitbc/cache/
+tests/e2e/fixtures/home/**/.aitbc/logs/
+tests/e2e/fixtures/home/**/.aitbc/tmp/
+tests/e2e/fixtures/home/**/.aitbc/*.log
+tests/e2e/fixtures/home/**/.aitbc/*.pid
+tests/e2e/fixtures/home/**/.aitbc/*.sock
+
+# Keep fixture structure but exclude generated content
+!tests/e2e/fixtures/home/
+!tests/e2e/fixtures/home/**/
+!tests/e2e/fixtures/home/**/.aitbc/
+!tests/e2e/fixtures/home/**/.aitbc/wallets/
+!tests/e2e/fixtures/home/**/.aitbc/config/
+
 # Local test data
 tests/fixtures/generated/
 

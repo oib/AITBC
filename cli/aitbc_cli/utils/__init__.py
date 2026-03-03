@@ -41,39 +41,32 @@ def progress_spinner(description: str = "Working..."):
 
 
 class AuditLogger:
-    """Audit logging for CLI operations"""
+    """Tamper-evident audit logging for CLI operations"""
     
     def __init__(self, log_dir: Optional[Path] = None):
-        self.log_dir = log_dir or Path.home() / ".aitbc" / "audit"
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        self.log_file = self.log_dir / "audit.jsonl"
+        # Import secure audit logger
+        from .secure_audit import SecureAuditLogger
+        self._secure_logger = SecureAuditLogger(log_dir)
     
     def log(self, action: str, details: dict = None, user: str = None):
-        """Log an audit event"""
-        import datetime
-        entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "action": action,
-            "user": user or os.environ.get("USER", "unknown"),
-            "details": details or {}
-        }
-        with open(self.log_file, "a") as f:
-            f.write(json.dumps(entry) + "\n")
+        """Log an audit event with cryptographic integrity"""
+        self._secure_logger.log(action, details, user)
     
     def get_logs(self, limit: int = 50, action_filter: str = None) -> list:
-        """Read audit log entries"""
-        if not self.log_file.exists():
-            return []
-        entries = []
-        with open(self.log_file) as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    entry = json.loads(line)
-                    if action_filter and entry.get("action") != action_filter:
-                        continue
-                    entries.append(entry)
-        return entries[-limit:]
+        """Read audit log entries with integrity verification"""
+        return self._secure_logger.get_logs(limit, action_filter)
+    
+    def verify_integrity(self) -> Tuple[bool, List[str]]:
+        """Verify audit log integrity"""
+        return self._secure_logger.verify_integrity()
+    
+    def export_report(self, output_file: Optional[Path] = None) -> Dict:
+        """Export comprehensive audit report"""
+        return self._secure_logger.export_audit_report(output_file)
+    
+    def search_logs(self, query: str, limit: int = 50) -> List[Dict]:
+        """Search audit logs"""
+        return self._secure_logger.search_logs(query, limit)
 
 
 def _get_fernet_key(key: str = None) -> bytes:
@@ -133,7 +126,7 @@ def setup_logging(verbosity: int, debug: bool = False) -> str:
     return log_level
 
 
-def output(data: Any, format_type: str = "table", title: str = None):
+def render(data: Any, format_type: str = "table", title: str = None):
     """Format and output data"""
     if format_type == "json":
         console.print(json.dumps(data, indent=2, default=str))
@@ -174,6 +167,12 @@ def output(data: Any, format_type: str = "table", title: str = None):
             console.print(data)
     else:
         console.print(data)
+
+
+# Backward compatibility alias
+def output(data: Any, format_type: str = "table", title: str = None):
+    """Deprecated: use render() instead - kept for backward compatibility"""
+    return render(data, format_type, title)
 
 
 def error(message: str):
@@ -267,7 +266,30 @@ def create_http_client_with_retry(
             
             for attempt in range(self.max_retries + 1):
                 try:
-                    return super().handle_request(request)
+                    response = super().handle_request(request)
+                    
+                    # Check for retryable HTTP status codes
+                    if hasattr(response, 'status_code'):
+                        retryable_codes = {429, 502, 503, 504}
+                        if response.status_code in retryable_codes:
+                            last_exception = httpx.HTTPStatusError(
+                                f"Retryable status code {response.status_code}",
+                                request=request,
+                                response=response
+                            )
+                            
+                            if attempt == self.max_retries:
+                                break
+                            
+                            delay = min(
+                                self.base_delay * (self.backoff_factor ** attempt),
+                                self.max_delay
+                            )
+                            time.sleep(delay)
+                            continue
+                    
+                    return response
+                    
                 except (httpx.NetworkError, httpx.TimeoutException) as e:
                     last_exception = e
                     

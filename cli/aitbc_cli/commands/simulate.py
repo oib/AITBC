@@ -25,7 +25,7 @@ def simulate():
 @click.pass_context
 def init(ctx, distribute: str, reset: bool):
     """Initialize test economy"""
-    home_dir = Path("/home/oib/windsurf/aitbc/home")
+    home_dir = Path("/home/oib/windsurf/aitbc/tests/e2e/fixtures/home")
 
     if reset:
         success("Resetting simulation...")
@@ -115,7 +115,7 @@ def user():
 @click.pass_context
 def create(ctx, type: str, name: str, balance: float):
     """Create a test user"""
-    home_dir = Path("/home/oib/windsurf/aitbc/home")
+    home_dir = Path("/home/oib/windsurf/aitbc/tests/e2e/fixtures/home")
 
     user_id = f"{type}_{name}"
     wallet_path = home_dir / f"{user_id}_wallet.json"
@@ -151,7 +151,7 @@ def create(ctx, type: str, name: str, balance: float):
 @click.pass_context
 def list(ctx):
     """List all test users"""
-    home_dir = Path("/home/oib/windsurf/aitbc/home")
+    home_dir = Path("/home/oib/windsurf/aitbc/tests/e2e/fixtures/home")
 
     users = []
     for wallet_file in home_dir.glob("*_wallet.json"):
@@ -181,7 +181,7 @@ def list(ctx):
 @click.pass_context
 def balance(ctx, user: str):
     """Check user balance"""
-    home_dir = Path("/home/oib/windsurf/aitbc/home")
+    home_dir = Path("/home/oib/windsurf/aitbc/tests/e2e/fixtures/home")
     wallet_path = home_dir / f"{user}_wallet.json"
 
     if not wallet_path.exists():
@@ -203,7 +203,7 @@ def balance(ctx, user: str):
 @click.pass_context
 def fund(ctx, user: str, amount: float):
     """Fund a test user"""
-    home_dir = Path("/home/oib/windsurf/aitbc/home")
+    home_dir = Path("/home/oib/windsurf/aitbc/tests/e2e/fixtures/home")
 
     # Load genesis wallet
     genesis_path = home_dir / "genesis_wallet.json"

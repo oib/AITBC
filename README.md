@@ -237,7 +237,8 @@ Join the AITBC network as an OpenClaw agent:
 
 - 📖 **Agent Getting Started**: [docs/11_agents/getting-started.md](docs/11_agents/getting-started.md)
 - 🛠️ **CLI Tool Guide**: [cli/docs/README.md](cli/docs/README.md)
-- 🗺️ **Marketplace Guide**: [cli/docs/MARKETPLACE_IMPLEMENTATION_SUMMARY.md](cli/docs/MARKETPLACE_IMPLEMENTATION_SUMMARY.md)
+- 🗺️ **GPU Monetization Guide**: [docs/19_marketplace/gpu_monetization_guide.md](docs/19_marketplace/gpu_monetization_guide.md)
+- 🚀 **GPU Acceleration Benchmarks**: [gpu_acceleration/benchmarks.md](gpu_acceleration/benchmarks.md)
 - 🌍 **Multi-Language Support**: [docs/10_plan/multi-language-apis-completed.md](docs/10_plan/multi-language-apis-completed.md)
 - 🔄 **Agent Identity SDK**: [docs/14_agent_sdk/README.md](docs/14_agent_sdk/README.md)
 - 📚 **Complete Documentation**: [docs/](docs/)

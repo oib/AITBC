@@ -546,9 +546,9 @@ def progress(ctx, agent_id: str, metrics: str):
 @click.argument("agent_id")
 @click.option("--format", default="onnx", type=click.Choice(["onnx", "pickle", "torch"]),
               help="Export format")
-@click.option("--output", type=click.Path(), help="Output file path")
+@click.option("--output-path", type=click.Path(), help="Output file path")
 @click.pass_context
-def export(ctx, agent_id: str, format: str, output: Optional[str]):
+def export(ctx, agent_id: str, format: str, output_path: Optional[str]):
     """Export learned agent model"""
     config = ctx.obj['config']
     
@@ -563,10 +563,10 @@ def export(ctx, agent_id: str, format: str, output: Optional[str]):
             )
             
             if response.status_code == 200:
-                if output:
-                    with open(output, 'wb') as f:
+                if output_path:
+                    with open(output_path, 'wb') as f:
                         f.write(response.content)
-                    success(f"Model exported to {output}")
+                    success(f"Model exported to {output_path}")
                 else:
                     # Output metadata about the export
                     export_info = response.headers.get('X-Export-Info', '{}')

@@ -25,7 +25,7 @@ coordinator:
     port: 8001
   env:
     LOG_LEVEL: debug
-    DATABASE_URL: postgresql://aitbc:dev@postgres:5432/coordinator
+    DATABASE_URL: secretRef:db-credentials:url
   autoscaling:
     enabled: false
 
@@ -88,8 +88,9 @@ postgresql:
   enabled: true
   auth:
     username: aitbc
-    password: dev
+    password: secretRef:db-credentials:password
     database: coordinator
+    existingSecret: db-credentials
   primary:
     resources:
       requests:

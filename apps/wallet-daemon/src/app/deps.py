@@ -6,6 +6,7 @@ from fastapi import Depends
 
 from .keystore.service import KeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
+from .keystore.persistent_service import PersistentKeystoreService
 from .receipts.service import ReceiptVerifierService
 from .settings import Settings, settings
 
@@ -22,8 +23,8 @@ def get_receipt_service(config: Settings = Depends(get_settings)) -> ReceiptVeri
 
 
 @lru_cache
-def get_keystore() -> KeystoreService:
-    return KeystoreService()
+def get_keystore(config: Settings = Depends(get_settings)) -> PersistentKeystoreService:
+    return PersistentKeystoreService(db_path=config.ledger_db_path.parent / "keystore.db")
 
 
 def get_ledger(config: Settings = Depends(get_settings)) -> SQLiteLedgerAdapter:

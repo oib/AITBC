@@ -16,7 +16,7 @@ def admin():
 @admin.command()
 @click.pass_context
 def status(ctx):
-    """Get system status"""
+    """Show system status"""
     config = ctx.obj['config']
     
     try:
@@ -30,10 +30,74 @@ def status(ctx):
                 status_data = response.json()
                 output(status_data, ctx.obj['output_format'])
             else:
-                error(f"Failed to get system status: {response.status_code}")
+                error(f"Failed to get status: {response.status_code}")
                 ctx.exit(1)
     except Exception as e:
         error(f"Network error: {e}")
+        ctx.exit(1)
+
+
+@admin.command()
+@click.option("--output", type=click.Path(), help="Output report to file")
+@click.pass_context
+def audit_verify(ctx, output):
+    """Verify audit log integrity"""
+    audit_logger = AuditLogger()
+    is_valid, issues = audit_logger.verify_integrity()
+    
+    if is_valid:
+        success("Audit log integrity verified - no tampering detected")
+    else:
+        error("Audit log integrity compromised!")
+        for issue in issues:
+            error(f"  - {issue}")
+        ctx.exit(1)
+    
+    # Export detailed report if requested
+    if output:
+        try:
+            report = audit_logger.export_report(Path(output))
+            success(f"Audit report exported to {output}")
+            
+            # Show summary
+            stats = report["audit_report"]["statistics"]
+            output({
+                "total_entries": stats["total_entries"],
+                "unique_actions": stats["unique_actions"],
+                "unique_users": stats["unique_users"],
+                "date_range": stats["date_range"]
+            }, ctx.obj['output_format'])
+        except Exception as e:
+            error(f"Failed to export report: {e}")
+
+
+@admin.command()
+@click.option("--limit", default=50, help="Number of entries to show")
+@click.option("--action", help="Filter by action type")
+@click.option("--search", help="Search query")
+@click.pass_context
+def audit_logs(ctx, limit: int, action: str, search: str):
+    """View audit logs with integrity verification"""
+    audit_logger = AuditLogger()
+    
+    try:
+        if search:
+            entries = audit_logger.search_logs(search, limit)
+        else:
+            entries = audit_logger.get_logs(limit, action)
+        
+        if not entries:
+            warning("No audit entries found")
+            return
+        
+        # Show entries
+        output({
+            "total_entries": len(entries),
+            "entries": entries
+        }, ctx.obj['output_format'])
+        
+    except Exception as e:
+        error(f"Failed to read audit logs: {e}")
         ctx.exit(1)
 
 

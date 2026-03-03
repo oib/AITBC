@@ -44,6 +44,8 @@ if $RUN_SLITHER; then
             --json "$SLITHER_REPORT" \
             --checklist \
             --exclude-dependencies \
+            --disable-implict-optimizations \
+            --solc-args "--optimize --runs 200" \
             2>&1 | tee "$SLITHER_TEXT" || true
 
         echo ""

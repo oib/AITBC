@@ -1,5 +1,5 @@
 """
-Enhanced conftest for pytest with AITBC CLI support
+Enhanced conftest for pytest with AITBC CLI support and comprehensive test coverage
 """
 
 import pytest
@@ -16,14 +16,41 @@ sys.path.insert(0, str(project_root))
 # Add CLI path
 sys.path.insert(0, str(project_root / "cli"))
 
-# Add necessary source paths
-sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
-sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-crypto" / "src"))
-sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-p2p" / "src"))
-sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-sdk" / "src"))
-sys.path.insert(0, str(project_root / "apps" / "coordinator-api" / "src"))
-sys.path.insert(0, str(project_root / "apps" / "wallet-daemon" / "src"))
-sys.path.insert(0, str(project_root / "apps" / "blockchain-node" / "src"))
+# Add all source paths for comprehensive testing
+source_paths = [
+    "packages/py/aitbc-core/src",
+    "packages/py/aitbc-crypto/src", 
+    "packages/py/aitbc-p2p/src",
+    "packages/py/aitbc-sdk/src",
+    "apps/coordinator-api/src",
+    "apps/wallet-daemon/src",
+    "apps/blockchain-node/src",
+    "apps/pool-hub/src",
+    "apps/explorer-web/src",
+    "apps/zk-circuits/src"
+]
+
+for path in source_paths:
+    full_path = project_root / path
+    if full_path.exists():
+        sys.path.insert(0, str(full_path))
+
+# Add test paths for imports
+test_paths = [
+    "packages/py/aitbc-crypto/tests",
+    "packages/py/aitbc-sdk/tests", 
+    "apps/coordinator-api/tests",
+    "apps/wallet-daemon/tests",
+    "apps/blockchain-node/tests",
+    "apps/pool-hub/tests",
+    "apps/explorer-web/tests",
+    "cli/tests"
+]
+
+for path in test_paths:
+    full_path = project_root / path
+    if full_path.exists():
+        sys.path.insert(0, str(full_path))
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
@@ -48,6 +75,75 @@ def mock_generate_viewing_key():
 sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
 sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
 sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
+
+# Common fixtures for all test types
+@pytest.fixture
+def cli_runner():
+    """Create CLI runner for testing"""
+    return CliRunner()
+
+@pytest.fixture
+def mock_config():
+    """Mock configuration for testing"""
+    return {
+        'coordinator_url': 'http://localhost:8000',
+        'api_key': 'test-key',
+        'wallet_name': 'test-wallet',
+        'blockchain_url': 'http://localhost:8082'
+    }
+
+@pytest.fixture
+def temp_dir():
+    """Create temporary directory for tests"""
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield Path(tmpdir)
+
+@pytest.fixture
+def mock_http_client():
+    """Mock HTTP client for API testing"""
+    mock_client = Mock()
+    mock_response = Mock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"status": "ok"}
+    mock_client.get.return_value = mock_response
+    mock_client.post.return_value = mock_response
+    mock_client.put.return_value = mock_response
+    mock_client.delete.return_value = mock_response
+    return mock_client
+
+# Test markers for different test types
+def pytest_configure(config):
+    """Configure pytest markers"""
+    config.addinivalue_line("markers", "unit: Unit tests (fast, isolated)")
+    config.addinivalue_line("markers", "integration: Integration tests (may require external services)")
+    config.addinivalue_line("markers", "slow: Slow running tests")
+    config.addinivalue_line("markers", "cli: CLI command tests")
+    config.addinivalue_line("markers", "api: API endpoint tests")
+    config.addinivalue_line("markers", "blockchain: Blockchain-related tests")
+    config.addinivalue_line("markers", "crypto: Cryptography tests")
+    config.addinivalue_line("markers", "contracts: Smart contract tests")
+
+# Pytest collection hooks
+def pytest_collection_modifyitems(config, items):
+    """Modify test collection to add markers based on file location"""
+    for item in items:
+        # Add markers based on file path
+        if "cli/tests" in str(item.fspath):
+            item.add_marker(pytest.mark.cli)
+        elif "apps/coordinator-api/tests" in str(item.fspath):
+            item.add_marker(pytest.mark.api)
+        elif "apps/blockchain-node/tests" in str(item.fspath):
+            item.add_marker(pytest.mark.blockchain)
+        elif "packages/py/aitbc-crypto/tests" in str(item.fspath):
+            item.add_marker(pytest.mark.crypto)
+        elif "contracts/test" in str(item.fspath):
+            item.add_marker(pytest.mark.contracts)
+        
+        # Add slow marker for integration tests
+        if "integration" in str(item.fspath).lower():
+            item.add_marker(pytest.mark.integration)
+            item.add_marker(pytest.mark.slow)
 
 
 @pytest.fixture

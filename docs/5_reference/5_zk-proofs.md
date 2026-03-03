@@ -25,9 +25,10 @@ Successfully implemented a zero-knowledge proof system for privacy-preserving re
 - **Backward Compatibility**: Existing receipts work unchanged
 
 ### 4. Verification Contract (`contracts/ZKReceiptVerifier.sol`)
-- **On-Chain Verification**: Groth16 proof verification
+- **On-Chain Verification**: Groth16 proof verification with snarkjs-generated verifier
 - **Security Features**: Double-spend prevention, timestamp validation
 - **Authorization**: Controlled access to verification functions
+- **Status**: ✅ PRODUCTION READY - Real verifier implemented with trusted setup
 - **Batch Support**: Efficient batch verification
 
 ### 5. Settlement Integration (`apps/coordinator-api/aitbc/settlement/hooks.py`)
