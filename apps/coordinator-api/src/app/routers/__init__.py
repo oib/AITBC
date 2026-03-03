@@ -33,5 +33,15 @@ __all__ = [
     "edge_gpu",
     "cache_management",
     "agent_identity",
+    "global_marketplace",
+    "cross_chain_integration",
+    "global_marketplace_integration",
+    "developer_platform",
+    "governance_enhanced",
     "registry",
 ]
+from .global_marketplace import router as global_marketplace
+from .cross_chain_integration import router as cross_chain_integration
+from .global_marketplace_integration import router as global_marketplace_integration
+from .developer_platform import router as developer_platform
+from .governance_enhanced import router as governance_enhanced

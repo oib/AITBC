@@ -81,7 +81,7 @@ class PoAProposer:
         if self._task is not None:
             return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
-        await self._ensure_genesis_block()
+        self._ensure_genesis_block()
         self._stop_event.clear()
         self._task = asyncio.create_task(self._run_loop())
 
@@ -99,7 +99,7 @@ class PoAProposer:
             if self._stop_event.is_set():
                 break
             try:
-                await self._propose_block()
+                self._propose_block()
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._logger.exception("Failed to propose block", extra={"error": str(exc)})
 
