@@ -111,7 +111,7 @@ class CrossChainMapping(SQLModel, table=True):
     wallet_type: str = Field(default="agent-wallet")  # agent-wallet, external-wallet, etc.
     
     # Chain-specific metadata
-    chain_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    chain_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     nonce: Optional[int] = Field(default=None)
     
     # Activity tracking
@@ -156,7 +156,7 @@ class IdentityVerification(SQLModel, table=True):
     renewed_at: Optional[datetime] = Field(default=None)
     
     # Metadata
-    verification_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    verification_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -226,7 +226,7 @@ class AgentIdentityCreate(SQLModel):
     avatar_url: str = Field(default="")
     supported_chains: List[int] = Field(default_factory=list)
     primary_chain: int = Field(default=1)
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
     tags: List[str] = Field(default_factory=list)
 
 
@@ -239,7 +239,7 @@ class AgentIdentityUpdate(SQLModel):
     verification_level: Optional[VerificationType] = Field(default=None)
     supported_chains: Optional[List[int]] = Field(default=None)
     primary_chain: Optional[int] = Field(default=None)
-    metadata: Optional[Dict[str, Any]] = Field(default=None)
+    meta_data: Optional[Dict[str, Any]] = Field(default=None)
     settings: Optional[Dict[str, Any]] = Field(default=None)
     tags: Optional[List[str]] = Field(default=None)
 
@@ -252,7 +252,7 @@ class CrossChainMappingCreate(SQLModel):
     chain_address: str
     wallet_address: Optional[str] = Field(default=None)
     wallet_type: str = Field(default="agent-wallet")
-    chain_metadata: Dict[str, Any] = Field(default_factory=dict)
+    chain_meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CrossChainMappingUpdate(SQLModel):
@@ -260,7 +260,7 @@ class CrossChainMappingUpdate(SQLModel):
     chain_address: Optional[str] = Field(default=None)
     wallet_address: Optional[str] = Field(default=None)
     wallet_type: Optional[str] = Field(default=None)
-    chain_metadata: Optional[Dict[str, Any]] = Field(default=None)
+    chain_meta_data: Optional[Dict[str, Any]] = Field(default=None)
     is_verified: Optional[bool] = Field(default=None)
 
 
@@ -273,7 +273,7 @@ class IdentityVerificationCreate(SQLModel):
     proof_hash: str
     proof_data: Dict[str, Any] = Field(default_factory=dict)
     expires_at: Optional[datetime] = Field(default=None)
-    verification_metadata: Dict[str, Any] = Field(default_factory=dict)
+    verification_meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class AgentWalletCreate(SQLModel):
@@ -320,7 +320,7 @@ class AgentIdentityResponse(SQLModel):
     total_transactions: int
     successful_transactions: int
     last_activity: Optional[datetime]
-    metadata: Dict[str, Any]
+    meta_data: Dict[str, Any]
     tags: List[str]
     created_at: datetime
     updated_at: datetime
@@ -337,7 +337,7 @@ class CrossChainMappingResponse(SQLModel):
     verified_at: Optional[datetime]
     wallet_address: Optional[str]
     wallet_type: str
-    chain_metadata: Dict[str, Any]
+    chain_meta_data: Dict[str, Any]
     last_transaction: Optional[datetime]
     transaction_count: int
     created_at: datetime

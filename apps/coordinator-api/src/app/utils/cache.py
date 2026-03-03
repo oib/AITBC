@@ -173,17 +173,17 @@ def cached(ttl_seconds: int = 300, key_prefix: str = ""):
 
 # Cache configurations for different query types
 CACHE_CONFIGS = {
-    "marketplace_stats": {"ttl": 300, "prefix": "marketplace_"},  # 5 minutes
-    "job_list": {"ttl": 60, "prefix": "jobs_"},                  # 1 minute
-    "miner_list": {"ttl": 120, "prefix": "miners_"},               # 2 minutes
-    "user_balance": {"ttl": 30, "prefix": "balance_"},             # 30 seconds
-    "exchange_rates": {"ttl": 600, "prefix": "rates_"},            # 10 minutes
+    "marketplace_stats": {"ttl_seconds": 300, "key_prefix": "marketplace_"},  # 5 minutes
+    "job_list": {"ttl_seconds": 60, "key_prefix": "jobs_"},                  # 1 minute
+    "miner_list": {"ttl_seconds": 120, "key_prefix": "miners_"},               # 2 minutes
+    "user_balance": {"ttl_seconds": 30, "key_prefix": "balance_"},             # 30 seconds
+    "exchange_rates": {"ttl_seconds": 600, "key_prefix": "rates_"},            # 10 minutes
 }
 
 
 def get_cache_config(cache_type: str) -> Dict[str, Any]:
     """Get cache configuration for a specific type"""
-    return CACHE_CONFIGS.get(cache_type, {"ttl": 300, "prefix": ""})
+    return CACHE_CONFIGS.get(cache_type, {"ttl_seconds": 300, "key_prefix": ""})
 
 
 # Periodic cleanup task

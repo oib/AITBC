@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select, func
 
-from ..services.database import get_session
+from ..storage.db import get_session
 from ..domain.developer_platform import (
     DeveloperProfile, DeveloperCertification, RegionalHub, 
     BountyTask, BountySubmission, BountyStatus, CertificationLevel

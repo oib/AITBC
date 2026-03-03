@@ -267,7 +267,7 @@ class PoolAlert(SQLModel, table=True):
     severity: str = Field(index=True)  # LOW, MEDIUM, HIGH, CRITICAL
     title: str = Field(default="")
     message: str = Field(default="")
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     threshold_value: float = Field(default=0.0)  # Threshold that triggered alert
     current_value: float = Field(default=0.0)  # Current value
     is_acknowledged: bool = Field(default=False, index=True)

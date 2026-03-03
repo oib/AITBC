@@ -1,3 +1,6 @@
+from ..domain.global_marketplace import GlobalMarketplaceAnalyticsRequest
+from ..domain.global_marketplace import GlobalMarketplaceTransactionRequest
+from ..domain.global_marketplace import GlobalMarketplaceOfferRequest
 """
 Global Marketplace Services
 Core services for global marketplace operations, multi-region support, and cross-chain integration
@@ -34,7 +37,7 @@ class GlobalMarketplaceService:
     
     async def create_global_offer(
         self, 
-        request: GlobalMarketplaceOfferRequest,
+        request: "GlobalMarketplaceOfferRequest",
         agent_identity: AgentIdentity
     ) -> GlobalMarketplaceOffer:
         """Create a new global marketplace offer"""
@@ -142,7 +145,7 @@ class GlobalMarketplaceService:
     
     async def create_global_transaction(
         self,
-        request: GlobalMarketplaceTransactionRequest,
+        request: "GlobalMarketplaceTransactionRequest",
         buyer_identity: AgentIdentity
     ) -> GlobalMarketplaceTransaction:
         """Create a global marketplace transaction"""
@@ -258,7 +261,7 @@ class GlobalMarketplaceService:
     
     async def get_marketplace_analytics(
         self,
-        request: GlobalMarketplaceAnalyticsRequest
+        request: "GlobalMarketplaceAnalyticsRequest"
     ) -> GlobalMarketplaceAnalytics:
         """Get global marketplace analytics"""
         
@@ -291,7 +294,7 @@ class GlobalMarketplaceService:
     
     async def _generate_analytics(
         self,
-        request: GlobalMarketplaceAnalyticsRequest
+        request: "GlobalMarketplaceAnalyticsRequest"
     ) -> GlobalMarketplaceAnalytics:
         """Generate analytics for the specified period"""
         

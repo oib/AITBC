@@ -86,13 +86,15 @@ def session_scope() -> Generator[Session, None, None]:
 
 
 # Dependency for FastAPI
-SessionDep = Session
-
+from fastapi import Depends
+from typing import Annotated
 
 def get_session() -> Session:
     """Get a database session."""
     engine = get_engine()
     return Session(engine)
+
+SessionDep = Annotated[Session, Depends(get_session)]
 
 
 # Async support for future use

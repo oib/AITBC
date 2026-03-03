@@ -104,7 +104,7 @@ class AgentPerformanceProfile(SQLModel, table=True):
     last_assessed: Optional[datetime] = None
     
     # Additional data
-    profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     performance_notes: str = Field(default="", max_length=1000)
 
 
@@ -155,7 +155,7 @@ class MetaLearningModel(SQLModel, table=True):
     deployed_at: Optional[datetime] = None
     
     # Additional data
-    model_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    model_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     training_logs: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -206,7 +206,7 @@ class ResourceAllocation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow())
     
     # Additional data
-    allocation_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    allocation_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     resource_utilization: Dict[str, float] = Field(default={}, sa_column=Column(JSON))
 
 
@@ -261,7 +261,7 @@ class PerformanceOptimization(SQLModel, table=True):
     completed_at: Optional[datetime] = None
     
     # Additional data
-    optimization_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    optimization_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     performance_logs: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -315,7 +315,7 @@ class AgentCapability(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional data
-    capability_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    capability_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     training_history: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -368,7 +368,7 @@ class FusionModel(SQLModel, table=True):
     deployed_at: Optional[datetime] = None
     
     # Additional data
-    fusion_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    fusion_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     training_logs: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -423,7 +423,7 @@ class ReinforcementLearningConfig(SQLModel, table=True):
     deployed_at: Optional[datetime] = None
     
     # Additional data
-    rl_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    rl_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     training_logs: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -477,5 +477,5 @@ class CreativeCapability(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional data
-    creative_profile_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    creative_profile_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     portfolio_samples: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))

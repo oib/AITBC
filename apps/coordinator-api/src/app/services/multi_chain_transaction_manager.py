@@ -18,7 +18,7 @@ from aitbc.logging import get_logger
 from sqlmodel import Session, select, update, delete, func, Field
 from sqlalchemy.exc import SQLAlchemyError
 
-from ..domain.cross_chain_bridge import CrossChainBridgeRequest, BridgeRequestStatus
+from ..domain.cross_chain_bridge import BridgeRequest, BridgeRequestStatus
 from ..domain.agent_identity import AgentWallet
 from ..agent_identity.wallet_adapter_enhanced import (
     EnhancedWalletAdapter, WalletAdapterFactory, SecurityLevel,

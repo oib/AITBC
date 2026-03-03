@@ -105,7 +105,7 @@ class TradeRequest(SQLModel, table=True):
     
     # Additional metadata
     tags: List[str] = Field(default=[], sa_column=Column(JSON))
-    trading_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    trading_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
 class TradeMatch(SQLModel, table=True):

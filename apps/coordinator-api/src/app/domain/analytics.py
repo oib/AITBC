@@ -81,7 +81,7 @@ class MarketMetric(SQLModel, table=True):
     trade_type: Optional[str] = None
     
     # Metadata
-    metric_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    metric_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     
     # Timestamps
     recorded_at: datetime = Field(default_factory=datetime.utcnow)
@@ -187,7 +187,7 @@ class AnalyticsReport(SQLModel, table=True):
     delivered_at: Optional[datetime] = None
     
     # Additional data
-    report_metric_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    report_metric_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     template_used: Optional[str] = None
 
 
@@ -282,7 +282,7 @@ class DataCollectionJob(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional data
-    job_metric_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    job_metric_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     execution_log: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 
@@ -332,7 +332,7 @@ class AlertRule(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional data
-    rule_metric_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    rule_metric_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     test_results: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
 
 

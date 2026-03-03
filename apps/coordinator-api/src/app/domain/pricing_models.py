@@ -527,7 +527,7 @@ class PricingAuditLog(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional metadata
-    metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     tags: List[str] = Field(default_factory=list, sa_column=Column(JSON))
 
 

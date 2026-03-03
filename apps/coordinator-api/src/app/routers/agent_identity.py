@@ -17,8 +17,8 @@ from ..domain.agent_identity import (
     AgentWalletUpdate, AgentIdentityResponse, CrossChainMappingResponse,
     AgentWalletResponse
 )
-from ..services.database import get_session
-from .manager import AgentIdentityManager
+from ..storage.db import get_session
+from ..agent_identity.manager import AgentIdentityManager
 
 router = APIRouter(prefix="/agent-identity", tags=["Agent Identity"])
 
