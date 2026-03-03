@@ -174,6 +174,7 @@ class PoAProposer:
             await gossip_broker.publish(
                 "blocks",
                 {
+                    "chain_id": self._config.chain_id,
                     "height": block.height,
                     "hash": block.hash,
                     "parent_hash": block.parent_hash,
@@ -210,6 +211,7 @@ class PoAProposer:
             await gossip_broker.publish(
                 "blocks",
                 {
+                    "chain_id": self._config.chain_id,
                     "height": genesis.height,
                     "hash": genesis.hash,
                     "parent_hash": genesis.parent_hash,
