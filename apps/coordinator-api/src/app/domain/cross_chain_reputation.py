@@ -210,7 +210,7 @@ class CrossChainReputationResponse(SQLModel):
     consistency_score: float
     verification_status: str
     last_updated: datetime
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CrossChainAnalyticsResponse(SQLModel):
@@ -241,7 +241,7 @@ class ReputationAnomalyResponse(SQLModel):
     current_score: float
     score_change: float
     confidence: float
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    meta_data: Dict[str, Any] = Field(default_factory=dict)
 
 
 class CrossChainLeaderboardResponse(SQLModel):

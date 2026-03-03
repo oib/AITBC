@@ -19,7 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from ..domain.cross_chain_bridge import (
     BridgeRequestStatus, ChainType, TransactionType, ValidatorStatus,
-    CrossChainBridgeRequest, BridgeValidator, BridgeLiquidityPool
+    BridgeRequest, Validator
 )
 from ..domain.agent_identity import AgentWallet, CrossChainMapping
 from ..agent_identity.wallet_adapter_enhanced import (
@@ -139,7 +139,7 @@ class CrossChainBridgeService:
             protocol = protocol or BridgeProtocol(source_config["protocol"])
             
             # Create bridge request
-            bridge_request = CrossChainBridgeRequest(
+            bridge_request = BridgeRequest(
                 id=f"bridge_{uuid4().hex[:8]}",
                 user_address=user_address,
                 source_chain_id=source_chain_id,
@@ -191,8 +191,8 @@ class CrossChainBridgeService:
         """Get status of a bridge request"""
         
         try:
-            stmt = select(CrossChainBridgeRequest).where(
-                CrossChainBridgeRequest.id == bridge_request_id
+            stmt = select(BridgeRequest).where(
+                BridgeRequest.id == bridge_request_id
             )
             bridge_request = self.session.exec(stmt).first()
             
@@ -263,8 +263,8 @@ class CrossChainBridgeService:
         """Cancel a bridge request"""
         
         try:
-            stmt = select(CrossChainBridgeRequest).where(
-                CrossChainBridgeRequest.id == bridge_request_id
+            stmt = select(BridgeRequest).where(
+                BridgeRequest.id == bridge_request_id
             )
             bridge_request = self.session.exec(stmt).first()
             
@@ -307,32 +307,32 @@ class CrossChainBridgeService:
             
             # Get total requests
             total_requests = self.session.exec(
-                select(func.count(CrossChainBridgeRequest.id)).where(
-                    CrossChainBridgeRequest.created_at >= cutoff_time
+                select(func.count(BridgeRequest.id)).where(
+                    BridgeRequest.created_at >= cutoff_time
                 )
             ).scalar() or 0
             
             # Get completed requests
             completed_requests = self.session.exec(
-                select(func.count(CrossChainBridgeRequest.id)).where(
-                    CrossChainBridgeRequest.created_at >= cutoff_time,
-                    CrossChainBridgeRequest.status == BridgeRequestStatus.COMPLETED
+                select(func.count(BridgeRequest.id)).where(
+                    BridgeRequest.created_at >= cutoff_time,
+                    BridgeRequest.status == BridgeRequestStatus.COMPLETED
                 )
             ).scalar() or 0
             
             # Get total volume
             total_volume = self.session.exec(
-                select(func.sum(CrossChainBridgeRequest.amount)).where(
-                    CrossChainBridgeRequest.created_at >= cutoff_time,
-                    CrossChainBridgeRequest.status == BridgeRequestStatus.COMPLETED
+                select(func.sum(BridgeRequest.amount)).where(
+                    BridgeRequest.created_at >= cutoff_time,
+                    BridgeRequest.status == BridgeRequestStatus.COMPLETED
                 )
             ).scalar() or 0
             
             # Get total fees
             total_fees = self.session.exec(
-                select(func.sum(CrossChainBridgeRequest.total_fee)).where(
-                    CrossChainBridgeRequest.created_at >= cutoff_time,
-                    CrossChainBridgeRequest.status == BridgeRequestStatus.COMPLETED
+                select(func.sum(BridgeRequest.total_fee)).where(
+                    BridgeRequest.created_at >= cutoff_time,
+                    BridgeRequest.status == BridgeRequestStatus.COMPLETED
                 )
             ).scalar() or 0
             
@@ -342,11 +342,11 @@ class CrossChainBridgeService:
             # Get average processing time
             avg_processing_time = self.session.exec(
                 select(func.avg(
-                    func.extract('epoch', CrossChainBridgeRequest.completed_at) -
-                    func.extract('epoch', CrossChainBridgeRequest.created_at)
+                    func.extract('epoch', BridgeRequest.completed_at) -
+                    func.extract('epoch', BridgeRequest.created_at)
                 )).where(
-                    CrossChainBridgeRequest.created_at >= cutoff_time,
-                    CrossChainBridgeRequest.status == BridgeRequestStatus.COMPLETED
+                    BridgeRequest.created_at >= cutoff_time,
+                    BridgeRequest.status == BridgeRequestStatus.COMPLETED
                 )
             ).scalar() or 0
             
@@ -354,9 +354,9 @@ class CrossChainBridgeService:
             chain_distribution = {}
             for chain_id in self.wallet_adapters.keys():
                 chain_requests = self.session.exec(
-                    select(func.count(CrossChainBridgeRequest.id)).where(
-                        CrossChainBridgeRequest.created_at >= cutoff_time,
-                        CrossChainBridgeRequest.source_chain_id == chain_id
+                    select(func.count(BridgeRequest.id)).where(
+                        BridgeRequest.created_at >= cutoff_time,
+                        BridgeRequest.source_chain_id == chain_id
                     )
                 ).scalar() or 0
                 
@@ -410,8 +410,8 @@ class CrossChainBridgeService:
         """Process a bridge request"""
         
         try:
-            stmt = select(CrossChainBridgeRequest).where(
-                CrossChainBridgeRequest.id == bridge_request_id
+            stmt = select(BridgeRequest).where(
+                BridgeRequest.id == bridge_request_id
             )
             bridge_request = self.session.exec(stmt).first()
             
@@ -438,8 +438,8 @@ class CrossChainBridgeService:
             logger.error(f"Error processing bridge request {bridge_request_id}: {e}")
             # Update status to failed
             try:
-                stmt = update(CrossChainBridgeRequest).where(
-                    CrossChainBridgeRequest.id == bridge_request_id
+                stmt = update(BridgeRequest).where(
+                    BridgeRequest.id == bridge_request_id
                 ).values(
                     status=BridgeRequestStatus.FAILED,
                     error_message=str(e),
@@ -450,7 +450,7 @@ class CrossChainBridgeService:
             except:
                 pass
     
-    async def _execute_atomic_swap(self, bridge_request: CrossChainBridgeRequest) -> None:
+    async def _execute_atomic_swap(self, bridge_request: BridgeRequest) -> None:
         """Execute atomic swap protocol"""
         
         try:
@@ -510,7 +510,7 @@ class CrossChainBridgeService:
             logger.error(f"Error executing atomic swap: {e}")
             raise
     
-    async def _execute_liquidity_pool_swap(self, bridge_request: CrossChainBridgeRequest) -> None:
+    async def _execute_liquidity_pool_swap(self, bridge_request: BridgeRequest) -> None:
         """Execute liquidity pool swap"""
         
         try:
@@ -549,7 +549,7 @@ class CrossChainBridgeService:
             logger.error(f"Error executing liquidity pool swap: {e}")
             raise
     
-    async def _execute_htlc_swap(self, bridge_request: CrossChainBridgeRequest) -> None:
+    async def _execute_htlc_swap(self, bridge_request: BridgeRequest) -> None:
         """Execute HTLC (Hashed Timelock Contract) swap"""
         
         try:
@@ -604,7 +604,7 @@ class CrossChainBridgeService:
             logger.error(f"Error executing HTLC swap: {e}")
             raise
     
-    async def _create_atomic_swap_contract(self, bridge_request: CrossChainBridgeRequest, direction: str) -> Dict[str, Any]:
+    async def _create_atomic_swap_contract(self, bridge_request: BridgeRequest, direction: str) -> Dict[str, Any]:
         """Create atomic swap contract data"""
         # Mock implementation
         contract_address = f"0x{hashlib.sha256(f'atomic_swap_{bridge_request.id}_{direction}'.encode()).hexdigest()[:40]}"
@@ -615,7 +615,7 @@ class CrossChainBridgeService:
             "contract_data": contract_data
         }
     
-    async def _create_liquidity_pool_swap_data(self, bridge_request: CrossChainBridgeRequest, pool: Dict[str, Any]) -> Dict[str, Any]:
+    async def _create_liquidity_pool_swap_data(self, bridge_request: BridgeRequest, pool: Dict[str, Any]) -> Dict[str, Any]:
         """Create liquidity pool swap data"""
         # Mock implementation
         pool_address = pool.get("address", f"0x{hashlib.sha256(f'pool_{bridge_request.source_chain_id}_{bridge_request.target_chain_id}'.encode()).hexdigest()[:40]}")
@@ -626,7 +626,7 @@ class CrossChainBridgeService:
             "swap_data": swap_data
         }
     
-    async def _create_htlc_contract(self, bridge_request: CrossChainBridgeRequest, secret_hash: str, direction: str) -> Dict[str, Any]:
+    async def _create_htlc_contract(self, bridge_request: BridgeRequest, secret_hash: str, direction: str) -> Dict[str, Any]:
         """Create HTLC contract data"""
         contract_address = f"0x{hashlib.sha256(f'htlc_{bridge_request.id}_{direction}_{secret_hash}'.encode()).hexdigest()[:40]}"
         contract_data = f"0x{hashlib.sha256(f'htlc_data_{bridge_request.id}_{secret_hash}'.encode()).hexdigest()}"
@@ -637,7 +637,7 @@ class CrossChainBridgeService:
             "secret_hash": secret_hash
         }
     
-    async def _complete_htlc(self, bridge_request: CrossChainBridgeRequest, secret: str) -> None:
+    async def _complete_htlc(self, bridge_request: BridgeRequest, secret: str) -> None:
         """Complete HTLC by revealing secret"""
         # Mock implementation
         bridge_request.target_transaction_hash = f"0x{hashlib.sha256(f'htlc_complete_{bridge_request.id}_{secret}'.encode()).hexdigest()}"
@@ -717,7 +717,7 @@ class CrossChainBridgeService:
             logger.error(f"Error waiting for confirmations: {e}")
             raise
     
-    async def _calculate_bridge_progress(self, bridge_request: CrossChainBridgeRequest) -> float:
+    async def _calculate_bridge_progress(self, bridge_request: BridgeRequest) -> float:
         """Calculate bridge progress percentage"""
         
         try:
@@ -749,7 +749,7 @@ class CrossChainBridgeService:
             logger.error(f"Error calculating bridge progress: {e}")
             return 0.0
     
-    async def _process_refund(self, bridge_request: CrossChainBridgeRequest) -> None:
+    async def _process_refund(self, bridge_request: BridgeRequest) -> None:
         """Process refund for cancelled bridge request"""
         try:
             # Mock refund implementation

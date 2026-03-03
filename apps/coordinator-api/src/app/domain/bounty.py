@@ -234,7 +234,7 @@ class AgentMetrics(SQLModel, table=True):
     monthly_earnings: List[float] = Field(default_factory=list, sa_column=Column(JSON))
     
     # Metadata
-    agent_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    agent_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Relationships
     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
@@ -278,7 +278,7 @@ class StakingPool(SQLModel, table=True):
     volatility_score: float = Field(default=0.0)
     
     # Metadata
-    pool_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    pool_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Indexes
     __table_args__ = (
@@ -366,7 +366,7 @@ class BountyStats(SQLModel, table=True):
     tier_distribution: Dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Metadata
-    stats_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    stats_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Indexes
     __table_args__ = (

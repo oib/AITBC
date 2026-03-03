@@ -80,7 +80,7 @@ class AgentSolution(SQLModel, table=True):
     average_rating: float = Field(default=0.0)
     review_count: int = Field(default=0)
     
-    solution_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+    solution_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)

@@ -109,9 +109,9 @@ class PoAProposer:
             return
         now = datetime.utcnow()
         elapsed = (now - head.timestamp).total_seconds()
-        sleep_for = max(self._config.interval_seconds - elapsed, 0)
+        sleep_for = max(self._config.interval_seconds - elapsed, 0.1)
         if sleep_for <= 0:
-            return
+            sleep_for = 0.1
         try:
             await asyncio.wait_for(self._stop_event.wait(), timeout=sleep_for)
         except asyncio.TimeoutError:

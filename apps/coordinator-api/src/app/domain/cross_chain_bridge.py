@@ -159,7 +159,7 @@ class Validator(SQLModel, table=True):
     status: ValidatorStatus = Field(default=ValidatorStatus.ACTIVE, index=True)
     is_active: bool = Field(default=True, index=True)
     supported_chains: List[int] = Field(default_factory=list, sa_column=Column(JSON))
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    val_meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
@@ -274,7 +274,7 @@ class BridgeAlert(SQLModel, table=True):
     bridge_request_id: Optional[int] = Field(default=None, index=True)
     title: str = Field(default="")
     message: str = Field(default="")
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    val_meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     threshold_value: float = Field(default=0.0)  # Threshold that triggered alert
     current_value: float = Field(default=0.0)  # Current value
     is_acknowledged: bool = Field(default=False, index=True)

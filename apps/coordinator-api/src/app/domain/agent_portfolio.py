@@ -193,7 +193,7 @@ class PortfolioAlert(SQLModel, table=True):
     alert_type: str = Field(index=True)  # Type of alert
     severity: str = Field(index=True)  # Severity level
     message: str = Field(default="")
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     is_acknowledged: bool = Field(default=False, index=True)
     acknowledged_at: Optional[datetime] = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
@@ -213,7 +213,7 @@ class StrategySignal(SQLModel, table=True):
     stop_loss: float = Field(default=0.0)  # Stop loss price
     time_horizon: str = Field(default="1d")  # Time horizon
     reasoning: str = Field(default="")  # Signal reasoning
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     is_executed: bool = Field(default=False, index=True)
     executed_at: Optional[datetime] = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))

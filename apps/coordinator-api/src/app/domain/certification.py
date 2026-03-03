@@ -100,7 +100,7 @@ class AgentCertification(SQLModel, table=True):
     last_verified_at: Optional[datetime] = None
     
     # Additional data
-    cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -144,7 +144,7 @@ class CertificationRequirement(SQLModel, table=True):
     expiry_date: Optional[datetime] = None
     
     # Additional data
-    cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
 class VerificationRecord(SQLModel, table=True):
@@ -194,7 +194,7 @@ class VerificationRecord(SQLModel, table=True):
     audit_trail: List[Dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
     
     # Additional data
-    cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -244,7 +244,7 @@ class PartnershipProgram(SQLModel, table=True):
     expires_at: Optional[datetime] = None
     
     # Additional data
-    program_cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    program_cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     contact_info: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
 
@@ -295,7 +295,7 @@ class AgentPartnership(SQLModel, table=True):
     last_activity: Optional[datetime] = None
     
     # Additional data
-    partnership_cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    partnership_cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -341,7 +341,7 @@ class AchievementBadge(SQLModel, table=True):
     available_until: Optional[datetime] = None
     
     # Additional data
-    badge_cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    badge_cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     requirements_text: str = Field(default="", max_length=1000)
 
 
@@ -392,7 +392,7 @@ class AgentBadge(SQLModel, table=True):
     last_viewed_at: Optional[datetime] = None
     
     # Additional data
-    badge_cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    badge_cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=1000)
 
 
@@ -449,5 +449,5 @@ class CertificationAudit(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Additional data
-    audit_cert_metadata: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
+    audit_cert_meta_data: Dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     notes: str = Field(default="", max_length=2000)
