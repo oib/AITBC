@@ -311,7 +311,7 @@ See [docs/11_agents/](../11_agents/) for detailed guides:
 - [Advanced AI Agents](../11_agents/advanced-ai-agents.md) - Multi-modal and adaptive agents
 - [Agent Collaboration](../11_agents/collaborative-agents.md) - Networks and learning
 - [OpenClaw Integration](../11_agents/openclaw-integration.md) - Edge deployment
-- [Swarm Intelligence](../11_agents/swarm/) - Collective optimization
+- [Swarm Intelligence](../11_agents/swarm.md) - Collective optimization
 
 ## Full Reference
 

@@ -221,8 +221,8 @@ find . -name "your-file-name"
 
 ## 📚 Additional Resources
 
-- [Project Organization Workflow](../.windsurf/workflows/project-organization.md)
-- [File Organization Prevention System](../.windsurf/workflows/file-organization-prevention.md)
+- [Project Organization Workflow](../../.windsurf/workflows/project-organization.md)
+- [File Organization Prevention System](../../.windsurf/workflows/file-organization-prevention.md)
 - [Git Hooks Documentation](https://git-scm.com/book/en/v2/Customizing-Git-Git-Hooks)
 - [VS Code Settings](https://code.visualstudio.com/docs/getstarted/settings)
 

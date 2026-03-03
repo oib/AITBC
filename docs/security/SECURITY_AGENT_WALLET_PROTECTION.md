@@ -310,9 +310,9 @@ metrics = {
 ## 📚 References
 
 ### Related Documentation
-- [AITBC Security Architecture](../docs/SECURITY_ARCHITECTURE.md)
-- [Smart Contract Security](../docs/SMART_CONTRACT_SECURITY.md)
-- [Agent Development Guide](../docs/AGENT_DEVELOPMENT.md)
+- [AITBC Security Architecture](SECURITY_OVERVIEW.md)
+- [Smart Contract Security](README.md)
+- [Agent Development Guide](../11_agents/README.md)
 
 ### External Resources
 - [Ethereum Smart Contract Security](https://consensys.github.io/smart-contract-best-practices/)

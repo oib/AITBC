@@ -357,7 +357,7 @@ sudo -u postgres psql aitbc < aitbc-db-backup.sql
 ## 📞 Support
 
 ### Getting Help
-- **Documentation**: [docs/](docs/)
+- **Documentation**: [../](../)
 - **Issues**: [GitHub Issues](https://github.com/oib/AITBC/issues)
 - **Logs**: `./manage_services.sh logs service-name`
 - **Status**: `./check_services.sh`

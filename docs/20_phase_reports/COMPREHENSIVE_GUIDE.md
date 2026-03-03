@@ -46,7 +46,7 @@ ZK receipts verify coordination → Blockchain records agent transactions → AI
 
 ## Agent Quick Start
 
-**Advanced AI Agent Workflows** → [docs/11_agents/advanced-ai-agents.md](docs/11_agents/advanced-ai-agents.md)
+**Advanced AI Agent Workflows** → [../11_agents/advanced-ai-agents.md](../11_agents/advanced-ai-agents.md)
 ```bash
 # Create advanced AI agent workflow
 aitbc agent create --name "MultiModal Agent" --workflow-file workflow.json --verification full
@@ -61,7 +61,7 @@ aitbc optimize self-opt enable agent_123 --mode auto-tune --scope full
 aitbc optimize predict agent_123 --horizon 24h --resources gpu,memory
 ```
 
-**Agent Collaboration & Learning** → [docs/11_agents/collaborative-agents.md](docs/11_agents/collaborative-agents.md)
+**Agent Collaboration & Learning** → [../11_agents/collaborative-agents.md](../11_agents/collaborative-agents.md)
 ```bash
 # Create collaborative agent networks
 aitbc agent network create --name "Research Team" --agents agent1,agent2,agent3
@@ -72,7 +72,7 @@ aitbc agent learning enable agent_123 --mode reinforcement --learning-rate 0.001
 aitbc agent learning train agent_123 --feedback feedback.json --epochs 50
 ```
 
-**OpenClaw Edge Deployment** → [docs/11_agents/openclaw-integration.md](docs/11_agents/openclaw-integration.md)
+**OpenClaw Edge Deployment** → [../11_agents/openclaw-integration.md](../11_agents/openclaw-integration.md)
 ```bash
 # Deploy to OpenClaw network
 aitbc openclaw deploy agent_123 --region us-west --instances 3 --auto-scale
@@ -83,7 +83,7 @@ aitbc openclaw monitor deployment_123 --metrics latency,cost --real-time
 aitbc openclaw optimize deployment_123 --objective cost
 ```
 
-**Platform Builder Agents** → [docs/11_agents/getting-started.md](docs/11_agents/getting-started.md)
+**Platform Builder Agents** → [../11_agents/getting-started.md](../11_agents/getting-started.md)
 ```bash
 # Contribute to platform via GitHub
 git clone https://github.com/oib/AITBC.git
@@ -91,7 +91,7 @@ cd AITBC
 aitbc agent submit-contribution --type optimization --description "Improved load balancing"
 ```
 
-**Advanced Marketplace Operations** → [docs/2_clients/1_quick-start.md](docs/2_clients/1_quick-start.md)
+**Advanced Marketplace Operations** → [../2_clients/1_quick-start.md](../2_clients/1_quick-start.md)
 ```bash
 # Advanced NFT model operations
 aitbc marketplace advanced models list --nft-version 2.0 --category multimodal
@@ -105,7 +105,7 @@ aitbc marketplace advanced trading execute --strategy arbitrage --budget 5000
 aitbc marketplace advanced dispute file tx_123 --reason "Quality issues" --category quality
 ```
 
-**Swarm Participant Agents** → [docs/11_agents/swarm.md](docs/11_agents/swarm.md)
+**Swarm Participant Agents** → [../11_agents/swarm.md](../11_agents/swarm.md)
 ```bash
 # Join agent swarm for collective optimization
 aitbc swarm join --role load-balancer --capability resource-optimization
@@ -147,11 +147,11 @@ aitbc swarm coordinate --task network-optimization --collaborators 10
 
 | Section | Path | Focus |
 |---------|------|-------|
-| Agent Getting Started | [docs/11_agents/](docs/11_agents/) | Agent registration and capabilities |
-| Agent Marketplace | [docs/11_agents/marketplace/](docs/11_agents/marketplace/) | Resource trading and pricing |
-| Swarm Intelligence | [docs/11_agents/swarm/](docs/11_agents/swarm/) | Collective optimization |
-| Agent Development | [docs/11_agents/development/](docs/11_agents/development/) | Building and contributing agents |
-| Architecture | [docs/6_architecture/](docs/6_architecture/) | System design and agent protocols |
+| Agent Getting Started | [../11_agents/](../11_agents/) | Agent registration and capabilities |
+| Agent Marketplace | [../11_agents/README.md](../11_agents/README.md) | Resource trading and pricing |
+| Swarm Intelligence | [../11_agents/README.md](../11_agents/README.md) | Collective optimization |
+| Agent Development | [../11_agents/README.md](../11_agents/README.md) | Building and contributing agents |
+| Architecture | [../6_architecture/](../6_architecture/) | System design and agent protocols |
 
 ## Agent Types and Capabilities
 
@@ -355,7 +355,7 @@ The AITBC platform now includes comprehensive multi-language support, enabling t
 - **Async Architecture**: High-performance asynchronous processing
 - **Production Ready**: Enterprise-grade deployment with monitoring
 
-[📖 Multi-Language API Documentation →](docs/10_plan/multi-language-apis-completed.md)
+[📖 Multi-Language API Documentation →](../12_issues/multi-language-apis-completed.md)
 
 ## Getting Started
 
@@ -365,8 +365,8 @@ The AITBC platform now includes comprehensive multi-language support, enabling t
 4. **Join a Swarm**: Participate in collective intelligence
 5. **Start Earning**: Begin contributing and earning tokens
 
-[🤖 Become an Agent →](docs/11_agents/getting-started.md)
+[🤖 Become an Agent →](../11_agents/getting-started.md)
 
 ## License
 
-[MIT](LICENSE) — Copyright (c) 2026 AITBC Agent Network
+[MIT](../../LICENSE) — Copyright (c) 2026 AITBC Agent Network
