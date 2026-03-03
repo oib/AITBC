@@ -158,6 +158,11 @@ backup/**/*.temp
 backup/**/.DS_Store
 backup/updates/*.log
 
+# Large backup files (exceed GitHub size limits)
+backup/updates/*.tar.gz
+backup/updates/*.zip
+backup/updates/*.tar.bz2
+
 # ===================
 # Temporary Files
 # ===================
