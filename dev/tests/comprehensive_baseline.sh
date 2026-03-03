@@ -4,7 +4,7 @@ echo "🚀 COMPREHENSIVE BASELINE TEST (Pre-Deployment)"
 echo "==============================================="
 
 sites=(
-    "localhost|http://127.0.0.1:8000|http://127.0.0.1:8082"
+    "localhost|http://127.0.0.1:8000|http://127.0.0.1:9080"
     "aitbc (Primary)|http://10.1.223.93:8000|http://10.1.223.93:8082"
     "aitbc1 (Secondary)|http://10.1.223.40:8000|http://10.1.223.40:8082"
 )
@@ -33,7 +33,7 @@ for site in "${sites[@]}"; do
     fi
 
     # 3. ZK ML Circuits (Phase 5 check)
-    zk_circuits=$(curl -s --connect-timeout 2 "$api_url/ml-zk/circuits" || echo "FAILED")
+    zk_circuits=$(curl -s --connect-timeout 2 "$api_url/v1/ml-zk/circuits" || echo "FAILED")
     if [[ "$zk_circuits" == *"FAILED"* ]] || [[ -z "$zk_circuits" ]] || [[ "$zk_circuits" == *"Not Found"* ]]; then
         echo "⚠️  ZK Circuits: Unavailable or Not Found"
     else

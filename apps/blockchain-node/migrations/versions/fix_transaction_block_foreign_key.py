@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = 'fix_transaction_block_foreign_key'
-down_revision = None
+down_revision = "80bc0020bde2"
 branch_labels = None
 depends_on = None
 
@@ -22,7 +22,7 @@ def upgrade():
     
     # Create new transaction table with correct foreign key
     op.execute("""
-        CREATE TABLE transaction_new (
+        CREATE TABLE "transaction_new" (
             id INTEGER NOT NULL PRIMARY KEY,
             tx_hash VARCHAR NOT NULL,
             block_height INTEGER,
@@ -36,18 +36,18 @@ def upgrade():
     
     # Copy data from old table
     op.execute("""
-        INSERT INTO transaction_new (id, tx_hash, block_height, sender, recipient, payload, created_at)
-        SELECT id, tx_hash, block_height, sender, recipient, payload, created_at FROM transaction
+        INSERT INTO "transaction_new" (id, tx_hash, block_height, sender, recipient, payload, created_at)
+        SELECT id, tx_hash, block_height, sender, recipient, payload, created_at FROM "transaction"
     """)
     
     # Drop old table and rename new one
-    op.execute("DROP TABLE transaction")
-    op.execute("ALTER TABLE transaction_new RENAME TO transaction")
+    op.execute('DROP TABLE "transaction"')
+    op.execute('ALTER TABLE "transaction_new" RENAME TO "transaction"')
     
     # Recreate indexes
-    op.execute("CREATE UNIQUE INDEX ix_transaction_tx_hash ON transaction (tx_hash)")
-    op.execute("CREATE INDEX ix_transaction_block_height ON transaction (block_height)")
-    op.execute("CREATE INDEX ix_transaction_created_at ON transaction (created_at)")
+    op.execute('CREATE UNIQUE INDEX ix_transaction_tx_hash ON "transaction" (tx_hash)')
+    op.execute('CREATE INDEX ix_transaction_block_height ON "transaction" (block_height)')
+    op.execute('CREATE INDEX ix_transaction_created_at ON "transaction" (created_at)')
 
 
 def downgrade():
@@ -55,7 +55,7 @@ def downgrade():
     
     # Create new transaction table with old foreign key
     op.execute("""
-        CREATE TABLE transaction_new (
+        CREATE TABLE "transaction_new" (
             id INTEGER NOT NULL PRIMARY KEY,
             tx_hash VARCHAR NOT NULL,
             block_height INTEGER,
@@ -69,15 +69,15 @@ def downgrade():
     
     # Copy data from old table
     op.execute("""
-        INSERT INTO transaction_new (id, tx_hash, block_height, sender, recipient, payload, created_at)
-        SELECT id, tx_hash, block_height, sender, recipient, payload, created_at FROM transaction
+        INSERT INTO "transaction_new" (id, tx_hash, block_height, sender, recipient, payload, created_at)
+        SELECT id, tx_hash, block_height, sender, recipient, payload, created_at FROM "transaction"
     """)
     
     # Drop old table and rename new one
-    op.execute("DROP TABLE transaction")
-    op.execute("ALTER TABLE transaction_new RENAME TO transaction")
+    op.execute('DROP TABLE "transaction"')
+    op.execute('ALTER TABLE "transaction_new" RENAME TO "transaction"')
     
     # Recreate indexes
-    op.execute("CREATE UNIQUE INDEX ix_transaction_tx_hash ON transaction (tx_hash)")
-    op.execute("CREATE INDEX ix_transaction_block_height ON transaction (block_height)")
-    op.execute("CREATE INDEX ix_transaction_created_at ON transaction (created_at)")
+    op.execute('CREATE UNIQUE INDEX ix_transaction_tx_hash ON "transaction" (tx_hash)')
+    op.execute('CREATE INDEX ix_transaction_block_height ON "transaction" (block_height)')
+    op.execute('CREATE INDEX ix_transaction_created_at ON "transaction" (created_at)')
