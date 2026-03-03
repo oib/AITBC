@@ -90,7 +90,7 @@ curl "http://localhost:3001/api/export/blocks?format=csv"
 | **Mobile Access** | ❌ Limited | ✅ Responsive design |
 | **Visual Analytics** | ❌ Text only | ✅ Interactive charts |
 
-**Complete Documentation:** See [CLI_TOOLS.md](./CLI_TOOLS.md) for comprehensive CLI explorer tools and [README.md](../apps/blockchain-explorer/README.md) for enhanced web explorer documentation.
+**Complete Documentation:** See [CLI_TOOLS.md](./CLI_TOOLS.md) for comprehensive CLI explorer tools and [README.md](../../apps/blockchain-explorer/README.md) for enhanced web explorer documentation.
 
 ---
 

@@ -1,0 +1,25 @@
+--- a/apps/blockchain-node/src/aitbc_chain/database.py
++++ b/apps/blockchain-node/src/aitbc_chain/database.py
+@@ -3,11 +3,22 @@
+ from contextlib import contextmanager
+ 
+ from sqlmodel import Session, SQLModel, create_engine
++from sqlalchemy import event
+ 
+ from .config import settings
+ 
+ _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
+ 
++@event.listens_for(_engine, "connect")
++def set_sqlite_pragma(dbapi_connection, connection_record):
++    cursor = dbapi_connection.cursor()
++    cursor.execute("PRAGMA journal_mode=WAL")
++    cursor.execute("PRAGMA synchronous=NORMAL")
++    cursor.execute("PRAGMA cache_size=-64000")
++    cursor.execute("PRAGMA temp_store=MEMORY")
++    cursor.execute("PRAGMA mmap_size=30000000000")
++    cursor.execute("PRAGMA busy_timeout=5000")
++    cursor.close()
+ 
+ def init_db() -> None:
+     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
