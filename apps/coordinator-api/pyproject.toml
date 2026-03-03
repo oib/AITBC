@@ -25,6 +25,7 @@ prometheus-client = "^0.19.0"
 aitbc-crypto = {path = "../../packages/py/aitbc-crypto"}
 asyncpg = ">=0.29.0"
 aitbc-core = {path = "../../packages/py/aitbc-core"}
+numpy = "^2.4.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"

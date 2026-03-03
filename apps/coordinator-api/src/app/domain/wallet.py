@@ -38,7 +38,7 @@ class AgentWallet(SQLModel, table=True):
     is_active: bool = Field(default=True)
     encrypted_private_key: Optional[str] = Field(default=None) # Only if managed internally
     kms_key_id: Optional[str] = Field(default=None) # Reference to external KMS
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

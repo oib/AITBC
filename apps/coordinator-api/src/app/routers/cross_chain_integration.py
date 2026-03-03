@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from fastapi.responses import JSONResponse
 from sqlmodel import Session, select, func, Field
 
-from ..services.database import get_session
+from ..storage.db import get_session
 from ..agent_identity.wallet_adapter_enhanced import (
     EnhancedWalletAdapter, WalletAdapterFactory, SecurityLevel,
     WalletStatus, TransactionStatus

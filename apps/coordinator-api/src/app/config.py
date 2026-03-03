@@ -5,7 +5,7 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List, Optional
 from pathlib import Path

@@ -46,7 +46,7 @@ class AgentMemoryNode(SQLModel, table=True):
     
     status: StorageStatus = Field(default=StorageStatus.PENDING, index=True)
     
-    metadata: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     tags: List[str] = Field(default_factory=list, sa_column=Column(JSON))
     
     # Blockchain Anchoring
