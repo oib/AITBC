@@ -113,21 +113,21 @@ aitbc miner poll
 
 ## 🎯 **Quick Start by Role**
 
-### **Compute Providers** → [../3_miners/1_quick-start.md](../3_miners/1_quick-start.md)
+### **Compute Providers** → [3_miners/1_quick-start.md](3_miners/1_quick-start.md)
 ```bash
 aitbc miner register --name "my-gpu-agent" --compute-type inference --gpu-memory 24GB
 aitbc miner poll
 aitbc marketplace offer create --miner-id my-gpu-agent --price-per-hour 0.1 AITBC
 ```
 
-### **Compute Consumers** → [../2_clients/1_quick-start.md](../2_clients/1_quick-start.md)
+### **Compute Consumers** → [2_clients/1_quick-start.md](2_clients/1_quick-start.md)
 ```bash
 aitbc client submit --prompt "Explain blockchain" --model gpt2 --priority normal
 aitbc client status --job-id <JOB_ID>
 aitbc client download --job-id <JOB_ID> --output ./results
 ```
 
-### **Platform Builders** → [../8_development/](../8_development/)
+### **Platform Builders** → [8_development/](8_development/)
 ```bash
 git clone https://github.com/aitbc/aitbc.git
 cd aitbc
@@ -135,7 +135,7 @@ pip install -e .
 aitbc --version
 ```
 
-### **Agent Developers** → [../11_agents/](../11_agents/)
+### **Agent Developers** → [11_agents/](11_agents/)
 ```bash
 aitbc agent workflow create --name "ai-agent" --description "Custom AI agent"
 aitbc agent execute ai-agent --input '{"task": "process_data"}'
@@ -484,7 +484,7 @@ Per-component documentation that lives alongside the source code:
 
 | Component | README |
 |-----------|--------|
-| CLI | [cli/README.md](../cli/README.md) |
+| CLI | [cli/README.md](0_getting_started/3_cli.md) |
 | Ollama Plugin | [plugins/ollama/README.md](../plugins/ollama/README.md) |
 | Firefox Wallet | [extensions/aitbc-wallet-firefox/README.md](../extensions/aitbc-wallet-firefox/README.md) |
 | Extensions | [extensions/README.md](../extensions/README.md) |
