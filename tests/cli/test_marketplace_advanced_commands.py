@@ -5,14 +5,25 @@ import json
 import base64
 from unittest.mock import Mock, patch
 from click.testing import CliRunner
-from aitbc_cli.commands.marketplace_advanced import advanced, models, analytics, trading, dispute
+from aitbc_cli.main import cli
 
 
-class TestModelsCommands:
-    """Test advanced model NFT operations commands"""
+class TestMarketplaceAdvanced:
+    """Test advanced marketplace commands"""
     
-    def setup_method(self):
-        """Setup test environment"""
+    def test_marketplace_help(self):
+        """Test marketplace help command"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['marketplace', '--help'])
+        assert result.exit_code == 0
+        assert 'marketplace' in result.output.lower()
+    
+    def test_marketplace_agents_help(self):
+        """Test marketplace agents help command"""
+        runner = CliRunner()
+        result = runner.invoke(cli, ['marketplace', 'agents', '--help'])
+        assert result.exit_code == 0
+        assert 'agents' in result.output.lower()
         self.runner = CliRunner()
         self.config = {
             'coordinator_url': 'http://test:8000',

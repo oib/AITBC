@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends
 
 from .deps import get_receipt_service, get_keystore, get_ledger
 from .models import ReceiptVerificationModel, from_validation_result
-from .keystore.service import KeystoreService
+from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 from .receipts.service import ReceiptVerifierService
 

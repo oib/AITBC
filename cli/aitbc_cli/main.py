@@ -30,6 +30,11 @@ from .commands.optimize import optimize
 from .commands.swarm import swarm
 from .commands.chain import chain
 from .commands.genesis import genesis
+from .commands.test_cli import test
+from .commands.node import node
+from .commands.analytics import analytics
+from .commands.agent_comm import agent_comm
+from .commands.deployment import deploy
 from .plugins import plugin, load_plugins
 
 
@@ -65,10 +70,32 @@ from .plugins import plugin, load_plugins
     default=None,
     help="Path to config file"
 )
+@click.option(
+    "--test-mode",
+    is_flag=True,
+    help="Enable test mode (uses mock data and test endpoints)"
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Dry run mode (show what would be done without executing)"
+)
+@click.option(
+    "--timeout",
+    type=int,
+    default=30,
+    help="Request timeout in seconds (useful for testing)"
+)
+@click.option(
+    "--no-verify",
+    is_flag=True,
+    help="Skip SSL certificate verification (testing only)"
+)
 @click.version_option(version=__version__, prog_name="aitbc")
 @click.pass_context
 def cli(ctx, url: Optional[str], api_key: Optional[str], output: str, 
-        verbose: int, debug: bool, config_file: Optional[str]):
+        verbose: int, debug: bool, config_file: Optional[str], test_mode: bool,
+        dry_run: bool, timeout: int, no_verify: bool):
     """
     AITBC CLI - Command Line Interface for AITBC Network
     
@@ -93,6 +120,17 @@ def cli(ctx, url: Optional[str], api_key: Optional[str], output: str,
     ctx.obj['config'] = config
     ctx.obj['output_format'] = output
     ctx.obj['log_level'] = log_level
+    ctx.obj['test_mode'] = test_mode
+    ctx.obj['dry_run'] = dry_run
+    ctx.obj['timeout'] = timeout
+    ctx.obj['no_verify'] = no_verify
+    
+    # Apply test mode settings
+    if test_mode:
+        config.coordinator_url = config.coordinator_url or "http://localhost:8000"
+        config.api_key = config.api_key or "test-api-key"
+        if not config.api_key.startswith("test-"):
+            config.api_key = f"test-{config.api_key}"
 
 
 # Add command groups
@@ -111,23 +149,14 @@ cli.add_command(exchange)
 cli.add_command(agent)
 cli.add_command(multimodal)
 cli.add_command(optimize)
-# cli.add_command(openclaw)  # Temporarily disabled due to command registration issues
-# cli.add_command(advanced)  # Temporarily disabled due to command registration issues
 cli.add_command(swarm)
-from .commands.chain import chain      # NEW: Multi-chain management
-from .commands.genesis import genesis  # NEW: Genesis block commands
-from .commands.node import node        # NEW: Node management commands
-from .commands.analytics import analytics  # NEW: Analytics and monitoring
-from .commands.agent_comm import agent_comm  # NEW: Cross-chain agent communication
-# from .commands.marketplace_cmd import marketplace  # NEW: Global chain marketplace - disabled due to conflict
-from .commands.deployment import deploy  # NEW: Production deployment and scaling
-cli.add_command(chain)      # NEW: Multi-chain management
-cli.add_command(genesis)    # NEW: Genesis block commands
-cli.add_command(node)        # NEW: Node management commands
-cli.add_command(analytics)  # NEW: Analytics and monitoring
-cli.add_command(agent_comm)  # NEW: Cross-chain agent communication
-# cli.add_command(marketplace)  # NEW: Global chain marketplace - disabled due to conflict
-cli.add_command(deploy)      # NEW: Production deployment and scaling
+cli.add_command(chain)
+cli.add_command(genesis)
+cli.add_command(test)
+cli.add_command(node)
+cli.add_command(analytics)
+cli.add_command(agent_comm)
+cli.add_command(deploy)
 cli.add_command(plugin)
 load_plugins(cli)
 

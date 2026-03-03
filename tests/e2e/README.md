@@ -2,6 +2,21 @@
 
 This directory contains comprehensive end-to-end tests for the AITBC enhanced services, validating complete workflows, performance benchmarks, and system integration.
 
+## 📁 Directory Structure
+
+```
+tests/e2e/
+├── fixtures/                    # Test fixtures and mock data
+│   ├── home/                   # Mock agent home directories
+│   │   ├── client1/            # Client agent home
+│   │   └── miner1/            # Miner agent home
+│   └── __init__.py            # Fixture utilities and classes
+├── conftest.py                 # Pytest configuration
+├── conftest_fixtures.py        # Extended fixture configuration
+├── test_*.py                   # Individual test files
+└── README.md                   # This file
+```
+
 ## 🎯 Test Coverage
 
 ### Test Suites
@@ -21,6 +36,49 @@ This directory contains comprehensive end-to-end tests for the AITBC enhanced se
 - **GPU Acceleration**: Speedup validation for CUDA operations
 - **Marketplace Performance**: Transaction processing, royalty calculation times
 - **Concurrent Performance**: Load testing with multiple concurrent requests
+
+## 🔧 Test Fixtures
+
+### Home Directory Fixtures
+
+The `tests/e2e/fixtures/home/` directory contains mock home directories for testing agent scenarios:
+
+```python
+# Using fixture home directories
+def test_agent_workflow(test_home_dirs):
+    client_home = test_home_dirs / "client1"
+    miner_home = test_home_dirs / "miner1"
+    
+    # Test agent operations using mock home directories
+```
+
+### Available Fixtures
+
+- **`test_home_dirs`**: Access to fixture home directories
+- **`temp_home_dirs`**: Temporary home directories for isolated testing
+- **`home_dir_fixture`**: Manager for creating custom home directory setups
+- **`standard_test_agents`**: Pre-configured test agents (client1, client2, miner1, miner2, agent1, agent2)
+- **`cross_container_test_setup`**: Agents configured for cross-container testing
+
+### Fixture Usage Examples
+
+```python
+def test_with_standard_agents(standard_test_agents):
+    """Test using pre-configured agents"""
+    client1_home = standard_test_agents["client1"]
+    miner1_home = standard_test_agents["miner1"]
+    
+    # Test logic here
+
+def test_custom_agent_setup(home_dir_fixture):
+    """Test with custom agent configuration"""
+    agents = home_dir_fixture.create_multi_agent_setup([
+        {"name": "custom_client", "type": "client", "initial_balance": 5000},
+        {"name": "custom_miner", "type": "miner", "initial_balance": 10000}
+    ])
+    
+    # Test logic here
+```
 
 ## 🚀 Quick Start
 

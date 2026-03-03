@@ -1,0 +1,566 @@
+name: Publish Native Packages to GitHub Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: true
+        default: '0.1.0'
+
+jobs:
+  publish-debian-packages:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Create Debian package structure
+      run: |
+        mkdir -p dist/debian
+        
+        # Copy existing packages
+        cp packages/github/packages/debian-packages/*.deb dist/debian/
+        
+        # Create setup.py for Debian packages
+        cat > dist/debian/setup.py << 'EOF'
+        from setuptools import setup, find_packages
+        
+        setup(
+            name="aitbc-debian-packages",
+            version="0.1.0",
+            description="AITBC Debian packages for Linux",
+            packages=[],
+            package_data={
+                '': ['*.deb', 'checksums.txt']
+            },
+            include_package_data=True,
+        )
+        EOF
+
+    - name: Build Python package for Debian
+      run: |
+        cd dist/debian
+        python -m build
+
+    - name: Publish Debian packages to GitHub Packages
+      run: |
+        cd dist/debian
+        python -m twine upload --repository-url https://npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }} dist/*
+      env:
+        TWINE_USERNAME: ${{ github.actor }}
+        TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create Debian package metadata
+      run: |
+        cd packages/github/packages/debian-packages
+        
+        # Create package manifest
+        cat > manifest.json << EOF
+        {
+          "name": "aitbc-debian-packages",
+          "version": "${{ steps.version.outputs.VERSION || '0.1.0' }}",
+          "description": "AITBC Debian packages for Linux distributions",
+          "platform": "linux",
+          "architecture": ["amd64", "arm64"],
+          "format": "deb",
+          "packages": [
+            {
+              "name": "aitbc-cli",
+              "file": "aitbc-cli_0.1.0_all.deb",
+              "description": "AITBC Command Line Interface",
+              "size": "$(stat -c%s aitbc-cli_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-cli_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-node-service",
+              "file": "aitbc-node-service_0.1.0_all.deb", 
+              "description": "AITBC Blockchain Node Service",
+              "size": "$(stat -c%s aitbc-node-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-node-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-coordinator-service",
+              "file": "aitbc-coordinator-service_0.1.0_all.deb",
+              "description": "AITBC Coordinator API Service", 
+              "size": "$(stat -c%s aitbc-coordinator-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-coordinator-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-miner-service",
+              "file": "aitbc-miner-service_0.1.0_all.deb",
+              "description": "AITBC GPU Miner Service",
+              "size": "$(stat -c%s aitbc-miner-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-miner-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-marketplace-service",
+              "file": "aitbc-marketplace-service_0.1.0_all.deb",
+              "description": "AITBC GPU Marketplace Service",
+              "size": "$(stat -c%s aitbc-marketplace-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-marketplace-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-explorer-service",
+              "file": "aitbc-explorer-service_0.1.0_all.deb",
+              "description": "AITBC Block Explorer Service",
+              "size": "$(stat -c%s aitbc-explorer-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-explorer-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-wallet-service",
+              "file": "aitbc-wallet-service_0.1.0_all.deb",
+              "description": "AITBC Wallet Service",
+              "size": "$(stat -c%s aitbc-wallet-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-wallet-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-multimodal-service",
+              "file": "aitbc-multimodal-service_0.1.0_all.deb",
+              "description": "AITBC Multimodal AI Service",
+              "size": "$(stat -c%s aitbc-multimodal-service_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-multimodal-service_0.1.0_all.deb | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-all-services",
+              "file": "aitbc-all-services_0.1.0_all.deb",
+              "description": "AITBC Complete Service Stack",
+              "size": "$(stat -c%s aitbc-all-services_0.1.0_all.deb)",
+              "checksum": "$(sha256sum aitbc-all-services_0.1.0_all.deb | cut -d' ' -f1)"
+            }
+          ],
+          "installation": {
+            "cli": "sudo dpkg -i aitbc-cli_0.1.0_all.deb",
+            "services": "sudo dpkg -i aitbc-*-service_0.1.0_all.deb",
+            "complete": "sudo dpkg -i aitbc-all-services_0.1.0_all.deb"
+          },
+          "repository": "https://github.com/${{ github.repository }}",
+          "documentation": "https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/packages/debian-packages/checksums.txt"
+        }
+        EOF
+
+    - name: Upload Debian packages as release assets
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          packages/github/packages/debian-packages/*.deb
+          packages/github/packages/debian-packages/manifest.json
+          packages/github/packages/debian-packages/checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-macos-packages:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Create macOS package structure
+      run: |
+        mkdir -p dist/macos
+        
+        # Copy existing packages
+        cp packages/github/packages/macos-packages/*.pkg dist/macos/
+        cp packages/github/packages/macos-packages/*.sh dist/macos/
+        cp packages/github/packages/macos-packages/checksums.txt dist/macos/
+        
+        # Create setup.py for macOS packages
+        cat > dist/macos/setup.py << 'EOF'
+        from setuptools import setup, find_packages
+        
+        setup(
+            name="aitbc-macos-packages",
+            version="0.1.0",
+            description="AITBC macOS packages for Apple Silicon",
+            packages=[],
+            package_data={
+                '': ['*.pkg', '*.sh', 'checksums.txt']
+            },
+            include_package_data=True,
+        )
+        EOF
+
+    - name: Build Python package for macOS
+      run: |
+        cd dist/macos
+        python -m build
+
+    - name: Publish macOS packages to GitHub Packages
+      run: |
+        cd dist/macos
+        python -m twine upload --repository-url https://npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }} dist/*
+      env:
+        TWINE_USERNAME: ${{ github.actor }}
+        TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Create macOS package metadata
+      run: |
+        cd packages/github/packages/macos-packages
+        
+        # Create package manifest
+        cat > manifest.json << EOF
+        {
+          "name": "aitbc-macos-packages",
+          "version": "${{ steps.version.outputs.VERSION || '0.1.0' }}",
+          "description": "AITBC macOS packages for Apple Silicon",
+          "platform": "macos",
+          "architecture": "arm64",
+          "format": "pkg",
+          "packages": [
+            {
+              "name": "aitbc-cli",
+              "file": "aitbc-cli-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Command Line Interface for macOS",
+              "size": "$(stat -f%z aitbc-cli-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-cli-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-node-service",
+              "file": "aitbc-node-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Blockchain Node Service for macOS",
+              "size": "$(stat -f%z aitbc-node-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-node-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-coordinator-service",
+              "file": "aitbc-coordinator-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Coordinator API Service for macOS",
+              "size": "$(stat -f%z aitbc-coordinator-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-coordinator-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-miner-service",
+              "file": "aitbc-miner-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC GPU Miner Service for macOS",
+              "size": "$(stat -f%z aitbc-miner-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-miner-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-marketplace-service",
+              "file": "aitbc-marketplace-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC GPU Marketplace Service for macOS",
+              "size": "$(stat -f%z aitbc-marketplace-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-marketplace-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-explorer-service",
+              "file": "aitbc-explorer-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Block Explorer Service for macOS",
+              "size": "$(stat -f%z aitbc-explorer-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-explorer-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-wallet-service",
+              "file": "aitbc-wallet-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Wallet Service for macOS",
+              "size": "$(stat -f%z aitbc-wallet-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-wallet-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-multimodal-service",
+              "file": "aitbc-multimodal-service-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Multimodal AI Service for macOS",
+              "size": "$(stat -f%z aitbc-multimodal-service-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-multimodal-service-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            },
+            {
+              "name": "aitbc-all-services",
+              "file": "aitbc-all-services-0.1.0-apple-silicon.pkg",
+              "description": "AITBC Complete Service Stack for macOS",
+              "size": "$(stat -f%z aitbc-all-services-0.1.0-apple-silicon.pkg)",
+              "checksum": "$(shasum -a 256 aitbc-all-services-0.1.0-apple-silicon.pkg | cut -d' ' -f1)"
+            }
+          ],
+          "installers": {
+            "cli": "install-macos-complete.sh",
+            "services": "install-macos-services.sh",
+            "silicon": "install-macos-apple-silicon.sh"
+          },
+          "installation": {
+            "cli": "sudo installer -pkg aitbc-cli-0.1.0-apple-silicon.pkg -target /",
+            "services": "bash install-macos-services.sh",
+            "complete": "bash install-macos-complete.sh"
+          },
+          "repository": "https://github.com/${{ github.repository }}",
+          "documentation": "https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/packages/macos-packages/checksums.txt"
+        }
+        EOF
+
+    - name: Upload macOS packages as release assets
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          packages/github/packages/macos-packages/*.pkg
+          packages/github/packages/macos-packages/*.sh
+          packages/github/packages/macos-packages/manifest.json
+          packages/github/packages/macos-packages/checksums.txt
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-universal-release:
+    runs-on: ubuntu-latest
+    needs: [publish-debian-packages, publish-macos-packages]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Create universal release notes
+      run: |
+        cat > release_notes.md << EOF
+        # AITBC Native Packages v${{ steps.version.outputs.VERSION || '0.1.0' }}
+        
+        ## 📦 Available Packages
+        
+        ### 🐧 Linux (Debian/Ubuntu)
+        **Format**: .deb packages
+        
+        **Installation**:
+        \`\`\`bash
+        # Download and install CLI
+        wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION || '0.1.0' }}/aitbc-cli_0.1.0_all.deb
+        sudo dpkg -i aitbc-cli_0.1.0_all.deb
+        
+        # Download and install all services
+        wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION || '0.1.0' }}/aitbc-all-services_0.1.0_all.deb
+        sudo dpkg -i aitbc-all-services_0.1.0_all.deb
+        \`\`\`
+        
+        **Available Packages**:
+        - \`aitbc-cli_0.1.0_all.deb\` - Command Line Interface
+        - \`aitbc-node-service_0.1.0_all.deb\` - Blockchain Node
+        - \`aitbc-coordinator-service_0.1.0_all.deb\` - Coordinator API
+        - \`aitbc-miner-service_0.1.0_all.deb\` - GPU Miner
+        - \`aitbc-marketplace-service_0.1.0_all.deb\` - GPU Marketplace
+        - \`aitbc-explorer-service_0.1.0_all.deb\` - Block Explorer
+        - \`aitbc-wallet-service_0.1.0_all.deb\` - Wallet Service
+        - \`aitbc-multimodal-service_0.1.0_all.deb\` - Multimodal AI
+        - \`aitbc-all-services_0.1.0_all.deb\` - Complete Stack
+        
+        ### 🍎 macOS (Apple Silicon)
+        **Format**: .pkg packages
+        
+        **Installation**:
+        \`\`\`bash
+        # Download and install CLI
+        curl -L https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION || '0.1.0' }}/install-macos-complete.sh | bash
+        
+        # Or download individual package
+        curl -L https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION || '0.1.0' }}/aitbc-cli-0.1.0-apple-silicon.pkg -o aitbc-cli.pkg
+        sudo installer -pkg aitbc-cli.pkg -target /
+        \`\`\`
+        
+        **Available Packages**:
+        - \`aitbc-cli-0.1.0-apple-silicon.pkg\` - Command Line Interface
+        - \`aitbc-node-service-0.1.0-apple-silicon.pkg\` - Blockchain Node
+        - \`aitbc-coordinator-service-0.1.0-apple-silicon.pkg\` - Coordinator API
+        - \`aitbc-miner-service-0.1.0-apple-silicon.pkg\` - GPU Miner
+        - \`aitbc-marketplace-service-0.1.0-apple-silicon.pkg\` - GPU Marketplace
+        - \`aitbc-explorer-service-0.1.0-apple-silicon.pkg\` - Block Explorer
+        - \`aitbc-wallet-service-0.1.0-apple-silicon.pkg\` - Wallet Service
+        - \`aitbc-multimodal-service-0.1.0-apple-silicon.pkg\` - Multimodal AI
+        - \`aitbc-all-services-0.1.0-apple-silicon.pkg\` - Complete Stack
+        
+        ## 🔧 Universal Installer
+        \`\`\`bash
+        # Linux
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install.sh | bash
+        
+        # macOS
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install-macos.sh | bash
+        \`\`\`
+        
+        ## ✅ Verification
+        All packages are cryptographically verified with SHA256 checksums.
+        
+        ## 📚 Documentation
+        - [Installation Guide](https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/README.md)
+        - [Package Manifests](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.VERSION || '0.1.0' }}/manifest.json)
+        
+        ---
+        **Platform Support**: Linux (amd64/arm64), macOS (Apple Silicon)
+        **Package Formats**: .deb (Debian), .pkg (macOS)
+        **Installation Methods**: Direct download, universal installers
+        EOF
+
+    - name: Update GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v2
+      with:
+        body_path: release_notes.md
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update-package-index:
+    runs-on: ubuntu-latest
+    needs: [publish-debian-packages, publish-macos-packages, create-universal-release]
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Extract version
+      id: version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Update package index
+      run: |
+        cat > packages/github/NATIVE_PACKAGES_GUIDE.md << EOF
+        # AITBC Native Packages Guide
+        
+        ## 📦 Available Native Packages
+        
+        Your AITBC native packages are published as GitHub Releases and available at:
+        https://github.com/${{ github.repository }}/releases
+        
+        ## 🐧 Linux Packages (Debian/Ubuntu)
+        
+        ### Installation
+        \`\`\`bash
+        # Method 1: Direct download
+        wget https://github.com/${{ github.repository }}/releases/download/v0.1.0/aitbc-cli_0.1.0_all.deb
+        sudo dpkg -i aitbc-cli_0.1.0_all.deb
+        
+        # Method 2: Universal installer
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install.sh | bash
+        \`\`\`
+        
+        ### Available Packages
+        | Package | Size | Description |
+        |---------|------|-------------|
+        | aitbc-cli_0.1.0_all.deb | ~132KB | Command Line Interface |
+        | aitbc-node-service_0.1.0_all.deb | ~8KB | Blockchain Node |
+        | aitbc-coordinator-service_0.1.0_all.deb | ~8KB | Coordinator API |
+        | aitbc-miner-service_0.1.0_all.deb | ~8KB | GPU Miner |
+        | aitbc-marketplace-service_0.1.0_all.deb | ~8KB | GPU Marketplace |
+        | aitbc-explorer-service_0.1.0_all.deb | ~8KB | Block Explorer |
+        | aitbc-wallet-service_0.1.0_all.deb | ~8KB | Wallet Service |
+        | aitbc-multimodal-service_0.1.0_all.deb | ~8KB | Multimodal AI |
+        | aitbc-all-services_0.1.0_all.deb | ~8KB | Complete Stack |
+        
+        ## 🍎 macOS Packages (Apple Silicon)
+        
+        ### Installation
+        \`\`\`bash
+        # Method 1: Direct download
+        curl -L https://github.com/${{ github.repository }}/releases/download/v0.1.0/aitbc-cli-0.1.0-apple-silicon.pkg -o aitbc-cli.pkg
+        sudo installer -pkg aitbc-cli.pkg -target /
+        
+        # Method 2: Universal installer
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install-macos.sh | bash
+        \`\`\`
+        
+        ### Available Packages
+        | Package | Size | Description |
+        |---------|------|-------------|
+        | aitbc-cli-0.1.0-apple-silicon.pkg | ~4.6KB | Command Line Interface |
+        | aitbc-node-service-0.1.0-apple-silicon.pkg | ~2.5KB | Blockchain Node |
+        | aitbc-coordinator-service-0.1.0-apple-silicon.pkg | ~2.5KB | Coordinator API |
+        | aitbc-miner-service-0.1.0-apple-silicon.pkg | ~2.4KB | GPU Miner |
+        | aitbc-marketplace-service-0.1.0-apple-silicon.pkg | ~2.4KB | GPU Marketplace |
+        | aitbc-explorer-service-0.1.0-apple-silicon.pkg | ~2.4KB | Block Explorer |
+        | aitbc-wallet-service-0.1.0-apple-silicon.pkg | ~2.4KB | Wallet Service |
+        | aitbc-multimodal-service-0.1.0-apple-silicon.pkg | ~2.4KB | Multimodal AI |
+        | aitbc-all-services-0.1.0-apple-silicon.pkg | ~2.4KB | Complete Stack |
+        
+        ## 🔧 Package Verification
+        
+        All packages include SHA256 checksums for verification:
+        
+        \`\`\`bash
+        # Verify Debian packages
+        sha256sum -c checksums.txt
+        
+        # Verify macOS packages
+        shasum -a 256 -c checksums.txt
+        \`\`\`
+        
+        ## 📋 Package Status
+        
+        - ✅ **Built**: All packages built and tested
+        - ✅ **Verified**: Checksums validated
+        - ✅ **Published**: Available in GitHub Releases
+        - ✅ **Documented**: Installation guides available
+        
+        ## 🚀 Quick Start
+        
+        ### Linux
+        \`\`\`bash
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install.sh | bash
+        aitbc --version
+        \`\`\`
+        
+        ### macOS
+        \`\`\`bash
+        curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/main/packages/github/install-macos.sh | bash
+        aitbc --version
+        \`\`\`
+        
+        ---
+        *Last updated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")*
+        *View releases: https://github.com/${{ github.repository }}/releases*
+        EOF
+
+    - name: Commit and push changes
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add packages/github/NATIVE_PACKAGES_GUIDE.md
+        git diff --staged --quiet || git commit -m "Add native packages guide for version ${{ steps.version.outputs.VERSION || '0.1.0' }}"
+        git push

@@ -727,8 +727,12 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
                     wallet_data["transactions"].append(transaction)
                     wallet_data["balance"] = balance - amount
 
-                    with open(wallet_path, "w") as f:
-                        json.dump(wallet_data, f, indent=2)
+                    # Use _save_wallet to preserve encryption
+                    if wallet_data.get("encrypted"):
+                        password = _get_wallet_password(wallet_name)
+                        _save_wallet(wallet_path, wallet_data, password)
+                    else:
+                        _save_wallet(wallet_path, wallet_data)
 
                     success(f"Sent {amount} AITBC to {to_address}")
                     output(
@@ -932,8 +936,7 @@ def unstake(ctx, stake_id: str):
         error(f"Wallet '{wallet_name}' not found")
         return
 
-    with open(wallet_path, "r") as f:
-        wallet_data = json.load(f)
+    wallet_data = _load_wallet(wallet_path, wallet_name)
 
     staking = wallet_data.get("staking", [])
     stake_record = next(
@@ -1145,13 +1148,85 @@ def multisig_propose(
     )
 
 
+@wallet.command(name="multisig-challenge")
+@click.option("--wallet", "wallet_name", required=True, help="Multisig wallet name")
+@click.argument("tx_id")
+@click.pass_context
+def multisig_challenge(ctx, wallet_name: str, tx_id: str):
+    """Create a cryptographic challenge for multisig transaction signing"""
+    wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
+    multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
+
+    if not multisig_path.exists():
+        error(f"Multisig wallet '{wallet_name}' not found")
+        return
+
+    with open(multisig_path) as f:
+        ms_data = json.load(f)
+
+    # Find pending transaction
+    pending = ms_data.get("pending_transactions", [])
+    tx = next(
+        (t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None
+    )
+
+    if not tx:
+        error(f"Pending transaction '{tx_id}' not found")
+        return
+
+    # Import crypto utilities
+    from ..utils.crypto_utils import multisig_security
+
+    try:
+        # Create signing request
+        signing_request = multisig_security.create_signing_request(tx, wallet_name)
+        
+        output({
+            "tx_id": tx_id,
+            "wallet": wallet_name,
+            "challenge": signing_request["challenge"],
+            "nonce": signing_request["nonce"],
+            "message": signing_request["message"],
+            "instructions": [
+                "1. Copy the challenge string above",
+                "2. Sign it with your private key using: aitbc wallet sign-challenge <challenge> <private-key>",
+                "3. Use the returned signature with: aitbc wallet multisig-sign --wallet <wallet> <tx_id> --signer <address> --signature <signature>"
+            ]
+        }, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to create challenge: {e}")
+
+
+@wallet.command(name="sign-challenge")
+@click.argument("challenge")
+@click.argument("private_key")
+@click.pass_context
+def sign_challenge(ctx, challenge: str, private_key: str):
+    """Sign a cryptographic challenge (for testing multisig)"""
+    from ..utils.crypto_utils import sign_challenge
+
+    try:
+        signature = sign_challenge(challenge, private_key)
+        
+        output({
+            "challenge": challenge,
+            "signature": signature,
+            "message": "Use this signature with multisig-sign command"
+        }, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to sign challenge: {e}")
+
+
 @wallet.command(name="multisig-sign")
 @click.option("--wallet", "wallet_name", required=True, help="Multisig wallet name")
 @click.argument("tx_id")
 @click.option("--signer", required=True, help="Signer address")
+@click.option("--signature", required=True, help="Cryptographic signature (hex)")
 @click.pass_context
-def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
-    """Sign a pending multisig transaction"""
+def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str, signature: str):
+    """Sign a pending multisig transaction with cryptographic verification"""
     wallet_dir = ctx.obj.get("wallet_dir", Path.home() / ".aitbc" / "wallets")
     multisig_path = wallet_dir / f"{wallet_name}_multisig.json"
 
@@ -1167,6 +1242,16 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         ctx.exit(1)
         return
 
+    # Import crypto utilities
+    from ..utils.crypto_utils import multisig_security
+    
+    # Verify signature cryptographically
+    success, message = multisig_security.verify_and_add_signature(tx_id, signature, signer)
+    if not success:
+        error(f"Signature verification failed: {message}")
+        ctx.exit(1)
+        return
+
     pending = ms_data.get("pending_transactions", [])
     tx = next(
         (t for t in pending if t["tx_id"] == tx_id and t["status"] == "pending"), None
@@ -1177,11 +1262,21 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
         ctx.exit(1)
         return
 
-    if signer in tx["signatures"]:
-        error(f"'{signer}' has already signed this transaction")
-        return
+    # Check if already signed
+    for sig in tx.get("signatures", []):
+        if sig["signer"] == signer:
+            error(f"'{signer}' has already signed this transaction")
+            return
 
-    tx["signatures"].append(signer)
+    # Add cryptographic signature
+    if "signatures" not in tx:
+        tx["signatures"] = []
+    
+    tx["signatures"].append({
+        "signer": signer,
+        "signature": signature,
+        "timestamp": datetime.now().isoformat()
+    })
 
     # Check if threshold met
     if len(tx["signatures"]) >= ms_data["threshold"]:

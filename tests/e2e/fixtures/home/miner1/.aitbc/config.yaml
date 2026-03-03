@@ -1,0 +1,13 @@
+
+agent:
+  name: miner1
+  type: miner
+  wallet_path: ~/.aitbc/wallets/miner1_wallet.json
+
+node:
+  endpoint: http://localhost:8082
+  timeout: 30
+
+coordinator:
+  url: http://localhost:8000
+  api_key: null

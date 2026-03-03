@@ -1,0 +1,73 @@
+# CODEOWNERS file for AITBC project
+# This file defines individuals or teams that are responsible for code review
+# for each file/directory in the repository.
+
+# Global owners - can review any file
+* @aitbc/core-team @aitbc/maintainers
+
+# Core maintainers - can review any file
+* @aitbc/core-team
+
+# Security team - responsible for security-related files
+/SECURITY.md @aitbc/security-team
+/security/ @aitbc/security-team
+*.pem @aitbc/security-team
+*.key @aitbc/security-team
+bandit.toml @aitbc/security-team
+slither.config.json @aitbc/security-team
+
+# Smart contracts team
+/contracts/ @aitbc/solidity-team
+*.sol @aitbc/solidity-team
+hardhat.config.js @aitbc/solidity-team
+
+# CLI team
+/cli/ @aitbc/cli-team
+aitbc_cli/ @aitbc/cli-team
+tests/cli/ @aitbc/cli-team
+
+# Backend/API team
+/apps/coordinator-api/ @aitbc/backend-team
+apps/*/tests/ @aitbc/backend-team
+
+# Frontend team
+/apps/explorer-web/ @aitbc/frontend-team
+apps/pool-hub/ @aitbc/frontend-team
+website/ @aitbc/frontend-team
+
+# Infrastructure team
+/infra/ @aitbc/infra-team
+docker-compose*.yml @aitbc/infra-team
+Dockerfile* @aitbc/infra-team
+.github/workflows/ @aitbc/infra-team
+
+# Documentation team
+/docs/ @aitbc/docs-team
+*.md @aitbc/docs-team
+README.md @aitbc/docs-team
+
+# GPU acceleration team
+/gpu_acceleration/ @aitbc/gpu-team
+
+# Testing team
+/tests/ @aitbc/testing-team
+pytest.ini @aitbc/testing-team
+pyproject.toml @aitbc/testing-team
+
+# Configuration files
+.env.example @aitbc/core-team
+*.toml @aitbc/core-team
+*.yaml @aitbc/core-team
+*.yml @aitbc/core-team
+
+# Scripts and automation
+/scripts/ @aitbc/infra-team
+dev/scripts/ @aitbc/infra-team
+
+# Package management
+packages/ @aitbc/core-team
+poetry.lock @aitbc/core-team
+
+# Default fallback - if no other rule matches
+# This line should be last
+* @aitbc/core-team
