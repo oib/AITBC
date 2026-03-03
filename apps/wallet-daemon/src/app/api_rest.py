@@ -23,7 +23,7 @@ from .models import (
     WalletDescriptor,
     from_validation_result,
 )
-from .keystore.service import KeystoreService
+from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 from .receipts.service import ReceiptValidationResult, ReceiptVerifierService
 from .security import RateLimiter, wipe_buffer
@@ -85,7 +85,7 @@ def verify_receipt_history(
 
 @router.get("/wallets", response_model=WalletListResponse, summary="List wallets")
 def list_wallets(
-    keystore: KeystoreService = Depends(get_keystore),
+    keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletListResponse:
     descriptors = []
@@ -102,7 +102,7 @@ def list_wallets(
 def create_wallet(
     request: WalletCreateRequest,
     http_request: Request,
-    keystore: KeystoreService = Depends(get_keystore),
+    keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletCreateResponse:
     _enforce_limit("wallet-create", http_request)
@@ -113,11 +113,13 @@ def create_wallet(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 secret") from exc
 
     try:
+        ip_address = http_request.client.host if http_request.client else "unknown"
         record = keystore.create_wallet(
             wallet_id=request.wallet_id,
             password=request.password,
             secret=secret,
             metadata=request.metadata,
+            ip_address=ip_address
         )
     except ValueError as exc:
         raise HTTPException(
@@ -137,16 +139,18 @@ def unlock_wallet(
     wallet_id: str,
     request: WalletUnlockRequest,
     http_request: Request,
-    keystore: KeystoreService = Depends(get_keystore),
+    keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletUnlockResponse:
     _enforce_limit("wallet-unlock", http_request, wallet_id)
     try:
-        secret = bytearray(keystore.unlock_wallet(wallet_id, request.password))
-        ledger.record_event(wallet_id, "unlocked", {"success": True})
+        ip_address = http_request.client.host if http_request.client else "unknown"
+        secret = bytearray(keystore.unlock_wallet(wallet_id, request.password, ip_address))
+        ledger.record_event(wallet_id, "unlocked", {"success": True, "ip_address": ip_address})
         logger.info("Unlocked wallet", extra={"wallet_id": wallet_id})
     except (KeyError, ValueError):
-        ledger.record_event(wallet_id, "unlocked", {"success": False})
+        ip_address = http_request.client.host if http_request.client else "unknown"
+        ledger.record_event(wallet_id, "unlocked", {"success": False, "ip_address": ip_address})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
     finally:
         if "secret" in locals():
@@ -160,7 +164,7 @@ def sign_payload(
     wallet_id: str,
     request: WalletSignRequest,
     http_request: Request,
-    keystore: KeystoreService = Depends(get_keystore),
+    keystore: PersistentKeystoreService = Depends(get_keystore),
     ledger: SQLiteLedgerAdapter = Depends(get_ledger),
 ) -> WalletSignResponse:
     _enforce_limit("wallet-sign", http_request, wallet_id)
@@ -170,11 +174,13 @@ def sign_payload(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid base64 message") from exc
 
     try:
-        signature = keystore.sign_message(wallet_id, request.password, message)
-        ledger.record_event(wallet_id, "sign", {"success": True})
+        ip_address = http_request.client.host if http_request.client else "unknown"
+        signature = keystore.sign_message(wallet_id, request.password, message, ip_address)
+        ledger.record_event(wallet_id, "sign", {"success": True, "ip_address": ip_address})
         logger.debug("Signed payload", extra={"wallet_id": wallet_id})
     except (KeyError, ValueError):
-        ledger.record_event(wallet_id, "sign", {"success": False})
+        ip_address = http_request.client.host if http_request.client else "unknown"
+        ledger.record_event(wallet_id, "sign", {"success": False, "ip_address": ip_address})
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="invalid credentials")
 
     signature_b64 = base64.b64encode(signature).decode()

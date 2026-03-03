@@ -1,68 +1,168 @@
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+// SPDX-License-Identifier: GPL-3.0
+/*
+    Copyright 2021 0KIMS association.
 
-/**
- * @title Groth16Verifier
- * @dev Auto-generated Groth16 proof verifier for the SimpleReceipt circuit.
- *
- * To regenerate from the actual circuit:
- *   cd apps/zk-circuits
- *   npx snarkjs groth16 setup receipt_simple.r1cs pot12_final.ptau circuit_0000.zkey
- *   npx snarkjs zkey contribute circuit_0000.zkey circuit_final.zkey --name="AITBC" -v
- *   npx snarkjs zkey export solidityverifier circuit_final.zkey ../../contracts/Groth16Verifier.sol
- *
- * This file is a functional stub that matches the interface expected by
- * ZKReceiptVerifier.sol. Replace with the snarkjs-generated version for production.
- */
+    This file is generated with [snarkJS](https://github.com/iden3/snarkjs).
+
+    snarkJS is a free software: you can redistribute it and/or modify it
+    under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    snarkJS is distributed in the hope that it will be useful, but WITHOUT
+    ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+    or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+    License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with snarkJS. If not, see <https://www.gnu.org/licenses/>.
+*/
+
+pragma solidity >=0.7.0 <0.9.0;
+
 contract Groth16Verifier {
+    // Scalar field size
+    uint256 constant r    = 21888242871839275222246405745257275088548364400416034343698204186575808495617;
+    // Base field size
+    uint256 constant q   = 21888242871839275222246405745257275088696311157297823662689037894645226208583;
 
-    // Verification key points (placeholder — replace with real VK from snarkjs export)
-    uint256 constant ALPHA_X = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    uint256 constant ALPHA_Y = 0x0000000000000000000000000000000000000000000000000000000000000002;
-    uint256 constant BETA_X1 = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    uint256 constant BETA_X2 = 0x0000000000000000000000000000000000000000000000000000000000000002;
-    uint256 constant BETA_Y1 = 0x0000000000000000000000000000000000000000000000000000000000000003;
-    uint256 constant BETA_Y2 = 0x0000000000000000000000000000000000000000000000000000000000000004;
-    uint256 constant GAMMA_X1 = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    uint256 constant GAMMA_X2 = 0x0000000000000000000000000000000000000000000000000000000000000002;
-    uint256 constant GAMMA_Y1 = 0x0000000000000000000000000000000000000000000000000000000000000003;
-    uint256 constant GAMMA_Y2 = 0x0000000000000000000000000000000000000000000000000000000000000004;
-    uint256 constant DELTA_X1 = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    uint256 constant DELTA_X2 = 0x0000000000000000000000000000000000000000000000000000000000000002;
-    uint256 constant DELTA_Y1 = 0x0000000000000000000000000000000000000000000000000000000000000003;
-    uint256 constant DELTA_Y2 = 0x0000000000000000000000000000000000000000000000000000000000000004;
+    // Verification Key data
+    uint256 constant alphax  = 8460216532488165727467564856413555351114670954785488538800357260241591659922;
+    uint256 constant alphay  = 18445221864308632061488572037047946806659902339700033382142009763125814749748;
+    uint256 constant betax1  = 10756899494323454451849886987287990433636781750938311280590204128566742369499;
+    uint256 constant betax2  = 6479683735401057464856560780016689003394325158210495956800419236111697402941;
+    uint256 constant betay1  = 20413115250143543082989954729570048513153861075230117372641105301032124129876;
+    uint256 constant betay2  = 14397376998117601765034877247086905021783475930686205456376147632056422933833;
+    uint256 constant gammax1 = 11559732032986387107991004021392285783925812861821192530917403151452391805634;
+    uint256 constant gammax2 = 10857046999023057135944570762232829481370756359578518086990519993285655852781;
+    uint256 constant gammay1 = 4082367875863433681332203403145435568316851327593401208105741076214120093531;
+    uint256 constant gammay2 = 8495653923123431417604973247489272438418190587263600148770280649306958101930;
+    uint256 constant deltax1 = 4187901564856243153173061219345467014727545819082218143172095490940414594424;
+    uint256 constant deltax2 = 6840503012950456034406412069208230277997775373740741539262294411073505372202;
+    uint256 constant deltay1 = 16312755549775593509550494456994863905270524213647477910622330564896885944010;
+    uint256 constant deltay2 = 15354962623567401613422376703326876887451375834046173755940516337285040531401;
 
-    // IC points for 1 public signal (SimpleReceipt: receiptHash)
-    uint256 constant IC0_X = 0x0000000000000000000000000000000000000000000000000000000000000001;
-    uint256 constant IC0_Y = 0x0000000000000000000000000000000000000000000000000000000000000002;
-    uint256 constant IC1_X = 0x0000000000000000000000000000000000000000000000000000000000000003;
-    uint256 constant IC1_Y = 0x0000000000000000000000000000000000000000000000000000000000000004;
+    
+    uint256 constant IC0x = 7685121570366407724807946503921961619833683410392772870373459476604128011275;
+    uint256 constant IC0y = 6915443837935167692630810275110398177336960270031115982900890650376967129575;
+    
+    uint256 constant IC1x = 10363999014224824591638032348857401078402637116683579765969796919683926972060;
+    uint256 constant IC1y = 5716124078230277423780595544607422628270452574948632939527677487979409581469;
+    
+ 
+    // Memory data
+    uint16 constant pVk = 0;
+    uint16 constant pPairing = 128;
 
-    /**
-     * @dev Verify a Groth16 proof.
-     * @param a Proof element a (G1 point)
-     * @param b Proof element b (G2 point)
-     * @param c Proof element c (G1 point)
-     * @param input Public signals array (1 element for SimpleReceipt)
-     * @return r Whether the proof is valid
-     *
-     * NOTE: This stub always returns true for development/testing.
-     * Replace with the snarkjs-generated verifier for production use.
-     */
-    function verifyProof(
-        uint[2] calldata a,
-        uint[2][2] calldata b,
-        uint[2] calldata c,
-        uint[1] calldata input
-    ) public view returns (bool r) {
-        // Production: pairing check using bn256 precompiles
-        // ecPairing(a, b, alpha, beta, vk_x, gamma, c, delta)
-        //
-        // Stub: validate proof elements are non-zero
-        if (a[0] == 0 && a[1] == 0) return false;
-        if (c[0] == 0 && c[1] == 0) return false;
-        if (input[0] == 0) return false;
+    uint16 constant pLastMem = 896;
 
-        return true;
-    }
-}
+    function verifyProof(uint[2] calldata _pA, uint[2][2] calldata _pB, uint[2] calldata _pC, uint[1] calldata _pubSignals) public view returns (bool) {
+        assembly {
+            function checkField(v) {
+                if iszero(lt(v, r)) {
+                    mstore(0, 0)
+                    return(0, 0x20)
+                }
+            }
+            
+            // G1 function to multiply a G1 value(x,y) to value in an address
+            function g1_mulAccC(pR, x, y, s) {
+                let success
+                let mIn := mload(0x40)
+                mstore(mIn, x)
+                mstore(add(mIn, 32), y)
+                mstore(add(mIn, 64), s)
+
+                success := staticcall(sub(gas(), 2000), 7, mIn, 96, mIn, 64)
+
+                if iszero(success) {
+                    mstore(0, 0)
+                    return(0, 0x20)
+                }
+
+                mstore(add(mIn, 64), mload(pR))
+                mstore(add(mIn, 96), mload(add(pR, 32)))
+
+                success := staticcall(sub(gas(), 2000), 6, mIn, 128, pR, 64)
+
+                if iszero(success) {
+                    mstore(0, 0)
+                    return(0, 0x20)
+                }
+            }
+
+            function checkPairing(pA, pB, pC, pubSignals, pMem) -> isOk {
+                let _pPairing := add(pMem, pPairing)
+                let _pVk := add(pMem, pVk)
+
+                mstore(_pVk, IC0x)
+                mstore(add(_pVk, 32), IC0y)
+
+                // Compute the linear combination vk_x
+                
+                g1_mulAccC(_pVk, IC1x, IC1y, calldataload(add(pubSignals, 0)))
+                
+
+                // -A
+                mstore(_pPairing, calldataload(pA))
+                mstore(add(_pPairing, 32), mod(sub(q, calldataload(add(pA, 32))), q))
+
+                // B
+                mstore(add(_pPairing, 64), calldataload(pB))
+                mstore(add(_pPairing, 96), calldataload(add(pB, 32)))
+                mstore(add(_pPairing, 128), calldataload(add(pB, 64)))
+                mstore(add(_pPairing, 160), calldataload(add(pB, 96)))
+
+                // alpha1
+                mstore(add(_pPairing, 192), alphax)
+                mstore(add(_pPairing, 224), alphay)
+
+                // beta2
+                mstore(add(_pPairing, 256), betax1)
+                mstore(add(_pPairing, 288), betax2)
+                mstore(add(_pPairing, 320), betay1)
+                mstore(add(_pPairing, 352), betay2)
+
+                // vk_x
+                mstore(add(_pPairing, 384), mload(add(pMem, pVk)))
+                mstore(add(_pPairing, 416), mload(add(pMem, add(pVk, 32))))
+
+
+                // gamma2
+                mstore(add(_pPairing, 448), gammax1)
+                mstore(add(_pPairing, 480), gammax2)
+                mstore(add(_pPairing, 512), gammay1)
+                mstore(add(_pPairing, 544), gammay2)
+
+                // C
+                mstore(add(_pPairing, 576), calldataload(pC))
+                mstore(add(_pPairing, 608), calldataload(add(pC, 32)))
+
+                // delta2
+                mstore(add(_pPairing, 640), deltax1)
+                mstore(add(_pPairing, 672), deltax2)
+                mstore(add(_pPairing, 704), deltay1)
+                mstore(add(_pPairing, 736), deltay2)
+
+
+                let success := staticcall(sub(gas(), 2000), 8, _pPairing, 768, _pPairing, 0x20)
+
+                isOk := and(success, mload(_pPairing))
+            }
+
+            let pMem := mload(0x40)
+            mstore(0x40, add(pMem, pLastMem))
+
+            // Validate that all evaluations ∈ F
+            
+            checkField(calldataload(add(_pubSignals, 0)))
+            
+
+            // Validate all evaluations
+            let isValid := checkPairing(_pA, _pB, _pC, _pubSignals, pMem)
+
+            mstore(0, isValid)
+             return(0, 0x20)
+         }
+     }
+ }

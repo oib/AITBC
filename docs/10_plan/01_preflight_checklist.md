@@ -3,10 +3,10 @@
 Use this checklist before starting Stage 20 development work.
 
 ## Tools & Versions
-- [ ] Circom v2.2.3+ installed (`circom --version`)
-- [ ] snarkjs installed globally (`snarkjs --help`)
-- [ ] Node.js + npm aligned with repo version (`node -v`, `npm -v`)
-- [ ] Vitest available for JS SDK tests (`npx vitest --version`)
+- [x] Circom v2.2.3+ installed (`circom --version`)
+- [x] snarkjs installed globally (`snarkjs --help`)
+- [x] Node.js + npm aligned with repo version (`node -v`, `npm -v`)
+- [x] Vitest available for JS SDK tests (`npx vitest --version`)
 - [ ] Python 3.13+ with pytest (`python --version`, `pytest --version`)
 - [ ] NVIDIA drivers + CUDA installed (`nvidia-smi`, `nvcc --version`)
 - [ ] Ollama installed and running (`ollama list`)
@@ -24,7 +24,7 @@ Use this checklist before starting Stage 20 development work.
 - [ ] `pytest` in `apps/blockchain-node` passes
 - [ ] `pytest` in `apps/wallet-daemon` passes
 - [ ] `pytest` in `apps/pool-hub` passes
-- [ ] Circom compile sanity: `circom apps/zk-circuits/receipt_simple.circom --r1cs -o /tmp/zkcheck`
+- [x] Circom compile sanity: `circom apps/zk-circuits/receipt_simple.circom --r1cs -o /tmp/zkcheck`
 
 ## Data & Backup
 - [ ] Backup current `.env` files (coordinator, wallet, blockchain-node)

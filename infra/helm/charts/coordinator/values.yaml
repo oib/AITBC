@@ -109,18 +109,19 @@ affinity: {}
 # Configuration
 config:
   appEnv: production
-  databaseUrl: "postgresql://aitbc:password@postgresql:5432/aitbc"
-  receiptSigningKeyHex: ""
-  receiptAttestationKeyHex: ""
+  databaseUrl: secretRef:db-credentials:url
+  receiptSigningKeyHex: secretRef:security-keys:receipt-signing
+  receiptAttestationKeyHex: secretRef:security-keys:receipt-attestation
   allowOrigins: "*"
 
 # PostgreSQL sub-chart configuration
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "password"
+    postgresPassword: secretRef:db-credentials:password
     username: aitbc
     database: aitbc
+    existingSecret: db-credentials
   primary:
     persistence:
       enabled: true

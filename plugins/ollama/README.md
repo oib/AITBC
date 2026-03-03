@@ -30,6 +30,28 @@ Provides GPU-powered LLM inference services through Ollama, allowing miners to e
 
 ## Quick Start
 
+### Prerequisites
+- Ollama installed and running locally (`ollama serve`)
+- At least one model pulled (example: `ollama pull mistral:latest`)
+- Python 3.11+ with `pip install -e .` if running from repo root
+
+### Minimal Usage Example
+```bash
+# 1) Run miner (exposes inference endpoint for jobs)
+python3 miner_plugin.py --host 0.0.0.0 --port 8001
+
+# 2) In another terminal, submit a job via client
+python3 client_plugin.py chat mistral:latest "Summarize the AITBC marketplace in 3 bullets"
+
+# 3) View logs/results
+tail -f miner.log
+```
+
+Optional environment variables:
+- `OLLAMA_HOST` (default: http://127.0.0.1:11434)
+- `OLLAMA_MODELS` (comma-separated list to register; defaults to discovered models)
+- `OLLAMA_MAX_CONCURRENCY` (default: 2)
+
 ### 1. Start Ollama (if not running)
 ```bash
 ollama serve

@@ -100,7 +100,7 @@ class TestSimulateCommands:
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 # Make Path return our temp directory
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -129,7 +129,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -151,7 +151,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -182,7 +182,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -210,7 +210,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -238,7 +238,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command
                 result = runner.invoke(simulate, [
@@ -347,7 +347,7 @@ class TestSimulateCommands:
             # Patch the hardcoded path
             with patch('aitbc_cli.commands.simulate.Path') as mock_path_class:
                 mock_path_class.return_value = home_dir
-                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/home" else Path(x)
+                mock_path_class.side_effect = lambda x: home_dir if x == "/home/oib/windsurf/aitbc/tests/e2e/fixtures/home" else Path(x)
                 
                 # Run command with reset flag
                 result = runner.invoke(simulate, [
