@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from .developer_platform import BountyStatus, CertificationLevel
+from ..domain.developer_platform import BountyStatus, CertificationLevel
 
 class DeveloperCreate(BaseModel):
     wallet_address: str

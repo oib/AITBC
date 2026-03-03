@@ -24,7 +24,6 @@ ROOT_FORBIDDEN_DIRS=(
     ".ruff_cache"
     ".venv"
     "cli_env"
-    "logs"
     ".vscode"
 )
 
@@ -62,7 +61,7 @@ for dir in "${ROOT_FORBIDDEN_DIRS[@]}"; do
             "node_modules"|".venv"|"cli_env")
                 echo "   → dev/env/"
                 ;;
-            ".pytest_cache"|".ruff_cache"|"logs"|".vscode")
+            ".pytest_cache"|".ruff_cache"|".vscode")
                 echo "   → dev/cache/"
                 ;;
         esac
