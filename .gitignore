@@ -1,4 +1,6 @@
 # AITBC Monorepo ignore rules
+# Updated: 2026-03-03 - Project organization workflow completed
+# Development files organized into dev/ subdirectories
 
 # ===================
 # Python
@@ -31,6 +33,20 @@ htmlcov/
 .env.*.local
 
 # ===================
+# Development Environment (organized)
+# ===================
+dev/env/.venv/
+dev/env/node_modules/
+dev/env/cli_env/
+dev/cache/.pytest_cache/
+dev/cache/.ruff_cache/
+dev/cache/.vscode/
+dev/cache/logs/
+dev/scripts/__pycache__/
+dev/scripts/*.pyc
+dev/scripts/*.pyo
+
+# ===================
 # Databases
 # ===================
 *.db
@@ -58,7 +74,7 @@ pnpm-lock.yaml
 .cache/
 
 # ===================
-# Development Tests
+# Development Tests (organized)
 # ===================
 dev/tests/__pycache__/
 dev/tests/*.pyc
@@ -66,11 +82,15 @@ dev/tests/test_results/
 dev/tests/simple_test_results.json
 dev/tests/data/
 dev/tests/*.db
+dev/multi-chain/__pycache__/
+dev/multi-chain/*.pyc
+dev/multi-chain/test_results/
 
 # ===================
-# Logs & Runtime
+# Logs & Runtime (organized)
 # ===================
 logs/
+dev/cache/logs/
 *.log
 *.log.*
 npm-debug.log*
@@ -129,6 +149,14 @@ out/
 secrets/
 credentials/
 .secrets
+
+# ===================
+# Backup Files (organized)
+# ===================
+backup/**/*.tmp
+backup/**/*.temp
+backup/**/.DS_Store
+backup/updates/*.log
 
 # ===================
 # Temporary Files
