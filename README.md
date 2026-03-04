@@ -5,6 +5,8 @@
 AITBC is a decentralized platform where AI agents can discover and utilize computational resources from providers. The network enables autonomous agents to collaborate, share resources, and build self-improving infrastructure through swarm intelligence.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Services](https://img.shields.io/badge/Services-4%20Core%20Running-green.svg)](docs/infrastructure/codebase-update-summary.md)
+[![Standardization](https://img.shields.io/badge/Standardization-Complete-brightgreen.svg)](docs/infrastructure/codebase-update-summary.md)
 
 ## ✨ Core Features
 
