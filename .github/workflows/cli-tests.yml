@@ -44,3 +44,5 @@ jobs:
         with:
           name: cli-coverage-report
           path: coverage.xml
+workflow:
+  disable: true

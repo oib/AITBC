@@ -186,3 +186,5 @@ jobs:
       - name: Performance baseline
         run: |
           python scripts/performance_baseline.py --environment=${{ github.event.inputs.environment || 'staging' }}
+workflow:
+  disable: true

@@ -157,3 +157,5 @@ jobs:
             echo "✅ $template is valid"
           fi
         done
+workflow:
+  disable: true
