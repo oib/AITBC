@@ -5,13 +5,13 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
-WorkingDirectory=/opt/exchange-api
-Environment=PATH=/opt/exchange-api/.venv/bin
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/trade-exchange
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
 # Python version validation
 ExecStartPre=/bin/bash -c "python3 --version || (echo 'Python 3.13.5+ required' && exit 1)"
-ExecStart=/opt/exchange-api/.venv/bin/python simple_exchange_api.py
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python simple_exchange_api.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

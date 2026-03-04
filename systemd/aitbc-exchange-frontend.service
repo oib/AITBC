@@ -5,11 +5,12 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=root
-Group=root
-WorkingDirectory=/opt/exchange-frontend
-Environment=PATH=/opt/exchange-frontend/.venv/bin
-ExecStart=/opt/exchange-frontend/.venv/bin/python server.py --port 3002
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/trade-exchange
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
+Environment=PYTHONPATH=/opt/aitbc/apps/trade-exchange
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python server.py --port 3002
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5

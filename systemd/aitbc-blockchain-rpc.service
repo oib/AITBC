@@ -1,0 +1,17 @@
+[Unit]
+Description=AITBC Blockchain RPC API
+After=network.target aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=aitbc
+WorkingDirectory=/opt/aitbc/apps/blockchain-node
+Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 9080 --log-level info
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

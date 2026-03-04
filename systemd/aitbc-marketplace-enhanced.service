@@ -16,25 +16,13 @@ Environment=DATABASE_URL=postgresql://aitbc:password@localhost:5432/aitbc
 Environment=ROYALTY_ENABLED=true
 Environment=LICENSING_ENABLED=true
 Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/.venv/bin/python -m aitbc_marketplace_enhanced.main
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8006
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-marketplace-enhanced
-
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data
-LimitNOFILE=65536
-
-# Resource limits
-MemoryMax=2G
-CPUQuota=200%
 
 [Install]
 WantedBy=multi-user.target
