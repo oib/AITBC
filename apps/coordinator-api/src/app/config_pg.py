@@ -34,14 +34,26 @@ class Settings(BaseSettings):
     marketplace_offer_ttl_seconds: int = 3600  # 1 hour
     
     # Wallet Configuration
-    wallet_rpc_url: str = "http://localhost:9080"
+    wallet_rpc_url: str = "http://localhost:8003"  # Updated to new port logic
     
     # CORS Configuration
     cors_origins: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:8080",
+        "http://localhost:8000",  # Coordinator API
+        "http://localhost:8001",  # Exchange API
+        "http://localhost:8002",  # Blockchain Node
+        "http://localhost:8003",  # Blockchain RPC
+        "http://localhost:8010",  # Multimodal GPU
+        "http://localhost:8011",  # GPU Multimodal
+        "http://localhost:8012",  # Modality Optimization
+        "http://localhost:8013",  # Adaptive Learning
+        "http://localhost:8014",  # Marketplace Enhanced
+        "http://localhost:8015",  # OpenClaw Enhanced
+        "http://localhost:8016",  # Web UI
         "https://aitbc.bubuit.net",
-        "https://aitbc.bubuit.net:8080"
+        "https://aitbc.bubuit.net:8000",
+        "https://aitbc.bubuit.net:8001",
+        "https://aitbc.bubuit.net:8003",
+        "https://aitbc.bubuit.net:8016"
     ]
     
     # Logging Configuration

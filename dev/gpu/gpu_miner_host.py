@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 # Configuration
-COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:9080")
+COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8003")
 MINER_ID = os.environ.get("MINER_API_KEY", "miner_test")
 AUTH_TOKEN = os.environ.get("MINER_API_KEY", "miner_test")
 HEARTBEAT_INTERVAL = 15
