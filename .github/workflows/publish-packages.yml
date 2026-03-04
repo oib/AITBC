@@ -212,3 +212,5 @@ jobs:
         echo "- Manual approval received" >> $GITHUB_STEP_SUMMARY
         echo "- Package security scans passed" >> $GITHUB_STEP_SUMMARY
         echo "- Dedicated publishing tokens used" >> $GITHUB_STEP_SUMMARY
+workflow:
+  disable: true

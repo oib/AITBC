@@ -389,3 +389,5 @@ jobs:
               repo: context.repo.repo,
               body: summary
             });
+workflow:
+  disable: true

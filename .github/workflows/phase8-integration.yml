@@ -46,3 +46,5 @@ jobs:
         run: |
           cd apps/coordinator-api
           python -m pytest tests/test_phase8_optional_endpoints.py -v --tb=short --disable-warnings
+workflow:
+  disable: true

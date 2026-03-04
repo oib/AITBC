@@ -39,3 +39,5 @@ jobs:
           } catch (error) {
             console.log('Could not read organization report');
           }
+workflow:
+  disable: true

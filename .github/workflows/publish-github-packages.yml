@@ -312,3 +312,5 @@ jobs:
         git add packages/github/packages/PACKAGE_INDEX.md
         git diff --staged --quiet || git commit -m "Update package index for version ${{ github.ref_name || github.event.inputs.version }}"
         git push
+workflow:
+  disable: true

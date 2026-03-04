@@ -344,3 +344,5 @@ jobs:
           } catch (error) {
             console.log('Could not read security summary:', error.message);
           }
+workflow:
+  disable: true

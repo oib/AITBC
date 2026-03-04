@@ -395,3 +395,5 @@ jobs:
           echo "   - Agent reward system"
           echo ""
           echo "✅ Agent updates deployed successfully!"
+workflow:
+  disable: true

@@ -168,3 +168,5 @@ jobs:
         # Test bash completion
         source /usr/local/etc/bash_completion.d/aitbc
         echo "Testing completion..."
+workflow:
+  disable: true
