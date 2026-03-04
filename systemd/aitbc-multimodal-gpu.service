@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC GPU Multi-Modal Service (Port 8003)
+Description=AITBC Multimodal GPU Service (Port 8003)
 Documentation=https://docs.aitbc.bubuit.net
 After=network.target aitbc-coordinator-api.service nvidia-persistenced.service
 Wants=aitbc-coordinator-api.service
@@ -15,13 +15,13 @@ Environment=SERVICE_TYPE=gpu-multimodal
 Environment=GPU_ENABLED=true
 Environment=CUDA_VISIBLE_DEVICES=0
 Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/.venv/bin/python -m aitbc_gpu_multimodal.main
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m aitbc_gpu_multimodal.main
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-gpu-multimodal
+SyslogIdentifier=aitbc-multimodal-gpu
 
 # Security settings
 NoNewPrivileges=true
