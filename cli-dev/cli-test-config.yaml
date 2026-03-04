@@ -1,0 +1,8 @@
+# CLI Test Configuration for Development
+coordinator_url: https://aitbc.bubuit.net
+api_key: null
+output_format: table
+config_file: /home/oib/windsurf/aitbc/cli-dev/cli-test-config.yaml
+test_mode: true
+timeout: 30
+debug: true

@@ -5,7 +5,7 @@ import logging
 import sys
 import os
 from pathlib import Path
-from typing import Any, Optional, Callable, Iterator
+from typing import Tuple, List, Dict, Optional, Any
 from contextlib import contextmanager
 from rich.console import Console
 from rich.logging import RichHandler

@@ -2,15 +2,18 @@
 
 ## Overview
 
-This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc1** server. These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated for the new port logic implementation (8000-8003, 8010-8017) and production-ready codebase.**
+This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc** server. These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated for optimized CPU-only deployment with enhanced services disabled.**
 
 ## Server Specifications
 
-### **aitbc1 Server Details**
-- **Hostname**: aitbc
+### **aitbc Server Details**
+- **Hostname**: aitbc (container)
 - **IP Address**: 10.1.223.1 (container IP)
 - **Operating System**: Debian 13 Trixie (primary development environment)
 - **Access Method**: SSH via aitbc-cascade proxy
+- **GPU Access**: None (CPU-only mode)
+- **Miner Service**: Not needed
+- **Enhanced Services**: Disabled (optimized deployment)
 - **Web Root**: `/var/www/html/`
 - **Nginx Configuration**: Two-tier setup with SSL termination
 - **Container Support**: Incus containers with 0.0.0.0 binding for container access
@@ -19,8 +22,10 @@ This document contains specific deployment notes and considerations for deployin
 ```
 Internet → aitbc-cascade (Proxy) → aitbc (Container)
          SSL Termination        Application Server
-         Port 443/80            Port 8000-8003, 8010-8017
+         Port 443/80            Port 8000-8003 (Core Services Only)
 ```
+
+**Note**: Enhanced services ports 8010-8017 are disabled for CPU-only deployment
 
 ## Pre-Deployment Checklist
 
@@ -102,22 +107,22 @@ sudo fuser -k 8010/tcp  # Enhanced services
 # Change --port 8000 to --port 9000, etc.
 ```
 
-**Port Mapping for aitbc1 (Updated)**:
+**Port Mapping for aitbc (Optimized for CPU-only):**
 ```
-Core Services:
+Core Services (8000-8003) ✅ RUNNING:
 - Coordinator API: 8000 ✅
 - Exchange API: 8001 ✅
 - Blockchain RPC: 8003 ✅
 
-Enhanced Services:
-- Multimodal GPU: 8010 ✅ (CPU-only mode)
-- GPU Multimodal: 8011 ✅ (CPU-only mode)
-- Modality Optimization: 8012 ✅
-- Adaptive Learning: 8013 ✅
-- Marketplace Enhanced: 8014 ✅
-- OpenClaw Enhanced: 8015 ✅
-- Web UI: 8016 ✅
-- Geographic Load Balancer: 8017 ✅
+Enhanced Services (8010-8017) ❌ DISABLED:
+- Multimodal GPU: 8010 ❌ (no GPU access)
+- GPU Multimodal: 8011 ❌ (no GPU access)
+- Modality Optimization: 8012 ❌ (not essential)
+- Adaptive Learning: 8013 ❌ (not essential)
+- Marketplace Enhanced: 8014 ❌ (not essential)
+- OpenClaw Enhanced: 8015 ❌ (not essential)
+- Web UI: 8016 ❌ (not essential)
+- Geographic Load Balancer: 8017 ❌ (complex)
 ```
 
 ### **🔥 Issue 3: Database Permission Issues**
@@ -308,20 +313,17 @@ curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/v1/health" | grep 
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8001/" | grep -q "200" && echo "Exchange API: ✅" || echo "Exchange API: ❌"
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8003/rpc/head" | grep -q "200" && echo "Blockchain RPC: ✅" || echo "Blockchain RPC: ❌"
 
-# Enhanced services health (CPU-only mode)
-echo -e "\nEnhanced Services:"
-for port in 8010 8011 8012 8013 8014 8015 8016 8017; do
-    status=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:$port/health" 2>/dev/null)
-    if [ "$status" = "200" ]; then
-        service_name="Port $port"
-        case $port in
-            8010|8011) service_name="$service_name (CPU-only)" ;;
-        esac
-        echo "$service_name: ✅"
-    else
-        echo "Port $port: ❌ ($status)"
-    fi
-done
+# Enhanced services health (DISABLED - CPU-only deployment)
+echo -e "\nEnhanced Services Status:"
+echo "All enhanced services disabled for CPU-only deployment:"
+echo "- Port 8010: ❌ DISABLED (no GPU access)"
+echo "- Port 8011: ❌ DISABLED (no GPU access)"
+echo "- Port 8012: ❌ DISABLED (not essential)"
+echo "- Port 8013: ❌ DISABLED (not essential)"
+echo "- Port 8014: ❌ DISABLED (not essential)"
+echo "- Port 8015: ❌ DISABLED (not essential)"
+echo "- Port 8016: ❌ DISABLED (not essential)"
+echo "- Port 8017: ❌ DISABLED (complex)"
 
 # Database status
 echo -e "\nDatabase Status:"
@@ -367,9 +369,10 @@ echo "Configuration backed up: config_$DATE.tar.gz"
 tar -czf $BACKUP_DIR/services_$DATE.tar.gz /etc/systemd/system/aitbc-*.service
 echo "Service files backed up: services_$DATE.tar.gz"
 
-# Backup enhanced services scripts
-tar -czf $BACKUP_DIR/enhanced-services_$DATE.tar.gz /opt/aitbc/scripts/*service*.py 2>/dev/null
-echo "Enhanced services backed up: enhanced-services_$DATE.tar.gz"
+# Backup enhanced services scripts (DISABLED - not applicable)
+# tar -czf $BACKUP_DIR/enhanced-services_$DATE.tar.gz /opt/aitbc/scripts/*service*.py 2>/dev/null
+# echo "Enhanced services backed up: enhanced-services_$DATE.tar.gz"
+echo "Enhanced services disabled - no backup needed"
 
 # Clean old backups
 find $BACKUP_DIR -name "*.db" -mtime +$RETENTION_DAYS -delete
@@ -389,21 +392,21 @@ chmod +x /opt/aitbc/scripts/backup-aitbc.sh
 # Check if services are enabled
 systemctl list-unit-files | grep aitbc
 
-# Enable services for auto-start
+# Enable core services only (enhanced services disabled for CPU-only deployment)
 sudo systemctl enable aitbc-coordinator-api.service
 sudo systemctl enable aitbc-blockchain-node.service
 sudo systemctl enable aitbc-blockchain-rpc.service
 sudo systemctl enable aitbc-exchange-api.service
 
-# Enable enhanced services
-sudo systemctl enable aitbc-multimodal-gpu.service
-sudo systemctl enable aitbc-multimodal.service
-sudo systemctl enable aitbc-modality-optimization.service
-sudo systemctl enable aitbc-adaptive-learning.service
-sudo systemctl enable aitbc-marketplace-enhanced.service
-sudo systemctl enable aitbc-openclaw-enhanced.service
-sudo systemctl enable aitbc-web-ui.service
-sudo systemctl enable aitbc-loadbalancer-geo.service
+# Note: Enhanced services disabled - no GPU access
+# sudo systemctl enable aitbc-multimodal-gpu.service      # DISABLED
+# sudo systemctl enable aitbc-multimodal.service           # DISABLED
+# sudo systemctl enable aitbc-modality-optimization.service # DISABLED
+# sudo systemctl enable aitbc-adaptive-learning.service    # DISABLED
+# sudo systemctl enable aitbc-marketplace-enhanced.service # DISABLED
+# sudo systemctl enable aitbc-openclaw-enhanced.service    # DISABLED
+# sudo systemctl enable aitbc-web-ui.service               # DISABLED
+# sudo systemctl enable aitbc-loadbalancer-geo.service      # DISABLED
 ```
 
 ### **Issue: High Memory Usage**
@@ -502,31 +505,31 @@ sudo systemctl restart ssh
 - [ ] Virtual environments created (Python 3.13+)
 - [ ] Dependencies installed
 - [ ] Environment variables configured
-- [ ] Service files installed (new port logic)
-- [ ] Services enabled and started
+- [ ] Core service files installed (new port logic)
+- [ ] Core services enabled and started
+- [ ] Enhanced services disabled (CPU-only deployment)
 
 ### **✅ Post-Deployment**
-- [ ] All 12 services running
+- [ ] All 4 core services running
 - [ ] Core API endpoints responding (8000-8003)
-- [ ] Enhanced services endpoints responding (8010-8017)
+- [ ] Enhanced services disabled (CPU-only deployment)
 - [ ] Database operational
 - [ ] Container access working (0.0.0.0 binding)
 - [ ] Monitoring working
 - [ ] Backup system active
 - [ ] Security configured
-- [ ] GPU services confirmed running in CPU-only mode
-- [ ] Miner service confirmed as not needed
+- [ ] GPU services confirmed disabled
+- [ ] Miner service confirmed not needed
 
 ### **✅ Testing**
-- [ ] Health endpoints responding for all services
+- [ ] Health endpoints responding for core services
 - [ ] API functionality verified
 - [ ] Database operations working
 - [ ] External access via proxy working
 - [ ] SSL certificates valid
 - [ ] Performance acceptable
 - [ ] Container connectivity verified
-- [ ] Geographic load balancer accessible from containers
-- [ ] GPU services confirmed operating in CPU-only mode
+- [ ] Enhanced services confirmed disabled
 - [ ] No miner service requirements confirmed
 
 ## Rollback Procedures
@@ -568,8 +571,8 @@ sudo systemctl restart aitbc-*.service
 1. Check service status: `systemctl status aitbc-*`
 2. Review logs: `journalctl -u aitbc-coordinator-api.service`
 3. Run monitoring: `/opt/aitbc/scripts/monitor-aitbc.sh`
-4. Check container access: `curl http://10.1.223.1:8017/health`
-5. Verify GPU services running in CPU-only mode
+4. Check container access: `curl http://10.1.223.1:8000/health`
+5. Verify core services only (enhanced services disabled)
 6. Confirm no miner service is needed
 7. Contact support if issues persist
 
@@ -579,6 +582,7 @@ sudo systemctl restart aitbc-*.service
 **Environment**: Production  
 **GPU Access**: None (CPU-only mode)  
 **Miner Service**: Not needed  
+**Enhanced Services**: Disabled (optimized deployment)  
 **Last Updated**: 2026-03-04  
 **Maintainer**: AITBC Operations Team  
-**Status**: ✅ PRODUCTION READY
+**Status**: ✅ PRODUCTION READY (CPU-only mode)

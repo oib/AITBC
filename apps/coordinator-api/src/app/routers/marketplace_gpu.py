@@ -163,6 +163,15 @@ async def register_gpu(
     }
 
 
+@router.get("/marketplace/gpus")
+async def list_gpus_cli(
+    session: SessionDep,
+    available: Optional[bool] = Query(default=None),
+):
+    """List GPUs for CLI compatibility."""
+    return await list_gpus(session, available)
+
+
 @router.get("/marketplace/gpu/list")
 async def list_gpus(
     session: SessionDep,
