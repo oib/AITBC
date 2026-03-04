@@ -27,8 +27,8 @@ class ZKProofService:
         self.circuits = {
             "receipt_simple": {
                 "zkey_path": self.circuits_dir / "receipt_simple_0001.zkey",
-                "wasm_path": self.circuits_dir / "receipt_simple.wasm",
-                "vkey_path": self.circuits_dir / "verification_key.json"
+                "wasm_path": self.circuits_dir / "receipt_simple_js" / "receipt_simple.wasm",
+                "vkey_path": self.circuits_dir / "receipt_simple_js" / "verification_key.json"
             },
             "ml_inference_verification": {
                 "zkey_path": self.circuits_dir / "ml_inference_verification_0000.zkey",

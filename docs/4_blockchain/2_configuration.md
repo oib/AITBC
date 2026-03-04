@@ -23,7 +23,7 @@ rpc:
   bind_host: 0.0.0.0
   bind_port: 8080
   cors_origins:
-    - http://localhost:3000
+    - http://localhost:8009
     - http://localhost:8000
   rate_limit: 1000  # requests per minute
 ```
