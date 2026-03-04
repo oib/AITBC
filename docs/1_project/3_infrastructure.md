@@ -1,17 +1,17 @@
 # AITBC Infrastructure Documentation
 
-> Last updated: 2026-02-14
+> Last updated: 2026-03-04
 
 ## Overview
 
-Two-tier architecture: **incus host** (localhost) runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services.
+Two-tier architecture: **incus host (at1)** runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services.
 
 ```
 Internet → aitbc.bubuit.net (HTTPS :443)
     │
     ▼
 ┌──────────────────────────────────────────────┐
-│  Incus Host (localhost / at1)                │
+│  Incus Host (at1 / localhost)                │
 │  Nginx reverse proxy (:443 SSL → :80)       │
 │  Config: /etc/nginx/sites-available/         │
 │          aitbc-proxy.conf                    │
@@ -38,7 +38,13 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 └──────────────────────────────────────────────┘
 ```
 
-## Incus Host (localhost)
+## Incus Host (at1)
+
+### Host Details
+- **Hostname**: `at1` (primary development workstation)
+- **Environment**: Windsurf development environment
+- **GPU Access**: **Primary GPU access location** - all GPU workloads must run on at1
+- **Architecture**: x86_64 Linux with CUDA GPU support
 
 ### Services (Host)
 
@@ -63,10 +69,35 @@ aitbc-mock-coordinator.service     # Mock coordinator on port 8090
 ```
 
 **Service Details:**
-- **Working Directory**: `/home/oib/windsurf/aitbc/apps/blockchain-node`
-- **Python Environment**: `/home/oib/windsurf/aitbc/apps/blockchain-node/.venv/bin/python`
+- **Working Directory**: `/opt/aitbc/` (standard path for all services)
+- **Python Environment**: `/opt/aitbc/.venv/bin/python`
 - **User**: oib
 - **Restart Policy**: always (with 5s delay)
+
+### Standard Service Structure (/opt/aitbc)
+
+On at1, `/opt/aitbc` uses individual symlinks to the Windsurf project directories:
+
+```bash
+/opt/aitbc/                          # Service root with selective symlinks
+├── apps/                            # Symlinked app directories
+│   ├── blockchain-explorer -> /home/oib/windsurf/aitbc/apps/blockchain-explorer/
+│   ├── blockchain-node -> /home/oib/windsurf/aitbc/apps/blockchain-node/
+│   ├── coordinator-api -> /home/oib/windsurf/aitbc/apps/coordinator-api/
+│   ├── explorer-web -> /home/oib/windsurf/aitbc/apps/explorer-web/
+│   ├── marketplace-web -> /home/oib/windsurf/aitbc/apps/marketplace-web/
+│   ├── pool-hub -> /home/oib/windsurf/aitbc/apps/pool-hub/
+│   ├── trade-exchange -> /home/oib/windsurf/aitbc/apps/trade-exchange/
+│   ├── wallet-daemon -> /home/oib/windsurf/aitbc/apps/wallet-daemon/
+│   └── zk-circuits -> /home/oib/windsurf/aitbc/apps/zk-circuits/
+├── data/                            # Local service data
+├── logs/                            # Local service logs
+├── models/                          # Local model storage
+├── scripts -> /home/oib/windsurf/aitbc/scripts/  # Shared scripts
+└── systemd -> /home/oib/windsurf/aitbc/systemd/  # Service definitions
+```
+
+**On aitbc/aitbc1 servers**: `/opt/aitbc` is symlinked to the git repo clone (`/opt/aitbc -> /path/to/aitbc-repo`) for complete repository access.
 
 **Verification Commands:**
 ```bash
@@ -79,25 +110,48 @@ sudo systemctl start aitbc-blockchain-node.service
 
 # Check logs
 journalctl -u aitbc-mock-coordinator --no-pager -n 20
+
+# Verify /opt/aitbc symlink structure
+ls -la /opt/aitbc/                      # Should show individual app symlinks
+ls -la /opt/aitbc/apps/                 # Should show all app symlinks
+ls -la /opt/aitbc/scripts                # Should show symlink to windsurf scripts
+ls -la /opt/aitbc/systemd               # Should show symlink to windsurf systemd
 ```
 
-### Python Environment (Host)
+### Python Environment (at1)
 
-Development and testing services on localhost use **Python 3.13.5**:
+**Development vs Service Environments**:
 
 ```bash
-# Localhost development workspace
-/home/oib/windsurf/aitbc/               # Local development
-├── .venv/                              # Primary Python environment
+# Development environment (Windsurf project)
+/home/oib/windsurf/aitbc/.venv/          # Development Python 3.13.5 environment
+├── bin/python                          # Python executable
+├── apps/                               # Service applications
 ├── cli/                                # CLI tools (12 command groups)
 ├── scripts/                            # Development scripts
 └── tests/                              # Pytest suites
+
+# Service environment (/opt/aitbc with symlinks)
+/opt/aitbc/                             # Service root with selective symlinks
+├── apps/blockchain-node -> /home/oib/windsurf/aitbc/apps/blockchain-node/
+├── apps/coordinator-api -> /home/oib/windsurf/aitbc/apps/coordinator-api/
+├── scripts -> /home/oib/windsurf/aitbc/scripts/
+└── systemd -> /home/oib/windsurf/aitbc/systemd/
 ```
+
+**Note**: Services use individual symlinks to specific app directories, while development uses the full Windsurf project workspace.
 
 **Verification Commands:**
 ```bash
+# Verify symlink structure
+ls -la /opt/aitbc/                      # Should show individual symlinks, not single repo symlink
+ls -la /opt/aitbc/apps/blockchain-node  # Should point to windsurf project
 python3 --version                      # Should show Python 3.13.5
-ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check venv
+ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check development venv
+
+# Test symlink resolution
+readlink -f /opt/aitbc/apps/blockchain-node  # Should resolve to windsurf project path
+readlink -f /opt/aitbc/scripts               # Should resolve to windsurf scripts
 ```
 
 ### Nginx Reverse Proxy
@@ -138,7 +192,7 @@ server {
 ssh aitbc-cascade                    # Direct SSH to container
 ```
 
-**GPU Access**: No GPU passthrough. All GPU workloads must run on localhost (windsurf host), not inside incus containers.
+**GPU Access**: No GPU passthrough. All GPU workloads must run on **at1** (Windsurf development host), not inside incus containers.
 
 **Host Proxies (for localhost GPU clients)**
 - `127.0.0.1:18000` → container `127.0.0.1:8000` (coordinator/marketplace API)
@@ -157,7 +211,7 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 - Proxy device: incus proxy on host maps 127.0.0.1:18001 → 127.0.0.1:8000 inside container
 - AppArmor profile: unconfined (incus raw.lxc)
 - Use same deployment patterns as `aitbc` (nginx + services) once provisioned
-- **GPU Access**: None. Run GPU-dependent tasks on localhost (windsurf host) only.
+- **GPU Access**: None. Run GPU-dependent tasks on **at1** (Windsurf development host) only.
 
 **Host Proxies (for localhost GPU clients)**
 - `127.0.0.1:18001` → container `127.0.0.1:8000` (coordinator/marketplace API)
@@ -165,11 +219,11 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 - (Optional) Expose marketplace frontend for aitbc1 via an additional proxy/port if needed for UI tests.
 - Health check suggestion: `curl -s http://127.0.0.1:18001/v1/health`
 
-**Localhost dual-miner/dual-client test (shared GPU)**
-- Run two miners on localhost (GPU shared), targeting each marketplace:
+**at1 dual-miner/dual-client test (shared GPU)**
+- Run two miners on **at1** (GPU shared), targeting each marketplace:
   - Miner A → `http://127.0.0.1:18000`
   - Miner B → `http://127.0.0.1:18001`
-- Run two clients on localhost for bids/contracts/Ollama answers:
+- Run two clients on **at1** for bids/contracts/Ollama answers:
   - Client 1 → `http://127.0.0.1:18000`
   - Client 2 → `http://127.0.0.1:18001`
 - Use a shared dev chain so both marketplaces see the same on-chain events.
@@ -328,10 +382,10 @@ curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC
 - **Consensus**: PoA with 2s block intervals
 - **P2P**: Not connected yet; nodes maintain independent chain state
 
-## Development Workspace
+## Development Workspace (at1)
 
 ```
-/home/oib/windsurf/aitbc/      # Local development
+/home/oib/windsurf/aitbc/      # at1 Windsurf development workspace
 ├── apps/                      # Application source (8 apps)
 ├── cli/                       # CLI tools (12 command groups)
 ├── scripts/                   # Organized scripts (8 subfolders)
@@ -358,7 +412,7 @@ ssh aitbc-cascade "systemctl restart coordinator-api"
 ## Health Checks
 
 ```bash
-# From localhost (via container)
+# From at1 (via container)
 ssh aitbc-cascade "curl -s http://localhost:8000/v1/health"
 ssh aitbc-cascade "curl -s http://localhost:9080/rpc/head | jq .height"
 

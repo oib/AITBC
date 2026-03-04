@@ -838,7 +838,7 @@ This document tracks components that have been successfully deployed and are ope
 - Added troubleshooting guides for Python 3.13.5 specific issues
 
 **6. Infrastructure & Database Fixes (2026-02-24):**
-- Fixed coordinator API database path to use `/home/oib/windsurf/aitbc/data/coordinator.db`
+- Fixed coordinator API database path to use `/home/oib/windsurf/aitbc/apps/coordinator-api/data/coordinator.db`
 - Updated database configuration with absolute paths for reliability
 - Cleaned up old database files and consolidated storage
 - Fixed FastAPI dependency annotations for Python 3.13.5 compatibility
