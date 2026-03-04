@@ -71,3 +71,5 @@ jobs:
       run: |
         echo "Dry run complete - packages built and checked but not published"
         ls -la packages/py/*/dist/
+workflow:
+  disable: true

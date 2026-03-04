@@ -457,3 +457,5 @@ jobs:
         git add packages/github/PACKAGES_REGISTRY_GUIDE.md
         git diff --staged --quiet || git commit -m "Add GitHub Packages registry guide"
         git push
+workflow:
+  disable: true

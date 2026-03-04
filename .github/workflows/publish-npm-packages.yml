@@ -67,3 +67,5 @@ jobs:
         cd packages/js/aitbc-sdk
         echo "Dry run complete - package built and checked but not published"
         npm pack --dry-run
+workflow:
+  disable: true

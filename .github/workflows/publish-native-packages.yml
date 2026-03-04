@@ -564,3 +564,5 @@ jobs:
         git add packages/github/NATIVE_PACKAGES_GUIDE.md
         git diff --staged --quiet || git commit -m "Add native packages guide for version ${{ steps.version.outputs.VERSION || '0.1.0' }}"
         git push
+workflow:
+  disable: true

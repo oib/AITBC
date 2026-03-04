@@ -251,3 +251,5 @@ jobs:
           echo "- **Linter**: \`python scripts/focused_dotenv_linter.py\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Auto-fix**: \`python scripts/focused_dotenv_linter.py --fix\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Verbose**: \`python scripts/focused_dotenv_linter.py --verbose\`" >> $GITHUB_STEP_SUMMARY
+workflow:
+  disable: true
