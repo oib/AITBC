@@ -48,7 +48,7 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
         try:
             with httpx.Client() as client:
                 response = client.post(
-                    f"{config.coordinator_url}/jobs",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""
@@ -98,7 +98,7 @@ def status(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/jobs/{job_id}",
+                f"{config.coordinator_url}/v1/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -123,7 +123,7 @@ def blocks(ctx, limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/explorer/blocks",
+                f"{config.coordinator_url}/v1/explorer/blocks",
                 params={"limit": limit},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -149,7 +149,7 @@ def cancel(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/jobs/{job_id}/cancel",
+                f"{config.coordinator_url}/v1/jobs/{job_id}/cancel",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -181,7 +181,7 @@ def receipts(ctx, limit: int, job_id: Optional[str], status: Optional[str]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/explorer/receipts",
+                f"{config.coordinator_url}/v1/explorer/receipts",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -222,7 +222,7 @@ def history(ctx, limit: int, status: Optional[str], type: Optional[str],
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/jobs",
+                f"{config.coordinator_url}/v1/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -283,7 +283,7 @@ def batch_submit(ctx, file_path: str, file_format: Optional[str], retries: int, 
 
                 with httpx.Client() as http_client:
                     response = http_client.post(
-                        f"{config.coordinator_url}/jobs",
+                        f"{config.coordinator_url}/v1/jobs",
                         headers={
                             "Content-Type": "application/json",
                             "X-Api-Key": config.api_key or ""
@@ -387,7 +387,7 @@ def pay(ctx, job_id: str, amount: float, currency: str, payment_method: str, esc
     try:
         with httpx.Client() as http_client:
             response = http_client.post(
-                f"{config.coordinator_url}/payments",
+                f"{config.coordinator_url}/v1/payments",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""
@@ -422,7 +422,7 @@ def payment_status(ctx, job_id: str):
     try:
         with httpx.Client() as http_client:
             response = http_client.get(
-                f"{config.coordinator_url}/jobs/{job_id}/payment",
+                f"{config.coordinator_url}/v1/jobs/{job_id}/payment",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             if response.status_code == 200:
@@ -448,7 +448,7 @@ def payment_receipt(ctx, payment_id: str):
     try:
         with httpx.Client() as http_client:
             response = http_client.get(
-                f"{config.coordinator_url}/payments/{payment_id}/receipt",
+                f"{config.coordinator_url}/v1/payments/{payment_id}/receipt",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             if response.status_code == 200:
@@ -476,7 +476,7 @@ def refund(ctx, job_id: str, payment_id: str, reason: str):
     try:
         with httpx.Client() as http_client:
             response = http_client.post(
-                f"{config.coordinator_url}/payments/{payment_id}/refund",
+                f"{config.coordinator_url}/v1/payments/{payment_id}/refund",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or ""

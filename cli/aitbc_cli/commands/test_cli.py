@@ -66,7 +66,7 @@ def api(ctx, endpoint, method, data):
         import httpx
         
         # Prepare request
-        url = f"{config.coordinator_url.rstrip('/')}/api/v1/{endpoint.lstrip('/')}"
+        url = f"{config.coordinator_url.rstrip('/')}/{endpoint.lstrip('/')}"
         headers = {}
         if config.api_key:
             headers['Authorization'] = f"Bearer {config.api_key}"
