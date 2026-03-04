@@ -1055,7 +1055,7 @@ Comprehensive implementation of privacy-preserving machine learning and edge GPU
 - ✅ **Performance**: Established baseline performance metrics and validated 5-10% improvements
 - ✅ **Test Coverage**: Achieved 100% CLI test pass rate (170/170 tests) with Python 3.13.5
 - ✅ **FastAPI Compatibility**: Fixed dependency annotation issues for Python 3.13.5
-- ✅ **Database Optimization**: Corrected coordinator API database path to `/home/oib/windsurf/aitbc/data/`
+- ✅ **Database Optimization**: Corrected coordinator API database path to `/home/oib/windsurf/aitbc/apps/coordinator-api/data/`
 
 ### Upgrade Impact
 - **Standardized** minimum Python version to 3.13.5 across entire codebase (SDK, crypto, APIs, CLI, infrastructure)
