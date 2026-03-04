@@ -1,21 +1,13 @@
 version: 2
-enable-beta-ecosystems: true
-registries:
-  # Use default npm registry
-  npm-registry:
-    type: npm-registry
-    url: https://registry.npmjs.org
-    replaces-base: true
-
 updates:
-  # Python dependencies
+  # Enable version updates for Python packages
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 5
     reviewers:
       - "oib"
     assignees:
@@ -23,35 +15,31 @@ updates:
     commit-message:
       prefix: "deps"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "python"
-    ignore:
-      # Allow patch updates for all dependencies
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
-      # Allow minor updates for most dependencies
-      - dependency-name: "*"
-        update-types: ["version-update:semver-minor"]
-        # But be more conservative with critical dependencies
-        except:
-          - "fastapi"
-          - "uvicorn"
-          - "sqlalchemy"
-          - "alembic"
-          - "httpx"
-          - "click"
-          - "pytest"
-          - "cryptography"
 
-  # GitHub Actions dependencies
-  - package-ecosystem: "github-actions"
+  # Enable version updates for npm packages
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 5
+    reviewers:
+      - "oib"
+    assignees:
+      - "oib"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
     reviewers:
       - "oib"
     assignees:
@@ -59,80 +47,3 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
-    labels:
-      - "dependencies"
-      - "github-actions"
-
-  # Docker dependencies (if any)
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - "oib"
-    assignees:
-      - "oib"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "docker"
-
-  # npm dependencies (for frontend components)
-  - package-ecosystem: "npm"
-    directory: "/apps/explorer-web"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "oib"
-    assignees:
-      - "oib"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "frontend"
-    ignore:
-      # Allow patch updates for all dependencies
-      - dependency-name: "*"
-        update-types: ["version-update:semver-patch"]
-      # Allow minor updates for most dependencies
-      - dependency-name: "*"
-        update-types: ["version-update:semver-minor"]
-        # But be conservative with major dependencies
-        except:
-          - "react"
-          - "vue"
-          - "angular"
-          - "typescript"
-          - "webpack"
-          - "babel"
-
-  # npm dependencies for website
-  - package-ecosystem: "npm"
-    directory: "/website"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "oib"
-    assignees:
-      - "oib"
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    labels:
-      - "dependencies"
-      - "npm"
-      - "website"

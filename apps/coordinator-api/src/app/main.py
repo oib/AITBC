@@ -28,6 +28,7 @@ from .routers import (
     edge_gpu,
     cache_management,
     agent_identity,
+    agent_router,
     global_marketplace,
     cross_chain_integration,
     global_marketplace_integration,
@@ -377,6 +378,15 @@ def create_app() -> FastAPI:
             status_code=422,
             content=error_response.model_dump()
         )
+
+    @app.get("/health", tags=["health"], summary="Root health endpoint for CLI compatibility")
+    async def root_health() -> dict[str, str]:
+        import sys
+        return {
+            "status": "ok", 
+            "env": settings.app_env,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        }
 
     @app.get("/v1/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:
