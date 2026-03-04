@@ -580,7 +580,7 @@ class WalletAPIHandler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
 
-def run_server(port=3003):
+def run_server(port=8001):
     """Run the server"""
     init_db()
     # Removed mock trades - now using only real blockchain data

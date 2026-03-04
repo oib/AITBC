@@ -49,7 +49,7 @@ except:
 # Check Blockchain
 print("\n3. ⛓️  Checking Blockchain Node...")
 try:
-    response = httpx.get("http://localhost:9080/rpc/head")
+    response = httpx.get("http://localhost:8003/rpc/head")
     if response.status_code == 200:
         data = response.json()
         print(f"   ✅ Blockchain Node active")
@@ -74,14 +74,14 @@ print("   curl http://localhost:8091/miners/list")
 print("\n   Get GPU details:")
 print("   curl http://localhost:8091/miners/localhost-gpu-miner")
 print("\n   Get blockchain info:")
-print("   curl http://localhost:9080/rpc/head")
+print("   curl http://localhost:8003/rpc/head")
 
 # Show Current Status
 print("\n6. 📈 Current System Status:")
 print("   ✅ GPU Miner: Running (systemd)")
 print("   ✅ GPU Registry: Running on port 8091")
 print("   ✅ Trade Exchange: Running on port 3002")
-print("   ✅ Blockchain Node: Running on port 9080")
+print("   ✅ Blockchain Node: Running on port 8003")
 
 print("\n" + "=" * 50)
 print("🎯 GPU is successfully integrated with the exchange!")
