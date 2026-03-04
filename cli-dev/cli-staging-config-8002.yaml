@@ -1,0 +1,8 @@
+coordinator_url: http://127.0.0.1:8002
+api_key: null
+output_format: table
+config_file: /home/oib/windsurf/aitbc/cli-dev/cli-staging-config-8002.yaml
+test_mode: true
+timeout: 30
+debug: true
+staging: true
