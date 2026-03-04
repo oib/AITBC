@@ -146,7 +146,7 @@ dev = [
     "types-requests==2.31.0",
     "types-setuptools==69.0.0",
     "types-PyYAML==6.0.12",
-    "sqlalchemy[mypy]==2.0.25"
+    "sqlalchemy[mypy]==2.0.48"
 ]
 
 [project.scripts]
