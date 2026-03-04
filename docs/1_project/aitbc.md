@@ -26,36 +26,37 @@ This guide provides comprehensive deployment instructions for the AITBC (AI Trad
   - Port 8001: Exchange API
   - Port 8002: Blockchain Node (internal)
   - Port 8003: Blockchain RPC
-- **Enhanced Services Ports**: 8010-8017 (must be available)
-  - Port 8010: Multimodal GPU Service
-  - Port 8011: GPU Multimodal Service
-  - Port 8012: Modality Optimization Service
-  - Port 8013: Adaptive Learning Service
-  - Port 8014: Marketplace Enhanced Service
-  - Port 8015: OpenClaw Enhanced Service
-  - Port 8016: Web UI Service
-  - Port 8017: Geographic Load Balancer
-- **Firewall**: Managed by firehol on at1 host (container networking handled by incus)
+- **Enhanced Services Ports**: 8010-8017 (optional - not required for CPU-only deployment)
+  - Note: Enhanced services disabled for aitbc server (no GPU access)
+  - Port 8010: Multimodal GPU (CPU-only mode) - DISABLED
+  - Port 8011: GPU Multimodal (CPU-only mode) - DISABLED
+  - Port 8012: Modality Optimization - DISABLED
+  - Port 8013: Adaptive Learning - DISABLED
+  - Port 8014: Marketplace Enhanced - DISABLED
+  - Port 8015: OpenClaw Enhanced - DISABLED
+  - Port 8016: Web UI - DISABLED
+  - Port 8017: Geographic Load Balancer - DISABLED
+  - **Firewall**: Managed by firehol on at1 host (container networking handled by incus)
 - **SSL/TLS**: Recommended for production deployments
 
 ## Architecture Overview
 
 ```
 AITBC Platform Architecture (Updated March 4, 2026)
-├── Core Services (8000-8003)
+├── Core Services (8000-8003) ✅ PRODUCTION READY
 │   ├── Coordinator API (Port 8000) ✅ PRODUCTION READY
 │   ├── Exchange API (Port 8001) ✅ PRODUCTION READY
 │   ├── Blockchain Node (Port 8002) ✅ PRODUCTION READY
 │   └── Blockchain RPC (Port 8003) ✅ PRODUCTION READY
-├── Enhanced Services (8010-8017)
-│   ├── Multimodal GPU (Port 8010) ✅ PRODUCTION READY (CPU-only mode)
-│   ├── GPU Multimodal (Port 8011) ✅ PRODUCTION READY (CPU-only mode)
-│   ├── Modality Optimization (Port 8012) ✅ PRODUCTION READY
-│   ├── Adaptive Learning (Port 8013) ✅ PRODUCTION READY
-│   ├── Marketplace Enhanced (Port 8014) ✅ PRODUCTION READY
-│   ├── OpenClaw Enhanced (Port 8015) ✅ PRODUCTION READY
-│   ├── Web UI (Port 8016) ✅ PRODUCTION READY
-│   └── Geographic Load Balancer (Port 8017) ✅ PRODUCTION READY
+├── Enhanced Services (8010-8017) ❌ DISABLED (CPU-only deployment)
+│   ├── Multimodal GPU (Port 8010) ❌ DISABLED (no GPU access)
+│   ├── GPU Multimodal (Port 8011) ❌ DISABLED (no GPU access)
+│   ├── Modality Optimization (Port 8012) ❌ DISABLED (not essential)
+│   ├── Adaptive Learning (Port 8013) ❌ DISABLED (not essential)
+│   ├── Marketplace Enhanced (Port 8014) ❌ DISABLED (not essential)
+│   ├── OpenClaw Enhanced (Port 8015) ❌ DISABLED (not essential)
+│   ├── Web UI (Port 8016) ❌ DISABLED (not essential)
+│   └── Geographic Load Balancer (Port 8017) ❌ DISABLED (complex)
 └── Infrastructure
     ├── Database (SQLite/PostgreSQL)
     ├── Monitoring & Logging
@@ -111,10 +112,11 @@ python3.13 -m venv .venv
 source .venv/bin/activate
 pip install fastapi uvicorn sqlalchemy aiosqlite sqlmodel pydantic pydantic-settings httpx aiofiles python-jose passlib bcrypt prometheus-client slowapi websockets numpy
 
-# Enhanced Services Environment (CPU-only mode)
-cd /opt/aitbc/apps/coordinator-api  # Enhanced services use same environment
-source .venv/bin/activate
-pip install aiohttp asyncio  # Additional dependencies for enhanced services
+# Enhanced Services Environment (CPU-only mode - DISABLED)
+# Note: Enhanced services disabled for aitbc server (no GPU access)
+# cd /opt/aitbc/apps/coordinator-api
+# source .venv/bin/activate
+# pip install aiohttp asyncio
 # Note: GPU-related packages (CUDA, torch) not installed - no GPU access
 ```
 
@@ -144,22 +146,22 @@ chown aitbc:aitbc .env
 sudo cp -r /opt/aitbc/systemd/* /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# Enable core services
+# Enable core services only (enhanced services disabled for CPU-only deployment)
 sudo systemctl enable aitbc-coordinator-api.service
 sudo systemctl enable aitbc-blockchain-node.service
 sudo systemctl enable aitbc-blockchain-rpc.service
 sudo systemctl enable aitbc-exchange-api.service
 sudo systemctl enable aitbc-explorer.service
 
-# Enable enhanced services
-sudo systemctl enable aitbc-multimodal-gpu.service
-sudo systemctl enable aitbc-multimodal.service
-sudo systemctl enable aitbc-modality-optimization.service
-sudo systemctl enable aitbc-adaptive-learning.service
-sudo systemctl enable aitbc-marketplace-enhanced.service
-sudo systemctl enable aitbc-openclaw-enhanced.service
-sudo systemctl enable aitbc-web-ui.service
-sudo systemctl enable aitbc-loadbalancer-geo.service
+# Note: Enhanced services disabled - no GPU access
+# sudo systemctl enable aitbc-multimodal-gpu.service      # DISABLED
+# sudo systemctl enable aitbc-multimodal.service           # DISABLED
+# sudo systemctl enable aitbc-modality-optimization.service # DISABLED
+# sudo systemctl enable aitbc-adaptive-learning.service    # DISABLED
+# sudo systemctl enable aitbc-marketplace-enhanced.service # DISABLED
+# sudo systemctl enable aitbc-openclaw-enhanced.service    # DISABLED
+# sudo systemctl enable aitbc-web-ui.service               # DISABLED
+# sudo systemctl enable aitbc-loadbalancer-geo.service      # DISABLED
 ```
 
 ### **Phase 3: Service Deployment**
@@ -180,15 +182,16 @@ sudo systemctl start aitbc-explorer.service
 
 #### 3.2 Enhanced Services Startup
 ```bash
-# Start enhanced services (new port logic)
-sudo systemctl start aitbc-multimodal-gpu.service      # Port 8010
-sudo systemctl start aitbc-multimodal.service          # Port 8011
-sudo systemctl start aitbc-modality-optimization.service # Port 8012
-sudo systemctl start aitbc-adaptive-learning.service     # Port 8013
-sudo systemctl start aitbc-marketplace-enhanced.service # Port 8014
-sudo systemctl start aitbc-openclaw-enhanced.service     # Port 8015
-sudo systemctl start aitbc-web-ui.service               # Port 8016
-sudo systemctl start aitbc-loadbalancer-geo.service      # Port 8017
+# Enhanced services DISABLED for CPU-only deployment (no GPU access)
+# Note: All enhanced services have been disabled for aitbc server
+# sudo systemctl start aitbc-multimodal-gpu.service      # DISABLED (no GPU)
+# sudo systemctl start aitbc-multimodal.service          # DISABLED (no GPU)
+# sudo systemctl start aitbc-modality-optimization.service # DISABLED (not essential)
+# sudo systemctl start aitbc-adaptive-learning.service     # DISABLED (not essential)
+# sudo systemctl start aitbc-marketplace-enhanced.service # DISABLED (not essential)
+# sudo systemctl start aitbc-openclaw-enhanced.service     # DISABLED (not essential)
+# sudo systemctl start aitbc-web-ui.service               # DISABLED (not essential)
+# sudo systemctl start aitbc-loadbalancer-geo.service      # DISABLED (complex)
 ```
 
 #### 3.3 Service Verification
@@ -197,19 +200,19 @@ sudo systemctl start aitbc-loadbalancer-geo.service      # Port 8017
 sudo systemctl list-units --type=service --state=running | grep aitbc
 
 # Test core endpoints
-curl -X GET "http://localhost:8000/v1/health"    # Coordinator API
-curl -X GET "http://localhost:8001/"               # Exchange API
-curl -X GET "http://localhost:8003/rpc/head"      # Blockchain RPC
+curl -X GET "http://localhost:8000/health"    # Coordinator API
+curl -X GET "http://localhost:8001/health"    # Exchange API
+curl -X GET "http://localhost:8003/rpc/head"  # Blockchain RPC
 
-# Test enhanced endpoints (CPU-only mode)
-curl -X GET "http://localhost:8010/health"        # Multimodal GPU (CPU mode)
-curl -X GET "http://localhost:8011/health"        # GPU Multimodal (CPU mode)
-curl -X GET "http://localhost:8012/health"        # Modality Optimization
-curl -X GET "http://localhost:8013/health"        # Adaptive Learning
-curl -X GET "http://localhost:8014/health"        # Marketplace Enhanced
-curl -X GET "http://localhost:8015/health"        # OpenClaw Enhanced
-curl -X GET "http://localhost:8016/health"        # Web UI
-curl -X GET "http://localhost:8017/health"        # Geographic Load Balancer
+# Enhanced services DISABLED - not available for testing
+# curl -X GET "http://localhost:8010/health"  # DISABLED (no GPU)
+# curl -X GET "http://localhost:8011/health"  # DISABLED (no GPU)
+# curl -X GET "http://localhost:8012/health"  # DISABLED (not essential)
+# curl -X GET "http://localhost:8013/health"  # DISABLED (not essential)
+# curl -X GET "http://localhost:8014/health"  # DISABLED (not essential)
+# curl -X GET "http://localhost:8015/health"  # DISABLED (not essential)
+# curl -X GET "http://localhost:8016/health"  # DISABLED (not essential)
+# curl -X GET "http://localhost:8017/health"  # DISABLED (complex)
 ```
 
 ### **Phase 4: Production Configuration**
@@ -540,9 +543,9 @@ sudo systemctl start aitbc-*.service
 - [ ] Services enabled and started
 
 ### **✅ Post-Deployment**
-- [ ] All 12 services running
+- [ ] All 4 core services running
 - [ ] Core API endpoints responding (8000-8003)
-- [ ] Enhanced services endpoints responding (8010-8017)
+- [ ] Enhanced services disabled (CPU-only deployment)
 - [ ] Database operational
 - [ ] Container access working (0.0.0.0 binding)
 - [ ] Monitoring working
@@ -550,13 +553,14 @@ sudo systemctl start aitbc-*.service
 - [ ] Security configured
 
 ### **✅ Testing**
-- [ ] Health endpoints responding for all services
+- [ ] Health endpoints responding for core services
 - [ ] API functionality verified
 - [ ] Database operations working
 - [ ] External access via proxy working
 - [ ] SSL certificates valid
 - [ ] Performance acceptable
 - [ ] Container connectivity verified
+- [ ] Enhanced services confirmed disabled (CPU-only deployment)
 
 ## Documentation References
 
@@ -569,9 +573,10 @@ sudo systemctl start aitbc-*.service
 
 ---
 
-**Version**: 2.0 (Updated for new port logic)  
+**Version**: 2.0 (Updated for CPU-only deployment)  
 **Last Updated**: 2026-03-04  
 **Maintainer**: AITBC Development Team  
-**Status**: ✅ PRODUCTION READY  
+**Status**: ✅ PRODUCTION READY (CPU-only mode)  
 **GPU Access**: None (CPU-only mode)  
-**Miner Service**: Not needed
+**Miner Service**: Not needed  
+**Enhanced Services**: Disabled (optimized deployment)
