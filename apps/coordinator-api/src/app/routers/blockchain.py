@@ -7,7 +7,7 @@ logger = get_logger(__name__)
 router = APIRouter(tags=["blockchain"])
 
 
-@router.get("/blockchain/status")
+@router.get("/status")
 async def blockchain_status():
     """Get blockchain status."""
     try:
@@ -38,15 +38,40 @@ async def blockchain_status():
         }
 
 
-@router.get("/blockchain/sync")
-async def blockchain_sync():
-    """Trigger blockchain sync."""
+@router.get("/sync-status")
+async def blockchain_sync_status():
+    """Get blockchain synchronization status."""
     try:
-        # For now, just return status
-        return {
-            "status": "sync_triggered",
-            "message": "Blockchain sync initiated"
-        }
+        # Try to get sync status from RPC
+        import httpx
+
+        async with httpx.AsyncClient() as client:
+            response = await client.get("http://localhost:8003/rpc/sync", timeout=5.0)
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    "status": "syncing" if data.get("syncing", False) else "synced",
+                    "current_height": data.get("current_height", 0),
+                    "target_height": data.get("target_height", 0),
+                    "sync_percentage": data.get("sync_percentage", 100.0),
+                    "last_block": data.get("last_block", {})
+                }
+            else:
+                return {
+                    "status": "error",
+                    "error": f"RPC returned {response.status_code}",
+                    "syncing": False,
+                    "current_height": 0,
+                    "target_height": 0,
+                    "sync_percentage": 0.0
+                }
     except Exception as e:
-        logger.error(f"Blockchain sync error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Blockchain sync status error: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "syncing": False,
+            "current_height": 0,
+            "target_height": 0,
+            "sync_percentage": 0.0
+        }
