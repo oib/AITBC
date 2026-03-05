@@ -1,10 +1,10 @@
 # AITBC Infrastructure Documentation
 
-> Last updated: 2026-03-04 (Updated for new port logic and production-ready codebase)
+> Last updated: 2026-03-05 (Updated for port logic 8000+, Concrete ML compatibility issue documented)
 
 ## Overview
 
-Two-tier architecture: **incus host (at1)** runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services. **Updated for new port logic implementation (8000-8003, 8010-8017) and production-ready codebase.**
+Two-tier architecture: **incus host (at1)** runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services. **Updated for port logic 8000+ implementation with unified numbering scheme and production-ready codebase.**
 
 ```
 Internet → aitbc.bubuit.net (HTTPS :443)
@@ -242,12 +242,27 @@ ssh aitbc-cascade                    # Direct SSH to container
 - `127.0.0.1:18000` → container `127.0.0.1:8000` (coordinator/marketplace API)
 - Use this to submit offers/bids/contracts/mining requests from localhost GPU miners/dev clients.
 
-**Container Services (Updated March 4, 2026)**
-- **12 Services**: All 12 services operational with new port logic
+**Container Services (Updated March 5, 2026 - Port Logic 8000+)**
+- **12 Services**: All 12 services operational with unified port logic
 - **Core Services**: 8000-8003 (Coordinator, Exchange, Blockchain Node, RPC)
 - **Enhanced Services**: 8010-8017 (GPU services in CPU-only mode, Web UI, Load Balancer)
+- **Port Logic**: All services use 8000+ numbering scheme for consistency
 - **0.0.0.0 Binding**: All services bind to 0.0.0.0 for container access
 - **Production Ready**: All services marked as production ready
+
+**Port Logic Breakdown:**
+- **8000**: Coordinator API (main API gateway)
+- **8001**: Exchange API (Bitcoin exchange operations)
+- **8002**: Blockchain Node (P2P node service)
+- **8003**: Blockchain RPC (JSON-RPC interface)
+- **8010**: Multimodal GPU (AI processing)
+- **8011**: GPU Multimodal (multi-modal AI)
+- **8012**: Modality Optimization (AI optimization)
+- **8013**: Adaptive Learning (machine learning)
+- **8014**: Marketplace Enhanced (advanced marketplace)
+- **8015**: OpenClaw Enhanced (agent marketplace)
+- **8016**: Web UI (dashboard interface)
+- **8017**: Geographic Load Balancer (traffic distribution)
 
 ## Container: aitbc1 (10.1.223.40) — New Dev Server
 
@@ -288,10 +303,10 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
   - `client --id client-2 --api http://127.0.0.1:18001 --ollama-model <model>`
 
 
-### Services
+### Services (Port Logic 8000+)
 
-| Service | Port | Process | Python Version | Public URL | Status |
-|---------|------|---------|----------------|------------|--------|
+| Service | Port (8000+) | Process | Python Version | Public URL | Status |
+|---------|-------------|---------|----------------|------------|--------|
 | Nginx (web) | 80 | nginx | N/A | https://aitbc.bubuit.net/ | ✅ |
 | Coordinator API | 8000 | python (uvicorn) | 3.13.5 | /api/ → /v1/ | ✅ |
 | Exchange API | 8001 | python (uvicorn) | 3.13.5 | /api/exchange/* | ✅ |
@@ -306,13 +321,15 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 | Web UI | 8016 | python | 3.13.5 | /app/ | ✅ |
 | Geographic Load Balancer | 8017 | python | 3.13.5 | /api/loadbalancer/* | ✅ |
 
-**Python 3.13.5 and Node.js 22+ Upgrade Complete** (2026-03-04):
+**Python 3.13.5 and Node.js 22+ Upgrade Complete** (2026-03-05):
 - All services upgraded to Python 3.13.5
 - Node.js upgraded to 22+ (current tested: v22.22.x)
 - Virtual environments updated and verified
 - API routing fixed for external access
 - Services fully operational with enhanced performance
-- New port logic implemented: Core Services (8000+), Enhanced Services (8010+)
+- **Port Logic 8000+**: Unified numbering scheme implemented
+  - Core Services: 8000-8003 (Coordinator, Exchange, Blockchain, RPC)
+  - Enhanced Services: 8010-8017 (AI, GPU, Web UI, Load Balancer)
 - GPU services configured for CPU-only mode
 - Miner service removed - not needed
 - 0.0.0.0 binding enabled for container access
@@ -430,6 +447,55 @@ Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
 - Coordinator API: `/opt/aitbc/apps/coordinator-api/.env`
 - Exchange API: `/opt/aitbc/apps/exchange/.env`
 - Enhanced Services: Environment variables in respective service files
+
+## Known Limitations and Compatibility Issues
+
+### Concrete ML Python 3.13 Compatibility
+
+**Status**: ⚠️ **Known Limitation**  
+**Severity**: 🟡 **Medium** (Functional limitation, no security impact)  
+**Date Identified**: March 5, 2026
+
+#### Issue Description
+The Coordinator API service logs a warning about Concrete ML not being installed due to Python version incompatibility:
+
+```
+WARNING:root:Concrete ML not installed; skipping Concrete provider. Concrete ML requires Python <3.13. Current version: 3.13.5
+```
+
+#### Technical Details
+- **Affected Component**: Coordinator API FHE (Fully Homomorphic Encryption) Service
+- **Root Cause**: Concrete ML library requires Python <3.13, but AITBC runs on Python 3.13.5
+- **Impact**: Limited to Concrete ML FHE provider; TenSEAL provider continues to work normally
+- **Current Status**: Service operates normally with TenSEAL provider only
+
+#### Compatibility Matrix
+| Python Version | Concrete ML Support | AITBC Status |
+|---------------|-------------------|--------------|
+| 3.8.x - 3.12.x | ✅ Supported | ❌ Not used |
+| 3.13.x | ❌ Not Supported | ✅ Current version |
+| 3.14+ | ❌ Unknown | ❌ Future consideration |
+
+#### Functional Impact
+- **FHE Operations**: ✅ **No Impact** - TenSEAL provides full FHE functionality
+- **API Endpoints**: ✅ **No Impact** - All FHE endpoints work normally
+- **Performance**: ✅ **No Impact** - TenSEAL performance is excellent
+- **Security**: ✅ **No Impact** - Encryption schemes remain secure
+
+#### Feature Limitations
+- **Neural Network Compilation**: ❌ **Unavailable** - Concrete ML specific feature
+- **Advanced ML Models**: ⚠️ **Limited** - Some complex models may require Concrete ML
+- **Research Features**: ❌ **Unavailable** - Experimental Concrete ML features
+
+#### Resolution Strategy
+- **Short Term**: Continue with TenSEAL-only implementation (already in place)
+- **Medium Term**: Monitor Concrete ML for Python 3.13 compatibility updates
+- **Long Term**: Consider dual Python environment if business need arises
+
+#### Related Documentation
+- See `docs/12_issues/concrete-ml-compatibility.md` for detailed technical analysis
+- Monitoring and alerting configured for service health
+- No user-facing impact or action required
 
 ## Remote Site (ns3)
 

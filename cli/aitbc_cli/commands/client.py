@@ -48,7 +48,7 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
         try:
             with httpx.Client() as client:
                 response = client.post(
-                    f"{config.coordinator_url}/api/v1/jobs",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""

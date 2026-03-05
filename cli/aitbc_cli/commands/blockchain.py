@@ -78,20 +78,54 @@ def blocks(ctx, limit: int, from_height: Optional[int]):
 @click.pass_context
 def block(ctx, block_hash: str):
     """Get details of a specific block"""
-    config = ctx.obj['config']
-    
     try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8082"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
+        # Try to get block from local blockchain node
         with httpx.Client() as client:
+            # First try to get block by hash
             response = client.get(
-                f"{config.coordinator_url}/explorer/blocks/{block_hash}",
-                headers={"X-Api-Key": config.api_key or ""}
+                f"{node_url}/rpc/blocks/by_hash/{block_hash}",
+                timeout=5
             )
             
             if response.status_code == 200:
                 block_data = response.json()
                 output(block_data, ctx.obj['output_format'])
             else:
-                error(f"Block not found: {response.status_code}")
+                # If by_hash not available, try to get by height (if hash looks like a number)
+                try:
+                    height = int(block_hash)
+                    response = client.get(f"{node_url}/rpc/blocks/{height}", timeout=5)
+                    if response.status_code == 200:
+                        block_data = response.json()
+                        output(block_data, ctx.obj['output_format'])
+                    else:
+                        error(f"Block not found: {response.status_code}")
+                except ValueError:
+                    # Not a number, try to find block by scanning recent blocks
+                    head_response = client.get(f"{node_url}/rpc/head", timeout=5)
+                    if head_response.status_code == 200:
+                        head_data = head_response.json()
+                        current_height = head_data.get('height', 0)
+                        
+                        # Search recent blocks (last 10)
+                        for h in range(max(0, current_height - 10), current_height + 1):
+                            block_response = client.get(f"{node_url}/rpc/blocks/{h}", timeout=5)
+                            if block_response.status_code == 200:
+                                block_data = block_response.json()
+                                if block_data.get('hash') == block_hash:
+                                    output(block_data, ctx.obj['output_format'])
+                                    return
+                        
+                        error(f"Block not found: {response.status_code}")
+                    else:
+                        error(f"Failed to get head block: {head_response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
 
