@@ -110,7 +110,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `blockchain validators` — List blockchain validators
 
 ### **chain** — Multi-Chain Management
-- [ ] `chain add` — Add a chain to a specific node
+- [x] `chain add` — Add a chain to a specific node
 - [ ] `chain backup` — Backup chain data
 - [ ] `chain create` — Create a new chain from configuration file
 - [ ] `chain delete` — Delete a chain permanently
@@ -122,7 +122,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `chain restore` — Restore chain from backup
 
 ### **genesis** — Genesis Block Generation and Management
-- [ ] `genesis create` — Create genesis block from configuration
+- [x] `genesis create` — Create genesis block from configuration
 - [ ] `genesis create-template` — Create a new genesis template
 - [ ] `genesis export` — Export genesis block for a chain
 - [ ] `genesis hash` — Calculate genesis hash
@@ -195,7 +195,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `marketplace test` — OpenClaw marketplace testing operations
 
 ### **miner** — Mining Operations and Job Processing
-- [ ] `miner concurrent-mine` — Mine with concurrent job processing
+- [x] `miner concurrent-mine` — Mine with concurrent job processing
 - [ ] `miner deregister` — Deregister miner from the coordinator
 - [ ] `miner earnings` — Show miner earnings
 - [ ] `miner heartbeat` — Send heartbeat to coordinator
