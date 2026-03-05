@@ -30,25 +30,45 @@ def blockchain():
 @click.pass_context
 def blocks(ctx, limit: int, from_height: Optional[int]):
     """List recent blocks"""
-    config = ctx.obj['config']
-    
     try:
-        params = {"limit": limit}
-        if from_height:
-            params["from_height"] = from_height
-            
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8082"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
+        # Get blocks from the local blockchain node
         with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/explorer/blocks",
-                params=params,
-                headers={"X-Api-Key": config.api_key or ""}
-            )
+            if from_height:
+                # Get blocks range
+                response = client.get(
+                    f"{node_url}/rpc/blocks-range",
+                    params={"from_height": from_height, "limit": limit},
+                    timeout=5
+                )
+            else:
+                # Get recent blocks starting from head
+                response = client.get(
+                    f"{node_url}/rpc/blocks-range",
+                    params={"limit": limit},
+                    timeout=5
+                )
             
             if response.status_code == 200:
-                data = response.json()
-                output(data, ctx.obj['output_format'])
+                blocks_data = response.json()
+                output(blocks_data, ctx.obj['output_format'])
             else:
-                error(f"Failed to fetch blocks: {response.status_code}")
+                # Fallback to getting head block if range not available
+                head_response = client.get(f"{node_url}/rpc/head", timeout=5)
+                if head_response.status_code == 200:
+                    head_data = head_response.json()
+                    output({
+                        "blocks": [head_data],
+                        "message": f"Showing head block only (height {head_data.get('height', 'unknown')})"
+                    }, ctx.obj['output_format'])
+                else:
+                    error(f"Failed to get blocks: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -166,20 +186,32 @@ def sync_status(ctx):
 @click.pass_context
 def peers(ctx):
     """List connected peers"""
-    config = ctx.obj['config']
-    
     try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8082"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
+        # Try to get peers from the local blockchain node
         with httpx.Client() as client:
+            # First try the RPC endpoint for peers
             response = client.get(
-                f"{config.coordinator_url}/v1/health",
-                headers={"X-Api-Key": config.api_key or ""}
+                f"{node_url}/rpc/peers",
+                timeout=5
             )
             
             if response.status_code == 200:
                 peers_data = response.json()
                 output(peers_data, ctx.obj['output_format'])
             else:
-                error(f"Failed to get peers: {response.status_code}")
+                # If no peers endpoint, return meaningful message
+                output({
+                    "peers": [],
+                    "message": "No P2P peers available - node running in RPC-only mode",
+                    "node_url": node_url
+                }, ctx.obj['output_format'])
     except Exception as e:
         error(f"Network error: {e}")
 
