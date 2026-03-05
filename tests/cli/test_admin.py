@@ -25,6 +25,27 @@ def mock_config():
 class TestAdminCommands:
     """Test admin command group"""
     
+    def test_admin_help(self, runner):
+        """Test admin command help output"""
+        result = runner.invoke(admin, ['--help'])
+        
+        assert result.exit_code == 0
+        assert 'System administration commands' in result.output
+        assert 'status' in result.output
+        assert 'jobs' in result.output
+        assert 'miners' in result.output
+        assert 'maintenance' in result.output
+
+    def test_admin_no_args(self, runner):
+        """Test admin command with no args shows help"""
+        result = runner.invoke(admin)
+        
+        # Click returns exit code 2 when a required command is missing but still prints help for groups
+        assert result.exit_code == 2
+        assert 'System administration commands' in result.output
+        assert 'status' in result.output
+        assert 'jobs' in result.output
+
     @patch('aitbc_cli.commands.admin.httpx.Client')
     def test_status_success(self, mock_client_class, runner, mock_config):
         """Test successful system status check"""

@@ -17,11 +17,11 @@ def genesis():
 
 @genesis.command()
 @click.argument('config_file', type=click.Path(exists=True))
-@click.option('--output', '-o', help='Output file path')
+@click.option('--output', '-o', 'output_file', help='Output file path')
 @click.option('--template', help='Use predefined template')
 @click.option('--format', type=click.Choice(['json', 'yaml']), default='json', help='Output format')
 @click.pass_context
-def create(ctx, config_file, output, template, format):
+def create(ctx, config_file, output_file, template, format):
     """Create genesis block from configuration"""
     try:
         config = load_multichain_config()
@@ -39,13 +39,13 @@ def create(ctx, config_file, output, template, format):
             genesis_block = generator.create_genesis(genesis_config)
         
         # Determine output file
-        if output is None:
+        if output_file is None:
             chain_id = genesis_block.chain_id
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output = f"genesis_{chain_id}_{timestamp}.{format}"
+            output_file = f"genesis_{chain_id}_{timestamp}.{format}"
         
         # Save genesis block
-        output_path = Path(output)
+        output_path = Path(output_file)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         
         if format == 'yaml':
@@ -62,7 +62,7 @@ def create(ctx, config_file, output, template, format):
             "Purpose": genesis_block.purpose,
             "Name": genesis_block.name,
             "Genesis Hash": genesis_block.hash,
-            "Output File": output,
+            "Output File": output_file,
             "Format": format
         }
         
