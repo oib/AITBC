@@ -175,35 +175,39 @@ def result(ctx, job_id: str, wait: bool, timeout: int):
     start = time.time()
     while True:
         try:
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{config.coordinator_url}/v1/jobs/{job_id}",
+            with httpx.Client() as http:
+                # Try the dedicated result endpoint first
+                response = http.get(
+                    f"{config.coordinator_url}/v1/jobs/{job_id}/result",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 
                 if response.status_code == 200:
-                    job_data = response.json()
-                    state = job_data.get("state", "UNKNOWN")
-                    
-                    if state == "COMPLETED":
-                        result_data = job_data.get("result")
-                        if result_data:
-                            success(f"Job {job_id} completed")
-                            output(result_data, ctx.obj['output_format'])
-                        else:
-                            output({"job_id": job_id, "state": state, "result": None}, ctx.obj['output_format'])
-                        return
-                    elif state in ("FAILED", "EXPIRED"):
-                        error(f"Job {job_id} {state}: {job_data.get('error', 'no details')}")
-                        return
-                    elif wait and (time.time() - start) < timeout:
+                    result_data = response.json()
+                    success(f"Job {job_id} completed")
+                    output(result_data, ctx.obj['output_format'])
+                    return
+                elif response.status_code == 425:
+                    # Job not ready yet
+                    if wait and (time.time() - start) < timeout:
                         time.sleep(3)
                         continue
+                    # Check status for more info
+                    status_resp = http.get(
+                        f"{config.coordinator_url}/v1/jobs/{job_id}",
+                        headers={"X-Api-Key": config.api_key or ""}
+                    )
+                    if status_resp.status_code == 200:
+                        job_data = status_resp.json()
+                        output({"job_id": job_id, "state": job_data.get("state", "UNKNOWN"), "message": "Job not yet completed"}, ctx.obj['output_format'])
                     else:
-                        output({"job_id": job_id, "state": state, "message": "Job not yet completed"}, ctx.obj['output_format'])
-                        return
+                        error(f"Job not ready (425)")
+                    return
+                elif response.status_code == 404:
+                    error(f"Job {job_id} not found")
+                    return
                 else:
-                    error(f"Failed to get job: {response.status_code}")
+                    error(f"Failed to get result: {response.status_code}")
                     return
         except Exception as e:
             error(f"Network error: {e}")
