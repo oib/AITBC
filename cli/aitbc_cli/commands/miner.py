@@ -9,10 +9,18 @@ from typing import Optional, Dict, Any, List
 from ..utils import output, error, success
 
 
-@click.group()
-def miner():
+@click.group(invoke_without_command=True)
+@click.pass_context
+def miner(ctx):
     """Register as miner and process jobs"""
-    pass
+    # Set role for miner commands - this will be used by parent context
+    ctx.ensure_object(dict)
+    # Set role at the highest level context (CLI root)
+    ctx.find_root().detected_role = 'miner'
+    
+    # If no subcommand was invoked, show help
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
 
 
 @miner.command()

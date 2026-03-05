@@ -9,9 +9,12 @@ from ..utils import output, error, success
 
 
 @click.group()
-def client():
+@click.pass_context
+def client(ctx):
     """Submit and manage jobs"""
-    pass
+    # Set role for client commands
+    ctx.ensure_object(dict)
+    ctx.parent.detected_role = 'client'
 
 
 @client.command()

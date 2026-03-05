@@ -13,6 +13,7 @@ class Config:
     """Configuration object for AITBC CLI"""
     coordinator_url: str = "http://127.0.0.1:8000"
     api_key: Optional[str] = None
+    role: Optional[str] = None  # admin, client, miner, etc.
     config_dir: Path = field(default_factory=lambda: Path.home() / ".aitbc")
     config_file: Optional[str] = None
     
@@ -21,9 +22,12 @@ class Config:
         # Load environment variables
         load_dotenv()
         
-        # Set default config file if not specified
+        # Set default config file based on role if not specified
         if not self.config_file:
-            self.config_file = str(self.config_dir / "config.yaml")
+            if self.role:
+                self.config_file = str(self.config_dir / f"{self.role}-config.yaml")
+            else:
+                self.config_file = str(self.config_dir / "config.yaml")
         
         # Load config from file if it exists
         self.load_from_file()
@@ -33,6 +37,8 @@ class Config:
             self.coordinator_url = os.getenv("AITBC_URL")
         if os.getenv("AITBC_API_KEY"):
             self.api_key = os.getenv("AITBC_API_KEY")
+        if os.getenv("AITBC_ROLE"):
+            self.role = os.getenv("AITBC_ROLE")
     
     def load_from_file(self):
         """Load configuration from YAML file"""
@@ -43,6 +49,7 @@ class Config:
                     
                 self.coordinator_url = data.get('coordinator_url', self.coordinator_url)
                 self.api_key = data.get('api_key', self.api_key)
+                self.role = data.get('role', self.role)
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}")
     
@@ -59,10 +66,13 @@ class Config:
             'api_key': self.api_key
         }
         
+        if self.role:
+            data['role'] = self.role
+        
         with open(self.config_file, 'w') as f:
             yaml.dump(data, f, default_flow_style=False)
 
 
-def get_config(config_file: Optional[str] = None) -> Config:
-    """Get configuration instance"""
-    return Config(config_file=config_file)
+def get_config(config_file: Optional[str] = None, role: Optional[str] = None) -> Config:
+    """Get configuration instance with optional role"""
+    return Config(config_file=config_file, role=role)
