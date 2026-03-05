@@ -139,29 +139,29 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `client batch-submit` — Submit multiple jobs from CSV/JSON file
 - [ ] `client blocks` — List recent blocks
 - [ ] `client cancel` — Cancel a job
-- [ ] `client history` — Show job history with filtering options
-- [ ] `client pay` — Create a payment for a job
+- [x] `client history` — Show job history with filtering options
+- [x] `client pay` — Create a payment for a job
 - [ ] `client payment-receipt` — Get payment receipt with verification
-- [ ] `client payment-status` — Get payment status for a job
-- [ ] `client receipts` — List job receipts
+- [x] `client payment-status` — Get payment status for a job
+- [x] `client receipts` — List job receipts
 - [ ] `client refund` — Request a refund for a payment
-- [ ] `client result` — Retrieve the result of a completed job
-- [ ] `client status` — Check job status
-- [ ] `client submit` — Submit a job to the coordinator
+- [x] `client result` — Retrieve the result of a completed job
+- [x] `client status` — Check job status
+- [x] `client submit` — Submit a job to the coordinator
 - [ ] `client template` — Manage job templates for repeated tasks
 
 ### **wallet** — Wallet and Transaction Management
-- [ ] `wallet address` — Show wallet address
+- [x] `wallet address` — Show wallet address
 - [ ] `wallet backup` — Backup a wallet
-- [ ] `wallet balance` — Check wallet balance
-- [ ] `wallet create` — Create a new wallet
+- [x] `wallet balance` — Check wallet balance
+- [x] `wallet create` — Create a new wallet
 - [ ] `wallet delete` — Delete a wallet
 - [ ] `wallet earn` — Add earnings from completed job
 - [ ] `wallet history` — Show transaction history
 - [ ] `wallet info` — Show current wallet information
 - [ ] `wallet liquidity-stake` — Stake tokens into a liquidity pool
 - [ ] `wallet liquidity-unstake` — Withdraw from liquidity pool with rewards
-- [ ] `wallet list` — List all wallets
+- [x] `wallet list` — List all wallets
 - [ ] `wallet multisig-challenge` — Create cryptographic challenge for multisig
 - [ ] `wallet multisig-create` — Create a multi-signature wallet
 - [ ] `wallet multisig-propose` — Propose a multisig transaction
@@ -186,10 +186,10 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `marketplace agents` — OpenClaw agent marketplace operations
 - [ ] `marketplace bid` — Marketplace bid operations
 - [ ] `marketplace governance` — OpenClaw agent governance operations
-- [ ] `marketplace gpu` — GPU marketplace operations
-- [ ] `marketplace offers` — Marketplace offers operations
-- [ ] `marketplace orders` — List marketplace orders
-- [ ] `marketplace pricing` — Get pricing information for GPU model
+- [x] `marketplace gpu` — GPU marketplace operations
+- [x] `marketplace offers` — Marketplace offers operations
+- [x] `marketplace orders` — List marketplace orders
+- [x] `marketplace pricing` — Get pricing information for GPU model
 - [ ] `marketplace review` — Add a review for a GPU
 - [ ] `marketplace reviews` — Get GPU reviews
 - [ ] `marketplace test` — OpenClaw marketplace testing operations
@@ -268,7 +268,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ## 🔧 System & Configuration Commands
 
 ### **config** — CLI Configuration Management
-- [ ] `config edit` — Open configuration file in editor
+- [x] `config edit` — Open configuration file in editor
 - [ ] `config environments` — List available environments
 - [ ] `config export` — Export configuration
 - [ ] `config get-secret` — Get a decrypted configuration value
@@ -276,16 +276,16 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `config path` — Show configuration file path
 - [ ] `config profiles` — Manage configuration profiles
 - [ ] `config reset` — Reset configuration to defaults
-- [ ] `config set` — Set configuration value
+- [x] `config set` — Set configuration value
 - [ ] `config set-secret` — Set an encrypted configuration value
-- [ ] `config show` — Show current configuration
+- [x] `config show` — Show current configuration
 - [ ] `config validate` — Validate configuration
 
 ### **monitor** — Monitoring, Metrics, and Alerting
 - [ ] `monitor alerts` — Configure monitoring alerts
 - [ ] `monitor campaign-stats` — Campaign performance metrics (TVL, participants, rewards)
 - [ ] `monitor campaigns` — List active incentive campaigns
-- [ ] `monitor dashboard` — Real-time system dashboard
+- [x] `monitor dashboard` — Real-time system dashboard (partially working, 404 on coordinator)
 - [ ] `monitor history` — Historical data analysis
 - [ ] `monitor metrics` — Collect and display system metrics
 - [ ] `monitor webhooks` — Manage webhook notifications
@@ -294,7 +294,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `node add` — Add a new node to configuration
 - [ ] `node chains` — List chains hosted on all nodes
 - [ ] `node info` — Get detailed node information
-- [ ] `node list` — List all configured nodes
+- [x] `node list` — List all configured nodes
 - [ ] `node monitor` — Monitor node activity
 - [ ] `node remove` — Remove a node from configuration
 - [ ] `node test` — Test connectivity to a node
@@ -304,18 +304,18 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ## 🧪 Testing & Development Commands
 
 ### **test** — Testing and Debugging Commands for AITBC CLI
-- [ ] `test api` — Test API connectivity
+- [x] `test api` — Test API connectivity
 - [ ] `test blockchain` — Test blockchain functionality
-- [ ] `test diagnostics` — Run comprehensive diagnostics
+- [x] `test diagnostics` — Run comprehensive diagnostics (100% pass)
 - [ ] `test environment` — Test CLI environment and configuration
 - [ ] `test integration` — Run integration tests
 - [ ] `test job` — Test job submission and management
 - [ ] `test marketplace` — Test marketplace functionality
-- [ ] `test mock` — Generate mock data for testing
+- [x] `test mock` — Generate mock data for testing
 - [ ] `test wallet` — Test wallet functionality
 
 ### **simulate** — Simulations and Test User Management
-- [ ] `simulate init` — Initialize test economy
+- [x] `simulate init` — Initialize test economy
 - [ ] `simulate load-test` — Run load test
 - [ ] `simulate results` — Show simulation results
 - [ ] `simulate scenario` — Run predefined scenario
@@ -324,7 +324,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 
 ### **plugin** — CLI Plugin Management
 - [ ] `plugin install` — Install a plugin from a Python file
-- [ ] `plugin list` — List installed plugins
+- [x] `plugin list` — List installed plugins
 - [ ] `plugin toggle` — Enable or disable a plugin
 - [ ] `plugin uninstall` — Uninstall a plugin
 
