@@ -9,6 +9,17 @@ from typing import Optional
 
 from . import __version__
 from .config import get_config
+
+
+def with_role(role: str):
+    """Decorator to set role for command groups"""
+    def decorator(func):
+        @click.pass_context
+        def wrapper(ctx, *args, **kwargs):
+            ctx.parent.detected_role = role
+            return func(ctx, *args, **kwargs)
+        return wrapper
+    return decorator
 from .utils import output, setup_logging
 from .commands.client import client
 from .commands.miner import miner
@@ -107,8 +118,26 @@ def cli(ctx, url: Optional[str], api_key: Optional[str], output: str,
     # Setup logging based on verbosity
     log_level = setup_logging(verbose, debug)
     
-    # Load configuration
-    config = get_config(config_file)
+    # Detect role from command name (before config is loaded)
+    role = None
+    
+    # Check invoked_subcommand first
+    if ctx.invoked_subcommand:
+        if ctx.invoked_subcommand == 'client':
+            role = 'client'
+        elif ctx.invoked_subcommand == 'miner':
+            role = 'miner'
+        elif ctx.invoked_subcommand == 'blockchain':
+            role = 'blockchain'
+        elif ctx.invoked_subcommand == 'admin':
+            role = 'admin'
+    
+    # Also check if role was already set by command group
+    if not role:
+        role = getattr(ctx, 'detected_role', None)
+    
+    # Load configuration with role
+    config = get_config(config_file, role=role)
     
     # Override config with command line options
     if url:

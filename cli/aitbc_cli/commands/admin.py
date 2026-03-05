@@ -8,9 +8,12 @@ from ..utils import output, error, success
 
 
 @click.group()
-def admin():
+@click.pass_context
+def admin(ctx):
     """System administration commands"""
-    pass
+    # Set role for admin commands
+    ctx.ensure_object(dict)
+    ctx.parent.detected_role = 'admin'
 
 
 @admin.command()

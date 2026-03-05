@@ -11,6 +11,25 @@
 - **Monitor Dashboard**: ✅ Fixed (404 error resolved, now working)
 - **Blockchain Sync**: ✅ Fixed (404 error resolved, now working)
 
+### ✅ Pydantic Issues: RESOLVED (March 5, 2026)
+- **Root Cause**: Invalid response type annotation `dict[str, any]` in admin router
+- **Fix Applied**: Changed to `dict` type and added missing `Header` import
+- **SessionDep Configuration**: Fixed with string annotations to avoid ForwardRef issues
+- **Verification**: Full API now works with all routers enabled
+- **OpenAPI Generation**: ✅ Working - All endpoints documented
+- **Service Management**: ✅ Complete - Systemd service running properly
+
+### ✅ Role-Based Configuration: IMPLEMENTED (March 5, 2026)
+- **Problem Solved**: Different CLI commands now use separate API keys
+- **Configuration Files**: 
+  - `~/.aitbc/client-config.yaml` - Client operations
+  - `~/.aitbc/admin-config.yaml` - Admin operations
+  - `~/.aitbc/miner-config.yaml` - Miner operations
+  - `~/.aitbc/blockchain-config.yaml` - Blockchain operations
+- **API Keys**: Dedicated keys for each role (client, admin, miner, blockchain)
+- **Automatic Detection**: Command groups automatically load appropriate config
+- **Override Priority**: CLI options > Environment > Role config > Default config
+
 ### ✅ Performance Testing: Complete
 - **Load Testing**: ✅ Comprehensive testing completed
 - **Response Time**: ✅ <50ms for health endpoints
