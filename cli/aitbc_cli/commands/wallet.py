@@ -487,33 +487,69 @@ def balance(ctx):
     if config:
         try:
             with httpx.Client() as client:
-                # Use mintFaucet with 1 amount to get balance info (hack until proper balance API works)
-                response = client.post(
-                    f"{config.coordinator_url.rstrip('/')}/rpc/admin/mintFaucet?chain_id=ait-devnet",
-                    json={"address": wallet_data["address"], "amount": 1},
-                    timeout=5,
-                )
+                # Try multiple balance query methods
+                blockchain_balance = None
                 
-                if response.status_code == 200:
-                    try:
+                # Method 1: Try direct balance endpoint
+                try:
+                    response = client.get(
+                        f"{config.coordinator_url.rstrip('/')}/rpc/getBalance/{wallet_data['address']}?chain_id=ait-devnet",
+                        timeout=5,
+                    )
+                    if response.status_code == 200:
                         result = response.json()
                         blockchain_balance = result.get("balance", 0)
-                        # Subtract the 1 we just added to get actual balance
-                        if blockchain_balance > 0:
-                            blockchain_balance -= 1
-                        output(
-                            {
-                                "wallet": wallet_name,
-                                "address": wallet_data["address"],
-                                "local_balance": wallet_data.get("balance", 0),
-                                "blockchain_balance": blockchain_balance,
-                                "synced": wallet_data.get("balance", 0) == blockchain_balance,
-                            },
-                            ctx.obj.get("output_format", "table"),
+                except Exception:
+                    pass
+                
+                # Method 2: Try addresses list endpoint
+                if blockchain_balance is None:
+                    try:
+                        response = client.get(
+                            f"{config.coordinator_url.rstrip('/')}/rpc/addresses?chain_id=ait-devnet",
+                            timeout=5,
                         )
-                        return
+                        if response.status_code == 200:
+                            addresses = response.json()
+                            if isinstance(addresses, list):
+                                for addr_info in addresses:
+                                    if addr_info.get("address") == wallet_data["address"]:
+                                        blockchain_balance = addr_info.get("balance", 0)
+                                        break
                     except Exception:
                         pass
+                
+                # Method 3: Use faucet as balance check (last resort)
+                if blockchain_balance is None:
+                    try:
+                        response = client.post(
+                            f"{config.coordinator_url.rstrip('/')}/rpc/admin/mintFaucet?chain_id=ait-devnet",
+                            json={"address": wallet_data["address"], "amount": 1},
+                            timeout=5,
+                        )
+                        if response.status_code == 200:
+                            result = response.json()
+                            blockchain_balance = result.get("balance", 0)
+                            # Subtract the 1 we just added
+                            if blockchain_balance > 0:
+                                blockchain_balance -= 1
+                    except Exception:
+                        pass
+                
+                # If we got a blockchain balance, show it
+                if blockchain_balance is not None:
+                    output(
+                        {
+                            "wallet": wallet_name,
+                            "address": wallet_data["address"],
+                            "local_balance": wallet_data.get("balance", 0),
+                            "blockchain_balance": blockchain_balance,
+                            "synced": wallet_data.get("balance", 0) == blockchain_balance,
+                            "note": "Blockchain balance synced" if wallet_data.get("balance", 0) == blockchain_balance else "Local and blockchain balances differ",
+                        },
+                        ctx.obj.get("output_format", "table"),
+                    )
+                    return
         except Exception:
             pass
 
@@ -523,7 +559,7 @@ def balance(ctx):
             "wallet": wallet_name,
             "address": wallet_data["address"],
             "balance": wallet_data.get("balance", 0),
-            "note": "Local balance (blockchain available but balance API limited)",
+            "note": "Local balance (blockchain balance queries unavailable)",
         },
         ctx.obj.get("output_format", "table"),
     )
