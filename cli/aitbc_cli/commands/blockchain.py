@@ -34,7 +34,7 @@ def blocks(ctx, limit: int, from_height: Optional[int]):
         from ..core.config import load_multichain_config
         config = load_multichain_config()
         if not config.nodes:
-            node_url = "http://127.0.0.1:8082"
+            node_url = "http://127.0.0.1:8003"
         else:
             node_url = list(config.nodes.values())[0].endpoint
         
@@ -82,7 +82,7 @@ def block(ctx, block_hash: str):
         from ..core.config import load_multichain_config
         config = load_multichain_config()
         if not config.nodes:
-            node_url = "http://127.0.0.1:8082"
+            node_url = "http://127.0.0.1:8003"
         else:
             node_url = list(config.nodes.values())[0].endpoint
         
@@ -224,7 +224,7 @@ def peers(ctx):
         from ..core.config import load_multichain_config
         config = load_multichain_config()
         if not config.nodes:
-            node_url = "http://127.0.0.1:8082"
+            node_url = "http://127.0.0.1:8003"
         else:
             node_url = list(config.nodes.values())[0].endpoint
         
@@ -254,17 +254,32 @@ def peers(ctx):
 @click.pass_context
 def info(ctx):
     """Get blockchain information"""
-    config = ctx.obj['config']
-    
     try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8003"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
         with httpx.Client() as client:
+            # Get head block for basic info
             response = client.get(
-                f"{config.coordinator_url}/v1/health",
-                headers={"X-Api-Key": config.api_key or ""}
+                f"{node_url}/rpc/head",
+                timeout=5
             )
             
             if response.status_code == 200:
-                info_data = response.json()
+                head_data = response.json()
+                # Create basic info from head block
+                info_data = {
+                    "chain_id": "ait-devnet",
+                    "height": head_data.get("height"),
+                    "latest_block": head_data.get("hash"),
+                    "timestamp": head_data.get("timestamp"),
+                    "transactions_in_block": head_data.get("tx_count", 0),
+                    "status": "active"
+                }
                 output(info_data, ctx.obj['output_format'])
             else:
                 error(f"Failed to get blockchain info: {response.status_code}")
@@ -276,13 +291,18 @@ def info(ctx):
 @click.pass_context
 def supply(ctx):
     """Get token supply information"""
-    config = ctx.obj['config']
-    
     try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8003"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/health",
-                headers={"X-Api-Key": config.api_key or ""}
+                f"{node_url}/rpc/supply",
+                timeout=5
             )
             
             if response.status_code == 200:
@@ -298,13 +318,18 @@ def supply(ctx):
 @click.pass_context
 def validators(ctx):
     """List blockchain validators"""
-    config = ctx.obj['config']
-    
     try:
+        from ..core.config import load_multichain_config
+        config = load_multichain_config()
+        if not config.nodes:
+            node_url = "http://127.0.0.1:8003"
+        else:
+            node_url = list(config.nodes.values())[0].endpoint
+        
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/health",
-                headers={"X-Api-Key": config.api_key or ""}
+                f"{node_url}/rpc/validators",
+                timeout=5
             )
             
             if response.status_code == 200:

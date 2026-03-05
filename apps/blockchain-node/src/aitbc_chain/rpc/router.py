@@ -606,3 +606,105 @@ async def sync_status(chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_sync_status_total")
     sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
     return sync.get_sync_status()
+
+
+@router.get("/info", summary="Get blockchain information")
+async def get_blockchain_info(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+    """Get comprehensive blockchain information"""
+    from ..config import settings as cfg
+    
+    metrics_registry.increment("rpc_info_total")
+    start = time.perf_counter()
+    
+    with session_scope() as session:
+        # Get chain stats
+        head_block = session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
+        total_blocks_result = session.exec(select(func.count(Block.height))).first()
+        total_blocks = total_blocks_result if isinstance(total_blocks_result, int) else (total_blocks_result[0] if total_blocks_result else 0)
+        total_transactions_result = session.exec(select(func.count(Transaction.tx_hash))).first()
+        total_transactions = total_transactions_result if isinstance(total_transactions_result, int) else (total_transactions_result[0] if total_transactions_result else 0)
+        total_accounts_result = session.exec(select(func.count(Account.address))).first()
+        total_accounts = total_accounts_result if isinstance(total_accounts_result, int) else (total_accounts_result[0] if total_accounts_result else 0)
+        
+        # Get chain parameters from genesis
+        genesis_params = {
+            "chain_id": chain_id,
+            "base_fee": 10,
+            "coordinator_ratio": 0.05,
+            "fee_per_byte": 1,
+            "mint_per_unit": 1000,
+            "block_time_seconds": 2
+        }
+        
+        response = {
+            "chain_id": chain_id,
+            "height": head_block.height if head_block else 0,
+            "total_blocks": total_blocks,
+            "total_transactions": total_transactions,
+            "total_accounts": total_accounts,
+            "latest_block_hash": head_block.hash if head_block else None,
+            "latest_block_timestamp": head_block.timestamp.isoformat() if head_block else None,
+            "genesis_params": genesis_params,
+            "proposer_id": cfg.proposer_id,
+            "supported_chains": [c.strip() for c in cfg.supported_chains.split(",") if c.strip()],
+            "rpc_version": "0.1.0"
+        }
+        
+        metrics_registry.observe("rpc_info_duration_seconds", time.perf_counter() - start)
+        return response
+
+
+@router.get("/supply", summary="Get token supply information")
+async def get_token_supply(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+    """Get token supply information"""
+    from ..config import settings as cfg
+    
+    metrics_registry.increment("rpc_supply_total")
+    start = time.perf_counter()
+    
+    with session_scope() as session:
+        # Simple implementation for now
+        response = {
+            "chain_id": chain_id,
+            "total_supply": 1000000000,  # 1 billion from genesis
+            "circulating_supply": 0,  # No transactions yet
+            "faucet_balance": 1000000000,  # All tokens in faucet
+            "faucet_address": "ait1faucet000000000000000000000000000000000",
+            "mint_per_unit": cfg.mint_per_unit,
+            "total_accounts": 0
+        }
+        
+        metrics_registry.observe("rpc_supply_duration_seconds", time.perf_counter() - start)
+        return response
+
+
+@router.get("/validators", summary="List blockchain validators")
+async def get_validators(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+    """List blockchain validators (authorities)"""
+    from ..config import settings as cfg
+    
+    metrics_registry.increment("rpc_validators_total")
+    start = time.perf_counter()
+    
+    # For PoA chain, validators are the authorities from genesis
+    # In a full implementation, this would query the actual validator set
+    validators = [
+        {
+            "address": "ait1devproposer000000000000000000000000000000",
+            "weight": 1,
+            "status": "active",
+            "last_block_height": None,  # Would be populated from actual validator tracking
+            "total_blocks_produced": None
+        }
+    ]
+    
+    response = {
+        "chain_id": chain_id,
+        "validators": validators,
+        "total_validators": len(validators),
+        "consensus_type": "PoA",  # Proof of Authority
+        "proposer_id": cfg.proposer_id
+    }
+    
+    metrics_registry.observe("rpc_validators_duration_seconds", time.perf_counter() - start)
+    return response
