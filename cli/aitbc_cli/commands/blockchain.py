@@ -203,7 +203,7 @@ def sync_status(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/health",
+                f"{config.coordinator_url}/v1/sync-status",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             

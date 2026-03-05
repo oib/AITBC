@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from datetime import datetime
 
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobView, JobResult, JobPaymentCreate
@@ -266,3 +267,70 @@ async def get_blocks(
             "offset": offset,
             "error": f"Failed to fetch blocks: {str(e)}"
         }
+
+
+# Temporary agent endpoints added to client router until agent router issue is resolved
+@router.post("/agents/networks", response_model=dict, status_code=201)
+async def create_agent_network(network_data: dict):
+    """Create a new agent network for collaborative processing"""
+    
+    try:
+        # Validate required fields
+        if not network_data.get("name"):
+            raise HTTPException(status_code=400, detail="Network name is required")
+        
+        if not network_data.get("agents"):
+            raise HTTPException(status_code=400, detail="Agent list is required")
+        
+        # Create network record (simplified for now)
+        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        
+        network_response = {
+            "id": network_id,
+            "name": network_data["name"],
+            "description": network_data.get("description", ""),
+            "agents": network_data["agents"],
+            "coordination_strategy": network_data.get("coordination", "centralized"),
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "owner_id": "temp_user"
+        }
+        
+        return network_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/executions/{execution_id}/receipt")
+async def get_execution_receipt(execution_id: str):
+    """Get verifiable receipt for completed execution"""
+    
+    try:
+        # For now, return a mock receipt since the full execution system isn't implemented
+        receipt_data = {
+            "execution_id": execution_id,
+            "workflow_id": f"workflow_{execution_id}",
+            "status": "completed",
+            "receipt_id": f"receipt_{execution_id}",
+            "miner_signature": "0xmock_signature_placeholder",
+            "coordinator_attestations": [
+                {
+                    "coordinator_id": "coordinator_1",
+                    "signature": "0xmock_attestation_1",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            ],
+            "minted_amount": 1000,
+            "recorded_at": datetime.utcnow().isoformat(),
+            "verified": True,
+            "block_hash": "0xmock_block_hash",
+            "transaction_hash": "0xmock_tx_hash"
+        }
+        
+        return receipt_data
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

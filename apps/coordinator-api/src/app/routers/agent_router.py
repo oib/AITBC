@@ -418,6 +418,12 @@ async def get_execution_logs(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/test")
+async def test_endpoint():
+    """Test endpoint to verify router is working"""
+    return {"message": "Agent router is working", "timestamp": datetime.utcnow().isoformat()}
+
+
 @router.post("/networks", response_model=dict, status_code=201)
 async def create_agent_network(
     network_data: dict,

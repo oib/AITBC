@@ -55,7 +55,7 @@
 ```diff
 | Service | Port | Process | Python Version | Purpose | Status |
 |---------|------|---------|----------------|---------|--------|
-| Mock Coordinator | 8090 | python3 | 3.11+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
+| Mock Coordinator | 8020 | python3 | 3.11+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
 | Blockchain Node | N/A | python3 | 3.11+ | Local blockchain node | systemd: aitbc-blockchain-node.service |
 - | Blockchain Node RPC | 9080 | python3 | 3.11+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
 + | Blockchain Node RPC | 8003 | python3 | 3.13.5+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
@@ -154,7 +154,7 @@ curl -s https://aitbc.bubuit.net/api/v1/health  # External API access
 + | `/api/learning/` | proxy → `127.0.0.1:8013` | proxy_pass |
 + | `/api/marketplace-enhanced/` | proxy → `127.0.0.1:8014` | proxy_pass |
 + | `/api/openclaw/` | proxy → `127.0.0.1:8015` | proxy_pass |
-| `/v1/` | proxy → `10.1.223.1:8090` (mock coordinator) | proxy_pass |
+| `/v1/` | proxy → `10.1.223.1:8020` (mock coordinator) | proxy_pass |
 ```
 
 ### **9. API Routing Notes Updated**

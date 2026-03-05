@@ -97,6 +97,7 @@ def get_session():
     with Session(engine) as session:
         yield session
 
+# Create SessionDep as Annotated type - this should work with proper imports
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
