@@ -54,10 +54,10 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `agent create` — Create new AI agent workflow (⚠️ has bug: agent_id undefined)
 - [ ] `agent execute` — Execute AI agent workflow
 - [ ] `agent learning` — Agent adaptive learning and training
-- [ ] `agent list` — List available AI agent workflows
+- [x] `agent list` — List available AI agent workflows (⚠️ Network error)
 - [ ] `agent network` — Multi-agent collaborative network
 - [ ] `agent receipt` — Get verifiable receipt for execution
-- [ ] `agent status` — Get status of agent execution
+- [x] `agent status` — Get status of agent execution (✅ Help available)
 - [ ] `agent submit-contribution` — Submit contribution via GitHub
 
 ### **agent-comm** — Cross-Chain Agent Communication
@@ -72,12 +72,12 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `agent-comm status` — Get detailed agent status
 
 ### **analytics** — Chain Analytics and Monitoring
-- [ ] `analytics alerts` — View performance alerts
+- [x] `analytics alerts` — View performance alerts (✅ Working - no alerts)
 - [x] `analytics dashboard` — Get complete dashboard data (✅ Working)
-- [ ] `analytics monitor` — Monitor chain performance in real-time
-- [ ] `analytics optimize` — Get optimization recommendations
-- [ ] `analytics predict` — Predict chain performance
-- [ ] `analytics summary` — Get performance summary for chains
+- [x] `analytics monitor` — Monitor chain performance in real-time (✅ Working)
+- [x] `analytics optimize` — Get optimization recommendations (✅ Working - none available)
+- [x] `analytics predict` — Predict chain performance (⚠️ No prediction data)
+- [x] `analytics summary` — Get performance summary for chains (⚠️ No data available)
 
 ### **auth** — API Key and Authentication Management
 - [x] `auth import-env` — Import API key from environment variable
@@ -89,14 +89,14 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `auth token` — Show stored API key
 
 ### **blockchain** — Blockchain Queries and Operations
-- [ ] `blockchain balance` — Get balance of address across all chains
+- [x] `blockchain balance` — Get balance of address across all chains (✅ Help available)
 - [ ] `blockchain block` — Get details of specific block
-- [ ] `blockchain blocks` — List recent blocks
-- [ ] `blockchain faucet` — Mint devnet funds to address
+- [x] `blockchain blocks` — List recent blocks (✅ Fixed - uses local node)
+- [x] `blockchain faucet` — Mint devnet funds to address (✅ Help available)
 - [ ] `blockchain genesis` — Get genesis block of a chain
-- [ ] `blockchain head` — Get head block of a chain
+- [x] `blockchain head` — Get head block of a chain (✅ Working - height 248)
 - [ ] `blockchain info` — Get blockchain information
-- [ ] `blockchain peers` — List connected peers
+- [x] `blockchain peers` — List connected peers (✅ Fixed - RPC-only mode)
 - [ ] `blockchain send` — Send transaction to a chain
 - [x] `blockchain status` — Get blockchain node status (✅ Working)
 - [ ] `blockchain supply` — Get token supply information
@@ -110,10 +110,10 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `chain backup` — Backup chain data
 - [x] `chain create` — Create a new chain from configuration file
 - [ ] `chain delete` — Delete a chain permanently
-- [ ] `chain info` — Get detailed information about a chain
+- [x] `chain info` — Get detailed information about a chain (✅ Working)
 - [x] `chain list` — List all chains across all nodes (✅ Working)
 - [ ] `chain migrate` — Migrate a chain between nodes
-- [ ] `chain monitor` — Monitor chain activity
+- [x] `chain monitor` — Monitor chain activity (⚠️ Coroutine bug)
 - [ ] `chain remove` — Remove a chain from a specific node
 - [ ] `chain restore` — Restore chain from backup
 
@@ -202,18 +202,18 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ### **deploy** — Production Deployment and Scaling
 - [ ] `deploy auto-scale` — Trigger auto-scaling evaluation for deployment
 - [ ] `deploy create` — Create a new deployment configuration
-- [ ] `deploy list-deployments` — List all deployments
+- [x] `deploy list-deployments` — List all deployments (✅ Working - none found)
 - [ ] `deploy monitor` — Monitor deployment performance in real-time
-- [ ] `deploy overview` — Get overview of all deployments
+- [x] `deploy overview` — Get overview of all deployments (✅ Working)
 - [ ] `deploy scale` — Scale a deployment to target instance count
 - [ ] `deploy start` — Deploy the application to production
-- [ ] `deploy status` — Get comprehensive deployment status
+- [x] `deploy status` — Get comprehensive deployment status (✅ Help available)
 
 ### **exchange** — Bitcoin Exchange Operations
 - [ ] `exchange create-payment` — Create Bitcoin payment request for AITBC purchase
-- [ ] `exchange market-stats` — Get exchange market statistics
+- [x] `exchange market-stats` — Get exchange market statistics (⚠️ Network error)
 - [ ] `exchange payment-status` — Check payment confirmation status
-- [ ] `exchange rates` — Get current exchange rates
+- [x] `exchange rates` — Get current exchange rates (⚠️ Network error)
 - [ ] `exchange wallet` — Bitcoin wallet operations
 
 ---
@@ -406,18 +406,81 @@ aitbc monitor metrics
 # ✅ Returns 24h metrics, coordinator status, system health
 ```
 
+#### Blockchain Head Query
+```bash
+aitbc blockchain head --chain-id ait-devnet
+# ✅ Returns: height 248, hash 0x9a6809ee..., timestamp 2026-01-28T10:09:46
+```
+
+#### Chain Information
+```bash
+aitbc chain info ait-devnet
+# ✅ Returns: chain details, status active, block height 248, size 50.5MB
+```
+
+#### Deployment Overview
+```bash
+aitbc deploy overview
+# ✅ Returns: deployment metrics (0 deployments, system stats)
+```
+
+#### Analytics Monitoring
+```bash
+aitbc analytics monitor
+# ✅ Returns: real-time metrics, 1 chain, 256MB memory, 25 clients
+```
+
 ### ⚠️ Partial Success Commands
 
 #### Agent Workflows
 ```bash
 aitbc agent create --name test-agent --description "Test agent for CLI validation"
 # ⚠️ Error: name 'agent_id' is not defined (code bug)
+
+aitbc agent list
+# ⚠️ Network error: Expecting value: line 1 column 1 (char 0)
 ```
 
 #### Swarm Operations
 ```bash
 aitbc swarm join --role load-balancer --capability "gpu-processing" --region "local"
 # ⚠️ Network error: 405 Not Allowed (nginx blocking)
+```
+
+#### Chain Monitoring
+```bash
+aitbc chain monitor ait-devnet
+# ⚠️ Error: 'coroutine' object has no attribute 'block_height'
+```
+
+#### Analytics Prediction
+```bash
+aitbc analytics predict
+# ⚠️ Error: No prediction data available
+
+aitbc analytics summary  
+# ⚠️ Error: No analytics data available
+```
+
+#### Blockchain Peers (Fixed)
+```bash
+aitbc blockchain peers
+# ✅ Fixed: Returns "No P2P peers available - node running in RPC-only mode"
+```
+
+#### Blockchain Blocks (Fixed)
+```bash
+aitbc blockchain blocks --limit 3
+# ✅ Fixed: Uses local node, shows head block (height 248)
+```
+
+#### Exchange Operations
+```bash
+aitbc exchange rates
+# ⚠️ Network error: Expecting value: line 1 column 1 (char 0)
+
+aitbc exchange market-stats
+# ⚠️ Network error: Expecting value: line 1 column 1 (char 0)
 ```
 
 ### 📋 Available Integration Commands
@@ -472,7 +535,14 @@ aitbc wallet multisig-create --help
 ### 🔧 Issues Identified
 1. **Agent Creation Bug**: `name 'agent_id' is not defined` in agent command
 2. **Swarm Network Error**: nginx returning 405 for swarm operations
-3. **Missing Test Cases**: Some advanced features need integration testing
+3. **Chain Monitor Bug**: `'coroutine' object has no attribute 'block_height'`
+4. **Analytics Data Issues**: No prediction/summary data available
+5. **Exchange Network Errors**: JSON parsing errors on exchange endpoints
+6. **Missing Test Cases**: Some advanced features need integration testing
+
+### ✅ Issues Resolved
+- **Blockchain Peers Network Error**: Fixed to use local node and show RPC-only mode message
+- **Blockchain Blocks Command**: Fixed to use local node instead of coordinator API
 
 ### 📈 Overall Progress: **97% Complete**
 - **Core Commands**: ✅ 100% tested and working (admin scenarios complete)
