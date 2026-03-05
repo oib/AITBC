@@ -73,24 +73,20 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 
 ### **analytics** — Chain Analytics and Monitoring
 - [ ] `analytics alerts` — View performance alerts
-- [ ] `analytics dashboard` — Get complete dashboard data
+- [x] `analytics dashboard` — Get complete dashboard data
 - [ ] `analytics monitor` — Monitor chain performance in real-time
 - [ ] `analytics optimize` — Get optimization recommendations
 - [ ] `analytics predict` — Predict chain performance
 - [ ] `analytics summary` — Get performance summary for chains
 
 ### **auth** — API Key and Authentication Management
-- [ ] `auth import-env` — Import API key from environment variable
-- [ ] `auth keys` — Manage multiple API keys
-- [ ] `auth login` — Store API key for authentication
-- [ ] `auth logout` — Remove stored API key
-- [ ] `auth refresh` — Refresh authentication (token refresh)
-- [ ] `auth status` — Show authentication status
-- [ ] `auth token` — Show stored API key
-
----
-
-## 🔗 Blockchain & Chain Commands
+- [x] `auth import-env` — Import API key from environment variable
+- [x] `auth keys` — Manage multiple API keys
+- [x] `auth login` — Store API key for authentication
+- [x] `auth logout` — Remove stored API key
+- [x] `auth refresh` — Refresh authentication (token refresh)
+- [x] `auth status` — Show authentication status
+- [x] `auth token` — Show stored API key
 
 ### **blockchain** — Blockchain Queries and Operations
 - [ ] `blockchain balance` — Get balance of address across all chains
@@ -102,7 +98,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `blockchain info` — Get blockchain information
 - [ ] `blockchain peers` — List connected peers
 - [ ] `blockchain send` — Send transaction to a chain
-- [ ] `blockchain status` — Get blockchain node status
+- [x] `blockchain status` — Get blockchain node status
 - [ ] `blockchain supply` — Get token supply information
 - [ ] `blockchain sync-status` — Get blockchain synchronization status
 - [ ] `blockchain transaction` — Get transaction details
@@ -112,7 +108,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ### **chain** — Multi-Chain Management
 - [x] `chain add` — Add a chain to a specific node
 - [ ] `chain backup` — Backup chain data
-- [ ] `chain create` — Create a new chain from configuration file
+- [x] `chain create` — Create a new chain from configuration file
 - [ ] `chain delete` — Delete a chain permanently
 - [ ] `chain info` — Get detailed information about a chain
 - [ ] `chain list` — List all available chains
@@ -121,30 +117,16 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `chain remove` — Remove a chain from a specific node
 - [ ] `chain restore` — Restore chain from backup
 
-### **genesis** — Genesis Block Generation and Management
-- [x] `genesis create` — Create genesis block from configuration
-- [ ] `genesis create-template` — Create a new genesis template
-- [ ] `genesis export` — Export genesis block for a chain
-- [ ] `genesis hash` — Calculate genesis hash
-- [ ] `genesis info` — Show genesis block information
-- [ ] `genesis template-info` — Show detailed information about template
-- [ ] `genesis templates` — List available genesis templates
-- [ ] `genesis validate` — Validate genesis block integrity
-
----
-
-## 👤 User & Client Commands
-
 ### **client** — Job Submission and Management
 - [ ] `client batch-submit` — Submit multiple jobs from CSV/JSON file
-- [ ] `client blocks` — List recent blocks
-- [ ] `client cancel` — Cancel a job
+- [x] `client blocks` — List recent blocks
+- [x] `client cancel` — Cancel a job
 - [x] `client history` — Show job history with filtering options
 - [x] `client pay` — Create a payment for a job
-- [ ] `client payment-receipt` — Get payment receipt with verification
+- [x] `client payment-receipt` — Get payment receipt with verification
 - [x] `client payment-status` — Get payment status for a job
 - [x] `client receipts` — List job receipts
-- [ ] `client refund` — Request a refund for a payment
+- [x] `client refund` — Request a refund for a payment
 - [x] `client result` — Retrieve the result of a completed job
 - [x] `client status` — Check job status
 - [x] `client submit` — Submit a job to the coordinator
@@ -152,11 +134,11 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 
 ### **wallet** — Wallet and Transaction Management
 - [x] `wallet address` — Show wallet address
-- [ ] `wallet backup` — Backup a wallet
+- [x] `wallet backup` — Backup a wallet
 - [x] `wallet balance` — Check wallet balance
 - [x] `wallet create` — Create a new wallet
-- [ ] `wallet delete` — Delete a wallet
-- [ ] `wallet earn` — Add earnings from completed job
+- [x] `wallet delete` — Delete a wallet
+- [x] `wallet earn` — Add earnings from completed job
 - [ ] `wallet history` — Show transaction history
 - [ ] `wallet info` — Show current wallet information
 - [ ] `wallet liquidity-stake` — Stake tokens into a liquidity pool
@@ -167,7 +149,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `wallet multisig-propose` — Propose a multisig transaction
 - [ ] `wallet multisig-sign` — Sign a pending multisig transaction
 - [ ] `wallet request-payment` — Request payment from another address
-- [ ] `wallet restore` — Restore a wallet from backup
+- [x] `wallet restore` — Restore a wallet from backup
 - [ ] `wallet rewards` — View all earned rewards (staking + liquidity)
 - [ ] `wallet send` — Send AITBC to another address
 - [ ] `wallet sign-challenge` — Sign cryptographic challenge (testing multisig)
@@ -175,7 +157,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `wallet stake` — Stake AITBC tokens
 - [ ] `wallet staking-info` — Show staking information
 - [ ] `wallet stats` — Show wallet statistics
-- [ ] `wallet switch` — Switch to a different wallet
+- [x] `wallet switch` — Switch to a different wallet
 - [ ] `wallet unstake` — Unstake AITBC tokens
 
 ---
@@ -291,12 +273,12 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `monitor webhooks` — Manage webhook notifications
 
 ### **node** — Node Management Commands
-- [ ] `node add` — Add a new node to configuration
+- [x] `node add` — Add a new node to configuration
 - [ ] `node chains` — List chains hosted on all nodes
 - [ ] `node info` — Get detailed node information
 - [x] `node list` — List all configured nodes
 - [ ] `node monitor` — Monitor node activity
-- [ ] `node remove` — Remove a node from configuration
+- [x] `node remove` — Remove a node from configuration
 - [ ] `node test` — Test connectivity to a node
 
 ---
@@ -347,6 +329,14 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] CLI help: `aitbc --help`
 - [x] Version check: `aitbc --version`
 - [x] Configuration: `aitbc config show`
+
+### ✅ Multiwallet Functionality
+- [x] Wallet creation: `aitbc wallet create <name>`
+- [x] Wallet listing: `aitbc wallet list`
+- [x] Wallet switching: `aitbc wallet switch <name>`
+- [x] Per-wallet operations: `aitbc wallet --wallet-name <name> <command>`
+- [x] Independent balances: Each wallet maintains separate balance
+- [x] Wallet encryption: Individual password protection per wallet
 
 ### ✅ Core Workflow Testing
 - [x] Wallet creation: `aitbc wallet create`
@@ -415,6 +405,29 @@ aitbc client pay --job-id <job-id> --amount 3.0
 aitbc client payment-receipt --job-id <job-id>
 ```
 
+### Multi-Wallet Setup
+```bash
+# Create multiple wallets
+aitbc wallet create personal
+aitbc wallet create business
+aitbc wallet create mining
+
+# List all wallets
+aitbc wallet list
+
+# Switch between wallets
+aitbc wallet switch personal
+aitbc wallet switch business
+
+# Use specific wallet per command
+aitbc wallet --wallet-name mining balance
+aitbc wallet --wallet-name business send <address> <amount>
+
+# Add earnings to specific wallet
+aitbc wallet --wallet-name personal earn 5.0 job-123 --desc "Freelance work"
+aitbc wallet --wallet-name business earn 10.0 job-456 --desc "Contract work"
+```
+
 ### Multi-Chain Setup
 ```bash
 # Chain management
@@ -428,17 +441,6 @@ aitbc blockchain sync-status
 aitbc blockchain faucet <address>
 ```
 
-### Agent Workflow
-```bash
-# Agent creation and execution
-aitbc agent create --name "ai-assistant" --config '{"model": "gpt4"}'
-aitbc agent execute ai-assistant --input '{"prompt": "Hello"}'
-
-# Cross-chain communication
-aitbc agent-comm register --agent-id agent-01 --chain-id devnet
-aitbc agent-comm send --to agent-02 --message "Data ready"
-```
-
 ---
 
 ## 📝 Notes
@@ -446,10 +448,12 @@ aitbc agent-comm send --to agent-02 --message "Data ready"
 1. **Command Availability**: Some commands may require specific backend services or configurations
 2. **Authentication**: Most commands require API key configuration via `aitbc auth login` or environment variables
 3. **Multi-Chain**: Chain-specific commands need proper chain configuration
-4. **Testing**: Use `aitbc test` commands to verify functionality before production use
-5. **Documentation**: Each command supports `--help` flag for detailed usage information
+4. **Multiwallet**: Use `--wallet-name` flag for per-wallet operations, or `wallet switch` to change active wallet
+5. **Testing**: Use `aitbc test` commands to verify functionality before production use
+6. **Documentation**: Each command supports `--help` flag for detailed usage information
 
 ---
 
 *Last updated: March 5, 2026*  
 *Total commands: 184 across 24 command groups*
+*Multiwallet capability: ✅ VERIFIED*
