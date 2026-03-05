@@ -236,3 +236,90 @@ This scenario covers self-improving agent operations.
 - **Command:** `aitbc optimize predict --target "network-load" --horizon "24h"`
 - **Description:** Use predictive models to forecast network load and recommend scaling actions.
 - **Expected Output:** Time-series prediction and actionable recommendations for node scaling.
+
+---
+
+## 13. System Administration Operations
+
+This scenario covers system administration and maintenance tasks for the AITBC infrastructure.
+
+### Scenario 13.1: System Backup Operations
+- **Command:** `aitbc admin backup --type full --destination /backups/aitbc-$(date +%Y%m%d)`
+- **Description:** Create a complete system backup including blockchain data, configurations, and user data.
+- **Expected Output:** Success message with backup file path, checksum verification, and estimated backup size. Progress indicators during backup creation.
+
+### Scenario 13.2: View System Logs
+- **Command:** `aitbc admin logs --service coordinator --tail 100 --level error`
+- **Description:** Retrieve and filter system logs for specific services with severity level filtering.
+- **Expected Output:** Formatted log output with timestamps, service names, log levels, and error messages. Options to follow live logs (`--follow`) or export to file (`--export`).
+
+### Scenario 13.3: System Monitoring Dashboard
+- **Command:** `aitbc admin monitor --dashboard --refresh 30`
+- **Description:** Launch real-time system monitoring with configurable refresh intervals.
+- **Expected Output:** Interactive dashboard showing:
+  - CPU, memory, and disk usage across all nodes
+  - Network throughput and latency metrics
+  - Blockchain sync status and block production rate
+  - Active jobs and queue depth
+  - GPU utilization and temperature
+  - Service health checks (coordinator, blockchain, marketplace)
+
+### Scenario 13.4: Service Restart Operations
+- **Command:** `aitbc admin restart --service blockchain-node --graceful --timeout 300`
+- **Description:** Safely restart system services with graceful shutdown and timeout controls.
+- **Expected Output:** Confirmation of service shutdown, wait for in-flight operations to complete, service restart, and health verification. Rollback option if restart fails.
+
+### Scenario 13.5: System Status Overview
+- **Command:** `aitbc admin status --verbose --format json`
+- **Description:** Get comprehensive system status across all components and services.
+- **Expected Output:** Detailed status report including:
+  - Service availability (coordinator, blockchain, marketplace, monitoring)
+  - Node health and connectivity status
+  - Blockchain synchronization state
+  - Database connection and replication status
+  - Network connectivity and peer information
+  - Resource utilization thresholds and alerts
+  - Recent system events and warnings
+
+### Scenario 13.6: System Update Operations
+- **Command:** `aitbc admin update --component coordinator --version latest --dry-run`
+- **Description:** Perform system updates with pre-flight checks and rollback capabilities.
+- **Expected Output:** Update simulation showing:
+  - Current vs target version comparison
+  - Dependency compatibility checks
+  - Required downtime estimate
+  - Backup creation confirmation
+  - Rollback plan verification
+  - Update progress and post-update health checks
+
+### Scenario 13.7: User Management Operations
+- **Command:** `aitbc admin users --action list --role miner --status active`
+- **Description:** Manage user accounts, roles, and permissions across the AITBC ecosystem.
+- **Expected Output:** User management interface supporting:
+  - List users with filtering by role, status, and activity
+  - Create new users with role assignment
+  - Modify user permissions and access levels
+  - Suspend/activate user accounts
+  - View user activity logs and audit trails
+  - Export user reports for compliance
+
+---
+
+## 14. Emergency Response Scenarios
+
+This scenario covers critical incident response and disaster recovery procedures.
+
+### Scenario 14.1: Emergency Service Recovery
+- **Command:** `aitbc admin restart --service all --emergency --force`
+- **Description:** Emergency restart of all services during system outage or critical failure.
+- **Expected Output:** Rapid service recovery with minimal downtime, error logging, and service dependency resolution.
+
+### Scenario 14.2: Critical Log Analysis
+- **Command:** `aitbc admin logs --level critical --since "1 hour ago" --alert`
+- **Description:** Analyze critical system logs during emergency situations for root cause analysis.
+- **Expected Output:** Prioritized critical errors, incident timeline, affected components, and recommended recovery actions.
+
+### Scenario 14.3: System Health Check
+- **Command:** `aitbc admin status --health-check --comprehensive --report`
+- **Description:** Perform comprehensive system health assessment after incident recovery.
+- **Expected Output:** Detailed health report with component status, performance metrics, security audit, and recovery recommendations.

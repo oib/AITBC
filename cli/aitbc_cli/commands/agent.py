@@ -35,7 +35,7 @@ def create(ctx, name: str, description: str, workflow_file, verification: str,
         "name": name,
         "description": description,
         "verification_level": verification,
-        "workflow_id": agent_id,
+        "workflow_id": str(uuid.uuid4()),
         "inputs": {},
         "max_execution_time": max_execution_time,
         "max_cost_budget": max_cost_budget
@@ -150,7 +150,7 @@ def execute(ctx, agent_id: str, inputs, verification: str, priority: str, timeou
                 json=execution_data
             )
             
-            if response.status_code == 202:
+            if response.status_code in (200, 202):
                 execution = response.json()
                 success(f"Agent execution started: {execution['id']}")
                 output(execution, ctx.obj['output_format'])
@@ -344,7 +344,7 @@ def execute(ctx, network_id: str, task, priority: str):
                 json=execution_data
             )
             
-            if response.status_code == 202:
+            if response.status_code in (200, 202):
                 execution = response.json()
                 success(f"Network execution started: {execution['id']}")
                 output(execution, ctx.obj['output_format'])
@@ -503,7 +503,7 @@ def train(ctx, agent_id: str, feedback, epochs: int):
                 json=training_data
             )
             
-            if response.status_code == 202:
+            if response.status_code in (200, 202):
                 training = response.json()
                 success(f"Training started: {training['id']}")
                 output(training, ctx.obj['output_format'])
