@@ -79,7 +79,7 @@ async def list_workflows(
             for tag in tags:
                 query = query.where(AIAgentWorkflow.tags.contains([tag]))
         
-        workflows = session.exec(query).all()
+        workflows = session.execute(query).all()
         return workflows
         
     except Exception as e:
@@ -280,7 +280,7 @@ async def list_executions(
             query = query.where(AgentExecution.workflow_id == workflow_id)
         else:
             # Get all workflows owned by user
-            user_workflows = session.exec(
+            user_workflows = session.execute(
                 select(AIAgentWorkflow.id).where(AIAgentWorkflow.owner_id == current_user.id)
             ).all()
             workflow_ids = [w.id for w in user_workflows]
@@ -294,7 +294,7 @@ async def list_executions(
         query = query.offset(offset).limit(limit)
         query = query.order_by(AgentExecution.created_at.desc())
         
-        executions = session.exec(query).all()
+        executions = session.execute(query).all()
         
         # Convert to response models
         execution_statuses = []
@@ -383,7 +383,7 @@ async def get_execution_logs(
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Get step executions
-        step_executions = session.exec(
+        step_executions = session.execute(
             select(AgentStepExecution).where(AgentStepExecution.execution_id == execution_id)
         ).all()
         

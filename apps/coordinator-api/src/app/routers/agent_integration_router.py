@@ -78,7 +78,7 @@ async def list_deployment_configs(
         if status:
             query = query.where(AgentDeploymentConfig.status == status)
         
-        configs = session.exec(query).all()
+        configs = session.execute(query).all()
         
         # Filter by user ownership
         user_configs = []
@@ -274,7 +274,7 @@ async def list_deployment_instances(
         if status:
             query = query.where(AgentDeploymentInstance.status == status)
         
-        instances = session.exec(query).all()
+        instances = session.execute(query).all()
         
         # Filter by user ownership
         user_instances = []
@@ -437,7 +437,7 @@ async def get_production_dashboard(
     
     try:
         # Get user's deployments
-        user_configs = session.exec(
+        user_configs = session.execute(
             select(AgentDeploymentConfig).join(AIAgentWorkflow).where(
                 AIAgentWorkflow.owner_id == current_user
             )
@@ -453,7 +453,7 @@ async def get_production_dashboard(
         # Get detailed deployment info
         for config in user_configs:
             # Get instances for this deployment
-            instances = session.exec(
+            instances = session.execute(
                 select(AgentDeploymentInstance).where(
                     AgentDeploymentInstance.deployment_id == config.id
                 )
@@ -494,7 +494,7 @@ async def get_production_health(
     
     try:
         # Get user's deployments
-        user_configs = session.exec(
+        user_configs = session.execute(
             select(AgentDeploymentConfig).join(AIAgentWorkflow).where(
                 AIAgentWorkflow.owner_id == current_user
             )

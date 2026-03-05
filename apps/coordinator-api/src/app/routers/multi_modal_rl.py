@@ -226,7 +226,7 @@ async def list_fusion_models(
         if fusion_type:
             query = query.where(FusionModel.fusion_type == fusion_type)
         
-        models = session.exec(
+        models = session.execute(
             query.order_by(FusionModel.created_at.desc()).limit(limit)
         ).all()
         
@@ -364,7 +364,7 @@ async def get_rl_agents(
         if algorithm:
             query = query.where(ReinforcementLearningConfig.algorithm == algorithm)
         
-        configs = session.exec(
+        configs = session.execute(
             query.order_by(ReinforcementLearningConfig.created_at.desc()).limit(limit)
         ).all()
         
@@ -526,7 +526,7 @@ async def get_agent_domain_capabilities(
         if domain:
             query = query.where(AgentCapability.domain_area == domain)
         
-        capabilities = session.exec(
+        capabilities = session.execute(
             query.order_by(AgentCapability.skill_level.desc()).limit(limit)
         ).all()
         
@@ -583,7 +583,7 @@ async def get_creative_capabilities(
         if creative_domain:
             query = query.where(CreativeCapability.creative_domain == creative_domain)
         
-        capabilities = session.exec(
+        capabilities = session.execute(
             query.order_by(CreativeCapability.originality_score.desc()).limit(limit)
         ).all()
         
@@ -637,7 +637,7 @@ async def get_fusion_performance_analytics(
         if fusion_type:
             query = query.where(FusionModel.fusion_type == fusion_type)
         
-        models = session.exec(query).all()
+        models = session.execute(query).all()
         
         # Filter by agent IDs if provided (by checking base models)
         if agent_ids:
@@ -730,7 +730,7 @@ async def get_rl_performance_analytics(
         if environment_type:
             query = query.where(ReinforcementLearningConfig.environment_type == environment_type)
         
-        configs = session.exec(query).all()
+        configs = session.execute(query).all()
         
         # Calculate analytics
         total_configs = len(configs)

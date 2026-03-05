@@ -205,7 +205,7 @@ async def get_agent_certifications(
         if status:
             query = query.where(AgentCertification.status == CertificationStatus(status))
         
-        certifications = session.exec(
+        certifications = session.execute(
             query.order_by(AgentCertification.issued_at.desc())
         ).all()
         
@@ -334,7 +334,7 @@ async def get_agent_partnerships(
         if partnership_type:
             query = query.where(AgentPartnership.partnership_type == PartnershipType(partnership_type))
         
-        partnerships = session.exec(
+        partnerships = session.execute(
             query.order_by(AgentPartnership.applied_at.desc())
         ).all()
         
@@ -377,7 +377,7 @@ async def list_partnership_programs(
         if status:
             query = query.where(PartnershipProgram.status == status)
         
-        programs = session.exec(
+        programs = session.execute(
             query.order_by(PartnershipProgram.created_at.desc()).limit(limit)
         ).all()
         
@@ -464,7 +464,7 @@ async def award_badge(
             raise HTTPException(status_code=400, detail=message)
         
         # Get badge details
-        badge = session.exec(
+        badge = session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id == badge_request.badge_id)
         ).first()
         
@@ -509,13 +509,13 @@ async def get_agent_badges(
         if featured_only:
             query = query.where(AgentBadge.is_featured == True)
         
-        agent_badges = session.exec(
+        agent_badges = session.execute(
             query.order_by(AgentBadge.awarded_at.desc()).limit(limit)
         ).all()
         
         # Get badge details
         badge_ids = [ab.badge_id for ab in agent_badges]
-        badges = session.exec(
+        badges = session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id.in_(badge_ids))
         ).all()
         badge_map = {badge.badge_id: badge for badge in badges}
@@ -564,7 +564,7 @@ async def list_available_badges(
         if active_only:
             query = query.where(AchievementBadge.is_active == True)
         
-        badges = session.exec(
+        badges = session.execute(
             query.order_by(AchievementBadge.created_at.desc()).limit(limit)
         ).all()
         
@@ -654,7 +654,7 @@ async def get_verification_records(
         if status:
             query = query.where(VerificationRecord.status == status)
         
-        verifications = session.exec(
+        verifications = session.execute(
             query.order_by(VerificationRecord.requested_at.desc()).limit(limit)
         ).all()
         
@@ -722,7 +722,7 @@ async def get_certification_requirements(
         if verification_type:
             query = query.where(CertificationRequirement.verification_type == VerificationType(verification_type))
         
-        requirements = session.exec(
+        requirements = session.execute(
             query.order_by(CertificationRequirement.certification_level, CertificationRequirement.requirement_name)
         ).all()
         
@@ -774,7 +774,7 @@ async def get_certification_leaderboard(
                 AgentCertification.status == CertificationStatus.ACTIVE
             )
         
-        certifications = session.exec(
+        certifications = session.execute(
             query.order_by(AgentCertification.issued_at.desc()).limit(limit * 2)  # Get more to account for duplicates
         ).all()
         

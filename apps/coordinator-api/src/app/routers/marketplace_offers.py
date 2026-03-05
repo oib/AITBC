@@ -22,13 +22,13 @@ async def sync_offers(
     """Create marketplace offers from all registered miners"""
     
     # Get all registered miners
-    miners = session.exec(select(Miner).where(Miner.status == "ONLINE")).all()
+    miners = session.execute(select(Miner).where(Miner.status == "ONLINE")).all()
     
     created_offers = []
     
     for miner in miners:
         # Check if offer already exists
-        existing = session.exec(
+        existing = session.execute(
             select(MarketplaceOffer).where(MarketplaceOffer.provider == miner.id)
         ).first()
         
@@ -68,7 +68,7 @@ async def list_miner_offers(session: SessionDep) -> list[MarketplaceOfferView]:
     """List all offers created from miners"""
     
     # Get all offers with miner details
-    offers = session.exec(select(MarketplaceOffer).where(MarketplaceOffer.provider.like("miner_%"))).all()
+    offers = session.execute(select(MarketplaceOffer).where(MarketplaceOffer.provider.like("miner_%"))).all()
     
     result = []
     for offer in offers:

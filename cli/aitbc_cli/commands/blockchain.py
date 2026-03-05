@@ -121,7 +121,7 @@ def status(ctx, node: int):
     try:
         with httpx.Client() as client:
             # First get health for general status
-            health_url = rpc_url.replace("/rpc", "") + "/health" if "/rpc" in rpc_url else rpc_url + "/health"
+            health_url = rpc_url.replace("/rpc", "") + "/v1/health" if "/rpc" in rpc_url else rpc_url + "/v1/health"
             response = client.get(
                 health_url,
                 timeout=5
@@ -149,7 +149,7 @@ def sync_status(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/health",
+                f"{config.coordinator_url}/v1/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -171,7 +171,7 @@ def peers(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/health",
+                f"{config.coordinator_url}/v1/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -193,7 +193,7 @@ def info(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/health",
+                f"{config.coordinator_url}/v1/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -215,7 +215,7 @@ def supply(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/health",
+                f"{config.coordinator_url}/v1/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -237,7 +237,7 @@ def validators(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/health",
+                f"{config.coordinator_url}/v1/health",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
