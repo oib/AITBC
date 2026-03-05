@@ -22,7 +22,9 @@ def mock_wallet_dir(tmp_path):
     wallet_data = {
         "address": "aitbc1test",
         "private_key": "test_key",
-        "public_key": "test_pub"
+        "public_key": "test_pub",
+        "transactions": [],
+        "balance": 0.0
     }
     with open(wallet_file, "w") as f:
         json.dump(wallet_data, f)
@@ -37,29 +39,29 @@ class TestWalletAdditionalCommands:
         backup_dir.mkdir()
         backup_path = backup_dir / "backup.json"
         
-        # We need to test the backup command properly.
-        # click might suppress exception output if not configured otherwise.
         result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
             'backup', 'test_wallet', '--destination', str(backup_path)
-        ], obj={"wallet_dir": mock_wallet_dir, "output_format": "json"}, catch_exceptions=False)
+        ], catch_exceptions=False)
         
         assert result.exit_code == 0
         assert os.path.exists(backup_path)
         
     def test_backup_wallet_not_found(self, runner, mock_wallet_dir):
         """Test backing up non-existent wallet"""
-        # We handle raise click.Abort()
         result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
             'backup', 'non_existent_wallet'
-        ], obj={"wallet_dir": mock_wallet_dir, "output_format": "json"})
+        ])
         
-        assert result.exit_code != 0
+        assert "does not exist" in result.output.lower()
         
     def test_delete_wallet_success(self, runner, mock_wallet_dir):
         """Test successful wallet deletion"""
         result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
             'delete', 'test_wallet', '--confirm'
-        ], obj={"wallet_dir": mock_wallet_dir, "output_format": "json"})
+        ])
         
         assert result.exit_code == 0
         assert not os.path.exists(mock_wallet_dir / "test_wallet.json")
@@ -67,8 +69,79 @@ class TestWalletAdditionalCommands:
     def test_delete_wallet_not_found(self, runner, mock_wallet_dir):
         """Test deleting non-existent wallet"""
         result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
             'delete', 'non_existent', '--confirm'
-        ], obj={"wallet_dir": mock_wallet_dir, "output_format": "json"})
+        ])
         
-        assert result.exit_code != 0
+        assert "does not exist" in result.output.lower()
+
+    
+    @patch('aitbc_cli.commands.wallet._save_wallet')
+    def test_earn_success(self, mock_save, runner, mock_wallet_dir):
+        """Test successful wallet earning"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
+            'earn', '10.5', 'job_123'
+        ])
+        
+        assert result.exit_code == 0
+        assert "earnings added" in result.output.lower()
+        mock_save.assert_called_once()
+        
+    def test_earn_wallet_not_found(self, runner, mock_wallet_dir):
+        """Test earning to non-existent wallet"""
+        result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "non_existent.json"),
+            'earn', '10.5', 'job_123'
+        ])
+        
+        assert "not found" in result.output.lower()
+
+    
+    def test_restore_wallet_success(self, runner, mock_wallet_dir, tmp_path):
+        """Test successful wallet restore"""
+        # Create a backup file to restore from
+        backup_file = tmp_path / "backup.json"
+        with open(backup_file, "w") as f:
+            json.dump({"address": "restored", "transactions": []}, f)
+            
+        result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "new_wallet.json"),
+            'restore', str(backup_file), 'new_wallet'
+        ])
+        
+        assert result.exit_code == 0
+        assert os.path.exists(mock_wallet_dir / "new_wallet.json")
+        with open(mock_wallet_dir / "new_wallet.json", "r") as f:
+            data = json.load(f)
+            assert data["address"] == "restored"
+            
+    def test_restore_wallet_exists(self, runner, mock_wallet_dir, tmp_path):
+        """Test restoring to an existing wallet without force"""
+        backup_file = tmp_path / "backup.json"
+        with open(backup_file, "w") as f:
+            json.dump({"address": "restored", "transactions": []}, f)
+            
+        result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
+            'restore', str(backup_file), 'test_wallet'
+        ])
+        
+        assert "already exists" in result.output.lower()
+
+    def test_restore_wallet_force(self, runner, mock_wallet_dir, tmp_path):
+        """Test restoring to an existing wallet with force"""
+        backup_file = tmp_path / "backup.json"
+        with open(backup_file, "w") as f:
+            json.dump({"address": "restored", "transactions": []}, f)
+            
+        result = runner.invoke(wallet, [
+            '--wallet-path', str(mock_wallet_dir / "test_wallet.json"),
+            'restore', str(backup_file), 'test_wallet', '--force'
+        ])
+        
+        assert result.exit_code == 0
+        with open(mock_wallet_dir / "test_wallet.json", "r") as f:
+            data = json.load(f)
+            assert data["address"] == "restored"
 

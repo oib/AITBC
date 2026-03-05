@@ -488,7 +488,7 @@ def balance(ctx):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url.replace('/api', '')}/rpc/balance/{wallet_data['address']}",
+                    f"{config.coordinator_url.rstrip('/')}/rpc/balance/{wallet_data['address']}?chain_id=ait-devnet",
                     timeout=5,
                 )
 
@@ -515,7 +515,7 @@ def balance(ctx):
             "wallet": wallet_name,
             "address": wallet_data["address"],
             "balance": wallet_data.get("balance", 0),
-            "note": "Local balance only (blockchain not accessible)",
+            "note": "Local balance (blockchain RPC not available)",
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -702,12 +702,13 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
         try:
             with httpx.Client() as client:
                 response = client.post(
-                    f"{config.coordinator_url.replace('/api', '')}/rpc/transactions",
+                    f"{config.coordinator_url.rstrip('/')}/rpc/transactions",
                     json={
                         "from": wallet_data["address"],
                         "to": to_address,
                         "amount": amount,
                         "description": description or "",
+                        "chain_id": "ait-devnet",
                     },
                     headers={"X-Api-Key": getattr(config, "api_key", "") or ""},
                 )
@@ -774,7 +775,7 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
             "amount": amount,
             "to": to_address,
             "new_balance": wallet_data["balance"],
-            "note": "Transaction recorded locally (pending blockchain confirmation)",
+            "note": "Transaction recorded locally (blockchain RPC not available)",
         },
         ctx.obj.get("output_format", "table"),
     )
