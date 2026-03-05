@@ -35,6 +35,8 @@ def create(ctx, name: str, description: str, workflow_file, verification: str,
         "name": name,
         "description": description,
         "verification_level": verification,
+        "workflow_id": agent_id,
+        "inputs": {},
         "max_execution_time": max_execution_time,
         "max_cost_budget": max_cost_budget
     }
@@ -55,7 +57,7 @@ def create(ctx, name: str, description: str, workflow_file, verification: str,
                 json=workflow_data
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 workflow = response.json()
                 success(f"Agent workflow created: {workflow['id']}")
                 output(workflow, ctx.obj['output_format'])
@@ -126,6 +128,8 @@ def execute(ctx, agent_id: str, inputs, verification: str, priority: str, timeou
     # Prepare execution data
     execution_data = {
         "verification_level": verification,
+        "workflow_id": agent_id,
+        "inputs": {},
         "priority": priority,
         "timeout_seconds": timeout
     }
@@ -141,7 +145,7 @@ def execute(ctx, agent_id: str, inputs, verification: str, priority: str, timeou
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/{agent_id}/execute",
+                f"{config.coordinator_url}/v1/agents/workflows/{agent_id}/execute",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=execution_data
             )
@@ -297,7 +301,7 @@ def create(ctx, name: str, agents: str, description: str, coordination: str):
                 json=network_data
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 network = response.json()
                 success(f"Agent network created: {network['id']}")
                 output(network, ctx.obj['output_format'])
@@ -610,7 +614,7 @@ def submit_contribution(ctx, type: str, description: str, github_repo: str, bran
                 json=contribution_data
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 result = response.json()
                 success(f"Contribution submitted: {result['id']}")
                 output(result, ctx.obj['output_format'])
