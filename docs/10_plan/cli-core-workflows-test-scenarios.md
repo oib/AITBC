@@ -99,3 +99,140 @@ This scenario covers the deployment of autonomous AI agents.
 - **Command:** `aitbc agent execute <agent_id> --input "Analyze Q3 financial data"`
 - **Description:** Trigger the execution of the configured agent with a specific prompt/input.
 - **Expected Output:** Streamed or final output showing the agent's thought process, actions taken (tool use), and final result.
+
+---
+
+## 6. Core Workflow: Governance & DAO
+
+This scenario outlines how community members propose and vote on protocol changes.
+
+### Scenario 6.1: Create a Proposal
+- **Command:** `aitbc governance propose --title "Increase Miner Rewards" --description "Proposal to increase base reward by 5%" --amount 1000`
+- **Description:** Submit a new governance proposal requiring a stake of 1000 tokens.
+- **Expected Output:** Proposal successfully created with a `proposal_id` and voting timeline.
+
+### Scenario 6.2: Vote on a Proposal
+- **Command:** `aitbc governance vote <proposal_id> --vote "yes" --amount 500`
+- **Description:** Cast a vote on an active proposal using staked tokens as voting power.
+- **Expected Output:** Transaction hash confirming the vote has been recorded on-chain.
+
+### Scenario 6.3: View Proposal Results
+- **Command:** `aitbc governance result <proposal_id>`
+- **Description:** Check the current standing or final result of a governance proposal.
+- **Expected Output:** Tally of "yes" vs "no" votes, quorum status, and final decision if the voting period has ended.
+
+---
+
+## 7. Advanced Workflow: Agent Swarms
+
+This scenario outlines collective agent operations.
+
+### Scenario 7.1: Join an Agent Swarm
+- **Command:** `aitbc swarm join --agent-id <agent_id> --task-type "distributed-training"`
+- **Description:** Register an individual agent to participate in a collective swarm task.
+- **Expected Output:** Confirmation that the agent has joined the swarm queue and is awaiting coordination.
+
+### Scenario 7.2: Coordinate Swarm Execution
+- **Command:** `aitbc swarm coordinate --task-id <task_id> --strategy "map-reduce"`
+- **Description:** Dispatch a complex task to the assembled swarm using a specific processing strategy.
+- **Expected Output:** Task successfully dispatched with tracking ID for swarm progress.
+
+### Scenario 7.3: Achieve Swarm Consensus
+- **Command:** `aitbc swarm consensus --task-id <task_id>`
+- **Description:** Force or check the consensus mechanism for a completed swarm task to determine the final accepted output.
+- **Expected Output:** The agreed-upon result reached by the majority of the swarm agents, with confidence metrics.
+
+---
+
+## 8. Deployment Operations
+
+This scenario outlines managing the lifecycle of production deployments.
+
+### Scenario 8.1: Create Deployment Configuration
+- **Command:** `aitbc deploy create --name "prod-api" --image "aitbc-api:latest" --instances 3`
+- **Description:** Define a new deployment target with 3 baseline instances.
+- **Expected Output:** Deployment configuration successfully saved and validated.
+
+### Scenario 8.2: Start Deployment
+- **Command:** `aitbc deploy start "prod-api"`
+- **Description:** Launch the configured deployment to the production cluster.
+- **Expected Output:** Live status updates showing containers spinning up, health checks passing, and final "running" state.
+
+### Scenario 8.3: Monitor Deployment
+- **Command:** `aitbc deploy monitor "prod-api"`
+- **Description:** View real-time resource usage and health of the active deployment.
+- **Expected Output:** Interactive display of CPU, memory, and network I/O for the specified deployment.
+
+---
+
+## 9. Multi-Chain Node Management
+
+This scenario outlines managing physical nodes across multiple chains.
+
+### Scenario 9.1: Add Node Configuration
+- **Command:** `aitbc node add --name "us-east-1" --host "10.0.0.5" --port 8080 --type "validator"`
+- **Description:** Register a new infrastructure node into the local CLI context.
+- **Expected Output:** Node successfully added to local configuration store.
+
+### Scenario 9.2: Test Node Connectivity
+- **Command:** `aitbc node test --node "us-east-1"`
+- **Description:** Perform an active ping/health check against the specified node.
+- **Expected Output:** Latency metrics, software version, and synced block height confirming the node is reachable and healthy.
+
+### Scenario 9.3: List Hosted Chains
+- **Command:** `aitbc node chains`
+- **Description:** View a mapping of which configured nodes are currently hosting/syncing which network chains.
+- **Expected Output:** A cross-referenced table showing nodes as rows, chains as columns, and sync status in the cells.
+
+---
+
+## 10. Cross-Chain Agent Communication
+
+This scenario outlines how agents communicate and collaborate across different chains.
+
+### Scenario 10.1: Register Agent in Network
+- **Command:** `aitbc agent-comm register --agent-id <agent_id> --chain-id ait-devnet --capabilities "data-analysis"`
+- **Description:** Register a local agent to the cross-chain communication network.
+- **Expected Output:** Success message confirming agent is registered and discoverable on the network.
+
+### Scenario 10.2: Discover Agents
+- **Command:** `aitbc agent-comm discover --chain-id ait-healthchain --capability "medical-analysis"`
+- **Description:** Search for available agents on another chain matching specific capabilities.
+- **Expected Output:** List of matching agents, their network addresses, and current reputation scores.
+
+### Scenario 10.3: Send Cross-Chain Message
+- **Command:** `aitbc agent-comm send --target-agent <target_agent_id> --target-chain ait-healthchain --message "request_analysis"`
+- **Description:** Send a direct message or task request to an agent on a different chain.
+- **Expected Output:** Message transmission confirmation and delivery receipt.
+
+---
+
+## 11. Multi-Modal Agent Operations
+
+This scenario outlines processing complex inputs beyond simple text.
+
+### Scenario 11.1: Process Multi-Modal Input
+- **Command:** `aitbc multimodal process --agent-id <agent_id> --image image.jpg --text "Analyze this chart"`
+- **Description:** Submit a job to an agent containing both visual and text data.
+- **Expected Output:** Job submission confirmation, followed by the agent's analysis integrating both data modalities.
+
+### Scenario 11.2: Benchmark Capabilities
+- **Command:** `aitbc multimodal benchmark --agent-id <agent_id>`
+- **Description:** Run a standard benchmark suite to evaluate an agent's multi-modal processing speed and accuracy.
+- **Expected Output:** Detailed performance report across different input types (vision, audio, text).
+
+---
+
+## 12. Autonomous Optimization
+
+This scenario covers self-improving agent operations.
+
+### Scenario 12.1: Enable Self-Optimization
+- **Command:** `aitbc optimize self-opt --agent-id <agent_id> --target "inference-speed"`
+- **Description:** Trigger an agent to analyze its own performance and adjust parameters to improve inference speed.
+- **Expected Output:** Optimization started, followed by a report showing the parameter changes and measured performance improvement.
+
+### Scenario 12.2: Predictive Scaling
+- **Command:** `aitbc optimize predict --target "network-load" --horizon "24h"`
+- **Description:** Use predictive models to forecast network load and recommend scaling actions.
+- **Expected Output:** Time-series prediction and actionable recommendations for node scaling.
