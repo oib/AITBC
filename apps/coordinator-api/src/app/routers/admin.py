@@ -27,8 +27,8 @@ async def get_stats(
     from sqlmodel import func, select
     from ..domain import Job
 
-    total_jobs = session.exec(select(func.count()).select_from(Job)).one()
-    active_jobs = session.exec(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()
+    total_jobs = session.execute(select(func.count()).select_from(Job)).one()
+    active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()
 
     miner_service = MinerService(session)
     miners = miner_service.list_records()
@@ -47,7 +47,7 @@ async def get_stats(
 async def list_jobs(session: SessionDep, admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     from ..domain import Job
 
-    jobs = session.exec(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
+    jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
     return {
         "items": [
             {

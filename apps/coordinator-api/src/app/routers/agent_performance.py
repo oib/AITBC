@@ -329,7 +329,7 @@ async def list_meta_learning_models(
         if meta_strategy:
             query = query.where(MetaLearningModel.meta_strategy == LearningStrategy(meta_strategy))
         
-        models = session.exec(
+        models = session.execute(
             query.order_by(MetaLearningModel.created_at.desc()).limit(limit)
         ).all()
         
@@ -408,7 +408,7 @@ async def get_resource_allocations(
         if status:
             query = query.where(ResourceAllocation.status == status)
         
-        allocations = session.exec(
+        allocations = session.execute(
             query.order_by(ResourceAllocation.created_at.desc()).limit(limit)
         ).all()
         
@@ -494,7 +494,7 @@ async def get_optimization_history(
         if target_metric:
             query = query.where(PerformanceOptimization.target_metric == PerformanceMetric(target_metric))
         
-        optimizations = session.exec(
+        optimizations = session.execute(
             query.order_by(PerformanceOptimization.created_at.desc()).limit(limit)
         ).all()
         
@@ -589,7 +589,7 @@ async def get_agent_capabilities(
         if domain_area:
             query = query.where(AgentCapability.domain_area == domain_area)
         
-        capabilities = session.exec(
+        capabilities = session.execute(
             query.order_by(AgentCapability.skill_level.desc()).limit(limit)
         ).all()
         
@@ -636,13 +636,13 @@ async def get_performance_summary(
     try:
         if not agent_ids:
             # Get all agents if none specified
-            profiles = session.exec(select(AgentPerformanceProfile)).all()
+            profiles = session.execute(select(AgentPerformanceProfile)).all()
             agent_ids = [p.agent_id for p in profiles]
         
         summaries = []
         
         for agent_id in agent_ids:
-            profile = session.exec(
+            profile = session.execute(
                 select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
             ).first()
             

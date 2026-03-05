@@ -170,7 +170,7 @@ async def get_global_offer(
     try:
         # Get the offer
         stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-        offer = session.exec(stmt).first()
+        offer = session.execute(stmt).scalars().first()
         
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")
@@ -340,7 +340,7 @@ async def get_global_transaction(
         stmt = select(GlobalMarketplaceTransaction).where(
             GlobalMarketplaceTransaction.id == transaction_id
         )
-        transaction = session.exec(stmt).first()
+        transaction = session.execute(stmt).scalars().first()
         
         if not transaction:
             raise HTTPException(status_code=404, detail="Transaction not found")
@@ -397,7 +397,7 @@ async def get_regions(
             except ValueError:
                 raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
         
-        regions = session.exec(stmt).all()
+        regions = session.execute(stmt).scalars().all()
         
         response_regions = []
         for region in regions:
@@ -538,7 +538,7 @@ async def get_global_marketplace_config(
         if category:
             stmt = stmt.where(GlobalMarketplaceConfig.category == category)
         
-        configs = session.exec(stmt).all()
+        configs = session.execute(stmt).scalars().all()
         
         config_dict = {}
         for config in configs:
@@ -567,20 +567,20 @@ async def get_global_marketplace_health(
     
     try:
         # Get overall health metrics
-        total_regions = session.exec(select(func.count(MarketplaceRegion.id))).scalar() or 0
-        active_regions = session.exec(
+        total_regions = session.execute(select(func.count(MarketplaceRegion.id))).scalar() or 0
+        active_regions = session.execute(
             select(func.count(MarketplaceRegion.id)).where(MarketplaceRegion.status == RegionStatus.ACTIVE)
         ).scalar() or 0
         
-        total_offers = session.exec(select(func.count(GlobalMarketplaceOffer.id))).scalar() or 0
-        active_offers = session.exec(
+        total_offers = session.execute(select(func.count(GlobalMarketplaceOffer.id))).scalar() or 0
+        active_offers = session.execute(
             select(func.count(GlobalMarketplaceOffer.id)).where(
                 GlobalMarketplaceOffer.global_status == MarketplaceStatus.ACTIVE
             )
         ).scalar() or 0
         
-        total_transactions = session.exec(select(func.count(GlobalMarketplaceTransaction.id))).scalar() or 0
-        recent_transactions = session.exec(
+        total_transactions = session.execute(select(func.count(GlobalMarketplaceTransaction.id))).scalar() or 0
+        recent_transactions = session.execute(
             select(func.count(GlobalMarketplaceTransaction.id)).where(
                 GlobalMarketplaceTransaction.created_at >= datetime.utcnow() - timedelta(hours=24)
             )

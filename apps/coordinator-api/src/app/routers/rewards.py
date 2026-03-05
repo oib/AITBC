@@ -207,7 +207,7 @@ async def get_tier_progress(
     
     try:
         # Get reward profile
-        profile = session.exec(
+        profile = session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -216,7 +216,7 @@ async def get_tier_progress(
         
         # Get reputation for trust score
         from ..domain.reputation import AgentReputation
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -380,7 +380,7 @@ async def get_reward_leaderboard(
         if tier:
             query = query.where(AgentRewardProfile.current_tier == tier)
         
-        profiles = session.exec(
+        profiles = session.execute(
             query.order_by(AgentRewardProfile.total_earnings.desc()).limit(limit)
         ).all()
         
@@ -413,7 +413,7 @@ async def get_reward_tiers(
     try:
         from ..domain.rewards import RewardTierConfig
         
-        tier_configs = session.exec(
+        tier_configs = session.execute(
             select(RewardTierConfig).where(RewardTierConfig.is_active == True)
         ).all()
         
@@ -455,7 +455,7 @@ async def get_agent_milestones(
         if not include_completed:
             query = query.where(RewardMilestone.is_completed == False)
         
-        milestones = session.exec(
+        milestones = session.execute(
             query.order_by(RewardMilestone.created_at.desc())
         ).all()
         
@@ -499,7 +499,7 @@ async def get_reward_distributions(
         if status:
             query = query.where(RewardDistribution.status == status)
         
-        distributions = session.exec(
+        distributions = session.execute(
             query.order_by(RewardDistribution.created_at.desc()).limit(limit)
         ).all()
         

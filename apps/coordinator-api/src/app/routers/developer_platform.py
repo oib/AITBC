@@ -403,7 +403,7 @@ async def get_developer_certifications(
         if not profile:
             raise HTTPException(status_code=404, detail="Developer profile not found")
         
-        certifications = session.exec(
+        certifications = session.execute(
             select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
         ).all()
         
@@ -712,16 +712,16 @@ async def get_platform_overview(
         bounty_stats = await dev_service.get_bounty_statistics()
         
         # Get developer statistics
-        total_developers = session.exec(select(DeveloperProfile)).count()
-        active_developers = session.exec(
+        total_developers = session.execute(select(DeveloperProfile)).count()
+        active_developers = session.execute(
             select(DeveloperProfile).where(DeveloperProfile.is_active == True)
         ).count()
         
         # Get certification statistics
-        total_certifications = session.exec(select(DeveloperCertification)).count()
+        total_certifications = session.execute(select(DeveloperCertification)).count()
         
         # Get regional hub statistics
-        total_hubs = session.exec(select(RegionalHub)).count()
+        total_hubs = session.execute(select(RegionalHub)).count()
         
         return {
             "developers": {
@@ -762,7 +762,7 @@ async def get_platform_health(
     try:
         # Check database connectivity
         try:
-            developer_count = session.exec(select(func.count(DeveloperProfile.id))).scalar()
+            developer_count = session.execute(select(func.count(DeveloperProfile.id))).scalar()
             database_status = "healthy"
         except Exception:
             database_status = "unhealthy"

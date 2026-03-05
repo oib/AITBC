@@ -57,7 +57,7 @@ def register(ctx, gpu: Optional[str], memory: Optional[int],
                 json={"capabilities": capabilities}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 output({
                     "miner_id": miner_id,
                     "status": "registered",
@@ -79,8 +79,9 @@ def poll(ctx, wait: int, miner_id: str):
     
     try:
         with httpx.Client() as client:
-            response = client.get(
+            response = client.post(
                 f"{config.coordinator_url}/v1/miners/poll",
+                json={"max_wait_seconds": 5},
                 headers={
                     "X-Api-Key": config.api_key or "",
                     "X-Miner-ID": miner_id
@@ -88,12 +89,15 @@ def poll(ctx, wait: int, miner_id: str):
                 timeout=wait + 5
             )
             
-            if response.status_code == 200:
-                job = response.json()
-                if job:
-                    output(job, ctx.obj['output_format'])
-                else:
+            if response.status_code in (200, 204):
+                if response.status_code == 204:
                     output({"message": "No jobs available"}, ctx.obj['output_format'])
+                else:
+                    job = response.json()
+                    if job:
+                        output(job, ctx.obj['output_format'])
+                    else:
+                        output({"message": "No jobs available"}, ctx.obj['output_format'])
             else:
                 error(f"Failed to poll: {response.status_code}")
     except httpx.TimeoutException:
@@ -115,8 +119,9 @@ def mine(ctx, jobs: int, miner_id: str):
         try:
             with httpx.Client() as client:
                 # Poll for job
-                response = client.get(
+                response = client.post(
                     f"{config.coordinator_url}/v1/miners/poll",
+                    json={"max_wait_seconds": 5},
                     headers={
                         "X-Api-Key": config.api_key or "",
                         "X-Miner-ID": miner_id
@@ -124,7 +129,10 @@ def mine(ctx, jobs: int, miner_id: str):
                     timeout=30
                 )
                 
-                if response.status_code == 200:
+                if response.status_code in (200, 204):
+                    if response.status_code == 204:
+                        time.sleep(5)
+                        continue
                     job = response.json()
                     if job:
                         job_id = job.get('job_id')
@@ -146,8 +154,8 @@ def mine(ctx, jobs: int, miner_id: str):
                                 "X-Miner-ID": miner_id
                             },
                             json={
-                                "result": f"Processed job {job_id}",
-                                "success": True
+                                "result": {"output": f"Processed job {job_id}"},
+                                "metrics": {}
                             }
                         )
                         
@@ -186,10 +194,11 @@ def heartbeat(ctx, miner_id: str):
                 f"{config.coordinator_url}/v1/miners/heartbeat?miner_id={miner_id}",
                 headers={
                     "X-Api-Key": config.api_key or ""
-                }
+                },
+                json={"capabilities": capabilities}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 output({
                     "miner_id": miner_id,
                     "status": "heartbeat_sent",
@@ -234,13 +243,13 @@ def earnings(ctx, miner_id: str, from_time: Optional[str], to_time: Optional[str
             params["to_time"] = to_time
         
         with httpx.Client() as client:
-            response = client.get(
+            response = client.post(
                 f"{config.coordinator_url}/v1/miners/{miner_id}/earnings",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 data = response.json()
                 output(data, ctx.obj['output_format'])
             else:
@@ -289,7 +298,7 @@ def update_capabilities(ctx, gpu: Optional[str], memory: Optional[int],
                 json={"capabilities": capabilities}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 output({
                     "miner_id": miner_id,
                     "status": "capabilities_updated",
@@ -323,7 +332,7 @@ def deregister(ctx, miner_id: str, force: bool):
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 output({
                     "miner_id": miner_id,
                     "status": "deregistered"
@@ -358,13 +367,13 @@ def jobs(ctx, limit: int, job_type: Optional[str], min_reward: Optional[float],
             params["status"] = job_status
         
         with httpx.Client() as client:
-            response = client.get(
+            response = client.post(
                 f"{config.coordinator_url}/v1/miners/{miner_id}/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 data = response.json()
                 output(data, ctx.obj['output_format'])
             else:
@@ -379,7 +388,7 @@ def _process_single_job(config, miner_id: str, worker_id: int) -> Dict[str, Any]
     """Process a single job (used by concurrent mine)"""
     try:
         with httpx.Client() as http_client:
-            response = http_client.get(
+            response = http_client.post(
                 f"{config.coordinator_url}/v1/miners/poll",
                 headers={
                     "X-Api-Key": config.api_key or "",
@@ -388,7 +397,7 @@ def _process_single_job(config, miner_id: str, worker_id: int) -> Dict[str, Any]
                 timeout=30
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 204):
                 job = response.json()
                 if job:
                     job_id = job.get('job_id')

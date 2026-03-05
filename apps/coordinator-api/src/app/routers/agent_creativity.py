@@ -180,7 +180,7 @@ async def list_agent_creative_capabilities(
 ):
     """List all creative capabilities for a specific agent"""
     try:
-        capabilities = session.exec(
+        capabilities = session.execute(
             select(CreativeCapability).where(CreativeCapability.agent_id == agent_id)
         ).all()
         
