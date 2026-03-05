@@ -49,10 +49,11 @@ def register(ctx, gpu: Optional[str], memory: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/api/v1/miners/register?miner_id={miner_id}",
+                f"{config.coordinator_url}/api/v1/miners/register",
                 headers={
                     "Content-Type": "application/json",
-                    "X-Api-Key": config.api_key or ""
+                    "X-Api-Key": config.api_key or "",
+                    "X-Miner-ID": miner_id
                 },
                 json={"capabilities": capabilities}
             )
@@ -191,11 +192,16 @@ def heartbeat(ctx, miner_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/api/v1/miners/heartbeat?miner_id={miner_id}",
+                f"{config.coordinator_url}/api/v1/miners/heartbeat",
                 headers={
-                    "X-Api-Key": config.api_key or ""
+                    "X-Api-Key": config.api_key or "",
+                    "X-Miner-ID": miner_id
                 },
-                json={}
+                json={
+                    "inflight": 0,
+                    "status": "ONLINE",
+                    "metadata": {}
+                }
             )
             
             if response.status_code in (200, 204):

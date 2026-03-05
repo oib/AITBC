@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from ..deps import require_miner_key
+from ..deps import require_miner_key, get_miner_id
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
@@ -24,7 +24,8 @@ async def register(
     req: MinerRegister,
     request: Request,
     session: SessionDep,
-    miner_id: str = Depends(require_miner_key()),
+    miner_id: str = Depends(get_miner_id()),
+    api_key: str = Depends(require_miner_key()),
 ) -> dict[str, Any]:  # type: ignore[arg-type]
     service = MinerService(session)
     record = service.register(miner_id, req)
@@ -36,7 +37,8 @@ async def heartbeat(
     req: MinerHeartbeat,
     request: Request,
     session: SessionDep,
-    miner_id: str = Depends(require_miner_key()),
+    miner_id: str = Depends(get_miner_id()),
+    api_key: str = Depends(require_miner_key()),
 ) -> dict[str, str]:  # type: ignore[arg-type]
     try:
         MinerService(session).heartbeat(miner_id, req)
