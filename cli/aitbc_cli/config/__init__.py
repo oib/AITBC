@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 @dataclass
 class Config:
     """Configuration object for AITBC CLI"""
-    coordinator_url: str = "http://127.0.0.1:18000"
+    coordinator_url: str = "http://127.0.0.1:8000"
     api_key: Optional[str] = None
     config_dir: Path = field(default_factory=lambda: Path.home() / ".aitbc")
     config_file: Optional[str] = None

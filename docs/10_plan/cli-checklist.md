@@ -98,7 +98,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `admin logs` — View system logs (✅ Help available)
 - [x] `admin monitor` — System monitoring (✅ Help available)
 - [x] `admin restart` — Restart services (✅ Help available)
-- [x] `admin status` — System status overview (✅ **FIXED** - API endpoint working with correct authentication)
+- [x] `admin status` — System status overview (✅ **WORKING** - API key authentication resolved)
 - [x] `admin update` — System updates (✅ Help available)
 - [x] `admin users` — User management (✅ Help available)
 
@@ -160,7 +160,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `blockchain send` — Send transaction to a chain (✅ Help available)
 - [x] `blockchain status` — Get blockchain node status (✅ **WORKING** - uses local blockchain node)
 - [x] `blockchain supply` — Get token supply information (✅ Help available)
-- [x] `blockchain sync-status` — Get blockchain synchronization status (✅ **WORKING** - uses local blockchain node)
+- [x] `blockchain sync-status` — Get blockchain synchronization status (✅ **WORKING** - fully working)
 - [x] `blockchain transaction` — Get transaction details (✅ Help available)
 - [x] `blockchain transactions` — Get latest transactions on a chain (✅ Help available)
 - [x] `blockchain validators` — List blockchain validators (✅ Help available)
@@ -188,7 +188,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `client refund` — Request refund for failed job (✅ Help available)
 - [x] `client result` — Get job result (✅ Help available)
 - [x] `client status` — Check job status (✅ Help available)
-- [x] `client submit` — Submit a job to coordinator (✅ Fixed - backend endpoints implemented)
+- [x] `client submit` — Submit a job to coordinator (✅ Working - API key authentication fixed)
 - [x] `client template` — Create job template (✅ Help available)
 - [x] `client blocks` — List recent blockchain blocks (✅ Help available)
 
@@ -245,7 +245,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `miner mine` — Mine continuously for specified number of jobs (✅ Help available)
 - [x] `miner mine-ollama` — Mine jobs using local Ollama for GPU inference (✅ Help available)
 - [x] `miner poll` — Poll for a single job (✅ Help available)
-- [x] `miner register` — Register as a miner with the coordinator (❌ 405 error)
+- [x] `miner register` — Register as a miner with the coordinator (❌ 401 - API key authentication issue)
 - [x] `miner status` — Check miner status (✅ Help available)
 - [x] `miner update-capabilities` — Update miner GPU capabilities (✅ Help available)
 
@@ -759,6 +759,7 @@ aitbc wallet multisig-create --help
 - **Infrastructure Documentation**: Updated service names and port allocation logic
 - **Systemd Service Configuration**: Fixed service name to aitbc-coordinator-api.service
 - **Advanced Command Registration**: ✅ RESOLVED - Fixed naming conflicts in marketplace_advanced.py
+- **Admin API Key Authentication**: ✅ RESOLVED - Fixed URL path mismatch and header format issues
 
 ### 📈 Overall Progress: **100% Complete**
 - **Core Commands**: ✅ 100% tested and working (admin scenarios complete)

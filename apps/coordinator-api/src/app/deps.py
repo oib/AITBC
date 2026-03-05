@@ -12,9 +12,13 @@ from .storage import SessionDep
 
 
 def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
+    # Temporarily more permissive for debugging
+    print(f"DEBUG: _validate_api_key called with api_key='{api_key}', allowed_keys={allowed_keys}")
     allowed = {key.strip() for key in allowed_keys if key}
     if not api_key or api_key not in allowed:
+        print(f"DEBUG: API key validation failed - api_key not in allowed_keys")
         raise HTTPException(status_code=401, detail="invalid api key")
+    print(f"DEBUG: API key validation successful")
     return api_key
 
 
@@ -51,7 +55,11 @@ def require_admin_key() -> Callable[[str | None], str]:
     """Dependency for admin API key authentication (reads live settings)."""
 
     def validator(api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
-        return _validate_api_key(settings.admin_api_keys, api_key)
+        print(f"DEBUG: Received API key: {api_key}")
+        print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
+        result = _validate_api_key(settings.admin_api_keys, api_key)
+        print(f"DEBUG: Validation result: {result}")
+        return result
 
     return validator
 

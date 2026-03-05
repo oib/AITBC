@@ -89,7 +89,10 @@ def session_scope() -> Generator[Session, None, None]:
 
 # Dependency for FastAPI
 from fastapi import Depends
-from typing import Annotated
+from typing import Annotated, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 def get_session():
     """Get a database session."""
@@ -97,8 +100,8 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-# Create SessionDep as Annotated type - this should work with proper imports
-SessionDep = Annotated[Session, Depends(get_session)]
+# Use string annotation to avoid ForwardRef issues
+SessionDep = Annotated["Session", Depends(get_session)]
 
 
 # Async support for future use
