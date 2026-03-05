@@ -166,7 +166,7 @@ class TestBlockchainCommands:
         
         # Verify API call
         mock_client.get.assert_called_once_with(
-            'http://localhost:8082/status',
+            'http://localhost:8082/v1/health',
             timeout=5
         )
     
