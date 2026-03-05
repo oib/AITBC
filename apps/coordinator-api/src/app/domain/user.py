@@ -22,8 +22,8 @@ class User(SQLModel, table=True):
     last_login: Optional[datetime] = None
     
     # Relationships
-    wallets: List["Wallet"] = Relationship(back_populates="user")
-    transactions: List["Transaction"] = Relationship(back_populates="user")
+    # DISABLED:     wallets: List["Wallet"] = Relationship(back_populates="user")
+    # DISABLED:     transactions: List["Transaction"] = Relationship(back_populates="user")
 
 
 class Wallet(SQLModel, table=True):
@@ -39,8 +39,8 @@ class Wallet(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    user: User = Relationship(back_populates="wallets")
-    transactions: List["Transaction"] = Relationship(back_populates="wallet")
+    # DISABLED:     user: User = Relationship(back_populates="wallets")
+    # DISABLED:     transactions: List["Transaction"] = Relationship(back_populates="wallet")
 
 
 class Transaction(SQLModel, table=True):
@@ -61,8 +61,8 @@ class Transaction(SQLModel, table=True):
     confirmed_at: Optional[datetime] = None
     
     # Relationships
-    user: User = Relationship(back_populates="transactions")
-    wallet: Optional[Wallet] = Relationship(back_populates="transactions")
+    # DISABLED:     user: User = Relationship(back_populates="transactions")
+    # DISABLED:     wallet: Optional[Wallet] = Relationship(back_populates="transactions")
 
 
 class UserSession(SQLModel, table=True):
