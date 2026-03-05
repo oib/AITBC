@@ -58,6 +58,8 @@ def get_engine() -> Engine:
     return _engine
 
 
+from app.domain import *
+
 def init_db() -> Engine:
     """Initialize database tables and ensure data directory exists."""
     engine = get_engine()
@@ -89,10 +91,11 @@ def session_scope() -> Generator[Session, None, None]:
 from fastapi import Depends
 from typing import Annotated
 
-def get_session() -> Session:
+def get_session():
     """Get a database session."""
     engine = get_engine()
-    return Session(engine)
+    with Session(engine) as session:
+        yield session
 
 SessionDep = Annotated[Session, Depends(get_session)]
 
