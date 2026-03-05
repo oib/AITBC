@@ -104,7 +104,15 @@ async def monitoring_dashboard(request: Request, session: SessionDep) -> Dict[st
         return {
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat(),
-            "services": SERVICES
+            "services": SERVICES,
+            "overall_status": "error",
+            "summary": {
+                "total_services": len(SERVICES),
+                "healthy_services": 0,
+                "degraded_services": 0,
+                "unhealthy_services": len(SERVICES),
+                "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+            }
         }
 
 

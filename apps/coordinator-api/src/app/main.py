@@ -35,14 +35,30 @@ from .routers import (
     developer_platform,
     governance_enhanced
 )
-from .routers.ml_zk_proofs import router as ml_zk_proofs
+# Skip optional routers with missing dependencies
+try:
+    from .routers.ml_zk_proofs import router as ml_zk_proofs
+except ImportError:
+    ml_zk_proofs = None
+    print("WARNING: ML ZK proofs router not available (missing tenseal)")
 from .routers.community import router as community_router
 from .routers.governance import router as new_governance_router
 from .routers.partners import router as partners
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .routers.monitoring_dashboard import router as monitoring_dashboard
-from .routers.multi_modal_rl import router as multi_modal_rl_router
+# Skip optional routers with missing dependencies
+try:
+    from .routers.multi_modal_rl import router as multi_modal_rl_router
+except ImportError:
+    multi_modal_rl_router = None
+    print("WARNING: Multi-modal RL router not available (missing torch)")
+
+try:
+    from .routers.ml_zk_proofs import router as ml_zk_proofs
+except ImportError:
+    ml_zk_proofs = None
+    print("WARNING: ML ZK proofs router not available (missing dependencies)")
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
 from aitbc.logging import get_logger
@@ -224,18 +240,25 @@ def create_app() -> FastAPI:
     app.include_router(explorer, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
     app.include_router(edge_gpu)
-    app.include_router(ml_zk_proofs)
+    if ml_zk_proofs:
+        app.include_router(ml_zk_proofs)
     app.include_router(marketplace_enhanced, prefix="/v1")
     app.include_router(openclaw_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
-    app.include_router(multi_modal_rl_router, prefix="/v1")
+    if multi_modal_rl_router:
+        app.include_router(multi_modal_rl_router, prefix="/v1")
     app.include_router(cache_management, prefix="/v1")
+    app.include_router(agent_router.router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(global_marketplace, prefix="/v1")
     app.include_router(cross_chain_integration, prefix="/v1")
     app.include_router(global_marketplace_integration, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
+    
+    # Add blockchain router for CLI compatibility
+    from .routers import blockchain as blockchain_router
+    app.include_router(blockchain_router, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

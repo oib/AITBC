@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import select
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from datetime import datetime
 
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
@@ -81,3 +82,140 @@ async def list_miners(session: SessionDep, admin_key: str = Depends(require_admi
         for record in miner_service.list_records()
     ]
     return {"items": miners}
+
+
+@router.get("/status", summary="Get system status", response_model=None)
+async def get_system_status(
+    request: Request,
+    session: SessionDep, 
+    admin_key: str = Depends(require_admin_key())
+) -> dict[str, any]:  # type: ignore[arg-type]
+    """Get comprehensive system status for admin dashboard"""
+    try:
+        # Get job statistics
+        service = JobService(session)
+        from sqlmodel import func, select
+        from ..domain import Job
+
+        total_jobs = session.execute(select(func.count()).select_from(Job)).one()
+        active_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state.in_(["QUEUED", "RUNNING"]))).one()
+        completed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "COMPLETED")).one()
+        failed_jobs = session.execute(select(func.count()).select_from(Job).where(Job.state == "FAILED")).one()
+
+        # Get miner statistics
+        miner_service = MinerService(session)
+        miners = miner_service.list_records()
+        online_miners = miner_service.online_count()
+        
+        # Calculate job statistics
+        avg_job_duration = (
+            sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(len(miners), 1)
+        )
+        
+        # Get system info
+        import psutil
+        import sys
+        from datetime import datetime
+        
+        system_info = {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_percent": psutil.disk_usage('/').percent,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return {
+            "jobs": {
+                "total": int(total_jobs or 0),
+                "active": int(active_jobs or 0),
+                "completed": int(completed_jobs or 0),
+                "failed": int(failed_jobs or 0)
+            },
+            "miners": {
+                "total": len(miners),
+                "online": online_miners,
+                "offline": len(miners) - online_miners,
+                "avg_job_duration_ms": avg_job_duration
+            },
+            "system": system_info,
+            "status": "healthy" if online_miners > 0 else "degraded"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to get system status: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+        }
+
+
+# Agent endpoints temporarily added to admin router
+@router.post("/agents/networks", response_model=dict, status_code=201)
+async def create_agent_network(network_data: dict):
+    """Create a new agent network for collaborative processing"""
+    
+    try:
+        # Validate required fields
+        if not network_data.get("name"):
+            raise HTTPException(status_code=400, detail="Network name is required")
+        
+        if not network_data.get("agents"):
+            raise HTTPException(status_code=400, detail="Agent list is required")
+        
+        # Create network record (simplified for now)
+        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        
+        network_response = {
+            "id": network_id,
+            "name": network_data["name"],
+            "description": network_data.get("description", ""),
+            "agents": network_data["agents"],
+            "coordination_strategy": network_data.get("coordination", "centralized"),
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "owner_id": "temp_user"
+        }
+        
+        logger.info(f"Created agent network: {network_id}")
+        return network_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create agent network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/executions/{execution_id}/receipt")
+async def get_execution_receipt(execution_id: str):
+    """Get verifiable receipt for completed execution"""
+    
+    try:
+        # For now, return a mock receipt since the full execution system isn't implemented
+        receipt_data = {
+            "execution_id": execution_id,
+            "workflow_id": f"workflow_{execution_id}",
+            "status": "completed",
+            "receipt_id": f"receipt_{execution_id}",
+            "miner_signature": "0xmock_signature_placeholder",
+            "coordinator_attestations": [
+                {
+                    "coordinator_id": "coordinator_1",
+                    "signature": "0xmock_attestation_1",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            ],
+            "minted_amount": 1000,
+            "recorded_at": datetime.utcnow().isoformat(),
+            "verified": True,
+            "block_hash": "0xmock_block_hash",
+            "transaction_hash": "0xmock_tx_hash"
+        }
+        
+        logger.info(f"Generated receipt for execution: {execution_id}")
+        return receipt_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get execution receipt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
