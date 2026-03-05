@@ -52,7 +52,7 @@ def create(ctx, name: str, description: str, workflow_file, verification: str,
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/workflows",
+                f"{config.coordinator_url}/api/v1/agents/workflows",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=workflow_data
             )
@@ -96,7 +96,7 @@ def list(ctx, agent_type: Optional[str], status: Optional[str],
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/agents/workflows",
+                f"{config.coordinator_url}/api/v1/agents/workflows",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -145,7 +145,7 @@ def execute(ctx, agent_id: str, inputs, verification: str, priority: str, timeou
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/agents/workflows/{agent_id}/execute",
+                f"{config.coordinator_url}/api/v1/agents/workflows/{agent_id}/execute",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=execution_data
             )
@@ -177,7 +177,7 @@ def status(ctx, execution_id: str, watch: bool, interval: int):
         try:
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/agents/executions/{execution_id}",
+                    f"{config.coordinator_url}/api/v1/agents/executions/{execution_id}",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 
@@ -223,7 +223,7 @@ def receipt(ctx, execution_id: str, verify: bool, download: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/agents/executions/{execution_id}/receipt",
+                f"{config.coordinator_url}/api/v1/agents/executions/{execution_id}/receipt",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -233,7 +233,7 @@ def receipt(ctx, execution_id: str, verify: bool, download: Optional[str]):
                 if verify:
                     # Verify receipt
                     verify_response = client.post(
-                        f"{config.coordinator_url}/agents/receipts/verify",
+                        f"{config.coordinator_url}/api/v1/agents/receipts/verify",
                         headers={"X-Api-Key": config.api_key or ""},
                         json={"receipt": receipt_data}
                     )
@@ -296,7 +296,7 @@ def create(ctx, name: str, agents: str, description: str, coordination: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/networks",
+                f"{config.coordinator_url}/api/v1/agents/networks",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=network_data
             )
@@ -339,7 +339,7 @@ def execute(ctx, network_id: str, task, priority: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/networks/{network_id}/execute",
+                f"{config.coordinator_url}/api/v1/agents/networks/{network_id}/execute",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=execution_data
             )
@@ -374,7 +374,7 @@ def status(ctx, network_id: str, metrics: str, real_time: bool):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/agents/networks/{network_id}/status",
+                f"{config.coordinator_url}/api/v1/agents/networks/{network_id}/status",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -405,7 +405,7 @@ def optimize(ctx, network_id: str, objective: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/networks/{network_id}/optimize",
+                f"{config.coordinator_url}/api/v1/agents/networks/{network_id}/optimize",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=optimization_data
             )
@@ -456,7 +456,7 @@ def enable(ctx, agent_id: str, mode: str, feedback_source: Optional[str], learni
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/{agent_id}/learning/enable",
+                f"{config.coordinator_url}/api/v1/agents/{agent_id}/learning/enable",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=learning_config
             )
@@ -498,7 +498,7 @@ def train(ctx, agent_id: str, feedback, epochs: int):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/{agent_id}/learning/train",
+                f"{config.coordinator_url}/api/v1/agents/{agent_id}/learning/train",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=training_data
             )
@@ -530,7 +530,7 @@ def progress(ctx, agent_id: str, metrics: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/agents/{agent_id}/learning/progress",
+                f"{config.coordinator_url}/api/v1/agents/{agent_id}/learning/progress",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -561,7 +561,7 @@ def export(ctx, agent_id: str, format: str, output_path: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/agents/{agent_id}/learning/export",
+                f"{config.coordinator_url}/api/v1/agents/{agent_id}/learning/export",
                 headers={"X-Api-Key": config.api_key or ""},
                 params=params
             )
@@ -609,7 +609,7 @@ def submit_contribution(ctx, type: str, description: str, github_repo: str, bran
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/agents/contributions",
+                f"{config.coordinator_url}/api/v1/agents/contributions",
                 headers={"X-Api-Key": config.api_key or ""},
                 json=contribution_data
             )
