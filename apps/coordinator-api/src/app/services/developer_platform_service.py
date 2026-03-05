@@ -32,7 +32,7 @@ class DeveloperPlatformService:
         self.session = session
 
     async def register_developer(self, request: DeveloperCreate) -> DeveloperProfile:
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(DeveloperProfile).where(DeveloperProfile.wallet_address == request.wallet_address)
         ).first()
         
@@ -173,7 +173,7 @@ class DeveloperPlatformService:
 
     async def get_developer_profile(self, wallet_address: str) -> Optional[DeveloperProfile]:
         """Get developer profile by wallet address"""
-        return self.session.exec(
+        return self.session.execute(
             select(DeveloperProfile).where(DeveloperProfile.wallet_address == wallet_address)
         ).first()
 
@@ -195,7 +195,7 @@ class DeveloperPlatformService:
 
     async def get_leaderboard(self, limit: int = 100, offset: int = 0) -> List[DeveloperProfile]:
         """Get developer leaderboard sorted by reputation score"""
-        return self.session.exec(
+        return self.session.execute(
             select(DeveloperProfile)
             .where(DeveloperProfile.is_active == True)
             .order_by(DeveloperProfile.reputation_score.desc())
@@ -210,7 +210,7 @@ class DeveloperPlatformService:
             raise HTTPException(status_code=404, detail="Developer profile not found")
         
         # Get bounty statistics
-        completed_bounties = self.session.exec(
+        completed_bounties = self.session.execute(
             select(BountySubmission).where(
                 BountySubmission.developer_id == profile.id,
                 BountySubmission.is_approved == True
@@ -218,7 +218,7 @@ class DeveloperPlatformService:
         ).all()
         
         # Get certification statistics
-        certifications = self.session.exec(
+        certifications = self.session.execute(
             select(DeveloperCertification).where(DeveloperCertification.developer_id == profile.id)
         ).all()
         
@@ -240,7 +240,7 @@ class DeveloperPlatformService:
         if status:
             query = query.where(BountyTask.status == status)
         
-        return self.session.exec(
+        return self.session.execute(
             query.order_by(BountyTask.created_at.desc())
             .offset(offset)
             .limit(limit)
@@ -253,7 +253,7 @@ class DeveloperPlatformService:
             raise HTTPException(status_code=404, detail="Bounty not found")
         
         # Get submissions count
-        submissions_count = self.session.exec(
+        submissions_count = self.session.execute(
             select(BountySubmission).where(BountySubmission.bounty_id == bounty_id)
         ).count()
         
@@ -264,7 +264,7 @@ class DeveloperPlatformService:
 
     async def get_my_submissions(self, developer_id: str) -> List[BountySubmission]:
         """Get all submissions by a developer"""
-        return self.session.exec(
+        return self.session.execute(
             select(BountySubmission)
             .where(BountySubmission.developer_id == developer_id)
             .order_by(BountySubmission.submitted_at.desc())
@@ -288,7 +288,7 @@ class DeveloperPlatformService:
 
     async def get_regional_hubs(self) -> List[RegionalHub]:
         """Get all regional developer hubs"""
-        return self.session.exec(
+        return self.session.execute(
             select(RegionalHub).where(RegionalHub.is_active == True)
         ).all()
 
@@ -301,7 +301,7 @@ class DeveloperPlatformService:
             raise HTTPException(status_code=404, detail="Regional hub not found")
         
         # Mock implementation - in reality would use hub membership table
-        return self.session.exec(
+        return self.session.execute(
             select(DeveloperProfile).where(DeveloperProfile.is_active == True)
         ).all()
 
@@ -394,15 +394,15 @@ class DeveloperPlatformService:
 
     async def get_bounty_statistics(self) -> dict:
         """Get comprehensive bounty statistics"""
-        total_bounties = self.session.exec(select(BountyTask)).count()
-        open_bounties = self.session.exec(
+        total_bounties = self.session.execute(select(BountyTask)).count()
+        open_bounties = self.session.execute(
             select(BountyTask).where(BountyTask.status == BountyStatus.OPEN)
         ).count()
-        completed_bounties = self.session.exec(
+        completed_bounties = self.session.execute(
             select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
         ).count()
         
-        total_rewards = self.session.exec(
+        total_rewards = self.session.execute(
             select(BountyTask).where(BountyTask.status == BountyStatus.COMPLETED)
         ).all()
         total_reward_amount = sum(bounty.reward_amount for bounty in total_rewards)

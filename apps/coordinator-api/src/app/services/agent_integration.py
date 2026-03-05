@@ -178,7 +178,7 @@ class AgentIntegrationManager:
         
         try:
             # Get execution details
-            execution = self.session.exec(
+            execution = self.session.execute(
                 select(AgentExecution).where(AgentExecution.id == execution_id)
             ).first()
             
@@ -186,7 +186,7 @@ class AgentIntegrationManager:
                 raise ValueError(f"Execution not found: {execution_id}")
             
             # Get step executions
-            step_executions = self.session.exec(
+            step_executions = self.session.execute(
                 select(AgentStepExecution).where(
                     AgentStepExecution.execution_id == execution_id
                 )
@@ -557,7 +557,7 @@ class AgentDeploymentManager:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             
             # Get deployment instances
-            instances = self.session.exec(
+            instances = self.session.execute(
                 select(AgentDeploymentInstance).where(
                     AgentDeploymentInstance.deployment_id == deployment_config_id
                 )
@@ -671,7 +671,7 @@ class AgentDeploymentManager:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             
             # Get current instances
-            current_instances = self.session.exec(
+            current_instances = self.session.execute(
                 select(AgentDeploymentInstance).where(
                     AgentDeploymentInstance.deployment_id == deployment_config_id
                 )
@@ -767,7 +767,7 @@ class AgentDeploymentManager:
             }
             
             # Get current instances
-            current_instances = self.session.exec(
+            current_instances = self.session.execute(
                 select(AgentDeploymentInstance).where(
                     AgentDeploymentInstance.deployment_id == deployment_config_id
                 )
@@ -846,7 +846,7 @@ class AgentMonitoringManager:
                 raise ValueError(f"Deployment config not found: {deployment_config_id}")
             
             # Get deployment instances
-            instances = self.session.exec(
+            instances = self.session.execute(
                 select(AgentDeploymentInstance).where(
                     AgentDeploymentInstance.deployment_id == deployment_config_id
                 )

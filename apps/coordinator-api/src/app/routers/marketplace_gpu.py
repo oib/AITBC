@@ -418,10 +418,10 @@ async def get_pricing(
 ) -> Dict[str, Any]:
     """Get enhanced pricing information for a model with dynamic pricing."""
     # SQLite JSON doesn't support array contains, so fetch all and filter in Python
-    all_gpus = session.execute(select(GPURegistry)).all()
+    all_gpus = session.execute(select(GPURegistry)).scalars().all()
     compatible = [
         g for g in all_gpus
-        if any(model.lower() in cap.lower() for cap in (g.capabilities or []))
+        if model.lower() in g.model.lower()
     ]
 
     if not compatible:

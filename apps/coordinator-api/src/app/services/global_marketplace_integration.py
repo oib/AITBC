@@ -209,7 +209,7 @@ class GlobalMarketplaceIntegrationService:
         try:
             # Get the global offer
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-            offer = self.session.exec(stmt).first()
+            offer = self.session.execute(stmt).first()
             
             if not offer:
                 raise ValueError("Offer not found")
@@ -433,7 +433,7 @@ class GlobalMarketplaceIntegrationService:
         try:
             # Get the offer
             stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-            offer = self.session.exec(stmt).first()
+            offer = self.session.execute(stmt).first()
             
             if not offer:
                 raise ValueError("Offer not found")

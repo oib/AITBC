@@ -303,7 +303,7 @@ class CrossChainBridgeService:
                 )
             
             # Check if already confirmed by this validator
-            existing_confirmation = self.session.exec(
+            existing_confirmation = self.session.execute(
                 select(BridgeTransaction).where(
                     BridgeTransaction.bridge_request_id == bridge_request.id,
                     BridgeTransaction.validator_address == validator_address,
@@ -567,7 +567,7 @@ class CrossChainBridgeService:
     
     async def _get_supported_token(self, token_address: str) -> Optional[SupportedToken]:
         """Get supported token configuration"""
-        return self.session.exec(
+        return self.session.execute(
             select(SupportedToken).where(
                 SupportedToken.token_address == token_address
             )
@@ -575,7 +575,7 @@ class CrossChainBridgeService:
     
     async def _get_chain_config(self, chain_id: int) -> Optional[ChainConfig]:
         """Get chain configuration"""
-        return self.session.exec(
+        return self.session.execute(
             select(ChainConfig).where(
                 ChainConfig.chain_id == chain_id
             )
@@ -609,7 +609,7 @@ class CrossChainBridgeService:
     async def _get_bridge_confirmations(self, request_id: int) -> List[Dict]:
         """Get bridge confirmations"""
         
-        confirmations = self.session.exec(
+        confirmations = self.session.execute(
             select(BridgeTransaction).where(
                 BridgeTransaction.bridge_request_id == request_id,
                 BridgeTransaction.transaction_type == "confirmation"
@@ -628,7 +628,7 @@ class CrossChainBridgeService:
     async def _get_bridge_transactions(self, request_id: int) -> List[Dict]:
         """Get all bridge transactions"""
         
-        transactions = self.session.exec(
+        transactions = self.session.execute(
             select(BridgeTransaction).where(
                 BridgeTransaction.bridge_request_id == request_id
             )
@@ -723,7 +723,7 @@ class CrossChainBridgeService:
     
     async def _get_validator(self, validator_address: str) -> Optional[Validator]:
         """Get validator information"""
-        return self.session.exec(
+        return self.session.execute(
             select(Validator).where(
                 Validator.validator_address == validator_address
             )
@@ -743,7 +743,7 @@ class CrossChainBridgeService:
     async def _count_confirmations(self, request_id: int) -> int:
         """Count confirmations for bridge request"""
         
-        confirmations = self.session.exec(
+        confirmations = self.session.execute(
             select(BridgeTransaction).where(
                 BridgeTransaction.bridge_request_id == request_id,
                 BridgeTransaction.transaction_type == "confirmation"

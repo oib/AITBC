@@ -37,7 +37,7 @@ class DeveloperEcosystemService:
         
     async def get_developer_profile(self, developer_id: str) -> Optional[DeveloperProfile]:
         """Get developer profile by ID"""
-        return self.session.exec(
+        return self.session.execute(
             select(DeveloperProfile).where(DeveloperProfile.developer_id == developer_id)
         ).first()
         
@@ -118,7 +118,7 @@ class ThirdPartySolutionService:
         
         # Filtering by JSON column capability (simplified)
         # In a real app, we might use PostgreSQL specific operators
-        solutions = self.session.exec(query.limit(limit)).all()
+        solutions = self.session.execute(query.limit(limit)).all()
         
         if category:
             solutions = [s for s in solutions if category in s.capabilities]
@@ -127,7 +127,7 @@ class ThirdPartySolutionService:
         
     async def purchase_solution(self, buyer_id: str, solution_id: str) -> Dict[str, Any]:
         """Purchase or download a third-party solution"""
-        solution = self.session.exec(
+        solution = self.session.execute(
             select(AgentSolution).where(AgentSolution.solution_id == solution_id)
         ).first()
         
@@ -140,7 +140,7 @@ class ThirdPartySolutionService:
         
         # Update developer earnings if paid
         if solution.price_amount > 0:
-            dev = self.session.exec(
+            dev = self.session.execute(
                 select(DeveloperProfile).where(DeveloperProfile.developer_id == solution.developer_id)
             ).first()
             if dev:
@@ -181,7 +181,7 @@ class InnovationLabService:
         
     async def join_lab(self, lab_id: str, developer_id: str) -> InnovationLab:
         """Join an active innovation lab"""
-        lab = self.session.exec(select(InnovationLab).where(InnovationLab.lab_id == lab_id)).first()
+        lab = self.session.execute(select(InnovationLab).where(InnovationLab.lab_id == lab_id)).first()
         
         if not lab:
             raise ValueError("Lab not found")
@@ -196,7 +196,7 @@ class InnovationLabService:
         
     async def fund_lab(self, lab_id: str, amount: float) -> InnovationLab:
         """Provide funding to an innovation lab"""
-        lab = self.session.exec(select(InnovationLab).where(InnovationLab.lab_id == lab_id)).first()
+        lab = self.session.execute(select(InnovationLab).where(InnovationLab.lab_id == lab_id)).first()
         
         if not lab:
             raise ValueError("Lab not found")
@@ -245,11 +245,11 @@ class CommunityPlatformService:
             query = query.where(CommunityPost.category == category)
             
         query = query.order_by(CommunityPost.created_at.desc()).limit(limit)
-        return self.session.exec(query).all()
+        return self.session.execute(query).all()
         
     async def upvote_post(self, post_id: str) -> CommunityPost:
         """Upvote a post and reward the author"""
-        post = self.session.exec(select(CommunityPost).where(CommunityPost.post_id == post_id)).first()
+        post = self.session.execute(select(CommunityPost).where(CommunityPost.post_id == post_id)).first()
         if not post:
             raise ValueError("Post not found")
             
@@ -267,7 +267,7 @@ class CommunityPlatformService:
     async def create_hackathon(self, organizer_id: str, data: Dict[str, Any]) -> Hackathon:
         """Create a new agent innovation hackathon"""
         # Verify organizer is an expert or partner
-        dev = self.session.exec(select(DeveloperProfile).where(DeveloperProfile.developer_id == organizer_id)).first()
+        dev = self.session.execute(select(DeveloperProfile).where(DeveloperProfile.developer_id == organizer_id)).first()
         if not dev or dev.tier not in [DeveloperTier.EXPERT, DeveloperTier.MASTER, DeveloperTier.PARTNER]:
             raise ValueError("Only high-tier developers can organize hackathons")
             
@@ -290,7 +290,7 @@ class CommunityPlatformService:
         
     async def register_for_hackathon(self, hackathon_id: str, developer_id: str) -> Hackathon:
         """Register a developer for a hackathon"""
-        hackathon = self.session.exec(select(Hackathon).where(Hackathon.hackathon_id == hackathon_id)).first()
+        hackathon = self.session.execute(select(Hackathon).where(Hackathon.hackathon_id == hackathon_id)).first()
         
         if not hackathon:
             raise ValueError("Hackathon not found")

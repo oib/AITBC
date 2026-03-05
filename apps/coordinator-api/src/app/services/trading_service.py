@@ -816,7 +816,7 @@ class P2PTradingProtocol:
         """Find matching sellers for a trade request"""
         
         # Get trade request
-        trade_request = self.session.exec(
+        trade_request = self.session.execute(
             select(TradeRequest).where(TradeRequest.request_id == request_id)
         ).first()
         
@@ -879,7 +879,7 @@ class P2PTradingProtocol:
         """Initiate negotiation between buyer and seller"""
         
         # Get trade match
-        trade_match = self.session.exec(
+        trade_match = self.session.execute(
             select(TradeMatch).where(TradeMatch.match_id == match_id)
         ).first()
         
@@ -887,7 +887,7 @@ class P2PTradingProtocol:
             raise ValueError(f"Trade match {match_id} not found")
         
         # Get trade request
-        trade_request = self.session.exec(
+        trade_request = self.session.execute(
             select(TradeRequest).where(TradeRequest.request_id == trade_match.request_id)
         ).first()
         
@@ -970,12 +970,12 @@ class P2PTradingProtocol:
         """Get comprehensive trading summary for an agent"""
         
         # Get trade requests
-        requests = self.session.exec(
+        requests = self.session.execute(
             select(TradeRequest).where(TradeRequest.buyer_agent_id == agent_id)
         ).all()
         
         # Get trade matches
-        matches = self.session.exec(
+        matches = self.session.execute(
             select(TradeMatch).where(
                 or_(
                     TradeMatch.buyer_agent_id == agent_id,
@@ -985,7 +985,7 @@ class P2PTradingProtocol:
         ).all()
         
         # Get negotiations
-        negotiations = self.session.exec(
+        negotiations = self.session.execute(
             select(TradeNegotiation).where(
                 or_(
                     TradeNegotiation.buyer_agent_id == agent_id,
@@ -995,7 +995,7 @@ class P2PTradingProtocol:
         ).all()
         
         # Get agreements
-        agreements = self.session.exec(
+        agreements = self.session.execute(
             select(TradeAgreement).where(
                 or_(
                     TradeAgreement.buyer_agent_id == agent_id,

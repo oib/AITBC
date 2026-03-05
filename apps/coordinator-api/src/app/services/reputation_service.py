@@ -67,7 +67,7 @@ class TrustScoreCalculator:
         
         # For now, use existing performance rating
         # In real implementation, this would analyze actual job performance
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -98,7 +98,7 @@ class TrustScoreCalculator:
     ) -> float:
         """Calculate reliability-based trust score component"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -140,7 +140,7 @@ class TrustScoreCalculator:
             )
         )
         
-        feedbacks = session.exec(feedback_query).all()
+        feedbacks = session.execute(feedback_query).all()
         
         if not feedbacks:
             return 500.0  # Neutral score
@@ -178,7 +178,7 @@ class TrustScoreCalculator:
     ) -> float:
         """Calculate security-based trust score component"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -209,7 +209,7 @@ class TrustScoreCalculator:
     ) -> float:
         """Calculate economic-based trust score component"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -258,7 +258,7 @@ class TrustScoreCalculator:
         )
         
         # Apply smoothing with previous score if available
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -296,7 +296,7 @@ class ReputationService:
         """Create a new reputation profile for an agent"""
         
         # Check if profile already exists
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -478,7 +478,7 @@ class ReputationService:
         """Update agent's community rating based on feedback"""
         
         # Get all approved feedback
-        feedbacks = self.session.exec(
+        feedbacks = self.session.execute(
             select(CommunityFeedback).where(
                 and_(
                     CommunityFeedback.agent_id == agent_id,
@@ -505,7 +505,7 @@ class ReputationService:
             avg_rating = weighted_sum / total_weight
             
             # Update reputation profile
-            reputation = self.session.exec(
+            reputation = self.session.execute(
                 select(AgentReputation).where(AgentReputation.agent_id == agent_id)
             ).first()
             
@@ -517,7 +517,7 @@ class ReputationService:
     async def get_reputation_summary(self, agent_id: str) -> Dict[str, Any]:
         """Get comprehensive reputation summary for an agent"""
         
-        reputation = self.session.exec(
+        reputation = self.session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -525,7 +525,7 @@ class ReputationService:
             return {"error": "Reputation profile not found"}
         
         # Get recent events
-        recent_events = self.session.exec(
+        recent_events = self.session.execute(
             select(ReputationEvent).where(
                 and_(
                     ReputationEvent.agent_id == agent_id,
@@ -535,7 +535,7 @@ class ReputationService:
         ).all()
         
         # Get recent feedback
-        recent_feedback = self.session.exec(
+        recent_feedback = self.session.execute(
             select(CommunityFeedback).where(
                 and_(
                     CommunityFeedback.agent_id == agent_id,
@@ -595,7 +595,7 @@ class ReputationService:
         if region:
             query = query.where(AgentReputation.geographic_region == region)
         
-        reputations = self.session.exec(query).all()
+        reputations = self.session.execute(query).all()
         
         leaderboard = []
         for rank, reputation in enumerate(reputations, 1):

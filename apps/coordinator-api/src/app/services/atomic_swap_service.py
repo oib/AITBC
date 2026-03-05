@@ -82,7 +82,7 @@ class AtomicSwapService:
 
     async def get_agent_swaps(self, agent_id: str) -> List[AtomicSwapOrder]:
         """Get all swaps where the agent is either initiator or participant"""
-        return self.session.exec(
+        return self.session.execute(
             select(AtomicSwapOrder).where(
                 (AtomicSwapOrder.initiator_agent_id == agent_id) |
                 (AtomicSwapOrder.participant_agent_id == agent_id)

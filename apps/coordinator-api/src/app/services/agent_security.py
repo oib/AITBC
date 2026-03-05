@@ -379,7 +379,7 @@ class AgentTrustManager:
         """Update trust score based on execution results"""
         
         # Get or create trust score record
-        trust_score = self.session.exec(
+        trust_score = self.session.execute(
             select(AgentTrustScore).where(
                 (AgentTrustScore.entity_type == entity_type) &
                 (AgentTrustScore.entity_id == entity_id)
@@ -677,7 +677,7 @@ class AgentSandboxManager:
         """Monitor sandbox execution for security violations"""
         
         # Get sandbox configuration
-        sandbox = self.session.exec(
+        sandbox = self.session.execute(
             select(AgentSandboxConfig).where(
                 AgentSandboxConfig.id == f"sandbox_{execution_id}"
             )
@@ -716,7 +716,7 @@ class AgentSandboxManager:
         
         try:
             # Get sandbox record
-            sandbox = self.session.exec(
+            sandbox = self.session.execute(
                 select(AgentSandboxConfig).where(
                     AgentSandboxConfig.id == f"sandbox_{execution_id}"
                 )

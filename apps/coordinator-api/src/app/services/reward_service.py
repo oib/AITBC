@@ -49,7 +49,7 @@ class RewardCalculator:
         """Calculate reward multiplier based on agent's tier"""
         
         # Get tier configuration
-        tier_config = session.exec(
+        tier_config = session.execute(
             select(RewardTierConfig).where(
                 and_(
                     RewardTierConfig.min_trust_score <= trust_score,
@@ -116,7 +116,7 @@ class RewardCalculator:
         """Calculate loyalty bonus based on agent history"""
         
         # Get agent reward profile
-        reward_profile = session.exec(
+        reward_profile = session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -170,7 +170,7 @@ class RewardCalculator:
         """Calculate milestone achievement bonus"""
         
         # Check for unclaimed milestones
-        milestones = session.exec(
+        milestones = session.execute(
             select(RewardMilestone).where(
                 and_(
                     RewardMilestone.agent_id == agent_id,
@@ -200,7 +200,7 @@ class RewardCalculator:
         """Calculate total reward with all bonuses and multipliers"""
         
         # Get agent's trust score and tier
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -243,7 +243,7 @@ class RewardEngine:
         """Create a new reward profile for an agent"""
         
         # Check if profile already exists
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -346,7 +346,7 @@ class RewardEngine:
     async def process_reward_distribution(self, distribution_id: str) -> RewardDistribution:
         """Process a reward distribution"""
         
-        distribution = self.session.exec(
+        distribution = self.session.execute(
             select(RewardDistribution).where(RewardDistribution.id == distribution_id)
         ).first()
         
@@ -389,7 +389,7 @@ class RewardEngine:
     async def update_agent_reward_profile(self, agent_id: str, reward_calculation: Dict[str, Any]):
         """Update agent reward profile after reward distribution"""
         
-        profile = self.session.exec(
+        profile = self.session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -426,7 +426,7 @@ class RewardEngine:
         """Check and update agent's reward tier"""
         
         # Get agent reputation
-        reputation = self.session.exec(
+        reputation = self.session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -434,7 +434,7 @@ class RewardEngine:
             return
         
         # Get reward profile
-        profile = self.session.exec(
+        profile = self.session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -502,7 +502,7 @@ class RewardEngine:
     async def get_reward_summary(self, agent_id: str) -> Dict[str, Any]:
         """Get comprehensive reward summary for an agent"""
         
-        profile = self.session.exec(
+        profile = self.session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)
         ).first()
         
@@ -510,7 +510,7 @@ class RewardEngine:
             return {"error": "Reward profile not found"}
         
         # Get recent calculations
-        recent_calculations = self.session.exec(
+        recent_calculations = self.session.execute(
             select(RewardCalculation).where(
                 and_(
                     RewardCalculation.agent_id == agent_id,
@@ -520,7 +520,7 @@ class RewardEngine:
         ).all()
         
         # Get recent distributions
-        recent_distributions = self.session.exec(
+        recent_distributions = self.session.execute(
             select(RewardDistribution).where(
                 and_(
                     RewardDistribution.agent_id == agent_id,
@@ -567,7 +567,7 @@ class RewardEngine:
         """Process pending reward distributions in batch"""
         
         # Get pending distributions
-        pending_distributions = self.session.exec(
+        pending_distributions = self.session.execute(
             select(RewardDistribution).where(
                 and_(
                     RewardDistribution.status == RewardStatus.PENDING,
@@ -608,7 +608,7 @@ class RewardEngine:
             end_date = datetime.utcnow()
         
         # Get distributions in period
-        distributions = self.session.exec(
+        distributions = self.session.execute(
             select(RewardDistribution).where(
                 and_(
                     RewardDistribution.created_at >= start_date,
@@ -635,7 +635,7 @@ class RewardEngine:
         
         # Get agent profiles for tier distribution
         agent_ids = list(set(d.agent_id for d in distributions))
-        profiles = self.session.exec(
+        profiles = self.session.execute(
             select(AgentRewardProfile).where(AgentRewardProfile.agent_id.in_(agent_ids))
         ).all()
         

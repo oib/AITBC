@@ -36,17 +36,17 @@ class MarketplaceService:
             stmt = stmt.where(MarketplaceOffer.status == normalised)
 
         stmt = stmt.offset(offset).limit(limit)
-        offers = self.session.exec(stmt).all()
+        offers = self.session.execute(stmt).all()
         return [self._to_offer_view(o) for o in offers]
 
     def get_stats(self) -> MarketplaceStatsView:
-        offers = self.session.exec(select(MarketplaceOffer)).all()
+        offers = self.session.execute(select(MarketplaceOffer)).all()
         open_offers = [offer for offer in offers if offer.status == "open"]
 
         total_offers = len(offers)
         open_capacity = sum(offer.capacity for offer in open_offers)
         average_price = mean([offer.price for offer in open_offers]) if open_offers else 0.0
-        active_bids = self.session.exec(
+        active_bids = self.session.execute(
             select(MarketplaceBid).where(MarketplaceBid.status == "pending")
         ).all()
 
@@ -89,7 +89,7 @@ class MarketplaceService:
             stmt = stmt.where(MarketplaceBid.provider == provider)
 
         stmt = stmt.offset(offset).limit(limit)
-        bids = self.session.exec(stmt).all()
+        bids = self.session.execute(stmt).all()
         return [self._to_bid_view(bid) for bid in bids]
 
     def get_bid(self, bid_id: str) -> Optional[MarketplaceBidView]:

@@ -95,7 +95,7 @@ class AgentStateManager:
             .where(AgentStep.workflow_id == workflow_id)
             .order_by(AgentStep.step_order)
         )
-        return self.session.exec(stmt).all()
+        return self.session.execute(stmt).all()
     
     async def create_step_execution(
         self, 
