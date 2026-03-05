@@ -108,7 +108,7 @@ def status(ctx, node: int):
     
     # Map node to RPC URL
     node_urls = {
-        1: "http://localhost:8082",
+        1: "http://localhost:8003",
         2: "http://localhost:9080/rpc",  # Use RPC API with correct endpoint
         3: "http://aitbc.keisanki.net/rpc"
     }
@@ -120,8 +120,8 @@ def status(ctx, node: int):
     
     try:
         with httpx.Client() as client:
-            # First get health for general status
-            health_url = rpc_url.replace("/rpc", "") + "/v1/health" if "/rpc" in rpc_url else rpc_url + "/v1/health"
+            # Use health endpoint that exists
+            health_url = rpc_url + "/health"
             response = client.get(
                 health_url,
                 timeout=5

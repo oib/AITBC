@@ -107,6 +107,7 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
     if not wallet_name:
         # Try to get from config or use 'default'
         config_file = Path.home() / ".aitbc" / "config.yaml"
+        config = None
         if config_file.exists():
             with open(config_file, "r") as f:
                 config = yaml.safe_load(f)
@@ -116,10 +117,18 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
                     wallet_name = "default"
         else:
             wallet_name = "default"
+    else:
+        # Load config for other operations
+        config_file = Path.home() / ".aitbc" / "config.yaml"
+        config = None
+        if config_file.exists():
+            with open(config_file, "r") as f:
+                config = yaml.safe_load(f)
 
     ctx.obj["wallet_name"] = wallet_name
     ctx.obj["wallet_dir"] = wallet_dir
     ctx.obj["wallet_path"] = wallet_dir / f"{wallet_name}.json"
+    ctx.obj["config"] = config
 
 
 @wallet.command()
@@ -499,7 +508,7 @@ def balance(ctx):
                     if response.status_code == 200:
                         result = response.json()
                         blockchain_balance = result.get("balance", 0)
-                except Exception:
+                except Exception as e:
                     pass
                 
                 # Method 2: Try addresses list endpoint
@@ -550,7 +559,7 @@ def balance(ctx):
                         ctx.obj.get("output_format", "table"),
                     )
                     return
-        except Exception:
+        except Exception as e:
             pass
 
     # Fallback to local balance only
