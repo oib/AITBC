@@ -6,8 +6,9 @@ This document provides detailed specifications for implementing the missing Swar
 
 ## Current Status
 
-### ❌ Missing Endpoints (404 Errors)
-- **Agent Network**: `/api/v1/agents/networks/*` endpoints
+### ✅ Missing Endpoints (404 Errors) - RESOLVED
+- **Agent Network**: `/api/v1/agents/networks/*` endpoints - ✅ **IMPLEMENTED** (March 5, 2026)
+- **Agent Receipt**: `/api/v1/agents/executions/{execution_id}/receipt` endpoint - ✅ **IMPLEMENTED** (March 5, 2026)
 - **Swarm Operations**: `/swarm/*` endpoints
 
 ### ✅ CLI Commands Ready

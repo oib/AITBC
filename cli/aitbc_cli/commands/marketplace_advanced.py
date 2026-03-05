@@ -221,15 +221,15 @@ def verify(ctx, nft_id: str, deep_scan: bool, check_integrity: bool, verify_perf
 
 
 @click.group()
-def analytics():
+def marketplace_analytics():
     """Marketplace analytics and insights"""
     pass
 
 
-advanced.add_command(analytics)
+advanced.add_command(marketplace_analytics)
 
 
-@analytics.command()
+@marketplace_analytics.command()
 @click.option("--period", default="30d", help="Time period (1d, 7d, 30d, 90d)")
 @click.option("--metrics", default="volume,trends", help="Comma-separated metrics")
 @click.option("--category", help="Filter by category")
@@ -237,7 +237,7 @@ advanced.add_command(analytics)
               type=click.Choice(["json", "csv", "pdf"]),
               help="Output format")
 @click.pass_context
-def analytics(ctx, period: str, metrics: str, category: Optional[str], output_format: str):
+def get_analytics(ctx, period: str, metrics: str, category: Optional[str], output_format: str):
     """Get comprehensive marketplace analytics"""
     config = ctx.obj['config']
     
@@ -276,7 +276,7 @@ def analytics(ctx, period: str, metrics: str, category: Optional[str], output_fo
         ctx.exit(1)
 
 
-@analytics.command()
+@marketplace_analytics.command()
 @click.argument("model_id")
 @click.option("--competitors", is_flag=True, help="Include competitor analysis")
 @click.option("--datasets", default="standard", help="Test datasets to use")
@@ -314,7 +314,7 @@ def benchmark(ctx, model_id: str, competitors: bool, datasets: str, iterations: 
         ctx.exit(1)
 
 
-@analytics.command()
+@marketplace_analytics.command()
 @click.option("--category", help="Filter by category")
 @click.option("--forecast", default="7d", help="Forecast period")
 @click.option("--confidence", default=0.8, help="Confidence threshold")
@@ -350,7 +350,7 @@ def trends(ctx, category: Optional[str], forecast: str, confidence: float):
         ctx.exit(1)
 
 
-@analytics.command()
+@marketplace_analytics.command()
 @click.option("--format", default="pdf", type=click.Choice(["pdf", "html", "json"]),
               help="Report format")
 @click.option("--email", help="Email address to send report")

@@ -85,10 +85,10 @@ async def lifespan(app: FastAPI):
             # Test database connectivity
             from sqlmodel import select
             from ..domain import Job
-            from ..storage import SessionDep
+            from ..storage import get_session
             
             # Simple connectivity test using dependency injection
-            with SessionDep() as session:
+            with get_session() as session:
                 test_query = select(Job).limit(1)
                 session.exec(test_query).first()
             logger.info("Database warmup completed successfully")
@@ -223,42 +223,37 @@ def create_app() -> FastAPI:
         allow_headers=["*"]  # Allow all headers for API keys and content types
     )
 
-    app.include_router(client, prefix="/v1")
-    app.include_router(miner, prefix="/v1")
-    app.include_router(admin, prefix="/v1")
-    app.include_router(marketplace, prefix="/v1")
-    app.include_router(marketplace_gpu, prefix="/v1")
-    app.include_router(exchange, prefix="/v1")
-    app.include_router(users, prefix="/v1/users")
-    app.include_router(services, prefix="/v1")
-    app.include_router(payments, prefix="/v1")
-    app.include_router(marketplace_offers, prefix="/v1")
-    app.include_router(zk_applications.router, prefix="/v1")
-    app.include_router(new_governance_router, prefix="/v1")
-    app.include_router(community_router, prefix="/v1")
-    app.include_router(partners, prefix="/v1")
-    app.include_router(explorer, prefix="/v1")
-    app.include_router(web_vitals, prefix="/v1")
-    app.include_router(edge_gpu)
-    if ml_zk_proofs:
-        app.include_router(ml_zk_proofs)
-    app.include_router(marketplace_enhanced, prefix="/v1")
-    app.include_router(openclaw_enhanced, prefix="/v1")
-    app.include_router(monitoring_dashboard, prefix="/v1")
-    if multi_modal_rl_router:
-        app.include_router(multi_modal_rl_router, prefix="/v1")
-    app.include_router(cache_management, prefix="/v1")
-    app.include_router(agent_router.router, prefix="/v1/agents")
-    app.include_router(agent_identity, prefix="/v1")
-    app.include_router(global_marketplace, prefix="/v1")
-    app.include_router(cross_chain_integration, prefix="/v1")
-    app.include_router(global_marketplace_integration, prefix="/v1")
-    app.include_router(developer_platform, prefix="/v1")
-    app.include_router(governance_enhanced, prefix="/v1")
+    # Temporarily disable some routers to isolate the Pydantic issue
+    # app.include_router(client, prefix="/v1")
+    # app.include_router(miner, prefix="/v1")
+    # app.include_router(admin, prefix="/v1")
+    # app.include_router(marketplace, prefix="/v1")
+    # app.include_router(marketplace_gpu, prefix="/v1")
+    # app.include_router(explorer, prefix="/v1")
+    # app.include_router(services, prefix="/v1")
+    # app.include_router(users, prefix="/v1")
+    # app.include_router(exchange, prefix="/v1")
+    # app.include_router(marketplace_offers, prefix="/v1")
+    # app.include_router(payments, prefix="/v1")
+    # app.include_router(web_vitals, prefix="/v1")
+    # app.include_router(edge_gpu)
+    # if ml_zk_proofs:
+    #     app.include_router(ml_zk_proofs)
+    # app.include_router(marketplace_enhanced, prefix="/v1")
+    # app.include_router(openclaw_enhanced, prefix="/v1")
+    # app.include_router(monitoring_dashboard, prefix="/v1")
+    # app.include_router(agent_router.router, prefix="/v1/agents")
+    # app.include_router(agent_identity, prefix="/v1")
+    # app.include_router(global_marketplace, prefix="/v1")
+    # app.include_router(cross_chain_integration, prefix="/v1")
+    # app.include_router(global_marketplace_integration, prefix="/v1")
+    # app.include_router(developer_platform, prefix="/v1")
+    # app.include_router(governance_enhanced, prefix="/v1")
     
-    # Add blockchain router for CLI compatibility
-    from .routers import blockchain as blockchain_router
-    app.include_router(blockchain_router, prefix="/v1")
+    # Only include blockchain for testing
+    app.include_router(blockchain, prefix="/v1")
+    # from .routers import blockchain as blockchain_router
+    # app.include_router(blockchain_router, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

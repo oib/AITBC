@@ -152,7 +152,7 @@ This document tracks components that have been successfully deployed and are ope
 - ✅ **Blockchain Node** - Running on host
   - SQLModel-based blockchain with PoA consensus
   - RPC API on ports 8081/8082 (proxied via /rpc/ and /rpc2/)
-  - Mock coordinator on port 8090 (proxied via /v1/)
+  - Mock coordinator on port 8020 (proxied via /v1/)
   - Devnet scripts and observability hooks
   - Cross-site RPC synchronization enabled
   - Transaction propagation between sites

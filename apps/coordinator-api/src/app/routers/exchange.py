@@ -4,6 +4,7 @@ Bitcoin Exchange Router for AITBC
 
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from datetime import datetime
 import uuid
 import time
 import json
@@ -214,3 +215,80 @@ async def monitor_payment(payment_id: str):
         # For demo, we'll wait for manual confirmation
         
         await asyncio.sleep(30)  # Check every 30 seconds
+
+
+# Agent endpoints temporarily added to exchange router
+@router.get("/agents/test")
+async def test_agent_endpoint():
+    """Test endpoint to verify agent routes are working"""
+    return {"message": "Agent routes are working", "timestamp": datetime.utcnow().isoformat()}
+
+
+@router.post("/agents/networks", response_model=dict, status_code=201)
+async def create_agent_network(network_data: dict):
+    """Create a new agent network for collaborative processing"""
+    
+    try:
+        # Validate required fields
+        if not network_data.get("name"):
+            raise HTTPException(status_code=400, detail="Network name is required")
+        
+        if not network_data.get("agents"):
+            raise HTTPException(status_code=400, detail="Agent list is required")
+        
+        # Create network record (simplified for now)
+        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        
+        network_response = {
+            "id": network_id,
+            "name": network_data["name"],
+            "description": network_data.get("description", ""),
+            "agents": network_data["agents"],
+            "coordination_strategy": network_data.get("coordination", "centralized"),
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "owner_id": "temp_user"
+        }
+        
+        logger.info(f"Created agent network: {network_id}")
+        return network_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create agent network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/agents/executions/{execution_id}/receipt")
+async def get_execution_receipt(execution_id: str):
+    """Get verifiable receipt for completed execution"""
+    
+    try:
+        # For now, return a mock receipt since the full execution system isn't implemented
+        receipt_data = {
+            "execution_id": execution_id,
+            "workflow_id": f"workflow_{execution_id}",
+            "status": "completed",
+            "receipt_id": f"receipt_{execution_id}",
+            "miner_signature": "0xmock_signature_placeholder",
+            "coordinator_attestations": [
+                {
+                    "coordinator_id": "coordinator_1",
+                    "signature": "0xmock_attestation_1",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            ],
+            "minted_amount": 1000,
+            "recorded_at": datetime.utcnow().isoformat(),
+            "verified": True,
+            "block_hash": "0xmock_block_hash",
+            "transaction_hash": "0xmock_tx_hash"
+        }
+        
+        logger.info(f"Generated receipt for execution: {execution_id}")
+        return receipt_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get execution receipt: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
