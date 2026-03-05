@@ -41,14 +41,14 @@ class JobService:
         query = select(Job).where(Job.id == job_id)
         if client_id:
             query = query.where(Job.client_id == client_id)
-        job = self.session.exec(query).one_or_none()
+        job = self.session.execute(query).scalar_one_or_none()
         if not job:
             raise KeyError("job not found")
         return self._ensure_not_expired(job)
 
     def list_receipts(self, job_id: str, client_id: Optional[str] = None) -> list[JobReceipt]:
         job = self.get_job(job_id, client_id=client_id)
-        receipts = self.session.exec(
+        receipts = self.session.scalars(
             select(JobReceipt)
             .where(JobReceipt.job_id == job.id)
             .order_by(JobReceipt.created_at.asc())
@@ -94,7 +94,7 @@ class JobService:
                 .order_by(Job.requested_at.asc())
             )
 
-            jobs = self.session.exec(statement).all()
+            jobs = self.session.scalars(statement).all()
             for job in jobs:
                 try:
                     job = self._ensure_not_expired(job)
