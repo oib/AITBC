@@ -51,11 +51,11 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [x] `admin users` — User management (✅ Test scenarios created)
 
 ### **agent** — Advanced AI Agent Workflow
-- [x] `agent create` — Create new AI agent workflow (⚠️ has bug: agent_id undefined)
-- [ ] `agent execute` — Execute AI agent workflow
+- [x] `agent create` — Create new AI agent workflow
+- [x] `agent execute` — Execute AI agent workflow
 - [ ] `agent learning` — Agent adaptive learning and training
-- [x] `agent list` — List available AI agent workflows (⚠️ Network error)
-- [ ] `agent network` — Multi-agent collaborative network
+- [x] `agent list` — List available AI agent workflows
+- [x] `agent network` — Multi-agent collaborative network (endpoints return 404)
 - [ ] `agent receipt` — Get verifiable receipt for execution
 - [x] `agent status` — Get status of agent execution (✅ Help available)
 - [ ] `agent submit-contribution` — Submit contribution via GitHub
@@ -186,7 +186,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 - [ ] `miner mine-ollama` — Mine jobs using local Ollama for GPU inference
 - [ ] `miner poll` — Poll for a single job
 - [ ] `miner register` — Register as a miner with the coordinator
-- [ ] `miner status` — Check miner status
+- [x] `miner status` — Check miner status
 - [ ] `miner update-capabilities` — Update miner GPU capabilities
 
 ---
@@ -194,10 +194,10 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ## 🏛️ Governance & Advanced Features
 
 ### **governance** — Governance Proposals and Voting
-- [ ] `governance list` — List governance proposals
-- [x] `governance propose` — Create a governance proposal (✅ Working)
-- [ ] `governance result` — Show voting results for a proposal
-- [ ] `governance vote` — Cast a vote on a proposal
+- [x] `governance list` — List governance proposals
+- [x] `governance propose` — Create a governance proposal
+- [x] `governance result` — Show voting results for a proposal
+- [x] `governance vote` — Cast a vote on a proposal
 
 ### **deploy** — Production Deployment and Scaling
 - [ ] `deploy auto-scale` — Trigger auto-scaling evaluation for deployment
@@ -234,7 +234,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ### **swarm** — Swarm Intelligence and Collective Optimization
 - [ ] `swarm consensus` — Achieve swarm consensus on task result
 - [ ] `swarm coordinate` — Coordinate swarm task execution
-- [x] `swarm join` — Join agent swarm for collective optimization (⚠️ Network error 405)
+- [ ] `swarm join` — Join agent swarm for collective optimization (endpoints return 404)
 - [ ] `swarm leave` — Leave swarm
 - [ ] `swarm list` — List active swarms
 - [ ] `swarm status` — Get swarm task status
