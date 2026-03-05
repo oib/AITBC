@@ -205,7 +205,13 @@ class FHEService:
     """Main FHE service for AITBC"""
 
     def __init__(self):
-        providers = {"tenseal": TenSEALProvider()}
+        providers = {}
+        
+        # TenSEAL provider
+        try:
+            providers["tenseal"] = TenSEALProvider()
+        except ImportError as e:
+            logging.warning(f"TenSEAL provider not available: {e}")
 
         # Optional Concrete ML provider
         try:
