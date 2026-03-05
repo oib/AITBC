@@ -83,7 +83,7 @@ class ExplorerService:
             # Fallback to fake data if RPC is unavailable
             print(f"Warning: Failed to fetch blocks from RPC: {e}, falling back to fake data")
             statement = select(Job).order_by(Job.requested_at.desc())
-            jobs = self.session.exec(statement.offset(offset).limit(limit)).all()
+            jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
             items: list[BlockSummary] = []
             for index, job in enumerate(jobs):
@@ -109,7 +109,7 @@ class ExplorerService:
             .offset(offset)
             .limit(limit)
         )
-        jobs = self.session.exec(statement).all()
+        jobs = self.session.execute(statement).all()
 
         items: list[TransactionSummary] = []
         for index, job in enumerate(jobs):
@@ -149,7 +149,7 @@ class ExplorerService:
 
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
         statement = select(Job).order_by(Job.requested_at.desc())
-        jobs = self.session.exec(statement.offset(offset).limit(limit)).all()
+        jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
         address_map: dict[str, dict[str, object]] = defaultdict(
             lambda: {
@@ -237,7 +237,7 @@ class ExplorerService:
         if job_id:
             statement = statement.where(JobReceipt.job_id == job_id)
 
-        rows = self.session.exec(statement.offset(offset).limit(limit)).all()
+        rows = self.session.execute(statement.offset(offset).limit(limit)).all()
         items: list[ReceiptSummary] = []
         for row in rows:
             payload = row.payload or {}

@@ -172,7 +172,7 @@ class OptimizedMinerService(BaseService[Miner]):
         if key.startswith("miner_"):
             address = key[7:]  # Remove "miner_" prefix
             statement = select(Miner).where(Miner.address == address)
-            result = self.session.exec(statement).first()
+            result = self.session.execute(statement).first()
             if result:
                 await self.set_cached(key, result)
             return result

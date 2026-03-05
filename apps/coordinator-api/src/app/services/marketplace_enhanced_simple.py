@@ -225,12 +225,12 @@ class EnhancedMarketplaceService:
             offers_query = select(MarketplaceOffer).where(
                 MarketplaceOffer.created_at >= start_date
             )
-            offers = self.session.exec(offers_query).all()
+            offers = self.session.execute(offers_query).all()
             
             bids_query = select(MarketplaceBid).where(
                 MarketplaceBid.created_at >= start_date
             )
-            bids = self.session.exec(bids_query).all()
+            bids = self.session.execute(bids_query).all()
             
             # Calculate analytics
             analytics = {

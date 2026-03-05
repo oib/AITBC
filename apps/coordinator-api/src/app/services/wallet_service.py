@@ -37,7 +37,7 @@ class WalletService:
         """Create a new wallet for an agent"""
         
         # Check if agent already has an active wallet of this type
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(AgentWallet).where(
                 AgentWallet.agent_id == request.agent_id,
                 AgentWallet.wallet_type == request.wallet_type,
@@ -72,7 +72,7 @@ class WalletService:
 
     async def get_wallet_by_agent(self, agent_id: str) -> List[AgentWallet]:
         """Retrieve all active wallets for an agent"""
-        return self.session.exec(
+        return self.session.execute(
             select(AgentWallet).where(
                 AgentWallet.agent_id == agent_id,
                 AgentWallet.is_active == True
@@ -81,13 +81,13 @@ class WalletService:
 
     async def get_balances(self, wallet_id: int) -> List[TokenBalance]:
         """Get all tracked balances for a wallet"""
-        return self.session.exec(
+        return self.session.execute(
             select(TokenBalance).where(TokenBalance.wallet_id == wallet_id)
         ).all()
 
     async def update_balance(self, wallet_id: int, chain_id: int, token_address: str, balance: float) -> TokenBalance:
         """Update a specific token balance for a wallet"""
-        record = self.session.exec(
+        record = self.session.execute(
             select(TokenBalance).where(
                 TokenBalance.wallet_id == wallet_id,
                 TokenBalance.chain_id == chain_id,

@@ -295,11 +295,11 @@ def integration(ctx, component, verbose):
         elif component == 'job':
             ctx.invoke(job, [])
         elif component == 'marketplace':
-            ctx.invoke(marketplace, [])
+            ctx.invoke(marketplace)
         elif component == 'blockchain':
             ctx.invoke(blockchain, [])
         elif component == 'api':
-            ctx.invoke(api, ['--endpoint', 'health'])
+            ctx.invoke(api, endpoint='health')
         else:
             error(f"Unknown component: {component}")
             return
@@ -308,7 +308,7 @@ def integration(ctx, component, verbose):
         
         # Test API connectivity first
         output("1. Testing API connectivity...")
-        ctx.invoke(api, ['--endpoint', 'health'])
+        ctx.invoke(api, endpoint='health')
         
         # Test wallet functionality
         output("2. Testing wallet functionality...")
@@ -316,7 +316,7 @@ def integration(ctx, component, verbose):
         
         # Test marketplace functionality
         output("3. Testing marketplace functionality...")
-        ctx.invoke(marketplace, [])
+        ctx.invoke(marketplace)
         
         # Test blockchain functionality
         output("4. Testing blockchain functionality...")
@@ -351,7 +351,7 @@ def diagnostics(ctx, output_file):
     # Test 1: Environment
     output("1. Testing environment...")
     try:
-        ctx.invoke(environment, ['--format', 'json'])
+        ctx.invoke(environment, format='json')
         diagnostics_data['environment'] = 'PASS'
     except Exception as e:
         diagnostics_data['environment'] = f'FAIL: {str(e)}'
@@ -360,7 +360,7 @@ def diagnostics(ctx, output_file):
     # Test 2: API Connectivity
     output("2. Testing API connectivity...")
     try:
-        ctx.invoke(api, ['--endpoint', 'health'])
+        ctx.invoke(api, endpoint='health')
         diagnostics_data['api_connectivity'] = 'PASS'
     except Exception as e:
         diagnostics_data['api_connectivity'] = f'FAIL: {str(e)}'
@@ -369,7 +369,7 @@ def diagnostics(ctx, output_file):
     # Test 3: Wallet Creation
     output("3. Testing wallet creation...")
     try:
-        ctx.invoke(wallet, ['--wallet-name', 'diagnostics-test', '--test-operations'])
+        ctx.invoke(wallet, wallet_name='diagnostics-test', test_operations=True)
         diagnostics_data['wallet_creation'] = 'PASS'
     except Exception as e:
         diagnostics_data['wallet_creation'] = f'FAIL: {str(e)}'
@@ -378,7 +378,7 @@ def diagnostics(ctx, output_file):
     # Test 4: Marketplace
     output("4. Testing marketplace...")
     try:
-        ctx.invoke(marketplace, [])
+        ctx.invoke(marketplace)
         diagnostics_data['marketplace'] = 'PASS'
     except Exception as e:
         diagnostics_data['marketplace'] = f'FAIL: {str(e)}'

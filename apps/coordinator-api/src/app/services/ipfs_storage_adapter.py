@@ -104,7 +104,7 @@ class IPFSAdapterService:
             query = query.where(AgentMemoryNode.memory_type == memory_type)
             
         # Execute query and filter by tags in Python (since SQLite JSON JSON_CONTAINS is complex via pure SQLAlchemy without specific dialects)
-        results = self.session.exec(query).all()
+        results = self.session.execute(query).all()
         
         if tags and len(tags) > 0:
             filtered_results = []

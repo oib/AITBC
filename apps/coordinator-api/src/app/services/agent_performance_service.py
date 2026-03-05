@@ -91,7 +91,7 @@ class MetaLearningEngine:
     async def train_meta_model(self, session: Session, model_id: str) -> Dict[str, Any]:
         """Train a meta-learning model"""
         
-        model = session.exec(
+        model = session.execute(
             select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)
         ).first()
         
@@ -194,7 +194,7 @@ class MetaLearningEngine:
     ) -> Dict[str, Any]:
         """Adapt meta-learning model to new task"""
         
-        model = session.exec(
+        model = session.execute(
             select(MetaLearningModel).where(MetaLearningModel.model_id == model_id)
         ).first()
         
@@ -1003,7 +1003,7 @@ class AgentPerformanceService:
     ) -> AgentPerformanceProfile:
         """Update agent performance metrics"""
         
-        profile = self.session.exec(
+        profile = self.session.execute(
             select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
         ).first()
         
@@ -1089,7 +1089,7 @@ class AgentPerformanceService:
     ) -> Dict[str, Any]:
         """Get comprehensive agent performance profile"""
         
-        profile = self.session.exec(
+        profile = self.session.execute(
             select(AgentPerformanceProfile).where(AgentPerformanceProfile.agent_id == agent_id)
         ).first()
         

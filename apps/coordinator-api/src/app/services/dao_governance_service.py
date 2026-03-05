@@ -34,7 +34,7 @@ class DAOGovernanceService:
         self.contract_service = contract_service
 
     async def register_member(self, request: MemberCreate) -> DAOMember:
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(DAOMember).where(DAOMember.wallet_address == request.wallet_address)
         ).first()
         
@@ -58,7 +58,7 @@ class DAOGovernanceService:
         return member
 
     async def create_proposal(self, request: ProposalCreate) -> DAOProposal:
-        proposer = self.session.exec(
+        proposer = self.session.execute(
             select(DAOMember).where(DAOMember.wallet_address == request.proposer_address)
         ).first()
         
@@ -91,7 +91,7 @@ class DAOGovernanceService:
         return proposal
 
     async def cast_vote(self, request: VoteCreate) -> Vote:
-        member = self.session.exec(
+        member = self.session.execute(
             select(DAOMember).where(DAOMember.wallet_address == request.member_address)
         ).first()
         
@@ -112,7 +112,7 @@ class DAOGovernanceService:
             self.session.commit()
             raise HTTPException(status_code=400, detail="Voting period has ended")
 
-        existing_vote = self.session.exec(
+        existing_vote = self.session.execute(
             select(Vote).where(
                 Vote.proposal_id == request.proposal_id,
                 Vote.member_id == member.id

@@ -603,7 +603,7 @@ class MultiModalFusionEngine:
     async def train_fusion_model(self, session: Session, fusion_id: str) -> Dict[str, Any]:
         """Train a fusion model"""
         
-        fusion_model = session.exec(
+        fusion_model = session.execute(
             select(FusionModel).where(FusionModel.fusion_id == fusion_id)
         ).first()
         
@@ -778,7 +778,7 @@ class MultiModalFusionEngine:
     ) -> Dict[str, Any]:
         """Fuse multiple modalities using trained fusion model"""
         
-        fusion_model = session.exec(
+        fusion_model = session.execute(
             select(FusionModel).where(FusionModel.fusion_id == fusion_id)
         ).first()
         

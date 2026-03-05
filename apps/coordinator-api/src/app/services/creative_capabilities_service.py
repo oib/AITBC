@@ -98,7 +98,7 @@ class CreativityEnhancementEngine:
     ) -> Dict[str, Any]:
         """Enhance a specific creative capability"""
         
-        capability = session.exec(
+        capability = session.execute(
             select(CreativeCapability).where(CreativeCapability.capability_id == capability_id)
         ).first()
         
@@ -245,7 +245,7 @@ class CreativityEnhancementEngine:
     ) -> Dict[str, Any]:
         """Evaluate a creative output and update capability"""
         
-        capability = session.exec(
+        capability = session.execute(
             select(CreativeCapability).where(CreativeCapability.capability_id == capability_id)
         ).first()
         
@@ -469,7 +469,7 @@ class CrossDomainCreativeIntegrator:
         """Synthesize concepts from multiple domains to create novel outputs"""
         
         # Verify agent has capabilities in these domains
-        capabilities = session.exec(
+        capabilities = session.execute(
             select(CreativeCapability).where(
                 and_(
                     CreativeCapability.agent_id == agent_id,

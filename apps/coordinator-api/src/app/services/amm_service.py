@@ -177,7 +177,7 @@ class AMMService:
             pool.updated_at = datetime.utcnow()
             
             # Update or create liquidity position
-            position = self.session.exec(
+            position = self.session.execute(
                 select(LiquidityPosition).where(
                     LiquidityPosition.pool_id == pool.id,
                     LiquidityPosition.provider_address == provider_address
@@ -228,7 +228,7 @@ class AMMService:
             pool = await self._get_pool_by_id(liquidity_request.pool_id)
             
             # Get liquidity position
-            position = self.session.exec(
+            position = self.session.execute(
                 select(LiquidityPosition).where(
                     LiquidityPosition.pool_id == pool.id,
                     LiquidityPosition.provider_address == provider_address
@@ -447,7 +447,7 @@ class AMMService:
             daily_reward = 100 * incentive_multiplier  # Base $100 per day, adjusted by multiplier
             
             # Create or update incentive program
-            existing_program = self.session.exec(
+            existing_program = self.session.execute(
                 select(IncentiveProgram).where(IncentiveProgram.pool_id == pool_id)
             ).first()
             
@@ -498,7 +498,7 @@ class AMMService:
         """Get all liquidity positions for a user"""
         
         try:
-            positions = self.session.exec(
+            positions = self.session.execute(
                 select(LiquidityPosition).where(
                     LiquidityPosition.provider_address == user_address
                 )
@@ -521,7 +521,7 @@ class AMMService:
     
     async def _get_existing_pool(self, token_a: str, token_b: str) -> Optional[LiquidityPool]:
         """Check if pool exists for token pair"""
-        pool = self.session.exec(
+        pool = self.session.execute(
             select(LiquidityPool).where(
                 (
                     (LiquidityPool.token_a == token_a) & 
@@ -694,13 +694,13 @@ class AMMService:
         """Update pool metrics"""
         
         # Get existing metrics
-        metrics = self.session.exec(
+        metrics = self.session.execute(
             select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)
         ).first()
         
         if not metrics:
             await self._initialize_pool_metrics(pool)
-            metrics = self.session.exec(
+            metrics = self.session.execute(
                 select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)
             ).first()
         
@@ -734,20 +734,20 @@ class AMMService:
     async def _get_pool_metrics(self, pool: LiquidityPool) -> PoolMetrics:
         """Get comprehensive pool metrics"""
         
-        metrics = self.session.exec(
+        metrics = self.session.execute(
             select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)
         ).first()
         
         if not metrics:
             await self._initialize_pool_metrics(pool)
-            metrics = self.session.exec(
+            metrics = self.session.execute(
                 select(PoolMetrics).where(PoolMetrics.pool_id == pool.id)
             ).first()
         
         # Calculate 24h volume and fees
         twenty_four_hours_ago = datetime.utcnow() - timedelta(hours=24)
         
-        recent_swaps = self.session.exec(
+        recent_swaps = self.session.execute(
             select(SwapTransaction).where(
                 SwapTransaction.pool_id == pool.id,
                 SwapTransaction.executed_at >= twenty_four_hours_ago

@@ -25,7 +25,7 @@ class GovernanceService:
         
     async def get_or_create_profile(self, user_id: str, initial_voting_power: float = 0.0) -> GovernanceProfile:
         """Get an existing governance profile or create a new one"""
-        profile = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.user_id == user_id)).first()
+        profile = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.user_id == user_id)).first()
         
         if not profile:
             profile = GovernanceProfile(
@@ -40,15 +40,15 @@ class GovernanceService:
         
     async def delegate_votes(self, delegator_id: str, delegatee_id: str) -> GovernanceProfile:
         """Delegate voting power from one profile to another"""
-        delegator = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator_id)).first()
-        delegatee = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegatee_id)).first()
+        delegator = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator_id)).first()
+        delegatee = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegatee_id)).first()
         
         if not delegator or not delegatee:
             raise ValueError("Delegator or Delegatee not found")
             
         # Remove old delegation if exists
         if delegator.delegate_to:
-            old_delegatee = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator.delegate_to)).first()
+            old_delegatee = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator.delegate_to)).first()
             if old_delegatee:
                 old_delegatee.delegated_power -= delegator.voting_power
                 
@@ -65,7 +65,7 @@ class GovernanceService:
 
     async def create_proposal(self, proposer_id: str, data: Dict[str, Any]) -> Proposal:
         """Create a new governance proposal"""
-        proposer = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposer_id)).first()
+        proposer = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposer_id)).first()
         
         if not proposer:
             raise ValueError("Proposer not found")
@@ -110,8 +110,8 @@ class GovernanceService:
         
     async def cast_vote(self, proposal_id: str, voter_id: str, vote_type: VoteType, reason: str = None) -> Vote:
         """Cast a vote on an active proposal"""
-        proposal = self.session.exec(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
-        voter = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == voter_id)).first()
+        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
+        voter = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == voter_id)).first()
         
         if not proposal or not voter:
             raise ValueError("Proposal or Voter not found")
@@ -121,7 +121,7 @@ class GovernanceService:
             raise ValueError("Proposal is not currently active for voting")
             
         # Check if already voted
-        existing_vote = self.session.exec(
+        existing_vote = self.session.execute(
             select(Vote).where(Vote.proposal_id == proposal_id).where(Vote.voter_id == voter_id)
         ).first()
         
@@ -163,7 +163,7 @@ class GovernanceService:
         
     async def process_proposal_lifecycle(self, proposal_id: str) -> Proposal:
         """Update proposal status based on time and votes"""
-        proposal = self.session.exec(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
+        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
         if not proposal:
             raise ValueError("Proposal not found")
             
@@ -191,7 +191,7 @@ class GovernanceService:
                         proposal.status = ProposalStatus.SUCCEEDED
                         
                         # Update proposer stats
-                        proposer = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposal.proposer_id)).first()
+                        proposer = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == proposal.proposer_id)).first()
                         if proposer:
                             proposer.proposals_passed += 1
                             self.session.add(proposer)
@@ -205,8 +205,8 @@ class GovernanceService:
         
     async def execute_proposal(self, proposal_id: str, executor_id: str) -> Proposal:
         """Execute a successful proposal's payload"""
-        proposal = self.session.exec(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
-        executor = self.session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == executor_id)).first()
+        proposal = self.session.execute(select(Proposal).where(Proposal.proposal_id == proposal_id)).first()
+        executor = self.session.execute(select(GovernanceProfile).where(GovernanceProfile.profile_id == executor_id)).first()
         
         if not proposal or not executor:
             raise ValueError("Proposal or Executor not found")
@@ -223,7 +223,7 @@ class GovernanceService:
         
         # If it's a funding proposal, deduct from treasury
         if proposal.category == 'funding' and 'amount' in proposal.execution_payload:
-            treasury = self.session.exec(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
+            treasury = self.session.execute(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
             if treasury:
                 amount = float(proposal.execution_payload['amount'])
                 if treasury.total_balance - treasury.allocated_funds >= amount:
@@ -246,9 +246,9 @@ class GovernanceService:
         # In reality, we would calculate this based on timestamps matching the period
         # For simplicity, we just aggregate current totals
         
-        proposals = self.session.exec(select(Proposal)).all()
-        profiles = self.session.exec(select(GovernanceProfile)).all()
-        treasury = self.session.exec(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
+        proposals = self.session.execute(select(Proposal)).all()
+        profiles = self.session.execute(select(GovernanceProfile)).all()
+        treasury = self.session.execute(select(DaoTreasury).where(DaoTreasury.treasury_id == "main_treasury")).first()
         
         total_proposals = len(proposals)
         passed_proposals = len([p for p in proposals if p.status in [ProposalStatus.SUCCEEDED, ProposalStatus.EXECUTED]])
