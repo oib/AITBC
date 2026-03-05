@@ -55,7 +55,7 @@ async def register_user(
     """Register a new user"""
     
     # Check if user already exists
-    existing_user = session.exec(
+    existing_user = session.execute(
         select(User).where(User.email == user_data.email)
     ).first()
     
@@ -111,7 +111,7 @@ async def login_user(
     # In production, implement proper authentication
     
     # Find user by wallet address
-    wallet = session.exec(
+    wallet = session.execute(
         select(Wallet).where(Wallet.address == login_data.wallet_address)
     ).first()
     
@@ -141,7 +141,7 @@ async def login_user(
         session.commit()
     else:
         # Update last login
-        user = session.exec(
+        user = session.execute(
             select(User).where(User.id == wallet.user_id)
         ).first()
         user.last_login = datetime.utcnow()
@@ -194,7 +194,7 @@ async def get_user_balance(
 ) -> Dict[str, Any]:
     """Get user's AITBC balance"""
     
-    wallet = session.exec(
+    wallet = session.execute(
         select(Wallet).where(Wallet.user_id == user_id)
     ).first()
     

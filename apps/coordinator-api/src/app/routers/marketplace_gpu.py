@@ -163,15 +163,6 @@ async def register_gpu(
     }
 
 
-@router.get("/marketplace/gpus")
-async def list_gpus_cli(
-    session: SessionDep,
-    available: Optional[bool] = Query(default=None),
-):
-    """List GPUs for CLI compatibility."""
-    return await list_gpus(session, available)
-
-
 @router.get("/marketplace/gpu/list")
 async def list_gpus(
     session: SessionDep,
@@ -195,7 +186,7 @@ async def list_gpus(
         stmt = stmt.where(col(GPURegistry.model).contains(model))
 
     stmt = stmt.limit(limit)
-    gpus = session.exec(stmt).all()
+    gpus = session.execute(stmt).scalars().all()
     return [_gpu_to_dict(g) for g in gpus]
 
 
@@ -206,7 +197,7 @@ async def get_gpu_details(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
     result = _gpu_to_dict(gpu)
 
     if gpu.status == "booked":
-        booking = session.exec(
+        booking = session.execute(
             select(GPUBooking)
             .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
             .limit(1)
@@ -297,7 +288,7 @@ async def release_gpu(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
             detail=f"GPU {gpu_id} is not booked",
         )
 
-    booking = session.exec(
+    booking = session.execute(
         select(GPUBooking)
         .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
         .limit(1)
@@ -328,7 +319,7 @@ async def get_gpu_reviews(
     """Get GPU reviews."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
-    reviews = session.exec(
+    reviews = session.execute(
         select(GPUReview)
         .where(GPUReview.gpu_id == gpu_id)
         .order_by(GPUReview.created_at.desc())
@@ -368,10 +359,10 @@ async def add_gpu_review(
     session.flush()  # ensure the new review is visible to aggregate queries
 
     # Recalculate average from DB (new review already included after flush)
-    total_count = session.exec(
+    total_count = session.execute(
         select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)
     ).one()
-    avg_rating = session.exec(
+    avg_rating = session.execute(
         select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)
     ).one() or 0.0
 
@@ -400,7 +391,7 @@ async def list_orders(
         stmt = stmt.where(GPUBooking.status == status)
     stmt = stmt.order_by(GPUBooking.created_at.desc()).limit(limit)
 
-    bookings = session.exec(stmt).all()
+    bookings = session.execute(stmt).scalars().all()
     orders = []
     for b in bookings:
         gpu = session.get(GPURegistry, b.gpu_id)
@@ -427,7 +418,7 @@ async def get_pricing(
 ) -> Dict[str, Any]:
     """Get enhanced pricing information for a model with dynamic pricing."""
     # SQLite JSON doesn't support array contains, so fetch all and filter in Python
-    all_gpus = session.exec(select(GPURegistry)).all()
+    all_gpus = session.execute(select(GPURegistry)).all()
     compatible = [
         g for g in all_gpus
         if any(model.lower() in cap.lower() for cap in (g.capabilities or []))

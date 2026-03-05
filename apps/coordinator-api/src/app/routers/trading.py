@@ -221,7 +221,7 @@ async def get_trade_request(
     """Get trade request details"""
     
     try:
-        trade_request = session.exec(
+        trade_request = session.execute(
             select(TradeRequest).where(TradeRequest.request_id == request_id)
         ).first()
         
@@ -279,7 +279,7 @@ async def get_trade_matches(
     """Get trade matches for a request"""
     
     try:
-        matches = session.exec(
+        matches = session.execute(
             select(TradeMatch).where(TradeMatch.request_id == request_id)
             .order_by(TradeMatch.match_score.desc())
         ).all()
@@ -357,7 +357,7 @@ async def get_negotiation(
     """Get negotiation details"""
     
     try:
-        negotiation = session.exec(
+        negotiation = session.execute(
             select(TradeNegotiation).where(TradeNegotiation.negotiation_id == negotiation_id)
         ).first()
         
@@ -394,7 +394,7 @@ async def get_trade_match(
     """Get trade match details"""
     
     try:
-        match = session.exec(
+        match = session.execute(
             select(TradeMatch).where(TradeMatch.match_id == match_id)
         ).first()
         
@@ -466,7 +466,7 @@ async def list_trade_requests(
         if status:
             query = query.where(TradeRequest.status == status)
         
-        requests = session.exec(
+        requests = session.execute(
             query.order_by(TradeRequest.created_at.desc()).limit(limit)
         ).all()
         
@@ -519,7 +519,7 @@ async def list_trade_matches(
         if status:
             query = query.where(TradeMatch.status == status)
         
-        matches = session.exec(
+        matches = session.execute(
             query.order_by(TradeMatch.match_score.desc()).limit(limit)
         ).all()
         
@@ -575,7 +575,7 @@ async def list_negotiations(
         if strategy:
             query = query.where(TradeNegotiation.negotiation_strategy == strategy)
         
-        negotiations = session.exec(
+        negotiations = session.execute(
             query.order_by(TradeNegotiation.created_at.desc()).limit(limit)
         ).all()
         

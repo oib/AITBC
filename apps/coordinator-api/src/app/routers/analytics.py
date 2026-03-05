@@ -183,7 +183,7 @@ async def get_market_metrics(
         if geographic_region:
             query = query.where(MarketMetric.geographic_region == geographic_region)
         
-        metrics = session.exec(
+        metrics = session.execute(
             query.order_by(MarketMetric.recorded_at.desc()).limit(limit)
         ).all()
         
@@ -244,7 +244,7 @@ async def create_dashboard(
         result = await analytics_service.create_dashboard(owner_id, dashboard_type)
         
         # Get the created dashboard details
-        dashboard = session.exec(
+        dashboard = session.execute(
             select(DashboardConfig).where(DashboardConfig.dashboard_id == result["dashboard_id"])
         ).first()
         
@@ -280,7 +280,7 @@ async def get_dashboard(
     """Get dashboard configuration"""
     
     try:
-        dashboard = session.exec(
+        dashboard = session.execute(
             select(DashboardConfig).where(DashboardConfig.dashboard_id == dashboard_id)
         ).first()
         
@@ -330,7 +330,7 @@ async def list_dashboards(
         if status:
             query = query.where(DashboardConfig.status == status)
         
-        dashboards = session.exec(
+        dashboards = session.execute(
             query.order_by(DashboardConfig.created_at.desc()).limit(limit)
         ).all()
         
@@ -440,7 +440,7 @@ async def get_report(
     """Get generated analytics report"""
     
     try:
-        report = session.exec(
+        report = session.execute(
             select(AnalyticsReport).where(AnalyticsReport.report_id == report_id)
         ).first()
         
@@ -503,7 +503,7 @@ async def get_analytics_alerts(
         if status:
             query = query.where(AnalyticsAlert.status == status)
         
-        alerts = session.exec(
+        alerts = session.execute(
             query.order_by(AnalyticsAlert.created_at.desc()).limit(limit)
         ).all()
         
@@ -551,7 +551,7 @@ async def get_key_performance_indicators(
         else:
             start_time = end_time - timedelta(hours=1)
         
-        metrics = session.exec(
+        metrics = session.execute(
             select(MarketMetric).where(
                 and_(
                     MarketMetric.period_type == period_type,
@@ -598,7 +598,7 @@ async def generate_market_overview_report(
     """Generate market overview report content"""
     
     # Get metrics for the period
-    metrics = session.exec(
+    metrics = session.execute(
         select(MarketMetric).where(
             and_(
                 MarketMetric.period_type == period_type,
@@ -609,7 +609,7 @@ async def generate_market_overview_report(
     ).all()
     
     # Get insights for the period
-    insights = session.exec(
+    insights = session.execute(
         select(MarketInsight).where(
             and_(
                 MarketInsight.created_at >= start_date,

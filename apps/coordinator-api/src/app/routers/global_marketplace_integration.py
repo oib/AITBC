@@ -133,7 +133,7 @@ async def get_cross_chain_offer_details(
     try:
         # Get the offer
         stmt = select(GlobalMarketplaceOffer).where(GlobalMarketplaceOffer.id == offer_id)
-        offer = session.exec(stmt).first()
+        offer = session.execute(stmt).scalars().first()
         
         if not offer:
             raise HTTPException(status_code=404, detail="Offer not found")

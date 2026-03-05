@@ -60,7 +60,7 @@ def register(ctx, name: str, memory: Optional[int], cuda_cores: Optional[int],
                 json={"gpu": gpu_specs}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 result = response.json()
                 success(f"GPU registered successfully: {result.get('gpu_id')}")
                 output(result, ctx.obj['output_format'])
@@ -160,7 +160,7 @@ def book(ctx, gpu_id: str, hours: float, job_id: Optional[str]):
                 json=booking_data
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 booking = response.json()
                 success(f"GPU booked successfully: {booking.get('booking_id')}")
                 output(booking, ctx.obj['output_format'])
@@ -299,7 +299,7 @@ def review(ctx, gpu_id: str, rating: int, comment: Optional[str]):
                 json=review_data
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success("Review added successfully")
                 output({"status": "review_added", "gpu_id": gpu_id}, ctx.obj['output_format'])
             else:
@@ -504,7 +504,7 @@ def register(ctx, agent_id: str, agent_type: str, capabilities: Optional[str],
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success(f"Agent {agent_id} registered successfully")
                 output(response.json(), ctx.obj['output_format'])
             else:
@@ -583,7 +583,7 @@ def list_resource(ctx, resource_id: str, resource_type: str, compute_power: floa
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success(f"Resource {resource_id} listed successfully")
                 output(response.json(), ctx.obj['output_format'])
             else:
@@ -622,7 +622,7 @@ def rent(ctx, resource_id: str, consumer_id: str, duration: int, max_price: Opti
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success("AI resource rented successfully")
                 output(response.json(), ctx.obj['output_format'])
             else:
@@ -813,7 +813,7 @@ def create_proposal(ctx, title: str, description: str, proposal_type: str,
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success("Proposal created successfully")
                 output(response.json(), ctx.obj['output_format'])
             else:
@@ -845,7 +845,7 @@ def vote(ctx, proposal_id: str, vote: str, reasoning: Optional[str]):
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
-            if response.status_code == 201:
+            if response.status_code in (200, 201):
                 success(f"Vote '{vote}' cast successfully")
                 output(response.json(), ctx.obj['output_format'])
             else:

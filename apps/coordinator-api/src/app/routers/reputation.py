@@ -309,7 +309,7 @@ async def get_reputation_metrics(
     
     try:
         # Get all reputation profiles
-        reputations = session.exec(
+        reputations = session.execute(
             select(AgentReputation)
         ).all()
         
@@ -345,7 +345,7 @@ async def get_reputation_metrics(
         
         # Recent activity (last 24 hours)
         recent_cutoff = datetime.utcnow() - timedelta(days=1)
-        recent_events = session.exec(
+        recent_events = session.execute(
             select(func.count(ReputationEvent.id)).where(
                 ReputationEvent.occurred_at >= recent_cutoff
             )
@@ -381,7 +381,7 @@ async def get_agent_feedback(
     """Get community feedback for an agent"""
     
     try:
-        feedbacks = session.exec(
+        feedbacks = session.execute(
             select(CommunityFeedback)
             .where(
                 and_(
@@ -425,7 +425,7 @@ async def get_reputation_events(
     """Get reputation change events for an agent"""
     
     try:
-        events = session.exec(
+        events = session.execute(
             select(ReputationEvent)
             .where(ReputationEvent.agent_id == agent_id)
             .order_by(ReputationEvent.occurred_at.desc())
@@ -462,7 +462,7 @@ async def update_specialization(
     """Update agent specialization tags"""
     
     try:
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -498,7 +498,7 @@ async def update_region(
     """Update agent geographic region"""
     
     try:
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -536,7 +536,7 @@ async def get_cross_chain_reputation(
     
     try:
         # Get basic reputation
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -585,7 +585,7 @@ async def sync_cross_chain_reputation(
     
     try:
         # Get reputation
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -619,7 +619,7 @@ async def get_cross_chain_leaderboard(
     
     try:
         # Get top reputations
-        reputations = session.exec(
+        reputations = session.execute(
             select(AgentReputation)
             .where(AgentReputation.trust_score >= min_score * 1000)
             .order_by(AgentReputation.trust_score.desc())
@@ -674,7 +674,7 @@ async def submit_cross_chain_event(
         agent_id = event_data['agent_id']
         
         # Get reputation
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -730,11 +730,11 @@ async def get_cross_chain_analytics(
     
     try:
         # Get basic statistics
-        total_agents = session.exec(select(func.count(AgentReputation.id))).first()
-        avg_reputation = session.exec(select(func.avg(AgentReputation.trust_score))).first() or 0.0
+        total_agents = session.execute(select(func.count(AgentReputation.id))).first()
+        avg_reputation = session.execute(select(func.avg(AgentReputation.trust_score))).first() or 0.0
         
         # Get reputation distribution
-        reputations = session.exec(select(AgentReputation)).all()
+        reputations = session.execute(select(AgentReputation)).all()
         
         distribution = {
             "master": 0,
