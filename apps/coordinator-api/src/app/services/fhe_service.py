@@ -210,8 +210,10 @@ class FHEService:
         # Optional Concrete ML provider
         try:
             providers["concrete"] = ConcreteMLProvider()
-        except ImportError:
-            logging.warning("Concrete ML not installed; skipping Concrete provider")
+        except ImportError as e:
+            logging.warning("Concrete ML not installed; skipping Concrete provider. "
+                          "Concrete ML requires Python <3.13. Current version: %s", 
+                          __import__('sys').version.split()[0])
 
         self.providers = providers
         self.default_provider = "tenseal"
