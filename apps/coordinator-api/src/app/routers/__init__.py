@@ -15,6 +15,7 @@ from .web_vitals import router as web_vitals
 from .edge_gpu import router as edge_gpu
 from .cache_management import router as cache_management
 from .agent_identity import router as agent_identity
+from .blockchain import router as blockchain
 # from .registry import router as registry
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "edge_gpu",
     "cache_management",
     "agent_identity",
+    "blockchain",
     "global_marketplace",
     "cross_chain_integration",
     "global_marketplace_integration",

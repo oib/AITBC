@@ -502,20 +502,20 @@ def balance(ctx):
                 # Method 1: Try direct balance endpoint
                 try:
                     response = client.get(
-                        f"{config.coordinator_url.rstrip('/')}/rpc/getBalance/{wallet_data['address']}?chain_id=ait-devnet",
+                        f"{config.get('coordinator_url').rstrip('/')}/rpc/getBalance/{wallet_data['address']}?chain_id=ait-devnet",
                         timeout=5,
                     )
                     if response.status_code == 200:
                         result = response.json()
                         blockchain_balance = result.get("balance", 0)
-                except Exception as e:
+                except Exception:
                     pass
                 
                 # Method 2: Try addresses list endpoint
                 if blockchain_balance is None:
                     try:
                         response = client.get(
-                            f"{config.coordinator_url.rstrip('/')}/rpc/addresses?chain_id=ait-devnet",
+                            f"{config.get('coordinator_url').rstrip('/')}/rpc/addresses?chain_id=ait-devnet",
                             timeout=5,
                         )
                         if response.status_code == 200:
@@ -532,7 +532,7 @@ def balance(ctx):
                 if blockchain_balance is None:
                     try:
                         response = client.post(
-                            f"{config.coordinator_url.rstrip('/')}/rpc/admin/mintFaucet?chain_id=ait-devnet",
+                            f"{config.get('coordinator_url').rstrip('/')}/rpc/admin/mintFaucet?chain_id=ait-devnet",
                             json={"address": wallet_data["address"], "amount": 1},
                             timeout=5,
                         )
@@ -559,7 +559,7 @@ def balance(ctx):
                         ctx.obj.get("output_format", "table"),
                     )
                     return
-        except Exception as e:
+        except Exception:
             pass
 
     # Fallback to local balance only

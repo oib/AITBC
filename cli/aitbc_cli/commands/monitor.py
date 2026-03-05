@@ -35,59 +35,41 @@ def dashboard(ctx, refresh: int, duration: int):
             console.rule("[bold blue]AITBC Dashboard[/bold blue]")
             console.print(f"[dim]Refreshing every {refresh}s | Elapsed: {int(elapsed)}s[/dim]\n")
 
-            # Fetch system status
+            # Fetch system dashboard
             try:
                 with httpx.Client(timeout=5) as client:
-                    # Node status
+                    # Get dashboard data
                     try:
                         resp = client.get(
-                            f"{config.coordinator_url}/status",
+                            f"{config.coordinator_url}/dashboard",
                             headers={"X-Api-Key": config.api_key or ""}
                         )
                         if resp.status_code == 200:
-                            status = resp.json()
-                            console.print("[bold green]Coordinator:[/bold green] Online")
-                            for k, v in status.items():
-                                console.print(f"  {k}: {v}")
+                            dashboard = resp.json()
+                            console.print("[bold green]Dashboard Status:[/bold green] Online")
+                            
+                            # Overall status
+                            overall_status = dashboard.get("overall_status", "unknown")
+                            console.print(f"  Overall Status: {overall_status}")
+                            
+                            # Services summary
+                            services = dashboard.get("services", {})
+                            console.print(f"  Services: {len(services)}")
+                            
+                            for service_name, service_data in services.items():
+                                status = service_data.get("status", "unknown")
+                                console.print(f"    {service_name}: {status}")
+                            
+                            # Metrics summary
+                            metrics = dashboard.get("metrics", {})
+                            if metrics:
+                                health_pct = metrics.get("health_percentage", 0)
+                                console.print(f"  Health: {health_pct:.1f}%")
+                            
                         else:
-                            console.print(f"[bold yellow]Coordinator:[/bold yellow] HTTP {resp.status_code}")
-                    except Exception:
-                        console.print("[bold red]Coordinator:[/bold red] Offline")
-
-                    console.print()
-
-                    # Jobs summary
-                    try:
-                        resp = client.get(
-                            f"{config.coordinator_url}/jobs",
-                            headers={"X-Api-Key": config.api_key or ""},
-                            params={"limit": 5}
-                        )
-                        if resp.status_code == 200:
-                            jobs = resp.json()
-                            if isinstance(jobs, list):
-                                console.print(f"[bold cyan]Recent Jobs:[/bold cyan] {len(jobs)}")
-                                for job in jobs[:5]:
-                                    status_color = "green" if job.get("status") == "completed" else "yellow"
-                                    console.print(f"  [{status_color}]{job.get('id', 'N/A')}: {job.get('status', 'unknown')}[/{status_color}]")
-                    except Exception:
-                        console.print("[dim]Jobs: unavailable[/dim]")
-
-                    console.print()
-
-                    # Miners summary
-                    try:
-                        resp = client.get(
-                            f"{config.coordinator_url}/miners",
-                            headers={"X-Api-Key": config.api_key or ""}
-                        )
-                        if resp.status_code == 200:
-                            miners = resp.json()
-                            if isinstance(miners, list):
-                                online = sum(1 for m in miners if m.get("status") == "ONLINE")
-                                console.print(f"[bold cyan]Miners:[/bold cyan] {online}/{len(miners)} online")
-                    except Exception:
-                        console.print("[dim]Miners: unavailable[/dim]")
+                            console.print(f"[bold yellow]Dashboard:[/bold yellow] HTTP {resp.status_code}")
+                    except Exception as e:
+                        console.print(f"[bold red]Dashboard:[/bold red] Error - {e}")
 
             except Exception as e:
                 console.print(f"[red]Error fetching data: {e}[/red]")

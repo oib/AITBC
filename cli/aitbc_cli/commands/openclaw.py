@@ -157,7 +157,7 @@ openclaw.add_command(monitor)
 @click.option("--real-time", is_flag=True, help="Show real-time metrics")
 @click.option("--interval", default=10, help="Update interval for real-time monitoring")
 @click.pass_context
-def monitor(ctx, deployment_id: str, metrics: str, real_time: bool, interval: int):
+def monitor_metrics(ctx, deployment_id: str, metrics: str, real_time: bool, interval: int):
     """Monitor OpenClaw agent performance"""
     config = ctx.obj['config']
     
