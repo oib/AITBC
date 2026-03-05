@@ -56,8 +56,8 @@ class FederatedLearningSession(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    participants: List["TrainingParticipant"] = Relationship(back_populates="session")
-    rounds: List["TrainingRound"] = Relationship(back_populates="session")
+    # DISABLED:     participants: List["TrainingParticipant"] = Relationship(back_populates="session")
+    # DISABLED:     rounds: List["TrainingRound"] = Relationship(back_populates="session")
 
 class TrainingParticipant(SQLModel, table=True):
     """An agent participating in a federated learning session"""
@@ -78,7 +78,7 @@ class TrainingParticipant(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    session: FederatedLearningSession = Relationship(back_populates="participants")
+    # DISABLED:     session: FederatedLearningSession = Relationship(back_populates="participants")
 
 class TrainingRound(SQLModel, table=True):
     """A specific round of federated learning"""
@@ -99,8 +99,8 @@ class TrainingRound(SQLModel, table=True):
     completed_at: Optional[datetime] = Field(default=None)
 
     # Relationships
-    session: FederatedLearningSession = Relationship(back_populates="rounds")
-    updates: List["LocalModelUpdate"] = Relationship(back_populates="round")
+    # DISABLED:     session: FederatedLearningSession = Relationship(back_populates="rounds")
+    # DISABLED:     updates: List["LocalModelUpdate"] = Relationship(back_populates="round")
 
 class LocalModelUpdate(SQLModel, table=True):
     """A local model update submitted by a participant for a specific round"""
@@ -119,4 +119,4 @@ class LocalModelUpdate(SQLModel, table=True):
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    round: TrainingRound = Relationship(back_populates="updates")
+    # DISABLED:     round: TrainingRound = Relationship(back_populates="updates")

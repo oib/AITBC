@@ -46,8 +46,8 @@ class DeveloperProfile(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    certifications: List["DeveloperCertification"] = Relationship(back_populates="developer")
-    bounty_submissions: List["BountySubmission"] = Relationship(back_populates="developer")
+    # DISABLED:     certifications: List["DeveloperCertification"] = Relationship(back_populates="developer")
+    # DISABLED:     bounty_submissions: List["BountySubmission"] = Relationship(back_populates="developer")
 
 class DeveloperCertification(SQLModel, table=True):
     """Certifications earned by developers"""
@@ -66,7 +66,7 @@ class DeveloperCertification(SQLModel, table=True):
     ipfs_credential_cid: Optional[str] = Field(default=None) # Proof of certification
 
     # Relationships
-    developer: DeveloperProfile = Relationship(back_populates="certifications")
+    # DISABLED:     developer: DeveloperProfile = Relationship(back_populates="certifications")
 
 class RegionalHub(SQLModel, table=True):
     """Regional developer hubs for local coordination"""
@@ -109,7 +109,7 @@ class BountyTask(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
+    # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
 
 class BountySubmission(SQLModel, table=True):
     """Submissions for bounty tasks"""
@@ -132,5 +132,5 @@ class BountySubmission(SQLModel, table=True):
     reviewed_at: Optional[datetime] = Field(default=None)
 
     # Relationships
-    bounty: BountyTask = Relationship(back_populates="submissions")
-    developer: DeveloperProfile = Relationship(back_populates="bounty_submissions")
+    # DISABLED:     bounty: BountyTask = Relationship(back_populates="submissions")
+    # DISABLED:     developer: DeveloperProfile = Relationship(back_populates="bounty_submissions")

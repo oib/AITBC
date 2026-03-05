@@ -93,7 +93,7 @@ class Bounty(SQLModel, table=True):
     difficulty: Optional[str] = Field(default=None)
     
     # Relationships
-    submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
+    # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
     
     # Indexes
     __table_args__ = (
@@ -141,7 +141,7 @@ class BountySubmission(SQLModel, table=True):
     test_results: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Relationships
-    bounty: Bounty = Relationship(back_populates="submissions")
+    # DISABLED:     bounty: Bounty = Relationship(back_populates="submissions")
     
     # Indexes
     __table_args__ = (
@@ -237,7 +237,7 @@ class AgentMetrics(SQLModel, table=True):
     agent_meta_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     
     # Relationships
-    stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
+    # DISABLED:     stakes: List[AgentStake] = Relationship(back_populates="agent_metrics")
     
     # Indexes
     __table_args__ = (
@@ -436,4 +436,4 @@ class EcosystemMetrics(SQLModel, table=True):
 
 
 # Update relationships
-AgentStake.agent_metrics = Relationship(back_populates="stakes")
+    # DISABLED: AgentStake.agent_metrics = Relationship(back_populates="stakes")

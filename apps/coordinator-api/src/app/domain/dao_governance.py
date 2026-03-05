@@ -47,7 +47,7 @@ class DAOMember(SQLModel, table=True):
     last_active: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    votes: List["Vote"] = Relationship(back_populates="member")
+    # DISABLED:     votes: List["Vote"] = Relationship(back_populates="member")
 
 class DAOProposal(SQLModel, table=True):
     """A governance proposal"""
@@ -77,7 +77,7 @@ class DAOProposal(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    votes: List["Vote"] = Relationship(back_populates="proposal")
+    # DISABLED:     votes: List["Vote"] = Relationship(back_populates="proposal")
 
 class Vote(SQLModel, table=True):
     """A vote cast on a proposal"""
@@ -94,8 +94,8 @@ class Vote(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    proposal: DAOProposal = Relationship(back_populates="votes")
-    member: DAOMember = Relationship(back_populates="votes")
+    # DISABLED:     proposal: DAOProposal = Relationship(back_populates="votes")
+    # DISABLED:     member: DAOMember = Relationship(back_populates="votes")
 
 class TreasuryAllocation(SQLModel, table=True):
     """Tracks allocations and spending from the global treasury"""
