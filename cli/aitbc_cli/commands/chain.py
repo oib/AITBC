@@ -194,7 +194,8 @@ def delete(ctx, chain_id, force, confirm):
         chain_manager = ChainManager(config)
         
         # Get chain information for confirmation
-        chain_info = chain_manager.get_chain_info(chain_id, detailed=True)
+        import asyncio
+        chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True))
         
         if not force:
             # Show warning and confirmation
@@ -215,7 +216,8 @@ def delete(ctx, chain_id, force, confirm):
                 raise click.Abort()
         
         # Delete chain
-        is_success = chain_manager.delete_chain(chain_id, force)
+        import asyncio
+        is_success = asyncio.run(chain_manager.delete_chain(chain_id, force))
         
         if is_success:
             success(f"Chain {chain_id} deleted successfully!")
@@ -240,7 +242,8 @@ def add(ctx, chain_id, node_id):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
         
-        is_success = chain_manager.add_chain_to_node(chain_id, node_id)
+        import asyncio
+        is_success = asyncio.run(chain_manager.add_chain_to_node(chain_id, node_id))
         
         if is_success:
             success(f"Chain {chain_id} added to node {node_id} successfully!")
@@ -335,7 +338,8 @@ def backup(ctx, chain_id, path, compress, verify):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
         
-        backup_result = chain_manager.backup_chain(chain_id, path, compress, verify)
+        import asyncio
+        backup_result = asyncio.run(chain_manager.backup_chain(chain_id, path, compress, verify))
         
         success(f"Chain backup completed successfully!")
         result = {
@@ -404,7 +408,8 @@ def monitor(ctx, chain_id, realtime, export, interval):
             
             def generate_monitor_layout():
                 try:
-                    chain_info = chain_manager.get_chain_info(chain_id, detailed=True, metrics=True)
+                    import asyncio
+                    chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True, metrics=True))
                     
                     layout = Layout()
                     layout.split_column(
@@ -446,7 +451,8 @@ def monitor(ctx, chain_id, realtime, export, interval):
                     console.print("\n[yellow]Monitoring stopped by user[/yellow]")
         else:
             # Single snapshot
-            chain_info = chain_manager.get_chain_info(chain_id, detailed=True, metrics=True)
+            import asyncio
+            chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=True, metrics=True))
             
             stats_data = [
                 {
