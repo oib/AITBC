@@ -22,7 +22,7 @@ def status(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/admin/status",
+                f"{config.coordinator_url.rstrip('/')}/v1/admin/stats",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
