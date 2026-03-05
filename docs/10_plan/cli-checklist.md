@@ -41,7 +41,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ## 🔧 Core Commands Checklist
 
 ### **admin** — System Administration
-- [ ] `admin` (help)
+- [x] `admin` (help)
 - [ ] `admin backup` — System backup operations
 - [ ] `admin logs` — View system logs
 - [ ] `admin monitor` — System monitoring

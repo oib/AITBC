@@ -215,9 +215,9 @@ def delete(ctx, chain_id, force, confirm):
                 raise click.Abort()
         
         # Delete chain
-        success = chain_manager.delete_chain(chain_id, force)
+        is_success = chain_manager.delete_chain(chain_id, force)
         
-        if success:
+        if is_success:
             success(f"Chain {chain_id} deleted successfully!")
         else:
             error(f"Failed to delete chain {chain_id}")
@@ -240,9 +240,9 @@ def add(ctx, chain_id, node_id):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
         
-        success = chain_manager.add_chain_to_node(chain_id, node_id)
+        is_success = chain_manager.add_chain_to_node(chain_id, node_id)
         
-        if success:
+        if is_success:
             success(f"Chain {chain_id} added to node {node_id} successfully!")
         else:
             error(f"Failed to add chain {chain_id} to node {node_id}")
@@ -263,9 +263,9 @@ def remove(ctx, chain_id, node_id, migrate):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
         
-        success = chain_manager.remove_chain_from_node(chain_id, node_id, migrate)
+        is_success = chain_manager.remove_chain_from_node(chain_id, node_id, migrate)
         
-        if success:
+        if is_success:
             success(f"Chain {chain_id} removed from node {node_id} successfully!")
         else:
             error(f"Failed to remove chain {chain_id} from node {node_id}")
