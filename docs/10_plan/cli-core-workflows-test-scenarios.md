@@ -323,3 +323,127 @@ This scenario covers critical incident response and disaster recovery procedures
 - **Command:** `aitbc admin status --health-check --comprehensive --report`
 - **Description:** Perform comprehensive system health assessment after incident recovery.
 - **Expected Output:** Detailed health report with component status, performance metrics, security audit, and recovery recommendations.
+
+---
+
+## 15. Authentication & API Key Management
+
+This scenario covers authentication workflows and API key management for secure access to AITBC services.
+
+### Scenario 15.1: Import API Keys from Environment Variables
+- **Command:** `aitbc auth import-env`
+- **Description:** Import API keys from environment variables into the CLI configuration for seamless authentication.
+- **Expected Output:** Success message confirming which API keys were imported and stored in the CLI configuration.
+- **Prerequisites:** Environment variables `AITBC_API_KEY`, `AITBC_ADMIN_KEY`, or `AITBC_COORDINATOR_KEY` must be set.
+
+### Scenario 15.2: Import Specific API Key Type
+- **Command:** `aitbc auth import-env --key-type admin`
+- **Description:** Import only admin-level API keys from environment variables.
+- **Expected Output:** Confirmation that admin API key was imported and is available for privileged operations.
+- **Prerequisites:** `AITBC_ADMIN_KEY` environment variable must be set with a valid admin API key (minimum 16 characters).
+
+### Scenario 15.3: Import Client API Key
+- **Command:** `aitbc auth import-env --key-type client`
+- **Description:** Import client-level API keys for standard user operations.
+- **Expected Output:** Confirmation that client API key was imported and is available for client operations.
+- **Prerequisites:** `AITBC_API_KEY` or `AITBC_CLIENT_KEY` environment variable must be set.
+
+### Scenario 15.4: Import with Custom Configuration Path
+- **Command:** `aitbc auth import-env --config ~/.aitbc/custom_config.json`
+- **Description:** Import API keys and store them in a custom configuration file location.
+- **Expected Output:** Success message indicating the custom configuration path where keys were stored.
+- **Prerequisites:** Custom directory path must exist and be writable.
+
+### Scenario 15.5: Validate Imported API Keys
+- **Command:** `aitbc auth validate`
+- **Description:** Validate that imported API keys are properly formatted and can authenticate with the coordinator.
+- **Expected Output:** Validation results showing:
+  - Key format validation (length, character requirements)
+  - Authentication test results against coordinator
+  - Key type identification (admin vs client)
+  - Expiration status if applicable
+
+### Scenario 15.6: List Active API Keys
+- **Command:** `aitbc auth list`
+- **Description:** Display all currently configured API keys with their types and status.
+- **Expected Output:** Table showing:
+  - Key identifier (masked for security)
+  - Key type (admin/client/coordinator)
+  - Status (active/invalid/expired)
+  - Last used timestamp
+  - Associated permissions
+
+### Scenario 15.7: Rotate API Keys
+- **Command:** `aitbc auth rotate --key-type admin --generate-new`
+- **Description:** Generate a new API key and replace the existing one with automatic cleanup.
+- **Expected Output:** 
+  - New API key generation confirmation
+  - Old key deactivation notice
+  - Update of local configuration
+  - Instructions to update environment variables
+
+### Scenario 15.8: Export API Keys (Secure)
+- **Command:** `aitbc auth export --format env --output ~/aitbc_keys.env`
+- **Description:** Export configured API keys to an environment file format for backup or migration.
+- **Expected Output:** Secure export with:
+  - Properly formatted environment variable assignments
+  - File permissions set to 600 (read/write for owner only)
+  - Warning about secure storage of exported keys
+  - Checksum verification of exported file
+
+### Scenario 15.9: Test API Key Permissions
+- **Command:** `aitbc auth test --permissions`
+- **Description:** Test the permissions associated with the current API key against various endpoints.
+- **Expected Output:** Permission test results showing:
+  - Client operations access (submit jobs, check status)
+  - Admin operations access (user management, system config)
+  - Read-only vs read-write permissions
+  - Any restricted endpoints or rate limits
+
+### Scenario 15.10: Handle Invalid API Keys
+- **Command:** `aitbc auth import-env` (with invalid key in environment)
+- **Description:** Test error handling when importing malformed or invalid API keys.
+- **Expected Output:** Clear error message indicating:
+  - Which key failed validation
+  - Specific reason for failure (length, format, etc.)
+  - Instructions for fixing the issue
+  - Other keys that were successfully imported
+
+### Scenario 15.11: Multi-Environment Key Management
+- **Command:** `aitbc auth import-env --environment production`
+- **Description:** Import API keys for a specific environment (development/staging/production).
+- **Expected Output:** Environment-specific key storage with:
+  - Keys tagged with environment identifier
+  - Automatic context switching support
+  - Validation against environment-specific endpoints
+  - Clear indication of active environment
+
+### Scenario 15.12: Revoke API Keys
+- **Command:** `aitbc auth revoke --key-id <key_identifier> --confirm`
+- **Description:** Securely revoke an API key both locally and from the coordinator service.
+- **Expected Output:** Revocation confirmation with:
+  - Immediate deactivation of the key
+  - Removal from local configuration
+  - Coordinator notification of revocation
+  - Audit log entry for security compliance
+
+### Scenario 15.13: Emergency Key Recovery
+- **Command:** `aitbc auth recover --backup-file ~/aitbc_backup.enc`
+- **Description:** Recover API keys from an encrypted backup file during emergency situations.
+- **Expected Output:** Recovery process with:
+  - Decryption of backup file (password protected)
+  - Validation of recovered keys
+  - Restoration of local configuration
+  - Re-authentication test against coordinator
+
+### Scenario 15.14: Audit API Key Usage
+- **Command:** `aitbc auth audit --days 30 --detailed`
+- **Description:** Generate a comprehensive audit report of API key usage over the specified period.
+- **Expected Output:** Detailed audit report including:
+  - Usage frequency and patterns
+  - Accessed endpoints and operations
+  - Geographic location of access (if available)
+  - Any suspicious activity alerts
+  - Recommendations for key rotation
+
+---
