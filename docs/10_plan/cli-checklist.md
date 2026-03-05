@@ -834,7 +834,57 @@ aitbc blockchain faucet <address>
 
 ---
 
-## 📝 Notes
+## � Configuration System
+
+### Role-Based Configuration (✅ IMPLEMENTED)
+
+The CLI now uses role-based configuration files to ensure proper API key separation:
+
+- **`~/.aitbc/client-config.yaml`** - Client operations (job submission, management)
+- **`~/.aitbc/admin-config.yaml`** - Admin operations (system administration)
+- **`~/.aitbc/miner-config.yaml`** - Miner operations (registration, job processing)
+- **`~/.aitbc/blockchain-config.yaml`** - Blockchain operations (queries, status)
+
+### API Keys Configuration
+
+Each role uses a dedicated API key from the service configuration:
+
+| Role | API Key | Purpose |
+|------|---------|---------|
+| **Client** | `test_client_key_12345678` | Job submission and management |
+| **Admin** | `test_admin_key_87654321` | System administration |
+| **Miner** | `miner_test_abc123` | Mining operations |
+| **Blockchain** | `test_client_key_12345678` | Blockchain queries |
+
+### Configuration Override Priority
+
+1. **Command line options** (`--url`, `--api-key`) - Highest priority
+2. **Environment variables** (`AITBC_URL`, `AITBC_API_KEY`, `AITBC_ROLE`)
+3. **Role-specific config file** (`~/.aitbc/{role}-config.yaml`)
+4. **Default config file** (`~/.aitbc/config.yaml`) - Fallback
+
+### Usage Examples
+
+```bash
+# Uses client-config.yaml automatically
+aitbc client submit --type "test" --prompt "test job"
+
+# Uses admin-config.yaml automatically  
+aitbc admin status
+
+# Uses miner-config.yaml automatically
+aitbc miner register --gpu "RTX 4090"
+
+# Override with environment variable
+AITBC_URL=http://localhost:8001 aitbc blockchain sync-status
+
+# Override with command line option
+aitbc client submit --api-key "custom_key" --type "test"
+```
+
+---
+
+## �📝 Notes
 
 1. **Command Availability**: Some commands may require specific backend services or configurations
 2. **Authentication**: Most commands require API key configuration via `aitbc auth login` or environment variables

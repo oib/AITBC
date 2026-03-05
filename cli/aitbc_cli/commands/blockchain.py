@@ -19,9 +19,12 @@ from ..utils import output, error
 
 
 @click.group()
-def blockchain():
+@click.pass_context
+def blockchain(ctx):
     """Query blockchain information and status"""
-    pass
+    # Set role for blockchain commands
+    ctx.ensure_object(dict)
+    ctx.parent.detected_role = 'blockchain'
 
 
 @blockchain.command()
