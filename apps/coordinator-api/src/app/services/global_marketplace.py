@@ -127,7 +127,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceOffer.created_at.desc()
             ).offset(offset).limit(limit)
             
-            offers = self.session.exec(stmt).all()
+            offers = self.session.execute(stmt).all()
             
             # Filter out expired offers
             current_time = datetime.utcnow()
@@ -155,7 +155,7 @@ class GlobalMarketplaceService:
             stmt = select(GlobalMarketplaceOffer).where(
                 GlobalMarketplaceOffer.id == request.offer_id
             )
-            offer = self.session.exec(stmt).first()
+            offer = self.session.execute(stmt).first()
             
             if not offer:
                 raise ValueError("Offer not found")
@@ -252,7 +252,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceTransaction.created_at.desc()
             ).offset(offset).limit(limit)
             
-            transactions = self.session.exec(stmt).all()
+            transactions = self.session.execute(stmt).all()
             return transactions
             
         except Exception as e:
@@ -274,7 +274,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceAnalytics.region == request.region
             )
             
-            existing_analytics = self.session.exec(stmt).first()
+            existing_analytics = self.session.execute(stmt).first()
             
             if existing_analytics:
                 return existing_analytics
@@ -309,7 +309,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceOffer.regions_available.contains([request.region])
             )
         
-        offers = self.session.exec(stmt).all()
+        offers = self.session.execute(stmt).all()
         
         # Get transactions in the period
         stmt = select(GlobalMarketplaceTransaction).where(
@@ -323,7 +323,7 @@ class GlobalMarketplaceService:
                 (GlobalMarketplaceTransaction.target_region == request.region)
             )
         
-        transactions = self.session.exec(stmt).all()
+        transactions = self.session.execute(stmt).all()
         
         # Calculate metrics
         total_offers = len(offers)
@@ -370,7 +370,7 @@ class GlobalMarketplaceService:
             MarketplaceRegion.status == RegionStatus.ACTIVE
         )
         
-        regions = self.session.exec(stmt).all()
+        regions = self.session.execute(stmt).all()
         return regions
     
     async def get_region_health(self, region_code: str) -> Dict[str, Any]:
@@ -381,7 +381,7 @@ class GlobalMarketplaceService:
                 MarketplaceRegion.region_code == region_code
             )
             
-            region = self.session.exec(stmt).first()
+            region = self.session.execute(stmt).first()
             
             if not region:
                 return {"status": "not_found"}
@@ -417,7 +417,7 @@ class GlobalMarketplaceService:
                 GlobalMarketplaceAnalytics.created_at >= cutoff_time
             ).order_by(GlobalMarketplaceAnalytics.created_at.desc())
             
-            analytics = self.session.exec(stmt).first()
+            analytics = self.session.execute(stmt).first()
             
             if analytics:
                 return {
@@ -488,7 +488,7 @@ class RegionManager:
                 MarketplaceRegion.region_code == region_code
             )
             
-            region = self.session.exec(stmt).first()
+            region = self.session.execute(stmt).first()
             
             if not region:
                 raise ValueError(f"Region {region_code} not found")
@@ -532,7 +532,7 @@ class RegionManager:
                 MarketplaceRegion.status == RegionStatus.ACTIVE
             ).order_by(MarketplaceRegion.priority_weight.desc())
             
-            regions = self.session.exec(stmt).all()
+            regions = self.session.execute(stmt).all()
             
             if not regions:
                 raise ValueError("No active regions available")

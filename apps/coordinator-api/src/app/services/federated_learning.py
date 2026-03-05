@@ -67,7 +67,7 @@ class FederatedLearningService:
             raise HTTPException(status_code=400, detail="Session is not currently accepting participants")
 
         # Check if already joined
-        existing = self.session.exec(
+        existing = self.session.execute(
             select(TrainingParticipant).where(
                 TrainingParticipant.session_id == session_id,
                 TrainingParticipant.agent_id == request.agent_id
@@ -128,7 +128,7 @@ class FederatedLearningService:
         if fl_session.status != TrainingStatus.TRAINING or current_round.status != "active":
             raise HTTPException(status_code=400, detail="Round is not currently active")
 
-        participant = self.session.exec(
+        participant = self.session.execute(
             select(TrainingParticipant).where(
                 TrainingParticipant.session_id == session_id,
                 TrainingParticipant.agent_id == request.agent_id

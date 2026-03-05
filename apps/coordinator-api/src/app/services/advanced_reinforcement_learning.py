@@ -630,7 +630,7 @@ class AdvancedReinforcementLearningEngine:
     async def train_rl_agent(self, session: Session, config_id: str) -> Dict[str, Any]:
         """Train RL agent"""
         
-        rl_config = session.exec(
+        rl_config = session.execute(
             select(ReinforcementLearningConfig).where(ReinforcementLearningConfig.config_id == config_id)
         ).first()
         
@@ -1404,7 +1404,7 @@ class MarketplaceStrategyOptimizer:
         await asyncio.sleep(1)  # Simulate training time
         
         # Get trained agent performance
-        trained_config = session.exec(
+        trained_config = session.execute(
             select(ReinforcementLearningConfig).where(
                 ReinforcementLearningConfig.config_id == rl_config.config_id
             )
@@ -1435,7 +1435,7 @@ class MarketplaceStrategyOptimizer:
     ) -> Dict[str, Any]:
         """Deploy trained strategy"""
         
-        rl_config = session.exec(
+        rl_config = session.execute(
             select(ReinforcementLearningConfig).where(
                 ReinforcementLearningConfig.config_id == config_id
             )
@@ -1521,7 +1521,7 @@ class CrossDomainCapabilityIntegrator:
         """Integrate capabilities across different domains"""
         
         # Get agent capabilities
-        agent_capabilities = session.exec(
+        agent_capabilities = session.execute(
             select(AgentCapability).where(AgentCapability.agent_id == agent_id)
         ).all()
         

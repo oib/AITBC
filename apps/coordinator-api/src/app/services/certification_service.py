@@ -207,7 +207,7 @@ class CertificationSystem:
             }
         
         # Check if agent has the prerequisite certification
-        certification = session.exec(
+        certification = session.execute(
             select(AgentCertification).where(
                 and_(
                     AgentCertification.agent_id == agent_id,
@@ -244,7 +244,7 @@ class CertificationSystem:
         # For now, assume all agents have basic identity verification
         
         # Check if agent has any reputation record (indicates identity verification)
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -271,7 +271,7 @@ class CertificationSystem:
         """Verify agent performance metrics"""
         
         # Get agent reputation for performance metrics
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -366,7 +366,7 @@ class CertificationSystem:
     async def verify_reliability(self, session: Session, agent_id: str) -> Dict[str, Any]:
         """Verify agent reliability and consistency"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -428,7 +428,7 @@ class CertificationSystem:
         # Mock security verification - in real system would check security audits
         # For now, assume agents with high trust scores have basic security
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -479,7 +479,7 @@ class CertificationSystem:
         # Mock compliance verification - in real system would check regulatory compliance
         # For now, assume agents with certifications are compliant
         
-        certifications = session.exec(
+        certifications = session.execute(
             select(AgentCertification).where(
                 and_(
                     AgentCertification.agent_id == agent_id,
@@ -513,7 +513,7 @@ class CertificationSystem:
     async def verify_capability(self, session: Session, agent_id: str) -> Dict[str, Any]:
         """Verify agent capabilities and specializations"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -608,7 +608,7 @@ class CertificationSystem:
     ) -> Tuple[bool, Optional[str]]:
         """Renew an existing certification"""
         
-        certification = session.exec(
+        certification = session.execute(
             select(AgentCertification).where(AgentCertification.certification_id == certification_id)
         ).first()
         
@@ -753,7 +753,7 @@ class PartnershipManager:
         """Apply for partnership program"""
         
         # Get program details
-        program = session.exec(
+        program = session.execute(
             select(PartnershipProgram).where(PartnershipProgram.program_id == program_id)
         ).first()
         
@@ -846,7 +846,7 @@ class PartnershipManager:
     async def check_technical_capability(self, session: Session, agent_id: str) -> Dict[str, Any]:
         """Check technical capability requirement"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -884,7 +884,7 @@ class PartnershipManager:
         # Mock integration readiness check
         # In real system would check API integration capabilities, technical infrastructure
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -916,7 +916,7 @@ class PartnershipManager:
     async def check_service_quality(self, session: Session, agent_id: str) -> Dict[str, Any]:
         """Check service quality requirement"""
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -951,7 +951,7 @@ class PartnershipManager:
         # Mock customer support check
         # In real system would check support response times, customer satisfaction
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -986,7 +986,7 @@ class PartnershipManager:
         # Mock sales capability check
         # In real system would check sales history, customer acquisition, revenue
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1021,7 +1021,7 @@ class PartnershipManager:
         # Mock market presence check
         # In real system would check market share, brand recognition, geographic reach
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1062,7 +1062,7 @@ class PartnershipManager:
         # Mock development resources check
         # In real system would check team size, technical infrastructure, development capacity
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1098,7 +1098,7 @@ class PartnershipManager:
         # Mock market leader check
         # In real system would check market share, industry influence, thought leadership
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1151,7 +1151,7 @@ class PartnershipManager:
         # Mock marketing capability check
         # In real system would check marketing materials, brand presence, outreach capabilities
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1187,7 +1187,7 @@ class PartnershipManager:
         # Mock audience reach check
         # In real system would check audience size, engagement metrics, reach demographics
         
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1300,7 +1300,7 @@ class BadgeSystem:
         """Award a badge to an agent"""
         
         # Get badge details
-        badge = session.exec(
+        badge = session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)
         ).first()
         
@@ -1314,7 +1314,7 @@ class BadgeSystem:
             return False, None, "Badge has reached maximum awards"
         
         # Check if agent already has this badge
-        existing_badge = session.exec(
+        existing_badge = session.execute(
             select(AgentBadge).where(
                 and_(
                     AgentBadge.agent_id == agent_id,
@@ -1362,7 +1362,7 @@ class BadgeSystem:
         """Verify if agent is eligible for a badge"""
         
         # Get agent reputation data
-        reputation = session.exec(
+        reputation = session.execute(
             select(AgentReputation).where(AgentReputation.agent_id == agent_id)
         ).first()
         
@@ -1449,7 +1449,7 @@ class BadgeSystem:
         awarded_badges = []
         
         # Get all active automatic badges
-        automatic_badges = session.exec(
+        automatic_badges = session.execute(
             select(AchievementBadge).where(
                 and_(
                     AchievementBadge.is_active == True,
@@ -1464,7 +1464,7 @@ class BadgeSystem:
             
             if eligibility_result['eligible']:
                 # Check if already awarded
-                existing = session.exec(
+                existing = session.execute(
                     select(AgentBadge).where(
                         and_(
                             AgentBadge.agent_id == agent_id,
@@ -1505,22 +1505,22 @@ class CertificationAndPartnershipService:
         """Get comprehensive certification summary for an agent"""
         
         # Get certifications
-        certifications = self.session.exec(
+        certifications = self.session.execute(
             select(AgentCertification).where(AgentCertification.agent_id == agent_id)
         ).all()
         
         # Get partnerships
-        partnerships = self.session.exec(
+        partnerships = self.session.execute(
             select(AgentPartnership).where(AgentPartnership.agent_id == agent_id)
         ).all()
         
         # Get badges
-        badges = self.session.exec(
+        badges = self.session.execute(
             select(AgentBadge).where(AgentBadge.agent_id == agent_id)
         ).all()
         
         # Get verification records
-        verifications = self.session.exec(
+        verifications = self.session.execute(
             select(VerificationRecord).where(VerificationRecord.agent_id == agent_id)
         ).all()
         
@@ -1585,7 +1585,7 @@ class CertificationAndPartnershipService:
     def get_badge_point_value(self, badge_id: str) -> int:
         """Get point value for a badge"""
         
-        badge = self.session.exec(
+        badge = self.session.execute(
             select(AchievementBadge).where(AchievementBadge.badge_id == badge_id)
         ).first()
         

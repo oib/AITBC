@@ -424,7 +424,7 @@ class AnalyticsEngine:
         insights = []
         
         # Get metrics for analysis
-        metrics = session.exec(
+        metrics = session.execute(
             select(MarketMetric).where(
                 and_(
                     MarketMetric.period_type == period_type,
@@ -1068,7 +1068,7 @@ class MarketplaceAnalytics:
         end_time = datetime.utcnow()
         start_time = end_time - timedelta(days=1)
         
-        metrics = self.session.exec(
+        metrics = self.session.execute(
             select(MarketMetric).where(
                 and_(
                     MarketMetric.period_type == AnalyticsPeriod.DAILY,
@@ -1079,14 +1079,14 @@ class MarketplaceAnalytics:
         ).all()
         
         # Get recent insights
-        recent_insights = self.session.exec(
+        recent_insights = self.session.execute(
             select(MarketInsight).where(
                 MarketInsight.created_at >= start_time
             ).order_by(MarketInsight.created_at.desc()).limit(10)
         ).all()
         
         # Get active alerts
-        active_alerts = self.session.exec(
+        active_alerts = self.session.execute(
             select(AnalyticsAlert).where(
                 and_(
                     AnalyticsAlert.status == "active",

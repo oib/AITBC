@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
 import httpx
+from sqlmodel import select
 from aitbc.logging import get_logger
 
 from ..domain.payment import JobPayment, PaymentEscrow
@@ -42,11 +43,13 @@ class PaymentService:
             # For AITBC token payments, use token escrow
             if payment_data.payment_method == "aitbc_token":
                 escrow = await self._create_token_escrow(payment)
-                self.session.add(escrow)
+                if escrow is not None:
+                    self.session.add(escrow)
             # Bitcoin payments only for exchange purchases
             elif payment_data.payment_method == "bitcoin":
                 escrow = await self._create_bitcoin_escrow(payment)
-                self.session.add(escrow)
+                if escrow is not None:
+                    self.session.add(escrow)
             
             # Single atomic commit - all or nothing
             self.session.commit()
@@ -92,7 +95,8 @@ class PaymentService:
                         address=escrow_data.get("escrow_id"),
                         expires_at=datetime.utcnow() + timedelta(hours=1)
                     )
-                    self.session.add(escrow)
+                    if escrow is not None:
+                        self.session.add(escrow)
                     
                     self.session.commit()
                     logger.info(f"Created AITBC token escrow for payment {payment.id}")
@@ -134,7 +138,8 @@ class PaymentService:
                         address=escrow_data["address"],
                         expires_at=datetime.utcnow() + timedelta(hours=1)
                     )
-                    self.session.add(escrow)
+                    if escrow is not None:
+                        self.session.add(escrow)
                     
                     self.session.commit()
                     logger.info(f"Created Bitcoin escrow for payment {payment.id}")
@@ -176,11 +181,11 @@ class PaymentService:
                     payment.transaction_hash = release_data.get("transaction_hash")
                     
                     # Update escrow record
-                    escrow = self.session.exec(
-                        self.session.query(PaymentEscrow).where(
+                    escrow = self.session.execute(
+                        select(PaymentEscrow).where(
                             PaymentEscrow.payment_id == payment_id
                         )
-                    ).first()
+                    ).scalars().first()
                     
                     if escrow:
                         escrow.is_released = True
@@ -228,11 +233,11 @@ class PaymentService:
                     payment.refund_transaction_hash = refund_data.get("transaction_hash")
                     
                     # Update escrow record
-                    escrow = self.session.exec(
-                        self.session.query(PaymentEscrow).where(
+                    escrow = self.session.execute(
+                        select(PaymentEscrow).where(
                             PaymentEscrow.payment_id == payment_id
                         )
-                    ).first()
+                    ).scalars().first()
                     
                     if escrow:
                         escrow.is_refunded = True
@@ -255,9 +260,9 @@ class PaymentService:
     
     def get_job_payment(self, job_id: str) -> Optional[JobPayment]:
         """Get payment for a specific job"""
-        return self.session.exec(
-            self.session.query(JobPayment).where(JobPayment.job_id == job_id)
-        ).first()
+        return self.session.execute(
+            select(JobPayment).where(JobPayment.job_id == job_id)
+        ).scalars().first()
     
     def to_view(self, payment: JobPayment) -> JobPaymentView:
         """Convert payment to view model"""

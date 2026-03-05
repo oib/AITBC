@@ -194,7 +194,7 @@ class CrossChainBridgeService:
             stmt = select(BridgeRequest).where(
                 BridgeRequest.id == bridge_request_id
             )
-            bridge_request = self.session.exec(stmt).first()
+            bridge_request = self.session.execute(stmt).first()
             
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
@@ -266,7 +266,7 @@ class CrossChainBridgeService:
             stmt = select(BridgeRequest).where(
                 BridgeRequest.id == bridge_request_id
             )
-            bridge_request = self.session.exec(stmt).first()
+            bridge_request = self.session.execute(stmt).first()
             
             if not bridge_request:
                 raise ValueError(f"Bridge request {bridge_request_id} not found")
@@ -306,14 +306,14 @@ class CrossChainBridgeService:
             cutoff_time = datetime.utcnow() - timedelta(hours=time_period_hours)
             
             # Get total requests
-            total_requests = self.session.exec(
+            total_requests = self.session.execute(
                 select(func.count(BridgeRequest.id)).where(
                     BridgeRequest.created_at >= cutoff_time
                 )
             ).scalar() or 0
             
             # Get completed requests
-            completed_requests = self.session.exec(
+            completed_requests = self.session.execute(
                 select(func.count(BridgeRequest.id)).where(
                     BridgeRequest.created_at >= cutoff_time,
                     BridgeRequest.status == BridgeRequestStatus.COMPLETED
@@ -321,7 +321,7 @@ class CrossChainBridgeService:
             ).scalar() or 0
             
             # Get total volume
-            total_volume = self.session.exec(
+            total_volume = self.session.execute(
                 select(func.sum(BridgeRequest.amount)).where(
                     BridgeRequest.created_at >= cutoff_time,
                     BridgeRequest.status == BridgeRequestStatus.COMPLETED
@@ -329,7 +329,7 @@ class CrossChainBridgeService:
             ).scalar() or 0
             
             # Get total fees
-            total_fees = self.session.exec(
+            total_fees = self.session.execute(
                 select(func.sum(BridgeRequest.total_fee)).where(
                     BridgeRequest.created_at >= cutoff_time,
                     BridgeRequest.status == BridgeRequestStatus.COMPLETED
@@ -340,7 +340,7 @@ class CrossChainBridgeService:
             success_rate = completed_requests / max(total_requests, 1)
             
             # Get average processing time
-            avg_processing_time = self.session.exec(
+            avg_processing_time = self.session.execute(
                 select(func.avg(
                     func.extract('epoch', BridgeRequest.completed_at) -
                     func.extract('epoch', BridgeRequest.created_at)
@@ -353,7 +353,7 @@ class CrossChainBridgeService:
             # Get chain distribution
             chain_distribution = {}
             for chain_id in self.wallet_adapters.keys():
-                chain_requests = self.session.exec(
+                chain_requests = self.session.execute(
                     select(func.count(BridgeRequest.id)).where(
                         BridgeRequest.created_at >= cutoff_time,
                         BridgeRequest.source_chain_id == chain_id
@@ -413,7 +413,7 @@ class CrossChainBridgeService:
             stmt = select(BridgeRequest).where(
                 BridgeRequest.id == bridge_request_id
             )
-            bridge_request = self.session.exec(stmt).first()
+            bridge_request = self.session.execute(stmt).first()
             
             if not bridge_request:
                 logger.error(f"Bridge request {bridge_request_id} not found")
@@ -445,7 +445,7 @@ class CrossChainBridgeService:
                     error_message=str(e),
                     updated_at=datetime.utcnow()
                 )
-                self.session.exec(stmt)
+                self.session.execute(stmt)
                 self.session.commit()
             except:
                 pass

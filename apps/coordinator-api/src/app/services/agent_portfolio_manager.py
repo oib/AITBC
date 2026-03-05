@@ -77,7 +77,7 @@ class AgentPortfolioManager:
                 raise HTTPException(status_code=400, detail="Invalid agent address")
             
             # Check if portfolio already exists
-            existing_portfolio = self.session.exec(
+            existing_portfolio = self.session.execute(
                 select(AgentPortfolio).where(
                     AgentPortfolio.agent_address == agent_address
                 )
@@ -289,7 +289,7 @@ class AgentPortfolioManager:
             )
             
             # Update risk metrics in database
-            existing_metrics = self.session.exec(
+            existing_metrics = self.session.execute(
                 select(RiskMetrics).where(RiskMetrics.portfolio_id == portfolio.id)
             ).first()
             
@@ -382,7 +382,7 @@ class AgentPortfolioManager:
     
     def _get_agent_portfolio(self, agent_address: str) -> AgentPortfolio:
         """Get portfolio for agent address"""
-        portfolio = self.session.exec(
+        portfolio = self.session.execute(
             select(AgentPortfolio).where(
                 AgentPortfolio.agent_address == agent_address
             )
@@ -456,7 +456,7 @@ class AgentPortfolioManager:
         """Validate trade request"""
         
         # Check if sell token exists in portfolio
-        sell_asset = self.session.exec(
+        sell_asset = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id,
                 PortfolioAsset.token_symbol == trade_request.sell_token
@@ -507,7 +507,7 @@ class AgentPortfolioManager:
         """Update portfolio assets after trade"""
         
         # Update sell asset
-        sell_asset = self.session.exec(
+        sell_asset = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id,
                 PortfolioAsset.token_symbol == trade.sell_token
@@ -519,7 +519,7 @@ class AgentPortfolioManager:
             sell_asset.updated_at = datetime.utcnow()
         
         # Update buy asset
-        buy_asset = self.session.exec(
+        buy_asset = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id,
                 PortfolioAsset.token_symbol == trade.buy_token
@@ -547,7 +547,7 @@ class AgentPortfolioManager:
         portfolio_value = await self._calculate_portfolio_value(portfolio)
         
         # Update current allocations
-        assets = self.session.exec(
+        assets = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id
             )
@@ -566,7 +566,7 @@ class AgentPortfolioManager:
     async def _calculate_portfolio_value(self, portfolio: AgentPortfolio) -> float:
         """Calculate total portfolio value"""
         
-        assets = self.session.exec(
+        assets = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id
             )
@@ -593,7 +593,7 @@ class AgentPortfolioManager:
             return True
         
         # Check threshold-based rebalancing
-        assets = self.session.exec(
+        assets = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id
             )
@@ -615,7 +615,7 @@ class AgentPortfolioManager:
         """Generate rebalancing trades"""
         
         trades = []
-        assets = self.session.exec(
+        assets = self.session.execute(
             select(PortfolioAsset).where(
                 PortfolioAsset.portfolio_id == portfolio.id
             )
@@ -657,7 +657,7 @@ class AgentPortfolioManager:
         """Calculate portfolio performance metrics"""
         
         # Get historical trades
-        trades = self.session.exec(
+        trades = self.session.execute(
             select(PortfolioTrade)
             .where(PortfolioTrade.portfolio_id == portfolio.id)
             .order_by(PortfolioTrade.executed_at.desc())

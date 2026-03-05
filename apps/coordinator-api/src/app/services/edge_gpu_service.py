@@ -23,7 +23,7 @@ class EdgeGPUService:
             stmt = stmt.where(ConsumerGPUProfile.edge_optimized == edge_optimized)
         if min_memory_gb is not None:
             stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)
-        return list(self.session.exec(stmt).all())
+        return list(self.session.execute(stmt).all())
 
     def list_metrics(self, gpu_id: str, limit: int = 100) -> List[EdgeGPUMetrics]:
         stmt = (
@@ -32,7 +32,7 @@ class EdgeGPUService:
             .order_by(EdgeGPUMetrics.timestamp.desc())
             .limit(limit)
         )
-        return list(self.session.exec(stmt).all())
+        return list(self.session.execute(stmt).all())
 
     def create_metric(self, payload: dict) -> EdgeGPUMetrics:
         metric = EdgeGPUMetrics(**payload)
@@ -42,7 +42,7 @@ class EdgeGPUService:
         return metric
 
     def seed_profiles(self) -> None:
-        existing_models = set(self.session.exec(select(ConsumerGPUProfile.gpu_model)).all())
+        existing_models = set(self.session.execute(select(ConsumerGPUProfile.gpu_model)).all())
         created = 0
         for profile in CONSUMER_GPU_PROFILES:
             if profile["gpu_model"] in existing_models:

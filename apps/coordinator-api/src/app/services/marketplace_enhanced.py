@@ -294,7 +294,7 @@ class EnhancedMarketplaceService:
     
     async def _get_volume_analytics(self, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
         """Get volume analytics"""
-        offers = self.session.exec(
+        offers = self.session.execute(
             select(MarketplaceOffer).where(
                 MarketplaceOffer.created_at >= start_date,
                 MarketplaceOffer.created_at <= end_date
