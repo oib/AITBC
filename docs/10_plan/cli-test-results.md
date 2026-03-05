@@ -22,6 +22,9 @@
 | mine-ollama Feature | ✅ WORKING | N/A (No GPU) | N/A (No GPU) | **PASS** |
 | System & Nodes | N/A | N/A | ✅ WORKING | **PASS** |
 | Testing & Simulation | ✅ WORKING | ✅ WORKING | ✅ WORKING | **PASS** |
+| Governance | N/A | N/A | ✅ WORKING | **PASS** |
+| AI Agents | N/A | N/A | ✅ WORKING | **PASS** |
+| Swarms & Networks | N/A | N/A | ❌ FAILED | **PENDING** |
 
 ## Topology Note: GPU Distribution
 * **at1 (localhost)**: The physical host machine equipped with the NVIDIA RTX 4090 GPU and Ollama installation. This is the **only node** that should register as a miner and execute `mine-ollama`.
@@ -82,7 +85,21 @@
 - **Command**: `aitbc test diagnostics`, `aitbc test api`, `aitbc node list`, `aitbc simulate init`
 - **Result**: ✅ Successfully runs full testing suite (100% pass rate on API, environment, wallet, and marketplace components). Successfully generated simulation test economy and genesis wallet.
 
-### ❌ **FAILING COMMANDS**
+#### 11. Governance Commands
+- **Command**: `aitbc governance propose`, `aitbc governance list`, `aitbc governance vote`, `aitbc governance result`
+- **Result**: ✅ Successfully generates proposals, handles voting mechanisms, and retrieves tallied results. Requires client authentication.
+
+#### 12. AI Agent Workflows
+- **Command**: `aitbc agent create`, `aitbc agent list`, `aitbc agent execute`
+- **Result**: ✅ Working. Creates workflow JSONs, stores them to the database, lists them properly, and launches agent execution jobs. 
+- **Fixes Applied**: 
+  - Restored the `/agents` API prefix routing in `main.py`.
+  - Added proper `ADMIN_API_KEYS` support to the `.env` settings.
+  - Resolved `Pydantic v2` strict validation issues regarding `tags` array parameter decoding.
+  - Upgraded SQLModel references from `query.all()` to `scalars().all()`.
+  - Fixed relative imports within the FastApi dependency routers for orchestrator execution dispatching.
+
+### ❌ **FAILING / PENDING COMMANDS**
 
 #### 1. Blockchain Connectivity
 - **Command**: `aitbc blockchain status`
@@ -96,6 +113,11 @@
 - **Status**: AUTHENTICATION ISSUE
 - **Working**: aitbc1 (has client API key configured)
 
+#### 3. Swarm & Networks
+- **Command**: `aitbc agent network create`, `aitbc swarm join`
+- **Error**: 404 Not Found
+- **Status**: PENDING API IMPLEMENTATION - The CLI has commands configured, but the FastAPI backend `coordinator-api` does not yet have routes mapped or developed for these specific multi-agent coordination endpoints.
+
 ## Key Findings
 
 ### ✅ **Core Functionality Verified**
@@ -107,16 +129,17 @@
 6. **Payment System**: Escrow generation and status tracking working
 7. **New Features**: mine-ollama integration working on at1 (GPU host)
 8. **Testing Capabilities**: Built-in diagnostics pass with 100% success rate
+9. **Advanced Logic**: Agent execution pipelines and governance consensus fully functional.
 
 ### ⚠️ **Topology & Configuration Notes**
 1. **Hardware Distribution**: 
    - `at1`: Physical host with GPU. Responsible for mining (`miner register`, `miner mine-ollama`).
    - `aitbc`/`aitbc1`: Containers without GPUs. Responsible for client and marketplace operations.
 2. **API Endpoints**: Must include the `/api` suffix (e.g., `https://aitbc.bubuit.net/api`) for proper Nginx reverse proxy routing.
-3. **API Keys**: Miner commands require miner API keys, client commands require client API keys.
+3. **API Keys**: Miner commands require miner API keys, client commands require client API keys, and agent commands require admin keys.
 
 ### 🎯 **Success Rate**
-- **Overall Success**: 12/13 command categories working (92%)
+- **Overall Success**: 14/16 command categories working (87.5%)
 - **Critical Path**: ✅ Job submission → marketplace → payment → result flow working
 - **Hardware Alignment**: ✅ Commands are executed on correct hardware nodes
 
