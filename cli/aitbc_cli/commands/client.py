@@ -48,7 +48,7 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
         try:
             with httpx.Client() as client:
                 response = client.post(
-                    f"{config.coordinator_url}/api/v1/jobs",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""
@@ -273,7 +273,7 @@ def history(ctx, limit: int, status: Optional[str], type: Optional[str],
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/jobs",
+                f"{config.coordinator_url}/v1/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
