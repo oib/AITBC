@@ -369,7 +369,8 @@ def restore(ctx, backup_file, node, verify):
         config = load_multichain_config()
         chain_manager = ChainManager(config)
         
-        restore_result = chain_manager.restore_chain(backup_file, node, verify)
+        import asyncio
+        restore_result = asyncio.run(chain_manager.restore_chain(backup_file, node, verify))
         
         success(f"Chain restoration completed successfully!")
         result = {

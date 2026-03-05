@@ -48,12 +48,29 @@ class JobService:
 
     def list_receipts(self, job_id: str, client_id: Optional[str] = None) -> list[JobReceipt]:
         job = self.get_job(job_id, client_id=client_id)
-        receipts = self.session.scalars(
-            select(JobReceipt)
-            .where(JobReceipt.job_id == job.id)
-            .order_by(JobReceipt.created_at.asc())
-        ).all()
-        return receipts
+        return self.session.execute(
+            select(JobReceipt).where(JobReceipt.job_id == job_id)
+        ).scalars().all()
+
+    def list_jobs(self, client_id: Optional[str] = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:
+        """List jobs with optional filtering"""
+        query = select(Job).order_by(Job.requested_at.desc())
+        
+        if client_id:
+            query = query.where(Job.client_id == client_id)
+        
+        # Apply filters
+        if "state" in filters:
+            query = query.where(Job.state == filters["state"])
+        
+        if "job_type" in filters:
+            # Filter by job type in payload
+            query = query.where(Job.payload["type"].as_string() == filters["job_type"])
+        
+        # Apply pagination
+        query = query.offset(offset).limit(limit)
+        
+        return self.session.execute(query).scalars().all()
 
     def cancel_job(self, job: Job) -> Job:
         if job.state not in {JobState.queued, JobState.running}:

@@ -355,6 +355,9 @@ class TestWalletAdditionalCommands:
             }, {
                 "stake_id": "stake_456",
                 "amount": 25.0,
+                "apy": 5.0,
+                "duration_days": 30,
+                "start_date": start_date,
                 "rewards": 1.5,
                 "status": "completed"
             }]
