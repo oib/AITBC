@@ -123,7 +123,7 @@ def blocks(ctx, limit: int):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/explorer/blocks",
+                f"{config.coordinator_url}/v1/blocks",
                 params={"limit": limit},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -273,7 +273,7 @@ def history(ctx, limit: int, status: Optional[str], type: Optional[str],
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/jobs",
+                f"{config.coordinator_url}/v1/jobs/history",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )

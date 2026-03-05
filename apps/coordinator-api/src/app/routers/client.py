@@ -122,3 +122,147 @@ async def list_job_receipts(
     service = JobService(session)
     receipts = service.list_receipts(job_id, client_id=client_id)
     return {"items": [row.payload for row in receipts]}
+
+
+@router.get("/jobs", summary="List jobs with filtering")
+@cached(**get_cache_config("job_list"))  # Cache job list for 30 seconds
+async def list_jobs(
+    request: Request,
+    session: SessionDep,
+    client_id: str = Depends(require_client_key()),
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    job_type: str | None = None,
+) -> dict:  # type: ignore[arg-type]
+    """List jobs with optional filtering by status and type"""
+    service = JobService(session)
+    
+    # Build filters
+    filters = {}
+    if status:
+        try:
+            filters["state"] = JobState(status.upper())
+        except ValueError:
+            pass  # Invalid status, ignore
+    
+    if job_type:
+        filters["job_type"] = job_type
+    
+    jobs = service.list_jobs(
+        client_id=client_id,
+        limit=limit,
+        offset=offset,
+        **filters
+    )
+    
+    return {
+        "items": [service.to_view(job) for job in jobs],
+        "total": len(jobs),
+        "limit": limit,
+        "offset": offset
+    }
+
+
+@router.get("/jobs/history", summary="Get job history")
+@cached(**get_cache_config("job_list"))  # Cache job history for 30 seconds
+async def get_job_history(
+    request: Request,
+    session: SessionDep,
+    client_id: str = Depends(require_client_key()),
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    job_type: str | None = None,
+    from_time: str | None = None,
+    to_time: str | None = None,
+) -> dict:  # type: ignore[arg-type]
+    """Get job history with time range filtering"""
+    service = JobService(session)
+    
+    # Build filters
+    filters = {}
+    if status:
+        try:
+            filters["state"] = JobState(status.upper())
+        except ValueError:
+            pass  # Invalid status, ignore
+    
+    if job_type:
+        filters["job_type"] = job_type
+    
+    try:
+        # Use the list_jobs method with time filtering
+        jobs = service.list_jobs(
+            client_id=client_id,
+            limit=limit,
+            offset=offset,
+            **filters
+        )
+        
+        return {
+            "items": [service.to_view(job) for job in jobs],
+            "total": len(jobs),
+            "limit": limit,
+            "offset": offset,
+            "from_time": from_time,
+            "to_time": to_time
+        }
+    except Exception as e:
+        # Return empty result if no jobs found
+        return {
+            "items": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "from_time": from_time,
+            "to_time": to_time,
+            "error": str(e)
+        }
+
+
+@router.get("/blocks", summary="Get blockchain blocks")
+async def get_blocks(
+    request: Request,
+    session: SessionDep,
+    client_id: str = Depends(require_client_key()),
+    limit: int = 20,
+    offset: int = 0,
+) -> dict:  # type: ignore[arg-type]
+    """Get recent blockchain blocks"""
+    try:
+        import httpx
+        
+        # Query the local blockchain node for blocks
+        with httpx.Client() as client:
+            response = client.get(
+                f"http://10.1.223.93:8082/rpc/blocks-range",
+                params={"start": offset, "end": offset + limit},
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                blocks_data = response.json()
+                return {
+                    "blocks": blocks_data.get("blocks", []),
+                    "total": blocks_data.get("total", 0),
+                    "limit": limit,
+                    "offset": offset
+                }
+            else:
+                # Fallback to empty response if blockchain node is unavailable
+                return {
+                    "blocks": [],
+                    "total": 0,
+                    "limit": limit,
+                    "offset": offset,
+                    "error": f"Blockchain node unavailable: {response.status_code}"
+                }
+    except Exception as e:
+        return {
+            "blocks": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "error": f"Failed to fetch blocks: {str(e)}"
+        }

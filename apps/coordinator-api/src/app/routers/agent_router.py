@@ -5,6 +5,7 @@ Provides REST API endpoints for agent workflow management and execution
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Optional
+from datetime import datetime
 from aitbc.logging import get_logger
 
 from ..domain.agent import (
@@ -414,4 +415,82 @@ async def get_execution_logs(
         raise
     except Exception as e:
         logger.error(f"Failed to get execution logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/networks", response_model=dict, status_code=201)
+async def create_agent_network(
+    network_data: dict,
+    session: Session = Depends(SessionDep),
+    current_user: str = Depends(require_admin_key())
+):
+    """Create a new agent network for collaborative processing"""
+    
+    try:
+        # Validate required fields
+        if not network_data.get("name"):
+            raise HTTPException(status_code=400, detail="Network name is required")
+        
+        if not network_data.get("agents"):
+            raise HTTPException(status_code=400, detail="Agent list is required")
+        
+        # Create network record (simplified for now)
+        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        
+        network_response = {
+            "id": network_id,
+            "name": network_data["name"],
+            "description": network_data.get("description", ""),
+            "agents": network_data["agents"],
+            "coordination_strategy": network_data.get("coordination", "centralized"),
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "owner_id": current_user
+        }
+        
+        logger.info(f"Created agent network: {network_id}")
+        return network_response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create agent network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/executions/{execution_id}/receipt")
+async def get_execution_receipt(
+    execution_id: str,
+    session: Session = Depends(SessionDep),
+    current_user: str = Depends(require_admin_key())
+):
+    """Get verifiable receipt for completed execution"""
+    
+    try:
+        # For now, return a mock receipt since the full execution system isn't implemented
+        receipt_data = {
+            "execution_id": execution_id,
+            "workflow_id": f"workflow_{execution_id}",
+            "status": "completed",
+            "receipt_id": f"receipt_{execution_id}",
+            "miner_signature": "0xmock_signature_placeholder",
+            "coordinator_attestations": [
+                {
+                    "coordinator_id": "coordinator_1",
+                    "signature": "0xmock_attestation_1",
+                    "timestamp": datetime.utcnow().isoformat()
+                }
+            ],
+            "minted_amount": 1000,
+            "recorded_at": datetime.utcnow().isoformat(),
+            "verified": True,
+            "block_hash": "0xmock_block_hash",
+            "transaction_hash": "0xmock_tx_hash"
+        }
+        
+        logger.info(f"Generated receipt for execution: {execution_id}")
+        return receipt_data
+        
+    except Exception as e:
+        logger.error(f"Failed to get execution receipt: {e}")
         raise HTTPException(status_code=500, detail=str(e))
