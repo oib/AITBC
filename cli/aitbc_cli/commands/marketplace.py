@@ -427,6 +427,50 @@ def offers():
 
 
 @offers.command()
+@click.option("--gpu-id", required=True, help="GPU ID to create offer for")
+@click.option("--price-per-hour", type=float, required=True, help="Price per hour in AITBC")
+@click.option("--min-hours", type=float, default=1, help="Minimum rental hours")
+@click.option("--max-hours", type=float, default=24, help="Maximum rental hours")
+@click.option("--models", help="Supported models (comma-separated, e.g. gemma3:1b,qwen2.5)")
+@click.pass_context
+def create(ctx, gpu_id: str, price_per_hour: float, min_hours: float, 
+           max_hours: float, models: Optional[str]):
+    """Create a marketplace offer for a registered GPU"""
+    config = ctx.obj['config']
+    
+    offer_data = {
+        "gpu_id": gpu_id,
+        "price_per_hour": price_per_hour,
+        "min_hours": min_hours,
+        "max_hours": max_hours,
+        "supported_models": models.split(",") if models else [],
+        "status": "open"
+    }
+    
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/v1/marketplace/offers",
+                headers={
+                    "Content-Type": "application/json",
+                    "X-Api-Key": config.api_key or ""
+                },
+                json=offer_data
+            )
+            
+            if response.status_code in (200, 201, 202):
+                result = response.json()
+                success(f"Offer created: {result.get('id', 'ok')}")
+                output(result, ctx.obj['output_format'])
+            else:
+                error(f"Failed to create offer: {response.status_code}")
+                if response.text:
+                    error(response.text)
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@offers.command()
 @click.option("--status", help="Filter by offer status (open, reserved, closed)")
 @click.option("--gpu-model", help="Filter by GPU model")
 @click.option("--price-max", type=float, help="Maximum price per hour")

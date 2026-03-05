@@ -164,6 +164,53 @@ def cancel(ctx, job_id: str):
 
 
 @client.command()
+@click.argument("job_id")
+@click.option("--wait", is_flag=True, help="Wait for job to complete before showing result")
+@click.option("--timeout", type=int, default=120, help="Max wait time in seconds")
+@click.pass_context
+def result(ctx, job_id: str, wait: bool, timeout: int):
+    """Retrieve the result of a completed job"""
+    config = ctx.obj['config']
+    
+    start = time.time()
+    while True:
+        try:
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{config.coordinator_url}/v1/jobs/{job_id}",
+                    headers={"X-Api-Key": config.api_key or ""}
+                )
+                
+                if response.status_code == 200:
+                    job_data = response.json()
+                    state = job_data.get("state", "UNKNOWN")
+                    
+                    if state == "COMPLETED":
+                        result_data = job_data.get("result")
+                        if result_data:
+                            success(f"Job {job_id} completed")
+                            output(result_data, ctx.obj['output_format'])
+                        else:
+                            output({"job_id": job_id, "state": state, "result": None}, ctx.obj['output_format'])
+                        return
+                    elif state in ("FAILED", "EXPIRED"):
+                        error(f"Job {job_id} {state}: {job_data.get('error', 'no details')}")
+                        return
+                    elif wait and (time.time() - start) < timeout:
+                        time.sleep(3)
+                        continue
+                    else:
+                        output({"job_id": job_id, "state": state, "message": "Job not yet completed"}, ctx.obj['output_format'])
+                        return
+                else:
+                    error(f"Failed to get job: {response.status_code}")
+                    return
+        except Exception as e:
+            error(f"Network error: {e}")
+            return
+
+
+@client.command()
 @click.option("--limit", default=10, help="Number of receipts to show")
 @click.option("--job-id", help="Filter by job ID")
 @click.option("--status", help="Filter by status")
