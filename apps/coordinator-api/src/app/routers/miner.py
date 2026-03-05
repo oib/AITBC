@@ -121,34 +121,142 @@ async def submit_failure(
     session: SessionDep,
     miner_id: str = Depends(require_miner_key()),
 ) -> dict[str, str]:  # type: ignore[arg-type]
-    job_service = JobService(session)
-    miner_service = MinerService(session)
     try:
-        job = job_service.get_job(job_id)
+        service = JobService(session)
+        service.fail_job(job_id, miner_id, req.error_message)
+        return {"status": "ok"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found")
 
-    job.state = JobState.failed
-    job.error = f"{req.error_code}: {req.error_message}"
-    job.assigned_miner_id = miner_id
-    session.add(job)
-    session.commit()
-    
-    # Auto-refund payment if job has payment
-    if job.payment_id and job.payment_status in ["pending", "escrowed"]:
-        from ..services.payments import PaymentService
-        payment_service = PaymentService(session)
-        success = await payment_service.refund_payment(
-            job.id,
-            job.payment_id,
-            reason=f"Job failed: {req.error_code}: {req.error_message}"
+
+@router.post("/miners/{miner_id}/jobs", summary="List jobs for a miner")
+async def list_miner_jobs(
+    miner_id: str,
+    limit: int = 20,
+    offset: int = 0,
+    job_type: str | None = None,
+    min_reward: float | None = None,
+    job_status: str | None = None,
+    session: SessionDep = SessionDep,
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, Any]:  # type: ignore[arg-type]
+    """List jobs assigned to a specific miner"""
+    try:
+        service = JobService(session)
+        
+        # Build filters
+        filters = {}
+        if job_type:
+            filters["job_type"] = job_type
+        if job_status:
+            try:
+                filters["state"] = JobState(job_status.upper())
+            except ValueError:
+                pass  # Invalid status, ignore
+        
+        # Get jobs for this miner
+        jobs = service.list_jobs(
+            client_id=miner_id,  # Using client_id as miner_id for now
+            limit=limit,
+            offset=offset,
+            **filters
         )
-        if success:
-            job.payment_status = "refunded"
-            session.commit()
-            logger.info(f"Auto-refunded payment {job.payment_id} for failed job {job.id}")
-        else:
-            logger.error(f"Failed to auto-refund payment {job.payment_id} for job {job.id}")
-    
-    miner_service.release(miner_id, success=False)
-    return {"status": "ok"}
+        
+        return {
+            "jobs": [service.to_view(job) for job in jobs],
+            "total": len(jobs),
+            "limit": limit,
+            "offset": offset,
+            "miner_id": miner_id
+        }
+    except Exception as e:
+        logger.error(f"Error listing miner jobs: {e}")
+        return {
+            "jobs": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "miner_id": miner_id,
+            "error": str(e)
+        }
+
+
+@router.post("/miners/{miner_id}/earnings", summary="Get miner earnings")
+async def get_miner_earnings(
+    miner_id: str,
+    from_time: str | None = None,
+    to_time: str | None = None,
+    session: SessionDep = SessionDep,
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, Any]:  # type: ignore[arg-type]
+    """Get earnings for a specific miner"""
+    try:
+        # For now, return mock earnings data
+        # In a full implementation, this would query payment records
+        earnings_data = {
+            "miner_id": miner_id,
+            "total_earnings": 0.0,
+            "pending_earnings": 0.0,
+            "completed_jobs": 0,
+            "currency": "AITBC",
+            "from_time": from_time,
+            "to_time": to_time,
+            "earnings_history": []
+        }
+        
+        return earnings_data
+    except Exception as e:
+        logger.error(f"Error getting miner earnings: {e}")
+        return {
+            "miner_id": miner_id,
+            "total_earnings": 0.0,
+            "pending_earnings": 0.0,
+            "completed_jobs": 0,
+            "currency": "AITBC",
+            "error": str(e)
+        }
+
+
+@router.put("/miners/{miner_id}/capabilities", summary="Update miner capabilities")
+async def update_miner_capabilities(
+    miner_id: str,
+    req: MinerRegister,
+    session: SessionDep = SessionDep,
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, Any]:  # type: ignore[arg-type]
+    """Update capabilities for a registered miner"""
+    try:
+        service = MinerService(session)
+        record = service.register(miner_id, req)  # Re-use register to update
+        return {
+            "miner_id": miner_id,
+            "status": "updated",
+            "capabilities": req.capabilities,
+            "session_token": record.session_token
+        }
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
+    except Exception as e:
+        logger.error(f"Error updating miner capabilities: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.delete("/miners/{miner_id}", summary="Deregister miner")
+async def deregister_miner(
+    miner_id: str,
+    session: SessionDep = SessionDep,
+    api_key: str = Depends(require_miner_key()),
+) -> dict[str, str]:  # type: ignore[arg-type]
+    """Deregister a miner from the coordinator"""
+    try:
+        service = MinerService(session)
+        service.deregister(miner_id)
+        return {
+            "miner_id": miner_id,
+            "status": "deregistered"
+        }
+    except KeyError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
+    except Exception as e:
+        logger.error(f"Error deregistering miner: {e}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

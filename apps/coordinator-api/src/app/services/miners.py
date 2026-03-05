@@ -116,3 +116,15 @@ class MinerService:
     def online_count(self) -> int:
         result = self.session.execute(select(Miner).where(Miner.status == "ONLINE"))
         return len(result.all())
+
+    def deregister(self, miner_id: str) -> None:
+        """Deregister a miner from the system"""
+        miner = self.session.get(Miner, miner_id)
+        if miner is None:
+            raise KeyError("miner not registered")
+        
+        # Set status to OFFLINE instead of deleting to maintain history
+        miner.status = "OFFLINE"
+        miner.session_token = None
+        self.session.add(miner)
+        self.session.commit()
