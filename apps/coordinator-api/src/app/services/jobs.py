@@ -72,6 +72,17 @@ class JobService:
         
         return self.session.execute(query).scalars().all()
 
+    def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:
+        """Mark a job as failed"""
+        job = self.get_job(job_id)
+        job.state = JobState.FAILED
+        job.error = error_message
+        job.assigned_miner_id = miner_id
+        self.session.add(job)
+        self.session.commit()
+        self.session.refresh(job)
+        return job
+
     def cancel_job(self, job: Job) -> Job:
         if job.state not in {JobState.queued, JobState.running}:
             return job

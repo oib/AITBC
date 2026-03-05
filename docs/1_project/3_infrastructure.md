@@ -85,11 +85,13 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 
 | Service | Port | Process | Python Version | Purpose | Status |
 |---------|------|---------|----------------|---------|--------|
-| Mock Coordinator | 8090 | python3 | 3.13.5+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
+| Coordinator API | 8000 | python3 | 3.13.5+ | Production coordinator API | systemd: aitbc-coordinator-api.service |
+| Mock Coordinator | 8020 | python3 | 3.13.5+ | Development/testing API endpoint | systemd: aitbc-mock-coordinator.service |
 | Blockchain Node | N/A | python3 | 3.13.5+ | Local blockchain node | systemd: aitbc-blockchain-node.service |
 | Blockchain Node RPC | 8003 | python3 | 3.13.5+ | RPC API for blockchain | systemd: aitbc-blockchain-rpc.service |
 | Local Development Tools | Varies | python3 | 3.13.5+ | CLI tools, scripts, testing | Manual/venv |
-| **Note**: GPU Miner Client removed - no miner service needed on aitbc server
+| **Note**: GPU Miner Client removed - no miner service needed on aitbc server |
+| **Port Logic**: Production services use 8000-8019, Mock/Testing services use 8020+ |
 
 ### Systemd Services (Host)
 
@@ -97,9 +99,10 @@ All services are configured as systemd units but currently inactive:
 
 ```bash
 # Service files location: /etc/systemd/system/
-aitbc-blockchain-node.service      # Blockchain node main process
-aitbc-blockchain-rpc.service       # RPC API on port 8003
-aitbc-mock-coordinator.service     # Mock coordinator on port 8090
+aitbc-coordinator-api.service       # Production coordinator API on port 8000
+aitbc-blockchain-node.service       # Blockchain node main process
+aitbc-blockchain-rpc.service        # RPC API on port 8003
+aitbc-mock-coordinator.service      # Mock coordinator on port 8020
 # Note: aitbc-gpu-miner.service removed - no miner service needed
 ```
 
