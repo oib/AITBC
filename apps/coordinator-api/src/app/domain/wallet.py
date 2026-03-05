@@ -43,8 +43,8 @@ class AgentWallet(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    balances: List["TokenBalance"] = Relationship(back_populates="wallet")
-    transactions: List["WalletTransaction"] = Relationship(back_populates="wallet")
+    # DISABLED:     balances: List["TokenBalance"] = Relationship(back_populates="wallet")
+    # DISABLED:     transactions: List["WalletTransaction"] = Relationship(back_populates="wallet")
 
 class NetworkConfig(SQLModel, table=True):
     """Configuration for supported blockchain networks"""
@@ -75,7 +75,7 @@ class TokenBalance(SQLModel, table=True):
     last_updated: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    wallet: AgentWallet = Relationship(back_populates="balances")
+    # DISABLED:     wallet: AgentWallet = Relationship(back_populates="balances")
 
 class TransactionStatus(str, Enum):
     PENDING = "pending"
@@ -104,4 +104,4 @@ class WalletTransaction(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Relationships
-    wallet: AgentWallet = Relationship(back_populates="transactions")
+    # DISABLED:     wallet: AgentWallet = Relationship(back_populates="transactions")

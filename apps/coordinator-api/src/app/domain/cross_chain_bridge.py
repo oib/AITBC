@@ -84,8 +84,8 @@ class BridgeRequest(SQLModel, table=True):
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
     
     # Relationships
-    transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
-    disputes: List["BridgeDispute"] = Relationship(back_populates="bridge_request")
+    # transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
+    # disputes: List["BridgeDispute"] = Relationship(back_populates="bridge_request")
 
 
 class SupportedToken(SQLModel, table=True):
@@ -164,7 +164,7 @@ class Validator(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    transactions: List["BridgeTransaction"] = Relationship(back_populates="validator")
+    # transactions: List["BridgeTransaction"] = Relationship(back_populates="validator")
 
 
 class BridgeTransaction(SQLModel, table=True):
@@ -192,8 +192,8 @@ class BridgeTransaction(SQLModel, table=True):
     completed_at: Optional[datetime] = Field(default=None)
     
     # Relationships
-    bridge_request: BridgeRequest = Relationship(back_populates="transactions")
-    validator: Optional[Validator] = Relationship(back_populates="transactions")
+    # bridge_request: BridgeRequest = Relationship(back_populates="transactions")
+    # validator: Optional[Validator] = Relationship(back_populates="transactions")
 
 
 class BridgeDispute(SQLModel, table=True):
@@ -220,7 +220,7 @@ class BridgeDispute(SQLModel, table=True):
     resolved_at: Optional[datetime] = Field(default=None)
     
     # Relationships
-    bridge_request: BridgeRequest = Relationship(back_populates="disputes")
+    # bridge_request: BridgeRequest = Relationship(back_populates="disputes")
 
 
 class MerkleProof(SQLModel, table=True):

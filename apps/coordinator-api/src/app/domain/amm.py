@@ -65,10 +65,10 @@ class LiquidityPool(SQLModel, table=True):
     last_trade_time: Optional[datetime] = Field(default=None)
     
     # Relationships
-    positions: List["LiquidityPosition"] = Relationship(back_populates="pool")
-    swaps: List["SwapTransaction"] = Relationship(back_populates="pool")
-    metrics: List["PoolMetrics"] = Relationship(back_populates="pool")
-    incentives: List["IncentiveProgram"] = Relationship(back_populates="pool")
+    # DISABLED:     positions: List["LiquidityPosition"] = Relationship(back_populates="pool")
+    # DISABLED:     swaps: List["SwapTransaction"] = Relationship(back_populates="pool")
+    # DISABLED:     metrics: List["PoolMetrics"] = Relationship(back_populates="pool")
+    # DISABLED:     incentives: List["IncentiveProgram"] = Relationship(back_populates="pool")
 
 
 class LiquidityPosition(SQLModel, table=True):
@@ -94,8 +94,8 @@ class LiquidityPosition(SQLModel, table=True):
     last_withdrawal: Optional[datetime] = Field(default=None)
     
     # Relationships
-    pool: LiquidityPool = Relationship(back_populates="positions")
-    fee_claims: List["FeeClaim"] = Relationship(back_populates="position")
+    # DISABLED:     pool: LiquidityPool = Relationship(back_populates="positions")
+    # DISABLED:     fee_claims: List["FeeClaim"] = Relationship(back_populates="position")
 
 
 class SwapTransaction(SQLModel, table=True):
@@ -124,7 +124,7 @@ class SwapTransaction(SQLModel, table=True):
     deadline: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=20))
     
     # Relationships
-    pool: LiquidityPool = Relationship(back_populates="swaps")
+    # DISABLED:     pool: LiquidityPool = Relationship(back_populates="swaps")
 
 
 class PoolMetrics(SQLModel, table=True):
@@ -150,7 +150,7 @@ class PoolMetrics(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    pool: LiquidityPool = Relationship(back_populates="metrics")
+    # DISABLED:     pool: LiquidityPool = Relationship(back_populates="metrics")
 
 
 class FeeStructure(SQLModel, table=True):
@@ -194,8 +194,8 @@ class IncentiveProgram(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    pool: LiquidityPool = Relationship(back_populates="incentives")
-    rewards: List["LiquidityReward"] = Relationship(back_populates="program")
+    # DISABLED:     pool: LiquidityPool = Relationship(back_populates="incentives")
+    # DISABLED:     rewards: List["LiquidityReward"] = Relationship(back_populates="program")
 
 
 class LiquidityReward(SQLModel, table=True):
@@ -218,8 +218,8 @@ class LiquidityReward(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Relationships
-    program: IncentiveProgram = Relationship(back_populates="rewards")
-    position: LiquidityPosition = Relationship(back_populates="fee_claims")
+    # DISABLED:     program: IncentiveProgram = Relationship(back_populates="rewards")
+    # DISABLED:     position: LiquidityPosition = Relationship(back_populates="fee_claims")
 
 
 class FeeClaim(SQLModel, table=True):
@@ -240,7 +240,7 @@ class FeeClaim(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Relationships
-    position: LiquidityPosition = Relationship(back_populates="fee_claims")
+    # DISABLED:     position: LiquidityPosition = Relationship(back_populates="fee_claims")
 
 
 class PoolConfiguration(SQLModel, table=True):

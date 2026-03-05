@@ -52,7 +52,7 @@ class PortfolioStrategy(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    portfolios: List["AgentPortfolio"] = Relationship(back_populates="strategy")
+    # DISABLED:     portfolios: List["AgentPortfolio"] = Relationship(back_populates="strategy")
 
 
 class AgentPortfolio(SQLModel, table=True):
@@ -73,10 +73,10 @@ class AgentPortfolio(SQLModel, table=True):
     last_rebalance: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    strategy: PortfolioStrategy = Relationship(back_populates="portfolios")
-    assets: List["PortfolioAsset"] = Relationship(back_populates="portfolio")
-    trades: List["PortfolioTrade"] = Relationship(back_populates="portfolio")
-    risk_metrics: Optional["RiskMetrics"] = Relationship(back_populates="portfolio")
+    # DISABLED:     strategy: PortfolioStrategy = Relationship(back_populates="portfolios")
+    # DISABLED:     assets: List["PortfolioAsset"] = Relationship(back_populates="portfolio")
+    # DISABLED:     trades: List["PortfolioTrade"] = Relationship(back_populates="portfolio")
+    # DISABLED:     risk_metrics: Optional["RiskMetrics"] = Relationship(back_populates="portfolio")
 
 
 class PortfolioAsset(SQLModel, table=True):
@@ -96,7 +96,7 @@ class PortfolioAsset(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    portfolio: AgentPortfolio = Relationship(back_populates="assets")
+    # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="assets")
 
 
 class PortfolioTrade(SQLModel, table=True):
@@ -117,7 +117,7 @@ class PortfolioTrade(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     
     # Relationships
-    portfolio: AgentPortfolio = Relationship(back_populates="trades")
+    # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="trades")
 
 
 class RiskMetrics(SQLModel, table=True):
@@ -140,7 +140,7 @@ class RiskMetrics(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     # Relationships
-    portfolio: AgentPortfolio = Relationship(back_populates="risk_metrics")
+    # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="risk_metrics")
 
 
 class RebalanceHistory(SQLModel, table=True):
