@@ -36,6 +36,17 @@ def require_miner_key() -> Callable[[str | None], str]:
     return validator
 
 
+def get_miner_id() -> Callable[[str | None], str]:
+    """Dependency to get miner ID from X-Miner-ID header."""
+
+    def validator(miner_id: str | None = Header(default=None, alias="X-Miner-ID")) -> str:
+        if not miner_id:
+            raise HTTPException(status_code=400, detail="X-Miner-ID header required")
+        return miner_id
+
+    return validator
+
+
 def require_admin_key() -> Callable[[str | None], str]:
     """Dependency for admin API key authentication (reads live settings)."""
 
