@@ -33,7 +33,8 @@ from .routers import (
     cross_chain_integration,
     global_marketplace_integration,
     developer_platform,
-    governance_enhanced
+    governance_enhanced,
+    blockchain
 )
 # Skip optional routers with missing dependencies
 try:
@@ -84,13 +85,17 @@ async def lifespan(app: FastAPI):
         try:
             # Test database connectivity
             from sqlmodel import select
-            from ..domain import Job
-            from ..storage import get_session
+            from .domain import Job
+            from .storage import get_session
             
             # Simple connectivity test using dependency injection
-            with get_session() as session:
+            session_gen = get_session()
+            session = next(session_gen)
+            try:
                 test_query = select(Job).limit(1)
-                session.exec(test_query).first()
+                session.execute(test_query).first()
+            finally:
+                session.close()
             logger.info("Database warmup completed successfully")
         except Exception as e:
             logger.warning(f"Database warmup failed: {e}")
@@ -191,12 +196,21 @@ def create_app() -> FastAPI:
     
     app = FastAPI(
         title="AITBC Coordinator API",
-        version="0.1.0",
-        description="Stage 1 coordinator service handling job orchestration between clients and miners.",
+        description="API for coordinating AI training jobs and blockchain operations",
+        version="1.0.0",
         docs_url="/docs",
         redoc_url="/redoc",
-        openapi_url="/openapi.json",
         lifespan=lifespan,
+        # Custom OpenAPI config to handle SessionDep issues
+        openapi_components={
+            "securitySchemes": {
+                "ApiKeyAuth": {
+                    "type": "apiKey",
+                    "in": "header",
+                    "name": "X-Api-Key"
+                }
+            }
+        },
         openapi_tags=[
             {"name": "health", "description": "Health check endpoints"},
             {"name": "client", "description": "Client operations"},
@@ -223,37 +237,37 @@ def create_app() -> FastAPI:
         allow_headers=["*"]  # Allow all headers for API keys and content types
     )
 
-    # Temporarily disable some routers to isolate the Pydantic issue
-    # app.include_router(client, prefix="/v1")
-    # app.include_router(miner, prefix="/v1")
-    # app.include_router(admin, prefix="/v1")
-    # app.include_router(marketplace, prefix="/v1")
-    # app.include_router(marketplace_gpu, prefix="/v1")
-    # app.include_router(explorer, prefix="/v1")
-    # app.include_router(services, prefix="/v1")
-    # app.include_router(users, prefix="/v1")
-    # app.include_router(exchange, prefix="/v1")
-    # app.include_router(marketplace_offers, prefix="/v1")
-    # app.include_router(payments, prefix="/v1")
-    # app.include_router(web_vitals, prefix="/v1")
-    # app.include_router(edge_gpu)
-    # if ml_zk_proofs:
-    #     app.include_router(ml_zk_proofs)
-    # app.include_router(marketplace_enhanced, prefix="/v1")
-    # app.include_router(openclaw_enhanced, prefix="/v1")
-    # app.include_router(monitoring_dashboard, prefix="/v1")
-    # app.include_router(agent_router.router, prefix="/v1/agents")
-    # app.include_router(agent_identity, prefix="/v1")
-    # app.include_router(global_marketplace, prefix="/v1")
-    # app.include_router(cross_chain_integration, prefix="/v1")
-    # app.include_router(global_marketplace_integration, prefix="/v1")
-    # app.include_router(developer_platform, prefix="/v1")
-    # app.include_router(governance_enhanced, prefix="/v1")
+    # Enable all routers with OpenAPI disabled
+    app.include_router(client, prefix="/v1")
+    app.include_router(miner, prefix="/v1")
+    app.include_router(admin, prefix="/v1")
+    app.include_router(marketplace, prefix="/v1")
+    app.include_router(marketplace_gpu, prefix="/v1")
+    app.include_router(explorer, prefix="/v1")
+    app.include_router(services, prefix="/v1")
+    app.include_router(users, prefix="/v1")
+    app.include_router(exchange, prefix="/v1")
+    app.include_router(marketplace_offers, prefix="/v1")
+    app.include_router(payments, prefix="/v1")
+    app.include_router(web_vitals, prefix="/v1")
+    app.include_router(edge_gpu)
+    if ml_zk_proofs:
+        app.include_router(ml_zk_proofs)
+    app.include_router(marketplace_enhanced, prefix="/v1")
+    app.include_router(openclaw_enhanced, prefix="/v1")
+    app.include_router(monitoring_dashboard, prefix="/v1")
+    app.include_router(agent_router.router, prefix="/v1/agents")
+    app.include_router(agent_identity, prefix="/v1")
+    app.include_router(global_marketplace, prefix="/v1")
+    app.include_router(cross_chain_integration, prefix="/v1")
+    app.include_router(global_marketplace_integration, prefix="/v1")
+    app.include_router(developer_platform, prefix="/v1")
+    app.include_router(governance_enhanced, prefix="/v1")
     
-    # Only include blockchain for testing
+    # Add blockchain router for CLI compatibility
+    print(f"Adding blockchain router: {blockchain}")
     app.include_router(blockchain, prefix="/v1")
-    # from .routers import blockchain as blockchain_router
-    # app.include_router(blockchain_router, prefix="/v1")
+    print("Blockchain router added successfully")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

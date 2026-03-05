@@ -40,8 +40,9 @@ def dashboard(ctx, refresh: int, duration: int):
                 with httpx.Client(timeout=5) as client:
                     # Get dashboard data
                     try:
+                        url = f"{config.coordinator_url}/api/v1/dashboard"
                         resp = client.get(
-                            f"{config.coordinator_url}/dashboard",
+                            url,
                             headers={"X-Api-Key": config.api_key or ""}
                         )
                         if resp.status_code == 200:
