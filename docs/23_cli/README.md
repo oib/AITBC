@@ -110,13 +110,60 @@ aitbc wallet create --name my-wallet
 aitbc wallet balance
 ```
 
+## Complete Command Reference
+
+The AITBC CLI provides 24 command groups with over 150 individual commands:
+
+### **Core Commands**
+- **`admin`** — System administration
+- **`agent`** — Advanced AI agent workflow and execution
+- **`agent-comm`** — Cross-chain agent communication
+- **`analytics`** — Chain analytics and monitoring
+- **`auth`** — API key and authentication management
+- **`blockchain`** — Blockchain queries and operations
+- **`chain`** — Multi-chain management
+- **`client`** — Job submission and management
+- **`config`** — CLI configuration management
+- **`deploy`** — Production deployment and scaling
+- **`exchange`** — Bitcoin exchange operations
+- **`genesis`** — Genesis block generation and management
+- **`governance`** — Governance proposals and voting
+- **`marketplace`** — GPU marketplace operations
+- **`miner`** — Mining operations and job processing
+- **`monitor`** — Monitoring, metrics, and alerting
+- **`multimodal`** — Multi-modal agent processing
+- **`node`** — Node management
+- **`optimize`** — Autonomous optimization and predictive operations
+- **`plugin`** — CLI plugin management
+- **`simulate`** — Simulations and test user management
+- **`swarm`** — Swarm intelligence and collective optimization
+- **`test`** — Testing and debugging commands
+- **`version`** — Version information
+- **`wallet`** — Wallet and transaction management
+
+### **Global Options**
+```bash
+--url TEXT                  # Override coordinator API URL
+--api-key TEXT              # Override API key
+--output [table|json|yaml]  # Output format
+-v, --verbose               # Increase verbosity (-v, -vv, -vvv)
+--debug                     # Enable debug mode
+--config-file TEXT          # Path to config file
+--test-mode                 # Enable test mode (mock data)
+--dry-run                   # Show what would be done
+--timeout INTEGER           # Request timeout
+--no-verify                 # Skip SSL verification (testing only)
+--version                   # Show version
+--help                      # Show help
+```
+
 ## Command Groups
 
 ### 🔗 Blockchain Operations
 ```bash
 # Status and synchronization
 aitbc blockchain status
-aitbc blockchain sync
+aitbc blockchain sync-status
 aitbc blockchain info
 
 # Network information
@@ -128,10 +175,13 @@ aitbc blockchain validators
 aitbc blockchain chains
 aitbc blockchain genesis --chain-id ait-devnet
 aitbc blockchain send --chain-id ait-healthchain --from alice --to bob --data "test"
-```
 
 # Transaction operations
 aitbc blockchain transaction <TX_ID>
+aitbc blockchain transactions
+aitbc blockchain balance <ADDRESS>
+aitbc blockchain faucet <ADDRESS>
+aitbc blockchain supply
 ```
 
 ### 👛 Wallet Management
@@ -141,16 +191,26 @@ aitbc wallet create --name my-wallet
 aitbc wallet balance
 aitbc wallet send --to <ADDRESS> --amount 1.0
 aitbc wallet stake --amount 10.0
+aitbc wallet earn --job-id <JOB_ID>
+aitbc wallet history
+aitbc wallet stats
 
 # Multi-signature wallets
 aitbc wallet multisig-create --participants alice,bob,charlie --threshold 2
+aitbc wallet multisig-propose --wallet-id <ID> --to <ADDRESS> --amount 1.0
+aitbc wallet multisig-sign --wallet-id <ID> --proposal-id <PID>
 aitbc wallet backup --name my-wallet
+
+# Liquidity and rewards
+aitbc wallet liquidity-stake --amount 10.0 --pool gpu-market
+aitbc wallet liquidity-unstake --amount 5.0 --pool gpu-market
+aitbc wallet rewards
 ```
 
 ### 🤖 Agent Operations
 ```bash
 # Agent workflows
-aitbc agent workflow create \
+aitbc agent create \
   --name "ai_inference" \
   --description "AI inference workflow" \
   --config '{"model": "gpt2", "type": "inference"}'
@@ -167,6 +227,10 @@ aitbc agent learning enable --agent-id agent_123 \
 aitbc agent network create \
   --name "compute_network" \
   --type "resource_sharing"
+
+# Agent status and receipts
+aitbc agent status --agent-id agent_123
+aitbc agent receipt --execution-id exec_456
 ```
 
 ### 🚀 OpenClaw Deployment
@@ -216,24 +280,27 @@ aitbc optimize tune --agent-id agent_123 \
 ### 🏪 Marketplace Operations
 ```bash
 # List available resources
-aitbc marketplace list
 aitbc marketplace gpu list
+aitbc marketplace offers list
 
 # Register GPU offers
-aitbc marketplace offer create \
-  --miner-id gpu_miner_123 \
-  --gpu-model "RTX-4090" \
-  --gpu-memory "24GB" \
-  --price-per-hour "0.05" \
-  --models "gpt2,llama" \
-  --endpoint "http://localhost:11434"
+aitbc marketplace offers create \
+  --gpu-id gpu_123 \
+  --price-per-hour 0.05 \
+  --min-hours 1 \
+  --max-hours 24 \
+  --models "gpt2,llama"
 
 # Rent GPUs
-aitbc marketplace gpu rent --gpu-id gpu_789 --duration 2h
+aitbc marketplace gpu book --gpu-id gpu_789 --hours 2
 
 # Order management
 aitbc marketplace orders --status active
 aitbc marketplace reviews --miner-id gpu_miner_123
+aitbc marketplace pricing --model "RTX-4090"
+
+# Bidding system
+aitbc marketplace bid submit --gpu-id gpu_123 --amount 0.04 --hours 2
 ```
 
 ### 👤 Client Operations
@@ -247,31 +314,49 @@ aitbc client submit \
 
 # Job management
 aitbc client status --job-id <JOB_ID>
-aitbc client list --status completed
-aitbc client download --job-id <JOB_ID> --output ./results
+aitbc client result --job-id <JOB_ID> --wait
+aitbc client history --status completed
+aitbc client cancel --job-id <JOB_ID>
+
+# Payment operations
+aitbc client pay --job-id <JOB_ID> --amount 1.5
+aitbc client payment-status --job-id <JOB_ID>
+aitbc client payment-receipt --job-id <JOB_ID>
+aitbc client refund --job-id <JOB_ID>
 
 # Batch operations
 aitbc client batch-submit --jobs-file jobs.json
-aitbc client cancel --job-id <JOB_ID>
+
+# Receipts
+aitbc client receipts --job-id <JOB_ID>
 ```
 
 ### ⛏️ Miner Operations
 ```bash
 # Miner registration
 aitbc miner register \
-  --name my-gpu \
-  --gpu v100 \
-  --count 1 \
-  --region us-west \
-  --price-per-hour 0.05
+  --gpu "NVIDIA RTX 4090" \
+  --memory 24 \
+  --cuda-cores 16384 \
+  --miner-id "at1-gpu-miner"
 
 # Mining operations
 aitbc miner poll
 aitbc miner status
 aitbc miner earnings --period daily
+aitbc miner jobs --status completed
+
+# Ollama-powered mining
+aitbc miner mine-ollama \
+  --jobs 10 \
+  --miner-id "at1-gpu-miner" \
+  --ollama-url "http://localhost:11434" \
+  --model "gemma3:1b"
 
 # Advanced features
+aitbc miner concurrent-mine --workers 4
 aitbc miner deregister --miner-id my-gpu
+aitbc miner update-capabilities --gpu "RTX-4090" --memory 24
 ```
 
 ### 🔧 Configuration Management
@@ -287,23 +372,82 @@ aitbc config profiles set development gpu_count 4
 aitbc config profiles use development
 
 # Secrets management
-aitbc config secrets set api_key your_secret_key
-aitbc config secrets get api_key
+aitbc config set-secret api_key your_secret_key
+aitbc config get-secret api_key
+aitbc config validate
 ```
 
-### 📊 Monitoring and Debugging
+### 📊 Monitoring and Analytics
 ```bash
-# Debug information
-aitbc --debug
-aitbc --config
-
-# Monitoring dashboard
+# Real-time monitoring
 aitbc monitor dashboard
-aitbc monitor metrics --component cli
-
-# Alerts and notifications
+aitbc monitor metrics --component gpu
 aitbc monitor alerts --type gpu_temperature
-aitbc monitor webhooks create --url http://localhost:8080/webhook
+
+# Chain analytics
+aitbc analytics dashboard
+aitbc analytics monitor --chain ait-devnet
+aitbc analytics predict --metric cpu_usage --horizon 1h
+
+# Campaign monitoring
+aitbc monitor campaigns
+aitbc monitor campaign-stats --campaign-id camp_123
+```
+
+### 🌐 Multi-Chain Management
+```bash
+# Chain operations
+aitbc chain list
+aitbc chain create --config chain.yaml
+aitbc chain info --chain-id ait-devnet
+aitbc chain monitor --chain-id ait-devnet
+
+# Node management
+aitbc node list
+aitbc node add --name node2 --endpoint http://localhost:8001
+aitbc node test --name node2
+```
+
+### 🏛️ Governance
+```bash
+# Proposal management
+aitbc governance list --status active
+aitbc governance propose --title "GPU pricing update" --description "Update pricing model"
+aitbc governance vote --proposal-id prop_123 --choice yes
+aitbc governance result --proposal-id prop_123
+```
+
+### 🤝 Cross-Chain Agent Communication
+```bash
+# Agent communication
+aitbc agent-comm register --agent-id agent_123 --chain-id ait-devnet
+aitbc agent-comm discover --chain-id ait-devnet
+aitbc agent-comm send --to agent_456 --message "Hello"
+aitbc agent-comm reputation --agent-id agent_123 --score 5.0
+```
+
+### 🐝 Swarm Intelligence
+```bash
+# Swarm operations
+aitbc swarm join --swarm-id swarm_123 --agent-id agent_456
+aitbc swarm coordinate --swarm-id swarm_123 --task "inference"
+aitbc swarm consensus --swarm-id swarm_123 --proposal-id prop_789
+aitbc swarm status --swarm-id swarm_123
+```
+
+### 🧪 Testing and Simulation
+```bash
+# CLI testing
+aitbc test api
+aitbc test blockchain
+aitbc test wallet
+aitbc test marketplace
+
+# Simulations
+aitbc simulate workflow --test-scenario basic
+aitbc simulate load-test --concurrent-users 10
+aitbc simulate user create --name test_user
+aitbc simulate results --scenario-id scenario_123
 ```
 
 ### 🧪 Simulation and Testing
@@ -320,12 +464,18 @@ aitbc simulate scenario --name market_stress_test
 
 | Option | Description |
 |--------|-------------|
-| `--url URL` | Coordinator API URL |
-| `--api-key KEY` | API key for authentication |
-| `--output table\|json\|yaml` | Output format |
-| `-v / -vv / -vvv` | Verbosity level |
-| `--debug` | Debug mode with system information |
-| `--config` | Show current configuration |
+| `--url TEXT` | Override coordinator API URL |
+| `--api-key TEXT` | Override API key for authentication |
+| `--output [table|json|yaml]` | Output format |
+| `-v / -vv / -vvv` | Increase verbosity level |
+| `--debug` | Enable debug mode with system information |
+| `--config-file TEXT` | Path to config file |
+| `--test-mode` | Enable test mode (uses mock data) |
+| `--dry-run` | Show what would be done without executing |
+| `--timeout INTEGER` | Request timeout in seconds |
+| `--no-verify` | Skip SSL certificate verification (testing only) |
+| `--version` | Show version and exit |
+| `--help` | Show help message |
 
 ## Configuration Files
 
@@ -350,10 +500,12 @@ export AITBC_LOG_LEVEL=INFO
 aitbc --version
 
 # Test connectivity
+aitbc test api
 aitbc blockchain status
 
 # Verify configuration
-aitbc --config
+aitbc config show
+aitbc config validate
 
 # Debug mode
 aitbc --debug
@@ -374,13 +526,28 @@ aitbc config set parallel_requests 4
 
 ```bash
 # Test API connectivity
+aitbc test api
 curl http://localhost:8000/health/live
 
 # Check coordinator status
 aitbc blockchain status
+aitbc blockchain sync-status
 
 # Verify API endpoints
 aitbc config show
+```
+
+### Miner Issues
+
+```bash
+# Check miner registration
+aitbc miner status
+
+# Test Ollama connectivity
+curl http://localhost:11434/api/tags
+
+# Check GPU availability
+aitbc marketplace gpu list
 ```
 
 ## Best Practices
@@ -394,10 +561,34 @@ aitbc config show
 
 ## Advanced Features
 
+### End-to-End GPU Rental Example
+```bash
+# 1. Register miner (at1)
+aitbc miner register --gpu "NVIDIA RTX 4090" --memory 24 --cuda-cores 16384 --miner-id "at1-gpu-miner"
+
+# 2. Register GPU on marketplace
+aitbc marketplace gpu register --name "NVIDIA RTX 4090" --memory 24 --cuda-cores 16384 --price-per-hour 1.5 --miner-id "at1-gpu-miner"
+
+# 3. List available GPUs (user perspective)
+aitbc marketplace gpu list
+
+# 4. Book GPU
+aitbc marketplace gpu book gpu_c72b40d2 --hours 1
+
+# 5. Submit inference job
+aitbc client submit --type inference --prompt "What is AITBC?" --model gemma3:1b
+
+# 6. Start Ollama miner
+aitbc miner mine-ollama --jobs 1 --miner-id "at1-gpu-miner" --model "gemma3:1b"
+
+# 7. Get result
+aitbc client result 580b8ba84ea34d99b6fc78950bf8ff66 --wait
+```
+
 ### Custom Workflows
 ```bash
 # Create custom agent workflow
-aitbc agent workflow create \
+aitbc agent create \
   --name custom_pipeline \
   --description "Custom processing pipeline" \
   --config '{"steps": ["preprocess", "inference", "postprocess"]}'
@@ -456,4 +647,15 @@ If you're migrating from the previous CLI version:
 
 ---
 
-*This documentation covers the enhanced AITBC CLI with all new features and capabilities.*
+*This documentation covers the enhanced AITBC CLI with all new features and capabilities, including:*
+
+- **New Commands**: `miner mine-ollama`, `client result`, `marketplace offers create`
+- **Enhanced GPU Rental Flow**: Complete end-to-end marketplace with Ollama integration
+- **Multi-Chain Support**: Advanced blockchain and node management
+- **Agent Communication**: Cross-chain agent messaging and reputation
+- **Swarm Intelligence**: Collective optimization and consensus
+- **Comprehensive Testing**: Built-in test suite and simulation tools
+- **Advanced Monitoring**: Real-time analytics and alerting
+- **Governance**: Proposal system and voting mechanisms
+
+*Last updated: March 5, 2026*
