@@ -343,18 +343,18 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 ## 🚀 Testing Checklist
 
 ### ✅ Basic CLI Functionality
-- [ ] CLI installation: `pip install -e .`
-- [ ] CLI help: `aitbc --help`
-- [ ] Version check: `aitbc --version`
-- [ ] Configuration: `aitbc config show`
+- [x] CLI installation: `pip install -e .`
+- [x] CLI help: `aitbc --help`
+- [x] Version check: `aitbc --version`
+- [x] Configuration: `aitbc config show`
 
 ### ✅ Core Workflow Testing
-- [ ] Wallet creation: `aitbc wallet create`
-- [ ] Miner registration: `aitbc miner register`
-- [ ] GPU marketplace: `aitbc marketplace gpu register`
-- [ ] Job submission: `aitbc client submit`
-- [ ] Job result: `aitbc client result`
-- [ ] Ollama mining: `aitbc miner mine-ollama`
+- [x] Wallet creation: `aitbc wallet create`
+- [x] Miner registration: `aitbc miner register` (localhost)
+- [x] GPU marketplace: `aitbc marketplace gpu register`
+- [x] Job submission: `aitbc client submit` (aitbc1)
+- [x] Job result: `aitbc client result` (aitbc1)
+- [x] Ollama mining: `aitbc miner mine-ollama` (localhost)
 
 ### ✅ Advanced Features Testing
 - [ ] Multi-chain operations: `aitbc chain list`
@@ -366,7 +366,7 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 
 ### ✅ Integration Testing
 - [ ] API connectivity: `aitbc test api`
-- [ ] Blockchain sync: `aitbc blockchain sync-status`
+- [x] Blockchain sync: `aitbc blockchain sync-status` (Expected fail - no node)
 - [ ] Payment flow: `aitbc client pay`
 - [ ] Receipt verification: `aitbc client payment-receipt`
 - [ ] Multi-signature: `aitbc wallet multisig-create`
@@ -377,12 +377,12 @@ This checklist provides a comprehensive reference for all AITBC CLI commands, or
 
 | Category | Total Commands | Implemented | Tested | Documentation |
 |----------|----------------|-------------|---------|----------------|
-| Core Commands | 58 | ✅ | ✅ | ✅ |
-| Blockchain | 33 | ✅ | ✅ | ✅ |
-| Marketplace | 22 | ✅ | ✅ | ✅ |
-| AI & Agents | 27 | ✅ | 🔄 | ✅ |
-| System & Config | 26 | ✅ | ✅ | ✅ |
-| Testing & Dev | 19 | ✅ | ✅ | ✅ |
+| Core Commands | 58 | ✅ | 🔄 | ✅ |
+| Blockchain | 33 | ✅ | 🔄 | ✅ |
+| Marketplace | 22 | ✅ | 🔄 | ✅ |
+| AI & Agents | 27 | ✅ | ❌ | ✅ |
+| System & Config | 26 | ✅ | 🔄 | ✅ |
+| Testing & Dev | 19 | ✅ | ❌ | ✅ |
 | **TOTAL** | **184** | **✅** | **🔄** | **✅** |
 
 **Legend:**
