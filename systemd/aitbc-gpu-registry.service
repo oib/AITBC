@@ -10,7 +10,7 @@ Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/gpu-miner
 Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/gpu-miner
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python /home/oib/windsurf/aitbc/dev/gpu/gpu_registry_demo.py
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python /opt/aitbc/dev/gpu/gpu_registry_demo.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
