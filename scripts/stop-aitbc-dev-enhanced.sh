@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AITBC Development Environment Stop Script
+# AITBC Development Environment Enhanced Stop Script
 # Stops incus containers and all AITBC services on localhost
 # Enhanced to handle persistent services with auto-restart configuration
 
@@ -58,6 +58,12 @@ force_stop_service() {
     
     print_persistent "Service $service_name has auto-restart - applying enhanced stop procedure..."
     
+    # Disable auto-restart temporarily
+    if systemctl show "$service_name" -p Restart | grep -q "Restart=always"; then
+        print_status "Temporarily disabling auto-restart for $service_name"
+        sudo systemctl kill -s SIGSTOP "$service_name" 2>/dev/null || true
+    fi
+    
     # Try to stop with increasing force
     while [ $attempt -le $max_attempts ]; do
         print_status "Attempt $attempt/$max_attempts to stop $service_name"
@@ -76,7 +82,7 @@ force_stop_service() {
                 fi
                 ;;
             3)
-                # Third attempt: force kill all processes
+                # Third attempt: force kill
                 print_status "Force killing all processes for $service_name"
                 sudo pkill -f "$service_name" 2>/dev/null || true
                 sudo systemctl kill -s SIGKILL "$service_name" 2>/dev/null || true
@@ -93,11 +99,33 @@ force_stop_service() {
         attempt=$((attempt + 1))
     done
     
+    # If still running, try service masking
+    print_persistent "Service $service_name still persistent - trying service masking..."
+    service_file="/etc/systemd/system/$service_name.service"
+    if [ -f "$service_file" ]; then
+        sudo mv "$service_file" "${service_file}.bak" 2>/dev/null || true
+        sudo systemctl daemon-reload 2>/dev/null || true
+        systemctl stop "$service_name" 2>/dev/null || true
+        sleep 2
+        
+        if ! is_service_running "$service_name"; then
+            print_success "Service $service_name stopped via service masking"
+            # Restore the service file
+            sudo mv "${service_file}.bak" "$service_file" 2>/dev/null || true
+            sudo systemctl daemon-reload 2>/dev/null || true
+            return 0
+        else
+            # Restore the service file even if still running
+            sudo mv "${service_file}.bak" "$service_file" 2>/dev/null || true
+            sudo systemctl daemon-reload 2>/dev/null || true
+        fi
+    fi
+    
     print_error "Failed to stop persistent service $service_name after $max_attempts attempts"
     return 1
 }
 
-print_status "Stopping AITBC Development Environment..."
+print_status "Stopping AITBC Development Environment (Enhanced)..."
 
 # Check prerequisites
 if ! command_exists incus; then
