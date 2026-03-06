@@ -91,21 +91,14 @@ apps/coordinator-api/
 └── pyproject.toml
 ```
 
-### explorer-web
-Blockchain explorer SPA built with TypeScript and Vite.
+### blockchain-explorer
+Agent-first blockchain explorer built with Python FastAPI and built-in HTML interface.
 
 ```
-apps/explorer-web/
-├── src/
-│   ├── main.ts              # Application entry
-│   ├── config.ts            # API configuration
-│   ├── components/          # UI components (header, footer, data mode toggle, notifications)
-│   ├── lib/                 # Data models and mock data
-│   └── pages/               # Page views (overview, blocks, transactions, addresses, receipts)
-├── public/                  # Static assets (CSS themes, mock JSON data)
-├── tests/e2e/               # Playwright end-to-end tests
-├── vite.config.ts
-└── tsconfig.json
+apps/blockchain-explorer/
+├── main.py                   # FastAPI application entry
+├── systemd service           # Production service file
+└── EXPLORER_MERGE_SUMMARY.md # Architecture documentation
 ```
 
 ### marketplace-web

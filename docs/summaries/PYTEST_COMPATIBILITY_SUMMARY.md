@@ -36,7 +36,7 @@ tests/                              # Main test directory (✅ Working)
 
 apps/blockchain-node/tests/        # Blockchain node tests
 apps/coordinator-api/tests/        # Coordinator API tests
-apps/explorer-web/tests/           # Web explorer tests
+apps/blockchain-explorer/tests/        # Blockchain explorer tests
 apps/pool-hub/tests/               # Pool hub tests
 apps/wallet-daemon/tests/          # Wallet daemon tests
 apps/zk-circuits/test/             # ZK circuit tests

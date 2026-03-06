@@ -678,7 +678,7 @@ sudo systemctl start aitbc-*.service
 - **Services**: 26 services across 3 sites
 
 ### 🛠️ **CLI Development Environment**
-- **Development Directory**: `/home/oib/windsurf/aitbc/cli-dev`
+- **Development Directory**: `/home/oib/windsurf/aitbc/dev/cli`
 - **Testing Infrastructure**: Complete
 - **Mock Server**: Implemented
 - **Documentation**: Comprehensive

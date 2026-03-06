@@ -163,6 +163,16 @@ backup/updates/*.tar.gz
 backup/updates/*.zip
 backup/updates/*.tar.bz2
 
+# Application backup archives
+backup/explorer_backup_*.tar.gz
+backup/*_backup_*.tar.gz
+backup/*_backup_*.zip
+
+# Backup documentation and indexes
+backup/BACKUP_INDEX.md
+backup/*.md
+backup/README.md
+
 # ===================
 # Temporary Files
 # ===================

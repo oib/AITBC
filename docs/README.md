@@ -474,7 +474,7 @@ Per-component documentation that lives alongside the source code:
 | Observability | [apps/blockchain-node/observability/README.md](../apps/blockchain-node/observability/README.md) |
 | Coordinator API | [apps/coordinator-api/README.md](../apps/coordinator-api/README.md) |
 | Migrations | [apps/coordinator-api/migrations/README.md](../apps/coordinator-api/migrations/README.md) |
-| Explorer Web | [apps/explorer-web/README.md](../apps/explorer-web/README.md) |
+| Blockchain Explorer | [apps/blockchain-explorer/README.md](../apps/blockchain-explorer/README.md) |
 | Marketplace Web | [apps/marketplace-web/README.md](../apps/marketplace-web/README.md) |
 | Pool Hub | [apps/pool-hub/README.md](../apps/pool-hub/README.md) |
 | Wallet Daemon | [apps/wallet-daemon/README.md](../apps/wallet-daemon/README.md) |

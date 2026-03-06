@@ -2,7 +2,7 @@
 
 This document describes the current organization and status of files and folders in the repository.
 
-Last updated: 2026-03-04
+Last updated: 2026-03-06
 
 ---
 
@@ -13,11 +13,10 @@ Last updated: 2026-03-04
 | Path | Status | Notes |
 |------|--------|-------|
 | `apps/coordinator-api/` | ✅ Active | Main API service, standardized (Mar 2026) |
-| `apps/explorer-web/` | ✅ Active | Blockchain explorer, recently updated |
+| `apps/blockchain-explorer/` | ✅ Active | Agent-first blockchain explorer, recently optimized (Mar 2026) |
 | `apps/blockchain-node/` | ✅ Active | Blockchain node, standardized (Mar 2026) |
 | `apps/trade-exchange/` | ✅ Active | Bitcoin exchange, deployed |
 | `apps/marketplace-web/` | ✅ Active | Marketplace frontend, deployed |
-| `apps/blockchain-explorer/` | ✅ Active | Blockchain explorer UI, standardized (Mar 2026) |
 | `apps/coordinator-api/src/app/domain/gpu_marketplace.py` | ✅ Active | GPURegistry, GPUBooking, GPUReview SQLModel tables (Feb 2026) |
 | `apps/coordinator-api/tests/test_gpu_marketplace.py` | ✅ Active | 22 GPU marketplace tests (Feb 2026) |
 | `apps/coordinator-api/tests/test_billing.py` | ✅ Active | 21 billing/usage-tracking tests (Feb 2026) |
@@ -125,6 +124,7 @@ Last updated: 2026-03-04
 | Path | Status | Notes |
 |------|--------|-------|
 | `dev/` | ✅ Active | Development environment (reorganized, Mar 2026) |
+| `dev/cli/` | ✅ Active | CLI development environment (moved from cli-dev, Mar 2026) |
 | `dev/scripts/` | ✅ Active | Development scripts (79 Python files) |
 | `dev/cache/` | ✅ Active | Development cache files |
 | `dev/env/` | ✅ Active | Environment configurations |
@@ -157,6 +157,14 @@ Last updated: 2026-03-04
 | `pytest.ini` | ✅ Active | Pytest configuration with custom markers |
 | `CLEANUP_SUMMARY.md` | ✅ Active | Documentation of directory cleanup |
 | `test_block_import.py` | ✅ Resolved | Moved to `tests/verification/test_block_import.py` |
+
+### Backup Directory (`backup/`)
+
+| Path | Status | Notes |
+|------|--------|-------|
+| `backup/` | ✅ Active | Backup archive storage (organized, Mar 2026) |
+| `backup/explorer_backup_20260306_162316.tar.gz` | ✅ Active | Explorer TypeScript source backup (15.2 MB) |
+| `backup/BACKUP_INDEX.md` | ✅ Active | Backup inventory and restoration instructions |
 
 ---
 
@@ -221,12 +229,13 @@ These empty folders are intentional scaffolding for planned future work per the 
 
 | Category | Count | Status |
 |----------|-------|--------|
-| **Whitelist ✅** | ~80 items | Active and maintained (Mar 2026) |
+| **Whitelist ✅** | ~85 items | Active and maintained (Mar 2026) |
 | **Placeholders 📋** | 12 folders | All complete (Stage 19) |
 | **Standardized Services** | 19+ services | 100% standardized (Mar 2026) |
 | **Development Scripts** | 79 files | Organized in dev/scripts/ (Mar 2026) |
 | **Deployment Scripts** | 35 files | Organized in scripts/deploy/ (Mar 2026) |
 | **Documentation Files** | 200+ files | Updated and current (Mar 2026) |
+| **Backup Archives** | 1+ files | Organized in backup/ (Mar 2026) |
 | **Debug prints** | 17 statements | Replace with logger |
 
 ## Recent Major Updates (March 2026)
@@ -250,6 +259,18 @@ These empty folders are intentional scaffolding for planned future work per the 
 - **Workflows documented** for repeatable processes
 - **File organization prevention** system implemented
 
+### ✅ CLI Development Environment Optimization (March 6, 2026)
+- **CLI development tools** moved from `cli-dev` to `dev/cli`
+- **Centralized development** environment in unified `/dev/` structure
+- **Improved project organization** with reduced root-level clutter
+- **Backup system** implemented with proper git exclusion
+
+### ✅ Explorer Architecture Simplification (March 6, 2026)
+- **TypeScript explorer** merged into Python blockchain-explorer
+- **Agent-first architecture** strengthened with single service
+- **Source code deleted** with proper backup (15.2 MB archive)
+- **Documentation updated** across all reference files
+
 ---
 
 ## Folder Structure Recommendation
@@ -267,11 +288,15 @@ aitbc/
 ├── cli/                     # ✅ CLI tools
 ├── contracts/               # ✅ Smart contracts
 ├── dev/                     # ✅ Development environment (Mar 2026)
+│   ├── cli/                 # ✅ CLI development environment (moved Mar 2026)
 │   ├── scripts/             # Development scripts (79 files)
 │   ├── cache/               # Development cache
 │   ├── env/                 # Environment configs
 │   ├── multi-chain/         # Multi-chain files
 │   └── tests/               # Development tests
+├── backup/                  # ✅ Backup archive storage (Mar 2026)
+│   ├── explorer_backup_*.tar.gz  # Application backups
+│   └── BACKUP_INDEX.md      # Backup inventory
 ├── docs/                    # ✅ Numbered documentation structure
 │   ├── infrastructure/      # ✅ Infrastructure docs (Mar 2026)
 │   ├── 0_getting_started/   # Getting started guides
@@ -314,5 +339,8 @@ This structure represents the current clean state of the AITBC repository with a
 - **Enhanced documentation** with comprehensive infrastructure guides
 - **Automated verification tools** for maintaining standards
 - **Production-ready infrastructure** with all services operational
+- **Optimized CLI development** with centralized dev/cli environment
+- **Agent-first architecture** with simplified explorer service
+- **Comprehensive backup system** with proper git exclusion
 
-**Note**: Redundant `apps/logs/` directory removed - central `logs/` directory at root level is used for all logging. Redundant `assets/` directory removed - Firefox extension assets are properly organized in `extensions/aitbc-wallet-firefox/`.
+**Note**: Redundant `apps/logs/` directory removed - central `logs/` directory at root level is used for all logging. Redundant `assets/` directory removed - Firefox extension assets are properly organized in `extensions/aitbc-wallet-firefox/`. CLI development environment moved from `cli-dev` to `dev/cli` for better organization. Explorer TypeScript source merged into Python service and backed up.

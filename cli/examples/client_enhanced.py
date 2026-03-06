@@ -13,7 +13,7 @@ from typing import Optional, Dict, Any
 from tabulate import tabulate
 
 # Configuration
-DEFAULT_COORDINATOR = "http://127.0.0.1:18000"
+DEFAULT_COORDINATOR = "http://localhost:8000"
 DEFAULT_API_KEY = "${CLIENT_API_KEY}"
 
 

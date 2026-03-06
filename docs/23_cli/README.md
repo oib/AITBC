@@ -124,6 +124,7 @@ The AITBC CLI provides 24 command groups with over 150 individual commands:
 - **`chain`** — Multi-chain management
 - **`client`** — Job submission and management
 - **`config`** — CLI configuration management
+- **`cross-chain`** — Cross-chain trading operations
 - **`deploy`** — Production deployment and scaling
 - **`exchange`** — Bitcoin exchange operations
 - **`genesis`** — Genesis block generation and management
@@ -628,6 +629,53 @@ for gpu in $(aitbc marketplace gpu list --output json | jq -r '.[].gpu_id'); do
     # Additional processing
 done
 ```
+
+## Cross-Chain Trading Commands
+
+The `cross-chain` command group provides comprehensive cross-chain trading functionality:
+
+### **Cross-Chain Swap Operations**
+```bash
+# Create cross-chain swap
+aitbc cross-chain swap --from-chain ait-devnet --to-chain ait-testnet \
+  --from-token AITBC --to-token AITBC --amount 100 --min-amount 95
+
+# Check swap status
+aitbc cross-chain status {swap_id}
+
+# List all swaps
+aitbc cross-chain swaps --limit 10
+```
+
+### **Cross-Chain Bridge Operations**
+```bash
+# Create bridge transaction
+aitbc cross-chain bridge --source-chain ait-devnet --target-chain ait-testnet \
+  --token AITBC --amount 50 --recipient 0x1234567890123456789012345678901234567890
+
+# Check bridge status
+aitbc cross-chain bridge-status {bridge_id}
+```
+
+### **Cross-Chain Information**
+```bash
+# Get exchange rates
+aitbc cross-chain rates
+
+# View liquidity pools
+aitbc cross-chain pools
+
+# Trading statistics
+aitbc cross-chain stats
+```
+
+### **Cross-Chain Features**
+- **✅ Atomic swap execution** with rollback protection
+- **✅ Slippage protection** and minimum amount guarantees
+- **✅ Real-time status tracking** and monitoring
+- **✅ Bridge transactions** between chains
+- **✅ Liquidity pool management**
+- **✅ Fee transparency** (0.3% total fee)
 
 ## Migration from Old CLI
 

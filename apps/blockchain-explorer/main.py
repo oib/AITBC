@@ -925,6 +925,12 @@ async def root():
     return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URL)
 
 
+@app.get("/web")
+async def web_interface():
+    """Serve the web interface"""
+    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URL)
+
+
 @app.get("/api/chain/head")
 async def api_chain_head():
     """API endpoint for chain head"""
