@@ -300,7 +300,7 @@ async def get_receipts(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
 
 
 @router.get("/getBalance/{address}", summary="Get account balance")
-async def get_balance(address: str) -> Dict[str, Any]:
+async def get_balance(address: str, chain_id: str = "ait-devnet") -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_balance_total")
     start = time.perf_counter()
     with session_scope() as session:

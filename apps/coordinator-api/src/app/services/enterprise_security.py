@@ -809,3 +809,6 @@ async def get_security_framework() -> EnterpriseSecurityFramework:
         await security_framework.initialize()
     
     return security_framework
+
+# Alias for CLI compatibility
+EnterpriseSecurityManager = EnterpriseSecurityFramework

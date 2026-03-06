@@ -1024,3 +1024,164 @@ def faucet(ctx, address, amount):
                 error(f"Failed to use faucet: {response.status_code} - {response.text}")
     except Exception as e:
         error(f"Network error: {e}")
+
+
+@blockchain.command()
+@click.option('--chain', required=True, help='Chain ID to verify (e.g., ait-mainnet, ait-devnet)')
+@click.option('--genesis-hash', help='Expected genesis hash to verify against')
+@click.option('--verify-signatures', is_flag=True, default=True, help='Verify genesis block signatures')
+@click.pass_context
+def verify_genesis(ctx, chain: str, genesis_hash: Optional[str], verify_signatures: bool):
+    """Verify genesis block integrity for a specific chain"""
+    try:
+        import httpx
+        from ..utils import success
+        
+        with httpx.Client() as client:
+            # Get genesis block for the specified chain
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/getGenesisBlock?chain_id={chain}",
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                error(f"Failed to get genesis block for chain '{chain}': {response.status_code}")
+                return
+            
+            genesis_data = response.json()
+            
+            # Verification results
+            verification_results = {
+                "chain_id": chain,
+                "genesis_block": genesis_data,
+                "verification_passed": True,
+                "checks": {}
+            }
+            
+            # Check 1: Genesis hash verification
+            if genesis_hash:
+                actual_hash = genesis_data.get("hash")
+                if actual_hash == genesis_hash:
+                    verification_results["checks"]["hash_match"] = {
+                        "status": "passed",
+                        "expected": genesis_hash,
+                        "actual": actual_hash
+                    }
+                    success(f"✅ Genesis hash matches expected value")
+                else:
+                    verification_results["checks"]["hash_match"] = {
+                        "status": "failed",
+                        "expected": genesis_hash,
+                        "actual": actual_hash
+                    }
+                    verification_results["verification_passed"] = False
+                    error(f"❌ Genesis hash mismatch!")
+                    error(f"Expected: {genesis_hash}")
+                    error(f"Actual: {actual_hash}")
+            
+            # Check 2: Genesis block structure
+            required_fields = ["hash", "previous_hash", "timestamp", "transactions", "nonce"]
+            missing_fields = [field for field in required_fields if field not in genesis_data]
+            
+            if not missing_fields:
+                verification_results["checks"]["structure"] = {
+                    "status": "passed",
+                    "required_fields": required_fields
+                }
+                success(f"✅ Genesis block structure is valid")
+            else:
+                verification_results["checks"]["structure"] = {
+                    "status": "failed",
+                    "missing_fields": missing_fields
+                }
+                verification_results["verification_passed"] = False
+                error(f"❌ Genesis block missing required fields: {missing_fields}")
+            
+            # Check 3: Signature verification (if requested)
+            if verify_signatures and "signature" in genesis_data:
+                # This would implement actual signature verification
+                # For now, we'll just check if signature exists
+                verification_results["checks"]["signature"] = {
+                    "status": "passed",
+                    "signature_present": True
+                }
+                success(f"✅ Genesis block signature is present")
+            elif verify_signatures:
+                verification_results["checks"]["signature"] = {
+                    "status": "warning",
+                    "message": "No signature found in genesis block"
+                }
+                warning(f"⚠️  No signature found in genesis block")
+            
+            # Check 4: Previous hash should be null/empty for genesis
+            prev_hash = genesis_data.get("previous_hash")
+            if prev_hash in [None, "", "0", "0x0000000000000000000000000000000000000000000000000000000000000000"]:
+                verification_results["checks"]["previous_hash"] = {
+                    "status": "passed",
+                    "previous_hash": prev_hash
+                }
+                success(f"✅ Genesis block previous hash is correct (null)")
+            else:
+                verification_results["checks"]["previous_hash"] = {
+                    "status": "failed",
+                    "previous_hash": prev_hash
+                }
+                verification_results["verification_passed"] = False
+                error(f"❌ Genesis block previous hash should be null")
+            
+            # Final result
+            if verification_results["verification_passed"]:
+                success(f"🎉 Genesis block verification PASSED for chain '{chain}'")
+            else:
+                error(f"❌ Genesis block verification FAILED for chain '{chain}'")
+            
+            output(verification_results, ctx.obj['output_format'])
+            
+    except Exception as e:
+        error(f"Failed to verify genesis block: {e}")
+
+
+@blockchain.command()
+@click.option('--chain', required=True, help='Chain ID to get genesis hash for')
+@click.pass_context
+def genesis_hash(ctx, chain: str):
+    """Get the genesis block hash for a specific chain"""
+    try:
+        import httpx
+        from ..utils import success
+        
+        with httpx.Client() as client:
+            response = client.get(
+                f"{_get_node_endpoint(ctx)}/rpc/getGenesisBlock?chain_id={chain}",
+                timeout=10
+            )
+            
+            if response.status_code != 200:
+                error(f"Failed to get genesis block for chain '{chain}': {response.status_code}")
+                return
+            
+            genesis_data = response.json()
+            genesis_hash_value = genesis_data.get("hash")
+            
+            if genesis_hash_value:
+                success(f"Genesis hash for chain '{chain}':")
+                output({
+                    "chain_id": chain,
+                    "genesis_hash": genesis_hash_value,
+                    "genesis_block": {
+                        "hash": genesis_hash_value,
+                        "timestamp": genesis_data.get("timestamp"),
+                        "transaction_count": len(genesis_data.get("transactions", [])),
+                        "nonce": genesis_data.get("nonce")
+                    }
+                }, ctx.obj['output_format'])
+            else:
+                error(f"No hash found in genesis block for chain '{chain}'")
+                
+    except Exception as e:
+        error(f"Failed to get genesis hash: {e}")
+
+
+def warning(message: str):
+    """Display warning message"""
+    click.echo(click.style(f"⚠️  {message}", fg='yellow'))

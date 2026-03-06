@@ -17,7 +17,7 @@ class Miner(SQLModel, table=True):
     concurrency: int = Field(default=1)
     status: str = Field(default="ONLINE", index=True)
     inflight: int = Field(default=0)
-    extra_meta_data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    extra_metadata: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     last_heartbeat: datetime = Field(default_factory=datetime.utcnow, index=True)
     session_token: Optional[str] = None
     last_job_at: Optional[datetime] = Field(default=None, index=True)
