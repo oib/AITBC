@@ -46,6 +46,7 @@ from .commands.node import node
 from .commands.analytics import analytics
 from .commands.agent_comm import agent_comm
 from .commands.deployment import deploy
+from .commands.cross_chain import cross_chain
 from .plugins import plugin, load_plugins
 
 
@@ -188,6 +189,7 @@ cli.add_command(node)
 cli.add_command(analytics)
 cli.add_command(agent_comm)
 cli.add_command(deploy)
+cli.add_command(cross_chain)
 cli.add_command(plugin)
 load_plugins(cli)
 

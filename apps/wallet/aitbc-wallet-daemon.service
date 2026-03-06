@@ -1,0 +1,35 @@
+[Unit]
+Description=AITBC Wallet Daemon with Multi-Chain Support
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=oib
+Group=oib
+WorkingDirectory=/home/oib/windsurf/aitbc/apps/wallet-daemon
+Environment=PYTHONPATH=src
+Environment=COORDINATOR_API_KEY=test-key
+ExecStart=/usr/bin/python3 /home/oib/windsurf/aitbc/apps/wallet-daemon/simple_daemon.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=false
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-wallet-daemon
+
+# Security (relaxed for testing)
+NoNewPrivileges=false
+ProtectSystem=false
+ProtectHome=false
+ReadWritePaths=/home/oib/windsurf/aitbc/apps/wallet-daemon/data
+
+[Install]
+WantedBy=multi-user.target

@@ -50,8 +50,9 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
     for attempt in range(1, max_attempts + 1):
         try:
             with httpx.Client() as client:
+                # Use Exchange API endpoint format
                 response = client.post(
-                    f"{config.coordinator_url}/v1/jobs",
+                    f"{config.coordinator_url}/v1/miners/default/jobs/submit",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""
@@ -62,7 +63,7 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
                     }
                 )
                 
-                if response.status_code == 201:
+                if response.status_code in [200, 201]:
                     job = response.json()
                     result = {
                         "job_id": job.get('job_id'),
@@ -118,24 +119,33 @@ def status(ctx, job_id: str):
 
 @client.command()
 @click.option("--limit", default=10, help="Number of blocks to show")
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
 @click.pass_context
-def blocks(ctx, limit: int):
-    """List recent blocks"""
+def blocks(ctx, limit: int, chain_id: str):
+    """List recent blocks from specific chain"""
     config = ctx.obj['config']
+    
+    # Query specific chain (default to ait-devnet if not specified)
+    target_chain = chain_id or 'ait-devnet'
     
     try:
         with httpx.Client() as client:
             response = client.get(
                 f"{config.coordinator_url}/api/v1/blocks",
-                params={"limit": limit},
+                params={"limit": limit, "chain_id": target_chain},
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
             if response.status_code == 200:
                 blocks = response.json()
-                output(blocks, ctx.obj['output_format'])
+                output({
+                    "blocks": blocks,
+                    "chain_id": target_chain,
+                    "limit": limit,
+                    "query_type": "single_chain"
+                }, ctx.obj['output_format'])
             else:
-                error(f"Failed to get blocks: {response.status_code}")
+                error(f"Failed to get blocks from chain {target_chain}: {response.status_code}")
                 ctx.exit(1)
     except Exception as e:
         error(f"Network error: {e}")

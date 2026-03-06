@@ -27,129 +27,289 @@ def blockchain(ctx):
 @blockchain.command()
 @click.option("--limit", type=int, default=10, help="Number of blocks to show")
 @click.option("--from-height", type=int, help="Start from this block height")
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Query blocks across all available chains')
 @click.pass_context
-def blocks(ctx, limit: int, from_height: Optional[int]):
-    """List recent blocks"""
+def blocks(ctx, limit: int, from_height: Optional[int], chain_id: str, all_chains: bool):
+    """List recent blocks across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
-        # Get blocks from the local blockchain node
-        with httpx.Client() as client:
-            if from_height:
-                # Get blocks range
-                response = client.get(
-                    f"{node_url}/rpc/blocks-range",
-                    params={"from_height": from_height, "limit": limit},
-                    timeout=5
-                )
-            else:
-                # Get recent blocks starting from head
-                response = client.get(
-                    f"{node_url}/rpc/blocks-range",
-                    params={"limit": limit},
-                    timeout=5
-                )
+        if all_chains:
+            # Query all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_blocks = {}
             
-            if response.status_code == 200:
-                blocks_data = response.json()
-                output(blocks_data, ctx.obj['output_format'])
-            else:
-                # Fallback to getting head block if range not available
-                head_response = client.get(f"{node_url}/rpc/head", timeout=5)
-                if head_response.status_code == 200:
-                    head_data = head_response.json()
+            for chain in chains:
+                try:
+                    node_url = _get_node_endpoint(ctx)
+                    
+                    # Get blocks from the specific chain
+                    with httpx.Client() as client:
+                        if from_height:
+                            # Get blocks range
+                            response = client.get(
+                                f"{node_url}/rpc/blocks-range",
+                                params={"from_height": from_height, "limit": limit, "chain_id": chain},
+                                timeout=5
+                            )
+                        else:
+                            # Get recent blocks starting from head
+                            response = client.get(
+                                f"{node_url}/rpc/blocks-range",
+                                params={"limit": limit, "chain_id": chain},
+                                timeout=5
+                            )
+                        
+                        if response.status_code == 200:
+                            all_blocks[chain] = response.json()
+                        else:
+                            # Fallback to getting head block for this chain
+                            head_response = client.get(f"{node_url}/rpc/head?chain_id={chain}", timeout=5)
+                            if head_response.status_code == 200:
+                                head_data = head_response.json()
+                                all_blocks[chain] = {
+                                    "blocks": [head_data],
+                                    "message": f"Showing head block only for chain {chain} (height {head_data.get('height', 'unknown')})"
+                                }
+                            else:
+                                all_blocks[chain] = {"error": f"Failed to get blocks: HTTP {response.status_code}"}
+                except Exception as e:
+                    all_blocks[chain] = {"error": str(e)}
+            
+            output({
+                "chains": all_blocks,
+                "total_chains": len(chains),
+                "successful_queries": sum(1 for b in all_blocks.values() if "error" not in b),
+                "limit": limit,
+                "from_height": from_height,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            node_url = _get_node_endpoint(ctx)
+            
+            # Get blocks from the local blockchain node
+            with httpx.Client() as client:
+                if from_height:
+                    # Get blocks range
+                    response = client.get(
+                        f"{node_url}/rpc/blocks-range",
+                        params={"from_height": from_height, "limit": limit, "chain_id": target_chain},
+                        timeout=5
+                    )
+                else:
+                    # Get recent blocks starting from head
+                    response = client.get(
+                        f"{node_url}/rpc/blocks-range",
+                        params={"limit": limit, "chain_id": target_chain},
+                        timeout=5
+                    )
+                
+                if response.status_code == 200:
+                    blocks_data = response.json()
                     output({
-                        "blocks": [head_data],
-                        "message": f"Showing head block only (height {head_data.get('height', 'unknown')})"
+                        "blocks": blocks_data,
+                        "chain_id": target_chain,
+                        "limit": limit,
+                        "from_height": from_height,
+                        "query_type": "single_chain"
                     }, ctx.obj['output_format'])
                 else:
-                    error(f"Failed to get blocks: {response.status_code}")
+                    # Fallback to getting head block if range not available
+                    head_response = client.get(f"{node_url}/rpc/head?chain_id={target_chain}", timeout=5)
+                    if head_response.status_code == 200:
+                        head_data = head_response.json()
+                        output({
+                            "blocks": [head_data],
+                            "chain_id": target_chain,
+                            "message": f"Showing head block only for chain {target_chain} (height {head_data.get('height', 'unknown')})",
+                            "query_type": "single_chain_fallback"
+                        }, ctx.obj['output_format'])
+                    else:
+                        error(f"Failed to get blocks: {response.status_code} - {response.text}")
+                        
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
 @click.argument("block_hash")
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Search block across all available chains')
 @click.pass_context
-def block(ctx, block_hash: str):
-    """Get details of a specific block"""
+def block(ctx, block_hash: str, chain_id: str, all_chains: bool):
+    """Get details of a specific block across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
-        # Try to get block from local blockchain node
-        with httpx.Client() as client:
-            # First try to get block by hash
-            response = client.get(
-                f"{node_url}/rpc/blocks/by_hash/{block_hash}",
-                timeout=5
-            )
+        if all_chains:
+            # Search for block across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            block_results = {}
             
-            if response.status_code == 200:
-                block_data = response.json()
-                output(block_data, ctx.obj['output_format'])
-            else:
-                # If by_hash not available, try to get by height (if hash looks like a number)
+            for chain in chains:
                 try:
-                    height = int(block_hash)
-                    response = client.get(f"{node_url}/rpc/blocks/{height}", timeout=5)
-                    if response.status_code == 200:
-                        block_data = response.json()
-                        output(block_data, ctx.obj['output_format'])
-                    else:
-                        error(f"Block not found: {response.status_code}")
-                except ValueError:
-                    # Not a number, try to find block by scanning recent blocks
-                    head_response = client.get(f"{node_url}/rpc/head", timeout=5)
-                    if head_response.status_code == 200:
-                        head_data = head_response.json()
-                        current_height = head_data.get('height', 0)
+                    node_url = _get_node_endpoint(ctx)
+                    
+                    with httpx.Client() as client:
+                        # First try to get block by hash
+                        response = client.get(
+                            f"{node_url}/rpc/blocks/by_hash/{block_hash}?chain_id={chain}",
+                            timeout=5
+                        )
                         
-                        # Search recent blocks (last 10)
-                        for h in range(max(0, current_height - 10), current_height + 1):
-                            block_response = client.get(f"{node_url}/rpc/blocks/{h}", timeout=5)
-                            if block_response.status_code == 200:
-                                block_data = block_response.json()
-                                if block_data.get('hash') == block_hash:
-                                    output(block_data, ctx.obj['output_format'])
-                                    return
+                        if response.status_code == 200:
+                            block_results[chain] = response.json()
+                        else:
+                            # If by_hash not available, try to get by height (if hash looks like a number)
+                            try:
+                                height = int(block_hash)
+                                height_response = client.get(f"{node_url}/rpc/blocks/{height}?chain_id={chain}", timeout=5)
+                                if height_response.status_code == 200:
+                                    block_results[chain] = height_response.json()
+                                else:
+                                    block_results[chain] = {"error": f"Block not found: HTTP {height_response.status_code}"}
+                            except ValueError:
+                                block_results[chain] = {"error": f"Block not found: HTTP {response.status_code}"}
+                                
+                except Exception as e:
+                    block_results[chain] = {"error": str(e)}
+            
+            # Count successful searches
+            successful_searches = sum(1 for result in block_results.values() if "error" not in result)
+            
+            output({
+                "block_hash": block_hash,
+                "chains": block_results,
+                "total_chains": len(chains),
+                "successful_searches": successful_searches,
+                "query_type": "all_chains",
+                "found_in_chains": [chain for chain, result in block_results.items() if "error" not in result]
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            node_url = _get_node_endpoint(ctx)
+            
+            with httpx.Client() as client:
+                # First try to get block by hash
+                response = client.get(
+                    f"{node_url}/rpc/blocks/by_hash/{block_hash}?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    block_data = response.json()
+                    output({
+                        "block_data": block_data,
+                        "chain_id": target_chain,
+                        "block_hash": block_hash,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    # If by_hash not available, try to get by height (if hash looks like a number)
+                    try:
+                        height = int(block_hash)
+                        height_response = client.get(f"{node_url}/rpc/blocks/{height}?chain_id={target_chain}", timeout=5)
+                        if height_response.status_code == 200:
+                            block_data = height_response.json()
+                            output({
+                                "block_data": block_data,
+                                "chain_id": target_chain,
+                                "block_hash": block_hash,
+                                "height": height,
+                                "query_type": "single_chain_by_height"
+                            }, ctx.obj['output_format'])
+                        else:
+                            error(f"Block not found in chain {target_chain}: {height_response.status_code}")
+                    except ValueError:
+                        error(f"Block not found in chain {target_chain}: {response.status_code}")
                         
-                        error(f"Block not found: {response.status_code}")
-                    else:
-                        error(f"Failed to get head block: {head_response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
 @click.argument("tx_hash")
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Search transaction across all available chains')
 @click.pass_context
-def transaction(ctx, tx_hash: str):
-    """Get transaction details"""
+def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
+    """Get transaction details across chains"""
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/explorer/transactions/{tx_hash}",
-                headers={"X-Api-Key": config.api_key or ""}
-            )
+        if all_chains:
+            # Search for transaction across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            tx_results = {}
             
-            if response.status_code == 200:
-                tx_data = response.json()
-                output(tx_data, ctx.obj['output_format'])
-            else:
-                error(f"Transaction not found: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        response = client.get(
+                            f"{config.coordinator_url}/explorer/transactions/{tx_hash}?chain_id={chain}",
+                            headers={"X-Api-Key": config.api_key or ""},
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            tx_results[chain] = response.json()
+                        else:
+                            tx_results[chain] = {"error": f"Transaction not found: HTTP {response.status_code}"}
+                            
+                except Exception as e:
+                    tx_results[chain] = {"error": str(e)}
+            
+            # Count successful searches
+            successful_searches = sum(1 for result in tx_results.values() if "error" not in result)
+            
+            output({
+                "tx_hash": tx_hash,
+                "chains": tx_results,
+                "total_chains": len(chains),
+                "successful_searches": successful_searches,
+                "query_type": "all_chains",
+                "found_in_chains": [chain for chain, result in tx_results.items() if "error" not in result]
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{config.coordinator_url}/explorer/transactions/{tx_hash}?chain_id={target_chain}",
+                    headers={"X-Api-Key": config.api_key or ""},
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    tx_data = response.json()
+                    output({
+                        "tx_data": tx_data,
+                        "chain_id": target_chain,
+                        "tx_hash": tx_hash,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    error(f"Transaction not found in chain {target_chain}: {response.status_code}")
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
 @click.option("--node", type=int, default=1, help="Node number (1, 2, or 3)")
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get status across all available chains')
 @click.pass_context
-def status(ctx, node: int):
-    """Get blockchain node status"""
+def status(ctx, node: int, chain_id: str, all_chains: bool):
+    """Get blockchain node status across chains"""
     config = ctx.obj['config']
     
     # Map node to RPC URL using new port logic
@@ -165,154 +325,520 @@ def status(ctx, node: int):
         return
     
     try:
-        with httpx.Client() as client:
-            # Use health endpoint that exists
-            health_url = rpc_url + "/health"
-            response = client.get(
-                health_url,
-                timeout=5
-            )
+        if all_chains:
+            # Get status across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_status = {}
             
-            if response.status_code == 200:
-                status_data = response.json()
-                output({
-                    "node": node,
-                    "rpc_url": rpc_url,
-                    "status": status_data
-                }, ctx.obj['output_format'])
-            else:
-                error(f"Node {node} not responding: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        # Use health endpoint with chain context
+                        health_url = f"{rpc_url}/health?chain_id={chain}"
+                        response = client.get(health_url, timeout=5)
+                        
+                        if response.status_code == 200:
+                            status_data = response.json()
+                            all_status[chain] = {
+                                "node": node,
+                                "rpc_url": rpc_url,
+                                "chain_id": chain,
+                                "status": status_data,
+                                "healthy": True
+                            }
+                        else:
+                            all_status[chain] = {
+                                "node": node,
+                                "rpc_url": rpc_url,
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "healthy": False
+                            }
+                except Exception as e:
+                    all_status[chain] = {
+                        "node": node,
+                        "rpc_url": rpc_url,
+                        "chain_id": chain,
+                        "error": str(e),
+                        "healthy": False
+                    }
+            
+            # Count healthy chains
+            healthy_chains = sum(1 for status in all_status.values() if status.get("healthy", False))
+            
+            output({
+                "node": node,
+                "rpc_url": rpc_url,
+                "chains": all_status,
+                "total_chains": len(chains),
+                "healthy_chains": healthy_chains,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                # Use health endpoint with chain context
+                health_url = f"{rpc_url}/health?chain_id={target_chain}"
+                response = client.get(health_url, timeout=5)
+                
+                if response.status_code == 200:
+                    status_data = response.json()
+                    output({
+                        "node": node,
+                        "rpc_url": rpc_url,
+                        "chain_id": target_chain,
+                        "status": status_data,
+                        "healthy": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    output({
+                        "node": node,
+                        "rpc_url": rpc_url,
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "healthy": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Failed to connect to node {node}: {e}")
 
 
 @blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get sync status across all available chains')
 @click.pass_context
-def sync_status(ctx):
-    """Get blockchain synchronization status"""
+def sync_status(ctx, chain_id: str, all_chains: bool):
+    """Get blockchain synchronization status across chains"""
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/v1/sync-status",
-                headers={"X-Api-Key": config.api_key or ""}
-            )
+        if all_chains:
+            # Get sync status across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_sync_status = {}
             
-            if response.status_code == 200:
-                sync_data = response.json()
-                output(sync_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get sync status: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        response = client.get(
+                            f"{config.coordinator_url}/v1/sync-status?chain_id={chain}",
+                            headers={"X-Api-Key": config.api_key or ""},
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            sync_data = response.json()
+                            all_sync_status[chain] = {
+                                "chain_id": chain,
+                                "sync_status": sync_data,
+                                "available": True
+                            }
+                        else:
+                            all_sync_status[chain] = {
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_sync_status[chain] = {
+                        "chain_id": chain,
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count available chains
+            available_chains = sum(1 for status in all_sync_status.values() if status.get("available", False))
+            
+            output({
+                "chains": all_sync_status,
+                "total_chains": len(chains),
+                "available_chains": available_chains,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{config.coordinator_url}/v1/sync-status?chain_id={target_chain}",
+                    headers={"X-Api-Key": config.api_key or ""},
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    sync_data = response.json()
+                    output({
+                        "chain_id": target_chain,
+                        "sync_status": sync_data,
+                        "available": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    output({
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get peers across all available chains')
 @click.pass_context
-def peers(ctx):
-    """List connected peers"""
+def peers(ctx, chain_id: str, all_chains: bool):
+    """List connected peers across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
+        node_url = _get_node_endpoint(ctx)
         
-        # Try to get peers from the local blockchain node
-        with httpx.Client() as client:
-            # First try the RPC endpoint for peers
-            response = client.get(
-                f"{node_url}/rpc/peers",
-                timeout=5
-            )
+        if all_chains:
+            # Get peers across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_peers = {}
             
-            if response.status_code == 200:
-                peers_data = response.json()
-                output(peers_data, ctx.obj['output_format'])
-            else:
-                # If no peers endpoint, return meaningful message
-                output({
-                    "peers": [],
-                    "message": "No P2P peers available - node running in RPC-only mode",
-                    "node_url": node_url
-                }, ctx.obj['output_format'])
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        # Try to get peers from the local blockchain node with chain context
+                        response = client.get(
+                            f"{node_url}/rpc/peers?chain_id={chain}",
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            peers_data = response.json()
+                            all_peers[chain] = {
+                                "chain_id": chain,
+                                "peers": peers_data.get("peers", peers_data),
+                                "available": True
+                            }
+                        else:
+                            all_peers[chain] = {
+                                "chain_id": chain,
+                                "peers": [],
+                                "message": "No P2P peers available - node running in RPC-only mode",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_peers[chain] = {
+                        "chain_id": chain,
+                        "peers": [],
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count chains with available peers
+            chains_with_peers = sum(1 for peers in all_peers.values() if peers.get("available", False))
+            
+            output({
+                "chains": all_peers,
+                "total_chains": len(chains),
+                "chains_with_peers": chains_with_peers,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                # Try to get peers from the local blockchain node with chain context
+                response = client.get(
+                    f"{node_url}/rpc/peers?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    peers_data = response.json()
+                    output({
+                        "chain_id": target_chain,
+                        "peers": peers_data.get("peers", peers_data),
+                        "available": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    # If no peers endpoint, return meaningful message
+                    output({
+                        "chain_id": target_chain,
+                        "peers": [],
+                        "message": "No P2P peers available - node running in RPC-only mode",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get info across all available chains')
 @click.pass_context
-def info(ctx):
-    """Get blockchain information"""
+def info(ctx, chain_id: str, all_chains: bool):
+    """Get blockchain information across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
+        node_url = _get_node_endpoint(ctx)
         
-        with httpx.Client() as client:
-            # Get head block for basic info
-            response = client.get(
-                f"{node_url}/rpc/head",
-                timeout=5
-            )
+        if all_chains:
+            # Get info across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_info = {}
             
-            if response.status_code == 200:
-                head_data = response.json()
-                # Create basic info from head block
-                info_data = {
-                    "chain_id": "ait-devnet",
-                    "height": head_data.get("height"),
-                    "latest_block": head_data.get("hash"),
-                    "timestamp": head_data.get("timestamp"),
-                    "transactions_in_block": head_data.get("tx_count", 0),
-                    "status": "active"
-                }
-                output(info_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get blockchain info: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        # Get head block for basic info with chain context
+                        response = client.get(
+                            f"{node_url}/rpc/head?chain_id={chain}",
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            head_data = response.json()
+                            # Create basic info from head block
+                            all_info[chain] = {
+                                "chain_id": chain,
+                                "height": head_data.get("height"),
+                                "latest_block": head_data.get("hash"),
+                                "timestamp": head_data.get("timestamp"),
+                                "transactions_in_block": head_data.get("tx_count", 0),
+                                "status": "active",
+                                "available": True
+                            }
+                        else:
+                            all_info[chain] = {
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_info[chain] = {
+                        "chain_id": chain,
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count available chains
+            available_chains = sum(1 for info in all_info.values() if info.get("available", False))
+            
+            output({
+                "chains": all_info,
+                "total_chains": len(chains),
+                "available_chains": available_chains,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                # Get head block for basic info with chain context
+                response = client.get(
+                    f"{node_url}/rpc/head?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    head_data = response.json()
+                    # Create basic info from head block
+                    info_data = {
+                        "chain_id": target_chain,
+                        "height": head_data.get("height"),
+                        "latest_block": head_data.get("hash"),
+                        "timestamp": head_data.get("timestamp"),
+                        "transactions_in_block": head_data.get("tx_count", 0),
+                        "status": "active",
+                        "available": True,
+                        "query_type": "single_chain"
+                    }
+                    output(info_data, ctx.obj['output_format'])
+                else:
+                    output({
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get supply across all available chains')
 @click.pass_context
-def supply(ctx):
-    """Get token supply information"""
+def supply(ctx, chain_id: str, all_chains: bool):
+    """Get token supply information across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
+        node_url = _get_node_endpoint(ctx)
         
-        with httpx.Client() as client:
-            response = client.get(
-                f"{node_url}/rpc/supply",
-                timeout=5
-            )
+        if all_chains:
+            # Get supply across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_supply = {}
             
-            if response.status_code == 200:
-                supply_data = response.json()
-                output(supply_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get supply info: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        response = client.get(
+                            f"{node_url}/rpc/supply?chain_id={chain}",
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            supply_data = response.json()
+                            all_supply[chain] = {
+                                "chain_id": chain,
+                                "supply": supply_data,
+                                "available": True
+                            }
+                        else:
+                            all_supply[chain] = {
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_supply[chain] = {
+                        "chain_id": chain,
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count chains with available supply data
+            chains_with_supply = sum(1 for supply in all_supply.values() if supply.get("available", False))
+            
+            output({
+                "chains": all_supply,
+                "total_chains": len(chains),
+                "chains_with_supply": chains_with_supply,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{node_url}/rpc/supply?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    supply_data = response.json()
+                    output({
+                        "chain_id": target_chain,
+                        "supply": supply_data,
+                        "available": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    output({
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
 
 @blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get validators across all available chains')
 @click.pass_context
-def validators(ctx):
-    """List blockchain validators"""
+def validators(ctx, chain_id: str, all_chains: bool):
+    """List blockchain validators across chains"""
     try:
         config = ctx.obj['config']
-        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
+        node_url = _get_node_endpoint(ctx)
         
-        with httpx.Client() as client:
-            response = client.get(
-                f"{node_url}/rpc/validators",
-                timeout=5
-            )
+        if all_chains:
+            # Get validators across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_validators = {}
             
-            if response.status_code == 200:
-                validators_data = response.json()
-                output(validators_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get validators: {response.status_code}")
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        response = client.get(
+                            f"{node_url}/rpc/validators?chain_id={chain}",
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            validators_data = response.json()
+                            all_validators[chain] = {
+                                "chain_id": chain,
+                                "validators": validators_data.get("validators", validators_data),
+                                "available": True
+                            }
+                        else:
+                            all_validators[chain] = {
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_validators[chain] = {
+                        "chain_id": chain,
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count chains with available validators
+            chains_with_validators = sum(1 for validators in all_validators.values() if validators.get("available", False))
+            
+            output({
+                "chains": all_validators,
+                "total_chains": len(chains),
+                "chains_with_validators": chains_with_validators,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{node_url}/rpc/validators?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    validators_data = response.json()
+                    output({
+                        "chain_id": target_chain,
+                        "validators": validators_data.get("validators", validators_data),
+                        "available": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    output({
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -419,23 +945,61 @@ def send(ctx, chain_id, from_addr, to, data, nonce):
 
 @blockchain.command()
 @click.option('--address', required=True, help='Wallet address')
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Query balance across all available chains')
 @click.pass_context
-def balance(ctx, address):
-    """Get the balance of an address across all chains"""
+def balance(ctx, address, chain_id, all_chains):
+    """Get the balance of an address across chains"""
     config = ctx.obj['config']
     try:
         import httpx
-        # Balance is typically served by the coordinator API or blockchain node directly
-        # The node has /rpc/getBalance/{address} but it expects chain_id param. Let's just query devnet for now.
-        with httpx.Client() as client:
-            response = client.get(
-                f"{_get_node_endpoint(ctx)}/rpc/getBalance/{address}?chain_id=ait-devnet",
-                timeout=5
-            )
-            if response.status_code == 200:
-                output(response.json(), ctx.obj['output_format'])
-            else:
-                error(f"Failed to get balance: {response.status_code} - {response.text}")
+        
+        if all_chains:
+            # Query all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            balances = {}
+            
+            with httpx.Client() as client:
+                for chain in chains:
+                    try:
+                        response = client.get(
+                            f"{_get_node_endpoint(ctx)}/rpc/getBalance/{address}?chain_id={chain}",
+                            timeout=5
+                        )
+                        if response.status_code == 200:
+                            balances[chain] = response.json()
+                        else:
+                            balances[chain] = {"error": f"HTTP {response.status_code}"}
+                    except Exception as e:
+                        balances[chain] = {"error": str(e)}
+            
+            output({
+                "address": address,
+                "chains": balances,
+                "total_chains": len(chains),
+                "successful_queries": sum(1 for b in balances.values() if "error" not in b)
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{_get_node_endpoint(ctx)}/rpc/getBalance/{address}?chain_id={target_chain}",
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    balance_data = response.json()
+                    output({
+                        "address": address,
+                        "chain_id": target_chain,
+                        "balance": balance_data,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    error(f"Failed to get balance: {response.status_code} - {response.text}")
+                    
     except Exception as e:
         error(f"Network error: {e}")
 

@@ -1,0 +1,29 @@
+description: Genesis configuration for AITBC Development Network
+genesis:
+  accounts:
+    - address: "aitbc1genesis"
+      balance: "1000000000000000000000000"
+      type: "regular"
+    - address: "aitbc1faucet"
+      balance: "100000000000000000000000"
+      type: "faucet"
+  chain_type: main
+  consensus:
+    algorithm: poa
+    authorities:
+      - "ait1devproposer000000000000000000000000000000"
+    block_time: 5
+    max_validators: 100
+  contracts: []
+  description: Development network for AITBC multi-chain testing
+  name: AITBC Development Network
+  parameters:
+    block_reward: "2000000000000000000"
+    max_block_size: 1048576
+    max_gas_per_block: 10000000
+    min_gas_price: 1000000000
+  privacy:
+    access_control: open
+    require_invitation: false
+    visibility: public
+  purpose: development

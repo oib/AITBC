@@ -25,12 +25,12 @@ Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and m
 
 [Learn More →](../2_clients/0_readme.md)
 
-### Explorer Web
+### Blockchain Explorer
 <span class="component-status live">● Live</span>
 
-Full-featured blockchain explorer with blocks, transactions, addresses, and receipts tracking. Responsive design with live data.
+Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8016.
 
-[Learn More →](../2_clients/0_readme.md#explorer-web)
+[Learn More →](../18_explorer/)
 
 ### Wallet Daemon
 <span class="component-status live">● Live</span>
