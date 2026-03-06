@@ -3,7 +3,7 @@ Multi-tenant data models for AITBC coordinator
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, ClassVar
 from enum import Enum
 from sqlalchemy import Column, String, DateTime, Boolean, Integer, Text, JSON, ForeignKey, Index, Numeric
 from sqlalchemy.dialects.postgresql import UUID
@@ -11,7 +11,7 @@ from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import uuid
 
-from sqlmodel import SQLModel as Base
+from sqlmodel import SQLModel as Base, Field
 
 
 class TenantStatus(Enum):
@@ -28,35 +28,35 @@ class Tenant(Base):
     __tablename__ = "tenants"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Tenant information
-    name = Column(String(255), nullable=False, index=True)
-    slug = Column(String(100), unique=True, nullable=False, index=True)
-    domain = Column(String(255), unique=True, nullable=True, index=True)
+    name: str = Field(max_length=255, nullable=False)
+    slug: str = Field(max_length=100, unique=True, nullable=False)
+    domain: Optional[str] = Field(max_length=255, unique=True, nullable=True)
     
     # Status and configuration
-    status = Column(String(50), nullable=False, default=TenantStatus.PENDING.value)
-    plan = Column(String(50), nullable=False, default="trial")
+    status: str = Field(default=TenantStatus.PENDING.value, max_length=50)
+    plan: str = Field(default="trial", max_length=50)
     
     # Contact information
-    contact_email = Column(String(255), nullable=False)
-    billing_email = Column(String(255), nullable=True)
+    contact_email: str = Field(max_length=255, nullable=False)
+    billing_email: Optional[str] = Field(max_length=255, nullable=True)
     
     # Configuration
-    settings = Column(JSON, nullable=False, default={})
-    features = Column(JSON, nullable=False, default={})
+    settings: Dict[str, Any] = Field(default_factory=dict)
+    features: Dict[str, Any] = Field(default_factory=dict)
     
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    activated_at = Column(DateTime(timezone=True), nullable=True)
-    deactivated_at = Column(DateTime(timezone=True), nullable=True)
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
+    activated_at: Optional[datetime] = None
+    deactivated_at: Optional[datetime] = None
     
     # Relationships
-    users = relationship("TenantUser", back_populates="tenant", cascade="all, delete-orphan")
-    quotas = relationship("TenantQuota", back_populates="tenant", cascade="all, delete-orphan")
-    usage_records = relationship("UsageRecord", back_populates="tenant", cascade="all, delete-orphan")
+    users: ClassVar = relationship("TenantUser", back_populates="tenant", cascade="all, delete-orphan")
+    quotas: ClassVar = relationship("TenantQuota", back_populates="tenant", cascade="all, delete-orphan")
+    usage_records: ClassVar = relationship("UsageRecord", back_populates="tenant", cascade="all, delete-orphan")
     
     # Indexes
     __table_args__ = (
@@ -71,26 +71,26 @@ class TenantUser(Base):
     __tablename__ = "tenant_users"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign keys
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
-    user_id = Column(String(255), nullable=False)  # User ID from auth system
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
+    user_id: str = Field(max_length=255, nullable=False)  # User ID from auth system
     
     # Role and permissions
-    role = Column(String(50), nullable=False, default="member")
-    permissions = Column(JSON, nullable=False, default=[])
+    role: str = Field(default="member", max_length=50)
+    permissions: List[str] = Field(default_factory=list)
     
     # Status
-    is_active = Column(Boolean, nullable=False, default=True)
-    invited_at = Column(DateTime(timezone=True), nullable=True)
-    joined_at = Column(DateTime(timezone=True), nullable=True)
+    is_active: bool = Field(default=True)
+    invited_at: Optional[datetime] = None
+    joined_at: Optional[datetime] = None
     
     # Metadata
-    metadata = Column(JSON, nullable=True)
+    metadata: Optional[Dict[str, Any]] = None
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="users")
+    tenant: ClassVar = relationship("Tenant", back_populates="users")
     
     # Indexes
     __table_args__ = (
@@ -105,26 +105,26 @@ class TenantQuota(Base):
     __tablename__ = "tenant_quotas"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Quota definitions
-    resource_type = Column(String(100), nullable=False)  # gpu_hours, storage_gb, api_calls
-    limit_value = Column(Numeric(20, 4), nullable=False)  # Maximum allowed
-    used_value = Column(Numeric(20, 4), nullable=False, default=0)  # Current usage
+    resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
+    limit_value: float = Field(nullable=False)  # Maximum allowed
+    used_value: float = Field(default=0.0, nullable=False)  # Current usage
     
     # Time period
-    period_type = Column(String(50), nullable=False, default="monthly")  # daily, weekly, monthly
-    period_start = Column(DateTime(timezone=True), nullable=False)
-    period_end = Column(DateTime(timezone=True), nullable=False)
+    period_type: str = Field(default="monthly", max_length=50)  # daily, weekly, monthly
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
     
     # Status
-    is_active = Column(Boolean, nullable=False, default=True)
+    is_active: bool = Field(default=True)
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="quotas")
+    tenant: ClassVar = relationship("Tenant", back_populates="quotas")
     
     # Indexes
     __table_args__ = (
@@ -139,33 +139,33 @@ class UsageRecord(Base):
     __tablename__ = "usage_records"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Usage details
-    resource_type = Column(String(100), nullable=False)  # gpu_hours, storage_gb, api_calls
-    resource_id = Column(String(255), nullable=True)  # Specific resource ID
-    quantity = Column(Numeric(20, 4), nullable=False)
-    unit = Column(String(50), nullable=False)  # hours, gb, calls
+    resource_type: str = Field(max_length=100, nullable=False)  # gpu_hours, storage_gb, api_calls
+    resource_id: Optional[str] = Field(max_length=255, nullable=True)  # Specific resource ID
+    quantity: float = Field(nullable=False)
+    unit: str = Field(max_length=50, nullable=False)  # hours, gb, calls
     
     # Cost information
-    unit_price = Column(Numeric(10, 4), nullable=False)
-    total_cost = Column(Numeric(20, 4), nullable=False)
-    currency = Column(String(10), nullable=False, default="USD")
+    unit_price: float = Field(nullable=False)
+    total_cost: float = Field(nullable=False)
+    currency: str = Field(default="USD", max_length=10)
     
     # Time tracking
-    usage_start = Column(DateTime(timezone=True), nullable=False)
-    usage_end = Column(DateTime(timezone=True), nullable=False)
-    recorded_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    usage_start: Optional[datetime] = None
+    usage_end: Optional[datetime] = None
+    recorded_at: Optional[datetime] = Field(default_factory=datetime.now)
     
     # Metadata
-    job_id = Column(String(255), nullable=True)  # Associated job if applicable
-    metadata = Column(JSON, nullable=True)
+    job_id: Optional[str] = Field(max_length=255, nullable=True)  # Associated job if applicable
+    metadata: Optional[Dict[str, Any]] = None
     
     # Relationships
-    tenant = relationship("Tenant", back_populates="usage_records")
+    tenant: ClassVar = relationship("Tenant", back_populates="usage_records")
     
     # Indexes
     __table_args__ = (
@@ -181,39 +181,39 @@ class Invoice(Base):
     __tablename__ = "invoices"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Invoice details
-    invoice_number = Column(String(100), unique=True, nullable=False, index=True)
-    status = Column(String(50), nullable=False, default="draft")
+    invoice_number: str = Field(max_length=100, unique=True, nullable=False)
+    status: str = Field(default="draft", max_length=50)
     
     # Period
-    period_start = Column(DateTime(timezone=True), nullable=False)
-    period_end = Column(DateTime(timezone=True), nullable=False)
-    due_date = Column(DateTime(timezone=True), nullable=False)
+    period_start: Optional[datetime] = None
+    period_end: Optional[datetime] = None
+    due_date: Optional[datetime] = None
     
     # Amounts
-    subtotal = Column(Numeric(20, 4), nullable=False)
-    tax_amount = Column(Numeric(20, 4), nullable=False, default=0)
-    total_amount = Column(Numeric(20, 4), nullable=False)
-    currency = Column(String(10), nullable=False, default="USD")
+    subtotal: float = Field(nullable=False)
+    tax_amount: float = Field(default=0.0, nullable=False)
+    total_amount: float = Field(nullable=False)
+    currency: str = Field(default="USD", max_length=10)
     
     # Breakdown
-    line_items = Column(JSON, nullable=False, default=[])
+    line_items: List[Dict[str, Any]] = Field(default_factory=list)
     
     # Payment
-    paid_at = Column(DateTime(timezone=True), nullable=True)
-    payment_method = Column(String(100), nullable=True)
+    paid_at: Optional[datetime] = None
+    payment_method: Optional[str] = Field(max_length=100, nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     
     # Metadata
-    metadata = Column(JSON, nullable=True)
+    metadata: Optional[Dict[str, Any]] = None
     
     # Indexes
     __table_args__ = (
@@ -229,34 +229,34 @@ class TenantApiKey(Base):
     __tablename__ = "tenant_api_keys"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Key details
-    key_id = Column(String(100), unique=True, nullable=False, index=True)
-    key_hash = Column(String(255), unique=True, nullable=False, index=True)
-    key_prefix = Column(String(20), nullable=False)  # First few characters for identification
+    key_id: str = Field(max_length=100, unique=True, nullable=False)
+    key_hash: str = Field(max_length=255, unique=True, nullable=False)
+    key_prefix: str = Field(max_length=20, nullable=False)  # First few characters for identification
     
     # Permissions and restrictions
-    permissions = Column(JSON, nullable=False, default=[])
-    rate_limit = Column(Integer, nullable=True)  # Requests per minute
-    allowed_ips = Column(JSON, nullable=True)  # IP whitelist
+    permissions: List[str] = Field(default_factory=list)
+    rate_limit: Optional[int] = None  # Requests per minute
+    allowed_ips: Optional[List[str]] = None  # IP whitelist
     
     # Status
-    is_active = Column(Boolean, nullable=False, default=True)
-    expires_at = Column(DateTime(timezone=True), nullable=True)
-    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    is_active: bool = Field(default=True)
+    expires_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = None
     
     # Metadata
-    name = Column(String(255), nullable=False)
-    description = Column(Text, nullable=True)
-    created_by = Column(String(255), nullable=False)
+    name: str = Field(max_length=255, nullable=False)
+    description: Optional[str] = None
+    created_by: str = Field(max_length=255, nullable=False)
     
     # Timestamps
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
+    revoked_at: Optional[datetime] = None
     
     # Indexes
     __table_args__ = (
@@ -271,33 +271,33 @@ class TenantAuditLog(Base):
     __tablename__ = "tenant_audit_logs"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Event details
-    event_type = Column(String(100), nullable=False, index=True)
-    event_category = Column(String(50), nullable=False, index=True)
-    actor_id = Column(String(255), nullable=False)  # User who performed action
-    actor_type = Column(String(50), nullable=False)  # user, api_key, system
+    event_type: str = Field(max_length=100, nullable=False)
+    event_category: str = Field(max_length=50, nullable=False)
+    actor_id: str = Field(max_length=255, nullable=False)  # User who performed action
+    actor_type: str = Field(max_length=50, nullable=False)  # user, api_key, system
     
     # Target information
-    resource_type = Column(String(100), nullable=False)
-    resource_id = Column(String(255), nullable=True)
+    resource_type: str = Field(max_length=100, nullable=False)
+    resource_id: Optional[str] = Field(max_length=255, nullable=True)
     
     # Event data
-    old_values = Column(JSON, nullable=True)
-    new_values = Column(JSON, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    old_values: Optional[Dict[str, Any]] = None
+    new_values: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
     
     # Request context
-    ip_address = Column(String(45), nullable=True)
-    user_agent = Column(Text, nullable=True)
-    api_key_id = Column(String(100), nullable=True)
+    ip_address: Optional[str] = Field(max_length=45, nullable=True)
+    user_agent: Optional[str] = None
+    api_key_id: Optional[str] = Field(max_length=100, nullable=True)
     
     # Timestamp
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+    created_at: Optional[datetime] = Field(default_factory=datetime.now)
     
     # Indexes
     __table_args__ = (
@@ -313,24 +313,24 @@ class TenantMetric(Base):
     __tablename__ = "tenant_metrics"
     
     # Primary key
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id: Optional[uuid.UUID] = Field(default_factory=uuid.uuid4, primary_key=True)
     
     # Foreign key
-    tenant_id = Column(UUID(as_uuid=True), ForeignKey('aitbc.tenants.id'), nullable=False)
+    tenant_id: uuid.UUID = Field(foreign_key="aitbc.tenants.id", nullable=False)
     
     # Metric details
-    metric_name = Column(String(100), nullable=False, index=True)
-    metric_type = Column(String(50), nullable=False)  # counter, gauge, histogram
+    metric_name: str = Field(max_length=100, nullable=False)
+    metric_type: str = Field(max_length=50, nullable=False)  # counter, gauge, histogram
     
     # Value
-    value = Column(Numeric(20, 4), nullable=False)
-    unit = Column(String(50), nullable=True)
+    value: float = Field(nullable=False)
+    unit: Optional[str] = Field(max_length=50, nullable=True)
     
     # Dimensions
-    dimensions = Column(JSON, nullable=False, default={})
+    dimensions: Dict[str, Any] = Field(default_factory=dict)
     
     # Time
-    timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    timestamp: Optional[datetime] = None
     
     # Indexes
     __table_args__ = (

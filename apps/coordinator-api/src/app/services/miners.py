@@ -54,7 +54,7 @@ class MinerService:
             metadata["edge_optimized"] = payload.edge_optimized
         if payload.network_latency_ms is not None:
             metadata["network_latency_ms"] = payload.network_latency_ms
-        miner.extra_meta_data = metadata
+        miner.extra_metadata = metadata
         miner.last_heartbeat = datetime.utcnow()
         self.session.add(miner)
         self.session.commit()
