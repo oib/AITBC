@@ -2,7 +2,7 @@
 
 ## 🚀 Overview
 
-This guide provides step-by-step instructions for implementing and deploying the AITBC Enhanced Services, including 7 new services running on ports 8002-8007 with systemd integration.
+This guide provides step-by-step instructions for implementing and deploying the AITBC Enhanced Services, including 7 new services running on ports 8010-8017 with systemd integration.
 
 ## 📋 Prerequisites
 
@@ -128,22 +128,26 @@ cd /opt/aitbc/apps/coordinator-api
 
 | Service | Port | Description | Resources | Status |
 |---------|------|-------------|------------|--------|
-| Multi-Modal Agent | 8002 | Text, image, audio, video processing | 2GB RAM, 200% CPU | ✅ |
-| GPU Multi-Modal | 8003 | CUDA-optimized attention mechanisms | 4GB RAM, 300% CPU | ✅ |
-| Modality Optimization | 8004 | Specialized optimization strategies | 1GB RAM, 150% CPU | ✅ |
-| Adaptive Learning | 8005 | Reinforcement learning frameworks | 3GB RAM, 250% CPU | ✅ |
-| Enhanced Marketplace | 8006 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
-| OpenClaw Enhanced | 8007 | Agent orchestration, edge computing | 2GB RAM, 200% CPU | ✅ |
+| Multi-Modal Agent | 8010 | Text, image, audio, video processing | 2GB RAM, 200% CPU | ✅ |
+| GPU Multi-Modal | 8011 | CUDA-optimized attention mechanisms | 4GB RAM, 300% CPU | ✅ |
+| Modality Optimization | 8012 | Specialized optimization strategies | 1GB RAM, 150% CPU | ✅ |
+| Adaptive Learning | 8013 | Reinforcement learning frameworks | 3GB RAM, 250% CPU | ✅ |
+| Enhanced Marketplace | 8014 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
+| OpenClaw Enhanced | 8015 | Agent orchestration, edge computing | 2GB RAM, 200% CPU | ✅ |
+| Web UI Service | 8016 | Web interface for all services | 1GB RAM, 100% CPU | ✅ |
+| Geographic Load Balancer | 8017 | Geographic distribution | 1GB RAM, 100% CPU | ✅ |
 
 ### Health Check Endpoints
 ```bash
 # Check all services
-curl http://localhost:8002/health  # Multi-Modal
-curl http://localhost:8003/health  # GPU Multi-Modal
-curl http://localhost:8004/health  # Modality Optimization
-curl http://localhost:8005/health  # Adaptive Learning
-curl http://localhost:8006/health  # Enhanced Marketplace
-curl http://localhost:8007/health  # OpenClaw Enhanced
+curl http://localhost:8010/health  # Multi-Modal
+curl http://localhost:8011/health  # GPU Multi-Modal
+curl http://localhost:8012/health  # Modality Optimization
+curl http://localhost:8013/health  # Adaptive Learning
+curl http://localhost:8014/health  # Enhanced Marketplace
+curl http://localhost:8015/health  # OpenClaw Enhanced
+curl http://localhost:8016/health  # Web UI Service
+curl http://localhost:8017/health  # Geographic Load Balancer
 ```
 
 ## 🧪 Testing
@@ -158,12 +162,12 @@ python demo_client_miner_workflow.py
 ### 2. Multi-Modal Processing Test
 ```bash
 # Test text processing
-curl -X POST http://localhost:8002/process \
+curl -X POST http://localhost:8010/process \
   -H "Content-Type: application/json" \
   -d '{"modality": "text", "input": "Hello AITBC!"}'
 
 # Test image processing
-curl -X POST http://localhost:8002/process \
+curl -X POST http://localhost:8010/process \
   -H "Content-Type: application/json" \
   -d '{"modality": "image", "input": "base64_encoded_image"}'
 ```
@@ -171,7 +175,7 @@ curl -X POST http://localhost:8002/process \
 ### 3. GPU Performance Test
 ```bash
 # Test GPU multi-modal service
-curl -X POST http://localhost:8003/process \
+curl -X POST http://localhost:8011/process \
   -H "Content-Type: application/json" \
   -d '{"modality": "text", "input": "GPU accelerated test", "use_gpu": true}'
 ```
@@ -270,7 +274,7 @@ ls -la /dev/nvidia*
 netstat -tuln | grep :800
 
 # Kill conflicting processes
-sudo fuser -k 8002/tcp
+sudo fuser -k 8010/tcp
 ```
 
 #### 4. Memory Issues
@@ -318,10 +322,10 @@ sudo systemctl edit aitbc-multimodal.service
 ### Monitoring Metrics
 ```bash
 # Response time metrics
-curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8002/health
+curl -w "@curl-format.txt" -o /dev/null -s http://localhost:8010/health
 
 # Throughput testing
-ab -n 1000 -c 10 http://localhost:8002/health
+ab -n 1000 -c 10 http://localhost:8010/health
 
 # GPU utilization
 nvidia-smi dmon -s u

@@ -1,16 +1,18 @@
-# AITBC1 Deployment Notes
+# AITBC1 Server Deployment Guide
 
 ## Overview
 
-This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc** server. These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated for optimized CPU-only deployment with enhanced services disabled.**
+This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc1 server** (secondary container). These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated for optimized CPU-only deployment with enhanced services disabled.**
+
+**Note**: This documentation is specific to the aitbc1 server. For aitbc server documentation, see [aitbc.md](./aitbc.md).
 
 ## Server Specifications
 
-### **aitbc Server Details**
-- **Hostname**: aitbc (container)
-- **IP Address**: 10.1.223.1 (container IP)
-- **Operating System**: Debian 13 Trixie (primary development environment)
-- **Access Method**: SSH via aitbc-cascade proxy
+### **aitbc1 Server Details**
+- **Hostname**: aitbc1 (container)
+- **IP Address**: 10.1.223.2 (container IP)
+- **Operating System**: Debian 13 Trixie (secondary development environment)
+- **Access Method**: SSH via aitbc1-cascade proxy
 - **GPU Access**: None (CPU-only mode)
 - **Miner Service**: Not needed
 - **Enhanced Services**: Disabled (optimized deployment)
@@ -20,12 +22,106 @@ This document contains specific deployment notes and considerations for deployin
 
 ### **Network Architecture**
 ```
-Internet → aitbc-cascade (Proxy) → aitbc (Container)
-         SSL Termination        Application Server
-         Port 443/80            Port 8000-8003 (Core Services Only)
+Internet → aitbc1-cascade (Proxy) → aitbc1 (Container)
+         SSH Access              Application Server
+         Port 22/443              Port 8000-8002 (Core Services)
+         Port 8005-8006           Blockchain Services
+         Port 8025-8026           Development Services
 ```
 
 **Note**: Enhanced services ports 8010-8017 are disabled for CPU-only deployment
+
+### **SSH-Based Container Access (Updated March 6, 2026)**
+
+#### **Primary Access Methods**
+```bash
+# Access aitbc1 server (secondary container)
+ssh aitbc1-cascade
+
+# Check aitbc1 server connectivity
+ssh aitbc1-cascade 'echo "Container accessible"'
+```
+
+#### **Service Management via SSH**
+```bash
+# List all AITBC services on aitbc1 server
+ssh aitbc1-cascade 'systemctl list-units | grep aitbc-'
+
+# Check specific service status on aitbc1 server
+ssh aitbc1-cascade 'systemctl status aitbc-coordinator-api'
+ssh aitbc1-cascade 'systemctl status aitbc-wallet'
+
+# Start/stop services on aitbc1 server
+ssh aitbc1-cascade 'sudo systemctl start aitbc-coordinator-api'
+ssh aitbc1-cascade 'sudo systemctl stop aitbc-wallet'
+
+# View service logs on aitbc1 server
+ssh aitbc1-cascade 'sudo journalctl -f -u aitbc-coordinator-api'
+ssh aitbc1-cascade 'sudo journalctl -f -u aitbc-blockchain-node'
+
+# Check blockchain services on aitbc1 server
+ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-node'
+ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc'
+
+# Check development services on aitbc1 server
+ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-node-dev'
+ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
+```
+
+#### **Port Distribution & Conflict Resolution (Updated March 6, 2026)**
+```bash
+# NEW SUSTAINABLE PORT LOGIC - NO CONFLICTS
+
+# Core Services (8000-8002):
+- Port 8000: Coordinator API (localhost + containers)
+- Port 8001: Exchange API (localhost + containers)  
+- Port 8002: Wallet Service (localhost + containers)
+
+# Blockchain Services (8005-8006):
+- Port 8005: Primary Blockchain Node (localhost + containers)
+- Port 8006: Primary Blockchain RPC (localhost + containers)
+
+# Level 2 Services (8010-8017):
+- Port 8010-8017: Enhanced services (DISABLED for CPU-only deployment)
+
+# Mock & Test Services (8020-8029):
+- Port 8025: Development Blockchain Node (localhost + containers)
+- Port 8026: Development Blockchain RPC (containers)
+
+# Legacy Ports (8080-8089):
+- Port 8080-8089: DEPRECATED - use new port ranges above
+
+# Service Naming Convention:
+✅ aitbc-blockchain-node.service (port 8005)
+✅ aitbc-blockchain-rpc.service (port 8006)
+✅ aitbc-wallet.service (port 8002)
+✅ aitbc-blockchain-node-dev.service (port 8025)
+✅ aitbc-blockchain-rpc-dev.service (port 8026)
+
+# Resolution Strategy:
+# 1. New port logic eliminates all conflicts
+# 2. Sequential port assignment for related services
+# 3. Clear separation between production and development services
+```
+
+#### **Debug Container Service Issues**
+```bash
+# Debug coordinator API port conflict
+ssh aitbc-cascade 'sudo systemctl status aitbc-coordinator-api'
+ssh aitbc-cascade 'sudo journalctl -u aitbc-coordinator-api -n 20'
+
+# Debug wallet service issues  
+ssh aitbc-cascade 'sudo systemctl status aitbc-wallet'
+ssh aitbc-cascade 'sudo journalctl -u aitbc-wallet -n 20'
+
+# Check port usage in containers
+ssh aitbc-cascade 'sudo netstat -tlnp | grep :800'
+ssh aitbc1-cascade 'sudo netstat -tlnp | grep :800'
+
+# Test service endpoints
+ssh aitbc-cascade 'curl -s http://localhost:8001/health'
+ssh aitbc1-cascade 'curl -s http://localhost:8002/health'
+```
 
 ## Pre-Deployment Checklist
 
@@ -334,19 +430,19 @@ else
     echo "Database: ❌ (Missing)"
 fi
 
-# Container access test
+# Container access test for aitbc1 server
 echo -e "\nContainer Access Test:"
-curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.1:8017/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
+curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.2:8017/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
 EOF
 
 chmod +x /opt/aitbc/scripts/monitor-aitbc.sh
 ```
 
-## Backup Strategy for aitbc
+## Backup Strategy for aitbc1
 
 ### **Automated Backup Script**
 ```bash
-# /opt/aitbc/scripts/backup-aitbc.sh
+# /opt/aitbc/scripts/backup-aitbc1.sh
 #!/bin/bash
 BACKUP_DIR="/opt/aitbc/backups"
 DATE=$(date +%Y%m%d_%H%M%S)
