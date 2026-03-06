@@ -19,6 +19,26 @@ class Config:
     blockchain_rpc_url: str = "http://127.0.0.1:8006"
     wallet_url: str = "http://127.0.0.1:8002"
     
+    def _validate_localhost_urls(self):
+        """Validate that all service URLs point to localhost"""
+        localhost_prefixes = ["http://localhost:", "http://127.0.0.1:", "https://localhost:", "https://127.0.0.1:"]
+        
+        urls_to_check = [
+            ("coordinator_url", self.coordinator_url),
+            ("blockchain_rpc_url", self.blockchain_rpc_url),
+            ("wallet_url", self.wallet_url)
+        ]
+        
+        for url_name, url in urls_to_check:
+            if not any(url.startswith(prefix) for prefix in localhost_prefixes):
+                # Force to localhost if not already
+                if url_name == "coordinator_url":
+                    self.coordinator_url = "http://localhost:8000"
+                elif url_name == "blockchain_rpc_url":
+                    self.blockchain_rpc_url = "http://localhost:8006"
+                elif url_name == "wallet_url":
+                    self.wallet_url = "http://localhost:8002"
+    
     def __post_init__(self):
         """Initialize configuration"""
         # Load environment variables
@@ -45,6 +65,9 @@ class Config:
             self.blockchain_rpc_url = os.getenv("AITBC_BLOCKCHAIN_RPC_URL")
         if os.getenv("AITBC_WALLET_URL"):
             self.wallet_url = os.getenv("AITBC_WALLET_URL")
+        
+        # Validate and enforce localhost URLs
+        self._validate_localhost_urls()
     
     def load_from_file(self):
         """Load configuration from YAML file"""
@@ -60,6 +83,9 @@ class Config:
                 self.wallet_url = data.get('wallet_url', self.wallet_url)
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}")
+        
+        # Validate and enforce localhost URLs after file loading
+        self._validate_localhost_urls()
     
     def save_to_file(self):
         """Save configuration to YAML file"""

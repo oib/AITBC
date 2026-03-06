@@ -9,7 +9,7 @@ nodes:
   
   aitbc-main:
     id: aitbc-main
-    endpoint: http://10.1.223.93:8545
+    endpoint: http://localhost:8546
     timeout: 30
     retry_count: 3
     max_connections: 10

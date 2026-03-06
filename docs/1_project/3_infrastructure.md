@@ -65,7 +65,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 - **Port 8013**: Adaptive Learning Service ✅ PRODUCTION READY
 - **Port 8014**: Marketplace Enhanced Service ✅ PRODUCTION READY
 - **Port 8015**: OpenClaw Enhanced Service ✅ PRODUCTION READY
-- **Port 8016**: Web UI Service ✅ PRODUCTION READY
+- **Port 8016**: Blockchain Explorer Service ✅ PRODUCTION READY (agent-first unified interface - TypeScript merged and deleted)
 - **Port 8017**: Geographic Load Balancer ✅ PRODUCTION READY
 
 ### **Mock & Test Services (8020-8029)**
@@ -151,7 +151,6 @@ On at1, `/opt/aitbc` uses individual symlinks to the Windsurf project directorie
 │   ├── blockchain-explorer -> /home/oib/windsurf/aitbc/apps/blockchain-explorer/
 │   ├── blockchain-node -> /home/oib/windsurf/aitbc/apps/blockchain-node/
 │   ├── coordinator-api -> /home/oib/windsurf/aitbc/apps/coordinator-api/
-│   ├── explorer-web -> /home/oib/windsurf/aitbc/apps/explorer-web/
 │   ├── marketplace-web -> /home/oib/windsurf/aitbc/apps/marketplace-web/
 │   ├── pool-hub -> /home/oib/windsurf/aitbc/apps/pool-hub/
 │   ├── trade-exchange -> /home/oib/windsurf/aitbc/apps/trade-exchange/
@@ -283,9 +282,12 @@ ssh aitbc-cascade                    # Direct SSH to container
 
 **Port Logic Breakdown:**
 - **8000**: Coordinator API (main API gateway)
-- **8001**: Exchange API (Bitcoin exchange operations)
+- **8001**: Cross-Chain Exchange API (Multi-chain trading operations)
 - **8002**: Blockchain Node (P2P node service)
 - **8003**: Blockchain RPC (JSON-RPC interface)
+- **8007**: Blockchain Service (Transaction processing and consensus)
+- **8008**: Network Service (P2P block propagation)
+- **8016**: Blockchain Explorer (Data aggregation and web interface)
 - **8010**: Multimodal GPU (AI processing)
 - **8011**: GPU Multimodal (multi-modal AI)
 - **8012**: Modality Optimization (AI optimization)
@@ -581,8 +583,8 @@ curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC (port 8003)
 # Push website files
 scp -r website/* aitbc-cascade:/var/www/aitbc.bubuit.net/
 
-# Push app updates
-scp -r apps/explorer-web/dist/* aitbc-cascade:/var/www/aitbc.bubuit.net/explorer/
+# Push app updates (blockchain-explorer serves its own interface)
+# No separate deployment needed - blockchain-explorer handles both API and UI
 
 # Restart a service
 ssh aitbc-cascade "systemctl restart coordinator-api"

@@ -84,11 +84,25 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
 @click.option(
     "--wallet-path", help="Direct path to wallet file (overrides --wallet-name)"
 )
+@click.option(
+    "--use-daemon", is_flag=True, help="Use wallet daemon for operations"
+)
 @click.pass_context
-def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
+def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool):
     """Manage your AITBC wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
+
+    # Store daemon mode preference
+    ctx.obj["use_daemon"] = use_daemon
+    
+    # Initialize dual-mode adapter
+    from ..config import get_config
+    from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+    
+    config = get_config()
+    adapter = DualModeWalletAdapter(config, use_daemon=use_daemon)
+    ctx.obj["wallet_adapter"] = adapter
 
     # If direct wallet path is provided, use it
     if wallet_path:
@@ -140,118 +154,117 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
 @click.pass_context
 def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     """Create a new wallet"""
-    wallet_dir = ctx.obj["wallet_dir"]
-    wallet_path = wallet_dir / f"{name}.json"
-
-    if wallet_path.exists():
-        error(f"Wallet '{name}' already exists")
-        return
-
-    # Generate new wallet
-    if wallet_type == "hd":
-        # Hierarchical Deterministic wallet
-        import secrets
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import ec
-        from cryptography.hazmat.primitives.serialization import (
-            Encoding,
-            PublicFormat,
-            NoEncryption,
-            PrivateFormat,
-        )
-        import base64
-
-        # Generate private key
-        private_key_bytes = secrets.token_bytes(32)
-        private_key = f"0x{private_key_bytes.hex()}"
-
-        # Derive public key from private key using ECDSA
-        priv_key = ec.derive_private_key(
-            int.from_bytes(private_key_bytes, "big"), ec.SECP256K1()
-        )
-        pub_key = priv_key.public_key()
-        pub_key_bytes = pub_key.public_bytes(
-            encoding=Encoding.X962, format=PublicFormat.UncompressedPoint
-        )
-        public_key = f"0x{pub_key_bytes.hex()}"
-
-        # Generate address from public key (simplified)
-        digest = hashes.Hash(hashes.SHA256())
-        digest.update(pub_key_bytes)
-        address_hash = digest.finalize()
-        address = f"aitbc1{address_hash[:20].hex()}"
-    else:
-        # Simple wallet
-        import secrets
-
-        private_key = f"0x{secrets.token_hex(32)}"
-        public_key = f"0x{secrets.token_hex(32)}"
-        address = f"aitbc1{secrets.token_hex(20)}"
-
-    wallet_data = {
-        "wallet_id": name,
-        "type": wallet_type,
-        "address": address,
-        "public_key": public_key,
-        "private_key": private_key,
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "balance": 0,
-        "transactions": [],
-    }
-
-    # Get password for encryption unless skipped
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet.")
+        # Switch to file mode
+        from ..config import get_config
+        from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+        ctx.obj["wallet_adapter"] = adapter
+    
+    # Get password for encryption
     password = None
     if not no_encrypt:
-        success(
-            "Wallet encryption is enabled. Your private key will be encrypted at rest."
-        )
-        password = _get_wallet_password(name)
-
-    # Save wallet
-    _save_wallet(wallet_path, wallet_data, password)
-
-    success(f"Wallet '{name}' created successfully")
-    output(
-        {
-            "name": name,
-            "type": wallet_type,
-            "address": address,
-            "path": str(wallet_path),
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+        if use_daemon:
+            # For daemon mode, use a default password or prompt
+            password = getpass.getpass(f"Enter password for wallet '{name}' (press Enter for default): ")
+            if not password:
+                password = "default_wallet_password"
+        else:
+            # For file mode, use existing password prompt logic
+            password = getpass.getpass(f"Enter password for wallet '{name}': ")
+            confirm = getpass.getpass("Confirm password: ")
+            if password != confirm:
+                error("Passwords do not match")
+                return
+    
+    # Create wallet using the adapter
+    try:
+        metadata = {
+            "wallet_type": wallet_type,
+            "created_by": "aitbc_cli",
+            "encryption_enabled": not no_encrypt
+        }
+        
+        wallet_info = adapter.create_wallet(name, password, wallet_type, metadata)
+        
+        # Display results
+        output(wallet_info, ctx.obj.get("output_format", "table"))
+        
+        # Set as active wallet if successful
+        if wallet_info:
+            config_file = Path.home() / ".aitbc" / "config.yaml"
+            config_data = {}
+            if config_file.exists():
+                with open(config_file, "r") as f:
+                    config_data = yaml.safe_load(f) or {}
+            
+            config_data["active_wallet"] = name
+            config_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(config_file, "w") as f:
+                yaml.dump(config_data, f)
+            
+            success(f"Wallet '{name}' is now active")
+            
+    except Exception as e:
+        error(f"Failed to create wallet: {str(e)}")
+        return
 
 
 @wallet.command()
 @click.pass_context
 def list(ctx):
     """List all wallets"""
-    wallet_dir = ctx.obj["wallet_dir"]
-    config_file = Path.home() / ".aitbc" / "config.yaml"
-
-    # Get active wallet
-    active_wallet = "default"
-    if config_file.exists():
-        with open(config_file, "r") as f:
-            config = yaml.safe_load(f)
-            active_wallet = config.get("active_wallet", "default")
-
-    wallets = []
-    for wallet_file in wallet_dir.glob("*.json"):
-        with open(wallet_file, "r") as f:
-            wallet_data = json.load(f)
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet listing.")
+        # Switch to file mode
+        from ..config import get_config
+        from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+    
+    try:
+        wallets = adapter.list_wallets()
+        
+        if not wallets:
+            output({"wallets": [], "count": 0, "mode": "daemon" if use_daemon else "file"}, 
+                   ctx.obj.get("output_format", "table"))
+            return
+        
+        # Format output
+        wallet_list = []
+        for wallet in wallets:
             wallet_info = {
-                "name": wallet_data["wallet_id"],
-                "type": wallet_data.get("type", "simple"),
-                "address": wallet_data["address"],
-                "created_at": wallet_data["created_at"],
-                "active": wallet_data["wallet_id"] == active_wallet,
+                "name": wallet.get("wallet_name"),
+                "address": wallet.get("address"),
+                "balance": wallet.get("balance", 0.0),
+                "type": wallet.get("wallet_type", "hd"),
+                "created_at": wallet.get("created_at"),
+                "mode": wallet.get("mode", "file")
             }
-            if wallet_data.get("encrypted"):
-                wallet_info["encrypted"] = True
-            wallets.append(wallet_info)
+            wallet_list.append(wallet_info)
+        
+        output_data = {
+            "wallets": wallet_list,
+            "count": len(wallet_list),
+            "mode": "daemon" if use_daemon else "file"
+        }
+        
+        output(output_data, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to list wallets: {str(e)}")
 
-    output(wallets, ctx.obj.get("output_format", "table"))
+
 
 
 @wallet.command()
@@ -259,37 +272,43 @@ def list(ctx):
 @click.pass_context
 def switch(ctx, name: str):
     """Switch to a different wallet"""
-    wallet_dir = ctx.obj["wallet_dir"]
-    wallet_path = wallet_dir / f"{name}.json"
-
-    if not wallet_path.exists():
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet switching.")
+        # Switch to file mode
+        from ..config import get_config
+        from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+    
+    # Check if wallet exists
+    wallet_info = adapter.get_wallet_info(name)
+    if not wallet_info:
         error(f"Wallet '{name}' does not exist")
         return
-
+    
     # Update config
     config_file = Path.home() / ".aitbc" / "config.yaml"
     config = {}
-
     if config_file.exists():
         import yaml
-
         with open(config_file, "r") as f:
             config = yaml.safe_load(f) or {}
-
+    
     config["active_wallet"] = name
-
-    # Save config
     config_file.parent.mkdir(parents=True, exist_ok=True)
     with open(config_file, "w") as f:
-        yaml.dump(config, f, default_flow_style=False)
-
-    success(f"Switched to wallet '{name}'")
-    # Load wallet to get address (will handle encryption)
-    wallet_data = _load_wallet(wallet_path, name)
-    output(
-        {"active_wallet": name, "address": wallet_data["address"]},
-        ctx.obj.get("output_format", "table"),
-    )
+        yaml.dump(config, f)
+    
+    success(f"Switched to wallet: {name}")
+    output({
+        "active_wallet": name,
+        "mode": "daemon" if use_daemon else "file",
+        "wallet_info": wallet_info
+    }, ctx.obj.get("output_format", "table"))
 
 
 @wallet.command()
@@ -424,12 +443,12 @@ def info(ctx):
             active_wallet = config.get("active_wallet", "default")
 
     wallet_info = {
-        "name": wallet_data["wallet_id"],
-        "type": wallet_data.get("type", "simple"),
+        "name": wallet_data.get("name", wallet_name),
+        "type": wallet_data.get("type", wallet_data.get("wallet_type", "simple")),
         "address": wallet_data["address"],
-        "public_key": wallet_data["public_key"],
+        "public_key": wallet_data.get("public_key", "N/A"),
         "created_at": wallet_data["created_at"],
-        "active": wallet_data["wallet_id"] == active_wallet,
+        "active": wallet_data.get("name", wallet_name) == active_wallet,
         "path": str(wallet_path),
     }
 
@@ -734,148 +753,191 @@ def address(ctx):
 @click.pass_context
 def send(ctx, to_address: str, amount: float, description: Optional[str]):
     """Send AITBC to another address"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
     wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
-    config = ctx.obj.get("config")
-
-    if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet send.")
+        # Switch to file mode
+        from ..config import get_config
+        from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+        ctx.obj["wallet_adapter"] = adapter
+    
+    # Get password for transaction
+    password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
+    
+    try:
+        result = adapter.send_transaction(wallet_name, password, to_address, amount, description)
+        
+        # Display results
+        output(result, ctx.obj.get("output_format", "table"))
+        
+        # Update active wallet if successful
+        if result:
+            success(f"Transaction sent successfully")
+        
+    except Exception as e:
+        error(f"Failed to send transaction: {str(e)}")
         return
-
-    wallet_data = _load_wallet(wallet_path, wallet_name)
-
-    balance = wallet_data.get("balance", 0)
-    if balance < amount:
-        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
-        ctx.exit(1)
-        return
-
-    # Try to send via blockchain
-    if config:
-        try:
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{config.coordinator_url.rstrip('/')}/rpc/sendTx?chain_id=ait-devnet",
-                    json={
-                        "type": "TRANSFER",
-                        "sender": wallet_data["address"],
-                        "nonce": 0,  # Will need to get actual nonce
-                        "fee": 1,
-                        "payload": {
-                            "to": to_address,
-                            "amount": int(amount * 1000000000),  # Convert to smallest unit
-                            "description": description or "",
-                        },
-                        "sig": None,  # Will need to sign transaction
-                    },
-                    headers={"X-Api-Key": getattr(config, "api_key", "") or ""},
-                )
-
-                if response.status_code == 201:
-                    tx = response.json()
-                    # Update local wallet
-                    transaction = {
-                        "type": "send",
-                        "amount": -amount,
-                        "to_address": to_address,
-                        "tx_hash": tx.get("hash"),
-                        "description": description or "",
-                        "timestamp": datetime.now().isoformat(),
-                    }
-
-                    wallet_data["transactions"].append(transaction)
-                    wallet_data["balance"] = balance - amount
-
-                    # Use _save_wallet to preserve encryption
-                    if wallet_data.get("encrypted"):
-                        password = _get_wallet_password(wallet_name)
-                        _save_wallet(wallet_path, wallet_data, password)
-                    else:
-                        _save_wallet(wallet_path, wallet_data)
-
-                    success(f"Sent {amount} AITBC to {to_address}")
-                    output(
-                        {
-                            "wallet": wallet_name,
-                            "tx_hash": tx.get("hash"),
-                            "amount": amount,
-                            "to": to_address,
-                            "new_balance": wallet_data["balance"],
-                        },
-                        ctx.obj.get("output_format", "table"),
-                    )
-                    return
-        except Exception as e:
-            error(f"Network error: {e}")
-
-    # Fallback: just record locally
-    transaction = {
-        "type": "send",
-        "amount": -amount,
-        "to_address": to_address,
-        "description": description or "",
-        "timestamp": datetime.now().isoformat(),
-        "pending": True,
-    }
-
-    wallet_data["transactions"].append(transaction)
-    wallet_data["balance"] = balance - amount
-
-    # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
-
-    output(
-        {
-            "wallet": wallet_name,
-            "amount": amount,
-            "to": to_address,
-            "new_balance": wallet_data["balance"],
-            "note": "Transaction recorded locally (blockchain RPC not available)",
-        },
-        ctx.obj.get("output_format", "table"),
-    )
-
-
-@wallet.command()
-@click.argument("to_address")
-@click.argument("amount", type=float)
-@click.option("--description", help="Transaction description")
-@click.pass_context
-def request_payment(ctx, to_address: str, amount: float, description: Optional[str]):
-    """Request payment from another address"""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
-
-    if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
-        return
-
-    wallet_data = _load_wallet(wallet_path, wallet_name)
-
-    # Create payment request
-    request = {
-        "from_address": to_address,
-        "to_address": wallet_data["address"],
-        "amount": amount,
-        "description": description or "",
-        "timestamp": datetime.now().isoformat(),
-    }
-
-    output(
-        {
-            "wallet": wallet_name,
-            "payment_request": request,
-            "note": "Share this with the payer to request payment",
-        },
-        ctx.obj.get("output_format", "table"),
-    )
 
 
 @wallet.command()
 @click.pass_context
+def balance(ctx):
+    """Check wallet balance"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    wallet_name = ctx.obj["wallet_name"]
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet balance.")
+        # Switch to file mode
+        from ..config import get_config
+        from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+        ctx.obj["wallet_adapter"] = adapter
+    
+    try:
+        balance = adapter.get_wallet_balance(wallet_name)
+        wallet_info = adapter.get_wallet_info(wallet_name)
+        
+        if balance is None:
+            error(f"Wallet '{wallet_name}' not found")
+            return
+        
+        output_data = {
+            "wallet_name": wallet_name,
+            "balance": balance,
+            "address": wallet_info.get("address") if wallet_info else None,
+            "mode": "daemon" if use_daemon else "file"
+        }
+        
+        output(output_data, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to get wallet balance: {str(e)}")
+
+
+@wallet.group()
+def daemon():
+    """Wallet daemon management commands"""
+    pass
+
+
+@daemon.command()
+@click.pass_context
+def status(ctx):
+    """Check wallet daemon status"""
+    from ..config import get_config
+    from ..wallet_daemon_client import WalletDaemonClient
+    
+    config = get_config()
+    client = WalletDaemonClient(config)
+    
+    if client.is_available():
+        status_info = client.get_status()
+        success("Wallet daemon is available")
+        output(status_info, ctx.obj.get("output_format", "table"))
+    else:
+        error("Wallet daemon is not available")
+        output({
+            "status": "unavailable",
+            "wallet_url": config.wallet_url,
+            "suggestion": "Start the wallet daemon or check the configuration"
+        }, ctx.obj.get("output_format", "table"))
+
+
+@daemon.command()
+@click.pass_context
+def configure(ctx):
+    """Configure wallet daemon settings"""
+    from ..config import get_config
+    
+    config = get_config()
+    
+    output({
+        "wallet_url": config.wallet_url,
+        "timeout": getattr(config, 'timeout', 30),
+        "suggestion": "Use AITBC_WALLET_URL environment variable or config file to change settings"
+    }, ctx.obj.get("output_format", "table"))
+
+
+@wallet.command()
+@click.argument("wallet_name")
+@click.option("--password", help="Wallet password")
+@click.option("--new-password", help="New password for daemon wallet")
+@click.option("--force", is_flag=True, help="Force migration even if wallet exists")
+@click.pass_context
+def migrate_to_daemon(ctx, wallet_name: str, password: Optional[str], new_password: Optional[str], force: bool):
+    """Migrate a file-based wallet to daemon storage"""
+    from ..wallet_migration_service import WalletMigrationService
+    from ..config import get_config
+    
+    config = get_config()
+    migration_service = WalletMigrationService(config)
+    
+    if not migration_service.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        result = migration_service.migrate_to_daemon(wallet_name, password, new_password, force)
+        success(f"Migrated wallet '{wallet_name}' to daemon")
+        output(result, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to migrate wallet: {str(e)}")
+
+
+@wallet.command()
+@click.argument("wallet_name")
+@click.option("--password", help="Wallet password")
+@click.option("--new-password", help="New password for file wallet")
+@click.option("--force", is_flag=True, help="Force migration even if wallet exists")
+@click.pass_context
+def migrate_to_file(ctx, wallet_name: str, password: Optional[str], new_password: Optional[str], force: bool):
+    """Migrate a daemon-based wallet to file storage"""
+    from ..wallet_migration_service import WalletMigrationService
+    from ..config import get_config
+    
+    config = get_config()
+    migration_service = WalletMigrationService(config)
+    
+    if not migration_service.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        result = migration_service.migrate_to_file(wallet_name, password, new_password, force)
+        success(f"Migrated wallet '{wallet_name}' to file storage")
+        output(result, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to migrate wallet: {str(e)}")
+
+
+@wallet.command()
+@click.pass_context
+def migration_status(ctx):
+    """Show wallet migration status"""
+    from ..wallet_migration_service import WalletMigrationService
+    from ..config import get_config
+    
+    config = get_config()
+    migration_service = WalletMigrationService(config)
+    
+    try:
+        status = migration_service.get_migration_status()
+        output(status, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to get migration status: {str(e)}")
 def stats(ctx):
     """Show wallet statistics"""
     wallet_name = ctx.obj["wallet_name"]
@@ -1603,3 +1665,265 @@ def rewards(ctx):
         },
         ctx.obj.get("output_format", "table"),
     )
+
+
+# Multi-Chain Commands
+
+@wallet.group()
+def chain():
+    """Multi-chain wallet operations"""
+    pass
+
+
+@chain.command()
+@click.pass_context
+def list(ctx):
+    """List all blockchain chains"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        chains = adapter.list_chains()
+        output({
+            "chains": chains,
+            "count": len(chains),
+            "mode": "daemon"
+        }, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to list chains: {str(e)}")
+
+
+@chain.command()
+@click.argument("chain_id")
+@click.argument("name")
+@click.argument("coordinator_url")
+@click.argument("coordinator_api_key")
+@click.pass_context
+def create(ctx, chain_id: str, name: str, coordinator_url: str, coordinator_api_key: str):
+    """Create a new blockchain chain"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        chain = adapter.create_chain(chain_id, name, coordinator_url, coordinator_api_key)
+        if chain:
+            success(f"Created chain: {chain_id}")
+            output(chain, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to create chain: {chain_id}")
+        
+    except Exception as e:
+        error(f"Failed to create chain: {str(e)}")
+
+
+@chain.command()
+@click.pass_context
+def status(ctx):
+    """Get chain status and statistics"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        status = adapter.get_chain_status()
+        output(status, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to get chain status: {str(e)}")
+
+
+@chain.command()
+@click.argument("chain_id")
+@click.pass_context
+def wallets(ctx, chain_id: str):
+    """List wallets in a specific chain"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        wallets = adapter.list_wallets_in_chain(chain_id)
+        output({
+            "chain_id": chain_id,
+            "wallets": wallets,
+            "count": len(wallets),
+            "mode": "daemon"
+        }, ctx.obj.get("output_format", "table"))
+        
+    except Exception as e:
+        error(f"Failed to list wallets in chain {chain_id}: {str(e)}")
+
+
+@chain.command()
+@click.argument("chain_id")
+@click.argument("wallet_name")
+@click.pass_context
+def info(ctx, chain_id: str, wallet_name: str):
+    """Get wallet information from a specific chain"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        wallet_info = adapter.get_wallet_info_in_chain(chain_id, wallet_name)
+        if wallet_info:
+            output(wallet_info, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Wallet '{wallet_name}' not found in chain '{chain_id}'")
+        
+    except Exception as e:
+        error(f"Failed to get wallet info: {str(e)}")
+
+
+@chain.command()
+@click.argument("chain_id")
+@click.argument("wallet_name")
+@click.pass_context
+def balance(ctx, chain_id: str, wallet_name: str):
+    """Get wallet balance in a specific chain"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        balance = adapter.get_wallet_balance_in_chain(chain_id, wallet_name)
+        if balance is not None:
+            output({
+                "chain_id": chain_id,
+                "wallet_name": wallet_name,
+                "balance": balance,
+                "mode": "daemon"
+            }, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Could not get balance for wallet '{wallet_name}' in chain '{chain_id}'")
+        
+    except Exception as e:
+        error(f"Failed to get wallet balance: {str(e)}")
+
+
+@chain.command()
+@click.argument("source_chain_id")
+@click.argument("target_chain_id")
+@click.argument("wallet_name")
+@click.option("--new-password", help="New password for target chain wallet")
+@click.pass_context
+def migrate(ctx, source_chain_id: str, target_chain_id: str, wallet_name: str, new_password: Optional[str]):
+    """Migrate a wallet from one chain to another"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        # Get password
+        import getpass
+        password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
+        
+        result = adapter.migrate_wallet(source_chain_id, target_chain_id, wallet_name, password, new_password)
+        if result:
+            success(f"Migrated wallet '{wallet_name}' from '{source_chain_id}' to '{target_chain_id}'")
+            output(result, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to migrate wallet '{wallet_name}'")
+        
+    except Exception as e:
+        error(f"Failed to migrate wallet: {str(e)}")
+
+
+@wallet.command()
+@click.argument("chain_id")
+@click.argument("wallet_name")
+@click.option("--type", "wallet_type", default="hd", help="Wallet type (hd, simple)")
+@click.option("--no-encrypt", is_flag=True, help="Skip wallet encryption (not recommended)")
+@click.pass_context
+def create_in_chain(ctx, chain_id: str, wallet_name: str, wallet_type: str, no_encrypt: bool):
+    """Create a wallet in a specific chain"""
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    if not use_daemon:
+        error("Chain operations require daemon mode. Use --use-daemon flag.")
+        return
+    
+    if not adapter.is_daemon_available():
+        error("Wallet daemon is not available")
+        return
+    
+    try:
+        # Get password
+        import getpass
+        if not no_encrypt:
+            password = getpass.getpass(f"Enter password for wallet '{wallet_name}': ")
+            confirm_password = getpass.getpass(f"Confirm password for wallet '{wallet_name}': ")
+            if password != confirm_password:
+                error("Passwords do not match")
+                return
+        else:
+            password = "insecure"  # Default password for unencrypted wallets
+        
+        metadata = {
+            "wallet_type": wallet_type,
+            "encrypted": not no_encrypt,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        result = adapter.create_wallet_in_chain(chain_id, wallet_name, password, wallet_type, metadata)
+        if result:
+            success(f"Created wallet '{wallet_name}' in chain '{chain_id}'")
+            output(result, ctx.obj.get("output_format", "table"))
+        else:
+            error(f"Failed to create wallet '{wallet_name}' in chain '{chain_id}'")
+        
+    except Exception as e:
+        error(f"Failed to create wallet in chain: {str(e)}")

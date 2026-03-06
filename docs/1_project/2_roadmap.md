@@ -153,11 +153,11 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Validate live mode against coordinator `/v1/marketplace/*` responses and add auth feature flags for rollout.
   - ✅ Deploy to production at https://aitbc.bubuit.net/marketplace/
 
-- **Explorer Web**
-  - ✅ Initialize Vite + TypeScript project scaffold (`apps/explorer-web/`).
-  - ✅ Add routed pages for overview, blocks, transactions, addresses, receipts.
-  - ✅ Seed mock datasets (`public/mock/`) and fetch helpers powering overview + blocks tables.
-  - ✅ Extend mock integrations to transactions, addresses, and receipts pages.
+- **Blockchain Explorer**
+  - ✅ Initialize Python FastAPI blockchain explorer (`apps/blockchain-explorer/`).
+  - ✅ Add built-in HTML interface with complete API endpoints.
+  - ✅ Implement real-time blockchain data integration and search functionality.
+  - ✅ Merge TypeScript frontend and delete source for agent-first architecture.
   - ✅ Implement styling system, mock/live data toggle, and coordinator API wiring scaffold.
   - ✅ Render overview stats from mock block/transaction/receipt summaries with graceful empty-state fallbacks.
   - ✅ Validate live mode + responsive polish:
@@ -212,6 +212,9 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Prototype cross-chain settlement hooks leveraging external bridges; document integration patterns.
   - ✅ Extend SDKs (Python/JS) with pluggable transport abstractions for multi-network support.
   - ✅ Evaluate third-party explorer/analytics integrations and publish partner onboarding guides.
+  - ✅ **COMPLETE**: Implement comprehensive cross-chain trading with atomic swaps and bridging
+  - ✅ **COMPLETE**: Add CLI cross-chain commands for seamless multi-chain operations
+  - ✅ **COMPLETE**: Deploy cross-chain exchange API with real-time rate calculation
 
 - **Marketplace Growth**
   - ✅ Launch AI agent marketplace with GPU acceleration and enterprise scaling

@@ -1,0 +1,22 @@
+description: Genesis template for multi-chain-dev
+genesis:
+  accounts: []
+  chain_type: topic
+  consensus:
+    algorithm: pos
+    authorities: []
+    block_time: 5
+    max_validators: 100
+  contracts: []
+  description: A multi-chain-dev chain for AITBC
+  name: Multi-Chain-Dev Chain
+  parameters:
+    block_reward: '2000000000000000000'
+    max_block_size: 1048576
+    max_gas_per_block: 10000000
+    min_gas_price: 1000000000
+  privacy:
+    access_control: open
+    require_invitation: false
+    visibility: public
+  purpose: multi-chain-dev

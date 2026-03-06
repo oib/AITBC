@@ -1,0 +1,159 @@
+name: AITBC CLI Level 1 Commands Test
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/cli-level1-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/cli-level1-tests.yml'
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+
+jobs:
+  test-cli-level1:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12, 3.13]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-dev python3-pip python3-venv
+        
+    - name: Create virtual environment
+      run: |
+        cd cli
+        python -m venv venv
+        source venv/bin/activate
+        
+    - name: Install dependencies
+      run: |
+        cd cli
+        source venv/bin/activate
+        pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov click httpx pyyaml
+        
+    - name: Run Level 1 Commands Tests
+      run: |
+        cd cli/tests
+        python test_level1_commands.py
+        
+    - name: Run tests with pytest (alternative)
+      run: |
+        cd cli
+        source venv/bin/activate
+        pytest tests/test_level1_commands.py -v --tb=short --cov=aitbc_cli --cov-report=xml
+        
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.13'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./cli/coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        
+    - name: Generate test report
+      if: always()
+      run: |
+        cd cli/tests
+        python -c "
+        import json
+        import subprocess
+        import sys
+        
+        try:
+            result = subprocess.run([sys.executable, 'test_level1_commands.py'], 
+                                  capture_output=True, text=True, timeout=300)
+            
+            report = {
+                'exit_code': result.returncode,
+                'stdout': result.stdout,
+                'stderr': result.stderr,
+                'success': result.returncode == 0
+            }
+            
+            with open('test_report.json', 'w') as f:
+                json.dump(report, f, indent=2)
+                
+            print(f'Test completed with exit code: {result.returncode}')
+            if result.returncode == 0:
+                print('✅ All tests passed!')
+            else:
+                print('❌ Some tests failed!')
+                
+        except Exception as e:
+            error_report = {
+                'exit_code': -1,
+                'error': str(e),
+                'success': False
+            }
+            with open('test_report.json', 'w') as f:
+                json.dump(error_report, f, indent=2)
+            print(f'❌ Test execution failed: {e}')
+        "
+        
+    - name: Upload test artifacts
+      if: always()
+      uses: actions/upload-artifact@v3
+      with:
+        name: cli-test-results-python${{ matrix.python-version }}
+        path: |
+          cli/tests/test_report.json
+          cli/coverage.xml
+        retention-days: 7
+        
+  test-summary:
+    runs-on: ubuntu-latest
+    needs: test-cli-level1
+    if: always()
+    
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      
+    - name: Summarize results
+      run: |
+        echo "## AITBC CLI Level 1 Commands Test Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        for py_version in 311 312 313; do
+          if [ -f "cli-test-results-python${py_version}/test_report.json" ]; then
+            echo "### Python ${py_version:0:1}.${py_version:1:2}" >> $GITHUB_STEP_SUMMARY
+            cat "cli-test-results-python${py_version}/test_report.json" | jq -r '.success' | \
+              if read success; then
+                if [ "$success" = "true" ]; then
+                  echo "✅ **PASSED**" >> $GITHUB_STEP_SUMMARY
+                else
+                  echo "❌ **FAILED**" >> $GITHUB_STEP_SUMMARY
+                fi
+              else
+                echo "⚠️ **UNKNOWN**" >> $GITHUB_STEP_SUMMARY
+              fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+        done
