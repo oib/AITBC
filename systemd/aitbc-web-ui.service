@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC OpenClaw Enhanced Service (Port 8015)
+Description=AITBC Web UI Service (Port 8016)
 Documentation=https://docs.aitbc.bubuit.net
 After=network.target aitbc-coordinator-api.service
 Wants=aitbc-coordinator-api.service
@@ -8,20 +8,19 @@ Wants=aitbc-coordinator-api.service
 Type=simple
 User=aitbc
 Group=aitbc
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
+WorkingDirectory=/opt/aitbc/apps/explorer-web
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8015
-Environment=SERVICE_TYPE=openclaw-enhanced
-Environment=EDGE_COMPUTING_ENABLED=true
-Environment=AGENT_ORCHESTRATION_ENABLED=true
+Environment=PORT=8016
+Environment=SERVICE_TYPE=web-ui
 Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/.venv/bin/python -m aitbc_openclaw_enhanced.main
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8016
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-openclaw-enhanced
+SyslogIdentifier=aitbc-web-ui
 
 # Security settings
 NoNewPrivileges=true
@@ -32,8 +31,8 @@ ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data
 LimitNOFILE=65536
 
 # Resource limits
-MemoryMax=2G
-CPUQuota=200%
+MemoryMax=1G
+CPUQuota=100%
 
 [Install]
 WantedBy=multi-user.target

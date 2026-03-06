@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Adaptive Learning Service (Port 8005)
+Description=AITBC Adaptive Learning Service (Port 8013)
 Documentation=https://docs.aitbc.bubuit.net
 After=network.target aitbc-coordinator-api.service
 Wants=aitbc-coordinator-api.service
@@ -10,7 +10,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8005
+Environment=PORT=8013
 Environment=SERVICE_TYPE=adaptive-learning
 Environment=LEARNING_MODE=online
 Environment=LOG_LEVEL=INFO

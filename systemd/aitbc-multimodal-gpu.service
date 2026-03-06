@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Multimodal GPU Service (Port 8010)
+Description=AITBC Multimodal GPU Service (Port 8011)
 Documentation=https://docs.aitbc.bubuit.net
 After=network.target aitbc-coordinator-api.service nvidia-persistenced.service
 Wants=aitbc-coordinator-api.service
@@ -10,7 +10,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8010
+Environment=PORT=8011
 Environment=SERVICE_TYPE=gpu-multimodal
 Environment=GPU_ENABLED=true
 Environment=CUDA_VISIBLE_DEVICES=0

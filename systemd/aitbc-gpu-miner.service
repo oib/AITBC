@@ -8,13 +8,13 @@ Type=simple
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
-Environment=PYTHONPATH=/home/oib/windsurf/aitbc/dev/gpu
+Environment=PYTHONPATH=/opt/aitbc/dev/gpu
 Environment=VIRTUAL_ENV=/opt/aitbc/.venv
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONIOENCODING=utf-8
 Environment=FORCE_COLOR=1
 Environment=PATH=/opt/aitbc/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-ExecStart=/bin/bash -c 'exec /opt/aitbc/apps/coordinator-api/.venv/bin/python -u /home/oib/windsurf/aitbc/dev/gpu/gpu_miner_host.py 2>&1 | tee -a /opt/aitbc/logs/host_gpu_miner.log'
+ExecStart=/bin/bash -c 'exec /opt/aitbc/apps/coordinator-api/.venv/bin/python -u /opt/aitbc/dev/gpu/gpu_miner_host.py 2>&1 | tee -a /opt/aitbc/logs/host_gpu_miner.log'
 Restart=on-failure
 RestartSec=30
 StartLimitInterval=300
@@ -28,7 +28,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data /home/oib/windsurf/aitbc/dev/gpu
+ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data /opt/aitbc/dev/gpu
 
 [Install]
 WantedBy=multi-user.target
