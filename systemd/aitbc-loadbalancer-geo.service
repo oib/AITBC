@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Geographic Load Balancer
+Description=AITBC Geographic Load Balancer (Port 8017)
 After=network.target aitbc-coordinator-api.service aitbc-marketplace-enhanced.service
 Wants=aitbc-coordinator-api.service aitbc-marketplace-enhanced.service
 
@@ -9,7 +9,10 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python /home/oib/windsurf/aitbc/apps/coordinator-api/scripts/geo_load_balancer.py
+Environment=PORT=8017
+Environment=SERVICE_TYPE=loadbalancer-geo
+Environment=LOG_LEVEL=INFO
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python /opt/aitbc/apps/coordinator-api/scripts/geo_load_balancer.py --port 8017
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
