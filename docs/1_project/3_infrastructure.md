@@ -47,15 +47,18 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 └──────────────────────────────────────────────┘
 ```
 
-## Port Logic Implementation (March 4, 2026)
+## Port Logic Implementation (Updated March 6, 2026)
 
-### **Core Services (8000-8003)**
+### **Core Services (8000-8002)**
 - **Port 8000**: Coordinator API ✅ PRODUCTION READY
 - **Port 8001**: Exchange API ✅ PRODUCTION READY  
-- **Port 8002**: Blockchain Node (internal) ✅ PRODUCTION READY
-- **Port 8003**: Blockchain RPC ✅ PRODUCTION READY
+- **Port 8002**: Wallet Service ✅ PRODUCTION READY (aitbc-wallet.service - localhost + containers)  
 
-### **Enhanced Services (8010-8017)**
+### **Blockchain Services (8005-8006)**
+- **Port 8005**: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service - localhost + containers)
+- **Port 8006**: Primary Blockchain RPC ✅ PRODUCTION READY (aitbc-blockchain-rpc.service - localhost + containers)
+
+### **Level 2 Services (8010-8017) - NEW STANDARD**
 - **Port 8010**: Multimodal GPU Service ✅ PRODUCTION READY (CPU-only mode)
 - **Port 8011**: GPU Multimodal Service ✅ PRODUCTION READY (CPU-only mode)
 - **Port 8012**: Modality Optimization Service ✅ PRODUCTION READY
@@ -65,8 +68,33 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 - **Port 8016**: Web UI Service ✅ PRODUCTION READY
 - **Port 8017**: Geographic Load Balancer ✅ PRODUCTION READY
 
+### **Mock & Test Services (8020-8029)**
+- **Port 8020**: Mock Coordinator API ✅ TESTING READY
+- **Port 8021**: Coordinator API (dev) ✅ TESTING READY
+- **Port 8022**: Test Blockchain Node (localhost) ✅ TESTING READY
+- **Port 8023**: Mock Exchange API ✅ TESTING READY
+- **Port 8024**: Mock Blockchain RPC ✅ TESTING READY
+- **Port 8025**: Development Blockchain Node ✅ TESTING READY (aitbc-blockchain-node-dev.service)
+- **Port 8026**: Development Blockchain RPC ✅ TESTING READY (aitbc-blockchain-rpc-dev.service)
+- **Port 8027**: Load Testing Endpoint ✅ TESTING READY
+- **Port 8028**: Integration Test API ✅ TESTING READY
+- **Port 8029**: Performance Monitor ✅ TESTING READY
+
+### **Container Services (8080-8089) - LEGACY**
+- **Port 8080**: Container Coordinator API (aitbc) ⚠️ LEGACY - Use port 8000-8003 range
+- **Port 8081**: Container Blockchain Node 1 ⚠️ LEGACY - Use port 8010+ range
+- **Port 8082**: Container Exchange API ⚠️ LEGACY - Use port 8010+ range
+- **Port 8083**: Container Wallet Daemon ⚠️ LEGACY - Use port 8010+ range
+- **Port 8084**: Container Blockchain Node 2 ⚠️ LEGACY - Use port 8010+ range
+- **Port 8085**: Container Explorer UI ⚠️ LEGACY - Use port 8010+ range
+- **Port 8086**: Container Marketplace ⚠️ LEGACY - Use port 8010+ range
+- **Port 8087**: Container Miner Dashboard ⚠️ LEGACY - Use port 8010+ range
+- **Port 8088**: Container Load Balancer ⚠️ LEGACY - Use port 8010+ range
+- **Port 8089**: Container Debug API ⚠️ LEGACY - Use port 8010+ range
+
 ### **Legacy Ports (Decommissioned)**
-- **Port 8080**: No longer used by AITBC
+- **Port 8003**: Previously Primary Blockchain RPC - Decommissioned (moved to port 8006)
+- **Port 8090**: No longer used by AITBC
 - **Port 9080**: Successfully decommissioned
 - **Port 8009**: No longer in use
 
@@ -643,4 +671,118 @@ WALLET_ENCRYPTION_KEY=<key>
 # Enhanced Services
 HOST=0.0.0.0  # For container access
 PORT=8010-8017  # Enhanced services port range
+```
+
+### Container Access & Port Logic (Updated March 6, 2026)
+
+#### **SSH-Based Container Access**
+```bash
+# Access aitbc container
+ssh aitbc-cascade
+
+# Access aitbc1 container  
+ssh aitbc1-cascade
+
+# Check services in containers
+ssh aitbc-cascade 'systemctl list-units | grep aitbc-'
+ssh aitbc1-cascade 'systemctl list-units | grep aitbc-'
+
+# Debug specific services
+ssh aitbc-cascade 'systemctl status aitbc-coordinator-api'
+ssh aitbc1-cascade 'systemctl status aitbc-wallet'
+```
+
+#### **Port Distribution Strategy - NEW STANDARD**
+```bash
+# === NEW STANDARD PORT LOGIC ===
+
+# Core Services (8000-8003) - NEW STANDARD
+- Port 8000: Coordinator API (local) ✅ NEW STANDARD
+- Port 8001: Exchange API (local) ✅ NEW STANDARD
+- Port 8002: Blockchain Node (local) ✅ NEW STANDARD
+- Port 8003: Blockchain RPC (local) ✅ NEW STANDARD
+
+# Blockchain Services (8004-8005) - PRODUCTION READY
+- Port 8004: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service)
+- Port 8005: Blockchain RPC 2 ✅ PRODUCTION READY
+
+# Level 2 Services (8010-8017) - NEW STANDARD
+- Port 8010: Multimodal GPU Service ✅ NEW STANDARD
+- Port 8011: GPU Multimodal Service ✅ NEW STANDARD
+- Port 8012: Modality Optimization Service ✅ NEW STANDARD
+- Port 8013: Adaptive Learning Service ✅ NEW STANDARD
+- Port 8014: Marketplace Enhanced Service ✅ NEW STANDARD
+- Port 8015: OpenClaw Enhanced Service ✅ NEW STANDARD
+- Port 8016: Web UI Service ✅ NEW STANDARD
+- Port 8017: Geographic Load Balancer ✅ NEW STANDARD
+
+# Mock & Test Services (8020-8029) - NEW STANDARD
+- Port 8020: Mock Coordinator API ✅ NEW STANDARD
+- Port 8021: Coordinator API (dev) ✅ NEW STANDARD
+- Port 8022: Test Blockchain Node (localhost) ✅ NEW STANDARD
+- Port 8025: Development Blockchain Node ✅ NEW STANDARD (aitbc-blockchain-node-dev.service)
+- Port 8026-8029: Additional testing services ✅ NEW STANDARD
+
+# === LEGACY PORTS (DEPRECATED) ===
+
+# Legacy Container Services (8080-8089) - DEPRECATED
+- Port 8080-8089: All container services ⚠️ DEPRECATED - Use 8000+ and 8010+ ranges
+```
+
+#### **Service Naming Convention**
+```bash
+# === STANDARDIZED SERVICE NAMES ===
+
+# Primary Production Services:
+✅ aitbc-blockchain-node.service (port 8005) - Primary blockchain node
+✅ aitbc-blockchain-rpc.service (port 8006) - Primary blockchain RPC (localhost + containers)
+✅ aitbc-coordinator-api.service (port 8000) - Main coordinator API
+✅ aitbc-exchange-api.service (port 8001) - Exchange API
+✅ aitbc-wallet.service (port 8002) - Wallet Service (localhost + containers)
+
+# Development/Test Services:
+✅ aitbc-blockchain-node-dev.service (port 8025) - Development blockchain node
+✅ aitbc-blockchain-rpc-dev.service (port 8026) - Development blockchain RPC
+✅ aitbc-coordinator-api-dev.service (port 8021) - Development coordinator API
+
+# Container Locations:
+✅ localhost (at1): Primary services + development services
+✅ aitbc container: Primary services + development services
+✅ aitbc1 container: Primary services + development services
+```
+
+#### **Port Conflict Resolution**
+```bash
+# Updated port assignments - NO CONFLICTS:
+# Local services use 8000-8003 range (core services)
+# Blockchain services use 8004-8005 range (primary blockchain nodes)
+# Level 2 services use 8010-8017 range (enhanced services)
+# Mock & test services use 8020-8029 range (development services)
+
+# Check port usage
+netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
+ssh aitbc-cascade 'netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
+ssh aitbc1-cascade 'netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
+
+# Service Management Commands:
+# Primary services:
+systemctl status aitbc-blockchain-node.service  # localhost
+systemctl status aitbc-blockchain-rpc.service   # localhost (port 8006)
+systemctl status aitbc-wallet.service          # localhost (port 8002)
+ssh aitbc-cascade 'systemctl status aitbc-blockchain-node.service'  # aitbc container
+ssh aitbc1-cascade 'systemctl status aitbc-blockchain-node.service'  # aitbc1 container
+
+# Wallet services:
+ssh aitbc-cascade 'systemctl status aitbc-wallet.service'  # port 8002
+ssh aitbc1-cascade 'systemctl status aitbc-wallet.service'  # port 8002
+
+# RPC services:
+ssh aitbc-cascade 'systemctl status aitbc-blockchain-rpc.service'    # port 8006
+ssh aitbc1-cascade 'systemctl status aitbc-blockchain-rpc.service'    # port 8006
+ssh aitbc-cascade 'systemctl status aitbc-blockchain-rpc-dev.service' # port 8026
+ssh aitbc1-cascade 'systemctl status aitbc-blockchain-rpc-dev.service' # port 8026
+
+# Development services:
+ssh aitbc-cascade 'systemctl status aitbc-blockchain-node-dev.service'
+ssh aitbc1-cascade 'systemctl status aitbc-blockchain-node-dev.service'
 ```

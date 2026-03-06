@@ -70,7 +70,7 @@ Create `apps/blockchain-node/.env`:
 ```env
 CHAIN_ID=ait-devnet
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8080
+RPC_BIND_PORT=8006  # Updated to new blockchain RPC port
 MEMPOOL_BACKEND=database
 ```
 

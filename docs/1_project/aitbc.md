@@ -1,8 +1,10 @@
-# AITBC Platform Deployment Guide
+# AITBC Server Deployment Guide
 
 ## Overview
 
-This guide provides comprehensive deployment instructions for the AITBC (AI Trading Blockchain Compute) platform, including infrastructure requirements, service configurations, and troubleshooting procedures. **Updated for the new port logic implementation (8000-8003, 8010-8017) and production-ready codebase.**
+This guide provides comprehensive deployment instructions for the **aitbc server** (primary container), including infrastructure requirements, service configurations, and troubleshooting procedures. **Updated for the new port logic implementation (8000-8002, 8005-8006) and production-ready codebase.**
+
+**Note**: This documentation is specific to the aitbc server. For aitbc1 server documentation, see [aitbc1.md](./aitbc1.md).
 
 ## System Requirements
 
@@ -21,12 +23,14 @@ This guide provides comprehensive deployment instructions for the AITBC (AI Trad
 - **Database**: SQLite (default) or PostgreSQL (production)
 
 ### **Network Requirements**
-- **Core Services Ports**: 8000-8003 (must be available)
+- **Core Services Ports**: 8000-8002 (must be available)
   - Port 8000: Coordinator API
   - Port 8001: Exchange API
-  - Port 8002: Blockchain Node (internal)
-  - Port 8003: Blockchain RPC
-- **Enhanced Services Ports**: 8010-8017 (optional - not required for CPU-only deployment)
+  - Port 8002: Wallet Service
+- **Blockchain Services Ports**: 8005-8006 (must be available)
+  - Port 8005: Primary Blockchain Node
+  - Port 8006: Primary Blockchain RPC
+- **Level 2 Services Ports**: 8010-8017 (optional - not required for CPU-only deployment)
   - Note: Enhanced services disabled for aitbc server (no GPU access)
   - Port 8010: Multimodal GPU (CPU-only mode) - DISABLED
   - Port 8011: GPU Multimodal (CPU-only mode) - DISABLED
@@ -36,8 +40,79 @@ This guide provides comprehensive deployment instructions for the AITBC (AI Trad
   - Port 8015: OpenClaw Enhanced - DISABLED
   - Port 8016: Web UI - DISABLED
   - Port 8017: Geographic Load Balancer - DISABLED
-  - **Firewall**: Managed by firehol on at1 host (container networking handled by incus)
+- **Mock & Test Services Ports**: 8020-8029 (development and testing)
+  - Port 8025: Development Blockchain Node
+  - Port 8026: Development Blockchain RPC
+- **Legacy Container Ports**: 8080-8089 (deprecated - use new port ranges)
+- **Firewall**: Managed by firehol on at1 host (container networking handled by incus)
 - **SSL/TLS**: Recommended for production deployments
+
+### **Container Access & SSH Management (Updated March 6, 2026)**
+
+#### **SSH-Based Container Access**
+```bash
+# Access aitbc server (primary container)
+ssh aitbc-cascade
+
+# Check aitbc server status
+ssh aitbc-cascade 'systemctl status'
+
+# List AITBC services on aitbc server
+ssh aitbc-cascade 'systemctl list-units | grep aitbc-'
+```
+
+#### **Service Management via SSH**
+```bash
+# Start/stop services on aitbc server
+ssh aitbc-cascade 'sudo systemctl start aitbc-coordinator-api'
+ssh aitbc-cascade 'sudo systemctl stop aitbc-wallet'
+
+# Check service logs on aitbc server
+ssh aitbc-cascade 'sudo journalctl -f -u aitbc-coordinator-api'
+
+# Debug service issues on aitbc server
+ssh aitbc-cascade 'sudo systemctl status aitbc-coordinator-api'
+ssh aitbc-cascade 'sudo systemctl status aitbc-wallet'
+
+# Check blockchain services on aitbc server
+ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-node'
+ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc'
+
+# Check development services on aitbc server
+ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-node-dev'
+ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
+```
+
+#### **Port Distribution Strategy (Updated March 6, 2026)**
+```bash
+# NEW SUSTAINABLE PORT LOGIC
+
+# Core Services (8000-8002):
+- Port 8000: Coordinator API (localhost + containers)
+- Port 8001: Exchange API (localhost + containers)
+- Port 8002: Wallet Service (localhost + containers)
+
+# Blockchain Services (8005-8006):
+- Port 8005: Primary Blockchain Node (localhost + containers)
+- Port 8006: Primary Blockchain RPC (localhost + containers)
+
+# Level 2 Services (8010-8017):
+- Port 8010-8017: Enhanced services (DISABLED for CPU-only deployment)
+
+# Mock & Test Services (8020-8029):
+- Port 8025: Development Blockchain Node (localhost + containers)
+- Port 8026: Development Blockchain RPC (containers)
+
+# Legacy Ports (8080-8089):
+- Port 8080-8089: DEPRECATED - use new port ranges above
+
+# Service Naming Convention:
+✅ aitbc-blockchain-node.service (port 8005)
+✅ aitbc-blockchain-rpc.service (port 8006)
+✅ aitbc-wallet.service (port 8002)
+✅ aitbc-blockchain-node-dev.service (port 8025)
+✅ aitbc-blockchain-rpc-dev.service (port 8026)
+```
 
 ## Architecture Overview
 
