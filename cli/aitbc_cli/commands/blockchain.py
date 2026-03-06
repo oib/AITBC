@@ -5,14 +5,11 @@ import httpx
 
 def _get_node_endpoint(ctx):
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            return "http://127.0.0.1:8082"
-        # Return the first node's endpoint
-        return list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        # Use the new blockchain_rpc_url from config
+        return config.blockchain_rpc_url
     except:
-        return "http://127.0.0.1:8082"
+        return "http://127.0.0.1:8006"  # Use new blockchain RPC port
 
 from typing import Optional, List
 from ..utils import output, error
@@ -34,12 +31,8 @@ def blockchain(ctx):
 def blocks(ctx, limit: int, from_height: Optional[int]):
     """List recent blocks"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         # Get blocks from the local blockchain node
         with httpx.Client() as client:
@@ -82,12 +75,8 @@ def blocks(ctx, limit: int, from_height: Optional[int]):
 def block(ctx, block_hash: str):
     """Get details of a specific block"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         # Try to get block from local blockchain node
         with httpx.Client() as client:
@@ -163,10 +152,10 @@ def status(ctx, node: int):
     """Get blockchain node status"""
     config = ctx.obj['config']
     
-    # Map node to RPC URL
+    # Map node to RPC URL using new port logic
     node_urls = {
-        1: "http://localhost:8003",
-        2: "http://localhost:9080/rpc",  # Use RPC API with correct endpoint
+        1: "http://localhost:8006",  # Primary Blockchain RPC
+        2: "http://localhost:8026",  # Development Blockchain RPC
         3: "http://aitbc.keisanki.net/rpc"
     }
     
@@ -224,12 +213,8 @@ def sync_status(ctx):
 def peers(ctx):
     """List connected peers"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         # Try to get peers from the local blockchain node
         with httpx.Client() as client:
@@ -258,12 +243,8 @@ def peers(ctx):
 def info(ctx):
     """Get blockchain information"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         with httpx.Client() as client:
             # Get head block for basic info
@@ -295,12 +276,8 @@ def info(ctx):
 def supply(ctx):
     """Get token supply information"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         with httpx.Client() as client:
             response = client.get(
@@ -322,12 +299,8 @@ def supply(ctx):
 def validators(ctx):
     """List blockchain validators"""
     try:
-        from ..core.config import load_multichain_config
-        config = load_multichain_config()
-        if not config.nodes:
-            node_url = "http://127.0.0.1:8003"
-        else:
-            node_url = list(config.nodes.values())[0].endpoint
+        config = ctx.obj['config']
+        node_url = config.blockchain_rpc_url  # Use new blockchain RPC port
         
         with httpx.Client() as client:
             response = client.get(

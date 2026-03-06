@@ -16,6 +16,8 @@ class Config:
     role: Optional[str] = None  # admin, client, miner, etc.
     config_dir: Path = field(default_factory=lambda: Path.home() / ".aitbc")
     config_file: Optional[str] = None
+    blockchain_rpc_url: str = "http://127.0.0.1:8006"
+    wallet_url: str = "http://127.0.0.1:8002"
     
     def __post_init__(self):
         """Initialize configuration"""
@@ -39,6 +41,10 @@ class Config:
             self.api_key = os.getenv("AITBC_API_KEY")
         if os.getenv("AITBC_ROLE"):
             self.role = os.getenv("AITBC_ROLE")
+        if os.getenv("AITBC_BLOCKCHAIN_RPC_URL"):
+            self.blockchain_rpc_url = os.getenv("AITBC_BLOCKCHAIN_RPC_URL")
+        if os.getenv("AITBC_WALLET_URL"):
+            self.wallet_url = os.getenv("AITBC_WALLET_URL")
     
     def load_from_file(self):
         """Load configuration from YAML file"""
@@ -50,6 +56,8 @@ class Config:
                 self.coordinator_url = data.get('coordinator_url', self.coordinator_url)
                 self.api_key = data.get('api_key', self.api_key)
                 self.role = data.get('role', self.role)
+                self.blockchain_rpc_url = data.get('blockchain_rpc_url', self.blockchain_rpc_url)
+                self.wallet_url = data.get('wallet_url', self.wallet_url)
             except Exception as e:
                 print(f"Warning: Could not load config file: {e}")
     
@@ -63,7 +71,9 @@ class Config:
         
         data = {
             'coordinator_url': self.coordinator_url,
-            'api_key': self.api_key
+            'api_key': self.api_key,
+            'blockchain_rpc_url': self.blockchain_rpc_url,
+            'wallet_url': self.wallet_url
         }
         
         if self.role:
