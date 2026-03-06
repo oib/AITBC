@@ -79,12 +79,14 @@ Project summaries and current issues
 ## 📋 Quick Access
 
 ### Most Important Documents
-1. **CLI Checklist**: `06_cli/cli-checklist.md` - Complete CLI command reference
-2. **Current Issues**: `10_summaries/99_currentissue.md` - Active problems and solutions
-3. **Implementation Status**: `02_implementation/backend-implementation-status.md` - Development progress
-4. **Next Milestone**: `01_core_planning/00_nextMileston.md` - Upcoming objectives
+1. **Exchange Infrastructure Plan**: `02_implementation/exchange-infrastructure-implementation.md` - Critical 40% gap resolution
+2. **Current Issues**: `10_summaries/99_currentissue_exchange-gap.md` - Active implementation gaps
+3. **Next Milestone**: `01_core_planning/00_nextMileston.md` - Updated with exchange focus
+4. **Implementation Status**: `02_implementation/backend-implementation-status.md` - Current progress
 
 ### Recent Updates
+- **🔄 CRITICAL**: Exchange infrastructure gap identified (40% implementation gap)
+- Exchange integration plan created (8-week implementation timeline)
 - CLI role-based configuration implementation
 - API key authentication fixes
 - Backend Pydantic issues resolution
@@ -95,12 +97,15 @@ Project summaries and current issues
 
 - Use the directory structure to find documents by functional area
 - Check file sizes in parentheses to identify comprehensive documents
-- Refer to `10_summaries/` for high-level project status
-- Look in `06_cli/` for all CLI-related documentation
-- Check `02_implementation/` for development progress
+- Refer to `10_summaries/` for high-level project status and critical issues
+- Look in `06_cli/` for all CLI-related documentation (60% complete)
+- Check `02_implementation/` for exchange infrastructure implementation plan
+- **NEW**: See `02_implementation/exchange-infrastructure-implementation.md` for critical gap resolution
+- **FOCUS**: Exchange infrastructure implementation to close 40% documented vs implemented gap
 
 ---
 
-*Last updated: March 5, 2026*  
-*Total files: 43 documents across 10 categories*  
+*Last updated: March 6, 2026*  
+*Total files: 44 documents across 10 categories*  
 *Largest document: cli-checklist.md (42KB)*
+*Critical Focus: Exchange infrastructure implementation to close 40% gap*

@@ -50,9 +50,9 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
     for attempt in range(1, max_attempts + 1):
         try:
             with httpx.Client() as client:
-                # Use Exchange API endpoint format
+                # Use correct API endpoint format
                 response = client.post(
-                    f"{config.coordinator_url}/v1/miners/default/jobs/submit",
+                    f"{config.coordinator_url}/v1/jobs",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""
@@ -60,7 +60,8 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
                     json={
                         "payload": task_data,
                         "ttl_seconds": ttl
-                    }
+                    },
+                    timeout=10.0
                 )
                 
                 if response.status_code in [200, 201]:

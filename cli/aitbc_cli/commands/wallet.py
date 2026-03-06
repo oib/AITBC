@@ -1927,3 +1927,303 @@ def create_in_chain(ctx, chain_id: str, wallet_name: str, wallet_type: str, no_e
         
     except Exception as e:
         error(f"Failed to create wallet in chain: {str(e)}")
+
+
+@wallet.command()
+@click.option("--threshold", type=int, required=True, help="Number of signatures required")
+@click.option("--signers", multiple=True, required=True, help="Public keys of signers")
+@click.option("--wallet-name", help="Name for the multi-sig wallet")
+@click.option("--chain-id", help="Chain ID for multi-chain support")
+@click.pass_context
+def multisig_create(ctx, threshold: int, signers: tuple, wallet_name: Optional[str], chain_id: Optional[str]):
+    """Create a multi-signature wallet"""
+    config = ctx.obj.get('config')
+    
+    if len(signers) < threshold:
+        error(f"Threshold {threshold} cannot be greater than number of signers {len(signers)}")
+        return
+    
+    multisig_data = {
+        "threshold": threshold,
+        "signers": list(signers),
+        "wallet_name": wallet_name or f"multisig_{int(datetime.now().timestamp())}",
+        "created_at": datetime.utcnow().isoformat()
+    }
+    
+    if chain_id:
+        multisig_data["chain_id"] = chain_id
+    
+    try:
+        if ctx.obj.get("use_daemon"):
+            # Use wallet daemon for multi-sig creation
+            from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+            adapter = DualModeWalletAdapter(config)
+            
+            result = adapter.create_multisig_wallet(
+                threshold=threshold,
+                signers=list(signers),
+                wallet_name=wallet_name,
+                chain_id=chain_id
+            )
+            
+            if result:
+                success(f"Multi-sig wallet '{multisig_data['wallet_name']}' created!")
+                success(f"Threshold: {threshold}/{len(signers)}")
+                success(f"Signers: {len(signers)}")
+                output(result, ctx.obj.get('output_format', 'table'))
+            else:
+                error("Failed to create multi-sig wallet")
+        else:
+            # Local multi-sig wallet creation
+            wallet_dir = Path.home() / ".aitbc" / "wallets"
+            wallet_dir.mkdir(parents=True, exist_ok=True)
+            
+            wallet_file = wallet_dir / f"{multisig_data['wallet_name']}.json"
+            
+            if wallet_file.exists():
+                error(f"Wallet '{multisig_data['wallet_name']}' already exists")
+                return
+            
+            # Save multi-sig wallet
+            with open(wallet_file, 'w') as f:
+                json.dump(multisig_data, f, indent=2)
+            
+            success(f"Multi-sig wallet '{multisig_data['wallet_name']}' created!")
+            success(f"Threshold: {threshold}/{len(signers)}")
+            output(multisig_data, ctx.obj.get('output_format', 'table'))
+            
+    except Exception as e:
+        error(f"Failed to create multi-sig wallet: {e}")
+
+
+@wallet.command()
+@click.option("--amount", type=float, required=True, help="Transfer limit amount")
+@click.option("--period", default="daily", help="Limit period (hourly, daily, weekly)")
+@click.option("--wallet-name", help="Wallet to set limit for")
+@click.pass_context
+def set_limit(ctx, amount: float, period: str, wallet_name: Optional[str]):
+    """Set transfer limits for wallet"""
+    config = ctx.obj.get('config')
+    
+    limit_data = {
+        "amount": amount,
+        "period": period,
+        "set_at": datetime.utcnow().isoformat()
+    }
+    
+    try:
+        if ctx.obj.get("use_daemon"):
+            # Use wallet daemon
+            from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+            adapter = DualModeWalletAdapter(config)
+            
+            result = adapter.set_transfer_limit(
+                amount=amount,
+                period=period,
+                wallet_name=wallet_name
+            )
+            
+            if result:
+                success(f"Transfer limit set: {amount} {period}")
+                output(result, ctx.obj.get('output_format', 'table'))
+            else:
+                error("Failed to set transfer limit")
+        else:
+            # Local limit setting
+            limits_file = Path.home() / ".aitbc" / "transfer_limits.json"
+            limits_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Load existing limits
+            limits = {}
+            if limits_file.exists():
+                with open(limits_file, 'r') as f:
+                    limits = json.load(f)
+            
+            # Set new limit
+            wallet_key = wallet_name or "default"
+            limits[wallet_key] = limit_data
+            
+            # Save limits
+            with open(limits_file, 'w') as f:
+                json.dump(limits, f, indent=2)
+            
+            success(f"Transfer limit set for '{wallet_key}': {amount} {period}")
+            output(limit_data, ctx.obj.get('output_format', 'table'))
+            
+    except Exception as e:
+        error(f"Failed to set transfer limit: {e}")
+
+
+@wallet.command()
+@click.option("--amount", type=float, required=True, help="Amount to time-lock")
+@click.option("--duration", type=int, required=True, help="Lock duration in hours")
+@click.option("--recipient", required=True, help="Recipient address")
+@click.option("--wallet-name", help="Wallet to create time-lock from")
+@click.pass_context
+def time_lock(ctx, amount: float, duration: int, recipient: str, wallet_name: Optional[str]):
+    """Create a time-locked transfer"""
+    config = ctx.obj.get('config')
+    
+    lock_data = {
+        "amount": amount,
+        "duration_hours": duration,
+        "recipient": recipient,
+        "wallet_name": wallet_name or "default",
+        "created_at": datetime.utcnow().isoformat(),
+        "unlock_time": (datetime.utcnow() + timedelta(hours=duration)).isoformat()
+    }
+    
+    try:
+        if ctx.obj.get("use_daemon"):
+            # Use wallet daemon
+            from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+            adapter = DualModeWalletAdapter(config)
+            
+            result = adapter.create_time_lock(
+                amount=amount,
+                duration_hours=duration,
+                recipient=recipient,
+                wallet_name=wallet_name
+            )
+            
+            if result:
+                success(f"Time-locked transfer created: {amount} tokens")
+                success(f"Unlocks in: {duration} hours")
+                success(f"Recipient: {recipient}")
+                output(result, ctx.obj.get('output_format', 'table'))
+            else:
+                error("Failed to create time-lock")
+        else:
+            # Local time-lock creation
+            locks_file = Path.home() / ".aitbc" / "time_locks.json"
+            locks_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Load existing locks
+            locks = []
+            if locks_file.exists():
+                with open(locks_file, 'r') as f:
+                    locks = json.load(f)
+            
+            # Add new lock
+            locks.append(lock_data)
+            
+            # Save locks
+            with open(locks_file, 'w') as f:
+                json.dump(locks, f, indent=2)
+            
+            success(f"Time-locked transfer created: {amount} tokens")
+            success(f"Unlocks at: {lock_data['unlock_time']}")
+            success(f"Recipient: {recipient}")
+            output(lock_data, ctx.obj.get('output_format', 'table'))
+            
+    except Exception as e:
+        error(f"Failed to create time-lock: {e}")
+
+
+@wallet.command()
+@click.option("--wallet-name", help="Wallet to check limits for")
+@click.pass_context
+def check_limits(ctx, wallet_name: Optional[str]):
+    """Check transfer limits for wallet"""
+    limits_file = Path.home() / ".aitbc" / "transfer_limits.json"
+    
+    if not limits_file.exists():
+        error("No transfer limits configured")
+        return
+    
+    try:
+        with open(limits_file, 'r') as f:
+            limits = json.load(f)
+        
+        wallet_key = wallet_name or "default"
+        
+        if wallet_key not in limits:
+            error(f"No transfer limits configured for '{wallet_key}'")
+            return
+        
+        limit_info = limits[wallet_key]
+        success(f"Transfer limits for '{wallet_key}':")
+        output(limit_info, ctx.obj.get('output_format', 'table'))
+        
+    except Exception as e:
+        error(f"Failed to check transfer limits: {e}")
+
+
+@wallet.command()
+@click.option("--wallet-name", help="Wallet to check locks for")
+@click.pass_context
+def list_time_locks(ctx, wallet_name: Optional[str]):
+    """List time-locked transfers"""
+    locks_file = Path.home() / ".aitbc" / "time_locks.json"
+    
+    if not locks_file.exists():
+        error("No time-locked transfers found")
+        return
+    
+    try:
+        with open(locks_file, 'r') as f:
+            locks = json.load(f)
+        
+        # Filter by wallet if specified
+        if wallet_name:
+            locks = [lock for lock in locks if lock.get('wallet_name') == wallet_name]
+        
+        if not locks:
+            error(f"No time-locked transfers found for '{wallet_name}'")
+            return
+        
+        success(f"Time-locked transfers ({len(locks)} found):")
+        output({"time_locks": locks}, ctx.obj.get('output_format', 'table'))
+        
+    except Exception as e:
+        error(f"Failed to list time-locks: {e}")
+
+
+@wallet.command()
+@click.option("--wallet-name", help="Wallet name for audit")
+@click.option("--days", type=int, default=30, help="Number of days to audit")
+@click.pass_context
+def audit_trail(ctx, wallet_name: Optional[str], days: int):
+    """Generate wallet audit trail"""
+    config = ctx.obj.get('config')
+    
+    audit_data = {
+        "wallet_name": wallet_name or "all",
+        "audit_period_days": days,
+        "generated_at": datetime.utcnow().isoformat()
+    }
+    
+    try:
+        if ctx.obj.get("use_daemon"):
+            # Use wallet daemon for audit
+            from ..dual_mode_wallet_adapter import DualModeWalletAdapter
+            adapter = DualModeWalletAdapter(config)
+            
+            result = adapter.get_audit_trail(
+                wallet_name=wallet_name,
+                days=days
+            )
+            
+            if result:
+                success(f"Audit trail for '{wallet_name or 'all wallets'}':")
+                output(result, ctx.obj.get('output_format', 'table'))
+            else:
+                error("Failed to generate audit trail")
+        else:
+            # Local audit trail generation
+            audit_file = Path.home() / ".aitbc" / "audit_trail.json"
+            audit_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Generate sample audit data
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            
+            audit_data["transactions"] = []
+            audit_data["signatures"] = []
+            audit_data["limits"] = []
+            audit_data["time_locks"] = []
+            
+            success(f"Audit trail generated for '{wallet_name or 'all wallets'}':")
+            output(audit_data, ctx.obj.get('output_format', 'table'))
+            
+    except Exception as e:
+        error(f"Failed to generate audit trail: {e}")

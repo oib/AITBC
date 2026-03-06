@@ -33,6 +33,11 @@ from .commands.config import config
 from .commands.monitor import monitor
 from .commands.governance import governance
 from .commands.exchange import exchange
+from .commands.oracle import oracle
+from .commands.market_maker import market_maker
+from .commands.multisig import multisig
+from .commands.genesis_protection import genesis_protection
+from .commands.transfer_control import transfer_control
 from .commands.agent import agent
 from .commands.multimodal import multimodal
 from .commands.optimize import optimize
@@ -47,6 +52,13 @@ from .commands.analytics import analytics
 from .commands.agent_comm import agent_comm
 from .commands.deployment import deploy
 from .commands.cross_chain import cross_chain
+from .commands.compliance import compliance
+from .commands.surveillance import surveillance
+from .commands.regulatory import regulatory
+from .commands.ai_trading import ai_trading
+from .commands.advanced_analytics import advanced_analytics_group
+from .commands.ai_surveillance import ai_surveillance_group
+from .commands.enterprise_integration import enterprise_integration_group
 from .plugins import plugin, load_plugins
 
 
@@ -177,6 +189,11 @@ cli.add_command(config)
 cli.add_command(monitor)
 cli.add_command(governance)
 cli.add_command(exchange)
+cli.add_command(oracle)
+cli.add_command(market_maker)
+cli.add_command(multisig)
+cli.add_command(genesis_protection)
+cli.add_command(transfer_control)
 cli.add_command(agent)
 cli.add_command(multimodal)
 cli.add_command(optimize)
@@ -190,6 +207,13 @@ cli.add_command(analytics)
 cli.add_command(agent_comm)
 cli.add_command(deploy)
 cli.add_command(cross_chain)
+cli.add_command(compliance)
+cli.add_command(surveillance)
+cli.add_command(regulatory)
+cli.add_command(ai_trading)
+cli.add_command(advanced_analytics_group)
+cli.add_command(ai_surveillance_group)
+cli.add_command(enterprise_integration_group)
 cli.add_command(plugin)
 load_plugins(cli)
 

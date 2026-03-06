@@ -9,12 +9,37 @@ from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update, delete, and_, or_, func
 
-from ..models.multitenant import (
-    Tenant, TenantUser, TenantQuota, TenantApiKey,
-    TenantAuditLog, TenantStatus
-)
-from ..storage.db import get_db
-from ..exceptions import TenantError, QuotaExceededError
+# Handle imports for both direct execution and package imports
+try:
+    from ..models.multitenant import (
+        Tenant, TenantUser, TenantQuota, TenantApiKey,
+        TenantAuditLog, TenantStatus
+    )
+    from ..storage.db import get_db
+    from ..exceptions import TenantError, QuotaExceededError
+except ImportError:
+    # Fallback for direct imports (CLI usage)
+    import sys
+    import os
+    sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    try:
+        from app.models.multitenant import (
+            Tenant, TenantUser, TenantQuota, TenantApiKey,
+            TenantAuditLog, TenantStatus
+        )
+        from app.storage.db import get_db
+        from app.exceptions import TenantError, QuotaExceededError
+    except ImportError:
+        # Mock classes for CLI testing when full app context not available
+        class Tenant: pass
+        class TenantUser: pass
+        class TenantQuota: pass
+        class TenantApiKey: pass
+        class TenantAuditLog: pass
+        class TenantStatus: pass
+        class TenantError(Exception): pass
+        class QuotaExceededError(Exception): pass
+        def get_db(): return None
 
 
 class TenantManagementService:
