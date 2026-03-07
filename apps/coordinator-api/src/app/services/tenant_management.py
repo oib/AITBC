@@ -695,7 +695,7 @@ class TenantManagementService:
         resource_id: Optional[str] = None,
         old_values: Optional[Dict[str, Any]] = None,
         new_values: Optional[Dict[str, Any]] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        event_metadata: Optional[Dict[str, Any]] = None
     ):
         """Log an audit event"""
         
@@ -709,7 +709,7 @@ class TenantManagementService:
             resource_id=resource_id,
             old_values=old_values,
             new_values=new_values,
-            metadata=metadata
+            event_metadata=event_metadata
         )
         
         self.db.add(audit_log)
