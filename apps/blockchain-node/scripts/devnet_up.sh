@@ -25,9 +25,9 @@ echo "[devnet] Blockchain node started (PID ${CHILD_PIDS[-1]})"
 
 sleep 1
 
-python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8080 --log-level info &
+python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026 --log-level info &
 CHILD_PIDS+=($!)
-echo "[devnet] RPC API serving at http://127.0.0.1:8080" 
+echo "[devnet] RPC API serving at http://127.0.0.1:8026" 
 
 python -m uvicorn mock_coordinator:app --host 127.0.0.1 --port 8090 --log-level info &
 CHILD_PIDS+=($!)
