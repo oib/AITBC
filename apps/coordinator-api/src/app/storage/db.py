@@ -98,10 +98,6 @@ def get_session():
     with Session(engine) as session:
         yield session
 
-# Annotated dependency for FastAPI/Pydantic compatibility
-SessionDep = Annotated[Session, Depends(get_session)]
-
-
 # Async support for future use
 async def get_async_engine() -> AsyncEngine:
     """Get or create async database engine."""

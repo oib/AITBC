@@ -1,6 +1,6 @@
+from __future__ import annotations
 from sqlalchemy.orm import Session
 from typing import Annotated
-from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address
 
 from ..schemas import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceStatsView, MarketplaceBidView
 from ..services import MarketplaceService
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..metrics import marketplace_requests_total, marketplace_errors_total
 from ..utils.cache import cached, get_cache_config
 from ..config import settings
@@ -20,7 +20,7 @@ limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["marketplace"])
 
 
-def _get_service(session: Annotated[Session, Depends(get_session)] = Depends()) -> MarketplaceService:
+def _get_service(session: Annotated[Session, Depends(get_session)]) -> MarketplaceService:
     return MarketplaceService(session)
 
 
@@ -33,7 +33,7 @@ def _get_service(session: Annotated[Session, Depends(get_session)] = Depends()) 
 async def list_marketplace_offers(
     request: Request,
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     status_filter: str | None = Query(default=None, alias="status", description="Filter by offer status"),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -60,7 +60,7 @@ async def list_marketplace_offers(
 async def get_marketplace_stats(
     request: Request,
     *, 
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> MarketplaceStatsView:
     marketplace_requests_total.labels(endpoint="/marketplace/stats", method="GET").inc()
     service = _get_service(session)
@@ -80,7 +80,7 @@ async def get_marketplace_stats(
 async def submit_marketplace_bid(
     request: Request,
     payload: MarketplaceBidRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, str]:
     marketplace_requests_total.labels(endpoint="/marketplace/bids", method="POST").inc()
     service = _get_service(session)
@@ -102,7 +102,7 @@ async def submit_marketplace_bid(
 )
 async def list_marketplace_bids(
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     status_filter: str | None = Query(default=None, alias="status", description="Filter by bid status"),
     provider_filter: str | None = Query(default=None, alias="provider", description="Filter by provider ID"),
     limit: int = Query(default=100, ge=1, le=500),
@@ -127,7 +127,7 @@ async def list_marketplace_bids(
 )
 async def get_marketplace_bid(
     bid_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
 ) -> MarketplaceBidView:
     marketplace_requests_total.labels(endpoint="/marketplace/bids/{bid_id}", method="GET").inc()
     service = _get_service(session)

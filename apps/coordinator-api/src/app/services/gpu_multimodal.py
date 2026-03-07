@@ -17,7 +17,7 @@ import numpy as np
 from datetime import datetime
 import time
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from .multimodal_agent import ModalityType, ProcessingMode
 
 logger = get_logger(__name__)
@@ -289,7 +289,7 @@ class GPUAttentionOptimizer:
 class GPUAcceleratedMultiModal:
     """GPU-accelerated multi-modal processing with enhanced CUDA optimization"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._cuda_available = self._check_cuda_availability()

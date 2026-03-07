@@ -14,7 +14,7 @@ from enum import Enum
 import numpy as np
 import json
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 
 logger = get_logger(__name__)
@@ -390,7 +390,7 @@ class ReinforcementLearningAgent:
 class AdaptiveLearningService:
     """Service for adaptive learning systems"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.learning_agents = {}
         self.environments = {}

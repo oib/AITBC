@@ -172,17 +172,19 @@ def details(ctx, gpu_id: str):
 
 @gpu.command()
 @click.argument("gpu_id")
-@click.option("--hours", type=float, required=True, help="Rental duration in hours")
+@click.option("--duration", type=float, required=True, help="Rental duration in hours")
+@click.option("--total-cost", type=float, required=True, help="Total cost")
 @click.option("--job-id", help="Job ID to associate with rental")
 @click.pass_context
-def book(ctx, gpu_id: str, hours: float, job_id: Optional[str]):
+def book(ctx, gpu_id: str, duration: float, total_cost: float, job_id: Optional[str]):
     """Book a GPU"""
     config = ctx.obj['config']
     
     try:
         booking_data = {
             "gpu_id": gpu_id,
-            "duration_hours": hours
+            "duration_hours": duration,
+            "total_cost": total_cost
         }
         if job_id:
             booking_data["job_id"] = job_id

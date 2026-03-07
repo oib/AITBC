@@ -16,7 +16,7 @@ from ..domain.agent import (
     AgentStatus, VerificationLevel
 )
 from ..services.agent_service import AIAgentOrchestrator
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session, select
 

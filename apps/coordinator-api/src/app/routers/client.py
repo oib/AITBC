@@ -11,7 +11,7 @@ from ..types import JobState
 from ..services import JobService
 from ..services.payments import PaymentService
 from ..config import settings
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 
 limiter = Limiter(key_func=get_remote_address)
@@ -23,7 +23,7 @@ router = APIRouter(tags=["client"])
 async def submit_job(
     req: JobCreate,
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
     service = JobService(session)
@@ -51,7 +51,7 @@ async def submit_job(
 @cached(**get_cache_config("job_list"))  # Cache job status for 1 minute
 async def get_job(
     job_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
     service = JobService(session)
@@ -65,7 +65,7 @@ async def get_job(
 @router.get("/jobs/{job_id}/result", response_model=JobResult, summary="Get job result")
 async def get_job_result(
     job_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobResult:  # type: ignore[arg-type]
     service = JobService(session)
@@ -84,7 +84,7 @@ async def get_job_result(
 @router.post("/jobs/{job_id}/cancel", response_model=JobView, summary="Cancel job")
 async def cancel_job(
     job_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
     service = JobService(session)
@@ -103,7 +103,7 @@ async def cancel_job(
 @router.get("/jobs/{job_id}/receipt", summary="Get latest signed receipt")
 async def get_job_receipt(
     job_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> dict:  # type: ignore[arg-type]
     service = JobService(session)
@@ -119,7 +119,7 @@ async def get_job_receipt(
 @router.get("/jobs/{job_id}/receipts", summary="List signed receipts")
 async def list_job_receipts(
     job_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> dict:  # type: ignore[arg-type]
     service = JobService(session)
@@ -131,7 +131,7 @@ async def list_job_receipts(
 @cached(**get_cache_config("job_list"))  # Cache job list for 30 seconds
 async def list_jobs(
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
     limit: int = 20,
     offset: int = 0,
@@ -171,7 +171,7 @@ async def list_jobs(
 @cached(**get_cache_config("job_list"))  # Cache job history for 30 seconds
 async def get_job_history(
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
     limit: int = 20,
     offset: int = 0,
@@ -227,7 +227,7 @@ async def get_job_history(
 @router.get("/blocks", summary="Get blockchain blocks")
 async def get_blocks(
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
     limit: int = 20,
     offset: int = 0,

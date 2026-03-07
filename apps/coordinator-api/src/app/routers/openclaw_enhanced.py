@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 from ..services.openclaw_enhanced import OpenClawEnhancedService, SkillType, ExecutionMode
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from ..schemas.openclaw_enhanced import (
     SkillRoutingRequest, SkillRoutingResponse,

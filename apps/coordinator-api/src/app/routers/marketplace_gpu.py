@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import select, func, col
 from sqlalchemy.orm import Session
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..domain.gpu_marketplace import GPURegistry, GPUBooking, GPUReview
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..services.market_data_collector import MarketDataCollector
@@ -132,7 +132,7 @@ def _get_gpu_or_404(session, gpu_id: str) -> GPURegistry:
 @router.post("/marketplace/gpu/register")
 async def register_gpu(
     request: Dict[str, Any],
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> Dict[str, Any]:
     """Register a GPU in the marketplace with dynamic pricing."""
@@ -187,7 +187,7 @@ async def register_gpu(
 
 @router.get("/marketplace/gpu/list")
 async def list_gpus(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     available: Optional[bool] = Query(default=None),
     price_max: Optional[float] = Query(default=None),
     region: Optional[str] = Query(default=None),
@@ -213,7 +213,7 @@ async def list_gpus(
 
 
 @router.get("/marketplace/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """Get GPU details."""
     gpu = _get_gpu_or_404(session, gpu_id)
     result = _gpu_to_dict(gpu)
@@ -239,7 +239,7 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
 async def book_gpu(
     gpu_id: str, 
     request: GPUBookRequest, 
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> Dict[str, Any]:
     """Book a GPU with dynamic pricing."""
@@ -321,7 +321,7 @@ async def book_gpu(
 
 
 @router.post("/marketplace/gpu/{gpu_id}/release")
-async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
@@ -465,7 +465,7 @@ async def send_payment(
 @router.get("/marketplace/gpu/{gpu_id}/reviews")
 async def get_gpu_reviews(
     gpu_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=10, ge=1, le=100),
 ) -> Dict[str, Any]:
     """Get GPU reviews."""
@@ -495,7 +495,7 @@ async def get_gpu_reviews(
 
 @router.post("/marketplace/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
 async def add_gpu_review(
-    gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)] = Depends()
+    gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Add a review for a GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
@@ -532,7 +532,7 @@ async def add_gpu_review(
 
 @router.get("/marketplace/orders")
 async def list_orders(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
 ) -> List[Dict[str, Any]]:
@@ -563,7 +563,7 @@ async def list_orders(
 @router.get("/marketplace/pricing/{model}")
 async def get_pricing(
     model: str, 
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
     collector: MarketDataCollector = Depends(get_market_collector)
 ) -> Dict[str, Any]:

@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .modality_optimization import ModalityOptimizationManager, OptimizationStrategy, ModalityType
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..routers.modality_optimization_health import router as health_router
 
 app = FastAPI(
@@ -37,7 +37,7 @@ async def optimize_modality(
     modality: str,
     data: dict,
     strategy: str = "balanced",
-    session: Annotated[Session, Depends(get_session)] = Depends() = None
+    session: Annotated[Session, Depends(get_session)] = None
 ):
     """Optimize specific modality"""
     manager = ModalityOptimizationManager(session)
@@ -52,7 +52,7 @@ async def optimize_modality(
 async def optimize_multimodal(
     multimodal_data: dict,
     strategy: str = "balanced",
-    session: Annotated[Session, Depends(get_session)] = Depends() = None
+    session: Annotated[Session, Depends(get_session)] = None
 ):
     """Optimize multiple modalities"""
     manager = ModalityOptimizationManager(session)

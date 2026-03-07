@@ -11,14 +11,14 @@ from sqlmodel import Session, select
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer, Miner
 from ..schemas import MarketplaceOfferView
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 router = APIRouter(tags=["marketplace-offers"])
 
 
 @router.post("/marketplace/sync-offers", summary="Create offers from registered miners")
 async def sync_offers(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     admin_key: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:
     """Create marketplace offers from all registered miners"""
@@ -66,7 +66,7 @@ async def sync_offers(
 
 
 @router.get("/marketplace/miner-offers", summary="List all miner offers", response_model=list[MarketplaceOfferView])
-async def list_miner_offers(session: Annotated[Session, Depends(get_session)] = Depends()) -> list[MarketplaceOfferView]:
+async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -> list[MarketplaceOfferView]:
     """List all offers created from miners"""
     
     # Get all offers with miner details

@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from ..services.marketplace_enhanced_simple import EnhancedMarketplaceService, RoyaltyTier, LicenseType, VerificationType
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session
 

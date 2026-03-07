@@ -13,7 +13,7 @@ from datetime import datetime
 import json
 
 from ..schemas import UserProfile
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 router = APIRouter(tags=["zk-applications"])
 
@@ -50,7 +50,7 @@ class ZKComputationRequest(BaseModel):
 @router.post("/zk/identity/commit")
 async def create_identity_commitment(
     user: UserProfile,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     salt: Optional[str] = None
 ) -> Dict[str, str]:
     """Create a privacy-preserving identity commitment"""
@@ -74,7 +74,7 @@ async def create_identity_commitment(
 @router.post("/zk/membership/verify")
 async def verify_group_membership(
     request: ZKMembershipRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """
     Verify that a user is a member of a group without revealing which user
@@ -113,7 +113,7 @@ async def verify_group_membership(
 @router.post("/zk/marketplace/private-bid")
 async def submit_private_bid(
     request: PrivateBidRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, str]:
     """
     Submit a bid to the marketplace without revealing the amount
@@ -139,7 +139,7 @@ async def submit_private_bid(
 @router.get("/zk/marketplace/auctions/{auction_id}/bids")
 async def get_auction_bids(
     auction_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     reveal: bool = False
 ) -> Dict[str, Any]:
     """
@@ -178,7 +178,7 @@ async def get_auction_bids(
 @router.post("/zk/computation/verify")
 async def verify_computation_proof(
     request: ZKComputationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """
     Verify that an AI computation was performed correctly without revealing inputs
