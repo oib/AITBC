@@ -47,25 +47,24 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 └──────────────────────────────────────────────┘
 ```
 
-## Port Logic Implementation (Updated March 6, 2026)
+## Port Logic Implementation (Updated March 7, 2026)
 
-### **Core Services (8000-8002)**
+### **Core Services (8000-8001) - AT1 STANDARD REFERENCE**
 - **Port 8000**: Coordinator API ✅ PRODUCTION READY
-- **Port 8001**: Exchange API ✅ PRODUCTION READY  
-- **Port 8002**: Wallet Service ✅ PRODUCTION READY (aitbc-wallet.service - localhost + containers)  
+- **Port 8001**: Exchange API ✅ PRODUCTION READY (127.0.0.1 binding)
 
-### **Blockchain Services (8005-8006)**
-- **Port 8005**: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service - localhost + containers)
-- **Port 8006**: Primary Blockchain RPC ✅ PRODUCTION READY (aitbc-blockchain-rpc.service - localhost + containers)
+### **Blockchain Services (8005-8006) - AT1 STANDARD REFERENCE**
+- **Port 8005**: Primary Blockchain Node ✅ PRODUCTION READY (aitbc-blockchain-node.service)
+- **Port 8006**: Primary Blockchain RPC ✅ PRODUCTION READY (aitbc-blockchain-rpc.service)
 
-### **Level 2 Services (8010-8017) - NEW STANDARD**
+### **Enhanced Services (8010-8017) - CPU-ONLY MODE**
 - **Port 8010**: Multimodal GPU Service ✅ PRODUCTION READY (CPU-only mode)
 - **Port 8011**: GPU Multimodal Service ✅ PRODUCTION READY (CPU-only mode)
 - **Port 8012**: Modality Optimization Service ✅ PRODUCTION READY
 - **Port 8013**: Adaptive Learning Service ✅ PRODUCTION READY
 - **Port 8014**: Marketplace Enhanced Service ✅ PRODUCTION READY
 - **Port 8015**: OpenClaw Enhanced Service ✅ PRODUCTION READY
-- **Port 8016**: Blockchain Explorer Service ✅ PRODUCTION READY (agent-first unified interface - TypeScript merged and deleted)
+- **Port 8016**: Blockchain Explorer Service ✅ PRODUCTION READY
 - **Port 8017**: Geographic Load Balancer ✅ PRODUCTION READY
 
 ### **Mock & Test Services (8020-8029)**

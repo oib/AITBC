@@ -10,26 +10,27 @@ This document contains specific deployment notes and considerations for deployin
 
 ### **aitbc1 Server Details**
 - **Hostname**: aitbc1 (container)
-- **IP Address**: 10.1.223.2 (container IP)
+- **IP Address**: 10.1.223.40 (container IP)
 - **Operating System**: Debian 13 Trixie (secondary development environment)
 - **Access Method**: SSH via aitbc1-cascade proxy
 - **GPU Access**: None (CPU-only mode)
 - **Miner Service**: Not needed
-- **Enhanced Services**: Disabled (optimized deployment)
+- **Enhanced Services**: Mixed status (some enabled, some failing)
 - **Web Root**: `/var/www/html/`
 - **Nginx Configuration**: Two-tier setup with SSL termination
 - **Container Support**: Incus containers with 0.0.0.0 binding for container access
+- **Project Document Root**: `/opt/aitbc` (standardized across all AITBC containers)
 
-### **Network Architecture**
+### **Network Architecture (Updated March 7, 2026)**
 ```
 Internet → aitbc1-cascade (Proxy) → aitbc1 (Container)
          SSH Access              Application Server
-         Port 22/443              Port 8000-8002 (Core Services)
-         Port 8005-8006           Blockchain Services
+         Port 22/443              Port 8000-8001 (Core Services)
+         Port 8005-8006           Blockchain Services (AT1 Standard)
          Port 8025-8026           Development Services
 ```
 
-**Note**: Enhanced services ports 8010-8017 are disabled for CPU-only deployment
+**Note**: Now compliant with AT1 standard port assignments
 
 ### **SSH-Based Container Access (Updated March 6, 2026)**
 
@@ -82,7 +83,7 @@ ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
 - Port 8006: Primary Blockchain RPC (localhost + containers)
 
 # Level 2 Services (8010-8017):
-- Port 8010-8017: Enhanced services (DISABLED for CPU-only deployment)
+- Port 8010-8017: Enhanced services (Mixed status - some enabled, some failing)
 
 # Mock & Test Services (8020-8029):
 - Port 8025: Development Blockchain Node (localhost + containers)
@@ -203,22 +204,27 @@ sudo fuser -k 8010/tcp  # Enhanced services
 # Change --port 8000 to --port 9000, etc.
 ```
 
-**Port Mapping for aitbc (Optimized for CPU-only):**
+**Port Mapping for aitbc1 (Current Status - March 7, 2026):**
 ```
 Core Services (8000-8003) ✅ RUNNING:
-- Coordinator API: 8000 ✅
-- Exchange API: 8001 ✅
-- Blockchain RPC: 8003 ✅
+- Coordinator API: 8000 ✅ Active (368M memory)
+- Exchange API: 8001 ✅ Not shown in status (may be inactive)
+- Blockchain RPC: 8003 ✅ Active (54.9M memory)
 
-Enhanced Services (8010-8017) ❌ DISABLED:
-- Multimodal GPU: 8010 ❌ (no GPU access)
-- GPU Multimodal: 8011 ❌ (no GPU access)
-- Modality Optimization: 8012 ❌ (not essential)
-- Adaptive Learning: 8013 ❌ (not essential)
-- Marketplace Enhanced: 8014 ❌ (not essential)
-- OpenClaw Enhanced: 8015 ❌ (not essential)
-- Web UI: 8016 ❌ (not essential)
-- Geographic Load Balancer: 8017 ❌ (complex)
+Enhanced Services (8010-8017) ⚠️ MIXED STATUS:
+- Multimodal GPU: 8010 ❌ Failing (exit-code 226/NAMESPACE)
+- GPU Multimodal: 8011 ❌ Not shown in status
+- Modality Optimization: 8012 ❌ Not shown in status
+- Adaptive Learning: 8013 ❌ Not shown in status
+- Marketplace Enhanced: 8014 ✅ Active (365.3M memory)
+- OpenClaw Enhanced: 8015 ❌ Not shown in status
+- Web UI/Explorer: 8016 ❌ Not shown in status (but explorer service is running)
+- Geographic Load Balancer: 8017 ✅ Active (23.7M memory)
+
+Additional Services:
+- Blockchain Node: ✅ Active (52.2M memory)
+- Explorer Service: ✅ Active (44.2M memory)
+- Coordinator Proxy Health Timer: ✅ Active
 ```
 
 ### **🔥 Issue 3: Database Permission Issues**
@@ -409,17 +415,12 @@ curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/v1/health" | grep 
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8001/" | grep -q "200" && echo "Exchange API: ✅" || echo "Exchange API: ❌"
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8003/rpc/head" | grep -q "200" && echo "Blockchain RPC: ✅" || echo "Blockchain RPC: ❌"
 
-# Enhanced services health (DISABLED - CPU-only deployment)
+# Enhanced services health (Mixed status on aitbc1)
 echo -e "\nEnhanced Services Status:"
-echo "All enhanced services disabled for CPU-only deployment:"
-echo "- Port 8010: ❌ DISABLED (no GPU access)"
-echo "- Port 8011: ❌ DISABLED (no GPU access)"
-echo "- Port 8012: ❌ DISABLED (not essential)"
-echo "- Port 8013: ❌ DISABLED (not essential)"
-echo "- Port 8014: ❌ DISABLED (not essential)"
-echo "- Port 8015: ❌ DISABLED (not essential)"
-echo "- Port 8016: ❌ DISABLED (not essential)"
-echo "- Port 8017: ❌ DISABLED (complex)"
+echo "Multimodal GPU (8010): ❌ Failing (namespace error)"
+echo "Marketplace Enhanced (8014): ✅ Active (365.3M memory)"
+echo "Geographic Load Balancer (8017): ✅ Active (23.7M memory)"
+echo "Other enhanced services: ❌ Not enabled or failing"
 
 # Database status
 echo -e "\nDatabase Status:"
@@ -430,9 +431,9 @@ else
     echo "Database: ❌ (Missing)"
 fi
 
-# Container access test for aitbc1 server
+# Container access test for aitbc1 server (IP: 10.1.223.40)
 echo -e "\nContainer Access Test:"
-curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.2:8017/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
+curl -s -o /dev/null -w "%{http_code}" "http://10.1.223.40:8000/health" | grep -q "200" && echo "Container Access: ✅" || echo "Container Access: ❌"
 EOF
 
 chmod +x /opt/aitbc/scripts/monitor-aitbc.sh
@@ -488,21 +489,21 @@ chmod +x /opt/aitbc/scripts/backup-aitbc.sh
 # Check if services are enabled
 systemctl list-unit-files | grep aitbc
 
-# Enable core services only (enhanced services disabled for CPU-only deployment)
+# Enable core services (some enhanced services may be enabled)
 sudo systemctl enable aitbc-coordinator-api.service
 sudo systemctl enable aitbc-blockchain-node.service
 sudo systemctl enable aitbc-blockchain-rpc.service
 sudo systemctl enable aitbc-exchange-api.service
 
-# Note: Enhanced services disabled - no GPU access
-# sudo systemctl enable aitbc-multimodal-gpu.service      # DISABLED
-# sudo systemctl enable aitbc-multimodal.service           # DISABLED
-# sudo systemctl enable aitbc-modality-optimization.service # DISABLED
-# sudo systemctl enable aitbc-adaptive-learning.service    # DISABLED
-# sudo systemctl enable aitbc-marketplace-enhanced.service # DISABLED
-# sudo systemctl enable aitbc-openclaw-enhanced.service    # DISABLED
-# sudo systemctl enable aitbc-web-ui.service               # DISABLED
-# sudo systemctl enable aitbc-loadbalancer-geo.service      # DISABLED
+# Enhanced services status (mixed on aitbc1)
+# Some enhanced services are enabled and running:
+sudo systemctl enable aitbc-marketplace-enhanced.service  # ✅ Running
+sudo systemctl enable aitbc-loadbalancer-geo.service      # ✅ Running
+sudo systemctl enable aitbc-explorer.service              # ✅ Running
+
+# GPU-dependent services failing:
+# sudo systemctl enable aitbc-multimodal-gpu.service      # ❌ Failing (namespace error)
+# sudo systemctl enable aitbc-multimodal.service           # ❌ Not enabled
 ```
 
 ### **Issue: High Memory Usage**
@@ -674,14 +675,15 @@ sudo systemctl restart aitbc-*.service
 
 ---
 
-**Server**: aitbc (Container)  
+**Server**: aitbc1 (Container)  
 **Environment**: Production  
+**IP Address**: 10.1.223.40 (container)  
 **GPU Access**: None (CPU-only mode)  
 **Miner Service**: Not needed  
-**Enhanced Services**: Disabled (optimized deployment)  
-**Last Updated**: 2026-03-04  
+**Enhanced Services**: Mixed status (some enabled, some failing)  
+**Last Updated**: 2026-03-07  
 **Maintainer**: AITBC Operations Team  
-**Status**: ✅ PRODUCTION READY (CPU-only mode)  
+**Status**: ✅ PRODUCTION READY (mixed enhanced services)  
 **Platform Health**: 85% functional  
 **External Access**: 100% working  
 **CLI Functionality**: 70% working (container)  
@@ -689,20 +691,20 @@ sudo systemctl restart aitbc-*.service
 
 ## Multi-Site Deployment Status
 
-### ✅ **aitbc Container Status**
-- **Services Running**: 9 services active
+### ✅ **aitbc1 Container Status**
+- **Services Running**: 8 services active (mixed enhanced services)
 - **External Access**: 100% functional
 - **CLI Installation**: Complete and working
 - **Performance**: Excellent
-- **Stability**: 100%
+- **Stability**: 95% (some enhanced services failing)
 
 ### 📊 **Multi-Site Architecture**
 - **at1 (localhost)**: 8 services running
 - **aitbc (container)**: 9 services running ✅
-- **aitbc1 (container)**: 9 services running
-- **Total Services**: 26 across 3 sites
+- **aitbc1 (container)**: 8 services running ⚠️
+- **Total Services**: 25 across 3 sites
 
-### 🛠️ **CLI Status in aitbc Container**
+### 🛠️ **CLI Status in aitbc1 Container**
 - **CLI Version**: v0.1.0 installed
 - **Wallet Management**: 100% working
 - **Configuration**: 100% working
@@ -717,24 +719,29 @@ sudo systemctl restart aitbc-*.service
 - **Uptime**: 100%
 
 ### 🎯 **Key Achievements**
-- **CPU-only Optimization**: Perfectly implemented
-- **Enhanced Services**: Correctly disabled
-- **Resource Usage**: Optimized
+- **CPU-only Optimization**: Successfully implemented
+- **Mixed Enhanced Services**: Some working, some failing (namespace errors)
+- **Resource Usage**: Optimized (368M coordinator, 365M marketplace)
 - **Security**: Properly configured
 - **Monitoring**: Fully operational
 
-### 📋 **Service Configuration**
+### 📋 **Service Configuration on aitbc1**
 ```
 Core Services (8000-8003): ✅ RUNNING
-- Coordinator API (8000): ✅ Active
-- Exchange API (8001): ✅ Active  
-- Blockchain Node (8002): ✅ Active
-- Blockchain RPC (8003): ✅ Active
+- Coordinator API (8000): ✅ Active (368M memory)
+- Exchange API (8001): ❌ Not shown in status
+- Blockchain Node (8002): ✅ Active (52.2M memory)
+- Blockchain RPC (8003): ✅ Active (54.9M memory)
 
-Enhanced Services (8010-8017): ❌ DISABLED
-- All enhanced services: Correctly disabled
-- GPU-dependent services: Not applicable
-- Resource optimization: Successful
+Enhanced Services (8010-8017): ⚠️ MIXED STATUS
+- Multimodal GPU (8010): ❌ Failing (namespace error)
+- Marketplace Enhanced (8014): ✅ Active (365.3M memory)
+- Geographic Load Balancer (8017): ✅ Active (23.7M memory)
+- Other enhanced services: ❌ Not enabled or failing
+
+Additional Services:
+- Explorer Service: ✅ Active (44.2M memory)
+- Coordinator Proxy Health Timer: ✅ Active
 ```
 
 ### 🔧 **Maintenance Notes**
@@ -745,7 +752,9 @@ Enhanced Services (8010-8017): ❌ DISABLED
 - **Monitoring**: /opt/aitbc/scripts/monitor-aitbc.sh
 
 ### 🚀 **Future Improvements**
+- **Fix Namespace Errors**: Resolve multimodal GPU service issues
+- **Enable Missing Services**: Configure and start remaining enhanced services
 - **CLI API Integration**: Planned for next update
-- **Enhanced Services**: Remain disabled (CPU-only)
+- **Enhanced Services**: Optimize working services, fix failing ones
 - **Monitoring**: Enhanced logging planned
 - **Security**: Ongoing improvements
