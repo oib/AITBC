@@ -788,3 +788,71 @@ class EnterpriseIntegrationFramework:
 
 # Global integration framework instance
 integration_framework = EnterpriseIntegrationFramework()
+
+# CLI Interface Functions
+def create_tenant(name: str, domain: str) -> str:
+    """Create a new tenant"""
+    return api_gateway.create_tenant(name, domain)
+
+def get_tenant_info(tenant_id: str) -> Optional[Dict[str, Any]]:
+    """Get tenant information"""
+    tenant = api_gateway.get_tenant(tenant_id)
+    if tenant:
+        return {
+            "tenant_id": tenant.tenant_id,
+            "name": tenant.name,
+            "domain": tenant.domain,
+            "status": tenant.status.value,
+            "created_at": tenant.created_at.isoformat(),
+            "features": tenant.features
+        }
+    return None
+
+def generate_api_key(tenant_id: str) -> str:
+    """Generate API key for tenant"""
+    return security_manager.generate_api_key(tenant_id)
+
+def register_integration(tenant_id: str, name: str, integration_type: str, config: Dict[str, Any]) -> str:
+    """Register third-party integration"""
+    return integration_framework.register_integration(tenant_id, name, IntegrationType(integration_type), config)
+
+def get_system_status() -> Dict[str, Any]:
+    """Get enterprise integration system status"""
+    return {
+        "tenants": len(api_gateway.tenants),
+        "endpoints": len(api_gateway.endpoints),
+        "integrations": len(api_gateway.integrations),
+        "security_events": len(api_gateway.security_events),
+        "system_health": "operational"
+    }
+
+def list_tenants() -> List[Dict[str, Any]]:
+    """List all tenants"""
+    return [
+        {
+            "tenant_id": tenant.tenant_id,
+            "name": tenant.name,
+            "domain": tenant.domain,
+            "status": tenant.status.value,
+            "features": tenant.features
+        }
+        for tenant in api_gateway.tenants.values()
+    ]
+
+def list_integrations(tenant_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """List integrations"""
+    integrations = api_gateway.integrations.values()
+    if tenant_id:
+        integrations = [i for i in integrations if i.tenant_id == tenant_id]
+
+    return [
+        {
+            "integration_id": i.integration_id,
+            "name": i.name,
+            "type": i.type.value,
+            "tenant_id": i.tenant_id,
+            "status": i.status,
+            "created_at": i.created_at.isoformat()
+        }
+        for i in integrations
+    ]
