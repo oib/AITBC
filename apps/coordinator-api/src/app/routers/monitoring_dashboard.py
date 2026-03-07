@@ -1,3 +1,4 @@
+from typing import Annotated
 """
 Enhanced Services Monitoring Dashboard
 Provides a unified dashboard for all 6 enhanced services
@@ -11,7 +12,7 @@ import asyncio
 import httpx
 from typing import Dict, Any, List
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..logging import get_logger
 
 logger = get_logger(__name__)
@@ -68,7 +69,7 @@ SERVICES = {
 
 
 @router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
-async def monitoring_dashboard(request: Request, session: SessionDep) -> Dict[str, Any]:
+async def monitoring_dashboard(request: Request, session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
     """
     Unified monitoring dashboard for all enhanced services
     """

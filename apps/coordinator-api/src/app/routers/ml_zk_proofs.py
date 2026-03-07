@@ -1,5 +1,7 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.zk_proofs import ZKProofService
 from ..services.fhe_service import FHEService
 

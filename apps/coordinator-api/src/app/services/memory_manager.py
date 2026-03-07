@@ -1,3 +1,6 @@
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Memory Manager Service for Agent Memory Operations
 Handles memory lifecycle management, versioning, and optimization
@@ -12,7 +15,7 @@ from enum import Enum
 import json
 
 from .ipfs_storage_service import IPFSStorageService, MemoryMetadata, IPFSUploadResult
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 logger = get_logger(__name__)
 

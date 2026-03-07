@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Marketplace Analytics API Endpoints
 REST API for analytics, insights, reporting, and dashboards
@@ -9,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.analytics_service import MarketplaceAnalytics
 from ..domain.analytics import (
     MarketMetric, MarketInsight, AnalyticsReport, DashboardConfig,
@@ -109,7 +111,7 @@ class AnalyticsSummaryResponse(BaseModel):
 @router.post("/data-collection", response_model=AnalyticsSummaryResponse)
 async def collect_market_data(
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Collection period"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> AnalyticsSummaryResponse:
     """Collect market data for analytics"""
     
@@ -131,7 +133,7 @@ async def get_market_insights(
     insight_type: Optional[str] = Query(default=None, description="Filter by insight type"),
     impact_level: Optional[str] = Query(default=None, description="Filter by impact level"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get market insights and analysis"""
     
@@ -169,7 +171,7 @@ async def get_market_metrics(
     category: Optional[str] = Query(default=None, description="Filter by category"),
     geographic_region: Optional[str] = Query(default=None, description="Filter by region"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> List[MetricResponse]:
     """Get market metrics with filters"""
     
@@ -213,7 +215,7 @@ async def get_market_metrics(
 
 @router.get("/overview", response_model=MarketOverviewResponse)
 async def get_market_overview(
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
     
@@ -234,7 +236,7 @@ async def create_dashboard(
     owner_id: str,
     dashboard_type: str = Query(default="default", description="Dashboard type: default, executive"),
     name: Optional[str] = Query(default=None, description="Custom dashboard name"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> DashboardResponse:
     """Create analytics dashboard"""
     
@@ -275,7 +277,7 @@ async def create_dashboard(
 @router.get("/dashboards/{dashboard_id}", response_model=DashboardResponse)
 async def get_dashboard(
     dashboard_id: str,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> DashboardResponse:
     """Get dashboard configuration"""
     
@@ -316,7 +318,7 @@ async def list_dashboards(
     dashboard_type: Optional[str] = Query(default=None, description="Filter by dashboard type"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> List[DashboardResponse]:
     """List analytics dashboards with filters"""
     
@@ -361,7 +363,7 @@ async def list_dashboards(
 @router.post("/reports", response_model=Dict[str, Any])
 async def generate_report(
     report_request: ReportRequest,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Generate analytics report"""
     
@@ -435,7 +437,7 @@ async def generate_report(
 async def get_report(
     report_id: str,
     format: str = Query(default="json", description="Response format: json, csv, pdf"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get generated analytics report"""
     
@@ -489,7 +491,7 @@ async def get_analytics_alerts(
     severity: Optional[str] = Query(default=None, description="Filter by severity level"),
     status: Optional[str] = Query(default="active", description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> List[Dict[str, Any]]:
     """Get analytics alerts"""
     
@@ -534,7 +536,7 @@ async def get_analytics_alerts(
 @router.get("/kpi")
 async def get_key_performance_indicators(
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get key performance indicators"""
     

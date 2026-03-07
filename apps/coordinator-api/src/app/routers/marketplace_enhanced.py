@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Enhanced Marketplace API Router - Phase 6.5
 REST API endpoints for advanced marketplace features including royalties, licensing, and analytics
@@ -11,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..domain import MarketplaceOffer
 from ..services.marketplace_enhanced import EnhancedMarketplaceService, RoyaltyTier, LicenseType
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..deps import require_admin_key
 from ..schemas.marketplace_enhanced import (
     RoyaltyDistributionRequest, RoyaltyDistributionResponse,
@@ -29,7 +31,7 @@ router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"]
 async def create_royalty_distribution(
     offer_id: str,
     royalty_tiers: RoyaltyDistributionRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Create sophisticated royalty distribution for marketplace offer"""
@@ -67,7 +69,7 @@ async def calculate_royalties(
     offer_id: str,
     sale_amount: float,
     transaction_id: Optional[str] = None,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Calculate and distribute royalties for a sale"""
@@ -99,7 +101,7 @@ async def calculate_royalties(
 async def create_model_license(
     offer_id: str,
     license_request: ModelLicenseRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Create model license and IP protection"""
@@ -140,7 +142,7 @@ async def create_model_license(
 async def verify_model(
     offer_id: str,
     verification_request: ModelVerificationRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Perform advanced model verification"""
@@ -177,7 +179,7 @@ async def verify_model(
 async def get_marketplace_analytics(
     period_days: int = 30,
     metrics: Optional[List[str]] = None,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Get comprehensive marketplace analytics"""

@@ -1,12 +1,15 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
+from fastapi import Depends
 from typing import List, Optional
 from sqlmodel import select
 from ..domain.gpu_marketplace import ConsumerGPUProfile, GPUArchitecture, EdgeGPUMetrics
 from ..data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 
 class EdgeGPUService:
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
 
     def list_profiles(

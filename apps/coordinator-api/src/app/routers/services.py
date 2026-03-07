@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Services router for specific GPU workloads
 """
@@ -20,7 +22,7 @@ from ..models.services import (
 )
 # from ..models.registry import ServiceRegistry, service_registry
 from ..services import JobService
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 router = APIRouter(tags=["services"])
 
@@ -35,7 +37,7 @@ router = APIRouter(tags=["services"])
 async def submit_service_job(
     service_type: ServiceType,
     request_data: Dict[str, Any],
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
     user_agent: str = Header(None),
 ) -> ServiceResponse:
@@ -118,7 +120,7 @@ async def submit_service_job(
 )
 async def whisper_transcribe(
     request: WhisperRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Transcribe audio file using Whisper"""
@@ -153,7 +155,7 @@ async def whisper_transcribe(
 )
 async def whisper_translate(
     request: WhisperRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Translate audio file using Whisper"""
@@ -191,7 +193,7 @@ async def whisper_translate(
 )
 async def stable_diffusion_generate(
     request: StableDiffusionRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Generate images using Stable Diffusion"""
@@ -226,7 +228,7 @@ async def stable_diffusion_generate(
 )
 async def stable_diffusion_img2img(
     request: StableDiffusionRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Image-to-image generation using Stable Diffusion"""
@@ -265,7 +267,7 @@ async def stable_diffusion_img2img(
 )
 async def llm_inference(
     request: LLMRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Run inference on a language model"""
@@ -298,7 +300,7 @@ async def llm_inference(
 )
 async def llm_stream(
     request: LLMRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ):
     """Stream LLM inference response"""
@@ -338,7 +340,7 @@ async def llm_stream(
 )
 async def ffmpeg_transcode(
     request: FFmpegRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Transcode video using FFmpeg"""
@@ -375,7 +377,7 @@ async def ffmpeg_transcode(
 )
 async def blender_render(
     request: BlenderRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
     """Render scene using Blender"""

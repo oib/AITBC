@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Community and Developer Ecosystem API Endpoints
 REST API for managing OpenClaw developer profiles, SDKs, solutions, and hackathons
@@ -9,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.community_service import (
     DeveloperEcosystemService, ThirdPartySolutionService,
     InnovationLabService, CommunityPlatformService
@@ -68,7 +70,7 @@ class HackathonCreateRequest(BaseModel):
 
 # Endpoints - Developer Ecosystem
 @router.post("/developers", response_model=DeveloperProfile)
-async def create_developer_profile(request: DeveloperProfileCreate, session: SessionDep):
+async def create_developer_profile(request: DeveloperProfileCreate, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Register a new developer in the OpenClaw ecosystem"""
     service = DeveloperEcosystemService(session)
     try:
@@ -84,7 +86,7 @@ async def create_developer_profile(request: DeveloperProfileCreate, session: Ses
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/developers/{developer_id}", response_model=DeveloperProfile)
-async def get_developer_profile(developer_id: str, session: SessionDep):
+async def get_developer_profile(developer_id: str, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Get a developer's profile and reputation"""
     service = DeveloperEcosystemService(session)
     profile = await service.get_developer_profile(developer_id)
@@ -93,14 +95,14 @@ async def get_developer_profile(developer_id: str, session: SessionDep):
     return profile
 
 @router.get("/sdk/latest")
-async def get_latest_sdk(session: SessionDep):
+async def get_latest_sdk(session: Annotated[Session, Depends(get_session)] = Depends()):
     """Get information about the latest OpenClaw SDK releases"""
     service = DeveloperEcosystemService(session)
     return await service.get_sdk_release_info()
 
 # Endpoints - Marketplace Solutions
 @router.post("/solutions/publish", response_model=AgentSolution)
-async def publish_solution(request: SolutionPublishRequest, session: SessionDep):
+async def publish_solution(request: SolutionPublishRequest, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Publish a new third-party agent solution to the marketplace"""
     service = ThirdPartySolutionService(session)
     try:
@@ -120,7 +122,7 @@ async def list_solutions(
     return await service.list_published_solutions(category, limit)
 
 @router.post("/solutions/{solution_id}/purchase")
-async def purchase_solution(solution_id: str, session: SessionDep, buyer_id: str = Body(embed=True)):
+async def purchase_solution(solution_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), buyer_id: str = Body(embed=True)):
     """Purchase or install a third-party solution"""
     service = ThirdPartySolutionService(session)
     try:
@@ -146,7 +148,7 @@ async def propose_innovation_lab(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/labs/{lab_id}/join")
-async def join_innovation_lab(lab_id: str, session: SessionDep, developer_id: str = Body(embed=True)):
+async def join_innovation_lab(lab_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), developer_id: str = Body(embed=True)):
     """Join an active innovation lab"""
     service = InnovationLabService(session)
     try:
@@ -156,7 +158,7 @@ async def join_innovation_lab(lab_id: str, session: SessionDep, developer_id: st
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.post("/labs/{lab_id}/fund")
-async def fund_innovation_lab(lab_id: str, session: SessionDep, amount: float = Body(embed=True)):
+async def fund_innovation_lab(lab_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), amount: float = Body(embed=True)):
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)
     try:
@@ -189,7 +191,7 @@ async def get_community_feed(
     return await service.get_feed(category, limit)
 
 @router.post("/platform/posts/{post_id}/upvote")
-async def upvote_community_post(post_id: str, session: SessionDep):
+async def upvote_community_post(post_id: str, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Upvote a community post (rewards author reputation)"""
     service = CommunityPlatformService(session)
     try:
@@ -215,7 +217,7 @@ async def create_hackathon(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/hackathons/{hackathon_id}/register")
-async def register_for_hackathon(hackathon_id: str, session: SessionDep, developer_id: str = Body(embed=True)):
+async def register_for_hackathon(hackathon_id: str, session: Annotated[Session, Depends(get_session)] = Depends(), developer_id: str = Body(embed=True)):
     """Register for an upcoming or ongoing hackathon"""
     service = CommunityPlatformService(session)
     try:

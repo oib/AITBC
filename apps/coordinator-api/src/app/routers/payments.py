@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """Payment router for job payments"""
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,7 +15,7 @@ from ..schemas import (
     RefundRequest
 )
 from ..services.payments import PaymentService
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 router = APIRouter(tags=["payments"])
 
@@ -21,7 +23,7 @@ router = APIRouter(tags=["payments"])
 @router.post("/payments", response_model=JobPaymentView, status_code=status.HTTP_201_CREATED, summary="Create payment for a job")
 async def create_payment(
     payment_data: JobPaymentCreate,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> JobPaymentView:
     """Create a payment for a job"""
@@ -35,7 +37,7 @@ async def create_payment(
 @router.get("/payments/{payment_id}", response_model=JobPaymentView, summary="Get payment details")
 async def get_payment(
     payment_id: str,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> JobPaymentView:
     """Get payment details by ID"""
@@ -55,7 +57,7 @@ async def get_payment(
 @router.get("/jobs/{job_id}/payment", response_model=JobPaymentView, summary="Get payment for a job")
 async def get_job_payment(
     job_id: str,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> JobPaymentView:
     """Get payment information for a specific job"""
@@ -76,7 +78,7 @@ async def get_job_payment(
 async def release_payment(
     payment_id: str,
     release_data: EscrowRelease,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> dict:
     """Release payment from escrow (for completed jobs)"""
@@ -110,7 +112,7 @@ async def release_payment(
 async def refund_payment(
     payment_id: str,
     refund_data: RefundRequest,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> dict:
     """Refund payment (for failed or cancelled jobs)"""
@@ -143,7 +145,7 @@ async def refund_payment(
 @router.get("/payments/{payment_id}/receipt", response_model=PaymentReceipt, summary="Get payment receipt")
 async def get_payment_receipt(
     payment_id: str,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     client_id: str = Depends(require_client_key()),
 ) -> PaymentReceipt:
     """Get payment receipt with verification status"""

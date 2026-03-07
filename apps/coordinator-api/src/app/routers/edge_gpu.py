@@ -1,13 +1,15 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 from typing import List, Optional
 from fastapi import APIRouter, Depends, Query
-from ..storage import SessionDep, get_session
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..domain.gpu_marketplace import ConsumerGPUProfile, GPUArchitecture, EdgeGPUMetrics
 from ..services.edge_gpu_service import EdgeGPUService
 
 router = APIRouter(prefix="/v1/marketplace/edge-gpu", tags=["edge-gpu"])
 
 
-def get_edge_service(session: SessionDep) -> EdgeGPUService:
+def get_edge_service(session: Annotated[Session, Depends(get_session)] = Depends()) -> EdgeGPUService:
     return EdgeGPUService(session)
 
 
