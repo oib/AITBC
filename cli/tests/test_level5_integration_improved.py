@@ -41,7 +41,7 @@ class Level5IntegrationTesterImproved:
     """Improved test suite for AITBC CLI Level 5 integration and edge cases"""
     
     def __init__(self):
-        self.runner = CliRunner()
+        self.runner = CliRunner(env={'PYTHONUNBUFFERED': '1'})
         self.test_results = {
             'passed': 0,
             'failed': 0,
@@ -57,10 +57,18 @@ class Level5IntegrationTesterImproved:
             print(f"🧹 Cleaned up test environment")
     
     def run_test(self, test_name, test_func):
-        """Run a single test and track results"""
+        """Run a single test and track results with comprehensive error handling"""
         print(f"\n🧪 Running: {test_name}")
         try:
-            result = test_func()
+            # Redirect stderr to avoid I/O operation errors
+            import io
+            import sys
+            from contextlib import redirect_stderr
+            
+            stderr_buffer = io.StringIO()
+            with redirect_stderr(stderr_buffer):
+                result = test_func()
+            
             if result:
                 print(f"✅ PASSED: {test_name}")
                 self.test_results['passed'] += 1

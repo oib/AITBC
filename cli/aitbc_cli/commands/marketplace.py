@@ -6,6 +6,7 @@ import json
 import asyncio
 from typing import Optional, List, Dict, Any
 from ..utils import output, error, success
+import os
 
 
 @click.group()
