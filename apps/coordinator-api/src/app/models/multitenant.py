@@ -87,7 +87,7 @@ class TenantUser(Base):
     joined_at: Optional[datetime] = None
     
     # Metadata
-    metadata: Optional[Dict[str, Any]] = None
+    user_metadata: Optional[Dict[str, Any]] = None
     
     # Relationships
     tenant: ClassVar = relationship("Tenant", back_populates="users")
@@ -162,7 +162,7 @@ class UsageRecord(Base):
     
     # Metadata
     job_id: Optional[str] = Field(max_length=255, nullable=True)  # Associated job if applicable
-    metadata: Optional[Dict[str, Any]] = None
+    usage_metadata: Optional[Dict[str, Any]] = None
     
     # Relationships
     tenant: ClassVar = relationship("Tenant", back_populates="usage_records")
@@ -213,7 +213,7 @@ class Invoice(Base):
     updated_at: Optional[datetime] = Field(default_factory=datetime.now)
     
     # Metadata
-    metadata: Optional[Dict[str, Any]] = None
+    invoice_metadata: Optional[Dict[str, Any]] = None
     
     # Indexes
     __table_args__ = (
@@ -289,7 +289,7 @@ class TenantAuditLog(Base):
     # Event data
     old_values: Optional[Dict[str, Any]] = None
     new_values: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    event_metadata: Optional[Dict[str, Any]] = None
     
     # Request context
     ip_address: Optional[str] = Field(max_length=45, nullable=True)
