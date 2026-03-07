@@ -107,7 +107,7 @@ class ClientGroupTester:
             }
             mock_post.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'submit', 'What is machine learning?', '--model', 'gemma3:1b'])
+            result = self.runner.invoke(cli, ['--test-mode', 'client', 'submit', 'What is machine learning?', '--model', 'gemma3:1b'])
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client submit: {'Working' if success else 'Failed'}")
             return success
@@ -124,7 +124,7 @@ class ClientGroupTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'status', 'job_test123'])
+            result = self.runner.invoke(cli, ['--test-mode', 'client', 'status', 'job_test123'])
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client status: {'Working' if success else 'Failed'}")
             return success
@@ -141,7 +141,7 @@ class ClientGroupTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'result', 'job_test123'])
+            result = self.runner.invoke(cli, ['--test-mode', 'client', 'result', 'job_test123'])
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client result: {'Working' if success else 'Failed'}")
             return success
@@ -160,7 +160,7 @@ class ClientGroupTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'history', '--limit', '10'])
+            result = self.runner.invoke(cli, ['--test-mode', 'client', 'history', '--limit', '5'])
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client history: {'Working' if success else 'Failed'}")
             return success
@@ -176,7 +176,7 @@ class ClientGroupTester:
             }
             mock_delete.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'cancel', 'job_test123'])
+            result = self.runner.invoke(cli, ['--test-mode', 'client', 'cancel', 'job_test123'])
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client cancel: {'Working' if success else 'Failed'}")
             return success

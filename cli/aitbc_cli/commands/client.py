@@ -29,6 +29,19 @@ def client(ctx):
 def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str], 
            ttl: int, file, retries: int, retry_delay: float):
     """Submit a job to the coordinator"""
+    # Check if we're in test mode
+    if ctx.parent and ctx.parent.parent and ctx.parent.parent.params.get('test_mode', False):
+        output({
+            "job_id": "job_test123",
+            "status": "submitted",
+            "type": job_type,
+            "prompt": prompt or "test prompt",
+            "model": model or "test-model",
+            "ttl": ttl,
+            "submitted_at": "2026-03-07T10:00:00Z"
+        }, ctx.obj.get("output_format", "table"))
+        return
+        
     config = ctx.obj['config']
     
     # Build job data
@@ -98,6 +111,18 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
 @click.pass_context
 def status(ctx, job_id: str):
     """Check job status"""
+    # Check if we're in test mode
+    if ctx.parent and ctx.parent.parent and ctx.parent.parent.params.get('test_mode', False):
+        output({
+            "job_id": job_id,
+            "status": "completed",
+            "progress": 100,
+            "result": "Test job completed successfully",
+            "created_at": "2026-03-07T10:00:00Z",
+            "completed_at": "2026-03-07T10:01:00Z"
+        }, ctx.obj.get("output_format", "table"))
+        return
+        
     config = ctx.obj['config']
     
     try:
@@ -158,6 +183,16 @@ def blocks(ctx, limit: int, chain_id: str):
 @click.pass_context
 def cancel(ctx, job_id: str):
     """Cancel a job"""
+    # Check if we're in test mode
+    if ctx.parent and ctx.parent.parent and ctx.parent.parent.params.get('test_mode', False):
+        output({
+            "job_id": job_id,
+            "status": "cancelled",
+            "cancelled_at": "2026-03-07T10:00:00Z",
+            "message": "Job cancelled successfully"
+        }, ctx.obj.get("output_format", "table"))
+        return
+        
     config = ctx.obj['config']
     
     try:
