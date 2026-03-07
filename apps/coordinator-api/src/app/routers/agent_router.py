@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 AI Agent API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for agent workflow management and execution
@@ -14,7 +16,7 @@ from ..domain.agent import (
     AgentStatus, VerificationLevel
 )
 from ..services.agent_service import AIAgentOrchestrator
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..deps import require_admin_key
 from sqlmodel import Session, select
 
@@ -26,7 +28,7 @@ router = APIRouter(prefix="/agents", tags=["AI Agents"])
 @router.post("/workflows", response_model=AIAgentWorkflow)
 async def create_workflow(
     workflow_data: AgentWorkflowCreate,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Create a new AI agent workflow"""
@@ -54,7 +56,7 @@ async def list_workflows(
     owner_id: Optional[str] = None,
     is_public: Optional[bool] = None,
     tags: Optional[List[str]] = None,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """List agent workflows with filtering"""
@@ -91,7 +93,7 @@ async def list_workflows(
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
 async def get_workflow(
     workflow_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Get a specific agent workflow"""
@@ -118,7 +120,7 @@ async def get_workflow(
 async def update_workflow(
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Update an agent workflow"""
@@ -154,7 +156,7 @@ async def update_workflow(
 @router.delete("/workflows/{workflow_id}")
 async def delete_workflow(
     workflow_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Delete an agent workflow"""
@@ -186,7 +188,7 @@ async def execute_workflow(
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Execute an AI agent workflow"""
@@ -229,7 +231,7 @@ async def execute_workflow(
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
 async def get_execution_status(
     execution_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Get execution status"""
@@ -263,7 +265,7 @@ async def list_executions(
     status: Optional[AgentStatus] = None,
     limit: int = 50,
     offset: int = 0,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """List agent executions with filtering"""
@@ -321,7 +323,7 @@ async def list_executions(
 @router.post("/executions/{execution_id}/cancel")
 async def cancel_execution(
     execution_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Cancel an ongoing execution"""
@@ -365,7 +367,7 @@ async def cancel_execution(
 @router.get("/executions/{execution_id}/logs")
 async def get_execution_logs(
     execution_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Get execution logs"""
@@ -427,7 +429,7 @@ async def test_endpoint():
 @router.post("/networks", response_model=dict, status_code=201)
 async def create_agent_network(
     network_data: dict,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Create a new agent network for collaborative processing"""
@@ -467,7 +469,7 @@ async def create_agent_network(
 @router.get("/executions/{execution_id}/receipt")
 async def get_execution_receipt(
     execution_id: str,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Get verifiable receipt for completed execution"""

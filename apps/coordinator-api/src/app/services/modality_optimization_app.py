@@ -1,12 +1,14 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Modality Optimization Service - FastAPI Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .modality_optimization import ModalityOptimizationManager, OptimizationStrategy, ModalityType
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..routers.modality_optimization_health import router as health_router
 
 app = FastAPI(
@@ -35,7 +37,7 @@ async def optimize_modality(
     modality: str,
     data: dict,
     strategy: str = "balanced",
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Optimize specific modality"""
     manager = ModalityOptimizationManager(session)
@@ -50,7 +52,7 @@ async def optimize_modality(
 async def optimize_multimodal(
     multimodal_data: dict,
     strategy: str = "balanced",
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Optimize multiple modalities"""
     manager = ModalityOptimizationManager(session)

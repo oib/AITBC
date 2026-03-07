@@ -1,12 +1,14 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 GPU Multi-Modal Service - FastAPI Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .gpu_multimodal import GPUAcceleratedMultiModal
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..routers.gpu_multimodal_health import router as health_router
 
 app = FastAPI(
@@ -34,7 +36,7 @@ async def health():
 async def cross_modal_attention(
     modality_features: dict,
     attention_config: dict = None,
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """GPU-accelerated cross-modal attention"""
     service = GPUAcceleratedMultiModal(session)

@@ -216,7 +216,7 @@ def confirm(ctx, gpu_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/confirm",
+                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}/confirm",
                 headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
                 json={"client_id": config.api_key or "client"},
             )
@@ -249,7 +249,7 @@ def ollama_task(ctx, gpu_id: str, model: str, prompt: str, temperature: float, m
         }
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/tasks/ollama",
+                f"{config.coordinator_url}/v1/tasks/ollama",
                 headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
                 json=payload,
             )
@@ -284,7 +284,7 @@ def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, t
             payload["task_id"] = task_id
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/payments/send",
+                f"{config.coordinator_url}/v1/payments/send",
                 headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
                 json=payload,
             )
