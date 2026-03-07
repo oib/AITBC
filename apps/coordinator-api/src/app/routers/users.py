@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 User Management Router for AITBC
 """
@@ -10,7 +12,7 @@ import time
 import hashlib
 from datetime import datetime, timedelta
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..domain import User, Wallet
 from ..schemas import UserCreate, UserLogin, UserProfile, UserBalance
 
@@ -50,7 +52,7 @@ def verify_session_token(token: str) -> Optional[str]:
 @router.post("/register", response_model=UserProfile)
 async def register_user(
     user_data: UserCreate,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Register a new user"""
     
@@ -103,7 +105,7 @@ async def register_user(
 @router.post("/login", response_model=UserProfile)
 async def login_user(
     login_data: UserLogin,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Login user with wallet address"""
     
@@ -161,7 +163,7 @@ async def login_user(
 @router.get("/users/me", response_model=UserProfile)
 async def get_current_user(
     token: str,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get current user profile"""
     
@@ -190,7 +192,7 @@ async def get_current_user(
 @router.get("/users/{user_id}/balance", response_model=UserBalance)
 async def get_user_balance(
     user_id: str,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get user's AITBC balance"""
     
@@ -223,7 +225,7 @@ async def logout_user(token: str) -> Dict[str, str]:
 @router.get("/users/{user_id}/transactions")
 async def get_user_transactions(
     user_id: str,
-    session: SessionDep
+    session: Annotated[Session, Depends(get_session)] = Depends()
 ) -> Dict[str, Any]:
     """Get user's transaction history"""
     

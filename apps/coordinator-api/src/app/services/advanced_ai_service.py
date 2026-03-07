@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Advanced AI Service - Phase 5.2 Implementation
 Integrates enhanced RL, multi-modal fusion, and GPU optimization
@@ -7,7 +9,7 @@ Port: 8009
 import asyncio
 import torch
 import torch.nn as nn
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import Dict, List, Any, Optional, Union
@@ -21,7 +23,7 @@ from .advanced_reinforcement_learning import AdvancedReinforcementLearningEngine
 from .multi_modal_fusion import MultiModalFusionEngine
 from .gpu_multimodal import GPUAcceleratedMultiModal
 from .advanced_learning import AdvancedLearningService
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 logger = get_logger(__name__)
 

@@ -1,3 +1,4 @@
+from typing import Annotated
 """
 Bounty Management API
 REST API for AI agent bounty system with ZK-proof verification
@@ -9,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, validator
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..logging import get_logger
 from ..domain.bounty import (
     Bounty, BountySubmission, BountyStatus, BountyTier, 
@@ -162,7 +163,7 @@ class BountyStatsResponse(BaseModel):
     tier_distribution: Dict[str, int]
 
 # Dependency injection
-def get_bounty_service(session: SessionDep) -> BountyService:
+def get_bounty_service(session: Annotated[Session, Depends(get_session)]) -> BountyService:
     return BountyService(session)
 
 def get_blockchain_service() -> BlockchainService:
@@ -173,7 +174,7 @@ def get_blockchain_service() -> BlockchainService:
 async def create_bounty(
     request: BountyCreateRequest,
     background_tasks: BackgroundTasks,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)],
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
@@ -206,7 +207,7 @@ async def create_bounty(
 @router.get("/bounties", response_model=List[BountyResponse])
 async def get_bounties(
     filters: BountyFilterRequest = Depends(),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get filtered list of bounties"""
@@ -235,7 +236,7 @@ async def get_bounties(
 @router.get("/bounties/{bounty_id}", response_model=BountyResponse)
 async def get_bounty(
     bounty_id: str,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get bounty details"""
@@ -257,7 +258,7 @@ async def submit_bounty_solution(
     bounty_id: str,
     request: BountySubmissionRequest,
     background_tasks: BackgroundTasks,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
@@ -306,7 +307,7 @@ async def submit_bounty_solution(
 @router.get("/bounties/{bounty_id}/submissions", response_model=List[BountySubmissionResponse])
 async def get_bounty_submissions(
     bounty_id: str,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
 ):
@@ -336,7 +337,7 @@ async def verify_bounty_submission(
     bounty_id: str,
     request: BountyVerificationRequest,
     background_tasks: BackgroundTasks,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
@@ -376,7 +377,7 @@ async def dispute_bounty_submission(
     bounty_id: str,
     request: BountyDisputeRequest,
     background_tasks: BackgroundTasks,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
@@ -411,7 +412,7 @@ async def get_my_created_bounties(
     status: Optional[BountyStatus] = None,
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
 ):
@@ -435,7 +436,7 @@ async def get_my_submissions(
     status: Optional[SubmissionStatus] = None,
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
 ):
@@ -458,7 +459,7 @@ async def get_my_submissions(
 async def get_bounty_leaderboard(
     period: str = Field(default="weekly", regex="^(daily|weekly|monthly)$"),
     limit: int = Field(default=50, ge=1, le=100),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get bounty leaderboard"""
@@ -477,7 +478,7 @@ async def get_bounty_leaderboard(
 @router.get("/bounties/stats", response_model=BountyStatsResponse)
 async def get_bounty_stats(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get bounty statistics"""
@@ -494,7 +495,7 @@ async def get_bounty_stats(
 async def expire_bounty(
     bounty_id: str,
     background_tasks: BackgroundTasks,
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
@@ -534,7 +535,7 @@ async def expire_bounty(
 
 @router.get("/bounties/categories")
 async def get_bounty_categories(
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get all bounty categories"""
@@ -549,7 +550,7 @@ async def get_bounty_categories(
 @router.get("/bounties/tags")
 async def get_bounty_tags(
     limit: int = Field(default=100, ge=1, le=500),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get popular bounty tags"""
@@ -566,7 +567,7 @@ async def search_bounties(
     query: str = Field(..., min_length=1, max_length=100),
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),
-    session: SessionDep = Depends(),
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Search bounties by text"""

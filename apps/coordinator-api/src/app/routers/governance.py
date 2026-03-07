@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Decentralized Governance API Endpoints
 REST API for OpenClaw DAO voting, proposals, and governance analytics
@@ -9,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.governance_service import GovernanceService
 from ..domain.governance import (
     GovernanceProfile, Proposal, Vote, DaoTreasury, TransparencyReport,
@@ -43,7 +45,7 @@ class VoteRequest(BaseModel):
 
 # Endpoints - Profile & Delegation
 @router.post("/profiles", response_model=GovernanceProfile)
-async def init_governance_profile(request: ProfileInitRequest, session: SessionDep):
+async def init_governance_profile(request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
     try:
@@ -54,7 +56,7 @@ async def init_governance_profile(request: ProfileInitRequest, session: SessionD
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
-async def delegate_voting_power(profile_id: str, request: DelegationRequest, session: SessionDep):
+async def delegate_voting_power(profile_id: str, request: DelegationRequest, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
     try:
@@ -68,7 +70,7 @@ async def delegate_voting_power(profile_id: str, request: DelegationRequest, ses
 # Endpoints - Proposals
 @router.post("/proposals", response_model=Proposal)
 async def create_proposal(
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     proposer_id: str = Query(...),
     request: ProposalCreateRequest = Body(...)
 ):
@@ -85,7 +87,7 @@ async def create_proposal(
 @router.post("/proposals/{proposal_id}/vote", response_model=Vote)
 async def cast_vote(
     proposal_id: str,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     voter_id: str = Query(...),
     request: VoteRequest = Body(...)
 ):
@@ -105,7 +107,7 @@ async def cast_vote(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/proposals/{proposal_id}/process", response_model=Proposal)
-async def process_proposal(proposal_id: str, session: SessionDep):
+async def process_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)] = Depends()):
     """Manually trigger the lifecycle check of a proposal (e.g., tally votes when time ends)"""
     service = GovernanceService(session)
     try:
@@ -119,7 +121,7 @@ async def process_proposal(proposal_id: str, session: SessionDep):
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
 async def execute_proposal(
     proposal_id: str,
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     executor_id: str = Query(...)
 ):
     """Execute the payload of a succeeded proposal"""
@@ -135,7 +137,7 @@ async def execute_proposal(
 # Endpoints - Analytics
 @router.post("/analytics/reports", response_model=TransparencyReport)
 async def generate_transparency_report(
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     period: str = Query(..., description="e.g., 2026-Q1")
 ):
     """Generate a governance analytics and transparency report"""

@@ -1,12 +1,14 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Adaptive Learning Service - FastAPI Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .adaptive_learning import AdaptiveLearningService, LearningAlgorithm, RewardType
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..routers.adaptive_learning_health import router as health_router
 
 app = FastAPI(
@@ -34,7 +36,7 @@ async def health():
 async def create_learning_environment(
     environment_id: str,
     config: dict,
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Create safe learning environment"""
     service = AdaptiveLearningService(session)
@@ -49,7 +51,7 @@ async def create_learning_agent(
     agent_id: str,
     algorithm: str,
     config: dict,
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Create reinforcement learning agent"""
     service = AdaptiveLearningService(session)
@@ -65,7 +67,7 @@ async def train_agent(
     agent_id: str,
     environment_id: str,
     training_config: dict,
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Train agent in environment"""
     service = AdaptiveLearningService(session)
@@ -79,7 +81,7 @@ async def train_agent(
 @app.get("/agent-performance/{agent_id}")
 async def get_agent_performance(
     agent_id: str,
-    session: SessionDep = None
+    session: Annotated[Session, Depends(get_session)] = Depends() = None
 ):
     """Get agent performance metrics"""
     service = AdaptiveLearningService(session)

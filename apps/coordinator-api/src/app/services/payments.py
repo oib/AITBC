@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
+from fastapi import Depends
 """Payment service for job payments"""
 
 from datetime import datetime, timedelta
@@ -13,7 +16,7 @@ from ..schemas import (
     EscrowRelease,
     RefundRequest
 )
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 logger = get_logger(__name__)
 
@@ -21,7 +24,7 @@ logger = get_logger(__name__)
 class PaymentService:
     """Service for handling job payments"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
         self.wallet_base_url = "http://127.0.0.1:20000"  # Wallet daemon URL
         self.exchange_base_url = "http://127.0.0.1:23000"  # Exchange API URL

@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Router to create marketplace offers from registered miners
 """
@@ -9,14 +11,14 @@ from sqlmodel import Session, select
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer, Miner
 from ..schemas import MarketplaceOfferView
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 router = APIRouter(tags=["marketplace-offers"])
 
 
 @router.post("/marketplace/sync-offers", summary="Create offers from registered miners")
 async def sync_offers(
-    session: SessionDep,
+    session: Annotated[Session, Depends(get_session)] = Depends(),
     admin_key: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:
     """Create marketplace offers from all registered miners"""
@@ -64,7 +66,7 @@ async def sync_offers(
 
 
 @router.get("/marketplace/miner-offers", summary="List all miner offers", response_model=list[MarketplaceOfferView])
-async def list_miner_offers(session: SessionDep) -> list[MarketplaceOfferView]:
+async def list_miner_offers(session: Annotated[Session, Depends(get_session)] = Depends()) -> list[MarketplaceOfferView]:
     """List all offers created from miners"""
     
     # Get all offers with miner details

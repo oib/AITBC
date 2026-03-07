@@ -1,3 +1,4 @@
+from typing import Annotated
 """
 Adaptive Learning Service Health Check Router
 Provides health monitoring for reinforcement learning frameworks
@@ -10,7 +11,7 @@ import sys
 import psutil
 from typing import Dict, Any
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.adaptive_learning import AdaptiveLearningService
 from ..logging import get_logger
 
@@ -19,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Adaptive Learning Service Health")
-async def adaptive_learning_health(session: SessionDep) -> Dict[str, Any]:
+async def adaptive_learning_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
     """
     Health check for Adaptive Learning Service (Port 8005)
     """
@@ -104,7 +105,7 @@ async def adaptive_learning_health(session: SessionDep) -> Dict[str, Any]:
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Adaptive Learning Service Health")
-async def adaptive_learning_deep_health(session: SessionDep) -> Dict[str, Any]:
+async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
     """
     Deep health check with learning framework validation
     """

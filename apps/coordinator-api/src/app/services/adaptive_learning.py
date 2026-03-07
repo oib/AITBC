@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
+from fastapi import Depends
 """
 Adaptive Learning Systems - Phase 5.2
 Reinforcement learning frameworks for agent self-improvement
@@ -11,7 +14,7 @@ from enum import Enum
 import numpy as np
 import json
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 
 logger = get_logger(__name__)
@@ -387,7 +390,7 @@ class ReinforcementLearningAgent:
 class AdaptiveLearningService:
     """Service for adaptive learning systems"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
         self.learning_agents = {}
         self.environments = {}
