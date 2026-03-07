@@ -229,8 +229,28 @@ async def book_gpu(
             detail=f"GPU {gpu_id} is not available",
         )
 
+    # Input validation for booking duration
+    if request.duration_hours <= 0:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Booking duration must be greater than 0 hours"
+        )
+    
+    if request.duration_hours > 8760:  # 1 year maximum
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Booking duration cannot exceed 8760 hours (1 year)"
+        )
+
     start_time = datetime.utcnow()
     end_time = start_time + timedelta(hours=request.duration_hours)
+    
+    # Validate booking end time is in the future
+    if end_time <= start_time:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Booking end time must be in the future"
+        )
     
     # Calculate dynamic price at booking time
     try:
