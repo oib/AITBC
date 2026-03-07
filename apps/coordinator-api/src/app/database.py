@@ -8,7 +8,7 @@ engine = create_engine(
     "sqlite:////home/oib/windsurf/aitbc/apps/coordinator-api/aitbc_coordinator.db",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
-    echo=False
+    echo=True  # Enable SQL logging for debugging
 )
 
 

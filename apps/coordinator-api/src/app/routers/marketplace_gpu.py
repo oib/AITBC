@@ -498,36 +498,94 @@ async def add_gpu_review(
     gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Add a review for a GPU."""
-    gpu = _get_gpu_or_404(session, gpu_id)
+    try:
+        gpu = _get_gpu_or_404(session, gpu_id)
+        
+        # Validate request data
+        if not (1 <= request.rating <= 5):
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail="Rating must be between 1 and 5"
+            )
+        
+        # Create review object
+        review = GPUReview(
+            gpu_id=gpu_id,
+            user_id="current_user",
+            rating=request.rating,
+            comment=request.comment,
+        )
+        
+        # Log transaction start
+        logger.info(f"Starting review transaction for GPU {gpu_id}", extra={
+            "gpu_id": gpu_id,
+            "rating": request.rating,
+            "user_id": "current_user"
+        })
+        
+        # Add review to session
+        session.add(review)
+        session.flush()  # ensure the new review is visible to aggregate queries
+        
+        # Recalculate average from DB (new review already included after flush)
+        total_count_result = session.execute(
+            select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)
+        ).one()
+        total_count = total_count_result[0] if hasattr(total_count_result, '__getitem__') else total_count_result
+        
+        avg_rating_result = session.execute(
+            select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)
+        ).one()
+        avg_rating = avg_rating_result[0] if hasattr(avg_rating_result, '__getitem__') else avg_rating_result
+        avg_rating = avg_rating or 0.0
 
-    review = GPUReview(
-        gpu_id=gpu_id,
-        user_id="current_user",
-        rating=request.rating,
-        comment=request.comment,
-    )
-    session.add(review)
-    session.flush()  # ensure the new review is visible to aggregate queries
-
-    # Recalculate average from DB (new review already included after flush)
-    total_count = session.execute(
-        select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)
-    ).one()
-    avg_rating = session.execute(
-        select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)
-    ).one() or 0.0
-
-    gpu.average_rating = round(float(avg_rating), 2)
-    gpu.total_reviews = total_count
-    session.commit()
-    session.refresh(review)
-
-    return {
-        "status": "review_added",
-        "gpu_id": gpu_id,
-        "review_id": review.id,
-        "average_rating": gpu.average_rating,
-    }
+        # Update GPU stats
+        gpu.average_rating = round(float(avg_rating), 2)
+        gpu.total_reviews = total_count
+        
+        # Commit transaction
+        session.commit()
+        
+        # Refresh review object
+        session.refresh(review)
+        
+        # Log success
+        logger.info(f"Review transaction completed successfully for GPU {gpu_id}", extra={
+            "gpu_id": gpu_id,
+            "review_id": review.id,
+            "total_reviews": total_count,
+            "average_rating": gpu.average_rating
+        })
+        
+        return {
+            "status": "review_added",
+            "gpu_id": gpu_id,
+            "review_id": review.id,
+            "average_rating": gpu.average_rating,
+        }
+        
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
+    except Exception as e:
+        # Log error and rollback transaction
+        logger.error(f"Failed to add review for GPU {gpu_id}: {str(e)}", extra={
+            "gpu_id": gpu_id,
+            "error": str(e),
+            "error_type": type(e).__name__
+        })
+        
+        # Rollback on error
+        try:
+            session.rollback()
+        except Exception as rollback_error:
+            logger.error(f"Failed to rollback transaction: {str(rollback_error)}")
+        
+        # Return generic error
+        raise HTTPException(
+            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to add review"
+        )
 
 
 @router.get("/marketplace/orders")

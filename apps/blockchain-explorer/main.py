@@ -19,8 +19,13 @@ import uvicorn
 
 app = FastAPI(title="AITBC Blockchain Explorer", version="2.0.0")
 
-# Configuration
-BLOCKCHAIN_RPC_URL = "http://localhost:8082"  # Local blockchain node
+# Configuration - Multi-chain support
+BLOCKCHAIN_RPC_URLS = {
+    "ait-devnet": "http://localhost:8025",
+    "ait-testnet": "http://localhost:8026", 
+    "ait-mainnet": "http://aitbc.keisanki.net:8082"
+}
+DEFAULT_CHAIN = "ait-devnet"
 EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
 
 # Pydantic models for API
@@ -72,7 +77,11 @@ HTML_TEMPLATE = r"""
                     <h1 class="text-2xl font-bold">AITBC Blockchain Explorer</h1>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span class="text-sm">Network: <span class="font-mono bg-blue-700 px-2 py-1 rounded">ait-devnet</span></span>
+                    <select id="chain-selector" class="bg-blue-700 px-3 py-1 rounded text-sm font-mono" onchange="switchChain()">
+                        <option value="ait-devnet" selected>ait-devnet</option>
+                        <option value="ait-testnet">ait-testnet</option>
+                        <option value="ait-mainnet">ait-mainnet</option>
+                    </select>
                     <button onclick="refreshData()" class="bg-blue-500 hover:bg-blue-400 px-3 py-1 rounded flex items-center space-x-1">
                         <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                         <span>Refresh</span>
@@ -404,12 +413,16 @@ HTML_TEMPLATE = r"""
 
         // Load chain statistics
         async function loadChainStats() {
-            const response = await fetch('/api/chain/head');
+            const response = await fetch(`/api/chain/head?chain_id=${currentChain}`);
             const data = await response.json();
             
             document.getElementById('chain-height').textContent = data.height || '-';
             document.getElementById('latest-hash').textContent = data.hash ? data.hash.substring(0, 16) + '...' : '-';
             document.getElementById('node-status').innerHTML = '<span class="text-green-500">Online</span>';
+            
+            // Update network display
+            const selector = document.getElementById('chain-selector');
+            selector.value = currentChain;
             
             currentData.head = data;
         }
@@ -895,80 +908,85 @@ HTML_TEMPLATE = r"""
 """
 
 
-async def get_transaction(tx_hash: str) -> Dict[str, Any]:
-    """Get transaction by hash"""
+async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+    """Get chain head from specified chain"""
     try:
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
+            response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return response.json()
     except Exception as e:
-        print(f"Error getting transaction: {e}")
+        print(f"Error getting chain head for {chain_id}: {e}")
     return {}
 
 
-async def get_block(height: int) -> Dict[str, Any]:
-    """Get a specific block by height"""
+async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+    """Get transaction by hash from specified chain"""
     try:
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/blocks/{height}")
+            response = await client.get(f"{rpc_url}/rpc/tx/{tx_hash}", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return response.json()
     except Exception as e:
-        print(f"Error getting block {height}: {e}")
+        print(f"Error getting transaction {tx_hash} for {chain_id}: {e}")
+    return {}
+
+
+async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
+    """Get a specific block by height from specified chain"""
+    try:
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{rpc_url}/rpc/blocks/{height}", params={"chain_id": chain_id})
+            if response.status_code == 200:
+                return response.json()
+    except Exception as e:
+        print(f"Error getting block {height} for {chain_id}: {e}")
     return {}
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the explorer UI"""
-    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URL)
+    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
 
 
 @app.get("/web")
 async def web_interface():
     """Serve the web interface"""
-    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URL)
+    return HTML_TEMPLATE.replace("{node_url}", BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
 
 
 @app.get("/api/chain/head")
-async def api_chain_head():
+async def api_chain_head(chain_id: Optional[str] = DEFAULT_CHAIN):
     """API endpoint for chain head"""
-    return await get_chain_head()
+    return await get_chain_head(chain_id)
 
 
 @app.get("/api/blocks/{height}")
-async def api_block(height: int):
+async def api_block(height: int, chain_id: Optional[str] = DEFAULT_CHAIN):
     """API endpoint for block data"""
-    return await get_block(height)
+    return await get_block(height, chain_id)
 
 
 
 @app.get("/api/transactions/{tx_hash}")
-async def api_transaction(tx_hash: str):
+async def api_transaction(tx_hash: str, chain_id: Optional[str] = DEFAULT_CHAIN):
     """API endpoint for transaction data, normalized for frontend"""
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
-            if response.status_code == 200:
-                tx = response.json()
-                # Normalize for frontend expectations
-                payload = tx.get("payload", {})
-                return {
-                    "hash": tx.get("tx_hash"),
-                    "block_height": tx.get("block_height"),
-                    "from": tx.get("sender"),
-                    "to": tx.get("recipient"),
-                    "type": payload.get("type", "transfer"),
-                    "amount": payload.get("amount", 0),
-                    "fee": payload.get("fee", 0),
-                    "timestamp": tx.get("created_at")
-                }
-            elif response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Transaction not found")
-        except httpx.RequestError as e:
-            print(f"Error fetching transaction: {e}")
-    raise HTTPException(status_code=500, detail="Internal server error")
+    tx = await get_transaction(tx_hash, chain_id)
+    payload = tx.get("payload", {})
+    return {
+        "hash": tx.get("tx_hash"),
+        "block_height": tx.get("block_height"),
+        "from": tx.get("sender"),
+        "to": tx.get("recipient"),
+        "type": payload.get("type", "transfer"),
+        "amount": payload.get("amount", 0),
+        "fee": payload.get("fee", 0),
+        "timestamp": tx.get("created_at")
+    }
 
 
 # Enhanced API endpoints
@@ -981,7 +999,8 @@ async def search_transactions(
     since: Optional[str] = None,
     until: Optional[str] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    chain_id: Optional[str] = DEFAULT_CHAIN
 ):
     """Advanced transaction search"""
     try:
@@ -1001,9 +1020,11 @@ async def search_transactions(
             params["until"] = until
         params["limit"] = limit
         params["offset"] = offset
+        params["chain_id"] = chain_id
         
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/search/transactions", params=params)
+            response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -1029,7 +1050,8 @@ async def search_blocks(
     until: Optional[str] = None,
     min_tx: Optional[int] = None,
     limit: int = 50,
-    offset: int = 0
+    offset: int = 0,
+    chain_id: Optional[str] = DEFAULT_CHAIN
 ):
     """Advanced block search"""
     try:
@@ -1045,9 +1067,11 @@ async def search_blocks(
             params["min_tx"] = min_tx
         params["limit"] = limit
         params["offset"] = offset
+        params["chain_id"] = chain_id
         
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/search/blocks", params=params)
+            response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
             if response.status_code == 200:
                 return response.json()
             else:
@@ -1206,11 +1230,12 @@ async def export_blocks(format: str = "csv"):
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 # Helper functions
-async def get_latest_blocks(limit: int = 10) -> List[Dict]:
+async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> List[Dict]:
     """Get latest blocks"""
     try:
+        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/blocks?limit={limit}")
+            response = await client.get(f"{rpc_url}/rpc/blocks?limit={limit}", params={"chain_id": chain_id})
             if response.status_code == 200:
                 return response.json()
             else:
@@ -1228,13 +1253,25 @@ async def get_latest_blocks(limit: int = 10) -> List[Dict]:
     except Exception:
         return []
 
+@app.get("/api/chains")
+async def list_chains():
+    """List all supported chains"""
+    return {
+        "chains": [
+            {"id": "ait-devnet", "name": "AIT Development Network", "status": "active"},
+            {"id": "ait-testnet", "name": "AIT Test Network", "status": "inactive"},
+            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"}
+        ]
+    }
+
+
 @app.get("/health")
 async def health():
     """Health check endpoint"""
     try:
         # Test blockchain node connectivity
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/head", timeout=5.0)
+            response = await client.get(f"{BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN]}/rpc/head", timeout=5.0)
             node_status = "ok" if response.status_code == 200 else "error"
     except Exception:
         node_status = "error"
@@ -1247,4 +1284,4 @@ async def health():
     }
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=3001)
+    uvicorn.run(app, host="0.0.0.0", port=8016)
