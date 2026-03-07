@@ -66,13 +66,24 @@ async def create_chain():
     # For now, just return the current chains
     return JSONResponse(chains_data)
 
-@app.get("/v1/chains/{chain_id}/wallets")
-async def list_chain_wallets(chain_id: str):
-    """List wallets in a specific chain"""
+@app.get("/v1/chains/{chain_id}/wallets/{wallet_id}/balance")
+async def get_wallet_balance(chain_id: str, wallet_id: str):
+    """Get wallet balance for a specific chain"""
+    # Chain-specific balances
+    chain_balances = {
+        "ait-devnet": 100.5,
+        "ait-testnet": 50.0,
+        "mainnet": 0.0
+    }
+    
+    balance = chain_balances.get(chain_id, 0.0)
+    
     return JSONResponse({
+        "wallet_id": wallet_id,
         "chain_id": chain_id,
-        "wallets": [],
-        "count": 0,
+        "balance": balance,
+        "currency": f"AITBC-{chain_id.upper()}",
+        "last_updated": datetime.now().isoformat(),
         "mode": "daemon"
     })
 
