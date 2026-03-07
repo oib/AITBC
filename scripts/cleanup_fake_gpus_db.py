@@ -8,15 +8,16 @@ import os
 sys.path.insert(0, '/home/oib/windsurf/aitbc/apps/coordinator-api/src')
 
 from sqlmodel import Session, select
-from app.database import engine, create_db_and_tables
+from sqlalchemy import create_engine
 from app.domain.gpu_marketplace import GPURegistry
 
 def cleanup_fake_gpus():
     """Clean up fake GPU entries from database"""
     print("=== DIRECT DATABASE CLEANUP ===")
     
-    # Create tables if they don't exist
-    create_db_and_tables()
+    # Use the same database as coordinator
+    db_path = "/home/oib/windsurf/aitbc/apps/coordinator-api/data/coordinator.db"
+    engine = create_engine(f"sqlite:///{db_path}")
     
     fake_gpus = [
         "gpu_1bdf8e86",
@@ -52,6 +53,10 @@ def cleanup_fake_gpus():
 def show_remaining_gpus():
     """Show remaining GPUs after cleanup"""
     print("\n📋 Remaining GPUs in marketplace:")
+    
+    # Use the same database as coordinator
+    db_path = "/home/oib/windsurf/aitbc/apps/coordinator-api/data/coordinator.db"
+    engine = create_engine(f"sqlite:///{db_path}")
     
     with Session(engine) as session:
         gpus = session.exec(select(GPURegistry)).all()
