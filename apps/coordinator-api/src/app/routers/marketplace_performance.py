@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../gpu_acceleration"))

@@ -1,6 +1,6 @@
+from __future__ import annotations
 from sqlalchemy.orm import Session
 from typing import Annotated
-from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
@@ -11,19 +11,19 @@ from ..schemas import (
     ReceiptListResponse,
 )
 from ..services import ExplorerService
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 router = APIRouter(prefix="/explorer", tags=["explorer"])
 
 
-def _service(session: Annotated[Session, Depends(get_session)] = Depends()) -> ExplorerService:
+def _service(session: Annotated[Session, Depends(get_session)]) -> ExplorerService:
     return ExplorerService(session)
 
 
 @router.get("/blocks", response_model=BlockListResponse, summary="List recent blocks")
 async def list_blocks(
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=20, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> BlockListResponse:
@@ -37,7 +37,7 @@ async def list_blocks(
 )
 async def list_transactions(
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> TransactionListResponse:
@@ -47,7 +47,7 @@ async def list_transactions(
 @router.get("/addresses", response_model=AddressListResponse, summary="List address summaries")
 async def list_addresses(
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> AddressListResponse:
@@ -57,7 +57,7 @@ async def list_addresses(
 @router.get("/receipts", response_model=ReceiptListResponse, summary="List job receipts")
 async def list_receipts(
     *,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     job_id: str | None = Query(default=None, description="Filter by job identifier"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),

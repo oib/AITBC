@@ -5,11 +5,11 @@ from typing import List, Optional
 from sqlmodel import select
 from ..domain.gpu_marketplace import ConsumerGPUProfile, GPUArchitecture, EdgeGPUMetrics
 from ..data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 
 class EdgeGPUService:
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
 
     def list_profiles(

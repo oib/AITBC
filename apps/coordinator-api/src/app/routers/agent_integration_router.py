@@ -16,7 +16,7 @@ from ..services.agent_integration import (
     AgentIntegrationManager, AgentDeploymentManager, AgentMonitoringManager, AgentProductionManager,
     DeploymentStatus, AgentDeploymentConfig, AgentDeploymentInstance
 )
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session, select
 from datetime import datetime

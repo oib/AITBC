@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.agent_performance_service import (
     AgentPerformanceService, MetaLearningEngine, ResourceManager, PerformanceOptimizer
 )
@@ -153,7 +153,7 @@ class CapabilityResponse(BaseModel):
 @router.post("/profiles", response_model=PerformanceProfileResponse)
 async def create_performance_profile(
     profile_request: PerformanceProfileRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> PerformanceProfileResponse:
     """Create agent performance profile"""
     
@@ -192,7 +192,7 @@ async def create_performance_profile(
 @router.get("/profiles/{agent_id}", response_model=Dict[str, Any])
 async def get_performance_profile(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Get agent performance profile"""
     
@@ -218,7 +218,7 @@ async def update_performance_metrics(
     agent_id: str,
     metrics: Dict[str, float],
     task_context: Optional[Dict[str, Any]] = None,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Update agent performance metrics"""
     
@@ -247,7 +247,7 @@ async def update_performance_metrics(
 @router.post("/meta-learning/models", response_model=MetaLearningResponse)
 async def create_meta_learning_model(
     model_request: MetaLearningRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> MetaLearningResponse:
     """Create meta-learning model"""
     
@@ -286,7 +286,7 @@ async def adapt_model_to_task(
     model_id: str,
     task_data: Dict[str, Any],
     adaptation_steps: int = Query(default=10, ge=1, le=50),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Adapt meta-learning model to new task"""
     
@@ -319,7 +319,7 @@ async def list_meta_learning_models(
     status: Optional[str] = Query(default=None, description="Filter by status"),
     meta_strategy: Optional[str] = Query(default=None, description="Filter by meta strategy"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """List meta-learning models"""
     
@@ -362,7 +362,7 @@ async def list_meta_learning_models(
 @router.post("/resources/allocate", response_model=ResourceAllocationResponse)
 async def allocate_resources(
     allocation_request: ResourceAllocationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> ResourceAllocationResponse:
     """Allocate resources for agent task"""
     
@@ -400,7 +400,7 @@ async def get_resource_allocations(
     agent_id: str,
     status: Optional[str] = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get resource allocations for agent"""
     
@@ -445,7 +445,7 @@ async def get_resource_allocations(
 @router.post("/optimization/optimize", response_model=PerformanceOptimizationResponse)
 async def optimize_performance(
     optimization_request: PerformanceOptimizationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> PerformanceOptimizationResponse:
     """Optimize agent performance"""
     
@@ -484,7 +484,7 @@ async def get_optimization_history(
     status: Optional[str] = Query(default=None, description="Filter by status"),
     target_metric: Optional[str] = Query(default=None, description="Filter by target metric"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get optimization history for agent"""
     
@@ -532,7 +532,7 @@ async def get_optimization_history(
 @router.post("/capabilities", response_model=CapabilityResponse)
 async def create_capability(
     capability_request: CapabilityRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> CapabilityResponse:
     """Create agent capability"""
     
@@ -579,7 +579,7 @@ async def get_agent_capabilities(
     capability_type: Optional[str] = Query(default=None, description="Filter by capability type"),
     domain_area: Optional[str] = Query(default=None, description="Filter by domain area"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get agent capabilities"""
     
@@ -631,7 +631,7 @@ async def get_performance_summary(
     agent_ids: List[str] = Query(default=[], description="List of agent IDs"),
     metric: Optional[str] = Query(default="overall_score", description="Metric to summarize"),
     period: str = Query(default="7d", description="Time period"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Get performance summary for agents"""
     

@@ -12,7 +12,7 @@ import asyncio
 import httpx
 from typing import Dict, Any, List
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..logging import get_logger
 
 logger = get_logger(__name__)
@@ -69,7 +69,7 @@ SERVICES = {
 
 
 @router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
-async def monitoring_dashboard(request: Request, session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def monitoring_dashboard(request: Request, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Unified monitoring dashboard for all enhanced services
     """

@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.trading_service import P2PTradingProtocol
 from ..domain.trading import (
     TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement,
@@ -156,7 +156,7 @@ class TradingSummaryResponse(BaseModel):
 @router.post("/requests", response_model=TradeRequestResponse)
 async def create_trade_request(
     request_data: TradeRequestRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> TradeRequestResponse:
     """Create a new trade request"""
     
@@ -218,7 +218,7 @@ async def create_trade_request(
 @router.get("/requests/{request_id}", response_model=TradeRequestResponse)
 async def get_trade_request(
     request_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> TradeRequestResponse:
     """Get trade request details"""
     
@@ -256,7 +256,7 @@ async def get_trade_request(
 @router.post("/requests/{request_id}/matches")
 async def find_matches(
     request_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[str]:
     """Find matching sellers for a trade request"""
     
@@ -276,7 +276,7 @@ async def find_matches(
 @router.get("/requests/{request_id}/matches")
 async def get_trade_matches(
     request_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[TradeMatchResponse]:
     """Get trade matches for a request"""
     
@@ -316,7 +316,7 @@ async def get_trade_matches(
 @router.post("/negotiations", response_model=NegotiationResponse)
 async def initiate_negotiation(
     negotiation_data: NegotiationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> NegotiationResponse:
     """Initiate negotiation between buyer and seller"""
     
@@ -354,7 +354,7 @@ async def initiate_negotiation(
 @router.get("/negotiations/{negotiation_id}", response_model=NegotiationResponse)
 async def get_negotiation(
     negotiation_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> NegotiationResponse:
     """Get negotiation details"""
     
@@ -391,7 +391,7 @@ async def get_negotiation(
 @router.get("/matches/{match_id}")
 async def get_trade_match(
     match_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> TradeMatchResponse:
     """Get trade match details"""
     
@@ -432,7 +432,7 @@ async def get_trade_match(
 @router.get("/agents/{agent_id}/summary", response_model=TradingSummaryResponse)
 async def get_trading_summary(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> TradingSummaryResponse:
     """Get comprehensive trading summary for an agent"""
     
@@ -454,7 +454,7 @@ async def list_trade_requests(
     trade_type: Optional[str] = Query(default=None, description="Filter by trade type"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[TradeRequestResponse]:
     """List trade requests with filters"""
     
@@ -502,7 +502,7 @@ async def list_trade_matches(
     min_score: Optional[float] = Query(default=None, description="Minimum match score"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[TradeMatchResponse]:
     """List trade matches with filters"""
     
@@ -558,7 +558,7 @@ async def list_negotiations(
     status: Optional[str] = Query(default=None, description="Filter by status"),
     strategy: Optional[str] = Query(default=None, description="Filter by strategy"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[NegotiationResponse]:
     """List negotiations with filters"""
     
@@ -609,7 +609,7 @@ async def get_trading_analytics(
     period_type: str = Query(default="daily", description="Period type: daily, weekly, monthly"),
     start_date: Optional[str] = Query(default=None, description="Start date (ISO format)"),
     end_date: Optional[str] = Query(default=None, description="End date (ISO format)"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Get P2P trading analytics"""
     
@@ -673,7 +673,7 @@ async def get_trading_analytics(
 @router.post("/simulate-match")
 async def simulate_trade_matching(
     request_data: TradeRequestRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Simulate trade matching without creating actual request"""
     

@@ -13,7 +13,7 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field
 from sqlmodel import select, func
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.dynamic_pricing_engine import (
     DynamicPricingEngine,
     PricingStrategy,

@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from ..services.openclaw_enhanced_simple import OpenClawEnhancedService, SkillType, ExecutionMode
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session
 

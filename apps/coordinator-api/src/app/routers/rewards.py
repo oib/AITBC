@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.reward_service import RewardEngine
 from ..domain.rewards import (
     AgentRewardProfile, RewardTier, RewardType, RewardStatus
@@ -115,7 +115,7 @@ class MilestoneResponse(BaseModel):
 @router.get("/profile/{agent_id}", response_model=RewardProfileResponse)
 async def get_reward_profile(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> RewardProfileResponse:
     """Get comprehensive reward profile for an agent"""
     
@@ -137,7 +137,7 @@ async def get_reward_profile(
 @router.post("/profile/{agent_id}")
 async def create_reward_profile(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Create a new reward profile for an agent"""
     
@@ -162,7 +162,7 @@ async def create_reward_profile(
 @router.post("/calculate-and-distribute", response_model=RewardResponse)
 async def calculate_and_distribute_reward(
     reward_request: RewardRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> RewardResponse:
     """Calculate and distribute reward for an agent"""
     
@@ -201,7 +201,7 @@ async def calculate_and_distribute_reward(
 @router.get("/tier-progress/{agent_id}", response_model=TierProgressResponse)
 async def get_tier_progress(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> TierProgressResponse:
     """Get tier progress information for an agent"""
     
@@ -301,7 +301,7 @@ async def get_tier_progress(
 @router.post("/batch-process", response_model=BatchProcessResponse)
 async def batch_process_pending_rewards(
     limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of rewards to process"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> BatchProcessResponse:
     """Process pending reward distributions in batch"""
     
@@ -326,7 +326,7 @@ async def get_reward_analytics(
     period_type: str = Query(default="daily", description="Period type: daily, weekly, monthly"),
     start_date: Optional[str] = Query(default=None, description="Start date (ISO format)"),
     end_date: Optional[str] = Query(default=None, description="End date (ISO format)"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> RewardAnalyticsResponse:
     """Get reward system analytics"""
     
@@ -359,7 +359,7 @@ async def get_reward_leaderboard(
     tier: Optional[str] = Query(default=None, description="Filter by tier"),
     period: str = Query(default="weekly", description="Period: daily, weekly, monthly"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get reward leaderboard"""
     
@@ -408,7 +408,7 @@ async def get_reward_leaderboard(
 
 @router.get("/tiers")
 async def get_reward_tiers(
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get reward tier configurations"""
     
@@ -445,7 +445,7 @@ async def get_reward_tiers(
 async def get_agent_milestones(
     agent_id: str,
     include_completed: bool = Query(default=True, description="Include completed milestones"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[MilestoneResponse]:
     """Get milestones for an agent"""
     
@@ -489,7 +489,7 @@ async def get_reward_distributions(
     agent_id: str,
     limit: int = Query(default=20, ge=1, le=100),
     status: Optional[str] = Query(default=None, description="Filter by status"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get reward distribution history for an agent"""
     
@@ -529,7 +529,7 @@ async def get_reward_distributions(
 @router.post("/simulate-reward")
 async def simulate_reward_calculation(
     reward_request: RewardRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Simulate reward calculation without distributing"""
     
