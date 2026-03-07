@@ -210,6 +210,96 @@ def book(ctx, gpu_id: str, hours: float, job_id: Optional[str]):
 @gpu.command()
 @click.argument("gpu_id")
 @click.pass_context
+def confirm(ctx, gpu_id: str):
+    """Confirm booking (client ACK)."""
+    config = ctx.obj["config"]
+    try:
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/marketplace/gpu/{gpu_id}/confirm",
+                headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
+                json={"client_id": config.api_key or "client"},
+            )
+        if response.status_code in (200, 201):
+            result = response.json()
+            success(f"Booking confirmed for GPU {gpu_id}")
+            output(result, ctx.obj["output_format"])
+        else:
+            error(f"Failed to confirm booking: {response.status_code} {response.text}")
+    except Exception as e:
+        error(f"Confirmation failed: {e}")
+
+
+@gpu.command(name="ollama-task")
+@click.argument("gpu_id")
+@click.option("--model", default="llama2", help="Model name for Ollama task")
+@click.option("--prompt", required=True, help="Prompt to execute")
+@click.option("--temperature", type=float, default=0.7, show_default=True)
+@click.option("--max-tokens", type=int, default=128, show_default=True)
+@click.pass_context
+def ollama_task(ctx, gpu_id: str, model: str, prompt: str, temperature: float, max_tokens: int):
+    """Submit Ollama task via coordinator API."""
+    config = ctx.obj["config"]
+    try:
+        payload = {
+            "gpu_id": gpu_id,
+            "model": model,
+            "prompt": prompt,
+            "parameters": {"temperature": temperature, "max_tokens": max_tokens},
+        }
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/tasks/ollama",
+                headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
+                json=payload,
+            )
+        if response.status_code in (200, 201):
+            result = response.json()
+            success(f"Ollama task submitted: {result.get('task_id')}")
+            output(result, ctx.obj["output_format"])
+        else:
+            error(f"Failed to submit Ollama task: {response.status_code} {response.text}")
+    except Exception as e:
+        error(f"Ollama task submission failed: {e}")
+
+
+@gpu.command(name="pay")
+@click.argument("booking_id")
+@click.argument("amount", type=float)
+@click.option("--from-wallet", required=True, help="Sender wallet address")
+@click.option("--to-wallet", required=True, help="Recipient wallet address")
+@click.option("--task-id", help="Optional task id to link payment")
+@click.pass_context
+def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, task_id: Optional[str]):
+    """Send payment via coordinator payment hook (for real blockchain processor)."""
+    config = ctx.obj["config"]
+    try:
+        payload = {
+            "booking_id": booking_id,
+            "amount": amount,
+            "from_wallet": from_wallet,
+            "to_wallet": to_wallet,
+        }
+        if task_id:
+            payload["task_id"] = task_id
+        with httpx.Client() as client:
+            response = client.post(
+                f"{config.coordinator_url}/payments/send",
+                headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
+                json=payload,
+            )
+        if response.status_code in (200, 201):
+            result = response.json()
+            success(f"Payment sent: {result.get('tx_id')}")
+            output(result, ctx.obj["output_format"])
+        else:
+            error(f"Failed to send payment: {response.status_code} {response.text}")
+    except Exception as e:
+        error(f"Payment failed: {e}")
+
+@gpu.command()
+@click.argument("gpu_id")
+@click.pass_context
 def release(ctx, gpu_id: str):
     """Release a booked GPU"""
     config = ctx.obj['config']
