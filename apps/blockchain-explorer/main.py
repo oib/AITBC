@@ -17,7 +17,18 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 import uvicorn
 
-app = FastAPI(title="AITBC Blockchain Explorer", version="2.0.0")
+app = FastAPI(title="AITBC Blockchain Explorer", version="0.1.0")
+
+@app.get("/api/chains")
+def list_chains():
+    """List all supported chains"""
+    return {
+        "chains": [
+            {"id": "ait-devnet", "name": "AIT Development Network", "status": "active"},
+            {"id": "ait-testnet", "name": "AIT Test Network", "status": "inactive"},
+            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"}
+        ]
+    }
 
 # Configuration - Multi-chain support
 BLOCKCHAIN_RPC_URLS = {
@@ -1253,16 +1264,6 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN) -> L
     except Exception:
         return []
 
-@app.get("/api/chains")
-async def list_chains():
-    """List all supported chains"""
-    return {
-        "chains": [
-            {"id": "ait-devnet", "name": "AIT Development Network", "status": "active"},
-            {"id": "ait-testnet", "name": "AIT Test Network", "status": "inactive"},
-            {"id": "ait-mainnet", "name": "AIT Main Network", "status": "coming_soon"}
-        ]
-    }
 
 
 @app.get("/health")
