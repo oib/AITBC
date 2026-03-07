@@ -11,7 +11,7 @@ import sys
 import psutil
 from typing import Dict, Any
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.multimodal_agent import MultiModalAgentService
 from ..logging import get_logger
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Modality Optimization Service Health")
-async def modality_optimization_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def modality_optimization_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Health check for Modality Optimization Service (Port 8004)
     """
@@ -98,7 +98,7 @@ async def modality_optimization_health(session: Annotated[Session, Depends(get_s
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Modality Optimization Service Health")
-async def modality_optimization_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def modality_optimization_deep_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Deep health check with optimization strategy validation
     """

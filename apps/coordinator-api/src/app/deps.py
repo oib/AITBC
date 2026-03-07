@@ -1,14 +1,15 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Dependency injection module for AITBC Coordinator API
 
-Provides unified dependency injection using storage.SessionDep.
+Provides unified dependency injection using storage.Annotated[Session, Depends(get_session)].
 """
 
 from typing import Callable
 from fastapi import Depends, Header, HTTPException
 
 from .config import settings
-from .storage import SessionDep
 
 
 def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
@@ -68,6 +69,6 @@ def require_admin_key() -> Callable[[str | None], str]:
 
 # Legacy aliases for backward compatibility
 def get_session():
-    """Legacy alias - use SessionDep instead."""
+    """Legacy alias - use Annotated[Session, Depends(get_session)] instead."""
     from .storage import get_session
     return get_session()

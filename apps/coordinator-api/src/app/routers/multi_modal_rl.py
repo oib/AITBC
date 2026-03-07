@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, W
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.multi_modal_fusion import MultiModalFusionEngine
 from ..services.advanced_reinforcement_learning import AdvancedReinforcementLearningEngine, MarketplaceStrategyOptimizer, CrossDomainCapabilityIntegrator
 from ..domain.agent_performance import (
@@ -140,7 +140,7 @@ class CapabilityIntegrationResponse(BaseModel):
 @router.post("/fusion/models", response_model=FusionModelResponse)
 async def create_fusion_model(
     fusion_request: FusionModelRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> FusionModelResponse:
     """Create multi-modal fusion model"""
     
@@ -180,7 +180,7 @@ async def create_fusion_model(
 async def fuse_modalities(
     fusion_id: str,
     fusion_request: FusionRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> FusionResponse:
     """Fuse modalities using trained model"""
     
@@ -213,7 +213,7 @@ async def fuse_modalities(
 
 @router.get("/fusion/models")
 async def list_fusion_models(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None, description="Filter by status"),
     fusion_type: Optional[str] = Query(default=None, description="Filter by fusion type"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results")
@@ -263,7 +263,7 @@ async def list_fusion_models(
 @router.post("/rl/agents", response_model=RLAgentResponse)
 async def create_rl_agent(
     agent_request: RLAgentRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> RLAgentResponse:
     """Create RL agent for marketplace strategies"""
     
@@ -301,7 +301,7 @@ async def create_rl_agent(
 async def fuse_modalities_stream(
     websocket: WebSocket,
     fusion_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """Stream modalities and receive fusion results via WebSocket for high performance"""
     await websocket.accept()
@@ -351,7 +351,7 @@ async def fuse_modalities_stream(
 @router.get("/rl/agents/{agent_id}")
 async def get_rl_agents(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None, description="Filter by status"),
     algorithm: Optional[str] = Query(default=None, description="Filter by algorithm"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results")
@@ -408,7 +408,7 @@ async def get_rl_agents(
 @router.post("/rl/optimize-strategy", response_model=StrategyOptimizationResponse)
 async def optimize_strategy(
     optimization_request: StrategyOptimizationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> StrategyOptimizationResponse:
     """Optimize agent strategy using RL"""
     
@@ -443,7 +443,7 @@ async def optimize_strategy(
 async def deploy_strategy(
     config_id: str,
     deployment_context: Dict[str, Any],
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Deploy trained strategy"""
     
@@ -468,7 +468,7 @@ async def deploy_strategy(
 @router.post("/capabilities/integrate", response_model=CapabilityIntegrationResponse)
 async def integrate_capabilities(
     integration_request: CapabilityIntegrationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> CapabilityIntegrationResponse:
     """Integrate capabilities across domains"""
     
@@ -516,7 +516,7 @@ async def integrate_capabilities(
 @router.get("/capabilities/{agent_id}/domains")
 async def get_agent_domain_capabilities(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     domain: Optional[str] = Query(default=None, description="Filter by domain"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results")
 ) -> List[Dict[str, Any]]:
@@ -573,7 +573,7 @@ async def get_agent_domain_capabilities(
 @router.get("/creative-capabilities/{agent_id}")
 async def get_creative_capabilities(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     creative_domain: Optional[str] = Query(default=None, description="Filter by creative domain"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results")
 ) -> List[Dict[str, Any]]:
@@ -626,7 +626,7 @@ async def get_creative_capabilities(
 
 @router.get("/analytics/fusion-performance")
 async def get_fusion_performance_analytics(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     agent_ids: Optional[List[str]] = Query(default=[], description="List of agent IDs"),
     fusion_type: Optional[str] = Query(default=None, description="Filter by fusion type"),
     period: str = Query(default="7d", description="Time period")
@@ -714,7 +714,7 @@ async def get_fusion_performance_analytics(
 
 @router.get("/analytics/rl-performance")
 async def get_rl_performance_analytics(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     agent_ids: Optional[List[str]] = Query(default=[], description="List of agent IDs"),
     algorithm: Optional[str] = Query(default=None, description="Filter by algorithm"),
     environment_type: Optional[str] = Query(default=None, description="Filter by environment type"),

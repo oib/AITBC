@@ -8,7 +8,7 @@ from datetime import datetime
 
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 from ..config import settings
 from aitbc.logging import get_logger
@@ -48,7 +48,7 @@ async def test_key(
 @cached(**get_cache_config("job_list"))  # Cache admin stats for 1 minute
 async def get_stats(
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(), 
+    session: Annotated[Session, Depends(get_session)], 
     api_key: str = Header(default=None, alias="X-Api-Key")
 ) -> dict[str, int]:  # type: ignore[arg-type]
     # Temporary debug: bypass dependency and validate directly
@@ -81,7 +81,7 @@ async def get_stats(
 
 
 @router.get("/jobs", summary="List jobs")
-async def list_jobs(session: Annotated[Session, Depends(get_session)] = Depends(), admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+async def list_jobs(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     from ..domain import Job
 
     jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
@@ -100,7 +100,7 @@ async def list_jobs(session: Annotated[Session, Depends(get_session)] = Depends(
 
 
 @router.get("/miners", summary="List miners")
-async def list_miners(session: Annotated[Session, Depends(get_session)] = Depends(), admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+async def list_miners(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     miner_service = MinerService(session)
     miners = [
         {
@@ -123,7 +123,7 @@ async def list_miners(session: Annotated[Session, Depends(get_session)] = Depend
 @router.get("/status", summary="Get system status", response_model=None)
 async def get_system_status(
     request: Request,
-    session: Annotated[Session, Depends(get_session)] = Depends(), 
+    session: Annotated[Session, Depends(get_session)], 
     admin_key: str = Depends(require_admin_key())
 ) -> dict[str, any]:  # type: ignore[arg-type]
     """Get comprehensive system status for admin dashboard"""

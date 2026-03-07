@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 
 from ..domain import MarketplaceOffer
 from ..services.marketplace_enhanced import EnhancedMarketplaceService, RoyaltyTier, LicenseType
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..deps import require_admin_key
 from ..schemas.marketplace_enhanced import (
     RoyaltyDistributionRequest, RoyaltyDistributionResponse,

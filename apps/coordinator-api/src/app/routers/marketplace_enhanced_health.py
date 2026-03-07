@@ -11,7 +11,7 @@ import sys
 import psutil
 from typing import Dict, Any
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.marketplace_enhanced import EnhancedMarketplaceService
 from ..logging import get_logger
 
@@ -20,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Enhanced Marketplace Service Health")
-async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Health check for Enhanced Marketplace Service (Port 8006)
     """
@@ -105,7 +105,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Enhanced Marketplace Service Health")
-async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Deep health check with marketplace feature validation
     """

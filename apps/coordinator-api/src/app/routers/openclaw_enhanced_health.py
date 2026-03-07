@@ -12,7 +12,7 @@ import psutil
 import subprocess
 from typing import Dict, Any
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.openclaw_enhanced import OpenClawEnhancedService
 from ..logging import get_logger
 
@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="OpenClaw Enhanced Service Health")
-async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Health check for OpenClaw Enhanced Service (Port 8007)
     """
@@ -110,7 +110,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep OpenClaw Enhanced Service Health")
-async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Deep health check with OpenClaw ecosystem validation
     """

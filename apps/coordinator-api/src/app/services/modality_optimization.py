@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 import numpy as np
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from .multimodal_agent import ModalityType
 
 logger = get_logger(__name__)
@@ -30,7 +30,7 @@ class OptimizationStrategy(str, Enum):
 class ModalityOptimizer:
     """Base class for modality-specific optimizers"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self._performance_history = {}
     
@@ -64,7 +64,7 @@ class ModalityOptimizer:
 class TextOptimizer(ModalityOptimizer):
     """Text processing optimization strategies"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         super().__init__(session)
         self._token_cache = {}
         self._embedding_cache = {}
@@ -318,7 +318,7 @@ class TextOptimizer(ModalityOptimizer):
 class ImageOptimizer(ModalityOptimizer):
     """Image processing optimization strategies"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         super().__init__(session)
         self._feature_cache = {}
     
@@ -862,7 +862,7 @@ class VideoOptimizer(ModalityOptimizer):
 class ModalityOptimizationManager:
     """Manager for all modality-specific optimizers"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self._optimizers = {
             ModalityType.TEXT: TextOptimizer(session),
