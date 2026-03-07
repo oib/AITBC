@@ -119,8 +119,8 @@ done
 # Step 4: Start AITBC systemd services on localhost
 print_status "Starting AITBC systemd services on localhost..."
 
-# Get all AITBC services
-aitbc_services=$(systemctl list-units --all | grep "aitbc-" | awk '{print $1}' | grep -v "not-found")
+# Get all AITBC services (filter out invalid characters)
+aitbc_services=$(systemctl list-units --all | grep "aitbc-" | grep -v "●" | awk '{print $1}' | grep -v "not-found" | grep -v "loaded")
 
 if [ -z "$aitbc_services" ]; then
     print_warning "No AITBC services found on localhost"
