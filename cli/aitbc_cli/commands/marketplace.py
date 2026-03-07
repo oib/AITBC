@@ -21,19 +21,56 @@ def gpu():
 
 
 @gpu.command()
-@click.option("--name", required=True, help="GPU name/model")
-@click.option("--memory", type=int, help="GPU memory in GB")
+@click.option("--name", help="GPU name/model (auto-detected if not provided)")
+@click.option("--memory", type=int, help="GPU memory in GB (auto-detected if not provided)")
 @click.option("--cuda-cores", type=int, help="Number of CUDA cores")
 @click.option("--compute-capability", help="Compute capability (e.g., 8.9)")
-@click.option("--price-per-hour", type=float, help="Price per hour in AITBC")
+@click.option("--price-per-hour", type=float, required=True, help="Price per hour in AITBC")
 @click.option("--description", help="GPU description")
 @click.option("--miner-id", help="Miner ID (uses auth key if not provided)")
+@click.option("--force", is_flag=True, help="Force registration even if hardware validation fails")
 @click.pass_context
-def register(ctx, name: str, memory: Optional[int], cuda_cores: Optional[int],
+def register(ctx, name: Optional[str], memory: Optional[int], cuda_cores: Optional[int],
             compute_capability: Optional[str], price_per_hour: Optional[float],
-            description: Optional[str], miner_id: Optional[str]):
-    """Register GPU on marketplace"""
+            description: Optional[str], miner_id: Optional[str], force: bool):
+    """Register GPU on marketplace (auto-detects hardware)"""
     config = ctx.obj['config']
+    
+    # Auto-detect GPU hardware
+    try:
+        import subprocess
+        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'], 
+                              capture_output=True, text=True, check=True)
+        
+        if result.returncode == 0:
+            gpu_info = result.stdout.strip().split(', ')
+            detected_name = gpu_info[0].strip()
+            detected_memory = int(gpu_info[1].strip())
+            
+            # Use detected values if not provided
+            if not name:
+                name = detected_name
+            if memory is None:
+                memory = detected_memory
+                
+            # Validate provided specs against detected hardware
+            if not force:
+                if name and name != detected_name:
+                    error(f"GPU name mismatch! Detected: '{detected_name}', Provided: '{name}'. Use --force to override.")
+                    return
+                if memory and memory != detected_memory:
+                    error(f"GPU memory mismatch! Detected: {detected_memory}GB, Provided: {memory}GB. Use --force to override.")
+                    return
+                    
+            success(f"Auto-detected GPU: {detected_name} with {detected_memory}GB memory")
+        else:
+            if not force:
+                error("Failed to detect GPU hardware. Use --force to register without hardware validation.")
+                return
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        if not force:
+            error("nvidia-smi not available. Use --force to register without hardware validation.")
+            return
     
     # Build GPU specs
     gpu_specs = {
