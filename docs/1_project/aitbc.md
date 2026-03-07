@@ -23,23 +23,25 @@ This guide provides comprehensive deployment instructions for the **aitbc server
 - **Database**: SQLite (default) or PostgreSQL (production)
 
 ### **Network Requirements**
-- **Core Services Ports**: 8000-8002 (must be available)
+- **Core Services Ports**: 8000-8003 (must be available)
   - Port 8000: Coordinator API
   - Port 8001: Exchange API
-  - Port 8002: Wallet Service
-- **Blockchain Services Ports**: 8005-8006 (must be available)
-  - Port 8005: Primary Blockchain Node
-  - Port 8006: Primary Blockchain RPC
-- **Level 2 Services Ports**: 8010-8017 (optional - not required for CPU-only deployment)
-  - Note: Enhanced services disabled for aitbc server (no GPU access)
-  - Port 8010: Multimodal GPU (CPU-only mode) - DISABLED
-  - Port 8011: GPU Multimodal (CPU-only mode) - DISABLED
-  - Port 8012: Modality Optimization - DISABLED
-  - Port 8013: Adaptive Learning - DISABLED
-  - Port 8014: Marketplace Enhanced - DISABLED
-  - Port 8015: OpenClaw Enhanced - DISABLED
-  - Port 8016: Web UI - DISABLED
-  - Port 8017: Geographic Load Balancer - DISABLED
+  - Port 8002: Blockchain Node
+  - Port 8003: Blockchain RPC
+- **Blockchain Services Ports**: 8005-8008 (must be available)
+  - Port 8005: Primary Blockchain Node (legacy)
+  - Port 8006: Primary Blockchain RPC (legacy)
+  - Port 8007: Blockchain Service (Transaction processing and consensus)
+  - Port 8008: Network Service (P2P block propagation)
+- **Enhanced Services Ports**: 8010-8017 (optional - CPU-only mode available)
+  - Port 8010: Multimodal GPU (CPU-only mode)
+  - Port 8011: GPU Multimodal (CPU-only mode)
+  - Port 8012: Modality Optimization
+  - Port 8013: Adaptive Learning
+  - Port 8014: Marketplace Enhanced
+  - Port 8015: OpenClaw Enhanced
+  - Port 8016: Blockchain Explorer (Web UI)
+  - Port 8017: Geographic Load Balancer
 - **Mock & Test Services Ports**: 8020-8029 (development and testing)
   - Port 8025: Development Blockchain Node
   - Port 8026: Development Blockchain RPC
@@ -83,21 +85,31 @@ ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-node-dev'
 ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
 ```
 
-#### **Port Distribution Strategy (Updated March 6, 2026)**
+#### **Port Distribution Strategy (Updated March 7, 2026)**
 ```bash
-# NEW SUSTAINABLE PORT LOGIC
+# NEW UNIFIED PORT LOGIC - MARCH 2026
 
-# Core Services (8000-8002):
+# Core Services (8000-8003):
 - Port 8000: Coordinator API (localhost + containers)
 - Port 8001: Exchange API (localhost + containers)
-- Port 8002: Wallet Service (localhost + containers)
+- Port 8002: Blockchain Node (localhost + containers)
+- Port 8003: Blockchain RPC (localhost + containers)
 
-# Blockchain Services (8005-8006):
-- Port 8005: Primary Blockchain Node (localhost + containers)
-- Port 8006: Primary Blockchain RPC (localhost + containers)
+# Multi-Chain Services (8005-8008):
+- Port 8005: Primary Blockchain Node (legacy)
+- Port 8006: Primary Blockchain RPC (legacy)
+- Port 8007: Blockchain Service (Transaction processing and consensus)
+- Port 8008: Network Service (P2P block propagation)
 
-# Level 2 Services (8010-8017):
-- Port 8010-8017: Enhanced services (DISABLED for CPU-only deployment)
+# Enhanced Services (8010-8017):
+- Port 8010: Multimodal GPU (CPU-only mode)
+- Port 8011: GPU Multimodal (CPU-only mode)
+- Port 8012: Modality Optimization
+- Port 8013: Adaptive Learning
+- Port 8014: Marketplace Enhanced
+- Port 8015: OpenClaw Enhanced
+- Port 8016: Blockchain Explorer (Web UI)
+- Port 8017: Geographic Load Balancer
 
 # Mock & Test Services (8020-8029):
 - Port 8025: Development Blockchain Node (localhost + containers)
@@ -107,9 +119,13 @@ ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
 - Port 8080-8089: DEPRECATED - use new port ranges above
 
 # Service Naming Convention:
-✅ aitbc-blockchain-node.service (port 8005)
-✅ aitbc-blockchain-rpc.service (port 8006)
-✅ aitbc-wallet.service (port 8002)
+✅ aitbc-coordinator-api.service (port 8000)
+✅ aitbc-exchange-api.service (port 8001)
+✅ aitbc-blockchain-node.service (port 8002)
+✅ aitbc-blockchain-rpc.service (port 8003)
+✅ aitbc-blockchain-service.service (port 8007)
+✅ aitbc-network-service.service (port 8008)
+✅ aitbc-explorer.service (port 8016)
 ✅ aitbc-blockchain-node-dev.service (port 8025)
 ✅ aitbc-blockchain-rpc-dev.service (port 8026)
 ```
@@ -117,21 +133,26 @@ ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
 ## Architecture Overview
 
 ```
-AITBC Platform Architecture (Updated March 4, 2026)
+AITBC Platform Architecture (Updated March 7, 2026)
 ├── Core Services (8000-8003) ✅ PRODUCTION READY
 │   ├── Coordinator API (Port 8000) ✅ PRODUCTION READY
 │   ├── Exchange API (Port 8001) ✅ PRODUCTION READY
 │   ├── Blockchain Node (Port 8002) ✅ PRODUCTION READY
 │   └── Blockchain RPC (Port 8003) ✅ PRODUCTION READY
-├── Enhanced Services (8010-8017) ❌ DISABLED (CPU-only deployment)
-│   ├── Multimodal GPU (Port 8010) ❌ DISABLED (no GPU access)
-│   ├── GPU Multimodal (Port 8011) ❌ DISABLED (no GPU access)
-│   ├── Modality Optimization (Port 8012) ❌ DISABLED (not essential)
-│   ├── Adaptive Learning (Port 8013) ❌ DISABLED (not essential)
-│   ├── Marketplace Enhanced (Port 8014) ❌ DISABLED (not essential)
-│   ├── OpenClaw Enhanced (Port 8015) ❌ DISABLED (not essential)
-│   ├── Web UI (Port 8016) ❌ DISABLED (not essential)
-│   └── Geographic Load Balancer (Port 8017) ❌ DISABLED (complex)
+├── Multi-Chain Services (8005-8008) ✅ PRODUCTION READY
+│   ├── Blockchain Node Legacy (Port 8005) ✅ PRODUCTION READY
+│   ├── Blockchain RPC Legacy (Port 8006) ✅ PRODUCTION READY
+│   ├── Blockchain Service (Port 8007) ✅ PRODUCTION READY
+│   └── Network Service (Port 8008) ✅ PRODUCTION READY
+├── Enhanced Services (8010-8017) ✅ PRODUCTION READY (CPU-only mode)
+│   ├── Multimodal GPU (Port 8010) ✅ PRODUCTION READY (CPU-only)
+│   ├── GPU Multimodal (Port 8011) ✅ PRODUCTION READY (CPU-only)
+│   ├── Modality Optimization (Port 8012) ✅ PRODUCTION READY
+│   ├── Adaptive Learning (Port 8013) ✅ PRODUCTION READY
+│   ├── Marketplace Enhanced (Port 8014) ✅ PRODUCTION READY
+│   ├── OpenClaw Enhanced (Port 8015) ✅ PRODUCTION READY
+│   ├── Blockchain Explorer (Port 8016) ✅ PRODUCTION READY
+│   └── Geographic Load Balancer (Port 8017) ✅ PRODUCTION READY
 └── Infrastructure
     ├── Database (SQLite/PostgreSQL)
     ├── Monitoring & Logging
@@ -221,22 +242,23 @@ chown aitbc:aitbc .env
 sudo cp -r /opt/aitbc/systemd/* /etc/systemd/system/
 sudo systemctl daemon-reload
 
-# Enable core services only (enhanced services disabled for CPU-only deployment)
+# Enable core services
 sudo systemctl enable aitbc-coordinator-api.service
+sudo systemctl enable aitbc-exchange-api.service
 sudo systemctl enable aitbc-blockchain-node.service
 sudo systemctl enable aitbc-blockchain-rpc.service
-sudo systemctl enable aitbc-exchange-api.service
+sudo systemctl enable aitbc-blockchain-service.service
+sudo systemctl enable aitbc-network-service.service
 sudo systemctl enable aitbc-explorer.service
 
-# Note: Enhanced services disabled - no GPU access
-# sudo systemctl enable aitbc-multimodal-gpu.service      # DISABLED
-# sudo systemctl enable aitbc-multimodal.service           # DISABLED
-# sudo systemctl enable aitbc-modality-optimization.service # DISABLED
-# sudo systemctl enable aitbc-adaptive-learning.service    # DISABLED
-# sudo systemctl enable aitbc-marketplace-enhanced.service # DISABLED
-# sudo systemctl enable aitbc-openclaw-enhanced.service    # DISABLED
-# sudo systemctl enable aitbc-web-ui.service               # DISABLED
-# sudo systemctl enable aitbc-loadbalancer-geo.service      # DISABLED
+# Enable enhanced services (CPU-only mode)
+sudo systemctl enable aitbc-multimodal-gpu.service
+sudo systemctl enable aitbc-multimodal.service
+sudo systemctl enable aitbc-modality-optimization.service
+sudo systemctl enable aitbc-adaptive-learning.service
+sudo systemctl enable aitbc-marketplace-enhanced.service
+sudo systemctl enable aitbc-openclaw-enhanced.service
+sudo systemctl enable aitbc-loadbalancer-geo.service
 ```
 
 ### **Phase 3: Service Deployment**
@@ -244,29 +266,37 @@ sudo systemctl enable aitbc-explorer.service
 #### 3.1 Core Services Startup
 ```bash
 # Start core services in order
-sudo systemctl start aitbc-blockchain-node.service
-sleep 5
-sudo systemctl start aitbc-blockchain-rpc.service
-sleep 3
 sudo systemctl start aitbc-coordinator-api.service
 sleep 3
 sudo systemctl start aitbc-exchange-api.service
+sleep 3
+sudo systemctl start aitbc-blockchain-node.service
+sleep 3
+sudo systemctl start aitbc-blockchain-rpc.service
+sleep 3
+sudo systemctl start aitbc-blockchain-service.service
+sleep 3
+sudo systemctl start aitbc-network-service.service
 sleep 3
 sudo systemctl start aitbc-explorer.service
 ```
 
 #### 3.2 Enhanced Services Startup
 ```bash
-# Enhanced services DISABLED for CPU-only deployment (no GPU access)
-# Note: All enhanced services have been disabled for aitbc server
-# sudo systemctl start aitbc-multimodal-gpu.service      # DISABLED (no GPU)
-# sudo systemctl start aitbc-multimodal.service          # DISABLED (no GPU)
-# sudo systemctl start aitbc-modality-optimization.service # DISABLED (not essential)
-# sudo systemctl start aitbc-adaptive-learning.service     # DISABLED (not essential)
-# sudo systemctl start aitbc-marketplace-enhanced.service # DISABLED (not essential)
-# sudo systemctl start aitbc-openclaw-enhanced.service     # DISABLED (not essential)
-# sudo systemctl start aitbc-web-ui.service               # DISABLED (not essential)
-# sudo systemctl start aitbc-loadbalancer-geo.service      # DISABLED (complex)
+# Start enhanced services (CPU-only mode)
+sudo systemctl start aitbc-multimodal-gpu.service
+sleep 2
+sudo systemctl start aitbc-multimodal.service
+sleep 2
+sudo systemctl start aitbc-modality-optimization.service
+sleep 2
+sudo systemctl start aitbc-adaptive-learning.service
+sleep 2
+sudo systemctl start aitbc-marketplace-enhanced.service
+sleep 2
+sudo systemctl start aitbc-openclaw-enhanced.service
+sleep 2
+sudo systemctl start aitbc-loadbalancer-geo.service
 ```
 
 #### 3.3 Service Verification
@@ -277,17 +307,20 @@ sudo systemctl list-units --type=service --state=running | grep aitbc
 # Test core endpoints
 curl -X GET "http://localhost:8000/health"    # Coordinator API
 curl -X GET "http://localhost:8001/health"    # Exchange API
-curl -X GET "http://localhost:8003/rpc/head"  # Blockchain RPC
+curl -X GET "http://localhost:8002/health"    # Blockchain Node
+curl -X GET "http://localhost:8003/health"    # Blockchain RPC
+curl -X GET "http://localhost:8007/health"    # Blockchain Service
+curl -X GET "http://localhost:8008/health"    # Network Service
 
-# Enhanced services DISABLED - not available for testing
-# curl -X GET "http://localhost:8010/health"  # DISABLED (no GPU)
-# curl -X GET "http://localhost:8011/health"  # DISABLED (no GPU)
-# curl -X GET "http://localhost:8012/health"  # DISABLED (not essential)
-# curl -X GET "http://localhost:8013/health"  # DISABLED (not essential)
-# curl -X GET "http://localhost:8014/health"  # DISABLED (not essential)
-# curl -X GET "http://localhost:8015/health"  # DISABLED (not essential)
-# curl -X GET "http://localhost:8016/health"  # DISABLED (not essential)
-# curl -X GET "http://localhost:8017/health"  # DISABLED (complex)
+# Test enhanced endpoints
+curl -X GET "http://localhost:8010/health"    # Multimodal GPU (CPU-only)
+curl -X GET "http://localhost:8011/health"    # GPU Multimodal (CPU-only)
+curl -X GET "http://localhost:8012/health"    # Modality Optimization
+curl -X GET "http://localhost:8013/health"    # Adaptive Learning
+curl -X GET "http://localhost:8014/health"    # Marketplace Enhanced
+curl -X GET "http://localhost:8015/health"    # OpenClaw Enhanced
+curl -X GET "http://localhost:8016/health"    # Blockchain Explorer
+curl -X GET "http://localhost:8017/health"    # Geographic Load Balancer
 ```
 
 ### **Phase 4: Production Configuration**
