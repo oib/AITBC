@@ -5,7 +5,7 @@ from sqlalchemy import StaticPool
 
 # Create in-memory SQLite database for now
 engine = create_engine(
-    "sqlite:///:memory:",
+    "sqlite:////home/oib/windsurf/aitbc/apps/coordinator-api/aitbc_coordinator.db",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
     echo=False
