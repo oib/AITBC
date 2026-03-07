@@ -370,7 +370,7 @@ def status(ctx, exchange_name: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/exchange/rates",
+                f"{config.coordinator_url}/v1/exchange/rates",
                 timeout=10
             )
             
@@ -412,7 +412,7 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
     try:
         with httpx.Client() as client:
             rates_response = client.get(
-                f"{config.coordinator_url}/api/v1/exchange/rates",
+                f"{config.coordinator_url}/v1/exchange/rates",
                 timeout=10
             )
             
@@ -441,7 +441,7 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
             
             # Create payment
             response = client.post(
-                f"{config.coordinator_url}/api/v1/exchange/create-payment",
+                f"{config.coordinator_url}/v1/exchange/create-payment",
                 json=payment_data,
                 timeout=10
             )
@@ -471,7 +471,7 @@ def payment_status(ctx, payment_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/exchange/payment-status/{payment_id}",
+                f"{config.coordinator_url}/v1/exchange/payment-status/{payment_id}",
                 timeout=10
             )
             
@@ -505,7 +505,7 @@ def market_stats(ctx):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/exchange/market-stats",
+                f"{config.coordinator_url}/v1/exchange/market-stats",
                 timeout=10
             )
             
@@ -593,7 +593,7 @@ def register(ctx, name: str, api_key: str, api_secret: Optional[str], sandbox: b
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/api/v1/exchange/register",
+                f"{config.coordinator_url}/v1/exchange/register",
                 json=exchange_data,
                 timeout=10
             )
@@ -642,7 +642,7 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/api/v1/exchange/create-pair",
+                f"{config.coordinator_url}/v1/exchange/create-pair",
                 json=pair_data,
                 timeout=10
             )
@@ -681,7 +681,7 @@ def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/api/v1/exchange/start-trading",
+                f"{config.coordinator_url}/v1/exchange/start-trading",
                 json=trading_data,
                 timeout=10
             )
@@ -719,7 +719,7 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/exchange/pairs",
+                f"{config.coordinator_url}/v1/exchange/pairs",
                 params=params,
                 timeout=10
             )
