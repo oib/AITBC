@@ -15,7 +15,7 @@ from enum import Enum
 import json
 
 from .ipfs_storage_service import IPFSStorageService, MemoryMetadata, IPFSUploadResult
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 logger = get_logger(__name__)
 

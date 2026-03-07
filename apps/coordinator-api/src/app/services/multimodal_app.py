@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .multimodal_agent import MultiModalAgentService
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..routers.multimodal_health import router as health_router
 
 app = FastAPI(
@@ -37,7 +37,7 @@ async def process_multimodal(
     agent_id: str,
     inputs: dict,
     processing_mode: str = "fusion",
-    session: Annotated[Session, Depends(get_session)] = Depends() = None
+    session: Annotated[Session, Depends(get_session)] = None
 ):
     """Process multi-modal input"""
     service = MultiModalAgentService(session)

@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..logging import get_logger
 from ..domain.bounty import EcosystemMetrics, BountyStats, AgentMetrics
 from ..services.ecosystem_service import EcosystemService
@@ -89,7 +89,7 @@ def get_ecosystem_service(session: Annotated[Session, Depends(get_session)]) -> 
 @router.get("/ecosystem/developer-earnings", response_model=DeveloperEarningsResponse)
 async def get_developer_earnings(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
     current_user: dict = Depends(get_current_user)
 ):
@@ -109,7 +109,7 @@ async def get_developer_earnings(
 @router.get("/ecosystem/agent-utilization", response_model=AgentUtilizationResponse)
 async def get_agent_utilization(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get agent utilization metrics"""
@@ -128,7 +128,7 @@ async def get_agent_utilization(
 @router.get("/ecosystem/treasury-allocation", response_model=TreasuryAllocationResponse)
 async def get_treasury_allocation(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get DAO treasury allocation metrics"""
@@ -147,7 +147,7 @@ async def get_treasury_allocation(
 @router.get("/ecosystem/staking-metrics", response_model=StakingMetricsResponse)
 async def get_staking_metrics(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get staking system metrics"""
@@ -166,7 +166,7 @@ async def get_staking_metrics(
 @router.get("/ecosystem/bounty-analytics", response_model=BountyAnalyticsResponse)
 async def get_bounty_analytics(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get bounty system analytics"""
@@ -185,7 +185,7 @@ async def get_bounty_analytics(
 @router.get("/ecosystem/overview", response_model=EcosystemOverviewResponse)
 async def get_ecosystem_overview(
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get comprehensive ecosystem overview"""
@@ -214,7 +214,7 @@ async def get_ecosystem_metrics(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     limit: int = Field(default=100, ge=1, le=1000),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get time-series ecosystem metrics"""
@@ -238,7 +238,7 @@ async def get_ecosystem_metrics(
 
 @router.get("/ecosystem/health-score")
 async def get_ecosystem_health_score(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get overall ecosystem health score"""
@@ -259,7 +259,7 @@ async def get_ecosystem_health_score(
 @router.get("/ecosystem/growth-indicators")
 async def get_growth_indicators(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get ecosystem growth indicators"""
@@ -282,7 +282,7 @@ async def get_top_performers(
     category: str = Field(default="all", regex="^(developers|agents|stakers|all)$"),
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     limit: int = Field(default=50, ge=1, le=100),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get top performers in different categories"""
@@ -308,7 +308,7 @@ async def get_top_performers(
 async def get_ecosystem_predictions(
     metric: str = Field(default="all", regex="^(earnings|staking|bounties|agents|all)$"),
     horizon: int = Field(default=30, ge=1, le=365),  # days
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get ecosystem predictions based on historical data"""
@@ -333,7 +333,7 @@ async def get_ecosystem_predictions(
 @router.get("/ecosystem/alerts")
 async def get_ecosystem_alerts(
     severity: str = Field(default="all", regex="^(low|medium|high|critical|all)$"),
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get ecosystem alerts and anomalies"""
@@ -357,7 +357,7 @@ async def get_ecosystem_comparison(
     compare_period: str = Field(default="previous", regex="^(previous|same_last_year|custom)$"),
     custom_start_date: Optional[datetime] = None,
     custom_end_date: Optional[datetime] = None,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Compare ecosystem metrics between periods"""
@@ -386,7 +386,7 @@ async def export_ecosystem_data(
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Export ecosystem data in various formats"""
@@ -413,7 +413,7 @@ async def export_ecosystem_data(
 
 @router.get("/ecosystem/real-time")
 async def get_real_time_metrics(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get real-time ecosystem metrics"""
@@ -432,7 +432,7 @@ async def get_real_time_metrics(
 
 @router.get("/ecosystem/kpi-dashboard")
 async def get_kpi_dashboard(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ):
     """Get KPI dashboard with key performance indicators"""

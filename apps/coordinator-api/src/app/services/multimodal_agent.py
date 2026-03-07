@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 import json
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..domain import AIAgentWorkflow, AgentExecution, AgentStatus
 
 logger = get_logger(__name__)
@@ -40,7 +40,7 @@ class ProcessingMode(str, Enum):
 class MultiModalAgentService:
     """Service for advanced multi-modal agent capabilities"""
     
-    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
+    def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self._modality_processors = {
             ModalityType.TEXT: self._process_text,

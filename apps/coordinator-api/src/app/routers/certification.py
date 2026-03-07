@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.certification_service import (
     CertificationAndPartnershipService, CertificationSystem, PartnershipManager, BadgeSystem
 )
@@ -120,7 +120,7 @@ class AgentCertificationSummary(BaseModel):
 @router.post("/certify", response_model=CertificationResponse)
 async def certify_agent(
     certification_request: CertificationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> CertificationResponse:
     """Certify an agent at a specific level"""
     
@@ -164,7 +164,7 @@ async def certify_agent(
 async def renew_certification(
     certification_id: str,
     renewed_by: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Renew an existing certification"""
     
@@ -197,7 +197,7 @@ async def renew_certification(
 async def get_agent_certifications(
     agent_id: str,
     status: Optional[str] = Query(default=None, description="Filter by status"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[CertificationResponse]:
     """Get certifications for an agent"""
     
@@ -243,7 +243,7 @@ async def create_partnership_program(
     tier_levels: List[str] = Field(default_factory=lambda: ["basic", "premium"]),
     max_participants: Optional[int] = Field(default=None, description="Maximum participants"),
     launch_immediately: bool = Field(default=False, description="Launch program immediately"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Create a new partnership program"""
     
@@ -281,7 +281,7 @@ async def create_partnership_program(
 @router.post("/partnerships/apply", response_model=PartnershipResponse)
 async def apply_for_partnership(
     application: PartnershipApplicationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> PartnershipResponse:
     """Apply for a partnership program"""
     
@@ -324,7 +324,7 @@ async def get_agent_partnerships(
     agent_id: str,
     status: Optional[str] = Query(default=None, description="Filter by status"),
     partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[PartnershipResponse]:
     """Get partnerships for an agent"""
     
@@ -367,7 +367,7 @@ async def list_partnership_programs(
     partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
     status: Optional[str] = Query(default="active", description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """List available partnership programs"""
     
@@ -408,7 +408,7 @@ async def list_partnership_programs(
 @router.post("/badges")
 async def create_badge(
     badge_request: BadgeCreationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Create a new achievement badge"""
     
@@ -446,7 +446,7 @@ async def create_badge(
 @router.post("/badges/award", response_model=BadgeResponse)
 async def award_badge(
     badge_request: BadgeAwardRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> BadgeResponse:
     """Award a badge to an agent"""
     
@@ -497,7 +497,7 @@ async def get_agent_badges(
     category: Optional[str] = Query(default=None, description="Filter by category"),
     featured_only: bool = Query(default=False, description="Only featured badges"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[BadgeResponse]:
     """Get badges for an agent"""
     
@@ -550,7 +550,7 @@ async def list_available_badges(
     rarity: Optional[str] = Query(default=None, description="Filter by rarity"),
     active_only: bool = Query(default=True, description="Only active badges"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """List available badges"""
     
@@ -598,7 +598,7 @@ async def list_available_badges(
 @router.post("/badges/{agent_id}/check-automatic")
 async def check_automatic_badges(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> Dict[str, Any]:
     """Check and award automatic badges for an agent"""
     
@@ -622,7 +622,7 @@ async def check_automatic_badges(
 @router.get("/summary/{agent_id}", response_model=AgentCertificationSummary)
 async def get_agent_summary(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> AgentCertificationSummary:
     """Get comprehensive certification and partnership summary for an agent"""
     
@@ -644,7 +644,7 @@ async def get_verification_records(
     verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get verification records for an agent"""
     
@@ -684,7 +684,7 @@ async def get_verification_records(
 
 @router.get("/levels")
 async def get_certification_levels(
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get available certification levels and requirements"""
     
@@ -712,7 +712,7 @@ async def get_certification_levels(
 async def get_certification_requirements(
     level: Optional[str] = Query(default=None, description="Filter by certification level"),
     verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get certification requirements"""
     
@@ -756,7 +756,7 @@ async def get_certification_requirements(
 async def get_certification_leaderboard(
     category: str = Query(default="highest_level", description="Leaderboard category"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> List[Dict[str, Any]]:
     """Get certification leaderboard"""
     

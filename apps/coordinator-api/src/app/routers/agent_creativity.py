@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.creative_capabilities_service import (
     CreativityEnhancementEngine, IdeationAlgorithm, CrossDomainCreativeIntegrator
 )
@@ -68,7 +68,7 @@ class SynthesisRequest(BaseModel):
 @router.post("/capabilities", response_model=CreativeCapabilityResponse)
 async def create_creative_capability(
     request: CreativeCapabilityCreate,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """Initialize a new creative capability for an agent"""
     engine = CreativityEnhancementEngine()
@@ -92,7 +92,7 @@ async def create_creative_capability(
 async def enhance_creativity(
     capability_id: str,
     request: EnhanceCreativityRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """Enhance a specific creative capability using specified algorithm"""
     engine = CreativityEnhancementEngine()
@@ -115,7 +115,7 @@ async def enhance_creativity(
 async def evaluate_creation(
     capability_id: str,
     request: EvaluateCreationRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """Evaluate a creative output and update agent capability metrics"""
     engine = CreativityEnhancementEngine()
@@ -155,7 +155,7 @@ async def generate_ideas(request: IdeationRequest):
 @router.post("/synthesis/cross-domain")
 async def synthesize_cross_domain(
     request: SynthesisRequest,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """Synthesize concepts from multiple domains to create novel outputs"""
     integrator = CrossDomainCreativeIntegrator()
@@ -178,7 +178,7 @@ async def synthesize_cross_domain(
 @router.get("/capabilities/{agent_id}")
 async def list_agent_creative_capabilities(
     agent_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ):
     """List all creative capabilities for a specific agent"""
     try:

@@ -12,7 +12,7 @@ import psutil
 import subprocess
 from typing import Dict, Any
 
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..services.multimodal_agent import MultiModalAgentService
 from ..logging import get_logger
 
@@ -21,7 +21,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="GPU Multi-Modal Service Health")
-async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Health check for GPU Multi-Modal Service (Port 8003)
     """
@@ -98,7 +98,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep GPU Multi-Modal Service Health")
-async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
+async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
     Deep health check with CUDA performance validation
     """

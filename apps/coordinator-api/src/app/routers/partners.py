@@ -12,7 +12,7 @@ import secrets
 import hashlib
 
 from ..schemas import UserProfile
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from sqlmodel import select
 
 router = APIRouter(tags=["partners"])
@@ -60,7 +60,7 @@ WEBHOOKS_DB = {}
 @router.post("/partners/register", response_model=PartnerResponse)
 async def register_partner(
     partner: PartnerRegister,
-    session: Annotated[Session, Depends(get_session)] = Depends()
+    session: Annotated[Session, Depends(get_session)]
 ) -> PartnerResponse:
     """Register a new partner application"""
     
@@ -105,7 +105,7 @@ async def register_partner(
 @router.get("/partners/{partner_id}")
 async def get_partner(
     partner_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     api_key: str
 ) -> Dict[str, Any]:
     """Get partner information"""
@@ -129,7 +129,7 @@ async def get_partner(
 @router.post("/partners/webhooks", response_model=WebhookResponse)
 async def create_webhook(
     webhook: WebhookCreate,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     api_key: str
 ) -> WebhookResponse:
     """Create a webhook subscription"""
@@ -180,7 +180,7 @@ async def create_webhook(
 
 @router.get("/partners/webhooks")
 async def list_webhooks(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     api_key: str
 ) -> List[WebhookResponse]:
     """List partner webhooks"""
@@ -208,7 +208,7 @@ async def list_webhooks(
 @router.delete("/partners/webhooks/{webhook_id}")
 async def delete_webhook(
     webhook_id: str,
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     api_key: str
 ) -> Dict[str, str]:
     """Delete a webhook"""
@@ -231,7 +231,7 @@ async def delete_webhook(
 
 @router.get("/partners/analytics/usage")
 async def get_usage_analytics(
-    session: Annotated[Session, Depends(get_session)] = Depends(),
+    session: Annotated[Session, Depends(get_session)],
     api_key: str,
     period: str = "24h"
 ) -> Dict[str, Any]:

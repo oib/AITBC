@@ -23,7 +23,7 @@ from .advanced_reinforcement_learning import AdvancedReinforcementLearningEngine
 from .multi_modal_fusion import MultiModalFusionEngine
 from .gpu_multimodal import GPUAcceleratedMultiModal
 from .advanced_learning import AdvancedLearningService
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 logger = get_logger(__name__)
 

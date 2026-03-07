@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .openclaw_enhanced_simple import router
 from .openclaw_enhanced_health import router as health_router
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 
 app = FastAPI(
     title="AITBC OpenClaw Enhanced Service",

@@ -8,7 +8,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .gpu_multimodal import GPUAcceleratedMultiModal
-from ..storage import Annotated[Session, Depends(get_session)], get_session
+from ..storage import get_session
 from ..routers.gpu_multimodal_health import router as health_router
 
 app = FastAPI(
@@ -36,7 +36,7 @@ async def health():
 async def cross_modal_attention(
     modality_features: dict,
     attention_config: dict = None,
-    session: Annotated[Session, Depends(get_session)] = Depends() = None
+    session: Annotated[Session, Depends(get_session)] = None
 ):
     """GPU-accelerated cross-modal attention"""
     service = GPUAcceleratedMultiModal(session)
