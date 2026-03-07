@@ -251,6 +251,10 @@ def create_app() -> FastAPI:
     app.include_router(payments, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
     app.include_router(edge_gpu)
+    
+    # Add standalone routers for tasks and payments
+    app.include_router(marketplace_gpu, prefix="/v1")
+    
     if ml_zk_proofs:
         app.include_router(ml_zk_proofs)
     app.include_router(marketplace_enhanced, prefix="/v1")

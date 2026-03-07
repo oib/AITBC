@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 OpenClaw Enhanced API Router - Simplified Version
 REST API endpoints for OpenClaw integration features
@@ -10,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from ..services.openclaw_enhanced_simple import OpenClawEnhancedService, SkillType, ExecutionMode
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..deps import require_admin_key
 from sqlmodel import Session
 
@@ -67,7 +69,7 @@ class EcosystemDevelopmentRequest(BaseModel):
 @router.post("/routing/skill")
 async def route_agent_skill(
     request: SkillRoutingRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Route agent skill to appropriate agent"""
@@ -90,7 +92,7 @@ async def route_agent_skill(
 @router.post("/offloading/intelligent")
 async def intelligent_job_offloading(
     request: JobOffloadingRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Intelligent job offloading strategies"""
@@ -113,7 +115,7 @@ async def intelligent_job_offloading(
 @router.post("/collaboration/coordinate")
 async def coordinate_agent_collaboration(
     request: AgentCollaborationRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Agent collaboration and coordination"""
@@ -136,7 +138,7 @@ async def coordinate_agent_collaboration(
 @router.post("/execution/hybrid-optimize")
 async def optimize_hybrid_execution(
     request: HybridExecutionRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Hybrid execution optimization"""
@@ -158,7 +160,7 @@ async def optimize_hybrid_execution(
 @router.post("/edge/deploy")
 async def deploy_to_edge(
     request: EdgeDeploymentRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Deploy agent to edge computing infrastructure"""
@@ -181,7 +183,7 @@ async def deploy_to_edge(
 @router.post("/edge/coordinate")
 async def coordinate_edge_to_cloud(
     request: EdgeCoordinationRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Coordinate edge-to-cloud agent operations"""
@@ -203,7 +205,7 @@ async def coordinate_edge_to_cloud(
 @router.post("/ecosystem/develop")
 async def develop_openclaw_ecosystem(
     request: EcosystemDevelopmentRequest,
-    session: Session = Depends(SessionDep),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key())
 ):
     """Build OpenClaw ecosystem components"""

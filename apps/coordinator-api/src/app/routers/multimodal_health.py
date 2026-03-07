@@ -1,3 +1,4 @@
+from typing import Annotated
 """
 Multi-Modal Agent Service Health Check Router
 Provides health monitoring for multi-modal processing capabilities
@@ -10,7 +11,7 @@ import sys
 import psutil
 from typing import Dict, Any
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from ..services.multimodal_agent import MultiModalAgentService
 from ..logging import get_logger
 
@@ -19,7 +20,7 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Multi-Modal Agent Service Health")
-async def multimodal_health(session: SessionDep) -> Dict[str, Any]:
+async def multimodal_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
     """
     Health check for Multi-Modal Agent Service (Port 8002)
     """
@@ -94,7 +95,7 @@ async def multimodal_health(session: SessionDep) -> Dict[str, Any]:
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Multi-Modal Service Health")
-async def multimodal_deep_health(session: SessionDep) -> Dict[str, Any]:
+async def multimodal_deep_health(session: Annotated[Session, Depends(get_session)] = Depends()) -> Dict[str, Any]:
     """
     Deep health check with detailed multi-modal processing tests
     """

@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
+from fastapi import Depends
 """
 GPU-Accelerated Multi-Modal Processing - Enhanced Implementation
 Advanced GPU optimization for cross-modal attention mechanisms
@@ -14,7 +17,7 @@ import numpy as np
 from datetime import datetime
 import time
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from .multimodal_agent import ModalityType, ProcessingMode
 
 logger = get_logger(__name__)
@@ -286,7 +289,7 @@ class GPUAttentionOptimizer:
 class GPUAcceleratedMultiModal:
     """GPU-accelerated multi-modal processing with enhanced CUDA optimization"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self._cuda_available = self._check_cuda_availability()

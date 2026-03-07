@@ -1,13 +1,15 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 OpenClaw Enhanced Service - FastAPI Entry Point
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from .openclaw_enhanced_simple import router
 from .openclaw_enhanced_health import router as health_router
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 
 app = FastAPI(
     title="AITBC OpenClaw Enhanced Service",

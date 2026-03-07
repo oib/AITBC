@@ -1,3 +1,6 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
+from fastapi import Depends
 """
 Modality-Specific Optimization Strategies - Phase 5.1
 Specialized optimization for text, image, audio, video, tabular, and graph data
@@ -10,7 +13,7 @@ from datetime import datetime
 from enum import Enum
 import numpy as np
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 from .multimodal_agent import ModalityType
 
 logger = get_logger(__name__)
@@ -27,7 +30,7 @@ class OptimizationStrategy(str, Enum):
 class ModalityOptimizer:
     """Base class for modality-specific optimizers"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
         self._performance_history = {}
     
@@ -61,7 +64,7 @@ class ModalityOptimizer:
 class TextOptimizer(ModalityOptimizer):
     """Text processing optimization strategies"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         super().__init__(session)
         self._token_cache = {}
         self._embedding_cache = {}
@@ -315,7 +318,7 @@ class TextOptimizer(ModalityOptimizer):
 class ImageOptimizer(ModalityOptimizer):
     """Image processing optimization strategies"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         super().__init__(session)
         self._feature_cache = {}
     
@@ -859,7 +862,7 @@ class VideoOptimizer(ModalityOptimizer):
 class ModalityOptimizationManager:
     """Manager for all modality-specific optimizers"""
     
-    def __init__(self, session: SessionDep):
+    def __init__(self, session: Annotated[Session, Depends(get_session)] = Depends()):
         self.session = session
         self._optimizers = {
             ModalityType.TEXT: TextOptimizer(session),

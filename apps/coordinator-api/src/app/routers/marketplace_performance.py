@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+from typing import Annotated
 """
 Marketplace Performance Optimization API Endpoints
 REST API for managing distributed processing, GPU optimization, caching, and scaling
@@ -10,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
 from pydantic import BaseModel, Field
 from aitbc.logging import get_logger
 
-from ..storage import SessionDep
+from ..storage import Annotated[Session, Depends(get_session)], get_session
 import sys
 import os
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../gpu_acceleration"))
