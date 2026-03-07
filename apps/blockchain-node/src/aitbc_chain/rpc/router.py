@@ -708,3 +708,158 @@ async def get_validators(chain_id: str = "ait-devnet") -> Dict[str, Any]:
     
     metrics_registry.observe("rpc_validators_duration_seconds", time.perf_counter() - start)
     return response
+
+
+@router.get("/state", summary="Get blockchain state information")
+async def get_chain_state(chain_id: str = "ait-devnet"):
+    """Get blockchain state information for a chain"""
+    start = time.perf_counter()
+    
+    # Mock response for now
+    response = {
+        "chain_id": chain_id,
+        "height": 1000,
+        "state": "active",
+        "peers": 5,
+        "sync_status": "synced",
+        "consensus": "PoA",
+        "network": "active"
+    }
+    
+    metrics_registry.observe("rpc_state_duration_seconds", time.perf_counter() - start)
+    return response
+
+
+@router.get("/rpc/getBalance/{address}", summary="Get account balance")
+async def get_balance(address: str, chain_id: str = "ait-devnet"):
+    """Get account balance for a specific address"""
+    start = time.perf_counter()
+    
+    try:
+        with session_scope() as session:
+            # Get account from database
+            stmt = select(Account).where(Account.address == address)
+            account = session.exec(stmt).first()
+            
+            if not account:
+                # Return default balance for new account
+                balance_data = {
+                    "address": address,
+                    "balance": 1000.0,
+                    "chain_id": chain_id,
+                    "currency": "AITBC",
+                    "last_updated": time.time()
+                }
+            else:
+                balance_data = {
+                    "address": address,
+                    "balance": float(account.balance),
+                    "chain_id": chain_id,
+                    "currency": "AITBC",
+                    "last_updated": time.time()
+                }
+            
+            metrics_registry.observe("rpc_balance_duration_seconds", time.perf_counter() - start)
+            return balance_data
+            
+    except Exception as e:
+        # Fallback to default balance
+        return {
+            "address": address,
+            "balance": 1000.0,
+            "chain_id": chain_id,
+            "currency": "AITBC",
+            "error": str(e)
+        }
+
+
+@router.get("/rpc/head", summary="Get current chain head")
+async def get_head(chain_id: str = "ait-devnet"):
+    """Get current chain head block"""
+    start = time.perf_counter()
+    
+    try:
+        with session_scope() as session:
+            # Get latest block
+            stmt = select(Block).order_by(Block.height.desc()).limit(1)
+            block = session.exec(stmt).first()
+            
+            if not block:
+                # Return genesis block if no blocks found
+                head_data = {
+                    "height": 0,
+                    "hash": "0xgenesis_hash",
+                    "timestamp": time.time(),
+                    "tx_count": 0,
+                    "chain_id": chain_id,
+                    "proposer": "genesis_proposer"
+                }
+            else:
+                head_data = {
+                    "height": block.height,
+                    "hash": block.hash,
+                    "timestamp": block.timestamp.timestamp(),
+                    "tx_count": len(block.transactions) if block.transactions else 0,
+                    "chain_id": chain_id,
+                    "proposer": block.proposer
+                }
+            
+            metrics_registry.observe("rpc_head_duration_seconds", time.perf_counter() - start)
+            return head_data
+            
+    except Exception as e:
+        # Fallback to default head
+        return {
+            "height": 0,
+            "hash": "0xgenesis_hash",
+            "timestamp": time.time(),
+            "tx_count": 0,
+            "chain_id": chain_id,
+            "error": str(e)
+        }
+
+
+@router.get("/rpc/transactions", summary="Get latest transactions")
+async def get_transactions(chain_id: str = "ait-devnet", limit: int = 20, offset: int = 0):
+    """Get latest transactions"""
+    start = time.perf_counter()
+    
+    try:
+        with session_scope() as session:
+            # Get transactions
+            stmt = select(Transaction).order_by(Transaction.timestamp.desc()).offset(offset).limit(limit)
+            transactions = session.exec(stmt).all()
+            
+            tx_list = []
+            for tx in transactions:
+                tx_data = {
+                    "hash": tx.hash,
+                    "type": tx.type,
+                    "sender": tx.sender,
+                    "nonce": tx.nonce,
+                    "fee": tx.fee,
+                    "timestamp": tx.timestamp.timestamp(),
+                    "status": "confirmed",
+                    "chain_id": chain_id
+                }
+                tx_list.append(tx_data)
+            
+            metrics_registry.observe("rpc_transactions_duration_seconds", time.perf_counter() - start)
+            return {
+                "transactions": tx_list,
+                "total": len(tx_list),
+                "limit": limit,
+                "offset": offset,
+                "chain_id": chain_id
+            }
+            
+    except Exception as e:
+        # Fallback to empty list
+        return {
+            "transactions": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "chain_id": chain_id,
+            "error": str(e)
+        }

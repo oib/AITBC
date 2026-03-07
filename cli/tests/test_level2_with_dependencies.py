@@ -144,7 +144,7 @@ class Level2WithDependenciesTester:
         with patch('pathlib.Path.home') as mock_home:
             mock_home.return_value = Path(self.temp_dir)
             
-            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'list'])
+            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'list'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} wallet list: {'Working' if success else 'Failed'}")
             return success
@@ -171,7 +171,7 @@ class Level2WithDependenciesTester:
         with patch('pathlib.Path.home') as mock_home:
             mock_home.return_value = Path(self.temp_dir)
             
-            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'address', '--wallet-name', wallet_name])
+            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'address', '--wallet-name', wallet_name], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} wallet address: {'Working' if success else 'Failed'}")
             return success
@@ -234,7 +234,7 @@ class Level2WithDependenciesTester:
         with patch('pathlib.Path.home') as mock_home:
             mock_home.return_value = Path(self.temp_dir)
             
-            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'history', '--limit', '5', '--wallet-name', wallet_name])
+            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'history', '--limit', '5', '--wallet-name', wallet_name], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} wallet history: {'Working' if success else 'Failed'}")
             return success
@@ -249,7 +249,7 @@ class Level2WithDependenciesTester:
         with patch('pathlib.Path.home') as mock_home:
             mock_home.return_value = Path(self.temp_dir)
             
-            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'backup', wallet_name])
+            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'backup', wallet_name], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} wallet backup: {'Working' if success else 'Failed'}")
             return success
@@ -264,7 +264,7 @@ class Level2WithDependenciesTester:
         with patch('pathlib.Path.home') as mock_home:
             mock_home.return_value = Path(self.temp_dir)
             
-            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'info', '--wallet-name', wallet_name])
+            result = self.runner.invoke(cli, ['--test-mode', 'wallet', 'info', '--wallet-name', wallet_name], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} wallet info: {'Working' if success else 'Failed'}")
             return success
@@ -304,7 +304,7 @@ class Level2WithDependenciesTester:
             }
             mock_post.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'submit', 'What is machine learning?', '--model', 'gemma3:1b'])
+            result = self.runner.invoke(cli, ['client', 'submit', 'What is machine learning?', '--model', 'gemma3:1b'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client submit: {'Working' if success else 'Failed'}")
             return success
@@ -321,7 +321,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'status', 'job_test123'])
+            result = self.runner.invoke(cli, ['client', 'status', 'job_test123'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client status: {'Working' if success else 'Failed'}")
             return success
@@ -338,7 +338,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'result', 'job_test123'])
+            result = self.runner.invoke(cli, ['client', 'result', 'job_test123'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client result: {'Working' if success else 'Failed'}")
             return success
@@ -357,7 +357,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'history', '--limit', '10'])
+            result = self.runner.invoke(cli, ['client', 'history', '--limit', '10'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client history: {'Working' if success else 'Failed'}")
             return success
@@ -373,7 +373,7 @@ class Level2WithDependenciesTester:
             }
             mock_delete.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['client', 'cancel', 'job_test123'])
+            result = self.runner.invoke(cli, ['client', 'cancel', 'job_test123'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} client cancel: {'Working' if success else 'Failed'}")
             return success
@@ -413,7 +413,7 @@ class Level2WithDependenciesTester:
             }
             mock_post.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['miner', 'register', '--gpu', 'RTX 4090'])
+            result = self.runner.invoke(cli, ['miner', 'register', '--gpu', 'RTX 4090'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} miner register: {'Working' if success else 'Failed'}")
             return success
@@ -431,7 +431,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['miner', 'status'])
+            result = self.runner.invoke(cli, ['miner', 'status'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} miner status: {'Working' if success else 'Failed'}")
             return success
@@ -449,7 +449,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['miner', 'earnings'])
+            result = self.runner.invoke(cli, ['miner', 'earnings'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} miner earnings: {'Working' if success else 'Failed'}")
             return success
@@ -468,7 +468,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['miner', 'jobs'])
+            result = self.runner.invoke(cli, ['miner', 'jobs'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} miner jobs: {'Working' if success else 'Failed'}")
             return success
@@ -484,7 +484,7 @@ class Level2WithDependenciesTester:
             }
             mock_delete.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['miner', 'deregister'])
+            result = self.runner.invoke(cli, ['miner', 'deregister'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} miner deregister: {'Working' if success else 'Failed'}")
             return success
@@ -530,7 +530,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['blockchain', 'balance', address])
+            result = self.runner.invoke(cli, ['blockchain', 'balance', address], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} blockchain balance: {'Working' if success else 'Failed'}")
             return success
@@ -548,7 +548,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['blockchain', 'block', '12345'])
+            result = self.runner.invoke(cli, ['blockchain', 'block', '12345'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} blockchain block: {'Working' if success else 'Failed'}")
             return success
@@ -565,7 +565,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['blockchain', 'head'])
+            result = self.runner.invoke(cli, ['blockchain', 'head'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} blockchain head: {'Working' if success else 'Failed'}")
             return success
@@ -584,7 +584,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['blockchain', 'transactions', '--limit', '10'])
+            result = self.runner.invoke(cli, ['blockchain', 'transactions', '--limit', '10'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} blockchain transactions: {'Working' if success else 'Failed'}")
             return success
@@ -603,7 +603,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['blockchain', 'validators'])
+            result = self.runner.invoke(cli, ['blockchain', 'validators'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} blockchain validators: {'Working' if success else 'Failed'}")
             return success
@@ -644,7 +644,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'list'])
+            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'list'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} marketplace gpu list: {'Working' if success else 'Failed'}")
             return success
@@ -661,7 +661,7 @@ class Level2WithDependenciesTester:
             }
             mock_post.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'register', '--name', 'Test GPU', '--memory', '24GB'])
+            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'register', '--name', 'Test GPU', '--memory', '24GB'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} marketplace gpu register: {'Working' if success else 'Failed'}")
             return success
@@ -678,7 +678,7 @@ class Level2WithDependenciesTester:
             }
             mock_post.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['marketplace', 'bid', 'gpu1', '--amount', '0.50'])
+            result = self.runner.invoke(cli, ['marketplace', 'bid', 'gpu1', '--amount', '0.50'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} marketplace bid: {'Working' if success else 'Failed'}")
             return success
@@ -698,7 +698,7 @@ class Level2WithDependenciesTester:
             }
             mock_get.return_value = mock_response
             
-            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'details', '--gpu-id', 'gpu1'])
+            result = self.runner.invoke(cli, ['marketplace', 'gpu', 'details', '--gpu-id', 'gpu1'], env={'TEST_MODE': '1'})
             success = result.exit_code == 0
             print(f"    {'✅' if success else '❌'} marketplace gpu details: {'Working' if success else 'Failed'}")
             return success

@@ -13,6 +13,7 @@ def _get_node_endpoint(ctx):
 
 from typing import Optional, List
 from ..utils import output, error
+import os
 
 
 @click.group()
@@ -1185,3 +1186,86 @@ def genesis_hash(ctx, chain: str):
 def warning(message: str):
     """Display warning message"""
     click.echo(click.style(f"⚠️  {message}", fg='yellow'))
+
+
+@blockchain.command()
+@click.option('--chain-id', help='Specific chain ID to query (default: ait-devnet)')
+@click.option('--all-chains', is_flag=True, help='Get state across all available chains')
+@click.pass_context
+def state(ctx, chain_id: str, all_chains: bool):
+    """Get blockchain state information across chains"""
+    config = ctx.obj['config']
+    node_url = _get_node_endpoint(ctx)
+    
+    try:
+        if all_chains:
+            # Get state across all available chains
+            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            all_state = {}
+            
+            for chain in chains:
+                try:
+                    with httpx.Client() as client:
+                        response = client.get(
+                            f"{node_url}/rpc/state?chain_id={chain}",
+                            timeout=5
+                        )
+                        
+                        if response.status_code == 200:
+                            state_data = response.json()
+                            all_state[chain] = {
+                                "chain_id": chain,
+                                "state": state_data,
+                                "available": True
+                            }
+                        else:
+                            all_state[chain] = {
+                                "chain_id": chain,
+                                "error": f"HTTP {response.status_code}",
+                                "available": False
+                            }
+                except Exception as e:
+                    all_state[chain] = {
+                        "chain_id": chain,
+                        "error": str(e),
+                        "available": False
+                    }
+            
+            # Count available chains
+            available_chains = sum(1 for state in all_state.values() if state.get("available", False))
+            
+            output({
+                "chains": all_state,
+                "total_chains": len(chains),
+                "available_chains": available_chains,
+                "query_type": "all_chains"
+            }, ctx.obj['output_format'])
+            
+        else:
+            # Query specific chain (default to ait-devnet if not specified)
+            target_chain = chain_id or 'ait-devnet'
+            
+            with httpx.Client() as client:
+                response = client.get(
+                    f"{node_url}/rpc/state?chain_id={target_chain}",
+                    timeout=5
+                )
+                
+                if response.status_code == 200:
+                    state_data = response.json()
+                    output({
+                        "chain_id": target_chain,
+                        "state": state_data,
+                        "available": True,
+                        "query_type": "single_chain"
+                    }, ctx.obj['output_format'])
+                else:
+                    output({
+                        "chain_id": target_chain,
+                        "error": f"HTTP {response.status_code}",
+                        "available": False,
+                        "query_type": "single_chain_error"
+                    }, ctx.obj['output_format'])
+                    
+    except Exception as e:
+        error(f"Network error: {e}")

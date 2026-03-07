@@ -54,10 +54,74 @@ def list(ctx, chain_type, show_private, sort):
             for chain in chains
         ]
         
-        output(chains_data, ctx.obj.get('output_format', 'table'), title="AITBC Chains")
+        output(chains_data, ctx.obj.get('output_format', 'table'), title="Available Chains")
         
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
+        raise click.Abort()
+
+@chain.command()
+@click.option('--chain-id', help='Specific chain ID to check status (shows all if not specified)')
+@click.option('--detailed', is_flag=True, help='Show detailed status information')
+@click.pass_context
+def status(ctx, chain_id, detailed):
+    """Check status of chains"""
+    try:
+        config = load_multichain_config()
+        chain_manager = ChainManager(config)
+        
+        import asyncio
+        
+        if chain_id:
+            # Get specific chain status
+            chain_info = asyncio.run(chain_manager.get_chain_info(chain_id, detailed=detailed))
+            
+            status_data = {
+                "Chain ID": chain_info.id,
+                "Name": chain_info.name,
+                "Type": chain_info.type.value,
+                "Status": chain_info.status.value,
+                "Block Height": chain_info.block_height,
+                "Active Nodes": chain_info.active_nodes,
+                "Total Nodes": chain_info.node_count
+            }
+            
+            if detailed:
+                status_data.update({
+                    "Consensus": chain_info.consensus_algorithm.value,
+                    "TPS": f"{chain_info.tps:.1f}",
+                    "Gas Price": f"{chain_info.gas_price / 1e9:.1f} gwei",
+                    "Memory Usage": f"{chain_info.memory_usage_mb:.1f}MB"
+                })
+            
+            output(status_data, ctx.obj.get('output_format', 'table'), title=f"Chain Status: {chain_id}")
+        else:
+            # Get all chains status
+            chains = asyncio.run(chain_manager.list_chains())
+            
+            if not chains:
+                output({"message": "No chains found"}, ctx.obj.get('output_format', 'table'))
+                return
+            
+            status_list = []
+            for chain in chains:
+                status_info = {
+                    "Chain ID": chain.id,
+                    "Name": chain.name,
+                    "Type": chain.type.value,
+                    "Status": chain.status.value,
+                    "Block Height": chain.block_height,
+                    "Active Nodes": chain.active_nodes
+                }
+                status_list.append(status_info)
+            
+            output(status_list, ctx.obj.get('output_format', 'table'), title="Chain Status Overview")
+        
+    except ChainNotFoundError:
+        error(f"Chain {chain_id} not found")
+        raise click.Abort()
+    except Exception as e:
+        error(f"Error getting chain status: {str(e)}")
         raise click.Abort()
 
 @chain.command()
