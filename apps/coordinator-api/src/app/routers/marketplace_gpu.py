@@ -4,6 +4,7 @@ GPU marketplace endpoints backed by persistent SQLModel tables.
 
 from typing import Any, Dict, List, Optional
 from datetime import datetime, timedelta
+from uuid import uuid4
 import statistics
 
 from fastapi import APIRouter, HTTPException, Query, Depends
@@ -65,6 +66,25 @@ class GPURegisterRequest(BaseModel):
 class GPUBookRequest(BaseModel):
     duration_hours: float
     job_id: Optional[str] = None
+
+
+class GPUConfirmRequest(BaseModel):
+    client_id: Optional[str] = None
+
+
+class OllamaTaskRequest(BaseModel):
+    gpu_id: str
+    model: str = "llama2"
+    prompt: str
+    parameters: Dict[str, Any] = {}
+
+
+class PaymentRequest(BaseModel):
+    from_wallet: str
+    to_wallet: str
+    amount: float
+    booking_id: Optional[str] = None
+    task_id: Optional[str] = None
 
 
 class GPUReviewRequest(BaseModel):
@@ -335,6 +355,105 @@ async def release_gpu(gpu_id: str, session: SessionDep) -> Dict[str, Any]:
         "gpu_id": gpu_id,
         "refund": refund,
         "message": f"GPU {gpu_id} released successfully",
+    }
+
+
+# ---------------------------------------------------------------------------
+# New endpoints: confirm booking, submit Ollama task, payment hook
+# ---------------------------------------------------------------------------
+
+
+@router.post("/marketplace/gpu/{gpu_id}/confirm")
+async def confirm_gpu_booking(
+    gpu_id: str,
+    request: GPUConfirmRequest,
+    session: SessionDep,
+) -> Dict[str, Any]:
+    """Confirm a booking (client ACK)."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    if gpu.status != "booked":
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {gpu_id} is not booked",
+        )
+
+    booking = session.execute(
+        select(GPUBooking)
+        .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
+        .limit(1)
+    ).scalar_one_or_none()
+
+    if not booking:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"Active booking for {gpu_id} not found",
+        )
+
+    if request.client_id:
+        booking.client_id = request.client_id
+        session.add(booking)
+        session.commit()
+        session.refresh(booking)
+
+    return {
+        "status": "confirmed",
+        "gpu_id": gpu_id,
+        "booking_id": booking.id,
+        "client_id": booking.client_id,
+        "message": f"Booking confirmed for GPU {gpu_id}",
+    }
+
+
+@router.post("/tasks/ollama")
+async def submit_ollama_task(
+    request: OllamaTaskRequest,
+    session: SessionDep,
+) -> Dict[str, Any]:
+    """Stub Ollama task submission endpoint."""
+    # Ensure GPU exists and is booked
+    gpu = _get_gpu_or_404(session, request.gpu_id)
+    if gpu.status != "booked":
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {request.gpu_id} is not booked",
+        )
+
+    task_id = f"task_{uuid4().hex[:10]}"
+    submitted_at = datetime.utcnow().isoformat() + "Z"
+
+    return {
+        "task_id": task_id,
+        "status": "submitted",
+        "submitted_at": submitted_at,
+        "gpu_id": request.gpu_id,
+        "model": request.model,
+        "prompt": request.prompt,
+        "parameters": request.parameters,
+    }
+
+
+@router.post("/payments/send")
+async def send_payment(request: PaymentRequest) -> Dict[str, Any]:
+    """Stub payment endpoint (hook for blockchain processor)."""
+    if request.amount <= 0:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail="Amount must be greater than zero",
+        )
+
+    tx_id = f"tx_{uuid4().hex[:10]}"
+    processed_at = datetime.utcnow().isoformat() + "Z"
+
+    return {
+        "tx_id": tx_id,
+        "status": "processed",
+        "processed_at": processed_at,
+        "from": request.from_wallet,
+        "to": request.to_wallet,
+        "amount": request.amount,
+        "booking_id": request.booking_id,
+        "task_id": request.task_id,
     }
 
 
