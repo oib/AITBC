@@ -59,6 +59,7 @@ from .commands.ai_trading import ai_trading
 from .commands.advanced_analytics import advanced_analytics_group
 from .commands.ai_surveillance import ai_surveillance_group
 from .commands.enterprise_integration import enterprise_integration_group
+from .commands.explorer import explorer
 from .plugins import plugin, load_plugins
 
 
@@ -123,7 +124,51 @@ def cli(ctx, url: Optional[str], api_key: Optional[str], output: str,
     """
     AITBC CLI - Command Line Interface for AITBC Network
     
-    Manage jobs, mining, wallets, and blockchain operations from the command line.
+    Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI services.
+    
+    CORE COMMANDS:
+      client          Submit and manage AI compute jobs
+      miner           GPU mining operations and status
+      wallet          Wallet management and transactions
+      marketplace     GPU marketplace and trading
+      blockchain      Blockchain operations and queries
+      exchange        Real exchange integration (Binance, Coinbase, etc.)
+      explorer        Blockchain explorer and analytics
+      
+    ADVANCED FEATURES:
+      analytics       Chain performance monitoring and predictions
+      ai-trading      AI-powered trading strategies
+      surveillance    Market surveillance and compliance
+      compliance      Regulatory compliance and reporting
+      governance      Network governance and proposals
+      
+    DEVELOPMENT TOOLS:
+      admin           Administrative operations
+      config          Configuration management
+      monitor         System monitoring and health
+      test            CLI testing and validation
+      deploy          Deployment and infrastructure management
+      
+    SPECIALIZED SERVICES:
+      agent           AI agent operations
+      multimodal      Multi-modal AI processing
+      oracle          Price discovery and data feeds
+      market-maker    Automated market making
+      genesis-protection Advanced security features
+      
+    Use 'aitbc <command> --help' for detailed help on any command.
+    
+    Examples:
+      aitbc client submit --prompt "Generate an image" --model llama2
+      aitbc miner status
+      aitbc wallet create --type hd
+      aitbc marketplace list
+      aitbc exchange create-pair --pair AITBC/BTC --base-asset AITBC --quote-asset BTC
+      aitbc analytics summary
+      aitbc explorer status
+      aitbc explorer block 12345
+      aitbc explorer transaction 0x123...
+      aitbc explorer search --address 0xabc...
     """
     # Ensure context object exists
     ctx.ensure_object(dict)
@@ -214,6 +259,7 @@ cli.add_command(ai_trading)
 cli.add_command(advanced_analytics_group)
 cli.add_command(ai_surveillance_group)
 cli.add_command(enterprise_integration_group)
+cli.add_command(explorer)
 cli.add_command(plugin)
 load_plugins(cli)
 

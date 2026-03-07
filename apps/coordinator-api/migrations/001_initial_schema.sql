@@ -116,6 +116,19 @@ CREATE TABLE IF NOT EXISTS job_history (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- GPU reviews table
+CREATE TABLE IF NOT EXISTS gpu_reviews (
+    id VARCHAR(255) PRIMARY KEY,
+    gpu_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) DEFAULT '',
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gpu_reviews_gpu_id ON gpu_reviews(gpu_id);
+CREATE INDEX IF NOT EXISTS idx_gpu_reviews_created_at ON gpu_reviews(created_at);
+
 -- Comments for documentation
 COMMENT ON TABLE jobs IS 'AI compute jobs submitted to the network';
 COMMENT ON TABLE miners IS 'Registered GPU miners';
@@ -124,3 +137,4 @@ COMMENT ON TABLE blocks IS 'Blockchain blocks for transaction ordering';
 COMMENT ON TABLE transactions IS 'On-chain transactions';
 COMMENT ON TABLE api_keys IS 'API authentication keys';
 COMMENT ON TABLE job_history IS 'Job event history for analytics';
+COMMENT ON TABLE gpu_reviews IS 'User reviews for GPU marketplace';
