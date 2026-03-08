@@ -1,5 +1,7 @@
 name: Security Scanning
 
+# Comprehensive security scanning workflow
+
 on:
   push:
     branches: [ main, develop ]
