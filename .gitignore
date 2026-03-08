@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 # AITBC Monorepo ignore rules
 # Updated: 2026-03-03 - Project organization workflow completed
 # Development files organized into dev/ subdirectories
@@ -178,11 +179,79 @@ backup/README.md
 # ===================
 tmp/
 temp/
+=======
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+*.db-wal
+*.db-shm
+
+# Configuration with secrets
+.env
+.env.local
+.env.*.local
+config.json
+secrets.json
+
+# Temporary files
+>>>>>>> Stashed changes
 *.tmp
 *.temp
 *.bak
 *.backup
 
+<<<<<<< Updated upstream
 # ===================
 # Windsurf IDE
 # ===================
@@ -293,3 +362,52 @@ scripts/service/*
 infra/nginx/nginx-aitbc*.conf
 infra/helm/values/prod/
 infra/helm/values/prod.yaml
+=======
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+build/
+dist/
+target/
+
+# System files
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# AITBC specific
+data/
+logs/
+*.db
+*.sqlite
+wallet*.json
+keystore/
+certificates/
+>>>>>>> Stashed changes
