@@ -7,7 +7,7 @@ import sys
 import os
 
 # Add CLI to path
-sys.path.insert(0, '/home/oib/windsurf/aitbc/cli')
+sys.path.insert(0, '/opt/aitbc/cli')
 
 def main():
     """Main test runner"""

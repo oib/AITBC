@@ -20,10 +20,10 @@ from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 # Add CLI to path
-sys.path.insert(0, '/home/oib/windsurf/aitbc/cli')
+sys.path.insert(0, '/opt/aitbc/cli')
 
 from click.testing import CliRunner
-from aitbc_cli.main import cli
+from aitbc_cli.main_minimal import cli
 from aitbc_cli.config import Config
 
 # Import test utilities
