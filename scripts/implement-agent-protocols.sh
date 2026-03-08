@@ -330,6 +330,7 @@ Secure cross-chain agent communication
 """
 
 import json
+import os
 import time
 import uuid
 import hashlib
@@ -351,8 +352,12 @@ class MessageProtocol:
     
     def _generate_key(self) -> bytes:
         """Generate encryption key"""
-        password = b"aitbc-agent-protocol-2026"
-        salt = b"aitbc-salt-agent-protocol"
+        password = os.environ.get('AITBC_AGENT_PROTOCOL_KEY', b"default-key-change-in-production")
+        salt = os.environ.get('AITBC_AGENT_PROTOCOL_SALT', b"aitbc-salt-agent-protocol")
+        if isinstance(password, str):
+            password = password.encode()
+        if isinstance(salt, str):
+            salt = salt.encode()
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
