@@ -91,6 +91,46 @@ def set(ctx, key: str, value: str, global_config: bool):
 
 
 @config.command()
+@click.argument("key")
+@click.option("--global", "global_config", is_flag=True, help="Get from global config")
+@click.pass_context
+def get(ctx, key: str, global_config: bool):
+    """Get configuration value"""
+    config = ctx.obj['config']
+    
+    # Determine config file path
+    if global_config:
+        config_dir = Path.home() / ".config" / "aitbc"
+        config_file = config_dir / "config.yaml"
+    else:
+        config_file = getattr(config, 'config_file', None)
+    
+    if not config_file or not Path(config_file).exists():
+        # Try to get from current config object
+        value = getattr(config, key, None)
+        if value is not None:
+            output({key: value}, ctx.obj['output_format'])
+        else:
+            error(f"Configuration key '{key}' not found")
+            ctx.exit(1)
+        return
+    
+    # Load config from file
+    try:
+        with open(config_file, 'r') as f:
+            config_data = yaml.safe_load(f) or {}
+        
+        if key in config_data:
+            output({key: config_data[key]}, ctx.obj['output_format'])
+        else:
+            error(f"Configuration key '{key}' not found")
+            ctx.exit(1)
+    except Exception as e:
+        error(f"Failed to read config: {e}")
+        ctx.exit(1)
+
+
+@config.command()
 @click.option("--global", "global_config", is_flag=True, help="Show global config")
 def path(global_config: bool):
     """Show configuration file path"""
