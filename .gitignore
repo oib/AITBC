@@ -265,6 +265,15 @@ test-results/
 **/test-results/
 
 # ===================
+# Development Logs - Keep in dev/logs/
+# ===================
+*.log
+*.out
+*.err
+wget-log
+download.log
+
+# ===================
 # Wallet files (contain keys/balances)
 # ===================
 home/client/client_wallet.json

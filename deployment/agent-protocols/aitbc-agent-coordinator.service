@@ -1,0 +1,16 @@
+[Unit]
+Description=AITBC Agent Coordinator Service
+After=network.target aitbc-agent-registry.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/agent-services/agent-coordinator/src
+Environment=PYTHONPATH=/opt/aitbc
+ExecStart=/opt/aitbc/agent-venv/bin/python coordinator.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
