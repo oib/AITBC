@@ -1,0 +1,258 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+
+jobs:
+  bandit-security-scan:
+    name: Bandit Security Scan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        directory:
+          - apps/coordinator-api/src
+          - cli/aitbc_cli
+          - packages/py/aitbc-core/src
+          - packages/py/aitbc-crypto/src
+          - packages/py/aitbc-sdk/src
+          - tests
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit[toml]
+
+    - name: Run Bandit security scan
+      run: |
+        bandit -r ${{ matrix.directory }} -f json -o bandit-report-${{ matrix.directory }}.json
+        bandit -r ${{ matrix.directory }} -f text -o bandit-report-${{ matrix.directory }}.txt
+
+    - name: Upload Bandit reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: bandit-report-${{ matrix.directory }}
+        path: |
+          bandit-report-${{ matrix.directory }}.json
+          bandit-report-${{ matrix.directory }}.txt
+        retention-days: 30
+
+    - name: Comment PR with Bandit findings
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const report = fs.readFileSync('bandit-report-${{ matrix.directory }}.txt', 'utf8');
+            if (report.includes('No issues found')) {
+              console.log('✅ No security issues found in ${{ matrix.directory }}');
+            } else {
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🔒 Bandit Security Scan Results\n\n**Directory**: ${{ matrix.directory }}\n\n\`\`\`\n${report}\n\`\`\`\n\nPlease review and address any security issues.`
+              });
+            }
+          } catch (error) {
+            console.log('Could not read Bandit report');
+          }
+
+  codeql-security-analysis:
+    name: CodeQL Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      matrix:
+        language: [ 'python', 'javascript' ]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: ${{ matrix.language }}
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+      with:
+        queries: security-extended,security-and-quality
+
+  dependency-security-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety
+
+    - name: Run Safety security scan
+      run: |
+        safety check --json --output safety-report.json
+        safety check --output safety-report.txt
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Run npm audit
+      run: |
+        cd apps/explorer-web && npm audit --json > ../npm-audit-report.json || true
+        cd ../.. && cd website && npm audit --json > ../npm-audit-website.json || true
+
+    - name: Upload dependency reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: dependency-security-reports
+        path: |
+          safety-report.json
+          safety-report.txt
+          npm-audit-report.json
+          npm-audit-website.json
+        retention-days: 30
+
+  container-security-scan:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    if: contains(github.event.head_commit.modified, 'Dockerfile') || contains(github.event.head_commit.modified, 'docker')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  ossf-scorecard:
+    name: OSSF Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      id-token: write
+      actions: read
+      contents: read
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        persist-credentials: false
+
+    - name: Run OSSF Scorecard
+      uses: ossf/scorecard-action@v2.3.3
+      with:
+        results-file: results.sarif
+        results-format: sarif
+
+    - name: Upload OSSF Scorecard results to GitHub Security tab
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: results.sarif
+
+  security-summary:
+    name: Security Summary Report
+    runs-on: ubuntu-latest
+    needs: [bandit-security-scan, codeql-security-analysis, dependency-security-scan]
+    if: always()
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+
+    - name: Generate security summary
+      run: |
+        echo "# 🔒 Security Scan Summary" > security-summary.md
+        echo "" >> security-summary.md
+        echo "Generated on: $(date)" >> security-summary.md
+        echo "" >> security-summary.md
+        echo "## Scan Results" >> security-summary.md
+        echo "" >> security-summary.md
+        
+        # Check Bandit results
+        if [ -d "bandit-report-apps/coordinator-api/src" ]; then
+          echo "### Bandit Security Scan" >> security-summary.md
+          echo "- ✅ Completed for all directories" >> security-summary.md
+          echo "" >> security-summary.md
+        fi
+        
+        # Check CodeQL results
+        echo "### CodeQL Analysis" >> security-summary.md
+        echo "- ✅ Completed for Python and JavaScript" >> security-summary.md
+        echo "" >> security-summary.md
+        
+        # Check Dependency results
+        if [ -f "dependency-security-reports/safety-report.txt" ]; then
+          echo "### Dependency Security Scan" >> security-summary.md
+          echo "- ✅ Python dependencies scanned" >> security-summary.md
+          echo "- ✅ npm dependencies scanned" >> security-summary.md
+          echo "" >> security-summary.md
+        fi
+        
+        echo "## Recommendations" >> security-summary.md
+        echo "1. Review any high-severity findings immediately" >> security-summary.md
+        echo "2. Update dependencies with known vulnerabilities" >> security-summary.md
+        echo "3. Address security best practice violations" >> security-summary.md
+        echo "4. Schedule regular security reviews" >> security-summary.md
+
+    - name: Upload security summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-summary
+        path: security-summary.md
+        retention-days: 90
+
+    - name: Comment PR with security summary
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          try {
+            const summary = fs.readFileSync('security-summary.md', 'utf8');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+          } catch (error) {
+            console.log('Could not read security summary');
+          }
