@@ -11,9 +11,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 # Import compliance providers
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from kyc_aml_providers import submit_kyc_verification, check_kyc_status, perform_aml_screening
+from aitbc_cli.kyc_aml_providers import submit_kyc_verification, check_kyc_status, perform_aml_screening
 
 @click.group()
 def compliance():

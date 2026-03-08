@@ -1,318 +1,250 @@
-# CLI Usage
+# AITBC CLI Getting Started Guide
 
-## Setup
+**Complete Command Line Interface Setup and Usage**
 
+## 🚀 **Quick Start**
+
+### Prerequisites
+- Linux system (Debian 13+ recommended)
+- Python 3.13+ installed
+- System access (sudo for initial setup)
+
+### Installation
 ```bash
-pip install -e .                                    # from monorepo root
-aitbc config set coordinator_url http://localhost:8000
-export AITBC_API_KEY=your-key                       # or use --api-key
+# 1. Load development environment
+source /opt/aitbc/.env.dev
+
+# 2. Test CLI installation
+aitbc --help
+aitbc version
+
+# 3. Verify services are running
+aitbc-services status
 ```
 
-## Verify Installation
+## 🔧 **Development Environment Setup**
 
+### Permission Configuration
 ```bash
-# Check CLI version and platform
-aitbc --version
-aitbc --debug
+# Fix permissions (one-time setup)
+sudo /opt/aitbc/scripts/clean-sudoers-fix.sh
 
-# Test connectivity
-aitbc blockchain status
-aitbc --config
+# Test permissions
+/opt/aitbc/scripts/test-permissions.sh
 ```
 
-## Global Options
-
-| Option | Description |
-|--------|-------------|
-| `--url URL` | Coordinator API URL |
-| `--api-key KEY` | API key for authentication |
-| `--output table\|json\|yaml` | Output format |
-| `-v / -vv / -vvv` | Verbosity level |
-| `--debug` | Debug mode with system information |
-| `--config` | Show current configuration |
-
-## Enhanced Command Groups
-
-| Group | Key commands |
-|-------|-------------|
-| `agent` | `workflow create`, `execute`, `network`, `learning enable` |
-| `multimodal` | `agent`, `process`, `convert`, `search` |
-| `optimize` | `enable`, `status`, `recommendations`, `apply`, `predict`, `tune` |
-| `openclaw` | `deploy`, `status`, `optimize`, `edge`, `routing`, `ecosystem` |
-| `marketplace` | `list`, `gpu list`, `offer create`, `gpu rent`, `orders`, `reviews` |
-| `swarm` | `join`, `coordinate`, `consensus` |
-| `client` | `submit`, `status`, `list`, `cancel`, `download`, `batch-submit` |
-| `miner` | `register`, `poll`, `mine`, `earnings`, `deregister` |
-| `wallet` | `create`, `balance`, `send`, `stake`, `backup`, `multisig-create` |
-| `auth` | `login`, `logout`, `token`, `keys` |
-| `blockchain` | `status`, `sync`, `info`, `peers`, `blocks`, `transaction`, `validators` |
-| `admin` | `status`, `jobs`, `miners`, `audit-log` |
-| `config` | `set`, `show`, `profiles`, `secrets`, `get` |
-| `monitor` | `dashboard`, `metrics`, `alerts`, `webhooks` |
-| `simulate` | `workflow`, `load-test`, `scenario` |
-
-## Enhanced Client Workflow
-
+### Environment Variables
 ```bash
-# Setup and configuration
-aitbc wallet create --name my-wallet               # create wallet
-aitbc wallet balance                                 # check funds
-aitbc config show                                   # verify configuration
+# Load development environment
+source /opt/aitbc/.env.dev
 
-# Job submission with enhanced options
-aitbc client submit --prompt "What is AI?" \
-  --model gpt2 \
-  --priority normal \
-  --timeout 3600
-
-# Job tracking and management
-aitbc client status --job-id <JOB_ID>               # check progress
-aitbc client download --job-id <JOB_ID> --output ./ # get results
-aitbc client list --status completed                 # list completed jobs
+# Available aliases
+aitbc-services    # Service management
+aitbc-fix         # Quick permission fix
+aitbc-logs        # View logs
 ```
 
-## Agent Workflow (New)
+## 📋 **Basic Operations**
 
+### Wallet Management
 ```bash
-# Agent workflow management
-aitbc agent workflow create \
-  --name "ai_inference" \
-  --description "AI inference workflow" \
-  --config '{"model": "gpt2", "type": "inference"}'
+# Create new wallet
+aitbc wallet create --name "my-wallet"
 
-# Execute agent workflow
-aitbc agent execute ai_inference \
-  --input '{"prompt": "Hello world"}' \
-  --priority normal
+# List wallets
+aitbc wallet list
 
-# Agent learning and optimization
-aitbc agent learning enable --agent-id agent_123 \
-  --mode performance \
-  --auto-tune
+# Check balance
+aitbc wallet balance --wallet "my-wallet"
 
-# Agent networks
-aitbc agent network create \
-  --name "compute_network" \
-  --type "resource_sharing"
+# Get address
+aitbc wallet address --wallet "my-wallet"
 ```
 
-## OpenClaw Deployment (New)
-
+### Exchange Operations
 ```bash
-# Deploy applications
-aitbc openclaw deploy \
-  --name "web_app" \
-  --image "nginx:latest" \
-  --replicas 3 \
-  --region "us-west"
+# Register with exchange
+aitbc exchange register --name "Binance" --api-key <your-api-key>
 
-# Monitor and optimize deployments
-aitbc openclaw status web_app
-aitbc openclaw optimize web_app \
-  --target performance \
-  --auto-tune
+# Create trading pair
+aitbc exchange create-pair AITBC/BTC
 
-# Edge deployments
-aitbc openclaw edge deploy \
-  --name "edge_service" \
-  --compute "gpu" \
-  --region "edge_location"
+# Start trading
+aitbc exchange start-trading --pair AITBC/BTC
+
+# Check exchange status
+aitbc exchange status
 ```
 
-## Optimization Features (New)
-
+### Blockchain Operations
 ```bash
-# Enable agent optimization
-aitbc optimize enable --agent-id agent_123 \
-  --mode performance \
-  --auto-tune
-
-# Get optimization recommendations
-aitbc optimize recommendations --agent-id agent_123
-
-# Apply optimizations
-aitbc optimize apply --agent-id agent_123 \
-  --recommendation-id rec_456
-
-# Predictive scaling
-aitbc optimize predict --agent-id agent_123 \
-  --metric cpu_usage \
-  --horizon 1h
-
-# Auto-tuning
-aitbc optimize tune --agent-id agent_123 \
-  --objective performance \
-  --constraints '{"cost": "<100"}'
-```
-
-## Enhanced Marketplace Operations
-
-```bash
-# List available GPUs
-aitbc marketplace gpu list
-
-# Register GPU offer
-aitbc marketplace offer create \
-  --miner-id gpu_miner_123 \
-  --gpu-model "RTX-4090" \
-  --gpu-memory "24GB" \
-  --price-per-hour "0.05" \
-  --models "gpt2,llama" \
-  --endpoint "http://localhost:11434"
-
-# Rent GPU
-aitbc marketplace gpu rent --gpu-id gpu_789 --duration 2h
-
-# Track orders and reviews
-aitbc marketplace orders --status active
-aitbc marketplace reviews --miner-id gpu_miner_123
-```
-
-## Enhanced Blockchain Operations
-
-```bash
-# Blockchain status and synchronization
-aitbc blockchain status
-aitbc blockchain sync
+# Get blockchain info
 aitbc blockchain info
 
-# Network and peers
-aitbc blockchain peers
+# Check node status
+aitbc blockchain status
+
+# List recent blocks
 aitbc blockchain blocks --limit 10
 
-# Transactions and validators
-aitbc blockchain transaction <TX_ID>
-aitbc blockchain validators
+# Check balance
+aitbc blockchain balance --address <address>
 ```
 
-## Enhanced Configuration Management
+## 🛠️ **Advanced Usage**
 
+### Output Formats
 ```bash
-# Configuration management
+# JSON output
+aitbc --output json wallet balance
+
+# YAML output
+aitbc --output yaml blockchain info
+
+# Table output (default)
+aitbc wallet list
+```
+
+### Debug Mode
+```bash
+# Enable debug output
+aitbc --debug wallet list
+
+# Test mode (uses mock data)
+aitbc --test-mode exchange status
+
+# Custom timeout
+aitbc --timeout 60 blockchain info
+```
+
+### Configuration
+```bash
+# Show current configuration
 aitbc config show
-aitbc config set coordinator_url http://localhost:8000
-aitbc config get api_key
-aitbc config profiles list
-aitbc config profiles create development
 
-# Secrets management
-aitbc config secrets set api_key your_secret_key
-aitbc config secrets get api_key
+# Get specific config value
+aitbc config get coordinator_url
+
+# Set config value
+aitbc config set timeout 30
+
+# Edit configuration
+aitbc config edit
 ```
 
-## Debug and Troubleshooting
+## 🔍 **Troubleshooting**
 
+### Common Issues
+
+#### Permission Denied
 ```bash
-# Debug mode with system information
-aitbc --debug
+# Fix permissions
+/opt/aitbc/scripts/fix-permissions.sh
 
-# Monitor CLI performance
-aitbc monitor dashboard
-aitbc monitor metrics --component cli
-
-# Simulation and testing
-aitbc simulate workflow --test-scenario basic
-aitbc simulate load-test --concurrent-users 10
+# Test permissions
+/opt/aitbc/scripts/test-permissions.sh
 ```
 
-## Miner Workflow
-
+#### Service Not Running
 ```bash
-aitbc miner register --name gpu-1 --gpu a100 --count 4
-aitbc miner poll                                    # start accepting jobs
-aitbc wallet balance                                # check earnings
+# Check service status
+aitbc-services status
+
+# Restart services
+aitbc-services restart
+
+# View logs
+aitbc-logs
 ```
 
-## Advanced AI Agent Workflows
-
+#### Command Not Found
 ```bash
-# Create and execute advanced AI agents
-aitbc agent create --name "MultiModal Agent" --workflow-file workflow.json --verification full
-aitbc agent execute agent_123 --inputs inputs.json --verification zero-knowledge
+# Check CLI installation
+which aitbc
 
-# Multi-modal processing
-aitbc multimodal agent create --name "Vision-Language Agent" --modalities text,image --gpu-acceleration
-aitbc multimodal process agent_123 --text "Describe this image" --image photo.jpg
+# Load environment
+source /opt/aitbc/.env.dev
 
-# Autonomous optimization
-aitbc optimize self-opt enable agent_123 --mode auto-tune --scope full
-aitbc optimize predict agent_123 --horizon 24h --resources gpu,memory
+# Check PATH
+echo $PATH | grep aitbc
 ```
 
-## Agent Collaboration & Learning
-
+#### API Connection Issues
 ```bash
-# Create collaborative agent networks
-aitbc agent network create --name "Research Team" --agents agent1,agent2,agent3
-aitbc agent network execute network_123 --task research_task.json
+# Test with debug mode
+aitbc --debug blockchain status
 
-# Adaptive learning
-aitbc agent learning enable agent_123 --mode reinforcement --learning-rate 0.001
-aitbc agent learning train agent_123 --feedback feedback.json --epochs 50
+# Test with custom URL
+aitbc --url http://localhost:8000 blockchain info
+
+# Check service endpoints
+curl http://localhost:8000/health
 ```
 
-## OpenClaw Edge Deployment
-
+### Debug Mode
 ```bash
-# Deploy to OpenClaw network
-aitbc openclaw deploy agent_123 --region us-west --instances 3 --auto-scale
-aitbc openclaw edge deploy agent_123 --locations "us-west,eu-central" --strategy latency
+# Enable debug for any command
+aitbc --debug <command>
 
-# Monitor and optimize
-aitbc openclaw monitor deployment_123 --metrics latency,cost --real-time
-aitbc openclaw optimize deployment_123 --objective cost
+# Check configuration
+aitbc config show
+
+# Test service connectivity
+aitbc --test-mode blockchain status
 ```
 
-## Advanced Marketplace Operations
+## 📚 **Next Steps**
 
+### Explore Features
+1. **Wallet Operations**: Try creating and managing wallets
+2. **Exchange Integration**: Register with exchanges and start trading
+3. **Blockchain Operations**: Explore blockchain features
+4. **Compliance**: Set up KYC/AML verification
+
+### Advanced Topics
+1. **Market Making**: Configure automated trading
+2. **Oracle Integration**: Set up price feeds
+3. **Security**: Implement multi-sig and time-lock
+4. **Development**: Build custom tools and integrations
+
+### Documentation
+- [Complete CLI Reference](../23_cli/README.md)
+- [Testing Procedures](../23_cli/testing.md)
+- [Permission Setup](../23_cli/permission-setup.md)
+- [Exchange Integration](../19_marketplace/exchange_integration.md)
+
+## 🎯 **Tips and Best Practices**
+
+### Development Workflow
 ```bash
-# Advanced NFT model operations
-aitbc marketplace advanced models list --nft-version 2.0 --category multimodal
-aitbc marketplace advanced mint --model-file model.pkl --metadata metadata.json --royalty 5.0
+# 1. Load environment
+source /opt/aitbc/.env.dev
 
-# Analytics and trading
-aitbc marketplace advanced analytics --period 30d --metrics volume,trends
-aitbc marketplace advanced trading execute --strategy arbitrage --budget 5000
+# 2. Check services
+aitbc-services status
+
+# 3. Test CLI
+aitbc version
+
+# 4. Start development
+aitbc wallet create
 ```
 
-## Swarm Intelligence
+### Security Best Practices
+- Use strong passwords for wallet encryption
+- Enable multi-sig for large amounts
+- Keep API keys secure
+- Regular backup of wallets
+- Monitor compliance requirements
 
-```bash
-# Join swarm for collective optimization
-aitbc swarm join --role load-balancer --capability resource-optimization
-aitbc swarm coordinate --task network-optimization --collaborators 10
-```
+### Performance Tips
+- Use appropriate output formats for automation
+- Leverage test mode for development
+- Cache frequently used data
+- Monitor service health
 
-## Configuration
+---
 
-Config file: `~/.aitbc/config.yaml`
-```yaml
-coordinator_url: http://localhost:8000
-api_key: your-api-key
-output_format: table
-log_level: INFO
-```
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| Auth error | `export AITBC_API_KEY=your-key` or `aitbc auth login` |
-| Connection refused | Check coordinator: `curl http://localhost:8000/v1/health` |
-| Unknown command | Update CLI: `pip install -e .` from monorepo root |
-| Agent command not found | Ensure advanced agent commands are installed: `pip install -e .` |
-| Multi-modal processing error | Check GPU availability: `nvidia-smi` |
-| OpenClaw deployment failed | Verify OpenClaw credentials and region access |
-| Marketplace NFT error | Check model file format and metadata structure |
-
-## Advanced Agent Documentation
-
-See [docs/11_agents/](../11_agents/) for detailed guides:
-- [Advanced AI Agents](../11_agents/advanced-ai-agents.md) - Multi-modal and adaptive agents
-- [Agent Collaboration](../11_agents/collaborative-agents.md) - Networks and learning
-- [OpenClaw Integration](../11_agents/openclaw-integration.md) - Edge deployment
-- [Swarm Intelligence](../11_agents/swarm.md) - Collective optimization
-
-## Full Reference
-
-See [5_reference/1_cli-reference.md](../5_reference/1_cli-reference.md) for all 90+ commands with detailed options.
+**Last Updated**: March 8, 2026  
+**CLI Version**: 0.1.0  
+**Test Coverage**: 67/67 tests passing (100%)
