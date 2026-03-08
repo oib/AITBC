@@ -245,13 +245,20 @@ config.json
 secrets.json
 
 # Temporary files
->>>>>>> Stashed changes
 *.tmp
 *.temp
 *.bak
 *.backup
 
-<<<<<<< Updated upstream
+# ===================
+# Environment Files
+# ===================
+.env
+.env.local
+.env.production
+*.env
+.env.*.local
+
 # ===================
 # Windsurf IDE
 # ===================
