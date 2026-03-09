@@ -142,7 +142,7 @@ dev = [
 "isort==8.0.1",
     "ruff==0.15.5",
     "mypy==1.8.0",
-    "bandit==1.7.5",
+    "bandit==1.9.4",
     "types-requests==2.31.0",
     "types-setuptools==69.0.0",
     "types-PyYAML==6.0.12",
