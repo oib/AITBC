@@ -43,7 +43,7 @@ jobs:
         bandit -r ${{ matrix.directory }} -f text -o bandit-report-${{ matrix.directory }}.txt
 
     - name: Upload Bandit reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: bandit-report-${{ matrix.directory }}
         path: |
@@ -132,7 +132,7 @@ jobs:
         cd ../.. && cd website && npm audit --json > ../npm-audit-website.json || true
 
     - name: Upload dependency reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dependency-security-reports
         path: |
@@ -233,7 +233,7 @@ jobs:
         echo "4. Schedule regular security reviews" >> security-summary.md
 
     - name: Upload security summary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: security-summary
         path: security-summary.md
