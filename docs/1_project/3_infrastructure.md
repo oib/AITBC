@@ -1,6 +1,6 @@
 # AITBC Infrastructure Documentation
 
-> Last updated: 2026-03-05 (Updated for port logic 8000+, Concrete ML compatibility issue documented)
+> Last updated: 2026-03-10 (Updated nginx configuration with new port logic implementation)
 
 ## Overview
 
@@ -27,19 +27,19 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 │  │                                        │  │
 │  │  Nginx (:80) → routes to services:    │  │
 │  │    /              → static website     │  │
-│  │    /explorer/     → Vite SPA           │  │
-│  │    /marketplace/  → Vite SPA           │  │
 │  │    /api/          → :8000 (coordinator)│  │
-│  │    /api/exchange/ → :8001 (exchange)  │  │
-│  │    /rpc/          → :8003 (blockchain) │  │
-│  │    /app/          → :8016 (web ui)     │  │
-│  │    /api/gpu/      → :8010 (multimodal) │  │
-│  │    /api/gpu-multimodal/ → :8011        │  │
-│  │    /api/optimization/ → :8012         │  │
-│  │    /api/learning/ → :8013              │  │
-│  │    /api/marketplace-enhanced/ → :8014 │  │
-│  │    /api/openclaw/ → :8015              │  │
-│  │    /health        → 200 OK             │  │
+│  │    /exchange/     → :8001 (exchange)  │  │
+│  │    /rpc/          → :8006 (blockchain) │  │
+│  │    /wallet/       → :8000 (wallet)     │  │
+│  │    /health        → :8000 (health)    │  │
+│  │    /gpu/multimodal/ → :8010            │  │
+│  │    /gpu/service/   → :8011             │  │
+│  │    /optimization/  → :8012             │  │
+│  │    /learning/      → :8013             │  │
+│  │    /marketplace/enhanced/ → :8014      │  │
+│  │    /openclaw/      → :8015             │  │
+│  │    /explorer/      → :8016             │  │
+│  │    /balancer/      → :8017             │  │
 │  │                                        │  │
 │  │  Config: /etc/nginx/sites-enabled/     │  │
 │  │          aitbc.bubuit.net              │  │
@@ -47,7 +47,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 └──────────────────────────────────────────────┘
 ```
 
-## Port Logic Implementation (Updated March 7, 2026)
+## Port Logic Implementation (Updated March 10, 2026)
 
 ### **Core Services (8000-8001) - redacted-host STANDARD REFERENCE**
 - **Port 8000**: Coordinator API ✅ PRODUCTION READY
@@ -390,72 +390,41 @@ curl -s https://aitbc.bubuit.net/api/v1/health  # External API access
 
 ### Nginx Routes (container)
 
-Config: `/etc/nginx/sites-enabled/aitbc.bubuit.net`
+Config: `/etc/nginx/sites-enabled/aitbc`
 
 | Route | Target | Type | Status |
 |-------|--------|------|--------|
-| `/` | static files (`/var/www/aitbc.bubuit.net/`) | try_files | ✅ |
-| `/explorer/` | Vite SPA (`/var/www/aitbc.bubuit.net/explorer/`) | try_files | ✅ |
-| `/marketplace/` | Vite SPA (`/var/www/aitbc.bubuit.net/marketplace/`) | try_files | ✅ |
-| `/docs/` | static HTML (`/var/www/aitbc.bubuit.net/docs/`) | alias | ✅ |
-| `/api/` | proxy → `127.0.0.1:8000/` | proxy_pass | ✅ |
-| `/api/explorer/` | proxy → `127.0.0.1:8000/v1/explorer/` | proxy_pass | ✅ |
-| `/api/users/` | proxy → `127.0.0.1:8000/v1/users/` | proxy_pass | ✅ |
-| `/api/exchange/` | proxy → `127.0.0.1:8001/` | proxy_pass | ✅ |
-| `/api/trades/recent` | proxy → `127.0.0.1:8001/trades/recent` | proxy_pass | ✅ |
-| `/api/orders/orderbook` | proxy → `127.0.0.1:8001/orders/orderbook` | proxy_pass | ✅ |
-| `/admin/` | proxy → `127.0.0.1:8000/v1/admin/` | proxy_pass | ✅ |
-| `/rpc/` | proxy → `127.0.0.1:8003` | proxy_pass | ✅ |
-| `/app/` | proxy → `127.0.0.1:8016` | proxy_pass | ✅ |
-| `/api/gpu/` | proxy → `127.0.0.1:8010` | proxy_pass | ✅ (CPU-only) |
-| `/api/gpu-multimodal/` | proxy → `127.0.0.1:8011` | proxy_pass | ✅ (CPU-only) |
-| `/api/optimization/` | proxy → `127.0.0.1:8012` | proxy_pass | ✅ |
-| `/api/learning/` | proxy → `127.0.0.1:8013` | proxy_pass | ✅ |
-| `/api/marketplace-enhanced/` | proxy → `127.0.0.1:8014` | proxy_pass | ✅ |
-| `/api/openclaw/` | proxy → `127.0.0.1:8015` | proxy_pass | ✅ |
-| `/api/loadbalancer/` | proxy → `127.0.0.1:8017` | proxy_pass | ✅ |
-| `/health` | 200 OK | direct | ✅ |
-| `/Marketplace` | 301 → `/marketplace/` | redirect (legacy) | ✅ |
-| `/BrowserWallet` | 301 → `/docs/browser-wallet.html` | redirect (legacy) | ✅ |
+| `/` | static files (`/var/www/html/`) | try_files | ✅ |
+| `/api/` | proxy → `127.0.0.1:8000/v1/` | proxy_pass | ✅ |
+| `/exchange/` | proxy → `127.0.0.1:8001/` | proxy_pass | ✅ |
+| `/rpc/` | proxy → `127.0.0.1:8006/rpc/` | proxy_pass | ✅ |
+| `/wallet/` | proxy → `127.0.0.1:8000/wallet/` | proxy_pass | ✅ |
+| `/health` | proxy → `127.0.0.1:8000/v1/health` | proxy_pass | ✅ |
+| `/gpu/multimodal/` | proxy → `127.0.0.1:8010/` | proxy_pass | ✅ (CPU-only) |
+| `/gpu/service/` | proxy → `127.0.0.1:8011/` | proxy_pass | ✅ (CPU-only) |
+| `/optimization/` | proxy → `127.0.0.1:8012/` | proxy_pass | ✅ |
+| `/learning/` | proxy → `127.0.0.1:8013/` | proxy_pass | ✅ |
+| `/marketplace/enhanced/` | proxy → `127.0.0.1:8014/` | proxy_pass | ✅ |
+| `/openclaw/` | proxy → `127.0.0.1:8015/` | proxy_pass | ✅ |
+| `/explorer/` | proxy → `127.0.0.1:8016/` | proxy_pass | ✅ |
+| `/balancer/` | proxy → `127.0.0.1:8017/` | proxy_pass | ✅ |
 
-**API Routing Updated** (2026-03-04):
-- Updated `/api/` proxy_pass from `http://127.0.0.1:8000/v1/` to `http://127.0.0.1:8000/`
-- Updated Exchange API routes to port 8001 (new port logic)
-- Updated RPC route to port 8003 (new port logic)
-- Added Enhanced Services routes (8010-8017)
-- Added Web UI route to port 8016
-- Added Geographic Load Balancer route to port 8017
-- Removed legacy routes (Exchange, wallet, mock coordinator)
-- External API access now working: `https://aitbc.bubuit.net/api/v1/health` → `{"status":"ok","env":"dev"}`
-- All GPU services marked as CPU-only mode
+**API Routing Updated** (2026-03-10):
+- Updated nginx configuration to use new port logic from infrastructure documentation
+- Updated RPC route from port 8003 to port 8006 (blockchain services)
+- Updated Exchange API route to port 8001 (core services)
+- Added Enhanced Services routes with correct port mappings (8010-8017)
+- Simplified configuration for HTTP-only mode (SSL handled by host reverse proxy)
+- External API access: `https://aitbc.bubuit.net/api/v1/health` → `{"status":"ok","env":"dev"}`
+- All GPU services configured for CPU-only mode
 
-### Web Root (`/var/www/aitbc.bubuit.net/`)
+### Web Root (`/var/www/html/`)
 
 ```
-/var/www/aitbc.bubuit.net/
+/var/www/html/
 ├── index.html              # Main website
 ├── 404.html                # Error page
-├── favicon.ico
-├── favicon.svg
-├── font-awesome-local.css
-├── docs/                   # HTML documentation (16 pages + css/js)
-│   ├── index.html
-│   ├── clients.html
-│   ├── miners.html
-│   ├── developers.html
-│   ├── css/docs.css
-│   └── js/theme.js
-├── explorer/               # Blockchain explorer (Vite build)
-│   ├── index.html
-│   ├── assets/
-│   ├── css/
-│   └── js/
-├── marketplace/            # GPU marketplace (Vite build)
-│   ├── index.html
-│   └── assets/
-├── wallet/                 # Browser wallet redirect
-│   └── index.html
-└── firefox-wallet/         # Firefox extension download
+└── static files            # CSS, JS, images
 ```
 
 ### Data Storage (container)
