@@ -12,18 +12,40 @@ from datetime import datetime
 
 # Import enterprise integration services using importlib to avoid naming conflicts
 import importlib.util
+import os
 
-spec = importlib.util.spec_from_file_location("enterprise_integration_service", "/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services/enterprise_integration.py")
-ei = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ei)
+_services_path = os.environ.get('AITBC_SERVICES_PATH')
+if _services_path:
+    base_dir = _services_path
+else:
+    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    base_dir = os.path.join(_project_root, 'apps', 'coordinator-api', 'src', 'app', 'services')
+    if not os.path.isdir(base_dir):
+        base_dir = '/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services'
 
-create_tenant = ei.create_tenant
-get_tenant_info = ei.get_tenant_info
-generate_api_key = ei.generate_api_key
-register_integration = ei.register_integration
-get_system_status = ei.get_system_status
-list_tenants = ei.list_tenants
-list_integrations = ei.list_integrations
+module_path = os.path.join(base_dir, 'enterprise_integration.py')
+if os.path.isfile(module_path):
+    spec = importlib.util.spec_from_file_location("enterprise_integration_service", module_path)
+    ei = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ei)
+    create_tenant = ei.create_tenant
+    get_tenant_info = ei.get_tenant_info
+    generate_api_key = ei.generate_api_key
+    register_integration = ei.register_integration
+    get_system_status = ei.get_system_status
+    list_tenants = ei.list_tenants
+    list_integrations = ei.list_integrations
+    EnterpriseAPIGateway = getattr(ei, 'EnterpriseAPIGateway', None)
+else:
+    # Provide stubs if module not found
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Could not load enterprise_integration.py from {module_path}. "
+            "Ensure coordinator-api services are available or set AITBC_SERVICES_PATH."
+        )
+    create_tenant = get_tenant_info = generate_api_key = _missing
+    register_integration = get_system_status = list_tenants = list_integrations = _missing
+    EnterpriseAPIGateway = None
 
 @click.group()
 def enterprise_integration_group():
