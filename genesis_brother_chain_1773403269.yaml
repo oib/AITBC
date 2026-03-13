@@ -1,0 +1,29 @@
+genesis:
+  chain_id: aitbc-brother-chain
+  chain_type: topic
+  purpose: brother-connection
+  name: AITBC Brother Chain
+  description: Side chain for aitbc1 brother connection
+  consensus:
+    algorithm: poa
+    block_time: 3
+    max_validators: 21
+  privacy:
+    visibility: private
+    access_control: invite-only
+    require_invitation: true
+  parameters:
+    max_block_size: 1048576
+    max_gas_per_block: 10000000
+    min_gas_price: 1000000000
+  accounts:
+  - address: aitbc1genesis
+    balance: '2100000000'
+    type: genesis
+  - address: aitbc1aitbc1_simple
+    balance: '500'
+    type: gift
+    metadata:
+      recipient: aitbc1
+      gift_from: aitbc_main_chain
+  contracts: []
