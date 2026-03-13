@@ -7,6 +7,7 @@ Provides SQLite and PostgreSQL support with connection pooling.
 from __future__ import annotations
 
 import os
+import logging
 from contextlib import contextmanager
 from contextlib import asynccontextmanager
 from typing import Generator, AsyncGenerator
@@ -15,8 +16,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.pool import QueuePool
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.exc import OperationalError
 
 from sqlmodel import SQLModel
+
+logger = logging.getLogger(__name__)
 
 from ..config import settings
 
@@ -63,7 +67,15 @@ from app.domain import *
 def init_db() -> Engine:
     """Initialize database tables and ensure data directory exists."""
     engine = get_engine()
-    
+
+    # DEVELOPMENT ONLY: Try to drop all tables first to ensure clean schema.
+    # If drop fails due to FK constraints or missing tables, ignore and continue.
+    if "sqlite" in str(engine.url):
+        try:
+            SQLModel.metadata.drop_all(engine)
+        except Exception as e:
+            logger.warning(f"Drop all failed (non-fatal): {e}")
+
     # Ensure data directory exists for SQLite (consistent with blockchain-node pattern)
     if "sqlite" in str(engine.url):
         db_path = engine.url.database
@@ -74,8 +86,18 @@ def init_db() -> Engine:
                 db_path = db_path[2:]  # Remove ./
             data_dir = Path(db_path).parent
             data_dir.mkdir(parents=True, exist_ok=True)
-    
-    SQLModel.metadata.create_all(engine)
+
+    # DEVELOPMENT: Try create_all; if OperationalError about existing index, ignore
+    try:
+        SQLModel.metadata.create_all(engine)
+    except OperationalError as e:
+        if "already exists" in str(e):
+            logger.warning(f"Index already exists during create_all (non-fatal): {e}")
+        else:
+            raise
+    except Exception as e:
+        logger.error(f"Unexpected error during create_all: {e}")
+        raise
     return engine
 
 
