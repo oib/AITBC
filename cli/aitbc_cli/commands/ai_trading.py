@@ -10,13 +10,46 @@ import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
-# Import AI trading engine
+# Import AI trading engine with robust path resolution
+import os
 import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from ai_trading_engine import (
-    initialize_ai_engine, train_strategies, generate_trading_signals,
-    get_engine_status, ai_trading_engine, TradingStrategy
-)
+
+_services_path = os.environ.get('AITBC_SERVICES_PATH')
+if _services_path:
+    if os.path.isdir(_services_path):
+        if _services_path not in sys.path:
+            sys.path.insert(0, _services_path)
+    else:
+        print(f"Warning: AITBC_SERVICES_PATH set but not a directory: {_services_path}", file=sys.stderr)
+else:
+    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    _computed_services = os.path.join(_project_root, 'apps', 'coordinator-api', 'src', 'app', 'services')
+    if os.path.isdir(_computed_services) and _computed_services not in sys.path:
+        sys.path.insert(0, _computed_services)
+    else:
+        _fallback = '/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services'
+        if os.path.isdir(_fallback) and _fallback not in sys.path:
+            sys.path.insert(0, _fallback)
+
+try:
+    from ai_trading_engine import (
+        initialize_ai_engine, train_strategies, generate_trading_signals,
+        get_engine_status, ai_trading_engine, TradingStrategy
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'ai_trading_engine' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed or set AITBC_SERVICES_PATH."
+        )
+    initialize_ai_engine = train_strategies = generate_trading_signals = get_engine_status = _missing
+    ai_trading_engine = None
+
+    class TradingStrategy:
+        pass
 
 @click.group()
 def ai_trading():
