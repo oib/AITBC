@@ -20,7 +20,7 @@ genesis:
   - address: aitbc1genesis
     balance: '2100000000'
     type: genesis
-  - address: aitbc1aitbc1_simple
+  - address: aitbc1aitbc1_simple_simple
     balance: '500'
     type: gift
     metadata:
