@@ -10,41 +10,32 @@ import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
-# Import enterprise integration services using importlib to avoid naming conflicts
-import importlib.util
+# Ensure coordinator-api src is on path for app.services imports
 import os
+import sys
+_src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'apps', 'coordinator-api', 'src'))
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
 
-_services_path = os.environ.get('AITBC_SERVICES_PATH')
-if _services_path:
-    base_dir = _services_path
-else:
-    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    base_dir = os.path.join(_project_root, 'apps', 'coordinator-api', 'src', 'app', 'services')
-    if not os.path.isdir(base_dir):
-        base_dir = '/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services'
+try:
+    from app.services.enterprise_integration import (
+        create_tenant, get_tenant_info, generate_api_key,
+        register_integration, get_system_status, list_tenants,
+        list_integrations
+    )
+    # Get EnterpriseAPIGateway if available
+    import app.services.enterprise_integration as ei_module
+    EnterpriseAPIGateway = getattr(ei_module, 'EnterpriseAPIGateway', None)
+    _import_error = None
+except ImportError as e:
+    _import_error = e
 
-module_path = os.path.join(base_dir, 'enterprise_integration.py')
-if os.path.isfile(module_path):
-    spec = importlib.util.spec_from_file_location("enterprise_integration_service", module_path)
-    ei = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ei)
-    create_tenant = ei.create_tenant
-    get_tenant_info = ei.get_tenant_info
-    generate_api_key = ei.generate_api_key
-    register_integration = ei.register_integration
-    get_system_status = ei.get_system_status
-    list_tenants = ei.list_tenants
-    list_integrations = ei.list_integrations
-    EnterpriseAPIGateway = getattr(ei, 'EnterpriseAPIGateway', None)
-else:
-    # Provide stubs if module not found
     def _missing(*args, **kwargs):
         raise ImportError(
-            f"Could not load enterprise_integration.py from {module_path}. "
-            "Ensure coordinator-api services are available or set AITBC_SERVICES_PATH."
+            f"Required service module 'app.services.enterprise_integration' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
         )
-    create_tenant = get_tenant_info = generate_api_key = _missing
-    register_integration = get_system_status = list_tenants = list_integrations = _missing
+    create_tenant = get_tenant_info = generate_api_key = register_integration = get_system_status = list_tenants = list_integrations = _missing
     EnterpriseAPIGateway = None
 
 @click.group()
