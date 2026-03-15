@@ -12,6 +12,7 @@ import json
 import hashlib
 import gzip
 import pickle
+from .secure_pickle import safe_loads
 from dataclasses import dataclass, asdict
 
 try:
@@ -190,8 +191,8 @@ class IPFSStorageService:
             else:
                 decompressed_data = retrieved_data
             
-            # Deserialize
-            memory_data = pickle.loads(decompressed_data)
+            # Deserialize (using safe unpickler)
+            memory_data = safe_loads(decompressed_data)
             
             logger.info(f"Retrieved memory for agent {metadata.agent_id}: CID {cid}")
             return memory_data, metadata
@@ -353,7 +354,7 @@ class MemoryCompressionService:
     def decompress_memory(compressed_data: bytes) -> Any:
         """Decompress memory data"""
         decompressed = gzip.decompress(compressed_data)
-        return pickle.loads(decompressed)
+        return safe_loads(decompressed)
     
     @staticmethod
     def calculate_similarity(data1: Any, data2: Any) -> float:
