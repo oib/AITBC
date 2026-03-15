@@ -157,7 +157,7 @@ class GuardianContract:
         # Validate address
         try:
             to_address = to_checksum_address(to_address)
-        except:
+        except Exception:
             return {
                 "status": "rejected",
                 "reason": "Invalid recipient address",
