@@ -33,8 +33,13 @@ else:
 
 try:
     from regulatory_reporting import (
-        generate_sar, generate_compliance_summary, list_reports,
-        regulatory_reporter, ReportType, ReportStatus, RegulatoryBody
+        generate_sar as generate_sar_svc,
+        generate_compliance_summary as generate_compliance_summary_svc,
+        list_reports as list_reports_svc,
+        regulatory_reporter,
+        ReportType,
+        ReportStatus,
+        RegulatoryBody
     )
     _import_error = None
 except ImportError as e:
@@ -45,7 +50,7 @@ except ImportError as e:
             f"Required service module 'regulatory_reporting' could not be imported: {_import_error}. "
             "Ensure coordinator-api dependencies are installed or set AITBC_SERVICES_PATH."
         )
-    generate_sar = generate_compliance_summary = list_reports = regulatory_reporter = _missing
+    generate_sar_svc = generate_compliance_summary_svc = list_reports_svc = regulatory_reporter = _missing
 
     class ReportType:
         pass
@@ -91,7 +96,7 @@ def generate_sar(ctx, user_id: str, activity_type: str, amount: float, descripti
         }
         
         # Generate SAR
-        result = asyncio.run(generate_sar([activity]))
+        result = asyncio.run(generate_sar_svc([activity]))
         
         click.echo(f"\n✅ SAR Report Generated Successfully!")
         click.echo(f"📋 Report ID: {result['report_id']}")
@@ -124,7 +129,7 @@ def compliance_summary(ctx, period_start: str, period_end: str):
         click.echo(f"📈 Duration: {(end_date - start_date).days} days")
         
         # Generate compliance summary
-        result = asyncio.run(generate_compliance_summary(
+        result = asyncio.run(generate_compliance_summary_svc(
             start_date.isoformat(), 
             end_date.isoformat()
         ))
@@ -169,7 +174,7 @@ def list(ctx, report_type: str, status: str, limit: int):
     try:
         click.echo(f"📋 Regulatory Reports")
         
-        reports = list_reports(report_type, status)
+        reports = list_reports_svc(report_type, status)
         
         if not reports:
             click.echo(f"✅ No reports found")
@@ -454,7 +459,7 @@ def test(ctx, period_start: str, period_end: str):
         
         # Test SAR generation
         click.echo(f"\n📋 Test 1: SAR Generation")
-        result = asyncio.run(generate_sar([{
+        result = asyncio.run(generate_sar_svc([{
             "id": "test_sar_001",
             "timestamp": datetime.now().isoformat(),
             "user_id": "test_user_123",
@@ -471,13 +476,13 @@ def test(ctx, period_start: str, period_end: str):
         
         # Test compliance summary
         click.echo(f"\n📊 Test 2: Compliance Summary")
-        compliance_result = asyncio.run(generate_compliance_summary(period_start, period_end))
+        compliance_result = asyncio.run(generate_compliance_summary_svc(period_start, period_end))
         click.echo(f"   ✅ Compliance Summary: {compliance_result['report_id']}")
         click.echo(f"   📈 Overall Score: {compliance_result['overall_score']:.1%}")
         
         # Test report listing
         click.echo(f"\n📋 Test 3: Report Listing")
-        reports = list_reports()
+        reports = list_reports_svc()
         click.echo(f"   ✅ Total Reports: {len(reports)}")
         
         # Test export

@@ -7,6 +7,9 @@ from sqlalchemy import event
 
 from .config import settings
 
+# Import all models to ensure they are registered with SQLModel.metadata
+from .models import Block, Transaction, Account, Receipt, Escrow  # noqa: F401
+
 _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
 
 @event.listens_for(_engine, "connect")
@@ -29,3 +32,6 @@ def init_db() -> None:
 def session_scope() -> Session:
     with Session(_engine) as session:
         yield session
+
+# Expose engine for escrow routes
+engine = _engine
