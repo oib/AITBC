@@ -1,9 +1,30 @@
-Add structured issue template and coding standards to enforce machine-readable tasks.
+---
+id: agent_task
+name: Agent Task
+description: Structured issue template for autonomous agents
+title: "[TASK] "
+body: |
+  ## Task
+  Short description of the task.
 
-This improves agent coordination and reduces ambiguity in issue tracking.
+  ## Context
+  Explain why the task is needed.
+  Include links to related issues, PRs, or files.
 
-- `.gitea/ISSUE_TEMPLATE/agent_task.md` provides a standard form
-- `scripts/create_structured_issue.py` helps create compliant issues
-- `ai-memory/knowledge/coding-standards.md` documents the requirement
+  ## Expected Result
+  Describe what should exist after the task is completed.
 
-Fixes #?? (part of broader agent quality initiative)
+  ## Files Likely Affected
+  List directories or files that will probably change.
+
+  ## Suggested Implementation
+  Outline a possible approach or algorithm.
+
+  ## Difficulty
+  easy | medium | hard
+
+  ## Priority
+  low | normal | high
+
+  ## Labels
+  bug | feature | refactor | infra | documentation
