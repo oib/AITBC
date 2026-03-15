@@ -4,6 +4,7 @@ Core Agent class for AITBC network participation
 
 import asyncio
 import json
+import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -12,6 +13,8 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class AgentCapabilities:
@@ -73,7 +76,7 @@ class AgentIdentity:
                 hashes.SHA256()
             )
             return True
-        except:
+        except Exception:
             return False
 
 class Agent:
@@ -152,11 +155,11 @@ class Agent:
             await asyncio.sleep(1)  # Simulate network call
             
             self.registered = True
-            print(f"Agent {self.identity.id} registered successfully")
+            logger.info(f"Agent {self.identity.id} registered successfully")
             return True
             
         except Exception as e:
-            print(f"Registration failed: {e}")
+            logger.error(f"Registration failed: {e}")
             return False
     
     async def get_reputation(self) -> Dict[str, float]:
@@ -172,7 +175,7 @@ class Agent:
     async def update_reputation(self, new_score: float) -> None:
         """Update agent reputation score"""
         self.reputation_score = new_score
-        print(f"Reputation updated to {new_score}")
+        logger.info(f"Reputation updated to {new_score}")
     
     async def get_earnings(self, period: str = "30d") -> Dict[str, Any]:
         """Get agent earnings information"""
@@ -199,7 +202,7 @@ class Agent:
         message["signature"] = signature
         
         # TODO: Send through AITBC agent messaging protocol
-        print(f"Message sent to {recipient_id}: {message_type}")
+        logger.info(f"Message sent to {recipient_id}: {message_type}")
         return True
     
     async def receive_message(self, message: Dict[str, Any]) -> bool:
@@ -210,7 +213,7 @@ class Agent:
             
         # TODO: Verify sender's signature
         # For now, just process the message
-        print(f"Received message from {message.get('from')}: {message.get('type')}")
+        logger.info(f"Received message from {message.get('from')}: {message.get('type')}")
         return True
     
     def to_dict(self) -> Dict[str, Any]:
