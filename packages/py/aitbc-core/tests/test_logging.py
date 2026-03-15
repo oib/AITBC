@@ -64,6 +64,7 @@ class TestStructuredLogFormatter:
         try:
             1 / 0
         except ZeroDivisionError:
+            import sys
             record = logging.LogRecord(
                 name="error.logger",
                 level=logging.ERROR,
@@ -71,7 +72,7 @@ class TestStructuredLogFormatter:
                 lineno=30,
                 msg="Error occurred",
                 args=(),
-                exc_info=True,  # capture current exception
+                exc_info=sys.exc_info(),
             )
         output = formatter.format(record)
         data = json.loads(output)
