@@ -59,6 +59,7 @@ from .commands.ai_trading import ai_trading
 from .commands.advanced_analytics import advanced_analytics_group
 from .commands.ai_surveillance import ai_surveillance_group
 from .commands.enterprise_integration import enterprise_integration_group
+from .commands.ai import ai_group
 from .commands.explorer import explorer
 from .plugins import plugin, load_plugins
 
