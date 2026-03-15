@@ -10,36 +10,17 @@ import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
 
-# Import regulatory reporting system with robust path resolution
+# Ensure coordinator-api src is on path for app.services imports
 import os
 import sys
-
-_services_path = os.environ.get('AITBC_SERVICES_PATH')
-if _services_path:
-    if os.path.isdir(_services_path):
-        if _services_path not in sys.path:
-            sys.path.insert(0, _services_path)
-    else:
-        print(f"Warning: AITBC_SERVICES_PATH set but not a directory: {_services_path}", file=sys.stderr)
-else:
-    _project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    _computed_services = os.path.join(_project_root, 'apps', 'coordinator-api', 'src', 'app', 'services')
-    if os.path.isdir(_computed_services) and _computed_services not in sys.path:
-        sys.path.insert(0, _computed_services)
-    else:
-        _fallback = '/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services'
-        if os.path.isdir(_fallback) and _fallback not in sys.path:
-            sys.path.insert(0, _fallback)
+_src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'apps', 'coordinator-api', 'src'))
+if _src_path not in sys.path:
+    sys.path.insert(0, _src_path)
 
 try:
-    from regulatory_reporting import (
-        generate_sar as generate_sar_svc,
-        generate_compliance_summary as generate_compliance_summary_svc,
-        list_reports as list_reports_svc,
-        regulatory_reporter,
-        ReportType,
-        ReportStatus,
-        RegulatoryBody
+    from app.services.regulatory_reporting import (
+        generate_sar, generate_compliance_summary, list_reports,
+        regulatory_reporter, ReportType, ReportStatus, RegulatoryBody
     )
     _import_error = None
 except ImportError as e:
@@ -47,10 +28,10 @@ except ImportError as e:
 
     def _missing(*args, **kwargs):
         raise ImportError(
-            f"Required service module 'regulatory_reporting' could not be imported: {_import_error}. "
-            "Ensure coordinator-api dependencies are installed or set AITBC_SERVICES_PATH."
+            f"Required service module 'app.services.regulatory_reporting' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
         )
-    generate_sar_svc = generate_compliance_summary_svc = list_reports_svc = regulatory_reporter = _missing
+    generate_sar = generate_compliance_summary = list_reports = regulatory_reporter = _missing
 
     class ReportType:
         pass
@@ -96,7 +77,7 @@ def generate_sar(ctx, user_id: str, activity_type: str, amount: float, descripti
         }
         
         # Generate SAR
-        result = asyncio.run(generate_sar_svc([activity]))
+        result = asyncio.run(generate_sar([activity]))
         
         click.echo(f"\n✅ SAR Report Generated Successfully!")
         click.echo(f"📋 Report ID: {result['report_id']}")
@@ -129,7 +110,7 @@ def compliance_summary(ctx, period_start: str, period_end: str):
         click.echo(f"📈 Duration: {(end_date - start_date).days} days")
         
         # Generate compliance summary
-        result = asyncio.run(generate_compliance_summary_svc(
+        result = asyncio.run(generate_compliance_summary(
             start_date.isoformat(), 
             end_date.isoformat()
         ))
@@ -174,7 +155,7 @@ def list(ctx, report_type: str, status: str, limit: int):
     try:
         click.echo(f"📋 Regulatory Reports")
         
-        reports = list_reports_svc(report_type, status)
+        reports = list_reports(report_type, status)
         
         if not reports:
             click.echo(f"✅ No reports found")
@@ -459,7 +440,7 @@ def test(ctx, period_start: str, period_end: str):
         
         # Test SAR generation
         click.echo(f"\n📋 Test 1: SAR Generation")
-        result = asyncio.run(generate_sar_svc([{
+        result = asyncio.run(generate_sar([{
             "id": "test_sar_001",
             "timestamp": datetime.now().isoformat(),
             "user_id": "test_user_123",
@@ -476,13 +457,13 @@ def test(ctx, period_start: str, period_end: str):
         
         # Test compliance summary
         click.echo(f"\n📊 Test 2: Compliance Summary")
-        compliance_result = asyncio.run(generate_compliance_summary_svc(period_start, period_end))
+        compliance_result = asyncio.run(generate_compliance_summary(period_start, period_end))
         click.echo(f"   ✅ Compliance Summary: {compliance_result['report_id']}")
         click.echo(f"   📈 Overall Score: {compliance_result['overall_score']:.1%}")
         
         # Test report listing
         click.echo(f"\n📋 Test 3: Report Listing")
-        reports = list_reports_svc()
+        reports = list_reports()
         click.echo(f"   ✅ Total Reports: {len(reports)}")
         
         # Test export
