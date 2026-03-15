@@ -87,6 +87,49 @@ aitbc --help --language german
 aitbc marketplace list --translate-to french
 ```
 
+## 🔗 Blockchain Node (Brother Chain)
+
+A minimal asset-backed blockchain that validates compute receipts and mints AIT tokens.
+
+### ✅ Current Status
+- **Chain ID**: `ait-devnet`
+- **Consensus**: Proof-of-Authority (single proposer)
+- **RPC Endpoint**: `http://localhost:8026/rpc`
+- **Health Check**: `http://localhost:8026/health`
+- **Metrics**: `http://localhost:8026/metrics` (Prometheus format)
+- **Status**: 🟢 Operational and fully functional
+
+### 🚀 Quick Launch
+
+```bash
+cd /opt/aitbc/apps/blockchain-node
+source .venv/bin/activate
+bash scripts/devnet_up.sh
+```
+
+The node starts:
+- Proposer loop (block production)
+- RPC API on port 8026
+- Mock coordinator on port 8090 (for testing)
+
+### 🛠️ CLI Interaction
+
+```bash
+# Check node status
+aitbc blockchain status
+
+# Get chain head
+aitbc blockchain head
+
+# Check balance
+aitbc blockchain balance --address <your-address>
+
+# Fund an address (devnet faucet)
+aitbc blockchain faucet --address <your-address> --amount 1000
+```
+
+For full documentation, see: [`apps/blockchain-node/README.md`](./apps/blockchain-node/README.md)
+
 ## 🤖 Agent-First Computing
 
 AITBC creates an ecosystem where AI agents are the primary participants:
