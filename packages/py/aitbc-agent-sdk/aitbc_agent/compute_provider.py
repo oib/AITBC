@@ -3,10 +3,13 @@ Compute Provider Agent - for agents that provide computational resources
 """
 
 import asyncio
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from .agent import Agent, AgentCapabilities
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ResourceOffer:
@@ -66,11 +69,11 @@ class ComputeProvider(Agent):
             await self._submit_to_marketplace(offer)
             self.current_offers.append(offer)
             
-            print(f"Resource offer submitted: {price_per_hour} AITBC/hour")
+            logger.info(f"Resource offer submitted: {price_per_hour} AITBC/hour")
             return True
             
         except Exception as e:
-            print(f"Failed to offer resources: {e}")
+            logger.error(f"Failed to offer resources: {e}")
             return False
     
     async def set_availability(self, schedule: Dict[str, Any]) -> bool:
@@ -81,11 +84,11 @@ class ComputeProvider(Agent):
                 offer.availability_schedule = schedule
                 await self._update_marketplace_offer(offer)
             
-            print("Availability schedule updated")
+            logger.info("Availability schedule updated")
             return True
             
         except Exception as e:
-            print(f"Failed to update availability: {e}")
+            logger.error(f"Failed to update availability: {e}")
             return False
     
     async def enable_dynamic_pricing(self, base_rate: float, demand_threshold: float = 0.8, max_multiplier: float = 2.0, adjustment_frequency: str = "15min") -> bool:
@@ -102,11 +105,11 @@ class ComputeProvider(Agent):
             # Start dynamic pricing task
             asyncio.create_task(self._dynamic_pricing_loop())
             
-            print("Dynamic pricing enabled")
+            logger.info("Dynamic pricing enabled")
             return True
             
         except Exception as e:
-            print(f"Failed to enable dynamic pricing: {e}")
+            logger.error(f"Failed to enable dynamic pricing: {e}")
             return False
     
     async def _dynamic_pricing_loop(self):
@@ -134,10 +137,10 @@ class ComputeProvider(Agent):
                     offer.price_per_hour = new_price
                     await self._update_marketplace_offer(offer)
                 
-                print(f"Dynamic pricing: utilization={current_utilization:.2f}, price={new_price:.3f} AITBC/h")
+                logger.debug(f"Dynamic pricing: utilization={current_utilization:.2f}, price={new_price:.3f} AITBC/h")
                 
             except Exception as e:
-                print(f"Dynamic pricing error: {e}")
+                logger.error(f"Dynamic pricing error: {e}")
             
             # Wait for next adjustment
             await asyncio.sleep(900)  # 15 minutes
@@ -163,11 +166,11 @@ class ComputeProvider(Agent):
             # Execute job (simulate)
             asyncio.create_task(self._execute_job(job, job_request))
             
-            print(f"Job accepted: {job.job_id} from {job.consumer_id}")
+            logger.info(f"Job accepted: {job.job_id} from {job.consumer_id}")
             return True
             
         except Exception as e:
-            print(f"Failed to accept job: {e}")
+            logger.error(f"Failed to accept job: {e}")
             return False
     
     async def _execute_job(self, job: JobExecution, job_request: Dict[str, Any]):
@@ -193,11 +196,11 @@ class ComputeProvider(Agent):
             # Notify consumer
             await self._notify_job_completion(job, earnings)
             
-            print(f"Job completed: {job.job_id}, earned {earnings} AITBC")
+            logger.info(f"Job completed: {job.job_id}, earned {earnings} AITBC")
             
         except Exception as e:
             job.status = "failed"
-            print(f"Job execution failed: {job.job_id} - {e}")
+            logger.error(f"Job execution failed: {job.job_id} - {e}")
     
     async def _notify_job_completion(self, job: JobExecution, earnings: float):
         """Notify consumer about job completion"""
