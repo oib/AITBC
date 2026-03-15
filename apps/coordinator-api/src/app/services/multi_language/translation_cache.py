@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import pickle
+from ...services.secure_pickle import safe_loads
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, asdict
 from datetime import datetime, timedelta
@@ -98,7 +99,7 @@ class TranslationCache:
             
             if cached_data:
                 # Deserialize cache entry
-                cache_entry = pickle.loads(cached_data)
+                cache_entry = safe_loads(cached_data)
                 
                 # Update access statistics
                 cache_entry.access_count += 1
@@ -453,7 +454,7 @@ class TranslationCache:
                 try:
                     cached_data = await self.redis.get(key)
                     if cached_data:
-                        cache_entry = pickle.loads(cached_data)
+                        cache_entry = safe_loads(cached_data)
                         export_data.append(asdict(cache_entry))
                 except Exception as e:
                     logger.warning(f"Failed to export key {key}: {e}")
