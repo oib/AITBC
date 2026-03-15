@@ -302,6 +302,34 @@ def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, t
 
 @gpu.command()
 @click.argument("gpu_id")
+@click.option("--force", is_flag=True, help="Force delete even if GPU is booked")
+@click.pass_context
+def unregister(ctx, gpu_id: str, force: bool):
+    """Unregister (delete) a GPU from marketplace"""
+    config = ctx.obj['config']
+    
+    try:
+        with httpx.Client() as client:
+            response = client.delete(
+                f"{config.coordinator_url}/v1/marketplace/gpu/{gpu_id}",
+                params={"force": force},
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                success(f"GPU {gpu_id} unregistered")
+                output(result, ctx.obj['output_format'])
+            else:
+                error(f"Failed to unregister GPU: {response.status_code}")
+                if response.text:
+                    error(response.text)
+    except Exception as e:
+        error(f"Network error: {e}")
+
+
+@gpu.command()
+@click.argument("gpu_id")
 @click.pass_context
 def release(ctx, gpu_id: str):
     """Release a booked GPU"""

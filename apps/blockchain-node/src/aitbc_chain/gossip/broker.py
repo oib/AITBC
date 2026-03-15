@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import warnings
 from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set
+
+warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 
 try:
     from starlette.broadcast import Broadcast

@@ -26,6 +26,8 @@ rich = "^13.7.1"
 cryptography = "^46.0.5"
 asyncpg = ">=0.29.0"
 requests = "^2.32.5"
+# Pin starlette to a version with Broadcast (removed in 0.38)
+starlette = ">=0.37.2,<0.38.0"
 
 [tool.poetry.extras]
 uvloop = ["uvloop"]
