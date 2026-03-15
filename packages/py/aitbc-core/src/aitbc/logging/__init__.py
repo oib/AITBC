@@ -33,7 +33,12 @@ class StructuredLogFormatter(logging.Formatter):
 
         # Add exception info if present
         if record.exc_info:
-            payload["exception"] = self.formatException(record.exc_info)
+            ei = record.exc_info
+            # In Python 3.12+, exc_info can be True to indicate lazy capture; resolve it now.
+            if ei is True:
+                ei = sys.exc_info()
+            if ei:
+                payload["exception"] = self.formatException(ei)
         
         # Add stack info if present
         if record.stack_info:
