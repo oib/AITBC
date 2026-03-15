@@ -9,13 +9,9 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Ensure coordinator-api src is on path for app.services imports
-import os
-import sys
-_src_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'apps', 'coordinator-api', 'src'))
-if _src_path not in sys.path:
-    sys.path.insert(0, _src_path)
+ensure_coordinator_api_imports()
 
 try:
     from app.services.enterprise_integration import (
