@@ -43,7 +43,7 @@ jobs:
         bandit -r ${{ matrix.directory }} -f text -o bandit-report-${{ matrix.directory }}.txt
 
     - name: Upload Bandit reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: bandit-report-${{ matrix.directory }}
         path: |
@@ -53,7 +53,7 @@ jobs:
 
     - name: Comment PR with Bandit findings
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const fs = require('fs');
@@ -132,7 +132,7 @@ jobs:
         cd ../.. && cd website && npm audit --json > ../npm-audit-website.json || true
 
     - name: Upload dependency reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: dependency-security-reports
         path: |
@@ -178,7 +178,7 @@ jobs:
         persist-credentials: false
 
     - name: Run OSSF Scorecard
-      uses: ossf/scorecard-action@v2.3.3
+      uses: ossf/scorecard-action@v2.4.3
       with:
         results_file: results.sarif
         results_format: sarif
@@ -233,7 +233,7 @@ jobs:
         echo "4. Schedule regular security reviews" >> security-summary.md
 
     - name: Upload security summary
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: security-summary
         path: security-summary.md
@@ -241,7 +241,7 @@ jobs:
 
     - name: Comment PR with security summary
       if: github.event_name == 'pull_request'
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const fs = require('fs');
