@@ -70,17 +70,74 @@ class AuditLogger:
 
 
 def _get_fernet_key(key: str = None) -> bytes:
-    """Derive a Fernet key from a password or use default"""
+    """Derive a Fernet key from a password using Argon2 KDF"""
     from cryptography.fernet import Fernet
     import base64
-    import hashlib
+    import secrets
+    import getpass
     
     if key is None:
-        # Use a default key (should be overridden in production)
-        key = "aitbc_config_key_2026_default"
+        # CRITICAL SECURITY FIX: Never use hardcoded keys
+        # Always require user to provide a password or generate a secure random key
+        error("❌ CRITICAL: No encryption key provided. This is a security vulnerability.")
+        error("Please provide a password for encryption.")
+        key = getpass.getpass("Enter encryption password: ")
+        
+        if not key:
+            error("❌ Password cannot be empty for encryption operations.")
+            raise ValueError("Encryption password is required")
     
-    # Derive a 32-byte key suitable for Fernet
-    return base64.urlsafe_b64encode(hashlib.sha256(key.encode()).digest())
+    # Use Argon2 for secure key derivation (replaces insecure SHA-256)
+    try:
+        from argon2 import PasswordHasher
+        from argon2.exceptions import VerifyMismatchError
+        
+        # Generate a secure salt
+        salt = secrets.token_bytes(16)
+        
+        # Derive key using Argon2
+        ph = PasswordHasher(
+            time_cost=3,      # Number of iterations
+            memory_cost=65536,  # Memory usage in KB
+            parallelism=4,   # Number of parallel threads
+            hash_len=32,     # Output hash length
+            salt_len=16      # Salt length
+        )
+        
+        # Hash the password to get a 32-byte key
+        hashed_key = ph.hash(key + salt.decode('utf-8'))
+        
+        # Extract the hash part and convert to bytes suitable for Fernet
+        key_bytes = hashed_key.encode('utf-8')[:32]
+        
+        # Ensure we have exactly 32 bytes for Fernet
+        if len(key_bytes) < 32:
+            key_bytes += secrets.token_bytes(32 - len(key_bytes))
+        elif len(key_bytes) > 32:
+            key_bytes = key_bytes[:32]
+        
+        return base64.urlsafe_b64encode(key_bytes)
+        
+    except ImportError:
+        # Fallback to PBKDF2 if Argon2 is not available
+        import hashlib
+        import hmac
+        
+        warning("⚠️ Argon2 not available, falling back to PBKDF2 (less secure)")
+        
+        # Generate a secure salt
+        salt = secrets.token_bytes(16)
+        
+        # Use PBKDF2 with SHA-256 (better than plain SHA-256)
+        key_bytes = hashlib.pbkdf2_hmac(
+            'sha256',
+            key.encode('utf-8'),
+            salt,
+            100000,  # 100k iterations
+            32       # 32-byte key
+        )
+        
+        return base64.urlsafe_b64encode(key_bytes)
 
 
 def encrypt_value(value: str, key: str = None) -> str:

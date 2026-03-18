@@ -7,7 +7,7 @@
 ### ✅ **Test Results**
 - **Total Tests**: 67 tests
 - **Tests Passed**: 67/67 (100%)
-- **Commands Working**: All CLI commands operational
+- **Commands Working**: All 50+ CLI command groups operational
 - **Integration**: Full service integration
 - **Error Handling**: Comprehensive error management
 
@@ -35,19 +35,86 @@ aitbc exchange register --name "Binance" --api-key <key>
 aitbc exchange create-pair AITBC/BTC
 aitbc exchange start-trading --pair AITBC/BTC
 
+# AI Trading & Analytics
+aitbc ai-trading start --strategy mean_reversion
+aitbc advanced-analytics dashboard
+aitbc ai-surveillance start
+
+# Multi-Chain Operations
+aitbc chain list
+aitbc wallet --use-daemon chain balance
+
 # Service management
 aitbc-services status
 aitbc-services restart
 ```
 
-## 📋 **Command Groups**
+## 📋 **Available Command Groups (50+)**
 
-### **Wallet Commands**
-- `wallet create` - Create new wallet
-- `wallet list` - List all wallets
-- `wallet balance` - Check wallet balance
-- `wallet send` - Send tokens
-- `wallet address` - Get wallet address
+### **🔗 Blockchain & Core**
+- `blockchain` - Blockchain node operations
+- `wallet` - Wallet management
+- `chain` - Multi-chain operations
+- `cross-chain` - Cross-chain transactions
+- `multisig` - Multi-signature operations
+
+### **💰 Exchange & Trading**
+- `exchange` - Exchange integration and trading
+- `ai-trading` - AI-powered trading engine
+- `marketplace` - Marketplace operations
+- `market-maker` - Market making operations
+- `oracle` - Price discovery and oracles
+
+### **🤖 AI & Analytics**
+- `ai-surveillance` - AI-powered surveillance (NEW)
+- `advanced-analytics` - Advanced analytics platform
+- `ai` - General AI operations
+- `analytics` - Basic analytics
+- `predictive-intelligence` - Predictive analytics
+
+### **🔒 Security & Compliance**
+- `compliance` - KYC/AML compliance
+- `surveillance` - Trading surveillance
+- `regulatory` - Regulatory reporting
+- `security-test` - Security testing
+- `genesis-protection` - Genesis protection
+
+### **⚙️ System & Infrastructure**
+- `admin` - Administrative operations
+- `deployment` - Deployment management
+- `monitor` - System monitoring
+- `performance-test` - Performance testing
+- `production-deploy` - Production deployment
+
+### **🏗️ Development & Testing**
+- `test-cli` - CLI testing
+- `simulate` - Simulation operations
+- `optimize` - System optimization
+- `config` - Configuration management
+
+### **🌐 Network & Services**
+- `node` - Node management
+- `miner` - Mining operations
+- `client` - Client operations
+- `explorer` - Blockchain explorer
+- `dao` - DAO operations
+
+### **🔌 Plugins & Extensions**
+- `plugin-registry` - Plugin registry
+- `plugin-marketplace` - Plugin marketplace
+- `plugin-analytics` - Plugin analytics
+- `plugin-security` - Plugin security
+
+### **🌍 Global & Multi-Region**
+- `global-infrastructure` - Global infrastructure
+- `global-ai-agents` - Global AI agents
+- `multi-region-load-balancer` - Multi-region load balancing
+
+### **🎯 Agents & Coordination**
+- `agent` - Agent operations
+- `agent-comm` - Agent communication
+- `swarm` - Swarm intelligence
+- `agent-protocols` - Agent protocols
 - `wallet history` - Transaction history
 - `wallet backup` - Backup wallet
 - `wallet restore` - Restore wallet

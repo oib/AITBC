@@ -1233,11 +1233,18 @@ def unstake(ctx, amount: float):
         }
     )
 
-    # Save wallet with encryption
-    password = None
+    # CRITICAL SECURITY FIX: Save wallet properly to avoid double-encryption
     if wallet_data.get("encrypted"):
+        # For encrypted wallets, we need to re-encrypt the private key before saving
         password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
+        # Only encrypt the private key, not the entire wallet data
+        if "private_key" in wallet_data:
+            wallet_data["private_key"] = encrypt_value(wallet_data["private_key"], password)
+        # Save without passing password to avoid double-encryption
+        _save_wallet(wallet_path, wallet_data, None)
+    else:
+        # For unencrypted wallets, save normally
+        _save_wallet(wallet_path, wallet_data, None)
 
     success(f"Unstaked {amount} AITBC")
     output(
