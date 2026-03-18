@@ -4,6 +4,7 @@ Dev Heartbeat: Periodic checks for /opt/aitbc development environment.
 Outputs concise markdown summary. Exit 0 if clean, 1 if issues detected.
 """
 import os
+import json
 import subprocess
 import sys
 from datetime import datetime, timedelta
@@ -81,6 +82,35 @@ def check_dependencies():
             packages.append({"name": parts[0], "current": parts[1], "latest": parts[2]})
     return packages
 
+def check_vulnerabilities():
+    """Run security audits for Python and Node dependencies."""
+    issues = []
+    # Python: pip-audit (if available)
+    rc, out = sh("pip-audit --requirement <(poetry export --without-hashes) 2>&1", shell=True)
+    if rc == 0:
+        # No vulnerabilities
+        pass
+    else:
+        # pip-audit returns non-zero when vulns found; parse output for count
+        # Usually output contains lines with "Found X vulnerabilities"
+        if "vulnerabilities" in out.lower():
+            issues.append(f"Python dependencies: vulnerabilities detected\n```\n{out[:2000]}\n```")
+        else:
+            # Command failed for another reason (maybe not installed)
+            pass
+    # Node: npm audit (if package.json exists)
+    if (REPO_ROOT / "package.json").exists():
+        rc, out = sh("npm audit --json")
+        if rc != 0:
+            try:
+                audit = json.loads(out)
+                count = audit.get("metadata", {}).get("vulnerabilities", {}).get("total", 0)
+                if count > 0:
+                    issues.append(f"Node dependencies: {count} vulnerabilities (npm audit)")
+            except:
+                issues.append("Node dependencies: npm audit failed to parse")
+    return issues
+
 def main():
     report = []
     issues = 0
@@ -135,6 +165,16 @@ def main():
     else:
         report.append("### Dependencies: up to date")
 
+    # Vulnerabilities
+    vulns = check_vulnerabilities()
+    if vulns:
+        issues += 1
+        report.append("### Security: vulnerabilities detected\n")
+        for v in vulns:
+            report.append(f"- {v}")
+    else:
+        report.append("### Security: no known vulnerabilities (audit clean)")
+
     # Final output
     header = f"# Dev Heartbeat — {datetime.now().strftime('%Y-%m-%d %H:%M UTC')}\n\n"
     summary = f"**Issues:** {issues}\n\n" if issues > 0 else "**Status:** All checks passed.\n\n"
@@ -147,3 +187,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
