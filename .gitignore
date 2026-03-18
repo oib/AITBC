@@ -150,6 +150,7 @@ out/
 secrets/
 credentials/
 .secrets
+.gitea_token.sh
 
 # ===================
 # Backup Files (organized)
