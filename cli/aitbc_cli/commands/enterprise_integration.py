@@ -9,21 +9,30 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import enterprise integration services using importlib to avoid naming conflicts
-import importlib.util
+ensure_coordinator_api_imports()
 
-spec = importlib.util.spec_from_file_location("enterprise_integration_service", "/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services/enterprise_integration.py")
-ei = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(ei)
+try:
+    from app.services.enterprise_integration import (
+        create_tenant, get_tenant_info, generate_api_key,
+        register_integration, get_system_status, list_tenants,
+        list_integrations
+    )
+    # Get EnterpriseAPIGateway if available
+    import app.services.enterprise_integration as ei_module
+    EnterpriseAPIGateway = getattr(ei_module, 'EnterpriseAPIGateway', None)
+    _import_error = None
+except ImportError as e:
+    _import_error = e
 
-create_tenant = ei.create_tenant
-get_tenant_info = ei.get_tenant_info
-generate_api_key = ei.generate_api_key
-register_integration = ei.register_integration
-get_system_status = ei.get_system_status
-list_tenants = ei.list_tenants
-list_integrations = ei.list_integrations
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.enterprise_integration' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    create_tenant = get_tenant_info = generate_api_key = register_integration = get_system_status = list_tenants = list_integrations = _missing
+    EnterpriseAPIGateway = None
 
 @click.group()
 def enterprise_integration_group():

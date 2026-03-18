@@ -468,3 +468,7 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
+
+# Register jobs router (disabled - legacy)
+# from .routers import jobs as jobs_router
+# app.include_router(jobs_router.router)

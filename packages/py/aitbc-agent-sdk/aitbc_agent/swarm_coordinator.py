@@ -4,10 +4,13 @@ Swarm Coordinator - for agents participating in collective intelligence
 
 import asyncio
 import json
+import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from dataclasses import dataclass
 from .agent import Agent
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class SwarmMessage:
@@ -81,11 +84,11 @@ class SwarmCoordinator(Agent):
             # Start swarm participation tasks
             asyncio.create_task(self._swarm_participation_loop(swarm_id))
             
-            print(f"Joined swarm: {swarm_id} as {config.get('role', 'participant')}")
+            logger.info(f"Joined swarm: {swarm_id} as {config.get('role', 'participant')}")
             return True
             
         except Exception as e:
-            print(f"Failed to join swarm {swarm_type}: {e}")
+            logger.error(f"Failed to join swarm {swarm_type}: {e}")
             return False
     
     async def _swarm_participation_loop(self, swarm_id: str):
@@ -107,7 +110,7 @@ class SwarmCoordinator(Agent):
                 swarm_config["last_activity"] = datetime.utcnow().isoformat()
                 
             except Exception as e:
-                print(f"Swarm participation error for {swarm_id}: {e}")
+                logger.error(f"Swarm participation error for {swarm_id}: {e}")
             
             # Wait before next participation cycle
             await asyncio.sleep(60)  # 1 minute
@@ -135,11 +138,11 @@ class SwarmCoordinator(Agent):
             # Update contribution count
             self.joined_swarms[message.swarm_id]["contribution_count"] += 1
             
-            print(f"Broadcasted to swarm {message.swarm_id}: {message.message_type}")
+            logger.info(f"Broadcasted to swarm {message.swarm_id}: {message.message_type}")
             return True
             
         except Exception as e:
-            print(f"Failed to broadcast to swarm: {e}")
+            logger.error(f"Failed to broadcast to swarm: {e}")
             return False
     
     async def _contribute_swarm_data(self, swarm_id: str):
@@ -169,7 +172,7 @@ class SwarmCoordinator(Agent):
             await self.broadcast_to_swarm(message)
             
         except Exception as e:
-            print(f"Failed to contribute swarm data: {e}")
+            logger.error(f"Failed to contribute swarm data: {e}")
     
     async def _get_load_balancing_data(self) -> Dict[str, Any]:
         """Get load balancing data for swarm contribution"""
@@ -237,11 +240,11 @@ class SwarmCoordinator(Agent):
             # Submit to swarm for coordination
             coordination_result = await self._submit_coordination_proposal(proposal)
             
-            print(f"Task coordination initiated: {task} with {collaborators} collaborators")
+            logger.info(f"Task coordination initiated: {task} with {collaborators} collaborators")
             return coordination_result
             
         except Exception as e:
-            print(f"Failed to coordinate task: {e}")
+            logger.error(f"Failed to coordinate task: {e}")
             return {"success": False, "error": str(e)}
     
     async def get_market_intelligence(self) -> Dict[str, Any]:
@@ -275,7 +278,7 @@ class SwarmCoordinator(Agent):
                 return {"error": "Not joined to pricing swarm"}
                 
         except Exception as e:
-            print(f"Failed to get market intelligence: {e}")
+            logger.error(f"Failed to get market intelligence: {e}")
             return {"error": str(e)}
     
     async def analyze_swarm_benefits(self) -> Dict[str, Any]:
@@ -302,7 +305,7 @@ class SwarmCoordinator(Agent):
             }
             
         except Exception as e:
-            print(f"Failed to analyze swarm benefits: {e}")
+            logger.error(f"Failed to analyze swarm benefits: {e}")
             return {"error": str(e)}
     
     async def _register_with_swarm(self, swarm_id: str, registration: Dict[str, Any]):

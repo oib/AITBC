@@ -9,14 +9,32 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import regulatory reporting system
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from regulatory_reporting import (
-    generate_sar, generate_compliance_summary, list_reports,
-    regulatory_reporter, ReportType, ReportStatus, RegulatoryBody
-)
+ensure_coordinator_api_imports()
+
+try:
+    from app.services.regulatory_reporting import (
+        generate_sar, generate_compliance_summary, list_reports,
+        regulatory_reporter, ReportType, ReportStatus, RegulatoryBody
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.regulatory_reporting' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    generate_sar = generate_compliance_summary = list_reports = regulatory_reporter = _missing
+
+    class ReportType:
+        pass
+    class ReportStatus:
+        pass
+    class RegulatoryBody:
+        pass
 
 @click.group()
 def regulatory():

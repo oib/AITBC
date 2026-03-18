@@ -6,6 +6,10 @@ echo "=========================================="
 echo "Testing localhost, aitbc, and aitbc1 with all CLI features"
 echo ""
 
+# Resolve project root (directory containing this script)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR" && pwd)"
+
 # Function to run a test scenario
 run_scenario() {
     local scenario_name=$1
@@ -90,14 +94,15 @@ check_prerequisites() {
     echo ""
     echo "📋 Checking user configurations..."
     
-    # Check miner1 and client1 configurations
-    if [ -f "/home/oib/windsurf/aitbc/home/miner1/miner_wallet.json" ]; then
+    # Check miner1 and client1 configurations (relative to project root)
+    local home_dir="$PROJECT_ROOT/home"
+    if [ -f "$home_dir/miner1/miner_wallet.json" ]; then
         echo "✅ miner1 configuration found"
     else
         echo "❌ miner1 configuration missing"
     fi
     
-    if [ -f "/home/oib/windsurf/aitbc/home/client1/client_wallet.json" ]; then
+    if [ -f "$home_dir/client1/client_wallet.json" ]; then
         echo "✅ client1 configuration found"
     else
         echo "❌ client1 configuration missing"
@@ -196,10 +201,10 @@ main() {
     
     # Run scenario tests
     local scenarios=(
-        "Scenario A: Localhost GPU Miner → aitbc Marketplace:/home/oib/windsurf/aitbc/test_scenario_a.sh"
-        "Scenario B: Localhost GPU Client → aitbc1 Marketplace:/home/oib/windsurf/aitbc/test_scenario_b.sh"
-        "Scenario C: aitbc Container User Operations:/home/oib/windsurf/aitbc/test_scenario_c.sh"
-        "Scenario D: aitbc1 Container User Operations:/home/oib/windsurf/aitbc/test_scenario_d.sh"
+        "Scenario A: Localhost GPU Miner → aitbc Marketplace:$PROJECT_ROOT/test_scenario_a.sh"
+        "Scenario B: Localhost GPU Client → aitbc1 Marketplace:$PROJECT_ROOT/test_scenario_b.sh"
+        "Scenario C: aitbc Container User Operations:$PROJECT_ROOT/test_scenario_c.sh"
+        "Scenario D: aitbc1 Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
     )
     
     for scenario_info in "${scenarios[@]}"; do
@@ -215,7 +220,7 @@ main() {
     echo ""
     echo "🔧 Running Comprehensive Test Suite"
     echo "=================================="
-    if python3 /home/oib/windsurf/aitbc/test_multi_site.py; then
+    if python3 "$PROJECT_ROOT/test_multi_site.py"; then
         echo "✅ Comprehensive test suite passed"
         passed_count=$((passed_count + 1))
     else
@@ -236,19 +241,19 @@ case "${1:-all}" in
         run_cli_tests
         ;;
     "scenario-a")
-        run_scenario "Scenario A" "/home/oib/windsurf/aitbc/test_scenario_a.sh"
+        run_scenario "Scenario A" "$PROJECT_ROOT/test_scenario_a.sh"
         ;;
     "scenario-b")
-        run_scenario "Scenario B" "/home/oib/windsurf/aitbc/test_scenario_b.sh"
+        run_scenario "Scenario B" "$PROJECT_ROOT/test_scenario_b.sh"
         ;;
     "scenario-c")
-        run_scenario "Scenario C" "/home/oib/windsurf/aitbc/test_scenario_c.sh"
+        run_scenario "Scenario C" "$PROJECT_ROOT/test_scenario_c.sh"
         ;;
     "scenario-d")
-        run_scenario "Scenario D" "/home/oib/windsurf/aitbc/test_scenario_d.sh"
+        run_scenario "Scenario D" "$PROJECT_ROOT/test_scenario_d.sh"
         ;;
     "comprehensive")
-        python3 /home/oib/windsurf/aitbc/test_multi_site.py
+        python3 "$PROJECT_ROOT/test_multi_site.py"
         ;;
     "all"|*)
         main

@@ -58,7 +58,16 @@ from .commands.regulatory import regulatory
 from .commands.ai_trading import ai_trading
 from .commands.advanced_analytics import advanced_analytics_group
 from .commands.ai_surveillance import ai_surveillance_group
-from .commands.enterprise_integration import enterprise_integration_group
+
+# AI provider commands
+from .commands.ai import ai_group
+
+# Enterprise integration (optional)
+try:
+    from .commands.enterprise_integration import enterprise_integration_group
+except ImportError:
+    enterprise_integration_group = None
+
 from .commands.explorer import explorer
 from .plugins import plugin, load_plugins
 
@@ -242,6 +251,7 @@ cli.add_command(transfer_control)
 cli.add_command(agent)
 cli.add_command(multimodal)
 cli.add_command(optimize)
+cli.add_command(ai_group)
 # cli.add_command(openclaw)  # Temporarily disabled
 cli.add_command(swarm)
 cli.add_command(chain)
@@ -258,7 +268,8 @@ cli.add_command(regulatory)
 cli.add_command(ai_trading)
 cli.add_command(advanced_analytics_group)
 cli.add_command(ai_surveillance_group)
-cli.add_command(enterprise_integration_group)
+if enterprise_integration_group is not None:
+    cli.add_command(enterprise_integration_group)
 cli.add_command(explorer)
 cli.add_command(plugin)
 load_plugins(cli)
