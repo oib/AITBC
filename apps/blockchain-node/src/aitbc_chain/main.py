@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Optional
 
 from .config import settings
@@ -13,6 +16,73 @@ from .sync import ChainSync
 from .mempool import init_mempool
 
 logger = get_logger(__name__)
+
+def _load_keystore_password() -> str:
+    """Load keystore password from file or environment."""
+    pwd_file = settings.keystore_password_file
+    if pwd_file.exists():
+        return pwd_file.read_text().strip()
+    env_pwd = os.getenv("KEYSTORE_PASSWORD")
+    if env_pwd:
+        return env_pwd
+    raise RuntimeError(f"Keystore password not found. Set in {pwd_file} or KEYSTORE_PASSWORD env.")
+
+def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_address: Optional[str] = None) -> Optional[bytes]:
+    """Load an ed25519 private key from the keystore.
+    If target_address is given, find the keystore file with matching address.
+    Otherwise, return the first key found.
+    """
+    if not keystore_dir.exists():
+        return None
+    for kf in keystore_dir.glob("*.json"):
+        try:
+            with open(kf) as f:
+                data = json.load(f)
+            addr = data.get("address")
+            if target_address and addr != target_address:
+                continue
+            # Decrypt
+            from cryptography.hazmat.primitives.asymmetric import ed25519
+            from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+            from cryptography.hazmat.primitives import hashes
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+            from cryptography.hazmat.backends import default_backend
+
+            crypto = data["crypto"]
+            kdfparams = crypto["kdfparams"]
+            salt = bytes.fromhex(kdfparams["salt"])
+            kdf = PBKDF2HMAC(
+                algorithm=hashes.SHA256(),
+                length=32,
+                salt=salt,
+                iterations=kdfparams["c"],
+                backend=default_backend()
+            )
+            key = kdf.derive(password.encode('utf-8'))
+            nonce = bytes.fromhex(crypto["cipherparams"]["nonce"])
+            ciphertext = bytes.fromhex(crypto["ciphertext"])
+            aesgcm = AESGCM(key)
+            private_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+            # Verify it's ed25519
+            priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
+            return private_bytes
+        except Exception:
+            continue
+    return None
+
+# Attempt to load proposer private key from keystore if not set
+if not settings.proposer_key:
+    try:
+        pwd = _load_keystore_password()
+        key_bytes = _load_private_key_from_keystore(settings.keystore_path, pwd, target_address=settings.proposer_id)
+        if key_bytes:
+            # Encode as hex for easy storage; not yet used for signing
+            settings.proposer_key = key_bytes.hex()
+            logger.info("Loaded proposer private key from keystore", extra={"proposer_id": settings.proposer_id})
+        else:
+            logger.warning("Proposer private key not found in keystore; block signing disabled", extra={"proposer_id": settings.proposer_id})
+    except Exception as e:
+        logger.warning("Failed to load proposer key from keystore", extra={"error": str(e)})
 
 
 class BlockchainNode:
