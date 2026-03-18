@@ -9,15 +9,35 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import AI surveillance system
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from ai_surveillance import (
-    start_ai_surveillance, stop_ai_surveillance, get_surveillance_summary,
-    get_user_risk_profile, list_active_alerts, analyze_behavior_patterns,
-    ai_surveillance, SurveillanceType, RiskLevel, AlertPriority
-)
+ensure_coordinator_api_imports()
+
+try:
+    from app.services.ai_surveillance import (
+        start_ai_surveillance, stop_ai_surveillance, get_surveillance_summary,
+        get_user_risk_profile, list_active_alerts, analyze_behavior_patterns,
+        ai_surveillance, SurveillanceType, RiskLevel, AlertPriority
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.ai_surveillance' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    start_ai_surveillance = stop_ai_surveillance = get_surveillance_summary = _missing
+    get_user_risk_profile = list_active_alerts = analyze_behavior_patterns = _missing
+    ai_surveillance = None
+
+    class SurveillanceType:
+        pass
+    class RiskLevel:
+        pass
+    class AlertPriority:
+        pass
 
 @click.group()
 def ai_surveillance_group():

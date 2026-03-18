@@ -9,14 +9,29 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import surveillance system
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from trading_surveillance import (
-    start_surveillance, stop_surveillance, get_alerts, 
-    get_surveillance_summary, AlertLevel
-)
+ensure_coordinator_api_imports()
+
+try:
+    from app.services.trading_surveillance import (
+        start_surveillance, stop_surveillance, get_alerts,
+        get_surveillance_summary, AlertLevel
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.trading_surveillance' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    start_surveillance = stop_surveillance = get_alerts = get_surveillance_summary = _missing
+
+    class AlertLevel:
+        """Stub for AlertLevel when import fails."""
+        pass
 
 @click.group()
 def surveillance():
@@ -201,7 +216,7 @@ def resolve(ctx, alert_id: str, resolution: str):
         click.echo(f"🔍 Resolving alert: {alert_id}")
         
         # Import surveillance to access resolve function
-        from trading_surveillance import surveillance
+        from app.services.trading_surveillance import surveillance
         
         success = surveillance.resolve_alert(alert_id, resolution)
         
@@ -227,7 +242,7 @@ def test(ctx, symbols: str, duration: int):
         click.echo(f"⏱️  Duration: {duration} seconds")
         
         # Import test function
-        from trading_surveillance import test_trading_surveillance
+        from app.services.trading_surveillance import test_trading_surveillance
         
         # Run test
         asyncio.run(test_trading_surveillance())
@@ -253,7 +268,7 @@ def test(ctx, symbols: str, duration: int):
 def status(ctx):
     """Show current surveillance status"""
     try:
-        from trading_surveillance import surveillance
+        from app.services.trading_surveillance import surveillance
         
         click.echo(f"📊 Trading Surveillance Status")
         

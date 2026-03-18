@@ -1004,28 +1004,6 @@ def balance(ctx, address, chain_id, all_chains):
     except Exception as e:
         error(f"Network error: {e}")
 
-@blockchain.command()
-@click.option('--address', required=True, help='Wallet address')
-@click.option('--amount', type=int, default=1000, help='Amount to mint')
-@click.pass_context
-def faucet(ctx, address, amount):
-    """Mint devnet funds to an address"""
-    config = ctx.obj['config']
-    try:
-        import httpx
-        with httpx.Client() as client:
-            response = client.post(
-                f"{_get_node_endpoint(ctx)}/rpc/admin/mintFaucet",
-                json={"address": address, "amount": amount, "chain_id": "ait-devnet"},
-                timeout=5
-            )
-            if response.status_code in (200, 201):
-                output(response.json(), ctx.obj['output_format'])
-            else:
-                error(f"Failed to use faucet: {response.status_code} - {response.text}")
-    except Exception as e:
-        error(f"Network error: {e}")
-
 
 @blockchain.command()
 @click.option('--chain', required=True, help='Chain ID to verify (e.g., ait-mainnet, ait-devnet)')
