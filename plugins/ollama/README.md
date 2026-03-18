@@ -33,7 +33,7 @@ Provides GPU-powered LLM inference services through Ollama, allowing miners to e
 ### Prerequisites
 - Ollama installed and running locally (`ollama serve`)
 - At least one model pulled (example: `ollama pull mistral:latest`)
-- Python 3.11+ with `pip install -e .` if running from repo root
+- Python 3.13.5+ with `pip install -e .` if running from repo root
 
 ### Minimal Usage Example
 ```bash

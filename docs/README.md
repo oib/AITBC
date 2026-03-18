@@ -2,9 +2,73 @@
 
 **AI Training Blockchain - Privacy-Preserving ML & Edge Computing Platform**
 
-Welcome to the AITBC documentation! This guide will help you navigate the documentation based on your role.
+## 📚 **Documentation Organization by Reading Level**
 
-AITBC now features **advanced privacy-preserving machine learning** with zero-knowledge proofs, **fully homomorphic encryption**, and **edge GPU optimization** for consumer hardware. The platform combines decentralized GPU computing with cutting-edge cryptographic techniques for secure, private AI inference and training.
+### 🟢 **Beginner** (Getting Started & Basic Usage)
+For new users, developers getting started, and basic operational tasks.
+
+- [`01_getting_started/`](./beginner/01_getting_started/) - Introduction, installation, and basic setup
+- [`02_project/`](./beginner/02_project/) - Project overview and basic concepts  
+- [`03_clients/`](./beginner/03_clients/) - Client setup and basic usage
+- [`04_miners/`](./beginner/04_miners/) - Mining operations and basic node management
+- [`05_cli/`](./beginner/05_cli/) - Command-line interface basics
+- [`06_github_resolution/`](./beginner/06_github_resolution/) - GitHub PR resolution and updates
+
+### 🟡 **Intermediate** (Implementation & Integration)
+For developers implementing features, integration tasks, and system configuration.
+
+- [`01_planning/`](./intermediate/01_planning/) - Development plans and roadmaps
+- [`02_agents/`](./intermediate/02_agents/) - AI agent development and integration
+- [`03_agent_sdk/`](./intermediate/03_agent_sdk/) - Agent SDK documentation
+- [`04_cross_chain/`](./intermediate/04_cross_chain/) - Cross-chain functionality
+- [`05_developer_ecosystem/`](./intermediate/05_developer_ecosystem/) - Developer tools and ecosystem
+- [`06_explorer/`](./intermediate/06_explorer/) - Blockchain explorer implementation
+- [`07_marketplace/`](./intermediate/07_marketplace/) - Marketplace and exchange integration
+
+### 🟠 **Advanced** (Architecture & Deep Technical)
+For experienced developers, system architects, and advanced technical tasks.
+
+- [`01_blockchain/`](./advanced/01_blockchain/) - Blockchain architecture and deep technical details
+- [`02_reference/`](./advanced/02_reference/) - Technical reference materials
+- [`03_architecture/`](./advanced/03_architecture/) - System architecture and design patterns
+- [`04_deployment/`](./advanced/04_deployment/) - Advanced deployment strategies
+- [`05_development/`](./advanced/05_development/) - Advanced development workflows
+- [`06_security/`](./advanced/06_security/) - Security architecture and implementation
+
+### 🔴 **Expert** (Specialized & Complex Topics)
+For system administrators, security experts, and specialized complex tasks.
+
+- [`01_issues/`](./expert/01_issues/) - Issue tracking and resolution
+- [`02_tasks/`](./expert/02_tasks/) - Complex task management
+- [`03_completion/`](./expert/03_completion/) - Project completion and phase reports
+- [`04_phase_reports/`](./expert/04_phase_reports/) - Detailed phase implementation reports
+- [`05_reports/`](./expert/05_reports/) - Technical reports and analysis
+- [`06_workflow/`](./expert/06_workflow/) - Advanced workflow documentation
+
+### 📁 **Archives & Special Collections**
+For historical reference, duplicate content, and temporary files.
+
+- [`archive/`](./archive/) - Historical documents, duplicates, and archived content
+  - [`duplicates/`](./archive/duplicates/) - Duplicate files removed during cleanup
+  - [`temp_files/`](./archive/temp_files/) - Temporary working files
+  - [`completed/`](./archive/completed/) - Completed planning and analysis documents
+
+## 🚀 **Quick Navigation**
+
+### **For New Users**
+1. Start with [`beginner/01_getting_started/`](./beginner/01_getting_started/)
+2. Learn basic CLI commands in [`beginner/05_cli/`](./beginner/05_cli/)
+3. Set up your first client in [`beginner/03_clients/`](./beginner/03_clients/)
+
+### **For Developers**
+1. Review [`intermediate/01_planning/`](./intermediate/01_planning/) for development roadmap
+2. Study [`intermediate/02_agents/`](./intermediate/02_agents/) for agent development
+3. Reference [`advanced/03_architecture/`](./advanced/03_architecture/) for system design
+
+### **For System Administrators**
+1. Review [`advanced/04_deployment/`](./advanced/04_deployment/) for deployment strategies
+2. Study [`advanced/06_security/`](./advanced/06_security/) for security implementation
+3. Check [`expert/01_issues/`](./expert/01_issues/) for issue resolution
 
 ## 📊 **Current Status: PRODUCTION READY - March 18, 2026**
 
@@ -12,187 +76,36 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 - **Core Infrastructure**: Coordinator API, Blockchain Node, Miner Node fully operational
 - **Enhanced CLI System**: 100% test coverage with 67/67 tests passing
 - **Exchange Infrastructure**: Complete exchange CLI commands and market integration
-- **Oracle Systems**: Full price discovery mechanisms and market data
-- **Market Making**: Complete market infrastructure components
+- **Multi-Chain Support**: Complete 7-layer architecture with chain isolation
+- **AI-Powered Features**: Advanced surveillance, trading engine, and analytics
 - **Security**: Multi-sig, time-lock, and compliance features implemented
-- **Testing**: Comprehensive test suite with full automation
-- **Development Environment**: Complete setup with permission configuration
-- **� Production Setup**: Complete production blockchain setup with encrypted keystores
-- **🆕 AI Memory System**: Development knowledge base and agent documentation
-- **🆕 Enhanced Security**: Secure pickle deserialization and vulnerability scanning
-- **🆕 Repository Organization**: Professional structure with 200+ files organized
 
 ### 🎯 **Latest Achievements (March 18, 2026)**
-- **Production Infrastructure**: Full production setup scripts and documentation
-- **Security Enhancements**: Secure pickle handling and translation cache
-- **AI Development Tools**: Memory system for agents and development tracking
-- **Repository Cleanup**: Professional organization with clean root directory
-- **Cross-Platform Sync**: GitHub ↔ Gitea fully synchronized
+- **Documentation Organization**: Restructured by reading level with systematic prefixes
+- **Duplicate Content Cleanup**: Removed duplicate files and organized archives
+- **GitHub PR Resolution**: All dependency updates completed and pushed
+- **Multi-Chain System**: Complete 7-layer architecture operational
+- **AI Integration**: Advanced surveillance and analytics implemented
 
-## 📁 **Documentation Organization**
+## 🏷️ **File Naming Convention**
 
-### **Main Documentation Categories**
-- [`0_getting_started/`](./0_getting_started/) - Getting started guides with enhanced CLI
-- [`1_project/`](./1_project/) - Project overview and architecture  
-- [`2_clients/`](./2_clients/) - Enhanced client documentation
-- [`3_miners/`](./3_miners/) - Enhanced miner documentation
-- [`4_blockchain/`](./4_blockchain/) - Blockchain documentation
-- [`5_reference/`](./5_reference/) - Reference materials
-- [`6_architecture/`](./6_architecture/) - System architecture
-- [`7_deployment/`](./7_deployment/) - Deployment guides
-- [`8_development/`](./8_development/) - Development documentation
-- [`9_security/`](./9_security/) - Security documentation
-- [`10_plan/`](./10_plan/) - Development plans and roadmaps
-- [`11_agents/`](./11_agents/) - AI agent documentation
-- [`12_issues/`](./12_issues/) - Archived issues
-- [`13_tasks/`](./13_tasks/) - Task documentation
-- [`14_agent_sdk/`](./14_agent_sdk/) - Agent Identity SDK documentation
-- [`15_completion/`](./15_completion/) - Phase implementation completion summaries
-- [`16_cross_chain/`](./16_cross_chain/) - Cross-chain integration documentation
-- [`17_developer_ecosystem/`](./17_developer_ecosystem/) - Developer ecosystem documentation
-- [`18_explorer/`](./18_explorer/) - Explorer implementation with CLI parity
-- [`19_marketplace/`](./19_marketplace/) - Global marketplace implementation
-- [`20_phase_reports/`](./20_phase_reports/) - Comprehensive phase reports and guides
-- [`21_reports/`](./21_reports/) - Project completion reports
-- [`22_workflow/`](./22_workflow/) - Workflow completion summaries
-- [`23_cli/`](./23_cli/) - **ENHANCED: Complete CLI Documentation**
+Files are now organized with systematic prefixes based on reading level:
 
-### **🆕 Enhanced CLI Documentation**
-- [`23_cli/README.md`](./23_cli/README.md) - Complete CLI reference with testing integration
-- [`23_cli/permission-setup.md`](./23_cli/permission-setup.md) - Development environment setup
-- [`23_cli/testing.md`](./23_cli/testing.md) - CLI testing procedures and results
-- [`0_getting_started/3_cli.md`](./0_getting_started/3_cli.md) - CLI usage guide
-
-### **🧪 Testing Documentation**
-- [`23_cli/testing.md`](./23_cli/testing.md) - Complete CLI testing results (67/67 tests)
-- [`tests/`](../tests/) - Complete test suite with automation
-- [`cli/tests/`](../cli/tests/) - CLI-specific test suite
-
-### **🆕 Production Infrastructure (March 18, 2026)**
-- [`SETUP_PRODUCTION.md`](../SETUP_PRODUCTION.md) - Complete production setup guide
-- [`scripts/init_production_genesis.py`](../scripts/init_production_genesis.py) - Production genesis initialization
-- [`scripts/keystore.py`](../scripts/keystore.py) - Encrypted keystore management
-- [`scripts/run_production_node.py`](../scripts/run_production_node.py) - Production node runner
-- [`scripts/setup_production.py`](../scripts/setup_production.py) - Automated production setup
-- [`ai-memory/`](../ai-memory/) - AI development memory system
-
-### **🔒 Security Documentation**
-- [`apps/coordinator-api/src/app/services/secure_pickle.py`](../apps/coordinator-api/src/app/services/secure_pickle.py) - Secure pickle handling
-- [`9_security/`](./9_security/) - Comprehensive security documentation
-- [`dev/scripts/dev_heartbeat.py`](../dev/scripts/dev_heartbeat.py) - Security vulnerability scanning
-
-### **🔄 Exchange Infrastructure**
-- [`19_marketplace/`](./19_marketplace/) - Exchange and marketplace documentation
-- [`10_plan/01_core_planning/exchange_implementation_strategy.md`](./10_plan/01_core_planning/exchange_implementation_strategy.md) - Exchange implementation strategy
-- [`10_plan/01_core_planning/trading_engine_analysis.md`](./10_plan/01_core_planning/trading_engine_analysis.md) - Trading engine documentation
-
-### **🛠️ Development Environment**
-- [`8_development/`](./8_development/) - Development setup and workflows
-- [`23_cli/permission-setup.md`](./23_cli/permission-setup.md) - Permission configuration guide
-- [`scripts/`](../scripts/) - Development and deployment scripts
-
-## 🚀 **Quick Start**
-
-### For Developers
-1. **Setup Development Environment**:
-   ```bash
-   source /opt/aitbc/.env.dev
-   ```
-
-2. **Test CLI Installation**:
-   ```bash
-   aitbc --help
-   aitbc version
-   ```
-
-3. **Run Service Management**:
-   ```bash
-   aitbc-services status
-   ```
-
-### For System Administrators
-1. **Deploy Services**:
-   ```bash
-   sudo systemctl start aitbc-coordinator-api.service
-   sudo systemctl start aitbc-blockchain-node.service
-   ```
-
-2. **Check Status**:
-   ```bash
-   sudo systemctl status aitbc-*
-   ```
-
-### For Users
-1. **Create Wallet**:
-   ```bash
-   aitbc wallet create
-   ```
-
-2. **Check Balance**:
-   ```bash
-   aitbc wallet balance
-   ```
-
-3. **Start Trading**:
-   ```bash
-   aitbc exchange register --name "ExchangeName" --api-key <key>
-   aitbc exchange create-pair AITBC/BTC
-   ```
-
-## 📈 **Implementation Status**
-
-### ✅ **Completed (100%)**
-- **Stage 1**: Blockchain Node Foundations ✅
-- **Stage 2**: Core Services (MVP) ✅
-- **CLI System**: Enhanced with 100% test coverage ✅
-- **Exchange Infrastructure**: Complete implementation ✅
-- **Security Features**: Multi-sig, compliance, surveillance ✅
-- **Testing Suite**: 67/67 tests passing ✅
-
-### 🎯 **In Progress (Q2 2026)**
-- **Exchange Ecosystem**: Market making and liquidity
-- **AI Agents**: Integration and SDK development
-- **Cross-Chain**: Multi-chain functionality
-- **Developer Ecosystem**: Enhanced tools and documentation
-
-## 📚 **Key Documentation Sections**
-
-### **🔧 CLI Operations**
-- Complete command reference with examples
-- Permission setup and development environment
-- Testing procedures and troubleshooting
-- Service management guides
-
-### **💼 Exchange Integration**
-- Exchange registration and configuration
-- Trading pair management
-- Oracle system integration
-- Market making infrastructure
-
-### **🛡️ Security & Compliance**
-- Multi-signature wallet operations
-- KYC/AML compliance procedures
-- Transaction surveillance
-- Regulatory reporting
-
-### **🧪 Testing & Quality**
-- Comprehensive test suite results
-- CLI testing automation
-- Performance testing
-- Security testing procedures
+- **Beginner**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`
+- **Intermediate**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`, `07_`
+- **Advanced**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`
+- **Expert**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`
 
 ## 🔗 **Related Resources**
 
 - **GitHub Repository**: [AITBC Source Code](https://github.com/oib/AITBC)
-- **CLI Reference**: [Complete CLI Documentation](./23_cli/)
-- **Testing Suite**: [Test Results and Procedures](./23_cli/testing.md)
-- **Development Setup**: [Environment Configuration](./23_cli/permission-setup.md)
-- **Exchange Integration**: [Market and Trading Documentation](./19_marketplace/)
+- **CLI Reference**: [Complete CLI Documentation](./beginner/05_cli/)
+- **Testing Suite**: [Test Results and Procedures](./beginner/05_cli/testing.md)
+- **Development Setup**: [Environment Configuration](./beginner/01_getting_started/)
 
 ---
 
-**Last Updated**: March 8, 2026  
-**Infrastructure Status**: 100% Complete  
-**CLI Test Coverage**: 67/67 tests passing  
-**Next Milestone**: Q2 2026 Exchange Ecosystem  
-**Documentation Version**: 2.0
+**Last Updated**: March 18, 2026  
+**Documentation Version**: 3.0 (Reorganized by Reading Level)  
+**Total Files**: 451+ markdown files organized systematically  
+**Status**: PRODUCTION READY with clean, organized documentation structure
