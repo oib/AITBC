@@ -1,3 +1,19 @@
+"""Coordinator API main entry point."""
+import sys
+import os
+
+# Security: Lock sys.path to trusted locations to prevent malicious package shadowing
+# Keep: site-packages under /opt/aitbc (venv), stdlib paths, and our app directory
+_LOCKED_PATH = []
+for p in sys.path:
+    if 'site-packages' in p and '/opt/aitbc' in p:
+        _LOCKED_PATH.append(p)
+    elif 'site-packages' not in p and ('/usr/lib/python' in p or '/usr/local/lib/python' in p):
+        _LOCKED_PATH.append(p)
+    elif p.startswith('/opt/aitbc/apps/coordinator-api'):  # our app code
+        _LOCKED_PATH.append(p)
+sys.path = _LOCKED_PATH
+
 from sqlalchemy.orm import Session
 from typing import Annotated
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -203,7 +219,6 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         lifespan=lifespan,
-        # Custom OpenAPI config to handle Annotated[Session, Depends(get_session)] issues
         openapi_components={
             "securitySchemes": {
                 "ApiKeyAuth": {
@@ -224,6 +239,22 @@ def create_app() -> FastAPI:
             {"name": "zk", "description": "Zero-Knowledge proofs"},
         ]
     )
+    
+    # API Key middleware (if configured)
+    required_key = os.getenv("COORDINATOR_API_KEY")
+    if required_key:
+        @app.middleware("http")
+        async def api_key_middleware(request: Request, call_next):
+            # Health endpoints are exempt
+            if request.url.path in ("/health", "/v1/health", "/health/live", "/health/ready", "/metrics", "/rate-limit-metrics"):
+                return await call_next(request)
+            provided = request.headers.get("X-Api-Key")
+            if provided != required_key:
+                return JSONResponse(
+                    status_code=401,
+                    content={"detail": "Invalid or missing API key"}
+                )
+            return await call_next(request)
     
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
