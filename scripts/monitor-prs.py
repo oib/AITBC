@@ -4,14 +4,14 @@ Enhanced monitor for Gitea PRs:
 - Auto-request review from sibling on my PRs
 - Auto-validate sibling's PRs and approve if passing checks, with stability ring awareness
 - Monitor CI statuses and report failures
-- Release claim branches when associated PRs merge or close
+- Release claim branches when associated PRs merge, close, or EXPIRE
 """
 import os
 import json
 import subprocess
 import tempfile
 import shutil
-from datetime import datetime
+from datetime import datetime, timezone
 
 GITEA_TOKEN = os.getenv('GITEA_TOKEN') or 'ffce3b62d583b761238ae00839dce7718acaad85'
 REPO = 'oib/aitbc'
@@ -19,6 +19,7 @@ API_BASE = os.getenv('GITEA_API_BASE', 'http://gitea.bubuit.net:3000/api/v1')
 MY_AGENT = os.getenv('AGENT_NAME', 'aitbc1')
 SIBLING_AGENT = 'aitbc' if MY_AGENT == 'aitbc1' else 'aitbc1'
 CLAIM_STATE_FILE = '/opt/aitbc/.claim-state.json'
+CLAIM_TTL_SECONDS = 7200  # Must match claim-task.py
 
 def query_api(path, method='GET', data=None):
     url = f"{API_BASE}/{path}"
@@ -74,6 +75,14 @@ def release_claim(issue_number, claim_branch):
         save_claim_state(state)
     print(f"✅ Released claim for issue #{issue_number} (deleted branch {claim_branch})")
 
+def is_claim_expired(state):
+    """Check if the current claim has exceeded TTL."""
+    expires_at = state.get('expires_at')
+    if not expires_at:
+        return False
+    now_ts = datetime.utcnow().timestamp()
+    return now_ts > expires_at
+
 def get_open_prs():
     return query_api(f'repos/{REPO}/pulls?state=open') or []
 
@@ -126,23 +135,30 @@ def validate_pr_branch(pr):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 def main():
-    now = datetime.utcnow().isoformat() + 'Z'
-    print(f"[{now}] Monitoring PRs and claim locks...")
+    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    now_iso = now.isoformat()
+    now_ts = now.timestamp()
+    print(f"[{now_iso}] Monitoring PRs and claim locks...")
     
-    # 0. Check claim state: if we have a current claim, see if corresponding PR merged
+    # 0. Check claim state: if we have a current claim, see if it expired or PR merged
     state = load_claim_state()
     if state.get('current_claim'):
         issue_num = state['current_claim']
         work_branch = state.get('work_branch')
         claim_branch = state.get('claim_branch')
-        all_prs = get_all_prs(state='all')
-        matched_pr = None
-        for pr in all_prs:
-            if pr['head']['ref'] == work_branch:
-                matched_pr = pr
-                break
-        if matched_pr:
-            if matched_pr['state'] == 'closed':
+        # Check expiration
+        if is_claim_expired(state):
+            print(f"Claim for issue #{issue_num} has expired. Releasing.")
+            release_claim(issue_num, claim_branch)
+        else:
+            # Check if PR merged/closed
+            all_prs = get_all_prs(state='all')
+            matched_pr = None
+            for pr in all_prs:
+                if pr['head']['ref'] == work_branch:
+                    matched_pr = pr
+                    break
+            if matched_pr and matched_pr['state'] == 'closed':
                 release_claim(issue_num, claim_branch)
     
     # 1. Process open PRs
@@ -191,10 +207,47 @@ def main():
             for s in failing:
                 notifications.append(f"PR #{number} status check failure: {s.get('context','unknown')} - {s.get('status','unknown')}")
     
+    # 2. Global cleanup of stale claim branches (orphaned, older than TTL)
+    cleanup_global_expired_claims(now_ts)
+    
     if notifications:
         print("\n".join(notifications))
     else:
         print("No new alerts.")
+
+def cleanup_global_expired_claims(now_ts=None):
+    """Delete remote claim branches that are older than TTL, even if state file is gone."""
+    if now_ts is None:
+        now_ts = datetime.utcnow().timestamp()
+    # List all remote claim branches
+    result = subprocess.run(['git', 'ls-remote', '--heads', 'origin', 'claim/*'],
+                            capture_output=True, text=True, cwd='/opt/aitbc')
+    if result.returncode != 0 or not result.stdout.strip():
+        return
+    lines = result.stdout.strip().split('\n')
+    cleaned = 0
+    for line in lines:
+        if not line.strip():
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            continue
+        sha, branch = parts[0], parts[1]
+        # Get commit timestamp
+        ts_result = subprocess.run(['git', 'show', '-s', '--format=%ct', sha],
+                                   capture_output=True, text=True, cwd='/opt/aitbc')
+        if ts_result.returncode == 0 and ts_result.stdout.strip():
+            commit_ts = int(ts_result.stdout.strip())
+            age = now_ts - commit_ts
+            if age > CLAIM_TTL_SECONDS:
+                print(f"Expired claim branch: {branch} (age {age/3600:.1f}h). Deleting.")
+                subprocess.run(['git', 'push', 'origin', '--delete', branch],
+                               capture_output=True, cwd='/opt/aitbc')
+                cleaned += 1
+    if cleaned == 0:
+        print(" cleanup_global_expired_claims: none")
+    else:
+        print(f" cleanup_global_expired_claims: removed {cleaned} expired branch(es)")
 
 if __name__ == '__main__':
     main()
