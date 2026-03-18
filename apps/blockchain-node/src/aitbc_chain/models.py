@@ -155,3 +155,12 @@ class Account(SQLModel, table=True):
     balance: int = 0
     nonce: int = 0
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Escrow(SQLModel, table=True):
+    __tablename__ = "escrow"
+    job_id: str = Field(primary_key=True)
+    buyer: str = Field(foreign_key="account.address")
+    provider: str = Field(foreign_key="account.address")
+    amount: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    released_at: Optional[datetime] = None

@@ -426,6 +426,26 @@ async def send_payment(
     }
 
 
+@router.delete("/marketplace/gpu/{gpu_id}")
+async def delete_gpu(
+    gpu_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    force: bool = Query(default=False, description="Force delete even if GPU is booked")
+) -> Dict[str, Any]:
+    """Delete (unregister) a GPU from the marketplace."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+    
+    if gpu.status == "booked" and not force:
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {gpu_id} is currently booked. Use force=true to delete anyway."
+        )
+    
+    session.delete(gpu)
+    session.commit()
+    return {"status": "deleted", "gpu_id": gpu_id}
+
+
 @router.get("/marketplace/gpu/{gpu_id}/reviews")
 async def get_gpu_reviews(
     gpu_id: str,

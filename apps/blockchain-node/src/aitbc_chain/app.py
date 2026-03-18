@@ -16,6 +16,7 @@ from .mempool import init_mempool
 from .metrics import metrics_registry
 from .rpc.router import router as rpc_router
 from .rpc.websocket import router as websocket_router
+# from .escrow_routes import router as escrow_router  # Not yet implemented
 
 _app_logger = get_logger("aitbc_chain.app")
 
@@ -128,9 +129,12 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Include routers
     app.include_router(rpc_router, prefix="/rpc", tags=["rpc"])
     app.include_router(websocket_router, prefix="/rpc")
+    # app.include_router(escrow_router, prefix="/rpc")  # Disabled until escrow routes are implemented
 
+    # Metrics and health endpoints
     metrics_router = APIRouter()
 
     @metrics_router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"], summary="Prometheus metrics")

@@ -9,15 +9,33 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import advanced analytics
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from advanced_analytics import (
-    start_analytics_monitoring, stop_analytics_monitoring, get_dashboard_data,
-    create_analytics_alert, get_analytics_summary, advanced_analytics,
-    MetricType, Timeframe
-)
+ensure_coordinator_api_imports()
+
+try:
+    from app.services.advanced_analytics import (
+        start_analytics_monitoring, stop_analytics_monitoring, get_dashboard_data,
+        create_analytics_alert, get_analytics_summary, advanced_analytics,
+        MetricType, Timeframe
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.advanced_analytics' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    start_analytics_monitoring = stop_analytics_monitoring = get_dashboard_data = _missing
+    create_analytics_alert = get_analytics_summary = _missing
+    advanced_analytics = None
+
+    class MetricType:
+        pass
+    class Timeframe:
+        pass
 
 @click.group()
 def advanced_analytics_group():

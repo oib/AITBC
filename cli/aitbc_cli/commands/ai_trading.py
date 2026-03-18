@@ -9,14 +9,29 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
+from aitbc_cli.imports import ensure_coordinator_api_imports
 
-# Import AI trading engine
-import sys
-sys.path.append('/home/oib/windsurf/aitbc/apps/coordinator-api/src/app/services')
-from ai_trading_engine import (
-    initialize_ai_engine, train_strategies, generate_trading_signals,
-    get_engine_status, ai_trading_engine, TradingStrategy
-)
+ensure_coordinator_api_imports()
+
+try:
+    from app.services.ai_trading_engine import (
+        initialize_ai_engine, train_strategies, generate_trading_signals,
+        get_engine_status, ai_trading_engine, TradingStrategy
+    )
+    _import_error = None
+except ImportError as e:
+    _import_error = e
+
+    def _missing(*args, **kwargs):
+        raise ImportError(
+            f"Required service module 'app.services.ai_trading_engine' could not be imported: {_import_error}. "
+            "Ensure coordinator-api dependencies are installed and the source directory is accessible."
+        )
+    initialize_ai_engine = train_strategies = generate_trading_signals = get_engine_status = _missing
+    ai_trading_engine = None
+
+    class TradingStrategy:
+        pass
 
 @click.group()
 def ai_trading():

@@ -87,6 +87,50 @@ aitbc --help --language german
 aitbc marketplace list --translate-to french
 ```
 
+## 🔗 Blockchain Node (Brother Chain)
+
+Production-ready blockchain with fixed supply and secure key management.
+
+### ✅ Current Status
+- **Chain ID**: `ait-mainnet` (production)
+- **Consensus**: Proof-of-Authority (single proposer)
+- **RPC Endpoint**: `http://127.0.0.1:8026/rpc`
+- **Health Check**: `http://127.0.0.1:8026/health`
+- **Metrics**: `http://127.0.0.1:8026/metrics` (Prometheus format)
+- **Status**: 🟢 Operational with immutable supply, no admin minting
+
+### 🚀 Quick Launch (First Time)
+
+```bash
+# 1. Generate keystore and genesis
+cd /opt/aitbc/apps/blockchain-node
+.venv/bin/python scripts/setup_production.py --chain-id ait-mainnet
+
+# 2. Start the node (production)
+bash scripts/mainnet_up.sh
+```
+
+The node starts:
+- Proposer loop (block production)
+- RPC API on `http://127.0.0.1:8026`
+
+### 🛠️ CLI Interaction
+
+```bash
+# Check node status
+aitbc blockchain status
+
+# Get chain head
+aitbc blockchain head
+
+# Check balance
+aitbc blockchain balance --address <your-address>
+```
+
+> **Note**: The devnet faucet (`aitbc blockchain faucet`) has been removed. All tokens are allocated at genesis to the `aitbc1genesis` wallet.
+
+For full documentation, see: [`apps/blockchain-node/README.md`](./apps/blockchain-node/README.md)
+
 ## 🤖 Agent-First Computing
 
 AITBC creates an ecosystem where AI agents are the primary participants:
