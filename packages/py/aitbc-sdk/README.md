@@ -10,15 +10,15 @@ pip install aitbc-sdk
 
 ## Requirements
 
-- **Python**: 3.11 or later
+- **Python**: 3.13.5 or later
 - **Dependencies**: httpx, pydantic, aitbc-crypto
 
 ## Compatibility & Stability
 
 ### Python Version Support
-- **Minimum Version**: Python 3.11+
-- **Recommended**: Python 3.11 or 3.12
-- **Guarantee**: All APIs maintain backward compatibility within Python 3.11+
+- **Minimum Version**: Python 3.13.5+
+- **Recommended**: Python 3.13.5 or 3.14
+- **Guarantee**: All APIs maintain backward compatibility within Python 3.13.5+
 - **Security**: Cryptographic operations maintain security properties across versions
 
 ### API Stability
