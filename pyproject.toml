@@ -98,7 +98,7 @@ import_mode = "append"
 
 [project]
 name = "aitbc-cli"
-version = "0.1.0"
+version = "0.2.0"
 description = "AITBC Command Line Interface Tools"
 authors = [
     {name = "AITBC Team", email = "team@aitbc.net"}
