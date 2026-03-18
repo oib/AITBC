@@ -64,7 +64,32 @@ const app = createApp({
     
     formatTime(timestamp) {
       if (!timestamp) return '-'
-      return new Date(timestamp * 1000).toLocaleString()
+      
+      // Handle ISO strings
+      if (typeof timestamp === 'string') {
+        try {
+          const date = new Date(timestamp)
+          return date.toLocaleString()
+        } catch (e) {
+          console.warn('Invalid timestamp format:', timestamp)
+          return '-'
+        }
+      }
+      
+      // Handle numeric timestamps (could be seconds or milliseconds)
+      const numTimestamp = Number(timestamp)
+      if (isNaN(numTimestamp)) return '-'
+      
+      // If timestamp is in seconds (typical Unix timestamp), convert to milliseconds
+      // If timestamp is already in milliseconds, use as-is
+      const msTimestamp = numTimestamp < 10000000000 ? numTimestamp * 1000 : numTimestamp
+      
+      try {
+        return new Date(msTimestamp).toLocaleString()
+      } catch (e) {
+        console.warn('Invalid timestamp value:', timestamp)
+        return '-'
+      }
     },
     
     formatNumber(num) {
