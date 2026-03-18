@@ -352,7 +352,11 @@ class MessageProtocol:
     
     def _generate_key(self) -> bytes:
         """Generate encryption key"""
-        password = os.environ.get('AITBC_AGENT_PROTOCOL_KEY', b"default-key-change-in-production")
+        # SECURITY FIX: Use environment variable instead of hardcoded default
+        password = os.environ.get('AITBC_AGENT_PROTOCOL_KEY')
+        if not password:
+            raise ValueError("❌ SECURITY: AITBC_AGENT_PROTOCOL_KEY environment variable required")
+        
         salt = os.environ.get('AITBC_AGENT_PROTOCOL_SALT', b"aitbc-salt-agent-protocol")
         if isinstance(password, str):
             password = password.encode()
