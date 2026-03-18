@@ -61,10 +61,6 @@ class EstimateFeeRequest(BaseModel):
     payload: Dict[str, Any] = Field(default_factory=dict)
 
 
-class MintFaucetRequest(BaseModel):
-    address: str
-    amount: int = Field(gt=0)
-
 
 @router.get("/head", summary="Get current chain head")
 async def get_head(chain_id: str = "ait-devnet") -> Dict[str, Any]:
@@ -529,23 +525,6 @@ async def estimate_fee(request: EstimateFeeRequest) -> Dict[str, Any]:
         "estimated_fee": estimated_fee,
     }
 
-
-@router.post("/admin/mintFaucet", summary="Mint devnet funds to an address")
-async def mint_faucet(request: MintFaucetRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
-    metrics_registry.increment("rpc_mint_faucet_total")
-    start = time.perf_counter()
-    with session_scope() as session:
-        account = session.get(Account, (chain_id, request.address))
-        if account is None:
-            account = Account(chain_id=chain_id, address=request.address, balance=request.amount)
-            session.add(account)
-        else:
-            account.balance += request.amount
-        session.commit()
-        updated_balance = account.balance
-    metrics_registry.increment("rpc_mint_faucet_success_total")
-    metrics_registry.observe("rpc_mint_faucet_duration_seconds", time.perf_counter() - start)
-    return {"address": request.address, "balance": updated_balance}
 
 
 class ImportBlockRequest(BaseModel):

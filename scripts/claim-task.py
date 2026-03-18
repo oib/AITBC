@@ -6,7 +6,7 @@ Uses Git branch atomic creation as a distributed lock to prevent duplicate work.
 import os
 import json
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 REPO_DIR = '/opt/aitbc'
 STATE_FILE = '/opt/aitbc/.claim-state.json'
@@ -16,6 +16,7 @@ MY_AGENT = os.getenv('AGENT_NAME', 'aitbc1')
 ISSUE_LABELS = ['security', 'bug', 'feature', 'refactor', 'task']  # priority order
 BONUS_LABELS = ['good-first-task-for-agent']
 AVOID_LABELS = ['needs-design', 'blocked', 'needs-reproduction']
+CLAIM_TTL = timedelta(hours=2)  # Stale claim timeout
 
 def query_api(path, method='GET', data=None):
     url = f"{API_BASE}/{path}"
@@ -105,15 +106,36 @@ def create_work_branch(issue_number, title):
     return branch_name
 
 def main():
-    now = datetime.utcnow().isoformat() + 'Z'
-    print(f"[{now}] Claim task cycle starting...")
+    now = datetime.utcnow()
+    print(f"[{now.isoformat()}Z] Claim task cycle starting...")
     
     state = load_state()
     current_claim = state.get('current_claim')
     
     if current_claim:
+        claimed_at_str = state.get('claimed_at')
+        if claimed_at_str:
+            try:
+                # Convert 'Z' suffix to offset for fromisoformat
+                if claimed_at_str.endswith('Z'):
+                    claimed_at_str = claimed_at_str[:-1] + '+00:00'
+                claimed_at = datetime.fromisoformat(claimed_at_str)
+                age = now - claimed_at
+                if age > CLAIM_TTL:
+                    print(f"Claim for issue #{current_claim} is stale (age {age}). Releasing.")
+                    # Try to delete remote claim branch
+                    claim_branch = state.get('claim_branch', f'claim/{current_claim}')
+                    subprocess.run(['git', 'push', 'origin', '--delete', claim_branch], 
+                                   capture_output=True, cwd=REPO_DIR)
+                    # Clear state
+                    state = {'current_claim': None, 'claimed_at': None, 'work_branch': None}
+                    save_state(state)
+                    current_claim = None
+            except Exception as e:
+                print(f"Error checking claim age: {e}. Will attempt to proceed.")
+    
+    if current_claim:
         print(f"Already working on issue #{current_claim} (branch {state.get('work_branch')})")
-        # Optional: could check if that PR has been merged/closed and release claim here
         return
     
     issues = get_open_unassigned_issues()
