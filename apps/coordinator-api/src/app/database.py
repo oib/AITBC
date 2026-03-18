@@ -5,7 +5,7 @@ from sqlalchemy import StaticPool
 
 # Create in-memory SQLite database for now
 engine = create_engine(
-    "sqlite:////home/oib/windsurf/aitbc/apps/coordinator-api/aitbc_coordinator.db",
+    "sqlite:///./data/coordinator.db",
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
     echo=True  # Enable SQL logging for debugging
@@ -15,3 +15,7 @@ engine = create_engine(
 def create_db_and_tables():
     """Create database and tables"""
     SQLModel.metadata.create_all(engine)
+
+async def init_db():
+    """Initialize database by creating tables"""
+    create_db_and_tables()
