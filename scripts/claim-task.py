@@ -2,12 +2,11 @@
 """
 Task Claim System for AITBC agents.
 Uses Git branch atomic creation as a distributed lock to prevent duplicate work.
-Now with TTL/lease: claims expire after 2 hours to prevent stale locks.
 """
 import os
 import json
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 REPO_DIR = '/opt/aitbc'
 STATE_FILE = '/opt/aitbc/.claim-state.json'
@@ -17,7 +16,7 @@ MY_AGENT = os.getenv('AGENT_NAME', 'aitbc1')
 ISSUE_LABELS = ['security', 'bug', 'feature', 'refactor', 'task']  # priority order
 BONUS_LABELS = ['good-first-task-for-agent']
 AVOID_LABELS = ['needs-design', 'blocked', 'needs-reproduction']
-CLAIM_TTL_SECONDS = 7200  # 2 hours lease
+CLAIM_TTL = timedelta(hours=2)  # Stale claim timeout
 
 def query_api(path, method='GET', data=None):
     url = f"{API_BASE}/{path}"
@@ -90,24 +89,6 @@ def claim_issue(issue_number):
     result = subprocess.run(['git', 'push', 'origin', branch_name], capture_output=True, text=True, cwd=REPO_DIR)
     return result.returncode == 0
 
-def is_claim_stale(claim_branch):
-    """Check if a claim branch is older than TTL (stale lock)."""
-    try:
-        result = subprocess.run(['git', 'ls-remote', '--heads', 'origin', claim_branch],
-                                capture_output=True, text=True, cwd=REPO_DIR)
-        if result.returncode != 0 or not result.stdout.strip():
-            return True  # branch missing, treat as stale
-        # Optional: could check commit timestamp via git show -s --format=%ct <sha>
-        # For simplicity, we'll rely on state file expiration
-        return False
-    except Exception:
-        return True
-
-def cleanup_stale_claim(claim_branch):
-    """Delete a stale claim branch from remote."""
-    subprocess.run(['git', 'push', 'origin', '--delete', claim_branch],
-                   capture_output=True, cwd=REPO_DIR)
-
 def assign_issue(issue_number, assignee):
     data = {"assignee": assignee}
     return query_api(f'repos/oib/aitbc/issues/{issue_number}/assignees', method='POST', data=data)
@@ -125,34 +106,37 @@ def create_work_branch(issue_number, title):
     return branch_name
 
 def main():
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)
-    now_iso = now.isoformat()
-    now_ts = now.timestamp()
-    print(f"[{now_iso}] Claim task cycle starting...")
+    now = datetime.utcnow()
+    print(f"[{now.isoformat()}Z] Claim task cycle starting...")
     
     state = load_state()
     current_claim = state.get('current_claim')
     
-    # Check if our own claim expired
     if current_claim:
-        claimed_at = state.get('claimed_at')
-        expires_at = state.get('expires_at')
-        if expires_at and now_ts > expires_at:
-            print(f"Claim for issue #{current_claim} has expired (claimed at {claimed_at}). Releasing.")
-            # Delete the claim branch and clear state
-            claim_branch = state.get('claim_branch')
-            if claim_branch:
-                cleanup_stale_claim(claim_branch)
-            state = {}
-            save_state(state)
-            current_claim = None
+        claimed_at_str = state.get('claimed_at')
+        if claimed_at_str:
+            try:
+                # Convert 'Z' suffix to offset for fromisoformat
+                if claimed_at_str.endswith('Z'):
+                    claimed_at_str = claimed_at_str[:-1] + '+00:00'
+                claimed_at = datetime.fromisoformat(claimed_at_str)
+                age = now - claimed_at
+                if age > CLAIM_TTL:
+                    print(f"Claim for issue #{current_claim} is stale (age {age}). Releasing.")
+                    # Try to delete remote claim branch
+                    claim_branch = state.get('claim_branch', f'claim/{current_claim}')
+                    subprocess.run(['git', 'push', 'origin', '--delete', claim_branch], 
+                                   capture_output=True, cwd=REPO_DIR)
+                    # Clear state
+                    state = {'current_claim': None, 'claimed_at': None, 'work_branch': None}
+                    save_state(state)
+                    current_claim = None
+            except Exception as e:
+                print(f"Error checking claim age: {e}. Will attempt to proceed.")
     
     if current_claim:
         print(f"Already working on issue #{current_claim} (branch {state.get('work_branch')})")
         return
-    
-    # Optional global cleanup: delete any stale claim branches (older than TTL)
-    cleanup_global_stale_claims(now_ts)
     
     issues = get_open_unassigned_issues()
     if not issues:
@@ -164,70 +148,25 @@ def main():
         title = issue['title']
         labels = [lbl['name'] for lbl in issue.get('labels', [])]
         print(f"Attempting to claim issue #{num}: {title} (labels={labels})")
-        
-        # Check if claim branch exists and is stale
-        claim_branch = f'claim/{num}'
-        if not is_claim_stale(claim_branch):
-            print(f"Claim failed for #{num} (active claim exists). Trying next...")
-            continue
-        
-        # Force-delete any lingering claim branch before creating our own
-        cleanup_stale_claim(claim_branch)
-        
         if claim_issue(num):
             assign_issue(num, MY_AGENT)
             work_branch = create_work_branch(num, title)
-            expires_at = now_ts + CLAIM_TTL_SECONDS
             state.update({
                 'current_claim': num,
-                'claim_branch': claim_branch,
+                'claim_branch': f'claim/{num}',
                 'work_branch': work_branch,
-                'claimed_at': now_iso,
-                'expires_at': expires_at,
+                'claimed_at': datetime.utcnow().isoformat() + 'Z',
                 'issue_title': title,
                 'labels': labels
             })
             save_state(state)
-            print(f"✅ Claimed issue #{num}. Work branch: {work_branch} (expires {datetime.fromtimestamp(expires_at, tz=timezone.utc).isoformat()})")
-            add_comment(num, f"Agent `{MY_AGENT}` claiming this task with TTL {CLAIM_TTL_SECONDS/3600}h. (automated)")
+            print(f"✅ Claimed issue #{num}. Work branch: {work_branch}")
+            add_comment(num, f"Agent `{MY_AGENT}` claiming this task. (automated)")
             return
         else:
-            print(f"Claim failed for #{num} (push error). Trying next...")
+            print(f"Claim failed for #{num} (branch exists). Trying next...")
     
     print("Could not claim any issue; all taken or unavailable.")
-
-def cleanup_global_stale_claims(now_ts=None):
-    """Remove claim branches that appear stale (based on commit age)."""
-    if now_ts is None:
-        now_ts = datetime.utcnow().timestamp()
-    # List all remote claim branches
-    result = subprocess.run(['git', 'ls-remote', '--heads', 'origin', 'claim/*'],
-                            capture_output=True, text=True, cwd=REPO_DIR)
-    if result.returncode != 0 or not result.stdout.strip():
-        return
-    lines = result.stdout.strip().split('\n')
-    cleaned = 0
-    for line in lines:
-        if not line.strip():
-            continue
-        parts = line.split()
-        if len(parts) < 2:
-            continue
-        sha, branch = parts[0], parts[1]
-        # Get commit timestamp
-        ts_result = subprocess.run(['git', 'show', '-s', '--format=%ct', sha],
-                                   capture_output=True, text=True, cwd=REPO_DIR)
-        if ts_result.returncode == 0 and ts_result.stdout.strip():
-            commit_ts = int(ts_result.stdout.strip())
-            age = now_ts - commit_ts
-            if age > CLAIM_TTL_SECONDS:
-                print(f"Expired claim branch: {branch} (age {age/3600:.1f}h). Deleting.")
-                cleanup_stale_claim(branch)
-                cleaned += 1
-    if cleaned == 0:
-        print(" cleanup_global_stale_claims: none")
-    else:
-        print(f" cleanup_global_stale_claims: removed {cleaned} expired branch(es)")
 
 if __name__ == '__main__':
     main()
