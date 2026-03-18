@@ -262,3 +262,30 @@ class ExplorerService:
 
         resolved_job_id = job_id or "all"
         return ReceiptListResponse(jobId=resolved_job_id, items=items)
+
+    def get_transaction(self, tx_hash: str) -> dict:
+        """Get transaction details by hash from blockchain RPC"""
+        rpc_base = settings.blockchain_rpc_url.rstrip("/")
+        try:
+            with httpx.Client(timeout=10.0) as client:
+                resp = client.get(f"{rpc_base}/rpc/tx/{tx_hash}")
+                if resp.status_code == 404:
+                    return {"error": "Transaction not found", "hash": tx_hash}
+                resp.raise_for_status()
+                tx_data = resp.json()
+                
+                # Map RPC schema to UI-compatible format
+                return {
+                    "hash": tx_data.get("tx_hash", tx_hash),
+                    "from": tx_data.get("sender", "unknown"),
+                    "to": tx_data.get("recipient", "unknown"),
+                    "amount": tx_data.get("payload", {}).get("value", "0"),
+                    "fee": "0",  # RPC doesn't provide fee info
+                    "timestamp": tx_data.get("created_at"),
+                    "block": tx_data.get("block_height", "pending"),
+                    "status": "confirmed",
+                    "raw": tx_data  # Include raw data for debugging
+                }
+        except Exception as e:
+            print(f"Warning: Failed to fetch transaction {tx_hash} from RPC: {e}")
+            return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}

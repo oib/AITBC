@@ -10,10 +10,15 @@ cache_dir = "dev/cache/.pytest_cache"
 # Test paths to run - include all test directories across the project
 testpaths = [
     "tests",
+    "apps/agent-protocols/tests",
+    "apps/ai-engine/tests",
+    "apps/analytics-platform/tests",
     "apps/blockchain-node/tests",
     "apps/coordinator-api/tests",
-    "apps/explorer-web/tests",
     "apps/pool-hub/tests",
+    "apps/predictive-intelligence/tests",
+    "apps/wallet/tests",
+    "apps/explorer-web/tests",
     "apps/wallet-daemon/tests",
     "apps/zk-circuits/test",
     "cli/tests",
