@@ -31,7 +31,7 @@ class ChainSettings(BaseSettings):
     proposer_id: str = "ait-devnet-proposer"
     proposer_key: Optional[str] = None
 
-    mint_per_unit: int = 1000
+    mint_per_unit: int = 0  # No new minting after genesis for production
     coordinator_ratio: float = 0.05
 
     block_time_seconds: int = 2
@@ -57,6 +57,10 @@ class ChainSettings(BaseSettings):
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
+
+    # Keystore for proposer private key (future block signing)
+    keystore_path: Path = Path("./keystore")
+    keystore_password_file: Path = Path("./keystore/.password")
 
 
 settings = ChainSettings()
