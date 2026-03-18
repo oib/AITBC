@@ -1,6 +1,5 @@
-<<<<<<< Updated upstream
 # AITBC Monorepo ignore rules
-# Updated: 2026-03-03 - Project organization workflow completed
+# Updated: 2026-03-18 - Security fixes for hardcoded passwords
 # Development files organized into dev/ subdirectories
 
 # ===================
@@ -141,7 +140,7 @@ target/
 out/
 
 # ===================
-# Secrets & Credentials
+# Secrets & Credentials (CRITICAL SECURITY)
 # ===================
 *.pem
 *.key
@@ -151,6 +150,19 @@ secrets/
 credentials/
 .secrets
 .gitea_token.sh
+
+# Password files (NEVER commit these)
+*.password
+*.pass
+.password.*
+keystore/.password
+keystore/.password.*
+
+# Private keys and sensitive files
+*_private_key.txt
+*_private_key.json
+private_key.*
+*.private
 
 # ===================
 # Backup Files (organized)
@@ -180,76 +192,6 @@ backup/README.md
 # ===================
 tmp/
 temp/
-=======
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.env/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-*.db-wal
-*.db-shm
-
-# Configuration with secrets
-.env
-.env.local
-.env.*.local
-config.json
-secrets.json
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
 
 # ===================
 # Environment Files
@@ -334,7 +276,7 @@ tests/fixtures/generated/
 # GPU miner local configs
 scripts/gpu/*.local.py
 
-# Deployment secrets
+# Deployment secrets (CRITICAL SECURITY)
 scripts/deploy/*.secret.*
 infra/nginx/*.local.conf
 
@@ -379,8 +321,10 @@ scripts/service/*
 infra/nginx/nginx-aitbc*.conf
 infra/helm/values/prod/
 infra/helm/values/prod.yaml
-=======
+
+# ===================
 # Node.js
+# ===================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
@@ -419,7 +363,9 @@ ENV/
 env.bak/
 venv.bak/
 
-# AITBC specific
+# ===================
+# AITBC specific (CRITICAL SECURITY)
+# ===================
 data/
 logs/
 *.db
@@ -427,5 +373,15 @@ logs/
 wallet*.json
 keystore/
 certificates/
->>>>>>> Stashed changes
-.gitea_token.sh
+
+# Guardian contract databases (contain spending limits)
+guardian_contracts/
+*.guardian.db
+
+# Multi-chain wallet data
+.wallets/
+.wallets/*
+
+# Agent protocol data
+.agent_data/
+.agent_data/*
