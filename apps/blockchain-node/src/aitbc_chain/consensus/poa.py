@@ -1,7 +1,9 @@
 import asyncio
 import hashlib
+import json
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Callable, ContextManager, Optional
 
 from sqlmodel import Session, select
@@ -9,7 +11,7 @@ from sqlmodel import Session, select
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..config import ProposerConfig
-from ..models import Block
+from ..models import Block, Account
 from ..gossip import gossip_broker
 
 _METRIC_KEY_SANITIZE = re.compile(r"[^a-zA-Z0-9_]")
@@ -199,14 +201,17 @@ class PoAProposer:
                 height=0,
                 hash=block_hash,
                 parent_hash="0x00",
-                proposer="genesis",
+                proposer=self._config.proposer_id,  # Use configured proposer as genesis proposer
                 timestamp=timestamp,
                 tx_count=0,
                 state_root=None,
             )
             session.add(genesis)
             session.commit()
-            
+
+            # Initialize accounts from genesis allocations file (if present)
+            await self._initialize_genesis_allocations(session)
+
             # Broadcast genesis block for initial sync
             await gossip_broker.publish(
                 "blocks",
@@ -221,6 +226,33 @@ class PoAProposer:
                     "state_root": genesis.state_root,
                 }
             )
+
+    async def _initialize_genesis_allocations(self, session: Session) -> None:
+        """Create Account entries from the genesis allocations file."""
+        # Look for genesis file relative to project root: data/{chain_id}/genesis.json
+        # Alternatively, use a path from config (future improvement)
+        genesis_path = Path(f"./data/{self._config.chain_id}/genesis.json")
+        if not genesis_path.exists():
+            self._logger.warning("Genesis allocations file not found; skipping account initialization", extra={"path": str(genesis_path)})
+            return
+
+        with open(genesis_path) as f:
+            genesis_data = json.load(f)
+
+        allocations = genesis_data.get("allocations", [])
+        created = 0
+        for alloc in allocations:
+            addr = alloc["address"]
+            balance = int(alloc["balance"])
+            nonce = int(alloc.get("nonce", 0))
+            # Check if account already exists (idempotent)
+            acct = session.get(Account, (self._config.chain_id, addr))
+            if acct is None:
+                acct = Account(chain_id=self._config.chain_id, address=addr, balance=balance, nonce=nonce)
+                session.add(acct)
+                created += 1
+        session.commit()
+        self._logger.info("Initialized genesis accounts", extra={"count": created, "total": len(allocations)})
 
     def _fetch_chain_head(self) -> Optional[Block]:
         with self._session_factory() as session:
