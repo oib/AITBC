@@ -261,9 +261,9 @@ See our [Contributing Guide](3_contributing.md) for details.
 
 ## Next Steps
 
-1. [Set up your environment](2_setup.md)
-2. [Learn about authentication](6_api-authentication.md)
-3. [Choose an SDK](4_examples.md)
-4. [Build your first app](4_examples.md)
+1. [Set up your environment](../2_setup.md)
+2. [Learn about authentication](../6_api-authentication.md)
+3. [Choose an SDK](../4_examples.md)
+4. [Build your first app](../4_examples.md)
 
-Happy building! 🚀
+Happy building! 

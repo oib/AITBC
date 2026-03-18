@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Python 3.11+
+- Python 3.13.5+
 - SQLite 3.35+
 - 512 MB RAM minimum (1 GB recommended)
 - 10 GB disk space
