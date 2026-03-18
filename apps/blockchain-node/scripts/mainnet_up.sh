@@ -3,6 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
+VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
+if [ ! -x "$VENV_PYTHON" ]; then
+  echo "[mainnet] Virtualenv not found at $VENV_PYTHON. Please create it: python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  exit 1
+fi
 export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/scripts:${PYTHONPATH:-}"
 
 # Load production environment
@@ -67,13 +72,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python -m aitbc_chain.main &
+"$VENV_PYTHON" -m aitbc_chain.main &
 CHILD_PIDS+=($!)
 echo "[mainnet] Blockchain node started (PID ${CHILD_PIDS[-1]})"
 
 sleep 2
 
-python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026 --log-level info &
+"$VENV_PYTHON" -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026 --log-level info &
 CHILD_PIDS+=($!)
 echo "[mainnet] RPC API serving at http://127.0.0.1:8026"
 
