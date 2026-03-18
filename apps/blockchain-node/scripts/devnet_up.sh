@@ -2,12 +2,40 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
+VENV_PYTHON="$ROOT_DIR/.venv/bin/python"
+if [ ! -x "$VENV_PYTHON" ]; then
+  echo "[devnet] Virtualenv not found at $VENV_PYTHON. Please create it: python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+  exit 1
+fi
 export PYTHONPATH="${ROOT_DIR}/src:${ROOT_DIR}/scripts:${PYTHONPATH:-}"
 
-GENESIS_PATH="${ROOT_DIR}/data/devnet/genesis.json"
-python "${ROOT_DIR}/scripts/make_genesis.py" --output "${GENESIS_PATH}" --force
+GENESIS_PATH="data/devnet/genesis.json"
+ALLOCATIONS_PATH="data/devnet/allocations.json"
+PROPOSER_ADDRESS="ait15v2cdlz5a3uy3wfurgh6m957kahnhhprdq7fy9m6eay05mvrv4jsyx4sks"
+"$VENV_PYTHON" "scripts/make_genesis.py" \
+  --output "$GENESIS_PATH" \
+  --force \
+  --allocations "$ALLOCATIONS_PATH" \
+  --authorities "$PROPOSER_ADDRESS" \
+  --chain-id "ait-devnet"
 
 echo "[devnet] Generated genesis at ${GENESIS_PATH}"
+
+# Set environment for devnet
+export chain_id="ait-devnet"
+export supported_chains="ait-devnet"
+export proposer_id="${PROPOSER_ADDRESS}"
+export mint_per_unit=0
+export coordinator_ratio=0.05
+export db_path="./data/${chain_id}/chain.db"
+export trusted_proposers="${PROPOSER_ADDRESS}"
+export gossip_backend="memory"
+
+# Optional: if you have a proposer private key for block signing (future), set PROPOSER_KEY
+# export PROPOSER_KEY="..."
+
+echo "[devnet] Environment configured: chain_id=${chain_id}, proposer_id=${proposer_id}"
 
 declare -a CHILD_PIDS=()
 cleanup() {
@@ -19,18 +47,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
-python -m aitbc_chain.main &
+"$VENV_PYTHON" -m aitbc_chain.main &
 CHILD_PIDS+=($!)
 echo "[devnet] Blockchain node started (PID ${CHILD_PIDS[-1]})"
 
 sleep 1
 
-python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026 --log-level info &
+"$VENV_PYTHON" -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026 --log-level info &
 CHILD_PIDS+=($!)
-echo "[devnet] RPC API serving at http://127.0.0.1:8026" 
+echo "[devnet] RPC API serving at http://127.0.0.1:8026"
 
-python -m uvicorn mock_coordinator:app --host 127.0.0.1 --port 8090 --log-level info &
-CHILD_PIDS+=($!)
-echo "[devnet] Mock coordinator serving at http://127.0.0.1:8090" 
+# Optional: mock coordinator for devnet only
+# "$VENV_PYTHON" -m uvicorn mock_coordinator:app --host 127.0.0.1 --port 8090 --log-level info &
+# CHILD_PIDS+=($!)
+# echo "[devnet] Mock coordinator serving at http://127.0.0.1:8090"
 
 wait
