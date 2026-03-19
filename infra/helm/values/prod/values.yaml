@@ -1,0 +1,259 @@
+# Production environment Helm values
+
+global:
+  environment: prod
+  domain: aitbc.bubuit.net
+  imageTag: stable
+  imagePullPolicy: IfNotPresent
+
+# Coordinator API
+coordinator:
+  enabled: true
+  replicas: 3
+  image:
+    repository: aitbc/coordinator-api
+    tag: stable
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    LOG_LEVEL: warn
+    DATABASE_URL: secretRef:db-credentials
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilization: 60
+    targetMemoryUtilization: 70
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+
+# Explorer Web
+explorer:
+  enabled: true
+  replicas: 3
+  image:
+    repository: aitbc/explorer-web
+    tag: stable
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 3000
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+
+# Marketplace Web
+marketplace:
+  enabled: true
+  replicas: 3
+  image:
+    repository: aitbc/marketplace-web
+    tag: stable
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 3001
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+
+# Wallet Daemon
+wallet:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/wallet-daemon
+    tag: stable
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  service:
+    type: ClusterIP
+    port: 8002
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+
+# Trade Exchange
+exchange:
+  enabled: true
+  replicas: 2
+  image:
+    repository: aitbc/trade-exchange
+    tag: stable
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8085
+
+# PostgreSQL (prod uses RDS Multi-AZ)
+postgresql:
+  enabled: false
+  external:
+    host: secretRef:db-credentials:host
+    port: 5432
+    database: coordinator
+    sslMode: require
+
+# Redis (prod uses ElastiCache)
+redis:
+  enabled: false
+  external:
+    host: secretRef:redis-credentials:host
+    port: 6379
+    auth: true
+
+# Ingress
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: 1m
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
+    - secretName: prod-tls
+      hosts:
+        - aitbc.bubuit.net
+  hosts:
+    - host: aitbc.bubuit.net
+      paths:
+        - path: /api
+          service: coordinator
+          port: 8001
+        - path: /explorer
+          service: explorer
+          port: 3000
+        - path: /marketplace
+          service: marketplace
+          port: 3001
+        - path: /wallet
+          service: wallet
+          port: 8002
+        - path: /Exchange
+          service: exchange
+          port: 8085
+
+# Monitoring
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    retention: 30d
+    resources:
+      requests:
+        cpu: 500m
+        memory: 2Gi
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+  grafana:
+    enabled: true
+    persistence:
+      enabled: true
+      size: 10Gi
+  alertmanager:
+    enabled: true
+    config:
+      receivers:
+        - name: slack
+          slack_configs:
+            - channel: '#aitbc-alerts'
+              send_resolved: true
+
+# Logging
+logging:
+  enabled: true
+  level: warn
+  elasticsearch:
+    enabled: true
+    retention: 30d
+    replicas: 3
+
+# Pod Disruption Budgets
+podDisruptionBudget:
+  coordinator:
+    minAvailable: 2
+  explorer:
+    minAvailable: 2
+  marketplace:
+    minAvailable: 2
+  wallet:
+    minAvailable: 1
+
+# Network Policies
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - port: 53
+          protocol: UDP
+
+# Security
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  readOnlyRootFilesystem: true
+
+# Affinity - spread across zones
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app: coordinator
+          topologyKey: topology.kubernetes.io/zone
+
+# Priority Classes
+priorityClassName: high-priority
