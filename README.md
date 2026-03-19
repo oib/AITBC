@@ -89,28 +89,30 @@ aitbc marketplace list --translate-to french
 
 ## 🔗 Blockchain Node (Brother Chain)
 
-A minimal asset-backed blockchain that validates compute receipts and mints AIT tokens.
+Production-ready blockchain with fixed supply and secure key management.
 
 ### ✅ Current Status
-- **Chain ID**: `ait-devnet`
+- **Chain ID**: `ait-mainnet` (production)
 - **Consensus**: Proof-of-Authority (single proposer)
-- **RPC Endpoint**: `http://localhost:8026/rpc`
-- **Health Check**: `http://localhost:8026/health`
-- **Metrics**: `http://localhost:8026/metrics` (Prometheus format)
-- **Status**: 🟢 Operational and fully functional
+- **RPC Endpoint**: `http://127.0.0.1:8026/rpc`
+- **Health Check**: `http://127.0.0.1:8026/health`
+- **Metrics**: `http://127.0.0.1:8026/metrics` (Prometheus format)
+- **Status**: 🟢 Operational with immutable supply, no admin minting
 
-### 🚀 Quick Launch
+### 🚀 Quick Launch (First Time)
 
 ```bash
+# 1. Generate keystore and genesis
 cd /opt/aitbc/apps/blockchain-node
-source .venv/bin/activate
-bash scripts/devnet_up.sh
+.venv/bin/python scripts/setup_production.py --chain-id ait-mainnet
+
+# 2. Start the node (production)
+bash scripts/mainnet_up.sh
 ```
 
 The node starts:
 - Proposer loop (block production)
-- RPC API on port 8026
-- Mock coordinator on port 8090 (for testing)
+- RPC API on `http://127.0.0.1:8026`
 
 ### 🛠️ CLI Interaction
 
@@ -123,10 +125,9 @@ aitbc blockchain head
 
 # Check balance
 aitbc blockchain balance --address <your-address>
-
-# Fund an address (devnet faucet)
-aitbc blockchain faucet --address <your-address> --amount 1000
 ```
+
+> **Note**: The devnet faucet (`aitbc blockchain faucet`) has been removed. All tokens are allocated at genesis to the `aitbc1genesis` wallet.
 
 For full documentation, see: [`apps/blockchain-node/README.md`](./apps/blockchain-node/README.md)
 
