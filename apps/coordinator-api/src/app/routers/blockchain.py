@@ -11,11 +11,12 @@ router = APIRouter(tags=["blockchain"])
 async def blockchain_status():
     """Get blockchain status."""
     try:
-        # Try to get blockchain status from RPC
         import httpx
+        from ..config import settings
 
+        rpc_url = settings.blockchain_rpc_url.rstrip('/')
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:8003/rpc/head", timeout=5.0)
+            response = await client.get(f"{rpc_url}/rpc/head", timeout=5.0)
             if response.status_code == 200:
                 data = response.json()
                 return {
@@ -42,11 +43,12 @@ async def blockchain_status():
 async def blockchain_sync_status():
     """Get blockchain synchronization status."""
     try:
-        # Try to get sync status from RPC
         import httpx
+        from ..config import settings
 
+        rpc_url = settings.blockchain_rpc_url.rstrip('/')
         async with httpx.AsyncClient() as client:
-            response = await client.get("http://localhost:8003/rpc/sync", timeout=5.0)
+            response = await client.get(f"{rpc_url}/rpc/sync", timeout=5.0)
             if response.status_code == 200:
                 data = response.json()
                 return {
