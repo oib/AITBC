@@ -86,7 +86,7 @@ def check_vulnerabilities():
     """Run security audits for Python and Node dependencies."""
     issues = []
     # Python: pip-audit (if available)
-    rc, out = sh("pip-audit --requirement <(poetry export --without-hashes) 2>&1", shell=True)
+    rc, out = sh("bash -c 'pip-audit --requirement <(poetry export --without-hashes) 2>&1'")
     if rc == 0:
         # No vulnerabilities
         pass
