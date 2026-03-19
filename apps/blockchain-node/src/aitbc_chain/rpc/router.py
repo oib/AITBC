@@ -653,34 +653,37 @@ async def get_blockchain_info(chain_id: str = None) -> Dict[str, Any]:
 async def get_token_supply(chain_id: str = None) -> Dict[str, Any]:
     """Get token supply information"""
     from ..config import settings as cfg
+    from ..models import Account
     
-    # Use default chain_id from settings if not provided
-    if chain_id is None:
-        chain_id = cfg.chain_id
-    
+    chain_id = get_chain_id(chain_id)
     metrics_registry.increment("rpc_supply_total")
     start = time.perf_counter()
     
     with session_scope() as session:
-        # Production implementation - no faucet in mainnet
+        # Calculate actual values from database
+        accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
+        total_balance = sum(account.balance for account in accounts)
+        total_accounts = len(accounts)
+        
+        # Production implementation - calculate real circulating supply
         if chain_id == "ait-mainnet":
             response = {
                 "chain_id": chain_id,
                 "total_supply": 1000000000,  # 1 billion from genesis
-                "circulating_supply": 0,  # No transactions yet
+                "circulating_supply": total_balance,  # Actual tokens in circulation
                 "mint_per_unit": cfg.mint_per_unit,
-                "total_accounts": 0
+                "total_accounts": total_accounts  # Actual account count
             }
         else:
-            # Devnet with faucet
+            # Devnet with faucet - use actual calculations
             response = {
                 "chain_id": chain_id,
                 "total_supply": 1000000000,  # 1 billion from genesis
-                "circulating_supply": 0,  # No transactions yet
+                "circulating_supply": total_balance,  # Actual tokens in circulation
                 "faucet_balance": 1000000000,  # All tokens in faucet
                 "faucet_address": "ait1faucet000000000000000000000000000000000",
                 "mint_per_unit": cfg.mint_per_unit,
-                "total_accounts": 0
+                "total_accounts": total_accounts  # Actual account count
             }
         
         metrics_registry.observe("rpc_supply_duration_seconds", time.perf_counter() - start)
