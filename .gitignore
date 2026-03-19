@@ -1,7 +1,4 @@
-<<<<<<< Updated upstream
 # AITBC Monorepo ignore rules
-# Updated: 2026-03-03 - Project organization workflow completed
-# Development files organized into dev/ subdirectories
 
 # ===================
 # Python
@@ -26,7 +23,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Environment files
+# ===================
+# Environment Files (SECRETS - NEVER COMMIT)
+# ===================
 *.env
 .env.*
 !.env.example
@@ -34,90 +33,45 @@ htmlcov/
 .env.*.local
 
 # ===================
-# Development Environment (organized)
-# ===================
-dev/env/.venv/
-dev/env/node_modules/
-dev/env/cli_env/
-dev/cache/.pytest_cache/
-dev/cache/.ruff_cache/
-dev/cache/.vscode/
-dev/cache/logs/
-dev/scripts/__pycache__/
-dev/scripts/*.pyc
-dev/scripts/*.pyo
-
-# ===================
-# Databases
+# Database & Data
 # ===================
 *.db
 *.sqlite
 *.sqlite3
-*/data/*.db
+*.db-wal
+*.db-shm
 data/
-
-# Alembic
-alembic.ini
-migrations/versions/__pycache__/
+apps/blockchain-node/data/
 
 # ===================
-# Node / JavaScript
+# Logs & Runtime
 # ===================
-node_modules/
-dist/
-build/
-.npm/
-.pnpm/
-yarn.lock
-pnpm-lock.yaml
-.next/
-.nuxt/
-.cache/
-
-# ===================
-# Development Tests (organized)
-# ===================
-dev/tests/__pycache__/
-dev/tests/*.pyc
-dev/tests/test_results/
-dev/tests/simple_test_results.json
-dev/tests/data/
-dev/tests/*.db
-dev/multi-chain/__pycache__/
-dev/multi-chain/*.pyc
-dev/multi-chain/test_results/
-
-# ===================
-# Logs & Runtime (organized)
-# ===================
-logs/
-dev/cache/logs/
 *.log
-*.log.*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pids/
+logs/
 *.pid
 *.seed
 
 # ===================
-# Editor & IDE
+# Secrets & Credentials
 # ===================
-.idea/
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials/
+.secrets
+.gitea_token.sh
+keystore/
+
+# ===================
+# IDE & Editor
+# ===================
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
-
-# ===================
-# Runtime / PID files
-# ===================
-*.pid
-apps/.service_pids
 
 # ===================
 # OS Files
@@ -132,133 +86,22 @@ Desktop.ini
 # ===================
 # Build & Compiled
 # ===================
+build/
+dist/
+target/
 *.o
 *.a
 *.lib
 *.dll
 *.dylib
-target/
-out/
 
 # ===================
-# Secrets & Credentials
+# Node.js
 # ===================
-*.pem
-*.key
-*.crt
-*.p12
-secrets/
-credentials/
-.secrets
-.gitea_token.sh
-
-# ===================
-# Backup Files (organized)
-# ===================
-backup/**/*.tmp
-backup/**/*.temp
-backup/**/.DS_Store
-backup/updates/*.log
-
-# Large backup files (exceed GitHub size limits)
-backup/updates/*.tar.gz
-backup/updates/*.zip
-backup/updates/*.tar.bz2
-
-# Application backup archives
-backup/explorer_backup_*.tar.gz
-backup/*_backup_*.tar.gz
-backup/*_backup_*.zip
-
-# Backup documentation and indexes
-backup/BACKUP_INDEX.md
-backup/*.md
-backup/README.md
-
-# ===================
-# Temporary Files
-# ===================
-tmp/
-temp/
-=======
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Virtual environments
-venv/
-env/
-ENV/
-.venv/
-.env/
-
-# IDEs
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-*.db-wal
-*.db-shm
-
-# Configuration with secrets
-.env
-.env.local
-.env.*.local
-config.json
-secrets.json
-
-# Temporary files
-*.tmp
-*.temp
-*.bak
-*.backup
-
-# ===================
-# Environment Files
-# ===================
-.env
-.env.local
-.env.production
-*.env
-.env.*.local
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # ===================
 # Windsurf IDE
@@ -267,165 +110,26 @@ secrets.json
 .snapshots/
 
 # ===================
-# Test Results & Artifacts
+# Wallet Files (contain private keys)
+# ===================
+*.json
+home/client/client_wallet.json
+home/genesis_wallet.json
+home/miner/miner_wallet.json
+
+# ===================
+# Test Results
 # ===================
 test-results/
 **/test-results/
 
 # ===================
-# Development Logs - Keep in dev/logs/
+# Temporary Files
 # ===================
-*.log
-*.out
-*.err
-wget-log
-download.log
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
 
-# ===================
-# Wallet files (contain keys/balances)
-# ===================
-home/client/client_wallet.json
-home/genesis_wallet.json
-home/miner/miner_wallet.json
-
-# Root-level wallet backups (contain private keys)
-*.json
-
-# ===================
-# Stale source copies
-# ===================
-src/aitbc_chain/
-
-# ===================
-# Project Specific
-# ===================
-# Coordinator database
-apps/coordinator-api/src/*.db
-
-# Blockchain node data
-apps/blockchain-node/data/
-
-# Explorer build artifacts
-apps/explorer-web/dist/
-
-# Solidity build artifacts
-packages/solidity/aitbc-token/typechain-types/
-packages/solidity/aitbc-token/artifacts/
-packages/solidity/aitbc-token/cache/
-
-# Local test fixtures and E2E testing
-tests/e2e/fixtures/home/**/.aitbc/cache/
-tests/e2e/fixtures/home/**/.aitbc/logs/
-tests/e2e/fixtures/home/**/.aitbc/tmp/
-tests/e2e/fixtures/home/**/.aitbc/*.log
-tests/e2e/fixtures/home/**/.aitbc/*.pid
-tests/e2e/fixtures/home/**/.aitbc/*.sock
-
-# Keep fixture structure but exclude generated content
-!tests/e2e/fixtures/home/
-!tests/e2e/fixtures/home/**/
-!tests/e2e/fixtures/home/**/.aitbc/
-!tests/e2e/fixtures/home/**/.aitbc/wallets/
-!tests/e2e/fixtures/home/**/.aitbc/config/
-
-# Local test data
-tests/fixtures/generated/
-
-# GPU miner local configs
-scripts/gpu/*.local.py
-
-# Deployment secrets
-scripts/deploy/*.secret.*
-infra/nginx/*.local.conf
-
-# ===================
-# Documentation
-# ===================
-# Infrastructure docs (contains sensitive network info)
-docs/infrastructure.md
-# Workflow files (personal, change frequently)
-docs/1_project/3_currenttask.md
-docs/1_project/4_currentissue.md
-
-# ===================
-# Website (local deployment details)
-# ===================
-website/README.md
-website/aitbc-proxy.conf
-
-# ===================
-# Local Config & Secrets
-# ===================
-.aitbc.yaml
-apps/coordinator-api/.env
-
-# ===================
-# Windsurf IDE (personal dev tooling)
-# ===================
-.windsurf/
-
-# ===================
-# Deploy Scripts (hardcoded local paths & IPs)
-# ===================
-scripts/deploy/*
-!scripts/deploy/*.example
-scripts/gpu/*
-!scripts/gpu/*.example
-scripts/service/*
-
-# ===================
-# Infra Configs (production IPs & secrets)
-# ===================
-infra/nginx/nginx-aitbc*.conf
-infra/helm/values/prod/
-infra/helm/values/prod.yaml
-=======
-# Node.js
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build artifacts
-build/
-dist/
-target/
-
-# System files
-*.pid
-*.seed
-*.pid.lock
-
-# Coverage reports
-htmlcov/
-.coverage
-.coverage.*
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# pyenv
-.python-version
-
-# Environments
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
-# AITBC specific
-data/
-logs/
-*.db
-*.sqlite
-wallet*.json
-keystore/
-certificates/
->>>>>>> Stashed changes
-.gitea_token.sh
