@@ -120,10 +120,11 @@ class PoAProposer:
             return
 
     async def _propose_block(self) -> None:
-        # Check internal mempool
+        # Check internal mempool - but produce empty blocks to keep chain moving
         from ..mempool import get_mempool
-        if get_mempool().size(self._config.chain_id) == 0:
-            return
+        mempool_size = get_mempool().size(self._config.chain_id)
+        if mempool_size == 0:
+            self._logger.debug("No transactions in mempool, producing empty block")
 
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
