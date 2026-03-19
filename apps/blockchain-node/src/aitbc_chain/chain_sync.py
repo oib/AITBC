@@ -60,6 +60,9 @@ class ChainSyncService:
         import aiohttp
         
         last_broadcast_height = 0
+        retry_count = 0
+        max_retries = 5
+        base_delay = 2
         
         while not self._stop_event.is_set():
             try:
@@ -70,6 +73,9 @@ class ChainSyncService:
                             head_data = await resp.json()
                             current_height = head_data.get('height', 0)
                             
+                            # Reset retry count on successful connection
+                            retry_count = 0
+                            
                             # Broadcast new blocks
                             if current_height > last_broadcast_height:
                                 for height in range(last_broadcast_height + 1, current_height + 1):
@@ -79,11 +85,22 @@ class ChainSyncService:
                                 
                                 last_broadcast_height = current_height
                                 logger.info(f"Broadcasted blocks up to height {current_height}")
+                        else:
+                            raise Exception(f"RPC returned status {resp.status}")
                 
             except Exception as e:
-                logger.error(f"Error in block broadcast: {e}")
+                retry_count += 1
+                if retry_count <= max_retries:
+                    delay = base_delay * (2 ** (retry_count - 1))  # Exponential backoff
+                    logger.warning(f"RPC connection failed (attempt {retry_count}/{max_retries}), retrying in {delay}s: {e}")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    logger.error(f"RPC connection failed after {max_retries} attempts, waiting {base_delay * 10}s: {e}")
+                    await asyncio.sleep(base_delay * 10)
+                    retry_count = 0  # Reset retry count after long wait
             
-            await asyncio.sleep(2)  # Check every 2 seconds
+            await asyncio.sleep(base_delay)  # Check every 2 seconds when connected
     
     async def _receive_blocks(self):
         """Receive blocks from other nodes via Redis"""
@@ -142,19 +159,35 @@ class ChainSyncService:
             target_host = self.leader_host if self.leader_host else "127.0.0.1"
             target_port = self.rpc_port
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"http://{target_host}:{target_port}/rpc/importBlock",
-                    json=block_data
-                ) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        if result.get('accepted'):
-                            logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
-                        else:
-                            logger.debug(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
+            # Retry logic for import
+            max_retries = 3
+            base_delay = 1
+            
+            for attempt in range(max_retries):
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            f"http://{target_host}:{target_port}/rpc/importBlock",
+                            json=block_data
+                        ) as resp:
+                            if resp.status == 200:
+                                result = await resp.json()
+                                if result.get('accepted'):
+                                    logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
+                                else:
+                                    logger.debug(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
+                                return
+                            else:
+                                raise Exception(f"HTTP {resp.status}")
+                
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        logger.warning(f"Import failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}")
+                        await asyncio.sleep(delay)
                     else:
-                        logger.warning(f"Failed to import block: {resp.status}")
+                        logger.error(f"Failed to import block {block_data.get('height')} after {max_retries} attempts: {e}")
+                        return
                         
         except Exception as e:
             logger.error(f"Error importing block: {e}")
