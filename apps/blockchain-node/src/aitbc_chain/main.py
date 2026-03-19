@@ -103,7 +103,7 @@ class BlockchainNode:
                     if isinstance(tx_data, str):
                         import json
                         tx_data = json.loads(tx_data)
-                    chain_id = tx_data.get("chain_id", "ait-devnet")
+                    chain_id = tx_data.get("chain_id", settings.chain_id)
                     mempool.add(tx_data, chain_id=chain_id)
                 except Exception as exc:
                     logger.error(f"Error processing transaction from gossip: {exc}")
@@ -121,7 +121,7 @@ class BlockchainNode:
                     if isinstance(block_data, str):
                         import json
                         block_data = json.loads(block_data)
-                    chain_id = block_data.get("chain_id", "ait-devnet")
+                    chain_id = block_data.get("chain_id", settings.chain_id)
                     logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
                     sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
                     res = sync.import_block(block_data)
