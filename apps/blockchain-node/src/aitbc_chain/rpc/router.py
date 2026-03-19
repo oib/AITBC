@@ -18,6 +18,13 @@ from ..models import Account, Block, Receipt, Transaction
 
 router = APIRouter()
 
+def get_chain_id(chain_id: str = None) -> str:
+    """Get chain_id from parameter or use default from settings"""
+    if chain_id is None:
+        from ..config import settings
+        return settings.chain_id
+    return chain_id
+
 
 def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
     return {
@@ -63,7 +70,14 @@ class EstimateFeeRequest(BaseModel):
 
 
 @router.get("/head", summary="Get current chain head")
-async def get_head(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_head(chain_id: str = None) -> Dict[str, Any]:
+    """Get current chain head"""
+    from ..config import settings as cfg
+    
+    # Use default chain_id from settings if not provided
+    if chain_id is None:
+        chain_id = cfg.chain_id
+    
     metrics_registry.increment("rpc_get_head_total")
     start = time.perf_counter()
     with session_scope() as session:
@@ -157,7 +171,8 @@ async def get_blocks_range(start: int, end: int) -> Dict[str, Any]:
 
 
 @router.get("/tx/{tx_hash}", summary="Get transaction by hash")
-async def get_transaction(tx_hash: str, chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_transaction(tx_hash: str, chain_id: str = None) -> Dict[str, Any]:
+    chain_id = get_chain_id(chain_id)
     metrics_registry.increment("rpc_get_transaction_total")
     start = time.perf_counter()
     with session_scope() as session:
@@ -296,7 +311,7 @@ async def get_receipts(limit: int = 20, offset: int = 0) -> Dict[str, Any]:
 
 
 @router.get("/getBalance/{address}", summary="Get account balance")
-async def get_balance(address: str, chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_balance(address: str, chain_id: str = None) -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_balance_total")
     start = time.perf_counter()
     with session_scope() as session:
@@ -442,7 +457,7 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
 
 
 @router.post("/sendTx", summary="Submit a new transaction")
-async def send_transaction(request: TransactionRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def send_transaction(request: TransactionRequest, chain_id: str = None) -> Dict[str, Any]:
     metrics_registry.increment("rpc_send_tx_total")
     start = time.perf_counter()
     mempool = get_mempool()
@@ -481,7 +496,7 @@ async def send_transaction(request: TransactionRequest, chain_id: str = "ait-dev
 
 
 @router.post("/submitReceipt", summary="Submit receipt claim transaction")
-async def submit_receipt(request: ReceiptSubmissionRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def submit_receipt(request: ReceiptSubmissionRequest, chain_id: str = None) -> Dict[str, Any]:
     metrics_registry.increment("rpc_submit_receipt_total")
     start = time.perf_counter()
     tx_payload = {
@@ -539,7 +554,7 @@ class ImportBlockRequest(BaseModel):
 
 
 @router.post("/importBlock", summary="Import a block from a remote peer")
-async def import_block(request: ImportBlockRequest, chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def import_block(request: ImportBlockRequest, chain_id: str = None) -> Dict[str, Any]:
     from ..sync import ChainSync, ProposerSignatureValidator
     from ..config import settings as cfg
 
@@ -578,7 +593,7 @@ async def import_block(request: ImportBlockRequest, chain_id: str = "ait-devnet"
 
 
 @router.get("/syncStatus", summary="Get chain sync status")
-async def sync_status(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def sync_status(chain_id: str = None) -> Dict[str, Any]:
     from ..sync import ChainSync
     from ..config import settings as cfg
 
@@ -588,7 +603,7 @@ async def sync_status(chain_id: str = "ait-devnet") -> Dict[str, Any]:
 
 
 @router.get("/info", summary="Get blockchain information")
-async def get_blockchain_info(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_blockchain_info(chain_id: str = None) -> Dict[str, Any]:
     """Get comprehensive blockchain information"""
     from ..config import settings as cfg
     
@@ -634,31 +649,45 @@ async def get_blockchain_info(chain_id: str = "ait-devnet") -> Dict[str, Any]:
 
 
 @router.get("/supply", summary="Get token supply information")
-async def get_token_supply(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_token_supply(chain_id: str = None) -> Dict[str, Any]:
     """Get token supply information"""
     from ..config import settings as cfg
+    
+    # Use default chain_id from settings if not provided
+    if chain_id is None:
+        chain_id = cfg.chain_id
     
     metrics_registry.increment("rpc_supply_total")
     start = time.perf_counter()
     
     with session_scope() as session:
-        # Simple implementation for now
-        response = {
-            "chain_id": chain_id,
-            "total_supply": 1000000000,  # 1 billion from genesis
-            "circulating_supply": 0,  # No transactions yet
-            "faucet_balance": 1000000000,  # All tokens in faucet
-            "faucet_address": "ait1faucet000000000000000000000000000000000",
-            "mint_per_unit": cfg.mint_per_unit,
-            "total_accounts": 0
-        }
+        # Production implementation - no faucet in mainnet
+        if chain_id == "ait-mainnet":
+            response = {
+                "chain_id": chain_id,
+                "total_supply": 1000000000,  # 1 billion from genesis
+                "circulating_supply": 0,  # No transactions yet
+                "mint_per_unit": cfg.mint_per_unit,
+                "total_accounts": 0
+            }
+        else:
+            # Devnet with faucet
+            response = {
+                "chain_id": chain_id,
+                "total_supply": 1000000000,  # 1 billion from genesis
+                "circulating_supply": 0,  # No transactions yet
+                "faucet_balance": 1000000000,  # All tokens in faucet
+                "faucet_address": "ait1faucet000000000000000000000000000000000",
+                "mint_per_unit": cfg.mint_per_unit,
+                "total_accounts": 0
+            }
         
         metrics_registry.observe("rpc_supply_duration_seconds", time.perf_counter() - start)
         return response
 
 
 @router.get("/validators", summary="List blockchain validators")
-async def get_validators(chain_id: str = "ait-devnet") -> Dict[str, Any]:
+async def get_validators(chain_id: str = None) -> Dict[str, Any]:
     """List blockchain validators (authorities)"""
     from ..config import settings as cfg
     
@@ -690,7 +719,7 @@ async def get_validators(chain_id: str = "ait-devnet") -> Dict[str, Any]:
 
 
 @router.get("/state", summary="Get blockchain state information")
-async def get_chain_state(chain_id: str = "ait-devnet"):
+async def get_chain_state(chain_id: str = None):
     """Get blockchain state information for a chain"""
     start = time.perf_counter()
     
@@ -710,7 +739,7 @@ async def get_chain_state(chain_id: str = "ait-devnet"):
 
 
 @router.get("/rpc/getBalance/{address}", summary="Get account balance")
-async def get_balance(address: str, chain_id: str = "ait-devnet"):
+async def get_balance(address: str, chain_id: str = None):
     """Get account balance for a specific address"""
     start = time.perf_counter()
     
@@ -753,7 +782,7 @@ async def get_balance(address: str, chain_id: str = "ait-devnet"):
 
 
 @router.get("/rpc/head", summary="Get current chain head")
-async def get_head(chain_id: str = "ait-devnet"):
+async def get_head(chain_id: str = None):
     """Get current chain head block"""
     start = time.perf_counter()
     
@@ -799,7 +828,7 @@ async def get_head(chain_id: str = "ait-devnet"):
 
 
 @router.get("/rpc/transactions", summary="Get latest transactions")
-async def get_transactions(chain_id: str = "ait-devnet", limit: int = 20, offset: int = 0):
+async def get_transactions(chain_id: str = None, limit: int = 20, offset: int = 0):
     """Get latest transactions"""
     start = time.perf_counter()
     
