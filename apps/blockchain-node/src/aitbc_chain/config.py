@@ -18,7 +18,7 @@ class ProposerConfig(BaseModel):
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
 
-    chain_id: str = "ait-devnet"
+    chain_id: str = ""
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
     db_path: Path = Path("./data/chain.db")
 
@@ -28,7 +28,7 @@ class ChainSettings(BaseSettings):
     p2p_bind_host: str = "127.0.0.2"
     p2p_bind_port: int = 7070
 
-    proposer_id: str = "ait-devnet-proposer"
+    proposer_id: str = ""
     proposer_key: Optional[str] = None
 
     mint_per_unit: int = 0  # No new minting after genesis for production
