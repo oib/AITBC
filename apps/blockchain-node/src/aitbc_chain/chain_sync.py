@@ -13,10 +13,11 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger(__name__)
 
 class ChainSyncService:
-    def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006):
+    def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006, leader_host: str = None):
         self.redis_url = redis_url
         self.node_id = node_id
         self.rpc_port = rpc_port
+        self.leader_host = leader_host  # Host of the leader node
         self._stop_event = asyncio.Event()
         self._redis = None
         
@@ -137,9 +138,13 @@ class ChainSyncService:
             if block_data.get('proposer') == self.node_id:
                 return
             
+            # Determine target host - if we're a follower, import to leader, else import locally
+            target_host = self.leader_host if self.leader_host else "127.0.0.1"
+            target_port = self.rpc_port
+            
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"http://127.0.0.1:{self.rpc_port}/rpc/importBlock",
+                    f"http://{target_host}:{target_port}/rpc/importBlock",
                     json=block_data
                 ) as resp:
                     if resp.status == 200:
@@ -154,9 +159,9 @@ class ChainSyncService:
         except Exception as e:
             logger.error(f"Error importing block: {e}")
 
-async def run_chain_sync(redis_url: str, node_id: str, rpc_port: int = 8006):
+async def run_chain_sync(redis_url: str, node_id: str, rpc_port: int = 8006, leader_host: str = None):
     """Run chain synchronization service"""
-    service = ChainSyncService(redis_url, node_id, rpc_port)
+    service = ChainSyncService(redis_url, node_id, rpc_port, leader_host)
     await service.start()
 
 def main():
@@ -166,13 +171,14 @@ def main():
     parser.add_argument("--redis", default="redis://localhost:6379", help="Redis URL")
     parser.add_argument("--node-id", required=True, help="Node identifier")
     parser.add_argument("--rpc-port", type=int, default=8006, help="RPC port")
+    parser.add_argument("--leader-host", help="Leader node host (for followers)")
     
     args = parser.parse_args()
     
     logging.basicConfig(level=logging.INFO)
     
     try:
-        asyncio.run(run_chain_sync(args.redis, args.node_id, args.rpc_port))
+        asyncio.run(run_chain_sync(args.redis, args.node_id, args.rpc_port, args.leader_host))
     except KeyboardInterrupt:
         logger.info("Chain sync service stopped by user")
 
