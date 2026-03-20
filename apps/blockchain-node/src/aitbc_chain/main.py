@@ -148,7 +148,11 @@ class BlockchainNode:
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee,
         )
-        self._start_proposers()
+        # Start proposers only if enabled (followers set enable_block_production=False)
+        if getattr(settings, "enable_block_production", True):
+            self._start_proposers()
+        else:
+            logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
         await self._setup_gossip_subscribers()
         try:
             await self._stop_event.wait()
