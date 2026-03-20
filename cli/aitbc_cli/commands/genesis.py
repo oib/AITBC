@@ -9,11 +9,56 @@ from ..core.genesis_generator import GenesisGenerator, GenesisValidationError
 from ..core.config import MultiChainConfig, load_multichain_config
 from ..models.chain import GenesisConfig
 from ..utils import output, error, success
+from .keystore import create_keystore_via_script
+import subprocess
+import sys
 
 @click.group()
 def genesis():
     """Genesis block generation and management commands"""
     pass
+
+
+@genesis.command()
+@click.option('--address', required=True, help='Wallet address (id) to create')
+@click.option('--password-file', default='/opt/aitbc/data/keystore/.password', show_default=True, type=click.Path(exists=True, dir_okay=False), help='Path to password file')
+@click.option('--output-dir', default='/opt/aitbc/data/keystore', show_default=True, help='Directory to write keystore file')
+@click.option('--force', is_flag=True, help='Overwrite existing keystore file if present')
+@click.pass_context
+def create_keystore(ctx, address, password_file, output_dir, force):
+    """Create an encrypted keystore for a genesis/treasury address."""
+    try:
+        create_keystore_via_script(address=address, password_file=password_file, output_dir=output_dir, force=force)
+        success(f"Created keystore for {address} at {output_dir}")
+    except Exception as e:
+        error(f"Error creating keystore: {e}")
+        raise click.Abort()
+
+
+@genesis.command(name="init-production")
+@click.option('--chain-id', default='ait-mainnet', show_default=True, help='Chain ID to initialize')
+@click.option('--genesis-file', default='data/genesis_prod.yaml', show_default=True, help='Path to genesis YAML (copy to /opt/aitbc/genesis_prod.yaml if needed)')
+@click.option('--db', default='/opt/aitbc/data/ait-mainnet/chain.db', show_default=True, help='SQLite DB path')
+@click.option('--force', is_flag=True, help='Overwrite existing DB (removes file if present)')
+@click.pass_context
+def init_production(ctx, chain_id, genesis_file, db, force):
+    """Initialize production chain DB using genesis allocations."""
+    db_path = Path(db)
+    if db_path.exists() and force:
+        db_path.unlink()
+    python_bin = Path(__file__).resolve().parents[3] / 'apps' / 'blockchain-node' / '.venv' / 'bin' / 'python3'
+    cmd = [
+        str(python_bin),
+        str(Path(__file__).resolve().parents[3] / 'scripts' / 'init_production_genesis.py'),
+        '--chain-id', chain_id,
+        '--db', db,
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        success(f"Initialized production genesis for {chain_id} at {db}")
+    except subprocess.CalledProcessError as e:
+        error(f"Genesis init failed: {e}")
+        raise click.Abort()
 
 @genesis.command()
 @click.argument('config_file', type=click.Path(exists=True))

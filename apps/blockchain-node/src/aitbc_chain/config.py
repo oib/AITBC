@@ -36,6 +36,9 @@ class ChainSettings(BaseSettings):
 
     block_time_seconds: int = 2
 
+    # Block production toggle (set false on followers)
+    enable_block_production: bool = True
+
     # Block production limits
     max_block_size_bytes: int = 1_000_000  # 1 MB
     max_txs_per_block: int = 500
