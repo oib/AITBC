@@ -46,6 +46,7 @@ from .commands.marketplace_advanced import advanced  # Re-enabled after fixing r
 from .commands.swarm import swarm
 from .commands.chain import chain
 from .commands.genesis import genesis
+from .commands.keystore import keystore
 from .commands.test_cli import test
 from .commands.node import node
 from .commands.analytics import analytics
@@ -256,6 +257,7 @@ cli.add_command(ai_group)
 cli.add_command(swarm)
 cli.add_command(chain)
 cli.add_command(genesis)
+cli.add_command(keystore)
 cli.add_command(test)
 cli.add_command(node)
 cli.add_command(analytics)

@@ -14,7 +14,7 @@ from sqlmodel import Session, select
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
-from .models import Block, Transaction
+from .models import Block, Transaction, Account
 
 logger = get_logger(__name__)
 
@@ -202,15 +202,45 @@ class ChainSync:
         )
         session.add(block)
 
-        # Import transactions if provided
+        # Import transactions if provided and apply state changes
         if transactions:
             for tx_data in transactions:
+                sender_addr = tx_data.get("sender", "")
+                payload = tx_data.get("payload", {}) or {}
+                recipient_addr = payload.get("to") or tx_data.get("recipient", "")
+                value = int(payload.get("value", 0) or 0)
+                fee = int(tx_data.get("fee", 0) or 0)
+                tx_hash = tx_data.get("tx_hash", "")
+
+                # Upsert sender/recipient accounts
+                sender_acct = session.get(Account, (self._chain_id, sender_addr))
+                if sender_acct is None:
+                    sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
+                    session.add(sender_acct)
+                    session.flush()
+
+                recipient_acct = session.get(Account, (self._chain_id, recipient_addr))
+                if recipient_acct is None:
+                    recipient_acct = Account(chain_id=self._chain_id, address=recipient_addr, balance=0, nonce=0)
+                    session.add(recipient_acct)
+                    session.flush()
+
+                # Apply balances/nonce; assume block validity already verified on producer
+                total_cost = value + fee
+                sender_acct.balance -= total_cost
+                tx_nonce = tx_data.get("nonce")
+                if tx_nonce is not None:
+                    sender_acct.nonce = max(sender_acct.nonce, int(tx_nonce) + 1)
+                else:
+                    sender_acct.nonce += 1
+                recipient_acct.balance += value
+
                 tx = Transaction(
                     chain_id=self._chain_id,
-                    tx_hash=tx_data.get("tx_hash", ""),
+                    tx_hash=tx_hash,
                     block_height=block_data["height"],
-                    sender=tx_data.get("sender", ""),
-                    recipient=tx_data.get("recipient", ""),
+                    sender=sender_addr,
+                    recipient=recipient_addr,
                     payload=tx_data,
                 )
                 session.add(tx)
