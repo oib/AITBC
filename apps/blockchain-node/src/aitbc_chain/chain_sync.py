@@ -13,12 +13,20 @@ from typing import Dict, Any, Optional, List
 logger = logging.getLogger(__name__)
 
 class ChainSyncService:
-    def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006):
+    def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006, leader_host: str = None,
+                 source_host: str = "127.0.0.1", source_port: int = None,
+                 import_host: str = "127.0.0.1", import_port: int = None):
         self.redis_url = redis_url
         self.node_id = node_id
-        self.rpc_port = rpc_port
+        self.rpc_port = rpc_port  # kept for backward compat (local poll if source_port None)
+        self.leader_host = leader_host  # Host of the leader node (legacy)
+        self.source_host = source_host
+        self.source_port = source_port or rpc_port
+        self.import_host = import_host
+        self.import_port = import_port or rpc_port
         self._stop_event = asyncio.Event()
         self._redis = None
+        self._receiver_ready = asyncio.Event()
         
     async def start(self):
         """Start chain synchronization service"""
@@ -34,10 +42,11 @@ class ChainSyncService:
             return
         
         # Start block broadcasting task
-        broadcast_task = asyncio.create_task(self._broadcast_blocks())
-        
         # Start block receiving task
         receive_task = asyncio.create_task(self._receive_blocks())
+        # Wait until receiver subscribed so we don't drop the initial burst
+        await self._receiver_ready.wait()
+        broadcast_task = asyncio.create_task(self._broadcast_blocks())
         
         try:
             await self._stop_event.wait()
@@ -59,15 +68,21 @@ class ChainSyncService:
         import aiohttp
         
         last_broadcast_height = 0
+        retry_count = 0
+        max_retries = 5
+        base_delay = 2
         
         while not self._stop_event.is_set():
             try:
                 # Get current head from local RPC
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(f"http://127.0.0.1:{self.rpc_port}/rpc/head") as resp:
+                    async with session.get(f"http://{self.source_host}:{self.source_port}/rpc/head") as resp:
                         if resp.status == 200:
                             head_data = await resp.json()
                             current_height = head_data.get('height', 0)
+                            
+                            # Reset retry count on successful connection
+                            retry_count = 0
                             
                             # Broadcast new blocks
                             if current_height > last_broadcast_height:
@@ -78,11 +93,30 @@ class ChainSyncService:
                                 
                                 last_broadcast_height = current_height
                                 logger.info(f"Broadcasted blocks up to height {current_height}")
+                        elif resp.status == 429:
+                            raise Exception("rate_limit")
+                        else:
+                            raise Exception(f"RPC returned status {resp.status}")
                 
             except Exception as e:
-                logger.error(f"Error in block broadcast: {e}")
+                retry_count += 1
+                # If rate-limited, wait longer before retrying
+                if str(e) == "rate_limit":
+                    delay = base_delay * 30
+                    logger.warning(f"RPC rate limited, retrying in {delay}s")
+                    await asyncio.sleep(delay)
+                    continue
+                if retry_count <= max_retries:
+                    delay = base_delay * (2 ** (retry_count - 1))  # Exponential backoff
+                    logger.warning(f"RPC connection failed (attempt {retry_count}/{max_retries}), retrying in {delay}s: {e}")
+                    await asyncio.sleep(delay)
+                    continue
+                else:
+                    logger.error(f"RPC connection failed after {max_retries} attempts, waiting {base_delay * 10}s: {e}")
+                    await asyncio.sleep(base_delay * 10)
+                    retry_count = 0  # Reset retry count after long wait
             
-            await asyncio.sleep(2)  # Check every 2 seconds
+            await asyncio.sleep(base_delay)  # Check every 2 seconds when connected
     
     async def _receive_blocks(self):
         """Receive blocks from other nodes via Redis"""
@@ -91,6 +125,7 @@ class ChainSyncService:
             
         pubsub = self._redis.pubsub()
         await pubsub.subscribe("blocks")
+        self._receiver_ready.set()
         
         logger.info("Subscribed to block broadcasts")
         
@@ -108,11 +143,12 @@ class ChainSyncService:
     async def _get_block_by_height(self, height: int, session) -> Optional[Dict[str, Any]]:
         """Get block data by height from local RPC"""
         try:
-            async with session.get(f"http://127.0.0.1:{self.rpc_port}/rpc/blocks?start={height}&end={height}") as resp:
+            async with session.get(f"http://{self.source_host}:{self.source_port}/rpc/blocks-range?start={height}&end={height}") as resp:
                 if resp.status == 200:
                     blocks_data = await resp.json()
                     blocks = blocks_data.get('blocks', [])
-                    return blocks[0] if blocks else None
+                    block = blocks[0] if blocks else None
+                    return block
         except Exception as e:
             logger.error(f"Error getting block {height}: {e}")
         return None
@@ -137,26 +173,68 @@ class ChainSyncService:
             if block_data.get('proposer') == self.node_id:
                 return
             
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"http://127.0.0.1:{self.rpc_port}/rpc/importBlock",
-                    json=block_data
-                ) as resp:
-                    if resp.status == 200:
-                        result = await resp.json()
-                        if result.get('accepted'):
-                            logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
-                        else:
-                            logger.debug(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
+            # Determine target host - if we're a follower, import to leader, else import locally
+            target_host = self.import_host
+            target_port = self.import_port
+            
+            # Retry logic for import
+            max_retries = 3
+            base_delay = 1
+            
+            for attempt in range(max_retries):
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        async with session.post(
+                            f"http://{target_host}:{target_port}/rpc/importBlock",
+                            json=block_data
+                        ) as resp:
+                            if resp.status == 200:
+                                result = await resp.json()
+                                if result.get('accepted'):
+                                    logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
+                                else:
+                                    logger.debug(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
+                                return
+                            else:
+                                try:
+                                    body = await resp.text()
+                                except Exception:
+                                    body = "<no body>"
+                                raise Exception(f"HTTP {resp.status}: {body}")
+                
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        delay = base_delay * (2 ** attempt)
+                        logger.warning(f"Import failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}")
+                        await asyncio.sleep(delay)
                     else:
-                        logger.warning(f"Failed to import block: {resp.status}")
+                        logger.error(f"Failed to import block {block_data.get('height')} after {max_retries} attempts: {e}")
+                        return
                         
         except Exception as e:
             logger.error(f"Error importing block: {e}")
 
-async def run_chain_sync(redis_url: str, node_id: str, rpc_port: int = 8006):
+async def run_chain_sync(
+    redis_url: str,
+    node_id: str,
+    rpc_port: int = 8006,
+    leader_host: str = None,
+    source_host: str = "127.0.0.1",
+    source_port: int = None,
+    import_host: str = "127.0.0.1",
+    import_port: int = None,
+):
     """Run chain synchronization service"""
-    service = ChainSyncService(redis_url, node_id, rpc_port)
+    service = ChainSyncService(
+        redis_url=redis_url,
+        node_id=node_id,
+        rpc_port=rpc_port,
+        leader_host=leader_host,
+        source_host=source_host,
+        source_port=source_port,
+        import_host=import_host,
+        import_port=import_port,
+    )
     await service.start()
 
 def main():
@@ -166,13 +244,27 @@ def main():
     parser.add_argument("--redis", default="redis://localhost:6379", help="Redis URL")
     parser.add_argument("--node-id", required=True, help="Node identifier")
     parser.add_argument("--rpc-port", type=int, default=8006, help="RPC port")
+    parser.add_argument("--leader-host", help="Leader node host (for followers)")
+    parser.add_argument("--source-host", default="127.0.0.1", help="Host to poll for head/blocks")
+    parser.add_argument("--source-port", type=int, help="Port to poll for head/blocks")
+    parser.add_argument("--import-host", default="127.0.0.1", help="Host to import blocks into")
+    parser.add_argument("--import-port", type=int, help="Port to import blocks into")
     
     args = parser.parse_args()
     
     logging.basicConfig(level=logging.INFO)
     
     try:
-        asyncio.run(run_chain_sync(args.redis, args.node_id, args.rpc_port))
+        asyncio.run(run_chain_sync(
+            args.redis,
+            args.node_id,
+            args.rpc_port,
+            args.leader_host,
+            args.source_host,
+            args.source_port,
+            args.import_host,
+            args.import_port,
+        ))
     except KeyboardInterrupt:
         logger.info("Chain sync service stopped by user")
 

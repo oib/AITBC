@@ -39,7 +39,7 @@ def main():
 
     # 1. Keystore directory and password
     run(f"mkdir -p {KEYS_DIR}")
-    run(f"chown -R aitbc:aitbc {KEYS_DIR}")
+    run(f"chown -R root:root {KEYS_DIR}")
     if not PASSWORD_FILE.exists():
         run(f"openssl rand -hex 32 > {PASSWORD_FILE}")
         run(f"chmod 600 {PASSWORD_FILE}")
@@ -48,7 +48,7 @@ def main():
     # 2. Generate keystores
     print("\n=== Generating keystore for aitbc1genesis ===")
     result = run(
-        f"sudo -u aitbc {NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1genesis --output-dir {KEYS_DIR} --force",
+        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1genesis --output-dir {KEYS_DIR} --force",
         capture_output=True
     )
     print(result.stdout)
@@ -65,7 +65,7 @@ def main():
 
     print("\n=== Generating keystore for aitbc1treasury ===")
     result = run(
-        f"sudo -u aitbc {NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1treasury --output-dir {KEYS_DIR} --force",
+        f"{NODE_VENV} /opt/aitbc/scripts/keystore.py aitbc1treasury --output-dir {KEYS_DIR} --force",
         capture_output=True
     )
     print(result.stdout)
@@ -82,12 +82,12 @@ def main():
 
     # 3. Data directory
     run(f"mkdir -p {DATA_DIR}")
-    run(f"chown -R aitbc:aitbc {DATA_DIR}")
+    run(f"chown -R root:root {DATA_DIR}")
 
     # 4. Initialize DB
     os.environ["DB_PATH"] = str(DB_PATH)
     os.environ["CHAIN_ID"] = CHAIN_ID
-    run(f"sudo -E -u aitbc {NODE_VENV} /opt/aitbc/scripts/init_production_genesis.py --chain-id {CHAIN_ID} --db-path {DB_PATH}")
+    run(f"sudo -E {NODE_VENV} /opt/aitbc/scripts/init_production_genesis.py --chain-id {CHAIN_ID} --db-path {DB_PATH}")
 
     # 5. Write .env for blockchain node
     env_content = f"""CHAIN_ID={CHAIN_ID}
