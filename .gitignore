@@ -142,7 +142,7 @@ out/
 
 # ===================
 # Secrets & Credentials
-# ===================
+# Secrets & Credentials
 *.pem
 *.key
 *.crt
@@ -151,6 +151,7 @@ secrets/
 credentials/
 .secrets
 .gitea_token.sh
+.gitea-token
 
 # ===================
 # Backup Files (organized)
