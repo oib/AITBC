@@ -12,7 +12,7 @@ from pathlib import Path
 # Add src to path for standalone execution
 sys.path.insert(0, str(Path(__file__).parent))
 
-from aitbc_chain.config import Settings, settings
+from aitbc_chain.config import settings
 from aitbc_chain.database import session_scope
 from aitbc_chain.sync import ChainSync
 
