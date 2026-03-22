@@ -68,6 +68,7 @@ try:
 except ImportError:
     enterprise_integration_group = None
 
+from .commands.sync import sync
 from .commands.explorer import explorer
 from .plugins import plugin, load_plugins
 
@@ -270,6 +271,7 @@ cli.add_command(advanced_analytics_group)
 cli.add_command(ai_surveillance_group)
 if enterprise_integration_group is not None:
     cli.add_command(enterprise_integration_group)
+cli.add_command(sync)
 cli.add_command(explorer)
 cli.add_command(plugin)
 load_plugins(cli)
