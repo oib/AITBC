@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import hmac
 import time
@@ -9,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
+import httpx
 from sqlmodel import Session, select
 
 from .config import settings
@@ -95,12 +97,92 @@ class ChainSync:
         max_reorg_depth: int = 10,
         validator: Optional[ProposerSignatureValidator] = None,
         validate_signatures: bool = True,
+        batch_size: int = 50,
+        poll_interval: float = 0.5,
     ) -> None:
         self._session_factory = session_factory
         self._chain_id = chain_id or settings.chain_id
         self._max_reorg_depth = max_reorg_depth
         self._validator = validator or ProposerSignatureValidator()
         self._validate_signatures = validate_signatures
+        self._batch_size = batch_size
+        self._poll_interval = poll_interval
+        self._client = httpx.AsyncClient(timeout=10.0)
+
+    async def close(self) -> None:
+        """Close HTTP client."""
+        await self._client.aclose()
+
+    async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> List[Dict[str, Any]]:
+        """Fetch a range of blocks from a source RPC."""
+        try:
+            resp = await self._client.get(f"{source_url}/rpc/blocks-range", params={"start": start, "end": end})
+            resp.raise_for_status()
+            data = resp.json()
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict) and "blocks" in data:
+                return data["blocks"]
+            else:
+                logger.error("Unexpected blocks-range response", extra={"data": data})
+                return []
+        except Exception as e:
+            logger.error("Failed to fetch blocks range", extra={"start": start, "end": end, "error": str(e)})
+            return []
+
+    async def bulk_import_from(self, source_url: str, import_url: Optional[str] = None) -> int:
+        """Bulk import missing blocks from source to catch up quickly."""
+        if import_url is None:
+            import_url = "http://127.0.0.1:8006"  # default local RPC
+
+        # Get local head
+        with self._session_factory() as session:
+            local_head = session.exec(
+                select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
+            ).first()
+            local_height = local_head.height if local_head else -1
+
+        # Get remote head
+        try:
+            resp = await self._client.get(f"{source_url}/rpc/head")
+            resp.raise_for_status()
+            remote_head = resp.json()
+            remote_height = remote_head.get("height", -1)
+        except Exception as e:
+            logger.error("Failed to fetch remote head", extra={"source_url": source_url, "error": str(e)})
+            return 0
+
+        if remote_height <= local_height:
+            logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
+            return 0
+
+        logger.info("Starting bulk import", extra={"local_height": local_height, "remote_height": remote_height, "batch_size": self._batch_size})
+
+        imported = 0
+        start_height = local_height + 1
+        while start_height <= remote_height:
+            end_height = min(start_height + self._batch_size - 1, remote_height)
+            batch = await self.fetch_blocks_range(start_height, end_height, source_url)
+            if not batch:
+                logger.warning("No blocks returned for range", extra={"start": start_height, "end": end_height})
+                break
+
+            # Import blocks in order
+            for block_data in batch:
+                result = self.import_block(block_data)
+                if result.accepted:
+                    imported += 1
+                else:
+                    logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason})
+                    # Stop on first failure to avoid gaps
+                    break
+
+            start_height = end_height + 1
+            # Brief pause to avoid overwhelming the DB
+            await asyncio.sleep(self._poll_interval)
+
+        logger.info("Bulk import completed", extra={"imported": imported, "final_height": remote_height})
+        return imported
 
     def import_block(self, block_data: Dict[str, Any], transactions: Optional[List[Dict[str, Any]]] = None) -> ImportResult:
         """Import a block from a remote peer.
