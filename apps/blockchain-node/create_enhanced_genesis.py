@@ -30,9 +30,7 @@ def create_genesis_accounts(session, accounts: List[Dict[str, Any]], chain_id: s
         db_account = Account(
             address=account['address'],
             balance=int(account['balance']),
-            chain_id=chain_id,
-            account_type=account.get('type', 'regular'),
-            metadata=json.dumps(account.get('metadata', {}))
+            chain_id=chain_id
         )
         session.add(db_account)
         print(f"  ✅ Created account: {account['address']} ({account['balance']} AITBC)")
@@ -45,18 +43,10 @@ def create_genesis_contracts(session, contracts: List[Dict[str, Any]], chain_id:
         # Create contract deployment transaction
         deployment_tx = Transaction(
             chain_id=chain_id,
-            tx_hash=f"0x{hashlib.sha256(f'contract_{contract["name"]}_{chain_id}'.encode()).hexdigest()}",
+            tx_hash=f"0x{hashlib.sha256(f'contract_{contract['name']}_{chain_id}'.encode()).hexdigest()}",
             sender="aitbc1genesis",
-            receiver=contract['address'],
-            amount=0,
-            gas_used=210000,
-            gas_price=1000000000,
-            tx_type="contract_deployment",
-            metadata=json.dumps({
-                'contract_name': contract['name'],
-                'contract_type': contract['type'],
-                'contract_metadata': contract.get('metadata', {})
-            })
+            recipient=contract['address'],
+            payload={"type": "contract_deployment", "contract_name": contract['name'], "code": contract.get('code', '0x')}
         )
         session.add(deployment_tx)
         print(f"  ✅ Deployed contract: {contract['name']} at {contract['address']}")
@@ -154,7 +144,7 @@ def create_enhanced_genesis(config_path: str = None):
             tx_count=0,
             state_root=None,
             chain_id=chain_id,
-            metadata=json.dumps({
+            block_metadata=json.dumps({
                 'chain_type': genesis['chain_type'],
                 'purpose': genesis['purpose'],
                 'gas_limit': genesis['gas_limit'],

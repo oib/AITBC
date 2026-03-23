@@ -140,7 +140,7 @@ class PoAProposer:
             # Pull transactions from mempool
             max_txs = self._config.max_txs_per_block
             max_bytes = self._config.max_block_size_bytes
-            pending_txs = mempool.drain(max_txs, max_bytes, self._config.chain_id)
+            pending_txs = mempool.drain(max_txs, max_bytes, 'ait-mainnet')
             self._logger.info(f"[PROPOSE] drained {len(pending_txs)} txs from mempool, chain={self._config.chain_id}")
 
             # Process transactions and update balances

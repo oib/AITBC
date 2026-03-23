@@ -917,18 +917,20 @@ def send(ctx, chain_id, from_addr, to, data, nonce):
     config = ctx.obj['config']
     try:
         import httpx
+        import json
         with httpx.Client() as client:
+            try:
+                payload_data = json.loads(data)
+            except json.JSONDecodeError:
+                payload_data = {"raw_data": data}
+                
             tx_payload = {
                 "type": "TRANSFER",
-                "chain_id": chain_id,
-                "from_address": from_addr,
-                "to_address": to,
-                "value": 0,
-                "gas_limit": 100000,
-                "gas_price": 1,
+                "sender": from_addr,
                 "nonce": nonce,
-                "data": data,
-                "signature": "mock_signature"
+                "fee": 0,
+                "payload": payload_data,
+                "sig": "mock_signature"
             }
             
             response = client.post(
