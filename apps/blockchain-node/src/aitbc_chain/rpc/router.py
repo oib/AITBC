@@ -466,7 +466,7 @@ async def send_transaction(request: TransactionRequest, chain_id: str = None) ->
     mempool = get_mempool()
     tx_dict = request.model_dump()
     try:
-        tx_hash = mempool.add(tx_dict, chain_id=chain_id)
+        tx_hash = mempool.add(tx_dict, chain_id=chain_id or request.payload.get('chain_id') or 'ait-mainnet')
     except ValueError as e:
         metrics_registry.increment("rpc_send_tx_rejected_total")
         raise HTTPException(status_code=400, detail=str(e))

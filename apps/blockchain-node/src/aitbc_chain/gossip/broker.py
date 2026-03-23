@@ -11,8 +11,8 @@ from typing import Any, Callable, Dict, List, Optional, Set
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 
 try:
-    from starlette.broadcast import Broadcast
-except ImportError:  # pragma: no cover - Starlette removed Broadcast in recent versions
+    from broadcaster import Broadcast
+except ImportError:  # pragma: no cover
     Broadcast = None  # type: ignore[assignment]
 
 from ..metrics import metrics_registry

@@ -16,7 +16,7 @@ class ProposerConfig(BaseModel):
     max_txs_per_block: int
 
 class ChainSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file="/opt/aitbc/.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
     chain_id: str = ""
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
