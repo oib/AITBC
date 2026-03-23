@@ -348,6 +348,29 @@ def template_info(ctx, template_name, output):
         error(f"Error getting template info: {str(e)}")
         raise click.Abort()
 
+@genesis.command(name="init-production")
+@click.option('--chain-id', default='ait-mainnet', show_default=True, help='Chain ID to initialize')
+@click.option('--genesis-file', default='data/genesis_prod.yaml', show_default=True, help='Path to genesis YAML (copy to /opt/aitbc/genesis_prod.yaml if needed)')
+@click.option('--force', is_flag=True, help='Overwrite existing DB (removes file if present)')
+@click.pass_context
+def init_production(ctx, chain_id, genesis_file, force):
+    """Initialize production chain DB using genesis allocations."""
+    db_path = Path("/opt/aitbc/data") / chain_id / "chain.db"
+    if db_path.exists() and force:
+        db_path.unlink()
+    python_bin = Path(__file__).resolve().parents[3] / 'apps' / 'blockchain-node' / '.venv' / 'bin' / 'python3'
+    cmd = [
+        str(python_bin),
+        str(Path(__file__).resolve().parents[3] / 'scripts' / 'init_production_genesis.py'),
+        '--chain-id', chain_id,
+    ]
+    try:
+        subprocess.run(cmd, check=True)
+        success(f"Initialized production genesis for {chain_id} at {db_path}")
+    except subprocess.CalledProcessError as e:
+        error(f"Genesis init failed: {e}")
+        raise click.Abort()
+
 @genesis.command()
 @click.argument('chain_id')
 @click.option('--format', type=click.Choice(['json', 'yaml']), default='json', help='Export format')
