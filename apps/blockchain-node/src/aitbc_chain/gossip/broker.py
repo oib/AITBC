@@ -4,7 +4,7 @@ import asyncio
 import json
 import warnings
 from collections import defaultdict
-from contextlib import suppress
+from contextlib import suppress, asynccontextmanager
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -225,25 +225,15 @@ class GossipBroker:
 
 
 class _InProcessSubscriber:
-    def __init__(self, queue: "asyncio.Queue[Any]", release: Callable[[], None]):
+    def __init__(self, queue: "asyncio.Queue[Any]"):
         self._queue = queue
-        self._release = release
-
-    async def __aenter__(self):
-        return self
-
-    async def __aexit__(self, exc_type, exc, tb):
-        self._release()
 
     def __aiter__(self):  # type: ignore[override]
         return self._iterator()
 
     async def _iterator(self):
-        try:
-            while True:
-                yield await self._queue.get()
-        finally:
-            self._release()
+        while True:
+            yield await self._queue.get()
 
 
 class _InProcessBroadcast:
@@ -262,23 +252,19 @@ class _InProcessBroadcast:
             self._topics.clear()
         self._running = False
 
-    async def subscribe(self, topic: str) -> _InProcessSubscriber:
+    @asynccontextmanager
+    async def subscribe(self, topic: str):
         queue: "asyncio.Queue[Any]" = asyncio.Queue()
         async with self._lock:
             self._topics[topic].append(queue)
-
-        def release() -> None:
-            async def _remove() -> None:
-                async with self._lock:
-                    queues = self._topics.get(topic)
-                    if queues and queue in queues:
-                        queues.remove(queue)
-                        if not queues:
-                            self._topics.pop(topic, None)
-
-            asyncio.create_task(_remove())
-
-        return _InProcessSubscriber(queue, release)
+            
+        try:
+            yield _InProcessSubscriber(queue)
+        finally:
+            async with self._lock:
+                queues = self._topics.get(topic)
+                if queues and queue in queues:
+                    queues.remove(queue)
 
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
