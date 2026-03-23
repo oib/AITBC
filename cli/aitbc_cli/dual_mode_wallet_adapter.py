@@ -290,8 +290,11 @@ class DualModeWalletAdapter:
     
     def _send_transaction_file(self, wallet_name: str, password: str, to_address: str, 
                              amount: float, description: Optional[str]) -> Dict[str, Any]:
-        """Send transaction using file-based storage"""
+        """Send transaction using file-based storage and blockchain RPC"""
         from .commands.wallet import _load_wallet, _save_wallet
+        import httpx
+        from .utils import error, success
+        from datetime import datetime
         
         wallet_path = self.wallet_dir / f"{wallet_name}.json"
         
@@ -300,36 +303,79 @@ class DualModeWalletAdapter:
             raise Exception("Wallet not found")
         
         wallet_data = _load_wallet(wallet_path, wallet_name)
-        balance = wallet_data.get("balance", 0)
-        
-        if balance < amount:
-            error(f"Insufficient balance. Available: {balance}, Required: {amount}")
+        # Fetch current balance and nonce from blockchain
+        from_address = wallet_data.get("address")
+        if not from_address:
+            error("Wallet does not have an address configured")
+            raise Exception("Invalid wallet")
+            
+        rpc_url = self.config.blockchain_rpc_url
+        try:
+            resp = httpx.get(f"{rpc_url}/rpc/getBalance/{from_address}?chain_id=ait-mainnet", timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                chain_balance = data.get("balance", 0)
+                nonce = data.get("nonce", 0)
+            else:
+                error(f"Failed to get balance from chain: {resp.text}")
+                raise Exception("Chain error")
+        except Exception as e:
+            error(f"Failed to connect to blockchain RPC: {e}")
+            raise
+
+        if chain_balance < amount:
+            error(f"Insufficient blockchain balance. Available: {chain_balance}, Required: {amount}")
             raise Exception("Insufficient balance")
+            
+        # Construct and send transaction
+        tx_payload = {
+            "type": "TRANSFER",
+            "sender": from_address,
+            "nonce": nonce,
+            "fee": 0,
+            "payload": {"to": to_address, "value": amount},
+            "sig": "mock_signature" # Replace with real signature when implemented
+        }
         
-        # Add transaction
+        try:
+            resp = httpx.post(f"{rpc_url}/rpc/sendTx", json=tx_payload, timeout=5)
+            if resp.status_code not in (200, 201):
+                error(f"Failed to submit transaction to chain: {resp.text}")
+                raise Exception("Chain submission failed")
+            tx_hash = resp.json().get("tx_hash")
+        except Exception as e:
+            error(f"Failed to send transaction to RPC: {e}")
+            raise
+
+        # Add transaction to local history
         transaction = {
             "type": "send",
             "amount": -amount,
             "to_address": to_address,
             "description": description or "",
             "timestamp": datetime.now().isoformat(),
+            "tx_hash": tx_hash,
+            "status": "pending"
         }
         
+        if "transactions" not in wallet_data:
+            wallet_data["transactions"] = []
+            
         wallet_data["transactions"].append(transaction)
-        wallet_data["balance"] = balance - amount
+        wallet_data["balance"] = chain_balance - amount
         
         # Save wallet
         save_password = password if wallet_data.get("encrypted") else None
         _save_wallet(wallet_path, wallet_data, save_password)
         
-        success(f"Sent {amount} AITBC to {to_address}")
+        success(f"Submitted transaction {tx_hash} to send {amount} AITBC to {to_address}")
         return {
             "mode": "file",
             "wallet_name": wallet_name,
             "to_address": to_address,
             "amount": amount,
             "description": description,
-            "new_balance": wallet_data["balance"],
+            "tx_hash": tx_hash,
             "timestamp": transaction["timestamp"]
         }
     
