@@ -20,7 +20,7 @@ class ChainSettings(BaseSettings):
 
     chain_id: str = ""
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
-    db_path: Path = Path("./data/chain.db")
+    db_path: Path = Path("/opt/aitbc/data/chain.db")
 
     rpc_bind_host: str = "127.0.0.1"
     rpc_bind_port: int = 8080
