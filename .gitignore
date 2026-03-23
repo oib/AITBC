@@ -104,6 +104,39 @@ yarn-debug.log*
 yarn-error.log*
 
 # ===================
+# Backup Files (organized)
+# ===================
+backup/**/*.tmp
+backup/**/*.temp
+backup/**/.DS_Store
+backup/updates/*.log
+
+# Large backup files (exceed GitHub size limits)
+backup/updates/*.tar.gz
+backup/updates/*.zip
+backup/updates/*.tar.bz2
+
+# Application backup archives
+backup/explorer_backup_*.tar.gz
+backup/*_backup_*.tar.gz
+backup/*_backup_*.zip
+
+# Backup documentation and indexes
+backup/BACKUP_INDEX.md
+backup/*.md
+backup/README.md
+
+# ===================
+# Temporary Files
+# ===================
+tmp/
+temp/
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# ===================
 # Windsurf IDE
 # ===================
 .windsurf/
@@ -122,14 +155,4 @@ home/miner/miner_wallet.json
 # ===================
 test-results/
 **/test-results/
-
-# ===================
-# Temporary Files
-# ===================
-tmp/
-temp/
-*.tmp
-*.temp
-*.bak
-*.backup
 
