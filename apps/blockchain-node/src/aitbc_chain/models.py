@@ -36,6 +36,7 @@ class Block(SQLModel, table=True):
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
     tx_count: int = 0
     state_root: Optional[str] = None
+    block_metadata: Optional[str] = Field(default=None)
     
     # Relationships - use sa_relationship_kwargs for lazy loading
     transactions: List["Transaction"] = Relationship(
@@ -89,6 +90,14 @@ class Transaction(SQLModel, table=True):
         sa_column=Column(JSON, nullable=False),
     )
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    
+    # New fields added to schema
+    nonce: int = Field(default=0)
+    value: int = Field(default=0)
+    fee: int = Field(default=0)
+    status: str = Field(default="pending")
+    timestamp: Optional[str] = Field(default=None)
+    tx_metadata: Optional[str] = Field(default=None)
     
     # Relationship
     block: Optional["Block"] = Relationship(
