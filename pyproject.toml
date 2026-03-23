@@ -156,7 +156,7 @@ dev = [
     "bandit==1.9.4",
     "types-requests==2.32.4.20260107",
     "types-setuptools==69.0.0",
-    "types-PyYAML==6.0.12",
+    "types-PyYAML==6.0.12.20250915",
     "sqlalchemy[mypy]==2.0.25"
 ]
 
