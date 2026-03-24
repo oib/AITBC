@@ -1,0 +1,16 @@
+[Unit]
+Description=AITBC Blockchain RPC API (Development)
+After=blockchain-node-2.service
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory=/opt/aitbc/apps/blockchain-node
+Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8081
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -120,11 +120,11 @@ class PoAProposer:
             return
 
     async def _propose_block(self) -> None:
-        # Check internal mempool
+        # Check internal mempool and include transactions
         from ..mempool import get_mempool
-        if get_mempool().size(self._config.chain_id) == 0:
-            return
-
+        from ..models import Transaction, Account
+        mempool = get_mempool()
+        
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             next_height = 0
@@ -136,7 +136,72 @@ class PoAProposer:
                 interval_seconds = (datetime.utcnow() - head.timestamp).total_seconds()
 
             timestamp = datetime.utcnow()
-            block_hash = self._compute_block_hash(next_height, parent_hash, timestamp)
+            
+            # Pull transactions from mempool
+            max_txs = self._config.max_txs_per_block
+            max_bytes = self._config.max_block_size_bytes
+            pending_txs = mempool.drain(max_txs, max_bytes, 'ait-mainnet')
+            self._logger.info(f"[PROPOSE] drained {len(pending_txs)} txs from mempool, chain={self._config.chain_id}")
+
+            # Process transactions and update balances
+            processed_txs = []
+            for tx in pending_txs:
+                try:
+                    # Parse transaction data
+                    tx_data = tx.content
+                    sender = tx_data.get("sender")
+                    recipient = tx_data.get("payload", {}).get("to")
+                    value = tx_data.get("payload", {}).get("value", 0)
+                    fee = tx_data.get("fee", 0)
+                    
+                    if not sender or not recipient:
+                        continue
+                    
+                    # Get sender account
+                    sender_account = session.get(Account, (self._config.chain_id, sender))
+                    if not sender_account:
+                        continue
+                    
+                    # Check sufficient balance
+                    total_cost = value + fee
+                    if sender_account.balance < total_cost:
+                        continue
+                    
+                    # Get or create recipient account
+                    recipient_account = session.get(Account, (self._config.chain_id, recipient))
+                    if not recipient_account:
+                        recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
+                        session.add(recipient_account)
+                        session.flush()
+                    
+                    # Update balances
+                    sender_account.balance -= total_cost
+                    sender_account.nonce += 1
+                    recipient_account.balance += value
+                    
+                    # Create transaction record
+                    transaction = Transaction(
+                        chain_id=self._config.chain_id,
+                        tx_hash=tx.tx_hash,
+                        sender=sender,
+                        recipient=recipient,
+                        payload=tx_data,
+                        value=value,
+                        fee=fee,
+                        nonce=sender_account.nonce - 1,
+                        timestamp=timestamp,
+                        block_height=next_height,
+                        status="confirmed"
+                    )
+                    session.add(transaction)
+                    processed_txs.append(tx)
+                    
+                except Exception as e:
+                    self._logger.warning(f"Failed to process transaction {tx.tx_hash}: {e}")
+                    continue
+            
+            # Compute block hash with transaction data
+            block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
 
             block = Block(
                 chain_id=self._config.chain_id,
@@ -145,7 +210,7 @@ class PoAProposer:
                 parent_hash=parent_hash,
                 proposer=self._config.proposer_id,
                 timestamp=timestamp,
-                tx_count=0,
+                tx_count=len(processed_txs),
                 state_root=None,
             )
             session.add(block)
@@ -173,6 +238,7 @@ class PoAProposer:
             )
             
             # Broadcast the new block
+            tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             await gossip_broker.publish(
                 "blocks",
                 {
@@ -184,7 +250,8 @@ class PoAProposer:
                     "timestamp": block.timestamp.isoformat(),
                     "tx_count": block.tx_count,
                     "state_root": block.state_root,
-                }
+                    "transactions": tx_list,
+                },
             )
 
     async def _ensure_genesis_block(self) -> None:
@@ -258,6 +325,11 @@ class PoAProposer:
         with self._session_factory() as session:
             return session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
 
-    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime) -> str:
-        payload = f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}".encode()
+    def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list = None) -> str:
+        # Include transaction hashes in block hash computation
+        tx_hashes = []
+        if transactions:
+            tx_hashes = [tx.tx_hash for tx in transactions]
+        
+        payload = f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}|{'|'.join(sorted(tx_hashes))}".encode()
         return "0x" + hashlib.sha256(payload).hexdigest()

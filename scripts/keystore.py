@@ -41,6 +41,28 @@ def encrypt_private_key(private_key_hex: str, password: str) -> dict:
     }
 
 
+def create_keystore(address: str, password: str, keystore_dir: Path | str = "/opt/aitbc/keystore", force: bool = False) -> Path:
+    """Create encrypted keystore file and return its path."""
+    keystore_dir = Path(keystore_dir)
+    keystore_dir.mkdir(parents=True, exist_ok=True)
+    out_file = keystore_dir / f"{address}.json"
+
+    if out_file.exists() and not force:
+        raise FileExistsError(f"Keystore file {out_file} exists. Use force=True to overwrite.")
+
+    private_key = secrets.token_hex(32)
+    encrypted = encrypt_private_key(private_key, password)
+    keystore = {
+        "address": address,
+        "crypto": encrypted,
+        "created_at": datetime.utcnow().isoformat() + "Z",
+    }
+
+    out_file.write_text(json.dumps(keystore, indent=2))
+    os.chmod(out_file, 0o600)
+    return out_file
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate encrypted keystore for an account")
     parser.add_argument("address", help="Account address (e.g., aitbc1treasury)")
