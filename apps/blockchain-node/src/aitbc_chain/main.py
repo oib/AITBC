@@ -124,7 +124,7 @@ class BlockchainNode:
                     chain_id = block_data.get("chain_id", settings.chain_id)
                     logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
                     sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
-                    res = sync.import_block(block_data)
+                    res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                     logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
                 except Exception as exc:
                     logger.error(f"Error processing block from gossip: {exc}")
