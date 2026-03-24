@@ -1,0 +1,13 @@
+[Unit]
+Description=AITBC Miner Dashboard
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc-miner-dashboard
+ExecStart=/usr/bin/python3 dashboard_server.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

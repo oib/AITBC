@@ -1,0 +1,14 @@
+[Unit]
+Description=AITBC Agent Communication Service
+After=network.target
+
+[Service]
+Type=simple
+User=debian
+WorkingDirectory=/opt/aitbc/services
+ExecStart=/usr/bin/python3 -m agent_communication
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

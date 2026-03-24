@@ -36,7 +36,7 @@ def deploy_to_container(container_name, genesis_config):
     print(f"🧹 Clearing existing blockchain data on {container_name}...")
     subprocess.run([
         'ssh', container_name,
-        'sudo rm -f /opt/aitbc/apps/blockchain-node/data/chain.db'
+        'sudo rm -f /opt/aitbc/data/chain.db'
     ], check=False)
     
     # Initialize new genesis

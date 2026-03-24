@@ -103,7 +103,7 @@ class BlockchainNode:
                     if isinstance(tx_data, str):
                         import json
                         tx_data = json.loads(tx_data)
-                    chain_id = tx_data.get("chain_id", "ait-devnet")
+                    chain_id = tx_data.get("chain_id", settings.chain_id)
                     mempool.add(tx_data, chain_id=chain_id)
                 except Exception as exc:
                     logger.error(f"Error processing transaction from gossip: {exc}")
@@ -121,10 +121,10 @@ class BlockchainNode:
                     if isinstance(block_data, str):
                         import json
                         block_data = json.loads(block_data)
-                    chain_id = block_data.get("chain_id", "ait-devnet")
+                    chain_id = block_data.get("chain_id", settings.chain_id)
                     logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
                     sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
-                    res = sync.import_block(block_data)
+                    res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                     logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
                 except Exception as exc:
                     logger.error(f"Error processing block from gossip: {exc}")
@@ -148,7 +148,11 @@ class BlockchainNode:
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee,
         )
-        self._start_proposers()
+        # Start proposers only if enabled (followers set enable_block_production=False)
+        if getattr(settings, "enable_block_production", True):
+            self._start_proposers()
+        else:
+            logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
         await self._setup_gossip_subscribers()
         try:
             await self._stop_event.wait()

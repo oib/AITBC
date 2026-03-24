@@ -16,11 +16,11 @@ class ProposerConfig(BaseModel):
     max_txs_per_block: int
 
 class ChainSettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file="/opt/aitbc/.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
-    chain_id: str = "ait-devnet"
+    chain_id: str = ""
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
-    db_path: Path = Path("./data/chain.db")
+    db_path: Path = Path("/opt/aitbc/data/chain.db")
 
     rpc_bind_host: str = "127.0.0.1"
     rpc_bind_port: int = 8080
@@ -28,13 +28,16 @@ class ChainSettings(BaseSettings):
     p2p_bind_host: str = "127.0.0.2"
     p2p_bind_port: int = 7070
 
-    proposer_id: str = "ait-devnet-proposer"
+    proposer_id: str = ""
     proposer_key: Optional[str] = None
 
     mint_per_unit: int = 0  # No new minting after genesis for production
     coordinator_ratio: float = 0.05
 
     block_time_seconds: int = 2
+
+    # Block production toggle (set false on followers)
+    enable_block_production: bool = True
 
     # Block production limits
     max_block_size_bytes: int = 1_000_000  # 1 MB

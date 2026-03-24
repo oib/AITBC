@@ -38,7 +38,10 @@ class InMemoryMempool:
         self._max_size = max_size
         self._min_fee = min_fee
 
-    def add(self, tx: Dict[str, Any], chain_id: str = "ait-devnet") -> str:
+    def add(self, tx: Dict[str, Any], chain_id: str = None) -> str:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         fee = tx.get("fee", 0)
         if fee < self._min_fee:
             raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
@@ -59,11 +62,17 @@ class InMemoryMempool:
             metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
         return tx_hash
 
-    def list_transactions(self, chain_id: str = "ait-devnet") -> List[PendingTransaction]:
+    def list_transactions(self, chain_id: str = None) -> List[PendingTransaction]:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             return list(self._transactions.values())
 
-    def drain(self, max_count: int, max_bytes: int, chain_id: str = "ait-devnet") -> List[PendingTransaction]:
+    def drain(self, max_count: int, max_bytes: int, chain_id: str = None) -> List[PendingTransaction]:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         """Drain transactions for block inclusion, prioritized by fee (highest first)."""
         with self._lock:
             sorted_txs = sorted(
@@ -87,14 +96,20 @@ class InMemoryMempool:
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
             return result
 
-    def remove(self, tx_hash: str, chain_id: str = "ait-devnet") -> bool:
+    def remove(self, tx_hash: str, chain_id: str = None) -> bool:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             removed = self._transactions.pop(tx_hash, None) is not None
             if removed:
                 metrics_registry.set_gauge("mempool_size", float(len(self._transactions)))
             return removed
 
-    def size(self, chain_id: str = "ait-devnet") -> int:
+    def size(self, chain_id: str = None) -> int:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             return len(self._transactions)
 
@@ -135,7 +150,10 @@ class DatabaseMempool:
             self._conn.execute("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)")
             self._conn.commit()
 
-    def add(self, tx: Dict[str, Any], chain_id: str = "ait-devnet") -> str:
+    def add(self, tx: Dict[str, Any], chain_id: str = None) -> str:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         fee = tx.get("fee", 0)
         if fee < self._min_fee:
             raise ValueError(f"Fee {fee} below minimum {self._min_fee}")
@@ -169,7 +187,10 @@ class DatabaseMempool:
             self._update_gauge(chain_id)
         return tx_hash
 
-    def list_transactions(self, chain_id: str = "ait-devnet") -> List[PendingTransaction]:
+    def list_transactions(self, chain_id: str = None) -> List[PendingTransaction]:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             rows = self._conn.execute(
                 "SELECT tx_hash, content, fee, size_bytes, received_at FROM mempool WHERE chain_id = ? ORDER BY fee DESC, received_at ASC",
@@ -182,7 +203,10 @@ class DatabaseMempool:
             ) for r in rows
         ]
 
-    def drain(self, max_count: int, max_bytes: int, chain_id: str = "ait-devnet") -> List[PendingTransaction]:
+    def drain(self, max_count: int, max_bytes: int, chain_id: str = None) -> List[PendingTransaction]:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             rows = self._conn.execute(
                 "SELECT tx_hash, content, fee, size_bytes, received_at FROM mempool WHERE chain_id = ? ORDER BY fee DESC, received_at ASC",
@@ -214,7 +238,10 @@ class DatabaseMempool:
             self._update_gauge(chain_id)
             return result
 
-    def remove(self, tx_hash: str, chain_id: str = "ait-devnet") -> bool:
+    def remove(self, tx_hash: str, chain_id: str = None) -> bool:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             cursor = self._conn.execute("DELETE FROM mempool WHERE chain_id = ? AND tx_hash = ?", (chain_id, tx_hash))
             self._conn.commit()
@@ -223,11 +250,17 @@ class DatabaseMempool:
                 self._update_gauge(chain_id)
             return removed
 
-    def size(self, chain_id: str = "ait-devnet") -> int:
+    def size(self, chain_id: str = None) -> int:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM mempool WHERE chain_id = ?", (chain_id,)).fetchone()[0]
 
-    def _update_gauge(self, chain_id: str = "ait-devnet") -> None:
+    def _update_gauge(self, chain_id: str = None) -> None:
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
         count = self._conn.execute("SELECT COUNT(*) FROM mempool WHERE chain_id = ?", (chain_id,)).fetchone()[0]
         metrics_registry.set_gauge(f"mempool_size_{chain_id}", float(count))
 

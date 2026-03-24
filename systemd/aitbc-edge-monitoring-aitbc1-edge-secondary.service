@@ -1,0 +1,13 @@
+[Unit]
+Description=AITBC Edge Node Monitoring - aitbc1-edge-secondary
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/tmp/aitbc-monitoring/monitor.sh
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target
