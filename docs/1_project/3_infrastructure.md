@@ -20,7 +20,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 │  │  Container: aitbc (10.1.223.1)        │  │
 │  │  Access: ssh aitbc-cascade            │  │
 │  │  OS: Debian 13 Trixie                  │  │
-│  │  Node.js: 22+                          │  │
+│  │  Node.js: 24+                          │  │
 │  │  Python: 3.13.5+                       │  │
 │  │  GPU Access: None (CPU-only mode)     │  │
 │  │  Miner Service: Not needed              │  │
@@ -103,7 +103,7 @@ Internet → aitbc.bubuit.net (HTTPS :443)
 - **Hostname**: `at1` (primary development workstation)
 - **Environment**: Windsurf development environment
 - **OS**: Debian 13 Trixie (development environment)
-- **Node.js**: 22+ (current tested: v22.22.x)
+- **Node.js**: 24+ (current tested: v24.14.x)
 - **Python**: 3.13.5+ (minimum requirement, strictly enforced)
 - **GPU Access**: **Primary GPU access location** - all GPU workloads must run on at1
 - **Architecture**: x86_64 Linux with CUDA GPU support
@@ -136,7 +136,7 @@ aitbc-mock-coordinator.service      # Mock coordinator on port 8020
 **Service Details:**
 - **Working Directory**: `/opt/aitbc/` (standard path for all services)
 - **Python Environment**: `/opt/aitbc/.venv/bin/python` (Python 3.13.5+)
-- **Node.js Environment**: System Node.js 22+ (current tested: v22.22.x)
+- **Node.js Environment**: System Node.js 24+ (current tested: v24.14.x)
 - **User**: oib
 - **Restart Policy**: always (with 5s delay)
 
@@ -204,7 +204,7 @@ ls -la /opt/aitbc/systemd               # Should show symlink to windsurf system
 └── systemd -> /home/oib/windsurf/aitbc/systemd/
 
 # Node.js environment
-node --version                          # Should show v22.22.x
+node --version                          # Should show v24.14.x
 npm --version                           # Should show compatible version
 ```
 
@@ -217,7 +217,7 @@ ls -la /opt/aitbc/                      # Should show individual symlinks, not s
 ls -la /opt/aitbc/apps/blockchain-node  # Should point to windsurf project
 python3 --version                      # Should show Python 3.13.5
 ls -la /home/oib/windsurf/aitbc/.venv/bin/python  # Check development venv
-node --version                              # Should show v22.22.x
+node --version                              # Should show v24.14.x
 npm --version                               # Should show compatible version
 
 # Test symlink resolution
@@ -307,7 +307,7 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 - Purpose: secondary AITBC dev environment (incus container)
 - Host: 10.1.223.40 (Debian 13 Trixie), accessible via new SSH alias `aitbc1-cascade`
 - OS: Debian 13 Trixie (development environment)
-- Node.js: 22+ (current tested: v22.22.x)
+- Node.js: 24+ (current tested: v24.14.x)
 - Python: 3.13.5+ (minimum requirement, strictly enforced)
 - Proxy device: incus proxy on host maps 127.0.0.1:18001 → 127.0.0.1:8000 inside container
 - AppArmor profile: unconfined (incus raw.lxc)
@@ -353,9 +353,9 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 | Web UI | 8016 | python | 3.13.5 | /app/ | ✅ |
 | Geographic Load Balancer | 8017 | python | 3.13.5 | /api/loadbalancer/* | ✅ |
 
-**Python 3.13.5 and Node.js 22+ Upgrade Complete** (2026-03-05):
+**Python 3.13.5 and Node.js 24+ Upgrade Complete** (2026-03-05):
 - All services upgraded to Python 3.13.5
-- Node.js upgraded to 22+ (current tested: v22.22.x)
+- Node.js upgraded to 24+ (current tested: v24.14.x)
 - Virtual environments updated and verified
 - API routing fixed for external access
 - Services fully operational with enhanced performance
@@ -381,7 +381,7 @@ All Python services in the AITBC container run on **Python 3.13.5** with isolate
 **Verification Commands:**
 ```bash
 ssh aitbc-cascade "python3 --version"  # Should show Python 3.13.5
-ssh aitbc-cascade "node --version"      # Should show v22.22.x
+ssh aitbc-cascade "node --version"      # Should show v24.14.x
 ssh aitbc-cascade "npm --version"       # Should show compatible version
 ssh aitbc-cascade "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
 ssh aitbc-cascade "curl -s http://127.0.0.1:8000/v1/health"  # Coordinator API health
