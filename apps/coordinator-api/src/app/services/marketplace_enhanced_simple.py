@@ -6,7 +6,7 @@ Basic marketplace enhancement features compatible with existing domain models
 import asyncio
 from aitbc.logging import get_logger
 from typing import Dict, List, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 from enum import Enum
 
@@ -225,12 +225,12 @@ class EnhancedMarketplaceService:
             offers_query = select(MarketplaceOffer).where(
                 MarketplaceOffer.created_at >= start_date
             )
-            offers = self.session.execute(offers_query).all()
+            offers = self.session.execute(offers_query).scalars().all()
             
             bids_query = select(MarketplaceBid).where(
-                MarketplaceBid.created_at >= start_date
+                MarketplaceBid.submitted_at >= start_date
             )
-            bids = self.session.execute(bids_query).all()
+            bids = self.session.execute(bids_query).scalars().all()
             
             # Calculate analytics
             analytics = {
@@ -264,7 +264,7 @@ class EnhancedMarketplaceService:
             
             if "revenue" in metrics:
                 analytics["metrics"]["revenue"] = {
-                    "total_revenue": sum(bid.amount or 0 for bid in bids),
+                    "total_revenue": sum(bid.price or 0 for bid in bids),
                     "average_price": sum(offer.price or 0 for offer in offers) / len(offers) if offers else 0,
                     "revenue_growth": 0.12
                 }

@@ -78,7 +78,7 @@ class AITBCServiceIntegration:
         """Register agent with coordinator"""
         try:
             async with self.session.post(
-                f"{self.service_endpoints['coordinator_api']}/api/v1/agents/register",
+                f"{self.service_endpoints['agent_registry']}/api/agents/register",
                 json=agent_data
             ) as response:
                 return await response.json()
@@ -98,13 +98,15 @@ class AgentServiceBridge:
             # Register agent with coordinator
             async with self.integration as integration:
                 registration_result = await integration.register_agent_with_coordinator({
-                    "agent_id": agent_id,
-                    "agent_type": agent_config.get("type", "generic"),
+                    "name": agent_id,
+                    "type": agent_config.get("type", "generic"),
                     "capabilities": agent_config.get("capabilities", []),
+                    "chain_id": agent_config.get("chain_id", "ait-mainnet"),
                     "endpoint": agent_config.get("endpoint", f"http://localhost:{8000 + len(self.active_agents) + 10}")
                 })
             
-            if registration_result.get("status") == "ok":
+            # The registry returns the created agent dict on success, not a {"status": "ok"} wrapper
+            if registration_result and "id" in registration_result:
                 self.active_agents[agent_id] = {
                     "config": agent_config,
                     "registration": registration_result,
@@ -112,6 +114,7 @@ class AgentServiceBridge:
                 }
                 return True
             else:
+                print(f"Registration failed: {registration_result}")
                 return False
         except Exception as e:
             print(f"Failed to start agent {agent_id}: {e}")
