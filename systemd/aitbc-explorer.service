@@ -1,19 +1,18 @@
 [Unit]
 Description=AITBC Blockchain Explorer UI
-After=network.target aitbc-blockchain-rpc.service
+After=network.target aitbc-blockchain-rpc-1.service aitbc-blockchain-rpc-2.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-explorer
-Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-explorer
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python main.py
+# Using the blockchain node venv since the coordinator one is broken
+Environment=PATH=/opt/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/blockchain-node/.venv/bin/python3 main.py
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
+StandardOutput=syslog
+StandardError=syslog
 SyslogIdentifier=aitbc-explorer
 
 [Install]

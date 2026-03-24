@@ -4,10 +4,14 @@ After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc
+User=root
+Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
+EnvironmentFile=/opt/aitbc/.env
+Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8006 --log-level info
+EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host ${rpc_bind_host} --port ${rpc_bind_port}
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -15,3 +19,4 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
+

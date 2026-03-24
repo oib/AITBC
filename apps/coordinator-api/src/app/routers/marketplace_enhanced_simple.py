@@ -50,7 +50,7 @@ class MarketplaceAnalyticsRequest(BaseModel):
 async def create_royalty_distribution(
     request: RoyaltyDistributionRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
+    session: Session = Depends(get_session),
     current_user: str = Depends(require_admin_key())
 ):
     """Create royalty distribution for marketplace offer"""
@@ -74,7 +74,7 @@ async def create_royalty_distribution(
 async def calculate_royalties(
     offer_id: str,
     sale_amount: float,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
+    session: Session = Depends(get_session),
     current_user: str = Depends(require_admin_key())
 ):
     """Calculate royalties for a sale"""
@@ -97,7 +97,7 @@ async def calculate_royalties(
 async def create_model_license(
     request: ModelLicenseRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
+    session: Session = Depends(get_session),
     current_user: str = Depends(require_admin_key())
 ):
     """Create model license for marketplace offer"""
@@ -123,7 +123,7 @@ async def create_model_license(
 async def verify_model(
     request: ModelVerificationRequest,
     offer_id: str,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
+    session: Session = Depends(get_session),
     current_user: str = Depends(require_admin_key())
 ):
     """Verify model quality and performance"""
@@ -145,7 +145,7 @@ async def verify_model(
 @router.post("/analytics")
 async def get_marketplace_analytics(
     request: MarketplaceAnalyticsRequest,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
+    session: Session = Depends(get_session),
     current_user: str = Depends(require_admin_key())
 ):
     """Get marketplace analytics and insights"""

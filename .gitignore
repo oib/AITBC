@@ -25,7 +25,9 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Environment files
+# ===================
+# Environment Files (SECRETS - NEVER COMMIT)
+# ===================
 *.env
 .env.*
 !.env.example
@@ -33,90 +35,45 @@ htmlcov/
 .env.*.local
 
 # ===================
-# Development Environment (organized)
-# ===================
-dev/env/.venv/
-dev/env/node_modules/
-dev/env/cli_env/
-dev/cache/.pytest_cache/
-dev/cache/.ruff_cache/
-dev/cache/.vscode/
-dev/cache/logs/
-dev/scripts/__pycache__/
-dev/scripts/*.pyc
-dev/scripts/*.pyo
-
-# ===================
-# Databases
+# Database & Data
 # ===================
 *.db
 *.sqlite
 *.sqlite3
-*/data/*.db
+*.db-wal
+*.db-shm
 data/
-
-# Alembic
-alembic.ini
-migrations/versions/__pycache__/
+apps/blockchain-node/data/
 
 # ===================
-# Node / JavaScript
+# Logs & Runtime
 # ===================
-node_modules/
-dist/
-build/
-.npm/
-.pnpm/
-yarn.lock
-pnpm-lock.yaml
-.next/
-.nuxt/
-.cache/
-
-# ===================
-# Development Tests (organized)
-# ===================
-dev/tests/__pycache__/
-dev/tests/*.pyc
-dev/tests/test_results/
-dev/tests/simple_test_results.json
-dev/tests/data/
-dev/tests/*.db
-dev/multi-chain/__pycache__/
-dev/multi-chain/*.pyc
-dev/multi-chain/test_results/
-
-# ===================
-# Logs & Runtime (organized)
-# ===================
-logs/
-dev/cache/logs/
 *.log
-*.log.*
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pids/
+logs/
 *.pid
 *.seed
 
 # ===================
-# Editor & IDE
+# Secrets & Credentials
 # ===================
-.idea/
+*.pem
+*.key
+*.crt
+*.p12
+secrets/
+credentials/
+.secrets
+.gitea_token.sh
+keystore/
+
+# ===================
+# IDE & Editor
+# ===================
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
-
-# ===================
-# Runtime / PID files
-# ===================
-*.pid
-apps/.service_pids
 
 # ===================
 # OS Files
@@ -131,25 +88,23 @@ Desktop.ini
 # ===================
 # Build & Compiled
 # ===================
+build/
+dist/
+target/
 *.o
 *.a
 *.lib
 *.dll
 *.dylib
-target/
-out/
 
 # ===================
 # Secrets & Credentials (CRITICAL SECURITY)
 # ===================
-*.pem
-*.key
-*.crt
-*.p12
-secrets/
-credentials/
-.secrets
-.gitea_token.sh
+# ===================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Password files (NEVER commit these)
 *.password
@@ -192,15 +147,10 @@ backup/README.md
 # ===================
 tmp/
 temp/
-
-# ===================
-# Environment Files
-# ===================
-.env
-.env.local
-.env.production
-*.env
-.env.*.local
+*.tmp
+*.temp
+*.bak
+*.backup
 
 # ===================
 # Windsurf IDE
@@ -209,34 +159,12 @@ temp/
 .snapshots/
 
 # ===================
-# Test Results & Artifacts
+# Wallet Files (contain private keys)
 # ===================
-test-results/
-**/test-results/
-
-# ===================
-# Development Logs - Keep in dev/logs/
-# ===================
-*.log
-*.out
-*.err
-wget-log
-download.log
-
-# ===================
-# Wallet files (contain keys/balances)
-# ===================
+*.json
 home/client/client_wallet.json
 home/genesis_wallet.json
 home/miner/miner_wallet.json
-
-# Root-level wallet backups (contain private keys)
-*.json
-
-# ===================
-# Stale source copies
-# ===================
-src/aitbc_chain/
 
 # ===================
 # Project Specific

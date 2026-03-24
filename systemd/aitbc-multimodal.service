@@ -1,37 +1,32 @@
 [Unit]
-Description=AITBC Multi-Modal Agent Service (Port 8010)
-Documentation=https://docs.aitbc.bubuit.net
+Description=AITBC Multi-Modal Agent Service
 After=network.target aitbc-coordinator-api.service
 Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8010
-Environment=SERVICE_TYPE=multimodal
-Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/.venv/bin/python -m aitbc_multimodal.main
+User=debian
+Group=debian
+WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
+Environment=PATH=/opt/coordinator-api/.venv/bin
+ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn src.app.services.multimodal_app:app --host 127.0.0.1 --port 8002
 ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
 RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-multimodal
 
-# Security settings
+# Security
 NoNewPrivileges=true
-PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data
-LimitNOFILE=65536
-
-# Resource limits
-MemoryMax=2G
-CPUQuota=200%
+ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
 
 [Install]
 WantedBy=multi-user.target

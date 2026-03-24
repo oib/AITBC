@@ -32,6 +32,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         client_ip = request.client.host if request.client else "unknown"
+        # Bypass rate limiting for localhost (sync/health internal traffic)
+        if client_ip in {"127.0.0.1", "::1"}:
+            return await call_next(request)
         now = time.time()
         # Clean old entries
         self._requests[client_ip] = [
@@ -109,7 +112,8 @@ def create_app() -> FastAPI:
 
     # Middleware (applied in reverse order)
     app.add_middleware(RequestLoggingMiddleware)
-    app.add_middleware(RateLimitMiddleware, max_requests=200, window_seconds=60)
+    # Allow higher RPC throughput (sync + node traffic)
+    app.add_middleware(RateLimitMiddleware, max_requests=5000, window_seconds=60)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[

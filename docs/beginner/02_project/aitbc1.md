@@ -176,9 +176,9 @@ python3 --version  # Should show 3.13.x
 
 ### **🔥 Issue 1b: Node.js Version Compatibility**
 
-**Current Status**: Node.js v22.22.x (tested and compatible)
+**Current Status**: Node.js v24.14.x (tested and compatible)
 
-**Note**: Current Node.js version v22.22.x meets the minimum requirement of 22.0.0 and is fully compatible with AITBC platform.
+**Note**: Current Node.js version v24.14.x meets the minimum requirement of 24.14.0 and is fully compatible with AITBC platform.
 
 ### **🔥 Issue 1c: Operating System Compatibility**
 

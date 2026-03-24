@@ -25,7 +25,7 @@ This guide provides comprehensive deployment instructions for the **aitbc server
 ### **Software Requirements**
 - **Operating System**: Debian 13 Trixie (primary) or Ubuntu 22.04+ (alternative)
 - **Python**: 3.13.5+ (strictly enforced - platform requires 3.13+ features)
-- **Node.js**: 22+ (current tested: v22.22.x)
+- **Node.js**: 24+ (current tested: v24.14.x)
 - **Database**: SQLite (default) or PostgreSQL (production)
 
 ### **Network Requirements**

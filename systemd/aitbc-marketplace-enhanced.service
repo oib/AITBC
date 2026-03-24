@@ -1,28 +1,31 @@
 [Unit]
-Description=AITBC Enhanced Marketplace Service (Port 8014)
-Documentation=https://docs.aitbc.bubuit.net
-After=network.target aitbc-coordinator-api.service postgresql.service
-Wants=aitbc-coordinator-api.service postgresql.service
+Description=AITBC Enhanced Marketplace Service
+After=network.target aitbc-coordinator-api.service
+Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8014
-Environment=SERVICE_TYPE=marketplace-enhanced
-Environment=DATABASE_URL=postgresql://aitbc:password@localhost:5432/aitbc
-Environment=ROYALTY_ENABLED=true
-Environment=LICENSING_ENABLED=true
-Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8014
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8021
 ExecReload=/bin/kill -HUP $MAINPID
-Restart=always
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
 RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-marketplace-enhanced
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/apps/coordinator-api
 
 [Install]
 WantedBy=multi-user.target

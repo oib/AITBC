@@ -128,8 +128,8 @@ def main() -> None:
     if args.db_path:
         os.environ["DB_PATH"] = str(args.db_path)
 
-    from aitbc_chain.config import Settings
-    settings = Settings()
+    from aitbc_chain.config import ChainSettings
+    settings = ChainSettings()
 
     print(f"[*] Initializing database at {settings.db_path}")
     init_db()

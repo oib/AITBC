@@ -1,0 +1,16 @@
+[Unit]
+Description=AITBC Agent Registry Service
+After=network.target
+
+[Service]
+Type=simple
+User=debian
+Group=debian
+WorkingDirectory=/opt/aitbc/apps/agent-registry/src
+Environment=PYTHONPATH=/opt/aitbc
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python app.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -62,15 +62,16 @@ check_nodejs() {
     
     echo "Found Node.js version: $NODE_VERSION"
     
-    # Check minimum version 22.0.0
-    if [ "$NODE_MAJOR" -lt 22 ]; then
-        WARNINGS+=("Node.js version $NODE_VERSION is below minimum requirement 22.0.0")
+    # Check minimum version 24.0.0
+    if [ "$NODE_MAJOR" -lt 24 ]; then
+        WARNINGS+=("Node.js version $NODE_VERSION is below minimum requirement 24.14.0")
         return 0
     fi
     
-    # Check if version is too new (beyond 22.x)
-    if [ "$NODE_MAJOR" -gt 22 ]; then
-        WARNINGS+=("Node.js version $NODE_VERSION is newer than tested 22.x series")
+    # Check if version is too new (beyond 24.x)
+    if [ "$NODE_MAJOR" -gt 24 ]; then
+        WARNINGS+=("Node.js version $NODE_VERSION is newer than tested 24.x series")
+        return 0
     fi
     
     echo -e "${GREEN}✅ Node.js version check passed${NC}"
