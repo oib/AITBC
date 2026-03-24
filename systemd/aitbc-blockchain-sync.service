@@ -1,6 +1,6 @@
 [Unit]
-Description=AITBC Blockchain RPC API
-After=network.target aitbc-blockchain-node.service
+Description=AITBC Blockchain Chain Synchronization Service
+After=network.target redis.service aitbc-blockchain-node.service aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple
@@ -11,7 +11,7 @@ EnvironmentFile=/opt/aitbc/.env
 Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
 EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host ${rpc_bind_host} --port ${rpc_bind_port}
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.chain_sync --redis redis://localhost:6379 --node-id ait18yefwwclgmyu2a74zvv0hj3a3xw6gxsn4akrj963kp069j9xy5ns3kurun --rpc-port 8006 --leader-host 10.1.223.40 --source-host 10.1.223.40 --source-port 8006 --import-host 10.1.223.40 --import-port 8006
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -19,4 +19,3 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-

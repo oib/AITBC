@@ -1,22 +1,17 @@
 [Unit]
-Description=AITBC Blockchain Node (Combined with P2P)
+Description=AITBC Blockchain Node (Development)
 After=network.target
 
 [Service]
-Type=simple
+Type=exec
 User=root
-Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
-EnvironmentFile=/opt/aitbc/.env
 Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
-#EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.combined_main
+EnvironmentFile=-/opt/aitbc/.env
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.main
 Restart=always
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-

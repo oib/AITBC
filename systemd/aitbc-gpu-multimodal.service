@@ -1,5 +1,5 @@
 [Unit]
-Description=AITBC Modality Optimization Service
+Description=AITBC GPU Multi-Modal Processing Service
 After=network.target aitbc-coordinator-api.service
 Wants=aitbc-coordinator-api.service
 
@@ -9,7 +9,8 @@ User=debian
 Group=debian
 WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
 Environment=PATH=/opt/coordinator-api/.venv/bin
-ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn src.app.services.modality_optimization_app:app --host 127.0.0.1 --port 8004
+Environment=CUDA_VISIBLE_DEVICES=0
+ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn src.app.services.gpu_multimodal_app:app --host 127.0.0.1 --port 8003
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
@@ -20,13 +21,17 @@ RestartSec=10
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-modality-optimization
+SyslogIdentifier=aitbc-gpu-multimodal
 
 # Security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
+
+# GPU Access
+DeviceAllow=/dev/nvidia0 rwm
+DevicePolicy=auto
 
 [Install]
 WantedBy=multi-user.target

@@ -1,24 +1,16 @@
 [Unit]
-Description=AITBC Coordinator API Service (Python 3.13.5+)
+Description=AITBC Coordinator API
 After=network.target
-Wants=network.target
 
 [Service]
 Type=simple
-User=aitbc
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=MINER_API_KEYS=["miner_test_abc123"]
-# Python version validation
-ExecStartPre=/bin/bash -c "python3 --version || (echo 'Python 3.13.5+ required' && exit 1)"
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn main:app --host 0.0.0.0 --port 8000
-ExecReload=/bin/kill -HUP $MAINPID
+User=root
+WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-coordinator-api
 
 [Install]
 WantedBy=multi-user.target

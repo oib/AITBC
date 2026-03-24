@@ -1,17 +1,15 @@
 [Unit]
-Description=AITBC Exchange API Service (Python 3.13.5+)
+Description=AITBC Exchange API Service
 After=network.target
 Wants=network.target
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
-WorkingDirectory=/opt/aitbc/apps/trade-exchange
+User=debian
+Group=debian
+WorkingDirectory=/opt/aitbc/apps/exchange
 Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
-# Python version validation
-ExecStartPre=/bin/bash -c "python3 --version || (echo 'Python 3.13.5+ required' && exit 1)"
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python simple_exchange_api.py --port 8001
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python simple_exchange_api.py
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
