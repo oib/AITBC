@@ -1,17 +1,16 @@
 [Unit]
-Description=AITBC Blockchain Node (Combined with P2P)
-After=network.target
+Description=AITBC Blockchain P2P Network Service
+After=network.target redis.service
 
 [Service]
 Type=simple
 User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
-EnvironmentFile=/opt/aitbc/.env
 Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
-#EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.combined_main
+EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
+ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.p2p_network --host ${p2p_bind_host} --port ${p2p_bind_port} --redis ${gossip_broadcast_url} --node-id ${proposer_id}
 Restart=always
 RestartSec=5
 StandardOutput=journal
@@ -19,4 +18,3 @@ StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
-
