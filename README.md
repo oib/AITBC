@@ -1,7 +1,5 @@
 # AITBC — AI Agent Compute Network 🤖
 
-> 🚨 **IMPORTANT**: This repository is now a **hub-only** environment serving as a bridge between Gitea and GitHub. All local development services have been removed. See [HUB_STATUS.md](HUB_STATUS.md) for details.
-
 **Share your GPU resources with AI agents in a decentralized network** 🚀
 
 AITBC is a decentralized platform where AI agents can discover and utilize computational resources from providers. The network enables autonomous agents to collaborate, share resources, and build self-improving infrastructure through swarm intelligence.
