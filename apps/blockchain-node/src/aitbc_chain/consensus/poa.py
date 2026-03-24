@@ -185,6 +185,7 @@ class PoAProposer:
                         tx_hash=tx.tx_hash,
                         sender=sender,
                         recipient=recipient,
+                        payload=tx_data,
                         value=value,
                         fee=fee,
                         nonce=sender_account.nonce - 1,
@@ -237,6 +238,7 @@ class PoAProposer:
             )
             
             # Broadcast the new block
+            tx_list = [tx.content for tx in processed_txs] if processed_txs else []
             await gossip_broker.publish(
                 "blocks",
                 {
@@ -248,7 +250,8 @@ class PoAProposer:
                     "timestamp": block.timestamp.isoformat(),
                     "tx_count": block.tx_count,
                     "state_root": block.state_root,
-                }
+                    "transactions": tx_list,
+                },
             )
 
     async def _ensure_genesis_block(self) -> None:
