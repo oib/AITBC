@@ -85,6 +85,7 @@ async def register_agent(agent: AgentRegistration):
             json.dumps(agent.capabilities), agent.chain_id,
             agent.endpoint, json.dumps(agent.metadata)
         ))
+        conn.commit()
     
     return Agent(
         id=agent_id,
