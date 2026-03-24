@@ -105,6 +105,14 @@ async def get_block(height: int) -> Dict[str, Any]:
             metrics_registry.increment("rpc_get_block_not_found_total")
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="block not found")
         metrics_registry.increment("rpc_get_block_success_total")
+        
+        txs = session.exec(select(Transaction).where(Transaction.block_height == height)).all()
+        tx_list = []
+        for tx in txs:
+            t = dict(tx.payload) if tx.payload else {}
+            t["tx_hash"] = tx.tx_hash
+            tx_list.append(t)
+        
     metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
     return {
         "height": block.height,
@@ -114,6 +122,7 @@ async def get_block(height: int) -> Dict[str, Any]:
         "timestamp": block.timestamp.isoformat(),
         "tx_count": block.tx_count,
         "state_root": block.state_root,
+        "transactions": tx_list,
     }
 
 
@@ -151,6 +160,13 @@ async def get_blocks_range(start: int, end: int) -> Dict[str, Any]:
         # Serialize blocks
         block_list = []
         for block in blocks:
+            txs = session.exec(select(Transaction).where(Transaction.block_height == block.height)).all()
+            tx_list = []
+            for tx in txs:
+                t = dict(tx.payload) if tx.payload else {}
+                t["tx_hash"] = tx.tx_hash
+                tx_list.append(t)
+            
             block_list.append({
                 "height": block.height,
                 "hash": block.hash,
@@ -159,6 +175,7 @@ async def get_blocks_range(start: int, end: int) -> Dict[str, Any]:
                 "timestamp": block.timestamp.isoformat(),
                 "tx_count": block.tx_count,
                 "state_root": block.state_root,
+                "transactions": tx_list,
             })
         
         metrics_registry.increment("rpc_get_blocks_range_success_total")
