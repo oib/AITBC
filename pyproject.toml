@@ -152,9 +152,15 @@ dev = [
     "black==26.3.1",
     "isort==8.0.1",
     "ruff==0.15.5",
+<<<<<<< HEAD
     "mypy==1.8.0",
     "bandit==1.9.4",
     "types-requests==2.32.4.20260107",
+=======
+    "mypy>=1.19.1,<2.0.0",
+    "bandit==1.7.5",
+    "types-requests==2.31.0",
+>>>>>>> gitea/main
     "types-setuptools==69.0.0",
     "types-PyYAML==6.0.12",
     "sqlalchemy[mypy]==2.0.25"

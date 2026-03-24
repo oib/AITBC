@@ -1,0 +1,15 @@
+[Unit]
+Description=AITBC Trade Exchange
+After=network.target
+
+[Service]
+Type=exec
+User=debian
+WorkingDirectory=/opt/aitbc/apps/exchange
+Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
+ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python server.py --port 3002
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

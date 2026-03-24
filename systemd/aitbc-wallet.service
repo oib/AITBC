@@ -1,29 +1,15 @@
 [Unit]
-Description=AITBC Wallet Daemon Service (Python 3.13.5+)
+Description=AITBC Wallet Daemon Service
 After=network.target
-Wants=network.target
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PATH=/opt/aitbc/apps/coordinator-api/.venv/bin
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PYTHONUNBUFFERED=1
-Environment=PYTHONIOENCODING=utf-8
-Environment=PORT=8002
-Environment=SERVICE_TYPE=wallet
-Environment=LOG_LEVEL=INFO
-# Python version validation
-ExecStartPre=/bin/bash -c "python3 --version || (echo 'Python 3.13.5+ required' && exit 1)"
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8002
-ExecReload=/bin/kill -HUP $MAINPID
+User=root
+WorkingDirectory=/opt/aitbc/apps/wallet-daemon/src
+Environment=PYTHONPATH=/opt/aitbc/packages/py/aitbc-crypto/src:/opt/aitbc/packages/py/aitbc-sdk/src
+ExecStart=/opt/aitbc/apps/wallet-daemon/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
 Restart=always
-RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=aitbc-wallet
+RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
