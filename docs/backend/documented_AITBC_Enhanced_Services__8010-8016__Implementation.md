@@ -35,11 +35,11 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 
 **🔧 Service Scripts Created:**
 ```bash
-/opt/aitbc/scripts/multimodal_gpu_service.py      # Port 8010
-/opt/aitbc/scripts/gpu_multimodal_service.py      # Port 8011
-/opt/aitbc/scripts/modality_optimization_service.py # Port 8012
-/opt/aitbc/scripts/adaptive_learning_service.py   # Port 8013
-/opt/aitbc/scripts/web_ui_service.py               # Port 8016
+/opt/aitbc/scripts/services/multimodal_gpu_service.py      # Port 8010
+/opt/aitbc/scripts/services/gpu_multimodal_service.py      # Port 8011
+/opt/aitbc/scripts/services/modality_optimization_service.py # Port 8012
+/opt/aitbc/scripts/services/adaptive_learning_service.py   # Port 8013
+/opt/aitbc/scripts/services/web_ui_service.py               # Port 8016
 ```
 
 **🔧 Systemd Services Updated:**

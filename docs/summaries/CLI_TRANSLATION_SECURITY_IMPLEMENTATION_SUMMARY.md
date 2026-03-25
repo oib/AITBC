@@ -194,7 +194,7 @@ assert medium_security_commands_degrade_gracefully()
 - **`CLI_TRANSLATION_SECURITY_IMPLEMENTATION_SUMMARY.md`** - This summary
 
 ### **Testing**
-- **`tests/test_cli_translation_security.py`** - Comprehensive test suite (23 tests)
+- **`tests/security/test_cli_translation_security.py`** - Comprehensive test suite (23 tests)
 
 ## 🚀 Usage Examples
 

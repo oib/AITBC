@@ -59,7 +59,7 @@ skill test
 python -m pytest tests/integration/test_multichain.py -v
 
 # Run all tests including multi-chain scenarios
-./tests/run_all_tests.sh
+./scripts/testing/run_all_tests.sh
 ```
 
 #### Using CLI for Testing
@@ -168,7 +168,7 @@ python -m aitbc_cli --url http://127.0.0.1:8000 --api-key test-key blockchain he
 #### **4.1 Run Complete Test Suite**
 ```bash
 # Execute all tests including multi-chain scenarios
-./tests/run_all_tests.sh
+./scripts/testing/run_all_tests.sh
 
 # Run specific multi-chain integration tests
 python -m pytest tests/integration/test_multichain.py -v
@@ -237,7 +237,7 @@ jobs:
 ### **Scheduled Testing**
 ```bash
 # Regular multi-chain test execution
-0 2 * * * cd /home/oib/windsurf/aitbc && ./tests/run_all_tests.sh
+0 2 * * * cd /home/oib/windsurf/aitbc && ./scripts/testing/run_all_tests.sh
 ```
 
 ## Troubleshooting

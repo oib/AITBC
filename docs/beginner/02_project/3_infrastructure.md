@@ -4,21 +4,21 @@
 
 ## Overview
 
-Two-tier architecture: **incus host (at1)** runs the reverse proxy with SSL termination, forwarding all `aitbc.bubuit.net` traffic to the **aitbc container** which runs nginx + all services. **Updated for port logic 8000+ implementation with unified numbering scheme and production-ready codebase.**
+Two-tier architecture: **aitbc1 primary server** (https://aitbc1.bubuit.net) and **aitbc secondary server** (https://aitbc.bubuit.net) with **aitbc1 as reverse proxy** forwarding all traffic to aitbc container services. **Updated for port logic 8000+ implementation with unified numbering scheme and production-ready codebase.**
 
 ```
-Internet → aitbc.bubuit.net (HTTPS :443)
+Internet → aitbc1.bubuit.net (HTTPS :443) → aitbc.bubuit.net
     │
     ▼
 ┌──────────────────────────────────────────────┐
-│  Incus Host (at1 / localhost)                │
+│  aitbc1 Primary Server (Reverse Proxy)        │
 │  Nginx reverse proxy (:443 SSL → :80)       │
 │  Config: /etc/nginx/sites-available/         │
 │          aitbc-proxy.conf                    │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
-│  │  Container: aitbc (10.1.223.1)        │  │
-│  │  Access: ssh aitbc-cascade            │  │
+│  │  Container: aitbc (aitbc server)      │  │
+│  │  Access: ssh aitbc                    │  │
 │  │  OS: Debian 13 Trixie                  │  │
 │  │  Node.js: 24+                          │  │
 │  │  Python: 3.13.5+                       │  │
@@ -170,8 +170,8 @@ On at1, `/opt/aitbc` uses individual symlinks to the Windsurf project directorie
 sc-status aitbc-blockchain-node.service aitbc-blockchain-rpc.service aitbc-gpu-miner.service aitbc-mock-coordinator.service
 
 # Start services
-sudo systemctl start aitbc-mock-coordinator.service
-sudo systemctl start aitbc-blockchain-node.service
+systemctl start aitbc-mock-coordinator.service
+systemctl start aitbc-blockchain-node.service
 
 # Check logs
 journalctl -u aitbc-mock-coordinator --no-pager -n 20
@@ -260,7 +260,7 @@ server {
 
 ### Access
 ```bash
-ssh aitbc-cascade                    # Direct SSH to container
+ssh aitbc                          # Direct SSH to aitbc server
 ```
 
 **GPU Access**: No GPU passthrough. All GPU workloads must run on **at1** (Windsurf development host), not inside incus containers.
@@ -378,14 +378,24 @@ All Python services in the AITBC container run on **Python 3.13.5** with isolate
 # Note: Standardized /opt/aitbc structure for all services
 ```
 
-**Verification Commands:**
+**Minimum Default Verification Commands:**
 ```bash
-ssh aitbc-cascade "python3 --version"  # Should show Python 3.13.5
-ssh aitbc-cascade "node --version"      # Should show v24.14.x
-ssh aitbc-cascade "npm --version"       # Should show compatible version
-ssh aitbc-cascade "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
-ssh aitbc-cascade "curl -s http://127.0.0.1:8000/v1/health"  # Coordinator API health
+# From aitbc1 primary server
+ssh aitbc "python3 --version"  # Should show Python 3.13.5
+ssh aitbc "node --version"      # Should show v24.14.x
+ssh aitbc "npm --version"       # Should show compatible version
+ssh aitbc "ls -la /opt/*/.venv/bin/python"  # Check venv symlinks
+ssh aitbc "curl -s http://127.0.0.1:8000/v1/health"  # Coordinator API health
 curl -s https://aitbc.bubuit.net/api/v1/health  # External API access
+```
+
+**SSH Access:**
+```bash
+# From aitbc1 to aitbc (secondary server)
+ssh aitbc
+
+# From aitbc to aitbc1 (primary server)  
+ssh aitbc1
 ```
 
 ### Nginx Routes (container)
@@ -549,25 +559,25 @@ curl http://aitbc.keisanki.net/rpc/head    # Node 3 RPC (port 8003)
 ### Deploying to Container
 ```bash
 # Push website files
-scp -r website/* aitbc-cascade:/var/www/aitbc.bubuit.net/
+scp -r website/* aitbc:/var/www/aitbc.bubuit.net/
 
 # Push app updates (blockchain-explorer serves its own interface)
 # No separate deployment needed - blockchain-explorer handles both API and UI
 
 # Restart a service
-ssh aitbc-cascade "systemctl restart coordinator-api"
+ssh aitbc "systemctl restart coordinator-api"
 ```
 
 ## Health Checks
 
 ```bash
-# From at1 (via container)
-ssh aitbc-cascade "curl -s http://localhost:8000/v1/health"
-ssh aitbc-cascade "curl -s http://localhost:8003/rpc/head | jq .height"
+# From aitbc1 (via aitbc server)
+ssh aitbc "curl -s http://localhost:8000/v1/health"
+ssh aitbc "curl -s http://localhost:8003/rpc/head | jq .height"
 
 # Test enhanced services
-ssh aitbc-cascade "curl -s http://localhost:8010/health"  # Multimodal GPU (CPU-only)
-ssh aitbc-cascade "curl -s http://localhost:8017/health"  # Geographic Load Balancer
+ssh aitbc "curl -s http://localhost:8010/health"  # Multimodal GPU (CPU-only)
+ssh aitbc "curl -s http://localhost:8017/health"  # Geographic Load Balancer
 
 # From internet (Python 3.13.5 upgraded services)
 curl -s https://aitbc.bubuit.net/health
@@ -582,25 +592,25 @@ curl -s https://aitbc.bubuit.net/api/loadbalancer/health
 ssh ns3-root "curl -s http://192.168.100.10:8003/rpc/head | jq .height"
 
 # Python version verification
-ssh aitbc-cascade "python3 --version"  # Python 3.13.5
+ssh aitbc "python3 --version"  # Python 3.13.5
 ```
 
 ## Monitoring and Logging
 
 ```bash
 # Container systemd logs
-ssh aitbc-cascade "journalctl -u aitbc-coordinator-api --no-pager -n 20"
-ssh aitbc-cascade "journalctl -u aitbc-blockchain-node --no-pager -n 20"
+ssh aitbc "journalctl -u aitbc-coordinator-api --no-pager -n 20"
+ssh aitbc "journalctl -u aitbc-blockchain-node --no-pager -n 20"
 
 # Enhanced services logs
-ssh aitbc-cascade "journalctl -u aitbc-multimodal-gpu --no-pager -n 20"
-ssh aitbc-cascade "journalctl -u aitbc-loadbalancer-geo --no-pager -n 20"
+ssh aitbc "journalctl -u aitbc-multimodal-gpu --no-pager -n 20"
+ssh aitbc "journalctl -u aitbc-loadbalancer-geo --no-pager -n 20"
 
 # Container nginx logs
-ssh aitbc-cascade "tail -20 /var/log/nginx/aitbc.bubuit.net.error.log"
+ssh aitbc "tail -20 /var/log/nginx/aitbc.bubuit.net.error.log"
 
 # Host nginx logs
-sudo tail -20 /var/log/nginx/error.log
+tail -20 /var/log/nginx/error.log
 ```
 
 ## Security
@@ -645,21 +655,19 @@ PORT=8010-8017  # Enhanced services port range
 
 ### Container Access & Port Logic (Updated March 6, 2026)
 
-#### **SSH-Based Container Access**
+#### **SSH-Based Server Access**
 ```bash
-# Access aitbc container
-ssh aitbc-cascade
+# Access aitbc server
+ssh aitbc
 
-# Access aitbc1 container  
+# Access aitbc1 server (from incus host only)
 ssh aitbc1-cascade
 
-# Check services in containers
-ssh aitbc-cascade 'systemctl list-units | grep aitbc-'
-ssh aitbc1-cascade 'systemctl list-units | grep aitbc-'
+# Check services in servers
+ssh aitbc 'systemctl list-units | grep aitbc-'
 
 # Debug specific services
-ssh aitbc-cascade 'systemctl status aitbc-coordinator-api'
-ssh aitbc1-cascade 'systemctl status aitbc-wallet'
+ssh aitbc 'systemctl status aitbc-coordinator-api'
 ```
 
 #### **Port Distribution Strategy - NEW STANDARD**
@@ -731,28 +739,22 @@ ssh aitbc1-cascade 'systemctl status aitbc-wallet'
 
 # Check port usage
 netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
-ssh aitbc-cascade 'netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
-ssh aitbc1-cascade 'netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])"
+ssh aitbc 'netstat -tlnp | grep -E ":(800[0-5]|801[0-7]|802[0-9])'
 
 # Service Management Commands:
 # Primary services:
 systemctl status aitbc-blockchain-node.service  # localhost
 systemctl status aitbc-blockchain-rpc.service   # localhost (port 8006)
 systemctl status aitbc-wallet.service          # localhost (port 8002)
-ssh aitbc-cascade 'systemctl status aitbc-blockchain-node.service'  # aitbc container
-ssh aitbc1-cascade 'systemctl status aitbc-blockchain-node.service'  # aitbc1 container
+ssh aitbc 'systemctl status aitbc-blockchain-node.service'  # aitbc server
 
 # Wallet services:
-ssh aitbc-cascade 'systemctl status aitbc-wallet.service'  # port 8002
-ssh aitbc1-cascade 'systemctl status aitbc-wallet.service'  # port 8002
+ssh aitbc 'systemctl status aitbc-wallet.service'  # port 8002
 
 # RPC services:
-ssh aitbc-cascade 'systemctl status aitbc-blockchain-rpc.service'    # port 8006
-ssh aitbc1-cascade 'systemctl status aitbc-blockchain-rpc.service'    # port 8006
-ssh aitbc-cascade 'systemctl status aitbc-blockchain-rpc-dev.service' # port 8026
-ssh aitbc1-cascade 'systemctl status aitbc-blockchain-rpc-dev.service' # port 8026
+ssh aitbc 'systemctl status aitbc-blockchain-rpc.service'    # port 8006
+ssh aitbc 'systemctl status aitbc-blockchain-rpc-dev.service' # port 8026
 
 # Development services:
-ssh aitbc-cascade 'systemctl status aitbc-blockchain-node-dev.service'
-ssh aitbc1-cascade 'systemctl status aitbc-blockchain-node-dev.service'
+ssh aitbc 'systemctl status aitbc-blockchain-node-dev.service'
 ```

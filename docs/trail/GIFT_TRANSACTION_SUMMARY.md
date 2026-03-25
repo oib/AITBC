@@ -103,13 +103,13 @@ aitbc ai-surveillance status
 #### **Verification Commands:**
 ```bash
 # Check user wallet on aitbc server
-ssh aitbc-cascade "cat /opt/aitbc/.aitbc/wallets/newuser.json | jq '.balance'"
+ssh aitbc "cat /opt/aitbc/.aitbc/wallets/newuser.json | jq '.balance'"
 
 # View transaction details
-ssh aitbc-cascade "cat /opt/aitbc/.aitbc/wallets/newuser.json | jq '.transactions[-1]'"
+ssh aitbc "cat /opt/aitbc/.aitbc/wallets/newuser.json | jq '.transactions[-1]'"
 
 # View gift certificate
-ssh aitbc-cascade "cat /opt/aitbc/GIFT_CERTIFICATE_newuser.md"
+ssh aitbc "cat /opt/aitbc/GIFT_CERTIFICATE_newuser.md"
 ```
 
 ### 🎉 **Success Metrics:**

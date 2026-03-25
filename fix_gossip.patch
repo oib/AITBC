@@ -1,9 +1,0 @@
---- /opt/aitbc/apps/blockchain-node/src/aitbc_chain/gossip/broker.py	2026-03-23 12:40:00.000000000 +0100
-+++ /opt/aitbc/apps/blockchain-node/src/aitbc_chain/gossip/broker.py.new	2026-03-23 12:40:00.000000000 +0100
-@@ -6,7 +6,7 @@
- import warnings
- from collections import defaultdict
--from contextlib import suppress
-+from contextlib import suppress, asynccontextmanager
- from dataclasses import dataclass
- from typing import Any, Callable, Dict, List, Optional, Set
