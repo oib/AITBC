@@ -95,7 +95,7 @@ aitbc/
 ├── README.md                      # Project documentation
 ├── poetry.lock                    # Dependency lock file
 ├── pyproject.toml                 # Python project configuration
-└── run_all_tests.sh               # Test runner (convenience)
+└── scripts/testing/run_all_tests.sh   # Test runner (convenience)
 ```
 
 ### **Main Directories (Organized by Purpose)**
@@ -207,7 +207,7 @@ aitbc/
 - ✅ **Essential project files** (.gitignore, README, LICENSE)
 - ✅ **Configuration templates** (.env.example, .editorconfig)
 - ✅ **Build files** (pyproject.toml, poetry.lock)
-- ✅ **Convenience scripts** (run_all_tests.sh)
+- ✅ **Convenience scripts** (scripts/testing/run_all_tests.sh)
 - ✅ **Core documentation** (README.md, PLUGIN_SPEC.md)
 
 ### **Documentation Organization**

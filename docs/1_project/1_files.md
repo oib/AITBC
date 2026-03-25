@@ -2,7 +2,7 @@
 
 This document describes the current organization and status of files and folders in the repository.
 
-Last updated: 2026-03-06
+Last updated: 2026-03-25
 
 ---
 
@@ -21,7 +21,18 @@ Last updated: 2026-03-06
 | `apps/coordinator-api/tests/test_gpu_marketplace.py` | ✅ Active | 22 GPU marketplace tests (Feb 2026) |
 | `apps/coordinator-api/tests/test_billing.py` | ✅ Active | 21 billing/usage-tracking tests (Feb 2026) |
 | `apps/coordinator-api/tests/conftest.py` | ✅ Active | App namespace isolation for coordinator tests |
-| `tests/cli/test_cli_integration.py` | ✅ Active | 24 CLI → live coordinator integration tests (Feb 2026) |
+| `tests/` | ✅ Active | Test suites (reorganized Mar 2026) |
+| `tests/cli/` | ✅ Active | CLI tests (28 files, organized Mar 2026) |
+| `tests/integration/` | ✅ Active | Integration tests (28 files, organized Mar 2026) |
+| `tests/security/` | ✅ Active | Security tests (5 files, organized Mar 2026) |
+| `tests/explorer/` | ✅ Active | Explorer tests (2 files, organized Mar 2026) |
+| `tests/websocket/` | ✅ Active | WebSocket tests (2 files, organized Mar 2026) |
+| `tests/testing/` | ✅ Active | Performance/testing utilities (25 files, organized Mar 2026) |
+| `tests/unit/` | ✅ Active | Unit tests (9 files, organized Mar 2026) |
+| `tests/e2e/` | ✅ Active | End-to-end tests (26 files, organized Mar 2026) |
+| `tests/docs/` | ✅ Active | Test documentation (5 files, organized Mar 2026) |
+| `tests/conftest.py` | ✅ Active | Test configuration (root level) |
+| `tests/test_runner.py` | ✅ Active | Test runner (root level) |
 
 ### Scripts (`scripts/`)
 
@@ -29,12 +40,16 @@ Last updated: 2026-03-06
 |------|--------|-------|
 | `scripts/aitbc-cli.sh` | ✅ Active | Main CLI tool, heavily used |
 | `scripts/dev/gpu/gpu_miner_host.py` | ✅ Active | Production GPU miner, standardized (Mar 2026) |
-| `scripts/deploy/` | ✅ Active | Deployment scripts (35 files) |
-| `scripts/deploy/deploy-multimodal-services.sh` | ✅ Active | Environment-aware multimodal deployment (Mar 2026) |
-| `scripts/verify-codebase-update.sh` | ✅ Active | Automated codebase verification (Mar 2026) |
-| `scripts/service/` | ✅ Active | Service management |
-| `scripts/dev_services.sh` | ✅ Active | Local development |
-| `scripts/testing/` | ✅ Active | Test scripts (moved from root, 13 files) |
+| `scripts/services/` | ✅ Active | Service files (5 FastAPI services, moved Mar 2026) |
+| `scripts/deployment/` | ✅ Active | Deployment scripts (35 files, organized Mar 2026) |
+| `scripts/testing/` | ✅ Active | Test scripts (20 files, organized Mar 2026) |
+| `scripts/monitoring/` | ✅ Active | Monitoring scripts (3 files, organized Mar 2026) |
+| `scripts/development/` | ✅ Active | Development scripts (6 files, organized Mar 2026) |
+| `scripts/utils/` | ✅ Active | Utility scripts (40 files, organized Mar 2026) |
+| `scripts/manage-services.sh` | ✅ Active | Main service management script (updated Mar 2026) |
+| `scripts/README.md` | ✅ Active | Scripts documentation |
+| `scripts/deploy/` | ✅ Active | Legacy deployment scripts (27 files) |
+| `scripts/gpu/` | ✅ Active | GPU service scripts (9 files, moved to services/) |
 
 ### Infrastructure (`infra/`, `systemd/`)
 
@@ -65,7 +80,10 @@ Last updated: 2026-03-06
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `docs/1_project/` | ✅ Active | Project management docs (restructured) |
+| `docs/1_project/` | ✅ Active | Project management docs (updated Mar 2026) |
+| `docs/1_project/aitbc.md` | ✅ Active | Secondary server deployment guide (updated Mar 2026) |
+| `docs/1_project/aitbc1.md` | ✅ Active | Primary server deployment guide (updated Mar 2026) |
+| `docs/1_project/3_infrastructure.md` | ✅ Active | Infrastructure documentation (updated Mar 2026) |
 | `docs/infrastructure/` | ✅ Active | Infrastructure documentation (Mar 2026) |
 | `docs/infrastructure/codebase-update-summary.md` | ✅ Active | Comprehensive standardization summary (Mar 2026) |
 | `docs/DOCS_WORKFLOW_COMPLETION_SUMMARY.md` | ✅ Active | Documentation updates completion (Mar 2026) |
@@ -259,11 +277,26 @@ These empty folders are intentional scaffolding for planned future work per the 
 - **Workflows documented** for repeatable processes
 - **File organization prevention** system implemented
 
-### ✅ CLI Development Environment Optimization (March 6, 2026)
-- **CLI development tools** moved from `cli-dev` to `dev/cli`
-- **Centralized development** environment in unified `/dev/` structure
-- **Improved project organization** with reduced root-level clutter
-- **Backup system** implemented with proper git exclusion
+### ✅ Complete Scripts and Tests Organization (March 25, 2026)
+- **Scripts organized** by purpose into 6 categories (services, deployment, testing, monitoring, development, utils)
+- **Test files organized** by function into 9 categories (cli, integration, security, explorer, websocket, testing, unit, e2e, docs)
+- **Service scripts** moved to dedicated `scripts/services/` folder
+- **Documentation updated** to reflect new file locations
+- **No codebase rewrites** needed - all paths already properly configured
+
+### ✅ Server Architecture Updates (March 25, 2026)
+- **aitbc1** established as primary server (https://aitbc1.bubuit.net) with reverse proxy role
+- **aitbc** established as secondary server (https://aitbc.bubuit.net) with application services
+- **SSH access** simplified to `ssh aitbc` and `ssh aitbc1` (root login, no sudo needed)
+- **Deployment guides** updated to reflect new primary/secondary architecture
+- **Infrastructure documentation** updated for two-server setup
+
+### ✅ Documentation Standardization (March 25, 2026)
+- **All sudo references** removed from systemctl commands (root access)
+- **SSH references** updated to use new server names
+- **Service paths** updated in documentation to reflect new organization
+- **12 documentation files** updated across the codebase
+- **Consistent command patterns** applied throughout
 
 ### ✅ Explorer Architecture Simplification (March 6, 2026)
 - **TypeScript explorer** merged into Python blockchain-explorer
@@ -319,12 +352,30 @@ aitbc/
 │   ├── py/aitbc-sdk/        # Python SDK
 │   └── solidity/aitbc-token/# ERC-20 token contract
 ├── plugins/                 # ✅ Keep (ollama)
-├── scripts/                 # ✅ Keep - organized by purpose
-│   ├── deploy/              # ✅ Deployment scripts (35 files)
-│   ├── dev/                 # ✅ Development scripts
-│   └── testing/             # ✅ Test scripts
+├── scripts/                 # ✅ Scripts organized by purpose (Mar 2026)
+│   ├── services/            # ✅ Service files (5 FastAPI services)
+│   ├── deployment/          # ✅ Deployment scripts (35 files)
+│   ├── testing/             # ✅ Test scripts (20 files)
+│   ├── monitoring/          # ✅ Monitoring scripts (3 files)
+│   ├── development/         # ✅ Development scripts (6 files)
+│   ├── utils/               # ✅ Utility scripts (40 files)
+│   ├── deploy/              # ✅ Legacy deployment scripts (27 files)
+│   ├── gpu/                 # ✅ GPU service scripts (9 files)
+│   ├── manage-services.sh   # ✅ Main service management script
+│   └── README.md            # ✅ Scripts documentation
 ├── systemd/                 # ✅ Systemd service units (19+ files)
-├── tests/                   # ✅ Test suites
+├── tests/                   # ✅ Test suites organized by function (Mar 2026)
+│   ├── cli/                 # ✅ CLI tests (28 files)
+│   ├── integration/          # ✅ Integration tests (28 files)
+│   ├── security/            # ✅ Security tests (5 files)
+│   ├── explorer/            # ✅ Explorer tests (2 files)
+│   ├── websocket/           # ✅ WebSocket tests (2 files)
+│   ├── testing/             # ✅ Performance/testing utilities (25 files)
+│   ├── unit/                # ✅ Unit tests (9 files)
+│   ├── e2e/                 # ✅ End-to-end tests (26 files)
+│   ├── docs/                # ✅ Test documentation (5 files)
+│   ├── conftest.py          # ✅ Test configuration
+│   └── test_runner.py       # ✅ Test runner
 ├── website/                 # ✅ Public website and HTML docs
 ├── dev-utils/               # ✅ Development utilities (legacy)
 ├── data/                    # ✅ Runtime data (gitignored)
@@ -335,12 +386,14 @@ aitbc/
 This structure represents the current clean state of the AITBC repository with all essential components organized for optimal development and deployment workflows. The March 2026 standardization effort has resulted in:
 
 - **100% service standardization** across all systemd services
-- **Improved file organization** with proper dev/ structure
+- **Complete scripts and tests organization** by purpose and function
+- **Updated server architecture** with primary/secondary server setup
 - **Enhanced documentation** with comprehensive infrastructure guides
 - **Automated verification tools** for maintaining standards
 - **Production-ready infrastructure** with all services operational
 - **Optimized CLI development** with centralized dev/cli environment
 - **Agent-first architecture** with simplified explorer service
 - **Comprehensive backup system** with proper git exclusion
+- **Standardized SSH access** with root privileges and no sudo requirements
 
 **Note**: Redundant `apps/logs/` directory removed - central `logs/` directory at root level is used for all logging. Redundant `assets/` directory removed - Firefox extension assets are properly organized in `extensions/aitbc-wallet-firefox/`. CLI development environment moved from `cli-dev` to `dev/cli` for better organization. Explorer TypeScript source merged into Python service and backed up.

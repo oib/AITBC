@@ -286,7 +286,7 @@ free -h
 systemctl status aitbc-adaptive-learning.service --no-pager
 
 # Adjust memory limits
-sudo systemctl edit aitbc-adaptive-learning.service
+systemctl edit aitbc-adaptive-learning.service
 ```
 
 ### Performance Optimization
@@ -304,7 +304,7 @@ export CUDA_LAUNCH_BLOCKING=1
 #### 2. Service Tuning
 ```bash
 # Adjust service resources
-sudo systemctl edit aitbc-multimodal.service
+systemctl edit aitbc-multimodal.service
 # Add:
 # [Service]
 # MemoryMax=4G
@@ -372,7 +372,7 @@ sudo -u postgres psql aitbc < aitbc-db-backup.sql
 ./manage_services.sh stop
 
 # Emergency restart
-sudo systemctl daemon-reload
+systemctl daemon-reload
 ./manage_services.sh start
 
 # Check system status

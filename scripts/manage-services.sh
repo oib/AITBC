@@ -4,30 +4,30 @@
 case "${1:-help}" in
     "start")
         echo "Starting AITBC services..."
-        sudo systemctl start aitbc-coordinator-api.service
-        sudo systemctl start aitbc-blockchain-node.service
-        sudo systemctl start aitbc-blockchain-rpc.service
+        systemctl start aitbc-coordinator-api.service
+        systemctl start aitbc-blockchain-node.service
+        systemctl start aitbc-blockchain-rpc.service
         echo "Services started"
         ;;
     "stop")
         echo "Stopping AITBC services..."
-        sudo systemctl stop aitbc-coordinator-api.service
-        sudo systemctl stop aitbc-blockchain-node.service
-        sudo systemctl stop aitbc-blockchain-rpc.service
+        systemctl stop aitbc-coordinator-api.service
+        systemctl stop aitbc-blockchain-node.service
+        systemctl stop aitbc-blockchain-rpc.service
         echo "Services stopped"
         ;;
     "restart")
         echo "Restarting AITBC services..."
-        sudo systemctl restart aitbc-coordinator-api.service
-        sudo systemctl restart aitbc-blockchain-node.service
-        sudo systemctl restart aitbc-blockchain-rpc.service
+        systemctl restart aitbc-coordinator-api.service
+        systemctl restart aitbc-blockchain-node.service
+        systemctl restart aitbc-blockchain-rpc.service
         echo "Services restarted"
         ;;
     "status")
         echo "=== AITBC Services Status ==="
-        sudo systemctl status aitbc-coordinator-api.service --no-pager
-        sudo systemctl status aitbc-blockchain-node.service --no-pager
-        sudo systemctl status aitbc-blockchain-rpc.service --no-pager
+        systemctl status aitbc-coordinator-api.service --no-pager
+        systemctl status aitbc-blockchain-node.service --no-pager
+        systemctl status aitbc-blockchain-rpc.service --no-pager
         ;;
     "logs")
         echo "=== AITBC Service Logs ==="

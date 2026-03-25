@@ -77,10 +77,10 @@ MEMPOOL_BACKEND=database
 ## Systemd Services (Production)
 
 ```bash
-sudo cp systemd/aitbc-*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now aitbc-coordinator-api
-sudo systemctl enable --now aitbc-blockchain-node-1
+cp systemd/aitbc-*.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now aitbc-coordinator-api
+systemctl enable --now aitbc-blockchain-node-1
 ```
 
 ## Verify
