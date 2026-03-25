@@ -36,7 +36,7 @@ These services already had the `aitbc-` prefix:
 ### Check Service Status
 ```bash
 # Site A (via SSH)
-ssh aitbc-cascade "systemctl status aitbc-blockchain-node-1.service"
+ssh aitbc "systemctl status aitbc-blockchain-node-1.service"
 
 # Site B (via SSH)
 ssh ns3-root "incus exec aitbc -- systemctl status aitbc-blockchain-node-3.service"
@@ -45,16 +45,16 @@ ssh ns3-root "incus exec aitbc -- systemctl status aitbc-blockchain-node-3.servi
 ### Restart Services
 ```bash
 # Site A
-ssh aitbc-cascade "sudo systemctl restart aitbc-blockchain-node-1.service"
+ssh aitbc "systemctl restart aitbc-blockchain-node-1.service"
 
 # Site B
-ssh ns3-root "incus exec aitbc -- sudo systemctl restart aitbc-blockchain-node-3.service"
+ssh ns3-root "incus exec aitbc -- systemctl restart aitbc-blockchain-node-3.service"
 ```
 
 ### View Logs
 ```bash
 # Site A
-ssh aitbc-cascade "journalctl -u aitbc-blockchain-node-1.service -f"
+ssh aitbc "journalctl -u aitbc-blockchain-node-1.service -f"
 
 # Site B
 ssh ns3-root "incus exec aitbc -- journalctl -u aitbc-blockchain-node-3.service -f"

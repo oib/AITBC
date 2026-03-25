@@ -145,7 +145,7 @@ testpaths = tests
 
 ## 🧪 **Verification Tests Created**
 
-Created comprehensive test suite `tests/test_explorer_fixes.py`:
+Created comprehensive test suite `tests/explorer/test_explorer_fixes.py`:
 
 ```python
 ✅ test_pytest_configuration_restored

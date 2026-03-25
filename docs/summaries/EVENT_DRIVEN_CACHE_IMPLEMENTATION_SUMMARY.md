@@ -86,7 +86,7 @@ class EventDrivenCacheSettings:
     enable_health_checks: bool
 ```
 
-### 4. Comprehensive Test Suite (`tests/test_event_driven_cache.py`)
+### 4. Comprehensive Test Suite (`tests/integration/test_event_driven_cache.py`)
 
 **Test Coverage:**
 - **Core cache operations** (set, get, invalidate)

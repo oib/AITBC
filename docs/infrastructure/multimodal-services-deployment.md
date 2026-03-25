@@ -78,12 +78,12 @@ If you need to manually configure services:
 
 ```bash
 # For AT1 (localhost)
-sudo systemctl disable aitbc-multimodal.service
-sudo systemctl enable aitbc-multimodal-gpu.service
+systemctl disable aitbc-multimodal.service
+systemctl enable aitbc-multimodal-gpu.service
 
 # For Production Servers
-sudo systemctl enable aitbc-multimodal.service
-sudo systemctl disable aitbc-multimodal-gpu.service
+systemctl enable aitbc-multimodal.service
+systemctl disable aitbc-multimodal-gpu.service
 ```
 
 ## Verification
@@ -104,8 +104,8 @@ systemctl status aitbc-multimodal.service
 ### Service Not Found
 ```bash
 # Ensure service files are copied to system directory
-sudo cp /home/oib/windsurf/aitbc/systemd/aitbc-*-multimodal.service /etc/systemd/system/
-sudo systemctl daemon-reload
+cp /home/oib/windsurf/aitbc/systemd/aitbc-*-multimodal.service /etc/systemd/system/
+systemctl daemon-reload
 ```
 
 ### Port Conflicts

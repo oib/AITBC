@@ -8,19 +8,19 @@
 systemctl status aitbc-coordinator --no-pager
 
 # Start service
-sudo systemctl start aitbc-coordinator
+systemctl start aitbc-coordinator
 
 # Stop service
-sudo systemctl stop aitbc-coordinator
+systemctl stop aitbc-coordinator
 
 # Restart service
-sudo systemctl restart aitbc-coordinator
+systemctl restart aitbc-coordinator
 
 # Enable service (start on boot)
-sudo systemctl enable aitbc-coordinator
+systemctl enable aitbc-coordinator
 
 # Disable service
-sudo systemctl disable aitbc-coordinator
+systemctl disable aitbc-coordinator
 ```
 
 ### **Log Management with journalctl**
@@ -142,7 +142,7 @@ systemctl status aitbc-coordinator --no-pager
 sudo journalctl -u aitbc-coordinator --since "1 hour ago" --no-pager | tail -10
 
 # Service restart (if needed)
-sudo systemctl restart aitbc-coordinator
+systemctl restart aitbc-coordinator
 sleep 5
 systemctl status aitbc-coordinator --no-pager
 
@@ -162,7 +162,7 @@ sudo journalctl -u aitbc-coordinator --since "10 minutes ago" --no-pager
 sudo journalctl -u aitbc-coordinator -p err --since "1 hour ago" --no-pager
 
 # 4. Restart service if needed
-sudo systemctl restart aitbc-coordinator
+systemctl restart aitbc-coordinator
 
 # 5. Verify functionality
 curl -s http://localhost:8000/health
