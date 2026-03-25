@@ -77,7 +77,7 @@ The AITBC Developer Ecosystem & DAO Grants system has been successfully implemen
 #### Test Execution:
 ```bash
 # Run all tests
-./tests/run_all_tests.sh
+./scripts/testing/run_all_tests.sh
 
 # Individual suites
 npx hardhat test tests/contracts/
@@ -211,7 +211,7 @@ npm run test  # Frontend E2E
 ./scripts/production-health-check.sh
 
 # Monitor system logs
-ssh aitbc-cascade "journalctl -u nginx -f"
+ssh aitbc "journalctl -u nginx -f"
 
 # Check contract events
 npx hardhat run scripts/monitor-contracts.js --network mainnet
@@ -220,7 +220,7 @@ npx hardhat run scripts/monitor-contracts.js --network mainnet
 ### Weekly Operations
 ```bash
 # Security updates
-ssh aitbc-cascade "apt update && apt upgrade -y"
+ssh aitbc "apt update && apt upgrade -y"
 
 # Performance monitoring
 ./scripts/performance-report.sh

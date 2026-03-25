@@ -110,6 +110,26 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Performance validation against deployment report targets
   - ✅ Complete documentation and usage guides
 
+## Stage 28 — Project File Organization & Documentation Updates [COMPLETED: 2026-03-25]
+
+- **Root Directory Cleanup**
+  - ✅ Move 60+ loose files from root to proper subdirectories
+  - ✅ Organize development scripts into `dev/review/`, `dev/fixes/`, `scripts/testing/`
+  - ✅ Organize configuration files into `config/genesis/`, `config/networks/`, `config/templates/`
+  - ✅ Move documentation to `docs/development/`, `docs/deployment/`, `docs/project/`
+  - ✅ Organize temporary files into `temp/backups/`, `temp/patches/`, `logs/qa/`
+
+- **File Organization Workflow**
+  - ✅ Create `/organize-project-files` workflow for systematic file management
+  - ✅ Implement dependency analysis to prevent codebreak from file moves
+  - ✅ Establish categorization rules for different file types
+  - ✅ Verify essential root files remain (configuration, documentation, system files)
+
+- **Documentation Updates**
+  - ✅ Update project completion status in `docs/1_project/5_done.md`
+  - ✅ Reflect file organization milestone in roadmap documentation
+  - ✅ Ensure all documentation references point to correct file locations
+
 ## Current Status: Agent-First Transformation Complete
 
 **Milestone Achievement**: Successfully transformed AITBC to agent-first architecture with comprehensive CLI tools, enhanced services deployment, and complete end-to-end testing framework. All 22 commands from README are fully implemented with complete test coverage and documentation.
