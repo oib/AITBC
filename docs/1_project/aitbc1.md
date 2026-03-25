@@ -2,32 +2,33 @@
 
 ## Overview
 
-This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc1 server** (secondary container). These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated for optimized CPU-only deployment with enhanced services disabled.**
+This document contains specific deployment notes and considerations for deploying the AITBC platform on the **aitbc1 server** (primary development server). These notes complement the general deployment guide with server-specific configurations and troubleshooting. **Updated March 25, 2026: Updated architecture with aitbc1 as primary server and aitbc as secondary server.**
 
-**Note**: This documentation is specific to the aitbc1 server. For aitbc server documentation, see [aitbc.md](./aitbc.md).
+**Note**: This documentation is specific to the aitbc1 primary server. For aitbc secondary server documentation, see [aitbc.md](./aitbc.md).
 
 ## Server Specifications
 
-### **aitbc1 Server Details**
-- **Hostname**: aitbc1 (container)
-- **IP Address**: 10.1.223.40 (container IP)
-- **Operating System**: Debian 13 Trixie (secondary development environment)
-- **Access Method**: SSH via aitbc1-cascade proxy
+### **aitbc1 Primary Server Details**
+- **Hostname**: aitbc1 (primary development server)
+- **IP Address**: 10.1.223.40 (server IP)
+- **Operating System**: Debian 13 Trixie (primary development environment)
+- **Access Method**: SSH via aitbc1-cascade proxy (from incus host only)
+- **Reverse Proxy Role**: Primary reverse proxy for aitbc.bubuit.net
 - **GPU Access**: None (CPU-only mode)
 - **Miner Service**: Not needed
 - **Enhanced Services**: Mixed status (some enabled, some failing)
 - **Web Root**: `/var/www/html/`
-- **Nginx Configuration**: Two-tier setup with SSL termination
+- **Nginx Configuration**: Primary reverse proxy with SSL termination
 - **Container Support**: Incus containers with 0.0.0.0 binding for container access
 - **Project Document Root**: `/opt/aitbc` (standardized across all AITBC containers)
 
-### **Network Architecture (Updated March 7, 2026)**
+### **Network Architecture (Updated March 25, 2026)**
 ```
-Internet → aitbc1-cascade (Proxy) → aitbc1 (Container)
-         SSH Access              Application Server
-         Port 22/443              Port 8000-8001 (Core Services)
-         Port 8005-8006           Blockchain Services (AT1 Standard)
-         Port 8025-8026           Development Services
+Internet → aitbc1.bubuit.net (Primary Server) → aitbc.bubuit.net (Secondary Server)
+         HTTPS :443 (SSL Termination)       Application Services
+         Port 22/443                       Port 8000-8001 (Core Services)
+         Port 8005-8006                    Blockchain Services (AT1 Standard)
+         Port 8025-8026                    Development Services
 ```
 
 **Note**: Now compliant with AT1 standard port assignments
@@ -36,37 +37,40 @@ Internet → aitbc1-cascade (Proxy) → aitbc1 (Container)
 
 #### **Primary Access Methods**
 ```bash
-# Access aitbc1 server (secondary container)
+# Access aitbc1 primary server (from incus host only)
 ssh aitbc1-cascade
 
-# Check aitbc1 server connectivity
-ssh aitbc1-cascade 'echo "Container accessible"'
+# From aitbc secondary server to aitbc1 primary
+ssh aitbc1
+
+# Check aitbc1 primary server connectivity
+ssh aitbc1-cascade 'echo "Primary server accessible"'
 ```
 
 #### **Service Management via SSH**
 ```bash
-# List all AITBC services on aitbc1 server
-ssh aitbc1-cascade 'systemctl list-units | grep aitbc-'
+# List all AITBC services on aitbc1 primary server
+ssh aitbc1 'systemctl list-units | grep aitbc-'
 
-# Check specific service status on aitbc1 server
-ssh aitbc1-cascade 'systemctl status aitbc-coordinator-api'
-ssh aitbc1-cascade 'systemctl status aitbc-wallet'
+# Check specific service status on aitbc1 primary server
+ssh aitbc1 'systemctl status aitbc-coordinator-api'
+ssh aitbc1 'systemctl status aitbc-wallet'
 
-# Start/stop services on aitbc1 server
-ssh aitbc1-cascade 'sudo systemctl start aitbc-coordinator-api'
-ssh aitbc1-cascade 'sudo systemctl stop aitbc-wallet'
+# Start/stop services on aitbc1 primary server
+ssh aitbc1 'systemctl start aitbc-coordinator-api'
+ssh aitbc1 'systemctl stop aitbc-wallet'
 
-# View service logs on aitbc1 server
-ssh aitbc1-cascade 'sudo journalctl -f -u aitbc-coordinator-api'
-ssh aitbc1-cascade 'sudo journalctl -f -u aitbc-blockchain-node'
+# View service logs on aitbc1 primary server
+ssh aitbc1 'journalctl -f -u aitbc-coordinator-api'
+ssh aitbc1 'journalctl -f -u aitbc-blockchain-node'
 
-# Check blockchain services on aitbc1 server
-ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-node'
-ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc'
+# Check blockchain services on aitbc1 primary server
+ssh aitbc1 'systemctl status aitbc-blockchain-node'
+ssh aitbc1 'systemctl status aitbc-blockchain-rpc'
 
-# Check development services on aitbc1 server
-ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-node-dev'
-ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
+# Check development services on aitbc1 primary server
+ssh aitbc1 'systemctl status aitbc-blockchain-node-dev'
+ssh aitbc1 'systemctl status aitbc-blockchain-rpc-dev'
 ```
 
 #### **Port Distribution & Conflict Resolution (Updated March 6, 2026)**
@@ -108,26 +112,26 @@ ssh aitbc1-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
 #### **Debug Container Service Issues**
 ```bash
 # Debug coordinator API port conflict
-ssh aitbc-cascade 'sudo systemctl status aitbc-coordinator-api'
-ssh aitbc-cascade 'sudo journalctl -u aitbc-coordinator-api -n 20'
+ssh aitbc 'systemctl status aitbc-coordinator-api'
+ssh aitbc 'journalctl -u aitbc-coordinator-api -n 20'
 
 # Debug wallet service issues  
-ssh aitbc-cascade 'sudo systemctl status aitbc-wallet'
-ssh aitbc-cascade 'sudo journalctl -u aitbc-wallet -n 20'
+ssh aitbc 'systemctl status aitbc-wallet'
+ssh aitbc 'journalctl -u aitbc-wallet -n 20'
 
-# Check port usage in containers
-ssh aitbc-cascade 'sudo netstat -tlnp | grep :800'
-ssh aitbc1-cascade 'sudo netstat -tlnp | grep :800'
+# Check port usage in servers
+ssh aitbc 'netstat -tlnp | grep :800'
+ssh aitbc1 'netstat -tlnp | grep :800'
 
 # Test service endpoints
-ssh aitbc-cascade 'curl -s http://localhost:8001/health'
-ssh aitbc1-cascade 'curl -s http://localhost:8002/health'
+ssh aitbc 'curl -s http://localhost:8001/health'
+ssh aitbc1 'curl -s http://localhost:8002/health'
 ```
 
 ## Pre-Deployment Checklist
 
 ### **✅ Server Preparation**
-- [ ] SSH access confirmed via aitbc-cascade
+- [ ] SSH access confirmed via aitbc (from aitbc1) and aitbc1-cascade (from incus host)
 - [ ] System packages updated
 - [ ] aitbc user created with sudo access
 - [ ] Directory structure created
@@ -136,13 +140,15 @@ ssh aitbc1-cascade 'curl -s http://localhost:8002/health'
 - [ ] Container networking configured
 - [ ] GPU access confirmed as not available
 - [ ] Miner service requirements confirmed as not needed
+- [ ] Reverse proxy role confirmed as primary
 
 ### **✅ Network Configuration**
-- [ ] Port forwarding configured on aitbc-cascade
-- [ ] SSL certificates installed on proxy
-- [ ] DNS records configured
+- [ ] Port forwarding configured on aitbc1 primary server
+- [ ] SSL certificates installed on primary server
+- [ ] DNS records configured for aitbc1.bubuit.net and aitbc.bubuit.net
 - [ ] Load balancer rules set
 - [ ] Container access configured (0.0.0.0 binding)
+- [ ] Bidirectional SSH access configured (aitbc ↔ aitbc1)
 
 ### **✅ Storage Requirements**
 - [ ] Minimum 50GB free space available
@@ -271,27 +277,27 @@ sudo systemctl edit aitbc-coordinator-api.service
 
 ### **🔥 Issue 5: Nginx Proxy Configuration**
 
-**Problem**: Requests not properly forwarded from aitbc-cascade to aitbc
+**Problem**: Requests not properly forwarded from aitbc1 primary server to aitbc secondary server
 
 **Solution**:
 ```bash
-# On aitbc-cascade, check proxy configuration
+# On aitbc1 primary server, check proxy configuration
 cat /etc/nginx/sites-available/aitbc-proxy.conf
 
-# Ensure upstream configuration includes aitbc
+# Ensure upstream configuration includes aitbc secondary server
 upstream aitbc_backend {
-    server 10.1.223.1:8000;  # Coordinator API
-    server 10.1.223.1:8001;  # Exchange API
-    server 10.1.223.1:8003;  # Blockchain RPC
+    server 10.1.223.1:8000;  # Coordinator API (aitbc secondary)
+    server 10.1.223.1:8001;  # Exchange API (aitbc secondary)
+    server 10.1.223.1:8003;  # Blockchain RPC (aitbc secondary)
     # Add enhanced services ports
-    server 10.1.223.1:8010;  # Multimodal GPU
-    server 10.1.223.1:8011;  # GPU Multimodal
-    server 10.1.223.1:8012;  # Modality Optimization
-    server 10.1.223.1:8013;  # Adaptive Learning
-    server 10.1.223.1:8014;  # Marketplace Enhanced
-    server 10.1.223.1:8015;  # OpenClaw Enhanced
-    server 10.1.223.1:8016;  # Web UI
-    server 10.1.223.1:8017;  # Geographic Load Balancer
+    server 10.1.223.1:8010;  # Multimodal GPU (aitbc secondary)
+    server 10.1.223.1:8011;  # GPU Multimodal (aitbc secondary)
+    server 10.1.223.1:8012;  # Modality Optimization (aitbc secondary)
+    server 10.1.223.1:8013;  # Adaptive Learning (aitbc secondary)
+    server 10.1.223.1:8014;  # Marketplace Enhanced (aitbc secondary)
+    server 10.1.223.1:8015;  # OpenClaw Enhanced (aitbc secondary)
+    server 10.1.223.1:8016;  # Web UI (aitbc secondary)
+    server 10.1.223.1:8017;  # Geographic Load Balancer (aitbc secondary)
 }
 
 # Reload nginx configuration
@@ -300,17 +306,18 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### **🔥 Issue 6: SSL Certificate Issues**
 
-**Problem**: SSL certificates not properly configured for aitbc domain
+**Problem**: SSL certificates not properly configured for aitbc domains
 
 **Solution**:
 ```bash
-# On aitbc-cascade, check certificate status
+# On aitbc1 primary server, check certificate status
 sudo certbot certificates
 
-# Renew or obtain certificate
-sudo certbot --nginx -d aitbc.bubuit.net
+# Renew or obtain certificate for both domains
+sudo certbot --nginx -d aitbc1.bubuit.net -d aitbc.bubuit.net
 
 # Test SSL configuration
+curl -I https://aitbc1.bubuit.net
 curl -I https://aitbc.bubuit.net
 ```
 
@@ -527,14 +534,17 @@ sudo systemctl restart aitbc-coordinator-api.service
 
 ### **Issue: Network Connectivity**
 ```bash
-# Test local connectivity
+# Test local connectivity on aitbc secondary server
 curl -X GET "http://localhost:8000/v1/health"
 
-# Test external connectivity via proxy
+# Test external connectivity via aitbc1 primary server
 curl -X GET "http://aitbc.bubuit.net/health"
 
-# Check proxy configuration
-ssh aitbc-cascade "cat /etc/nginx/sites-available/aitbc-proxy.conf"
+# Test primary server direct access
+curl -X GET "http://aitbc1.bubuit.net/health"
+
+# Check proxy configuration on aitbc1 primary server
+ssh aitbc1 "cat /etc/nginx/sites-available/aitbc-proxy.conf"
 ```
 
 ### **Issue: Container Access Problems**
@@ -675,36 +685,36 @@ sudo systemctl restart aitbc-*.service
 
 ---
 
-**Server**: aitbc1 (Container)  
+**Server**: aitbc1 (Primary Development Server)  
 **Environment**: Production  
-**IP Address**: 10.1.223.40 (container)  
+**IP Address**: 10.1.223.40 (primary server)  
 **GPU Access**: None (CPU-only mode)  
 **Miner Service**: Not needed  
 **Enhanced Services**: Mixed status (some enabled, some failing)  
-**Last Updated**: 2026-03-07  
+**Last Updated**: 2026-03-25  
 **Maintainer**: AITBC Operations Team  
-**Status**: ✅ PRODUCTION READY (mixed enhanced services)  
+**Status**: ✅ PRODUCTION READY (primary reverse proxy)  
 **Platform Health**: 85% functional  
 **External Access**: 100% working  
-**CLI Functionality**: 70% working (container)  
-**Multi-Site**: 1 of 3 sites operational  
+**CLI Functionality**: 70% working (primary server)  
+**Multi-Site**: 1 of 2 sites operational  
 
 ## Multi-Site Deployment Status
 
-### ✅ **aitbc1 Container Status**
+### ✅ **aitbc1 Primary Server Status**
 - **Services Running**: 8 services active (mixed enhanced services)
 - **External Access**: 100% functional
 - **CLI Installation**: Complete and working
 - **Performance**: Excellent
 - **Stability**: 95% (some enhanced services failing)
+- **Reverse Proxy**: Primary proxy for aitbc.bubuit.net
 
 ### 📊 **Multi-Site Architecture**
-- **at1 (localhost)**: 8 services running
-- **aitbc (container)**: 9 services running ✅
-- **aitbc1 (container)**: 8 services running ⚠️
-- **Total Services**: 25 across 3 sites
+- **aitbc1 (primary server)**: 8 services running
+- **aitbc (secondary server)**: 9 services running ✅
+- **Total Services**: 17 across 2 sites
 
-### 🛠️ **CLI Status in aitbc1 Container**
+### 🛠️ **CLI Status in aitbc1 Primary Server**
 - **CLI Version**: v0.1.0 installed
 - **Wallet Management**: 100% working
 - **Configuration**: 100% working
@@ -712,9 +722,10 @@ sudo systemctl restart aitbc-*.service
 - **Marketplace**: Network errors (known limitation)
 
 ### 🌐 **External Access Configuration**
-- **Primary URL**: https://aitbc.bubuit.net/
+- **Primary URL**: https://aitbc1.bubuit.net/ (primary server)
+- **Secondary URL**: https://aitbc.bubuit.net/ (secondary server)
 - **API Health**: https://aitbc.bubuit.net/api/health
-- **SSL Certificate**: Valid and working
+- **SSL Certificate**: Valid and working for both domains
 - **Performance**: <50ms response times
 - **Uptime**: 100%
 
@@ -745,7 +756,8 @@ Additional Services:
 ```
 
 ### 🔧 **Maintenance Notes**
-- **Container Access**: SSH via aitbc-cascade
+- **Primary Server Access**: SSH via aitbc1-cascade (from incus host) or aitbc1 (from aitbc)
+- **Secondary Server Access**: SSH via aitbc (from aitbc1)
 - **Service Management**: systemctl commands
 - **Log Location**: /opt/aitbc/logs/
 - **Backup Location**: /opt/aitbc/backups/

@@ -59,8 +59,8 @@
 - **`tests/cli/test_wallet.py`**: Updated wallet tests for unified CLI interface
 - **`tests/cli/test_marketplace.py`**: Updated marketplace tests for CLI integration
 - **`tests/cli/test_cli_integration.py`**: Enhanced integration testing with CLI support
-- **`tests/conftest.py`**: Enhanced test configuration for CLI testing
-- **`tests/run_all_tests.sh`**: Updated test runner with CLI testing support
+- **`tests/conftest.py`**: Enhanced test configuration
+- **`tests/scripts/testing/run_all_tests.sh`**: Updated test runner with CLI testing support
 - **`tests/cli-test-updates-completed.md`**: Created CLI test completion summary
 - **`tests/test-integration-completed.md`**: Created test ecosystem integration summary
 - **`docs/22_workflow/DOCS_WORKFLOW_COMPLETION_SUMMARY.md`**: Updated with latest workflow completion

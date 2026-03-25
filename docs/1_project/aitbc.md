@@ -2,9 +2,9 @@
 
 ## Overview
 
-This guide provides comprehensive deployment instructions for the **aitbc server** (primary container), including infrastructure requirements, service configurations, and troubleshooting procedures. **Updated March 7, 2026: Unified port logic deployed, codebase committed to git, enhanced services operational.**
+This guide provides comprehensive deployment instructions for the **aitbc server** (secondary development server), including infrastructure requirements, service configurations, and troubleshooting procedures. **Updated March 25, 2026: Updated architecture with aitbc1 as primary server and aitbc as secondary server.**
 
-**Note**: This documentation is specific to the aitbc server. For aitbc1 server documentation, see [aitbc1.md](./aitbc1.md).
+**Note**: This documentation is specific to the aitbc secondary server. For aitbc1 primary server documentation, see [aitbc1.md](./aitbc1.md).
 
 ## System Requirements
 
@@ -57,38 +57,38 @@ This guide provides comprehensive deployment instructions for the **aitbc server
 
 ### **Container Access & SSH Management (Updated March 6, 2026)**
 
-#### **SSH-Based Container Access**
+#### **SSH-Based Server Access**
 ```bash
-# Access aitbc server (primary container)
-ssh aitbc-cascade
+# Access aitbc secondary server
+ssh aitbc
 
 # Check aitbc server status
-ssh aitbc-cascade 'systemctl status'
+ssh aitbc 'systemctl status'
 
 # List AITBC services on aitbc server
-ssh aitbc-cascade 'systemctl list-units | grep aitbc-'
+ssh aitbc 'systemctl list-units | grep aitbc-'
 ```
 
 #### **Service Management via SSH**
 ```bash
 # Start/stop services on aitbc server
-ssh aitbc-cascade 'sudo systemctl start aitbc-coordinator-api'
-ssh aitbc-cascade 'sudo systemctl stop aitbc-wallet'
+ssh aitbc 'systemctl start aitbc-coordinator-api'
+ssh aitbc 'systemctl stop aitbc-wallet'
 
 # Check service logs on aitbc server
-ssh aitbc-cascade 'sudo journalctl -f -u aitbc-coordinator-api'
+ssh aitbc 'journalctl -f -u aitbc-coordinator-api'
 
 # Debug service issues on aitbc server
-ssh aitbc-cascade 'sudo systemctl status aitbc-coordinator-api'
-ssh aitbc-cascade 'sudo systemctl status aitbc-wallet'
+ssh aitbc 'systemctl status aitbc-coordinator-api'
+ssh aitbc 'systemctl status aitbc-wallet'
 
 # Check blockchain services on aitbc server
-ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-node'
-ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc'
+ssh aitbc 'systemctl status aitbc-blockchain-node'
+ssh aitbc 'systemctl status aitbc-blockchain-rpc'
 
 # Check development services on aitbc server
-ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-node-dev'
-ssh aitbc-cascade 'sudo systemctl status aitbc-blockchain-rpc-dev'
+ssh aitbc 'systemctl status aitbc-blockchain-node-dev'
+ssh aitbc 'systemctl status aitbc-blockchain-rpc-dev'
 ```
 
 #### **Port Distribution Strategy (Updated March 7, 2026)**
@@ -173,21 +173,21 @@ AITBC Platform Architecture (Updated March 7, 2026)
 #### 1.1 System Preparation
 ```bash
 # Update system packages
-sudo apt update && sudo apt upgrade -y
+apt update && apt upgrade -y
 
 # Install required packages
-sudo apt install -y python3.13 python3.13-venv python3-pip nodejs npm nginx sqlite3
+apt install -y python3.13 python3.13-venv python3-pip nodejs npm nginx sqlite3
 
 # Create aitbc user
-sudo useradd -m -s /bin/bash aitbc
-sudo usermod -aG sudo aitbc
+useradd -m -s /bin/bash aitbc
+usermod -aG sudo aitbc
 ```
 
 #### 1.2 Directory Structure
 ```bash
 # Create AITBC directory structure (standardized)
-sudo mkdir -p /opt/aitbc/{apps,config,logs,scripts,backups}
-sudo chown -R aitbc:aitbc /opt/aitbc
+mkdir -p /opt/aitbc/{apps,config,logs,scripts,backups}
+chown -R aitbc:aitbc /opt/aitbc
 ```
 
 #### 1.3 Code Deployment
@@ -200,8 +200,8 @@ git clone https://github.com/oib/AITBC.git .
 # scp -r /path/to/aitbc/* aitbc@target:/opt/aitbc/
 
 # Set permissions (standardized)
-sudo chown -R aitbc:aitbc /opt/aitbc
-sudo chmod -R 755 /opt/aitbc
+chown -R aitbc:aitbc /opt/aitbc
+chmod -R 755 /opt/aitbc
 ```
 
 ### **Phase 2: Service Configuration**
@@ -245,26 +245,26 @@ chown aitbc:aitbc .env
 #### 2.3 Systemd Service Installation
 ```bash
 # Copy service files (updated for new port logic)
-sudo cp -r /opt/aitbc/systemd/* /etc/systemd/system/
-sudo systemctl daemon-reload
+cp -r /opt/aitbc/systemd/* /etc/systemd/system/
+systemctl daemon-reload
 
 # Enable core services
-sudo systemctl enable aitbc-coordinator-api.service
-sudo systemctl enable aitbc-exchange-api.service
-sudo systemctl enable aitbc-blockchain-node.service
-sudo systemctl enable aitbc-blockchain-rpc.service
-sudo systemctl enable aitbc-blockchain-service.service
-sudo systemctl enable aitbc-network-service.service
-sudo systemctl enable aitbc-explorer.service
+systemctl enable aitbc-coordinator-api.service
+systemctl enable aitbc-exchange-api.service
+systemctl enable aitbc-blockchain-node.service
+systemctl enable aitbc-blockchain-rpc.service
+systemctl enable aitbc-blockchain-service.service
+systemctl enable aitbc-network-service.service
+systemctl enable aitbc-explorer.service
 
 # Enable enhanced services (CPU-only mode)
-sudo systemctl enable aitbc-multimodal-gpu.service
-sudo systemctl enable aitbc-multimodal.service
-sudo systemctl enable aitbc-modality-optimization.service
-sudo systemctl enable aitbc-adaptive-learning.service
-sudo systemctl enable aitbc-marketplace-enhanced.service
-sudo systemctl enable aitbc-openclaw-enhanced.service
-sudo systemctl enable aitbc-loadbalancer-geo.service
+systemctl enable aitbc-multimodal-gpu.service
+systemctl enable aitbc-multimodal.service
+systemctl enable aitbc-modality-optimization.service
+systemctl enable aitbc-adaptive-learning.service
+systemctl enable aitbc-marketplace-enhanced.service
+systemctl enable aitbc-openclaw-enhanced.service
+systemctl enable aitbc-loadbalancer-geo.service
 ```
 
 ### **Phase 3: Service Deployment**
@@ -272,43 +272,43 @@ sudo systemctl enable aitbc-loadbalancer-geo.service
 #### 3.1 Core Services Startup
 ```bash
 # Start core services in order
-sudo systemctl start aitbc-coordinator-api.service
+systemctl start aitbc-coordinator-api.service
 sleep 3
-sudo systemctl start aitbc-exchange-api.service
+systemctl start aitbc-exchange-api.service
 sleep 3
-sudo systemctl start aitbc-blockchain-node.service
+systemctl start aitbc-blockchain-node.service
 sleep 3
-sudo systemctl start aitbc-blockchain-rpc.service
+systemctl start aitbc-blockchain-rpc.service
 sleep 3
-sudo systemctl start aitbc-blockchain-service.service
+systemctl start aitbc-blockchain-service.service
 sleep 3
-sudo systemctl start aitbc-network-service.service
+systemctl start aitbc-network-service.service
 sleep 3
-sudo systemctl start aitbc-explorer.service
+systemctl start aitbc-explorer.service
 ```
 
 #### 3.2 Enhanced Services Startup
 ```bash
 # Start enhanced services (CPU-only mode)
-sudo systemctl start aitbc-multimodal-gpu.service
+systemctl start aitbc-multimodal-gpu.service
 sleep 2
-sudo systemctl start aitbc-multimodal.service
+systemctl start aitbc-multimodal.service
 sleep 2
-sudo systemctl start aitbc-modality-optimization.service
+systemctl start aitbc-modality-optimization.service
 sleep 2
-sudo systemctl start aitbc-adaptive-learning.service
+systemctl start aitbc-adaptive-learning.service
 sleep 2
-sudo systemctl start aitbc-marketplace-enhanced.service
+systemctl start aitbc-marketplace-enhanced.service
 sleep 2
-sudo systemctl start aitbc-openclaw-enhanced.service
+systemctl start aitbc-openclaw-enhanced.service
 sleep 2
-sudo systemctl start aitbc-loadbalancer-geo.service
+systemctl start aitbc-loadbalancer-geo.service
 ```
 
 #### 3.3 Service Verification
 ```bash
 # Check service status
-sudo systemctl list-units --type=service --state=running | grep aitbc
+systemctl list-units --type=service --state=running | grep aitbc
 
 # Test core endpoints
 curl -X GET "http://localhost:8000/health"    # Coordinator API
@@ -352,13 +352,13 @@ PRAGMA temp_store = MEMORY;
 EOF
 
 # System limits
-echo "aitbc soft nofile 65536" | sudo tee -a /etc/security/limits.conf
-echo "aitbc hard nofile 65536" | sudo tee -a /etc/security/limits.conf
+echo "aitbc soft nofile 65536" | tee -a /etc/security/limits.conf
+echo "aitbc hard nofile 65536" | tee -a /etc/security/limits.conf
 
 # Network optimization
-echo "net.core.somaxconn = 1024" | sudo tee -a /etc/sysctl.conf
-echo "net.ipv4.tcp_max_syn_backlog = 1024" | sudo tee -a /etc/sysctl.conf
-sudo sysctl -p
+echo "net.core.somaxconn = 1024" | tee -a /etc/sysctl.conf
+echo "net.ipv4.tcp_max_syn_backlog = 1024" | tee -a /etc/sysctl.conf
+sysctl -p
 ```
 
 #### 4.3 Monitoring Setup
@@ -417,7 +417,7 @@ chown aitbc:aitbc /opt/aitbc/scripts/monitor-services.sh
 #### Service Not Starting
 ```bash
 # Check service logs
-sudo journalctl -u aitbc-coordinator-api.service -n 50
+journalctl -u aitbc-coordinator-api.service -n 50
 
 # Check Python environment (must be 3.13+)
 cd /opt/aitbc/apps/coordinator-api
@@ -443,14 +443,14 @@ mv /opt/aitbc/apps/coordinator-api/aitbc_coordinator.db /opt/aitbc/apps/coordina
 #### Port Conflicts (New Port Logic)
 ```bash
 # Check port usage (new port logic)
-sudo netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8014|8015|8016|8017)"
+netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8014|8015|8016|8017)"
 
 # Kill conflicting processes
-sudo fuser -k 8000/tcp  # Core services
-sudo fuser -k 8010/tcp  # Enhanced services
+fuser -k 8000/tcp  # Core services
+fuser -k 8010/tcp  # Enhanced services
 
 # Restart services
-sudo systemctl restart aitbc-coordinator-api.service
+systemctl restart aitbc-coordinator-api.service
 ```
 
 #### Container Access Issues
@@ -460,16 +460,16 @@ curl -s http://localhost:8017/health  # Should work
 curl -s http://10.1.223.1:8017/health  # Should work from containers
 
 # Check service binding
-sudo netstat -tlnp | grep :8017  # Should show 0.0.0.0:8017
+netstat -tlnp | grep :8017  # Should show 0.0.0.0:8017
 ```
 
 #### Permission Issues
 ```bash
 # Fix file ownership (standardized)
-sudo chown -R aitbc:aitbc /opt/aitbc
+chown -R aitbc:aitbc /opt/aitbc
 
 # Fix file permissions
-sudo chmod -R 755 /opt/aitbc
+chmod -R 755 /opt/aitbc
 chmod 600 /opt/aitbc/apps/coordinator-api/.env
 ```
 

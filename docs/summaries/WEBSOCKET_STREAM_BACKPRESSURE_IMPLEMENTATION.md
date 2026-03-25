@@ -213,7 +213,7 @@ async def _sender_loop(self):
 - **`apps/coordinator-api/src/app/services/multi_modal_websocket_fusion.py`** - Multi-modal fusion with backpressure
 
 ### **Testing**
-- **`tests/test_websocket_backpressure_core.py`** - Comprehensive test suite
+- **`tests/websocket/test_websocket_backpressure_core.py`** - Comprehensive test suite
 - **Mock implementations** for testing without dependencies
 
 ### **Documentation**
