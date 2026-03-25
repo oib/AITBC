@@ -193,9 +193,9 @@ server {
 #### **Services Not Starting**
 ```bash
 # Check service status
-sudo systemctl status aitbc-cross-chain-reputation
-sudo systemctl status aitbc-agent-communication
-sudo systemctl status aitbc-advanced-learning
+systemctl status aitbc-cross-chain-reputation
+systemctl status aitbc-agent-communication
+systemctl status aitbc-advanced-learning
 
 # Check logs
 sudo journalctl -u aitbc-cross-chain-reputation
@@ -206,7 +206,7 @@ sudo journalctl -u aitbc-advanced-learning
 #### **Nginx Issues**
 ```bash
 # Check nginx status
-sudo systemctl status nginx
+systemctl status nginx
 
 # Test configuration
 sudo nginx -t
@@ -224,7 +224,7 @@ ls -la /var/www/aitbc.bubuit.net/
 sudo nginx -t
 
 # Restart nginx
-sudo systemctl restart nginx
+systemctl restart nginx
 ```
 
 ### 📞 **Support Contacts**

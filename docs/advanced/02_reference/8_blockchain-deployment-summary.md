@@ -26,12 +26,12 @@ Successfully deployed two independent AITBC blockchain nodes on the same server 
 ### Systemd Services
 ```bash
 # Node 1
-sudo systemctl status blockchain-node    # Consensus node
-sudo systemctl status blockchain-rpc     # RPC API
+systemctl status blockchain-node    # Consensus node
+systemctl status blockchain-rpc     # RPC API
 
 # Node 2
-sudo systemctl status blockchain-node-2  # Consensus node
-sudo systemctl status blockchain-rpc-2   # RPC API
+systemctl status blockchain-node-2  # Consensus node
+systemctl status blockchain-rpc-2   # RPC API
 ```
 
 ### API Endpoints
