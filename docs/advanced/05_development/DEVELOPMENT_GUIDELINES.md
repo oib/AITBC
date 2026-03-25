@@ -11,7 +11,7 @@
 - `pyproject.toml` - Python project configuration
 - `poetry.lock` - Dependency lock file
 - `pytest.ini` - Test configuration
-- `run_all_tests.sh` - Main test runner
+- `scripts/testing/run_all_tests.sh` - Main test runner
 
 ### Development Scripts → `dev/scripts/`
 ```bash

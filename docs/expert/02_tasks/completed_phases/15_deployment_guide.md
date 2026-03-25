@@ -209,21 +209,21 @@ server {
 
 ```bash
 # Enable and start services
-sudo systemctl enable aitbc-reputation
-sudo systemctl enable aitbc-rewards
-sudo systemctl enable aitbc-trading
-sudo systemctl enable aitbc-analytics
-sudo systemctl enable aitbc-certification
+systemctl enable aitbc-reputation
+systemctl enable aitbc-rewards
+systemctl enable aitbc-trading
+systemctl enable aitbc-analytics
+systemctl enable aitbc-certification
 
 # Start services
-sudo systemctl start aitbc-reputation
-sudo systemctl start aitbc-rewards
-sudo systemctl start aitbc-trading
-sudo systemctl start aitbc-analytics
-sudo systemctl start aitbc-certification
+systemctl start aitbc-reputation
+systemctl start aitbc-rewards
+systemctl start aitbc-trading
+systemctl start aitbc-analytics
+systemctl start aitbc-certification
 
 # Check status
-sudo systemctl status aitbc-*
+systemctl status aitbc-*
 ```
 
 ## Configuration Details
@@ -588,7 +588,7 @@ CACHE_CONFIG = {
 1. **Database Connection Errors**
    ```bash
    # Check PostgreSQL status
-   sudo systemctl status postgresql
+   systemctl status postgresql
    
    # Check connection
    psql -h localhost -U aitbc_user -d aitbc_economics
@@ -667,10 +667,10 @@ curl -f http://localhost:8000/health || echo "Health check failed"
 
 ```bash
 # Rollback to previous version
-sudo systemctl stop aitbc-*
+systemctl stop aitbc-*
 git checkout previous_version_tag
 pip install -r requirements.txt
-sudo systemctl start aitbc-*
+systemctl start aitbc-*
 ```
 
 ### Database Rollback

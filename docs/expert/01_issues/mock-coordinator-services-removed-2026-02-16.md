@@ -23,23 +23,23 @@ Historical development setup included mock coordinator services for testing purp
 ### 1. Localhost Cleanup
 ```bash
 # Stop and disable mock service
-sudo systemctl stop aitbc-mock-coordinator.service
-sudo systemctl disable aitbc-mock-coordinator.service
+systemctl stop aitbc-mock-coordinator.service
+systemctl disable aitbc-mock-coordinator.service
 
 # Remove service file
-sudo rm /etc/systemd/system/aitbc-mock-coordinator.service
-sudo systemctl daemon-reload
+rm /etc/systemd/system/aitbc-mock-coordinator.service
+systemctl daemon-reload
 ```
 
 ### 2. AITBC Server Cleanup
 ```bash
 # Stop and disable mock service
-ssh aitbc-cascade "systemctl stop aitbc-coordinator.service"
-ssh aitbc-cascade "systemctl disable aitbc-coordinator.service"
+ssh aitbc "systemctl stop aitbc-coordinator.service"
+ssh aitbc "systemctl disable aitbc-coordinator.service"
 
 # Remove service file
-ssh aitbc-cascade "rm /etc/systemd/system/aitbc-coordinator.service"
-ssh aitbc-cascade "systemctl daemon-reload"
+ssh aitbc "rm /etc/systemd/system/aitbc-coordinator.service"
+ssh aitbc "systemctl daemon-reload"
 ```
 
 ### 3. Production Service Verification
