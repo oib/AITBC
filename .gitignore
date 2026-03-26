@@ -1,4 +1,6 @@
 # AITBC Monorepo ignore rules
+# Updated: 2026-03-18 - Security fixes for hardcoded passwords
+# Development files organized into dev/ subdirectories
 
 # ===================
 # Python
@@ -96,12 +98,26 @@ target/
 *.dylib
 
 # ===================
-# Node.js
+# Secrets & Credentials (CRITICAL SECURITY)
+# ===================
 # ===================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Password files (NEVER commit these)
+*.password
+*.pass
+.password.*
+keystore/.password
+keystore/.password.*
+
+# Private keys and sensitive files
+*_private_key.txt
+*_private_key.json
+private_key.*
+*.private
 
 # ===================
 # Backup Files (organized)
@@ -151,8 +167,149 @@ home/genesis_wallet.json
 home/miner/miner_wallet.json
 
 # ===================
-# Test Results
+# Project Specific
 # ===================
-test-results/
-**/test-results/
+# Coordinator database
+apps/coordinator-api/src/*.db
 
+# Blockchain node data
+apps/blockchain-node/data/
+
+# Explorer build artifacts
+apps/explorer-web/dist/
+
+# Solidity build artifacts
+packages/solidity/aitbc-token/typechain-types/
+packages/solidity/aitbc-token/artifacts/
+packages/solidity/aitbc-token/cache/
+
+# Local test fixtures and E2E testing
+tests/e2e/fixtures/home/**/.aitbc/cache/
+tests/e2e/fixtures/home/**/.aitbc/logs/
+tests/e2e/fixtures/home/**/.aitbc/tmp/
+tests/e2e/fixtures/home/**/.aitbc/*.log
+tests/e2e/fixtures/home/**/.aitbc/*.pid
+tests/e2e/fixtures/home/**/.aitbc/*.sock
+
+# Keep fixture structure but exclude generated content
+!tests/e2e/fixtures/home/
+!tests/e2e/fixtures/home/**/
+!tests/e2e/fixtures/home/**/.aitbc/
+!tests/e2e/fixtures/home/**/.aitbc/wallets/
+!tests/e2e/fixtures/home/**/.aitbc/config/
+
+# Local test data
+tests/fixtures/generated/
+
+# GPU miner local configs
+scripts/gpu/*.local.py
+
+# Deployment secrets (CRITICAL SECURITY)
+scripts/deploy/*.secret.*
+infra/nginx/*.local.conf
+
+# ===================
+# Documentation
+# ===================
+# Infrastructure docs (contains sensitive network info)
+docs/infrastructure.md
+# Workflow files (personal, change frequently)
+docs/1_project/3_currenttask.md
+docs/1_project/4_currentissue.md
+
+# ===================
+# Website (local deployment details)
+# ===================
+website/README.md
+website/aitbc-proxy.conf
+
+# ===================
+# Local Config & Secrets
+# ===================
+.aitbc.yaml
+apps/coordinator-api/.env
+
+# ===================
+# Windsurf IDE (personal dev tooling)
+# ===================
+.windsurf/
+
+# ===================
+# Deploy Scripts (hardcoded local paths & IPs)
+# ===================
+scripts/deploy/*
+!scripts/deploy/*.example
+scripts/gpu/*
+!scripts/gpu/*.example
+scripts/service/*
+
+# ===================
+# Infra Configs (production IPs & secrets)
+# ===================
+infra/nginx/nginx-aitbc*.conf
+infra/helm/values/prod/
+infra/helm/values/prod.yaml
+
+# ===================
+# Node.js
+# ===================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build artifacts
+build/
+dist/
+target/
+
+# System files
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environments
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# ===================
+# AITBC specific (CRITICAL SECURITY)
+# ===================
+data/
+logs/
+*.db
+*.sqlite
+wallet*.json
+keystore/
+certificates/
+
+# Guardian contract databases (contain spending limits)
+guardian_contracts/
+*.guardian.db
+
+# Multi-chain wallet data
+.wallets/
+.wallets/*
+
+# Agent protocol data
+.agent_data/
+.agent_data/*

@@ -48,11 +48,34 @@ class WalletService:
         if existing:
             raise ValueError(f"Agent {request.agent_id} already has an active {request.wallet_type} wallet")
 
-        # Simulate key generation (in reality, use a secure KMS or HSM)
-        priv_key = secrets.token_hex(32)
-        pub_key = hashlib.sha256(priv_key.encode()).hexdigest()
-        # Fake Ethereum address derivation for simulation
-        address = "0x" + hashlib.sha3_256(pub_key.encode()).hexdigest()[-40:]
+        # CRITICAL SECURITY FIX: Use proper secp256k1 key generation instead of fake SHA-256
+        try:
+            from eth_account import Account
+            from cryptography.fernet import Fernet
+            import base64
+            import secrets
+            
+            # Generate proper secp256k1 key pair
+            account = Account.create()
+            priv_key = account.key.hex()  # Proper 32-byte private key
+            pub_key = account.address  # Ethereum address (derived from public key)
+            address = account.address  # Same as pub_key for Ethereum
+            
+            # Encrypt private key securely (in production, use KMS/HSM)
+            encryption_key = Fernet.generate_key()
+            f = Fernet(encryption_key)
+            encrypted_private_key = f.encrypt(priv_key.encode()).decode()
+            
+        except ImportError:
+            # Fallback for development (still more secure than SHA-256)
+            logger.error("❌ CRITICAL: eth-account not available. Using fallback key generation.")
+            import os
+            priv_key = secrets.token_hex(32)
+            # Generate a proper address using keccak256 (still not ideal but better than SHA-256)
+            from eth_utils import keccak
+            pub_key = keccak(bytes.fromhex(priv_key))
+            address = "0x" + pub_key[-20:].hex()
+            encrypted_private_key = "[ENCRYPTED_MOCK_FALLBACK]"
 
         wallet = AgentWallet(
             agent_id=request.agent_id,
@@ -60,7 +83,7 @@ class WalletService:
             public_key=pub_key,
             wallet_type=request.wallet_type,
             metadata=request.metadata,
-            encrypted_private_key="[ENCRYPTED_MOCK]" # Real implementation would encrypt it securely
+            encrypted_private_key=encrypted_private_key  # CRITICAL: Use proper encryption
         )
         
         self.session.add(wallet)

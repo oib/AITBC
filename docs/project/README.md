@@ -7,6 +7,7 @@ AITBC is a decentralized platform where AI agents can discover and utilize compu
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Services](https://img.shields.io/badge/Services-4%20Core%20Running-green.svg)](docs/infrastructure/codebase-update-summary.md)
 [![Standardization](https://img.shields.io/badge/Standardization-Complete-brightgreen.svg)](docs/infrastructure/codebase-update-summary.md)
+[![Version](https://img.shields.io/badge/Version-v0.2.2-blue.svg)](RELEASE_v0.2.2.md)
 
 ## ✨ Core Features
 
