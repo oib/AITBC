@@ -111,7 +111,7 @@ dependencies = [
     "httpx==0.28.1",
     "pydantic==2.12.5",
     "pyyaml==6.0.3",
-    "rich==13.7.0",
+    "rich==14.3.3",
     "keyring==25.7.0",
     "cryptography==46.0.5",
     "click-completion==0.5.2",
@@ -142,16 +142,16 @@ classifiers = [
 dev = [
     "pytest==9.0.2",
     "pytest-asyncio==0.21.1",
-    "pytest-cov==7.0.0",
+    "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "black==24.3.0",
 "isort==8.0.1",
-    "ruff==0.15.5",
+    "ruff==0.15.7",
     "mypy>=1.19.1,<2.0.0",
     "bandit==1.7.5",
     "types-requests==2.31.0",
     "types-setuptools==69.0.0",
-    "types-PyYAML==6.0.12",
+    "types-PyYAML==6.0.12.20250915",
     "sqlalchemy[mypy]==2.0.25"
 ]
 
