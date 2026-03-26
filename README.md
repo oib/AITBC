@@ -370,10 +370,10 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - **🐛 [Issues](https://github.com/oib/AITBC/issues)** - Report bugs
 - **💡 [Discussions](https://github.com/oib/AITBC/discussions)** - Feature requests
 
-### **📞 Contact:**
-- **📧 Email**: support@aitbc.net
-- **🌐 Website**: https://aitbc.net
-- **📱 Twitter**: @AITBC_Official
+### **📞 Contact & Connect:**
+- **🌊 Windsurf**: [https://windsurf.com/refer?referral_code=4j75hl1x7ibz3yj8](https://windsurf.com/refer?referral_code=4j75hl1x7ibz3yj8)
+- **🐦 X**: [@bubuIT_net](https://x.com/bubuIT_net)
+- **� Email**: support@aitbc.net
 
 ---
 
@@ -457,4 +457,4 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ---
 
-*🚀 [AITBC](https://aitbc.net) - Building the future of AI and blockchain*
+*🚀 AITBC - Building the future of AI and blockchain*
