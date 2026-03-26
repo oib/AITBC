@@ -1,0 +1,199 @@
+# Beginner Documentation
+
+**Level**: Beginner  
+**Prerequisites**: Basic computer skills  
+**Estimated Time**: 1-2 hours per topic  
+
+## 🎯 **Welcome to AITBC!**
+
+This section is designed for newcomers to the AITBC ecosystem. Whether you're a developer, user, or administrator, this beginner-friendly content will help you get started with confidence.
+
+---
+
+## 📚 **Beginner Learning Path:**
+
+Follow these steps in order for the best learning experience:
+
+### **1️⃣ 01_getting_started** 
+- **Content**: First steps with AITBC
+- **Topics**:
+  - What is AITBC?
+  - Installation guide
+  - Basic concepts
+  - Your first transaction
+- **Time**: 1-2 hours
+- **Difficulty**: ⭐⭐
+
+### **2️⃣ 02_project**
+- **Content**: Understanding the project structure
+- **Topics**:
+  - Project overview
+  - File organization
+  - Key components
+  - Development workflow
+- **Time**: 1-2 hours
+- **Difficulty**: ⭐⭐
+
+### **3️⃣ 03_clients**
+- **Content**: Using AITBC clients
+- **Topics**:
+  - Client types
+  - Wallet setup
+  - Basic operations
+  - Security basics
+- **Time**: 2-3 hours
+- **Difficulty**: ⭐⭐⭐
+
+### **4️⃣ 04_miners**
+- **Content**: Mining and validation
+- **Topics**:
+  - Mining concepts
+  - Setting up a miner
+  - Rewards and incentives
+  - Mining best practices
+- **Time**: 2-3 hours
+- **Difficulty**: ⭐⭐⭐
+
+### **5️⃣ 05_cli**
+- **Content**: Command Line Interface
+- **Topics**:
+  - CLI installation
+  - Basic commands
+  - Common operations
+  - Troubleshooting
+- **Time**: 1-2 hours
+- **Difficulty**: ⭐⭐
+
+### **6️⃣ 06_github_resolution**
+- **Content**: Working with GitHub
+- **Topics**:
+  - Git basics
+  - Contributing guidelines
+  - Issue reporting
+  - Code submission
+- **Time**: 1-2 hours
+- **Difficulty**: ⭐⭐
+
+---
+
+## 🎯 **Recommended Learning Paths:**
+
+### **👤 For End Users:**
+1. Getting Started → Clients → CLI
+2. **Focus**: Using AITBC effectively
+3. **Skip**: Mining, GitHub (optional)
+
+### **👨‍💻 For Developers:**
+1. Getting Started → Project → CLI → GitHub
+2. **Focus**: Development workflow
+3. **Skip**: Mining (optional)
+
+### **⛏️ For Miners:**
+1. Getting Started → Clients → Miners
+2. **Focus**: Mining operations
+3. **Skip**: Project, GitHub (optional)
+
+### **🔧 For System Administrators:**
+1. Getting Started → Project → CLI
+2. **Focus**: System management
+3. **Skip**: Mining, GitHub (optional)
+
+---
+
+## 🔗 **Quick Links:**
+
+- **🚀 Start Here**: [01_getting_started](01_getting_started/)
+- **💻 CLI Guide**: [05_cli](05_cli/)
+- **🛠️ Project Overview**: [02_project](02_project/)
+- **👛 Client Setup**: [03_clients](03_clients/)
+
+---
+
+## 📋 **Before You Start:**
+
+### **Prerequisites:**
+- [ ] Basic computer skills
+- [ ] Internet connection
+- [ ] Command line familiarity (helpful)
+- [ ] Curiosity and patience!
+
+### **What You'll Learn:**
+- [ ] What AITBC is and how it works
+- [ ] How to install and configure AITBC
+- [ ] Basic operations and transactions
+- [ ] How to use the CLI effectively
+- [ ] Where to find help and support
+
+---
+
+## 🎉 **Learning Tips:**
+
+### **💡 Best Practices:**
+- **Take your time** - don't rush through topics
+- **Try the examples** - hands-on learning works best
+- **Ask questions** - join the community forums
+- **Take notes** - reinforce your learning
+- **Practice regularly** - use what you learn
+
+### **⚠️ Common Mistakes:**
+- Skipping prerequisites
+- Not practicing examples
+- Working too quickly
+- Not asking for help when stuck
+
+---
+
+## 🆘 **Getting Help:**
+
+### **Community Resources:**
+- **Discord**: [AITBC Discord](https://discord.gg/aitbc)
+- **Forum**: [AITBC Forum](https://forum.aitbc.net)
+- **Telegram**: [AITBC Telegram](https://t.me/aitbc)
+
+### **Official Resources:**
+- **Documentation**: [AITBC Docs](https://docs.aitbc.net)
+- **Website**: [AITBC Website](https://aitbc.net)
+- **GitHub**: [AITBC GitHub](https://github.com/oib/AITBC)
+
+### **Support Channels:**
+- **Help Desk**: [AITBC Support](https://support.aitbc.net)
+- **Bug Reports**: [GitHub Issues](https://github.com/oib/AITBC/issues)
+- **Feature Requests**: [GitHub Discussions](https://github.com/oib/AITBC/discussions)
+
+---
+
+## 🚀 **What's Next?**
+
+After completing the beginner path, you can:
+
+1. **📈 Move to Intermediate**: `/docs/intermediate/`
+2. **🔧 Explore Advanced**: `/docs/advanced/`
+3. **👥 Join Community**: Participate in discussions
+4. **🤝 Contribute**: Help improve AITBC
+
+---
+
+## 📊 **Progress Tracking:**
+
+Track your learning progress:
+
+```
+[ ] 01_getting_started - Completed
+[ ] 02_project - Completed  
+[ ] 03_clients - Completed
+[ ] 04_miners - Completed
+[ ] 05_cli - Completed
+[ ] 06_github_resolution - Completed
+```
+
+---
+
+**Welcome to the AITBC community!** 🎉
+
+We're excited to have you on board. Take your time, ask questions, and enjoy learning about the future of decentralized AI trading.
+
+---
+
+*Last updated: 2026-03-26*  
+*Level: Beginner*  
+*Total estimated time: 8-15 hours*
