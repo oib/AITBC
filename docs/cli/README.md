@@ -1,39 +1,107 @@
-# CLI Documentation
+# AITBC CLI Documentation
 
-**Generated**: 2026-03-08 13:06:38
-**Total Files**: 20
-**Documented Files**: 19
-**Other Files**: 1
+**Updated**: 2026-03-26  
+**Status**: Active Development - CLI Design Principles Applied  
+**Structure**: Consolidated and Organized  
 
-## Documented Files (Converted from Analysis)
+## 📁 Documentation Structure
 
-- [AITBC CLI Command Checklist](documented_AITBC_CLI_Command_Checklist.md)
-- [AITBC Exchange Infrastructure & Market Ecosystem Implementation Strategy](documented_AITBC_Exchange_Infrastructure___Market_Ecosystem_I.md)
-- [API Endpoint Fixes Summary](documented_API_Endpoint_Fixes_Summary.md)
-- [Advanced Analytics Platform - Technical Implementation Analysis](documented_Advanced_Analytics_Platform_-_Technical_Implementa.md)
-- [Backend Implementation Status - March 5, 2026](documented_Backend_Implementation_Status_-_March_5__2026.md)
-- [Blockchain Balance Multi-Chain Enhancement](documented_Blockchain_Balance_Multi-Chain_Enhancement.md)
-- [CLI Command Fixes Summary - March 5, 2026](documented_CLI_Command_Fixes_Summary_-_March_5__2026.md)
-- [CLI Help Availability Update Summary](documented_CLI_Help_Availability_Update_Summary.md)
-- [CLI Test Execution Results - March 5, 2026](documented_CLI_Test_Execution_Results_-_March_5__2026.md)
-- [Complete Multi-Chain Fixes Needed Analysis](documented_Complete_Multi-Chain_Fixes_Needed_Analysis.md)
-- [Current Issues - Phase 8: Global AI Power Marketplace Expansion](documented_Current_Issues_-_Phase_8__Global_AI_Power_Marketpl.md)
-- [Current Issues Update - Exchange Infrastructure Gap Identified](documented_Current_Issues_Update_-_Exchange_Infrastructure_Ga.md)
-- [Nginx Configuration Update Summary - March 5, 2026](documented_Nginx_Configuration_Update_Summary_-_March_5__2026.md)
-- [Phase 1 Multi-Chain Enhancement Completion](documented_Phase_1_Multi-Chain_Enhancement_Completion.md)
-- [Phase 2 Multi-Chain Enhancement Completion](documented_Phase_2_Multi-Chain_Enhancement_Completion.md)
-- [Phase 3 Multi-Chain Enhancement Completion](documented_Phase_3_Multi-Chain_Enhancement_Completion.md)
-- [Production Monitoring & Observability - Technical Implementation Analysis](documented_Production_Monitoring___Observability_-_Technical_.md)
-- [Real Exchange Integration - Technical Implementation Analysis](documented_Real_Exchange_Integration_-_Technical_Implementati.md)
-- [Trading Surveillance System - Technical Implementation Analysis](documented_Trading_Surveillance_System_-_Technical_Implementa.md)
+### 🚀 [Main CLI Guide](README.md)
+- Installation and setup
+- Quick start guide
+- Command reference
+- Configuration
 
-## Other Documentation Files
+### 📚 [Implementation Documentation](implementation/)
+- [Agent Communication Implementation](implementation/AGENT_COMMUNICATION_IMPLEMENTATION_SUMMARY.md)
+- [Analytics Implementation](implementation/ANALYTICS_IMPLEMENTATION_SUMMARY.md)  
+- [Deployment Implementation](implementation/DEPLOYMENT_IMPLEMENTATION_SUMMARY.md)
+- [Marketplace Implementation](implementation/MARKETPLACE_IMPLEMENTATION_SUMMARY.md)
+- [Multi-Chain Implementation](implementation/MULTICHAIN_IMPLEMENTATION_SUMMARY.md)
 
-- [CLI Documentation](README.md)
+### 📊 [Analysis & Reports](analysis/)
+- [CLI Wallet Daemon Integration](analysis/CLI_WALLET_DAEMON_INTEGRATION_SUMMARY.md)
+- [Implementation Complete Summary](analysis/IMPLEMENTATION_COMPLETE_SUMMARY.md)
+- [Localhost Only Enforcement](analysis/LOCALHOST_ONLY_ENFORCEMENT_SUMMARY.md)
+- [Node Integration](analysis/NODE_INTEGRATION_SUMMARY.md)
+- [Wallet Chain Connection](analysis/WALLET_CHAIN_CONNECTION_SUMMARY.md)
 
+### 🛠️ [Installation & Setup Guides](guides/)
+- [Quick Install Guide](guides/QUICK_INSTALL_GUIDE.md)
+- [Local Package README](guides/LOCAL_PACKAGE_README.md)
+- [CLI Test Results](guides/CLI_TEST_RESULTS.md)
 
-## Category Overview
-This section contains all documentation related to cli documentation. The documented files have been automatically converted from completed planning analysis files.
+### 🗃️ [Legacy Documentation](legacy/)
+Historical documentation from previous development phases. Retained for reference but may contain outdated information.
 
 ---
-*Auto-generated index*
+
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/aitbc/aitbc.git
+cd aitbc/cli
+
+# Install in development mode (flat structure)
+pip install -e .
+
+# Or use the virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -e .
+```
+
+### Basic Usage
+
+```bash
+# Check CLI is working
+aitbc --help
+
+# Set up API key
+export AITBC_API_KEY=your_api_key_here
+aitbc config set api_key your_api_key_here
+
+# Check wallet balance
+aitbc wallet balance
+
+# Submit a job
+aitbc client submit --prompt "Generate an image" --model llama2
+
+# Check miner status
+aitbc miner status
+```
+
+---
+
+## 🎯 Recent Changes (2026-03-26)
+
+### ✅ CLI Design Principles Applied
+- **Removed embedded servers** - CLI now controls services instead of hosting them
+- **Flattened directory structure** - Eliminated "box in a box" nesting
+- **Simplified HTTP clients** - Replaced async pools with basic calls
+- **Removed blocking loops** - Single status checks instead of infinite monitoring
+- **No auto-opening browsers** - Provides URLs for user control
+- **Removed system calls** - CLI provides instructions instead of executing
+
+### 📁 Documentation Consolidation
+- **Merged** `/cli/docs` into `/docs/cli` for single source of truth
+- **Organized** into implementation, analysis, guides, and legacy sections
+- **Updated** installation instructions for flat structure
+- **Purged** duplicate and outdated documentation
+
+---
+
+## 🔗 Related Documentation
+
+- [Main AITBC Documentation](../README.md)
+- [Project File Structure](../1_project/1_files.md)
+- [Development Roadmap](../1_project/2_roadmap.md)
+
+---
+
+*Last updated: 2026-03-26*  
+*CLI Version: 0.2.0*  
+*Python: 3.13.5+*
