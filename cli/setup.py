@@ -8,7 +8,7 @@ import os
 
 # Read README file
 def read_readme():
-    with open("README.md", "r", encoding="utf-8") as fh:
+    with open("docs/README.md", "r", encoding="utf-8") as fh:
         return fh.read()
 
 # Read requirements
@@ -57,7 +57,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "aitbc=main:main",
+            "aitbc=core.main:main",
         ],
     },
     include_package_data=True,

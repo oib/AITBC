@@ -11,8 +11,8 @@ from pathlib import Path
 import httpx
 from dataclasses import dataclass
 
-from .utils import error, success
-from .config import Config
+from utils import error, success
+from config import Config
 
 
 @dataclass
