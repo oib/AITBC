@@ -1,5 +1,18 @@
-"""AITBC CLI - Command Line Interface for AITBC Network"""
+#!/usr/bin/env python3
+"""
+AITBC CLI - Main entry point for CLI
+Redirects to the core main module
+"""
 
-__version__ = "0.1.0"
-__author__ = "AITBC Team"
-__email__ = "team@aitbc.net"
+import sys
+from pathlib import Path
+
+# Add CLI directory to Python path
+CLI_DIR = Path(__file__).parent
+sys.path.insert(0, str(CLI_DIR))
+
+# Import and run the main CLI
+from core.main import main
+
+if __name__ == '__main__':
+    main()
