@@ -105,22 +105,23 @@ Last updated: 2026-03-25
 
 | Path | Status | Notes |
 |------|--------|-------|
-| `cli/aitbc_cli/commands/client.py` | ✅ Active | Client CLI (submit, batch-submit, templates, history) |
-| `cli/aitbc_cli/commands/miner.py` | ✅ Active | Miner CLI (register, earnings, capabilities, concurrent) |
-| `cli/aitbc_cli/commands/wallet.py` | ✅ Active | Wallet CLI (balance, staking, multisig, backup/restore) |
-| `cli/aitbc_cli/commands/auth.py` | ✅ Active | Auth CLI (login, tokens, API keys) |
-| `cli/aitbc_cli/commands/blockchain.py` | ✅ Active | Blockchain queries |
-| `cli/aitbc_cli/commands/marketplace.py` | ✅ Active | GPU marketplace operations |
-| `cli/aitbc_cli/commands/admin.py` | ✅ Active | System administration, audit logging |
-| `cli/aitbc_cli/commands/config.py` | ✅ Active | Configuration, profiles, encrypted secrets |
-| `cli/aitbc_cli/commands/monitor.py` | ✅ Active | Dashboard, metrics, alerts, webhooks |
-| `cli/aitbc_cli/commands/simulate.py` | ✅ Active | Test simulation framework |
-| `cli/aitbc_cli/plugins.py` | ✅ Active | Plugin system for custom commands |
-| `cli/aitbc_cli/main.py` | ✅ Active | CLI entry point (12 command groups) |
+| `cli/commands/client.py` | ✅ Active | Client CLI (submit, batch-submit, templates, history) |
+| `cli/commands/miner.py` | ✅ Active | Miner CLI (register, earnings, capabilities, concurrent) |
+| `cli/commands/wallet.py` | ✅ Active | Wallet CLI (balance, staking, multisig, backup/restore) |
+| `cli/commands/auth.py` | ✅ Active | Auth CLI (login, tokens, API keys) |
+| `cli/commands/blockchain.py` | ✅ Active | Blockchain queries |
+| `cli/commands/marketplace.py` | ✅ Active | GPU marketplace operations |
+| `cli/commands/admin.py` | ✅ Active | System administration, audit logging |
+| `cli/commands/config.py` | ✅ Active | Configuration, profiles, encrypted secrets |
+| `cli/commands/monitor.py` | ✅ Active | Dashboard, metrics, alerts, webhooks |
+| `cli/commands/simulate.py` | ✅ Active | Test simulation framework |
+| `cli/plugins.py` | ✅ Active | Plugin system for custom commands |
+| `cli/main.py` | ✅ Active | CLI entry point (flattened structure, Mar 2026) |
 | `cli/man/aitbc.1` | ✅ Active | Man page |
 | `cli/aitbc_shell_completion.sh` | ✅ Active | Shell completion script |
 | `cli/test_ollama_gpu_provider.py` | ✅ Active | GPU testing |
-| `.github/workflows/cli-tests.yml` | ✅ Active | CI/CD for CLI tests (Python 3.11/3.12/3.13) |
+| `docs/cli/` | ✅ Active | Consolidated CLI documentation (Mar 2026) |
+| `.github/workflows/cli-tests.yml` | ✅ Active | CI/CD for CLI tests (Python 3.13.5 only) |
 
 ### Home Scripts (`home/`)
 
