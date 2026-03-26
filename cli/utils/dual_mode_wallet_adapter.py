@@ -11,8 +11,8 @@ from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 
 from .wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
-from .config import Config
-from .utils import error, success, output
+from config import Config
+from utils import error, success, output
 
 
 class DualModeWalletAdapter:

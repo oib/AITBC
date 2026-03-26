@@ -125,7 +125,7 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daem
     
     # Initialize dual-mode adapter
     from config import get_config
-    from dual_mode_wallet_adapter import DualModeWalletAdapter
+    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
     
     config = get_config()
     adapter = DualModeWalletAdapter(config, use_daemon=use_daemon)
@@ -189,7 +189,7 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         error("Wallet daemon is not available. Falling back to file-based wallet.")
         # Switch to file mode
         from config import get_config
-        from dual_mode_wallet_adapter import DualModeWalletAdapter
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
         ctx.obj["wallet_adapter"] = adapter
@@ -255,7 +255,7 @@ def list(ctx):
         error("Wallet daemon is not available. Falling back to file-based wallet listing.")
         # Switch to file mode
         from config import get_config
-        from dual_mode_wallet_adapter import DualModeWalletAdapter
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
     
@@ -307,7 +307,7 @@ def switch(ctx, name: str):
         error("Wallet daemon is not available. Falling back to file-based wallet switching.")
         # Switch to file mode
         from config import get_config
-        from dual_mode_wallet_adapter import DualModeWalletAdapter
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
     
@@ -847,7 +847,7 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
         error("Wallet daemon is not available. Falling back to file-based wallet send.")
         # Switch to file mode
         from config import get_config
-        from dual_mode_wallet_adapter import DualModeWalletAdapter
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
         ctx.obj["wallet_adapter"] = adapter
@@ -883,7 +883,7 @@ def balance(ctx):
         error("Wallet daemon is not available. Falling back to file-based wallet balance.")
         # Switch to file mode
         from config import get_config
-        from dual_mode_wallet_adapter import DualModeWalletAdapter
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
         config = get_config()
         adapter = DualModeWalletAdapter(config, use_daemon=False)
         ctx.obj["wallet_adapter"] = adapter
@@ -2112,7 +2112,7 @@ def multisig_create(ctx, threshold: int, signers: tuple, wallet_name: Optional[s
     try:
         if ctx.obj.get("use_daemon"):
             # Use wallet daemon for multi-sig creation
-            from dual_mode_wallet_adapter import DualModeWalletAdapter
+            from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
             adapter = DualModeWalletAdapter(config)
             
             result = adapter.create_multisig_wallet(
@@ -2170,7 +2170,7 @@ def set_limit(ctx, amount: float, period: str, wallet_name: Optional[str]):
     try:
         if ctx.obj.get("use_daemon"):
             # Use wallet daemon
-            from dual_mode_wallet_adapter import DualModeWalletAdapter
+            from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
             adapter = DualModeWalletAdapter(config)
             
             result = adapter.set_transfer_limit(
@@ -2232,7 +2232,7 @@ def time_lock(ctx, amount: float, duration: int, recipient: str, wallet_name: Op
     try:
         if ctx.obj.get("use_daemon"):
             # Use wallet daemon
-            from dual_mode_wallet_adapter import DualModeWalletAdapter
+            from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
             adapter = DualModeWalletAdapter(config)
             
             result = adapter.create_time_lock(
@@ -2352,7 +2352,7 @@ def audit_trail(ctx, wallet_name: Optional[str], days: int):
     try:
         if ctx.obj.get("use_daemon"):
             # Use wallet daemon for audit
-            from dual_mode_wallet_adapter import DualModeWalletAdapter
+            from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
             adapter = DualModeWalletAdapter(config)
             
             result = adapter.get_audit_trail(

@@ -9,7 +9,7 @@ import asyncio
 import json
 from typing import Optional, List, Dict, Any
 from datetime import datetime
-from imports import ensure_coordinator_api_imports
+from core.imports import ensure_coordinator_api_imports
 
 ensure_coordinator_api_imports()
 

@@ -7,7 +7,7 @@ import click
 import sys
 from typing import Optional
 
-from __init__ import __version__
+from . import __version__
 from config import get_config
 
 
@@ -71,7 +71,7 @@ except ImportError:
 
 from commands.sync import sync
 from commands.explorer import explorer
-from plugins import plugin, load_plugins
+from .plugins import plugin, load_plugins
 
 
 @click.group()

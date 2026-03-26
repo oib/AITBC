@@ -11,7 +11,7 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 
 # Import compliance providers
-from kyc_aml_providers import submit_kyc_verification, check_kyc_status, perform_aml_screening
+from utils.kyc_aml_providers import submit_kyc_verification, check_kyc_status, perform_aml_screening
 
 @click.group()
 def compliance():
