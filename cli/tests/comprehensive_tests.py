@@ -13,7 +13,7 @@ from pathlib import Path
 sys.path.insert(0, '/opt/aitbc/cli')
 
 from click.testing import CliRunner
-from aitbc_cli.main_minimal import cli
+from core.main_minimal import cli
 
 def test_basic_functionality():
     """Test basic CLI functionality"""
