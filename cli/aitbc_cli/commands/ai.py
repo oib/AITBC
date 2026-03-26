@@ -3,10 +3,8 @@ import subprocess
 import sys
 import uuid
 import click
-import uvicorn
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 import httpx
+from pydantic import BaseModel
 
 @click.group(name='ai')
 def ai_group():
@@ -14,86 +12,58 @@ def ai_group():
     pass
 
 @ai_group.command()
-@click.option('--port', default=8008, show_default=True, help='Port to listen on')
+@click.option('--port', default=8008, show_default=True, help='AI provider port')
 @click.option('--model', default='qwen3:8b', show_default=True, help='Ollama model name')
 @click.option('--wallet', 'provider_wallet', required=True, help='Provider wallet address (for verification)')
 @click.option('--marketplace-url', default='http://127.0.0.1:8014', help='Marketplace API base URL')
-def serve(port, model, provider_wallet, marketplace_url):
-    """Start AI provider daemon (FastAPI server)."""
-    click.echo(f"Starting AI provider on port {port}, model {model}, marketplace {marketplace_url}")
+def status(port, model, provider_wallet, marketplace_url):
+    """Check AI provider service status."""
+    try:
+        resp = httpx.get(f"http://127.0.0.1:{port}/health", timeout=5.0)
+        if resp.status_code == 200:
+            health = resp.json()
+            click.echo(f"✅ AI Provider Status: {health.get('status', 'unknown')}")
+            click.echo(f"   Model: {health.get('model', 'unknown')}")
+            click.echo(f"   Wallet: {health.get('wallet', 'unknown')}")
+        else:
+            click.echo(f"❌ AI Provider not responding (status: {resp.status_code})")
+    except httpx.ConnectError:
+        click.echo(f"❌ AI Provider not running on port {port}")
+    except Exception as e:
+        click.echo(f"❌ Error checking AI Provider: {e}")
 
-    app = FastAPI(title="AI Provider")
+@ai_group.command()
+@click.option('--port', default=8008, show_default=True, help='AI provider port')
+@click.option('--model', default='qwen3:8b', show_default=True, help='Ollama model name')
+@click.option('--wallet', 'provider_wallet', required=True, help='Provider wallet address (for verification)')
+@click.option('--marketplace-url', default='http://127.0.0.1:8014', help='Marketplace API base URL')
+def start(port, model, provider_wallet, marketplace_url):
+    """Start AI provider service (systemd)."""
+    click.echo(f"Starting AI provider service...")
+    click.echo(f"   Port: {port}")
+    click.echo(f"   Model: {model}")
+    click.echo(f"   Wallet: {provider_wallet}")
+    click.echo(f"   Marketplace: {marketplace_url}")
+    
+    # Check if systemd service exists
+    service_cmd = f"systemctl start aitbc-ai-provider"
+    try:
+        subprocess.run(service_cmd.split(), check=True, capture_output=True)
+        click.echo("✅ AI Provider service started")
+        click.echo(f"   Use 'aitbc ai status --port {port}' to verify")
+    except subprocess.CalledProcessError as e:
+        click.echo(f"❌ Failed to start AI Provider service: {e}")
+        click.echo("   Note: AI Provider should be a separate systemd service")
 
-    class JobRequest(BaseModel):
-        prompt: str
-        buyer: str  # buyer wallet address
-        amount: int
-        txid: str | None = None  # optional transaction id
-
-    class JobResponse(BaseModel):
-        result: str
-        model: str
-        job_id: str | None = None
-
-    @app.get("/health")
-    async def health():
-        return {"status": "ok", "model": model, "wallet": provider_wallet}
-
-    @app.post("/job")
-    async def handle_job(req: JobRequest):
-        click.echo(f"Received job from {req.buyer}: {req.prompt[:50]}...")
-        # Generate a job_id
-        job_id = str(uuid.uuid4())
-        # Register job with marketplace (optional, best-effort)
-        try:
-            async with httpx.AsyncClient() as client:
-                create_resp = await client.post(
-                    f"{marketplace_url}/v1/jobs",
-                    json={
-                        "payload": {"prompt": req.prompt, "model": model},
-                        "constraints": {},
-                        "payment_amount": req.amount,
-                        "payment_currency": "AITBC"
-                    },
-                    headers={"X-Api-Key": ""},  # optional API key
-                    timeout=5.0
-                )
-                if create_resp.status_code in (200, 201):
-                    job_data = create_resp.json()
-                    job_id = job_data.get("job_id", job_id)
-                    click.echo(f"Registered job {job_id} with marketplace")
-                else:
-                    click.echo(f"Marketplace job registration failed: {create_resp.status_code}", err=True)
-        except Exception as e:
-            click.echo(f"Warning: marketplace registration skipped: {e}", err=True)
-        # Process with Ollama
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.post(
-                    "http://127.0.0.1:11434/api/generate",
-                    json={"model": model, "prompt": req.prompt, "stream": False},
-                    timeout=60.0
-                )
-                resp.raise_for_status()
-                data = resp.json()
-                result = data.get("response", "")
-        except httpx.HTTPError as e:
-            raise HTTPException(status_code=500, detail=f"Ollama error: {e}")
-        # Update marketplace with result (if registered)
-        try:
-            async with httpx.AsyncClient() as client:
-                patch_resp = await client.patch(
-                    f"{marketplace_url}/v1/jobs/{job_id}",
-                    json={"result": result, "state": "completed"},
-                    timeout=5.0
-                )
-                if patch_resp.status_code == 200:
-                    click.echo(f"Updated job {job_id} with result")
-        except Exception as e:
-            click.echo(f"Warning: failed to update job in marketplace: {e}", err=True)
-        return JobResponse(result=result, model=model, job_id=job_id)
-
-    uvicorn.run(app, host="0.0.0.0", port=port)
+@ai_group.command()
+def stop():
+    """Stop AI provider service (systemd)."""
+    click.echo("Stopping AI provider service...")
+    try:
+        subprocess.run(["systemctl", "stop", "aitbc-ai-provider"], check=True, capture_output=True)
+        click.echo("✅ AI Provider service stopped")
+    except subprocess.CalledProcessError as e:
+        click.echo(f"❌ Failed to stop AI Provider service: {e}")
 
 @ai_group.command()
 @click.option('--to', required=True, help='Provider host (IP)')
