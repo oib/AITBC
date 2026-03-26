@@ -13,7 +13,8 @@ All documentation is now accessible from the central `/docs` directory through s
 ├── blockchain/                         # Blockchain documentation
 │   ├── README.md                      # Blockchain docs overview
 │   └── node -> /opt/aitbc/apps/blockchain-node/docs/  # Symlink to app docs
-├── cli -> /opt/aitbc/cli/docs/         # Symlink to CLI documentation
+├── beginner/05_cli/                    # CLI beginner documentation (detailed guides)
+├── cli-technical -> /opt/aitbc/cli/docs/  # Symlink to CLI technical docs
 ├── contracts -> /opt/aitbc/contracts/docs/  # Symlink to contracts docs
 ├── testing -> /opt/aitbc/tests/docs/   # Symlink to test documentation
 ├── website -> /opt/aitbc/website/docs/  # Symlink to website docs
@@ -27,11 +28,18 @@ All documentation is now accessible from the central `/docs` directory through s
 - **Symlink**: `/opt/aitbc/docs/blockchain/node`
 - **Content**: `SCHEMA.md` - Blockchain node schema documentation
 
-### **CLI Documentation**  
-- **Source**: `/opt/aitbc/cli/docs/`
-- **Symlink**: `/opt/aitbc/docs/cli`
+### **CLI Beginner Documentation**  
+- **Location**: `/opt/aitbc/docs/beginner/05_cli/`
 - **Content**: 
-  - `README.md` - CLI documentation
+  - `README.md` - Comprehensive CLI guide for beginners
+  - `permission-setup.md` - CLI permission setup
+  - `testing.md` - CLI testing guide
+
+### **CLI Technical Documentation**  
+- **Source**: `/opt/aitbc/cli/docs/`
+- **Symlink**: `/opt/aitbc/docs/cli-technical`
+- **Content**: 
+  - `README.md` - CLI technical documentation
   - `DISABLED_COMMANDS_CLEANUP.md` - Cleanup analysis
   - `FILE_ORGANIZATION_SUMMARY.md` - Organization summary
 
@@ -79,8 +87,11 @@ All documentation is now accessible from the central `/docs` directory through s
 # Blockchain node docs
 ls /opt/aitbc/docs/blockchain/node/
 
-# CLI docs  
-ls /opt/aitbc/docs/cli/
+# CLI beginner docs
+ls /opt/aitbc/docs/beginner/05_cli/
+
+# CLI technical docs  
+ls /opt/aitbc/docs/cli-technical/
 
 # Contracts docs
 ls /opt/aitbc/docs/contracts/
@@ -101,7 +112,8 @@ ls /opt/aitbc/docs/website/
 
 All symlinks have been tested and confirmed working:
 - ✅ `/docs/blockchain/node` → `/apps/blockchain-node/docs`
-- ✅ `/docs/cli` → `/cli/docs`  
+- ✅ `/docs/beginner/05_cli/` → CLI beginner documentation (regular directory)
+- ✅ `/docs/cli-technical` → `/cli/docs`
 - ✅ `/docs/contracts` → `/contracts/docs`
 - ✅ `/docs/testing` → `/tests/docs`
 - ✅ `/docs/website` → `/website/docs`
