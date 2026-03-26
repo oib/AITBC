@@ -364,8 +364,11 @@ class DualModeWalletAdapter:
         wallet_data["transactions"].append(transaction)
         wallet_data["balance"] = chain_balance - amount
         
-        # Save wallet
+        # Save wallet - CRITICAL SECURITY FIX: Always use password if wallet is encrypted
         save_password = password if wallet_data.get("encrypted") else None
+        if wallet_data.get("encrypted") and not save_password:
+            error("❌ CRITICAL: Cannot save encrypted wallet without password")
+            raise Exception("Password required for encrypted wallet")
         _save_wallet(wallet_path, wallet_data, save_password)
         
         success(f"Submitted transaction {tx_hash} to send {amount} AITBC to {to_address}")
