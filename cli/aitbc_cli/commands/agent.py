@@ -166,10 +166,10 @@ def execute(ctx, agent_id: str, inputs, verification: str, priority: str, timeou
 
 @agent.command()
 @click.argument("execution_id")
-@click.option("--watch", is_flag=True, help="Watch execution status in real-time")
+@click.option("--timeout", default=30, help="Maximum watch time in seconds")
 @click.option("--interval", default=5, help="Watch interval in seconds")
 @click.pass_context
-def status(ctx, execution_id: str, watch: bool, interval: int):
+def status(ctx, execution_id: str, timeout: int, interval: int):
     """Get status of agent execution"""
     config = ctx.obj['config']
     
@@ -180,35 +180,26 @@ def status(ctx, execution_id: str, watch: bool, interval: int):
                     f"{config.coordinator_url}/api/v1/agents/executions/{execution_id}",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
-                
                 if response.status_code == 200:
                     return response.json()
                 else:
-                    error(f"Failed to get execution status: {response.status_code}")
+                    error(f"Failed to get status: {response.status_code}")
                     return None
         except Exception as e:
             error(f"Network error: {e}")
             return None
     
-    if watch:
-        click.echo(f"Watching execution {execution_id} (Ctrl+C to stop)...")
-        while True:
-            status_data = get_status()
-            if status_data:
-                click.clear()
-                click.echo(f"Execution Status: {status_data.get('status', 'Unknown')}")
-                click.echo(f"Progress: {status_data.get('progress', 0)}%")
-                click.echo(f"Current Step: {status_data.get('current_step', 'N/A')}")
-                click.echo(f"Cost: ${status_data.get('total_cost', 0.0):.4f}")
-                
-                if status_data.get('status') in ['completed', 'failed']:
-                    break
-            
-            time.sleep(interval)
-    else:
-        status_data = get_status()
-        if status_data:
-            output(status_data, ctx.obj['output_format'])
+    # Single status check with timeout
+    status_data = get_status()
+    if status_data:
+        output(status_data, ctx.obj['output_format'])
+        
+        # If execution is still running, provide guidance
+        if status_data.get('status') not in ['completed', 'failed']:
+            output(f"Execution still in progress. Use 'aitbc agent status {execution_id}' to check again.", 
+                   ctx.obj['output_format'])
+            output(f"Current status: {status_data.get('status', 'Unknown')}", ctx.obj['output_format'])
+            output(f"Progress: {status_data.get('progress', 0)}%", ctx.obj['output_format'])
 
 
 @agent.command()

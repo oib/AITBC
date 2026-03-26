@@ -326,21 +326,16 @@ def export(ctx, export_format: str, export_type: str, chain_id: str):
 
 
 @explorer.command()
-@click.option('--chain-id', default='ait-devnet', help='Chain ID to query (default: ait-devnet)')
-@click.option('--open', is_flag=True, help='Open explorer in web browser')
+@click.option('--chain-id', default='main', help='Chain ID to explore')
 @click.pass_context
-def web(ctx, chain_id: str, open: bool):
-    """Open blockchain explorer in web browser"""
+def web(ctx, chain_id: str):
+    """Get blockchain explorer web URL"""
     try:
         explorer_url = _get_explorer_endpoint(ctx)
         web_url = explorer_url.replace('http://', 'http://')  # Ensure proper format
         
-        if open:
-            import webbrowser
-            webbrowser.open(web_url)
-            output(f"Opening explorer in web browser: {web_url}", ctx.obj['output_format'])
-        else:
-            output(f"Explorer web interface: {web_url}", ctx.obj['output_format'])
+        output(f"Explorer web interface: {web_url}", ctx.obj['output_format'])
+        output("Use the URL above to access the explorer in your browser", ctx.obj['output_format'])
     
     except Exception as e:
-        error(f"Failed to open web interface: {str(e)}")
+        error(f"Failed to get explorer URL: {e}", ctx.obj['output_format'])
