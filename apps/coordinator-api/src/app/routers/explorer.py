@@ -63,3 +63,13 @@ async def list_receipts(
     offset: int = Query(default=0, ge=0),
 ) -> ReceiptListResponse:
     return _service(session).list_receipts(job_id=job_id, limit=limit, offset=offset)
+
+
+@router.get("/transactions/{tx_hash}", summary="Get transaction details by hash")
+async def get_transaction(
+    *,
+    session: Annotated[Session, Depends(get_session)],
+    tx_hash: str,
+) -> dict:
+    """Get transaction details by hash from blockchain RPC"""
+    return _service(session).get_transaction(tx_hash)

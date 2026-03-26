@@ -39,10 +39,20 @@ def main():
 
     # 1. Keystore directory and password
     run(f"mkdir -p {KEYS_DIR}")
-    run(f"chown -R root:root {KEYS_DIR}")
+    run(f"chown -R aitbc:aitbc {KEYS_DIR}")
+    
+    # SECURITY FIX: Use environment variable instead of hardcoded password
     if not PASSWORD_FILE.exists():
-        run(f"openssl rand -hex 32 > {PASSWORD_FILE}")
-        run(f"chmod 600 {PASSWORD_FILE}")
+        password = os.environ.get("AITBC_KEYSTORE_PASSWORD")
+        if not password:
+            # Generate secure random password if not provided
+            run(f"openssl rand -hex 32 > {PASSWORD_FILE}")
+            run(f"chmod 600 {PASSWORD_FILE}")
+        else:
+            # Use provided password from environment
+            PASSWORD_FILE.write_text(password)
+            run(f"chmod 600 {PASSWORD_FILE}")
+    
     os.environ["KEYSTORE_PASSWORD"] = PASSWORD_FILE.read_text().strip()
 
     # 2. Generate keystores
