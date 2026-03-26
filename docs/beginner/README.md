@@ -4,7 +4,23 @@
 **Prerequisites**: Basic computer skills  
 **Estimated Time**: 1-2 hours per topic  
 
-## 🎯 **Welcome to AITBC!**
+## 🧭 **Navigation Path:**
+**� [Documentation Home](../README.md)** → **�🎯 Beginner** → *You are here*
+
+** breadcrumb**: Home → Beginner → Overview
+
+---
+
+## 🎯 **See Also:**
+- **🌉 Next Level**: [Intermediate Documentation](../intermediate/README.md) - When you're ready for more advanced topics
+- **📚 CLI Focus**: [CLI Technical Docs](../cli-technical/) - Deep technical CLI documentation  
+- **🔒 Security Basics**: [Security Documentation](../security/) - Security fundamentals
+- **📋 Project Info**: [Project Documentation](../project/) - Project overview
+
+**Related Topics:**
+- **👛 CLI Tools**: [Beginner CLI](05_cli/) → [CLI Technical](../cli-technical/)
+- **⛏️ Mining**: [Mining Guide](04_miners/) → [Advanced Blockchain](../advanced/01_blockchain/)
+- **👤 Clients**: [Client Setup](03_clients/) → [Advanced Architecture](../advanced/03_architecture/)
 
 This section is designed for newcomers to the AITBC ecosystem. Whether you're a developer, user, or administrator, this beginner-friendly content will help you get started with confidence.
 
