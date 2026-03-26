@@ -57,12 +57,12 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "aitbc=aitbc_cli.main:main",
+            "aitbc=main:main",
         ],
     },
     include_package_data=True,
     package_data={
-        "aitbc_cli": ["*.yaml", "*.yml", "*.json"],
+        "": ["*.yaml", "*.yml", "*.json"],
     },
     zip_safe=False,
 )
