@@ -166,18 +166,32 @@ The system requirements are based on actual project configuration:
 git clone https://github.com/oib/AITBC.git
 cd AITBC
 
-# Install CLI tool
+# Install CLI tool (requires virtual environment)
 cd cli
+python3 -m venv venv
+source venv/bin/activate
 pip install -e .
 
 # Verify installation
 aitbc version
 aitbc --help
+
+# OPTIONAL: Add convenient alias for easy access
+echo 'alias aitbc="source /opt/aitbc/cli/venv/bin/activate && aitbc"' >> ~/.bashrc
+source ~/.bashrc
+# Now you can use 'aitbc' from anywhere!
 ```
 
 ### **🔧 Development Setup:**
 ```bash
-# Install development dependencies
+# Clone the repository
+git clone https://github.com/oib/AITBC.git
+cd AITBC
+
+# Install CLI tool (requires virtual environment)
+cd cli
+python3 -m venv venv
+source venv/bin/activate
 pip install -e ".[dev]"
 
 # Verify correct Python version
@@ -191,6 +205,10 @@ pytest
 
 # Install pre-commit hooks
 pre-commit install
+
+# OPTIONAL: Add convenient alias for easy access
+echo 'alias aitbc="source /opt/aitbc/cli/venv/bin/activate && aitbc"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 ### **⚠️ Version Compliance:**
