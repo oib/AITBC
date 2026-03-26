@@ -9,7 +9,7 @@ on:
     types: [ published ]
 
 env:
-  PYTHON_VERSION: "3.13"
+  PYTHON_VERSION: "3.13.5"
   NODE_VERSION: "18"
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.13"]
+        python-version: ["3.13.5"]
     
     steps:
     - name: Checkout code
@@ -89,7 +89,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Install CLI
       run: |
@@ -141,7 +141,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Install dependencies
       run: |
@@ -186,7 +186,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Install dependencies
       run: |
@@ -286,7 +286,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Build CLI package
       run: |
@@ -393,7 +393,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Install dependencies
       run: |
@@ -423,7 +423,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: "3.13"
+        python-version: "3.13.5"
     
     - name: Install documentation dependencies
       run: |
