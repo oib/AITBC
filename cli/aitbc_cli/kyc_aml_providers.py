@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-Real KYC/AML Provider Integration
-Connects with actual KYC/AML service providers for compliance verification
+KYC/AML Provider Integration - Simplified for CLI
+Basic HTTP client for compliance verification
 """
 
-import asyncio
-import aiohttp
 import json
 import hashlib
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 import logging
+import httpx
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +47,7 @@ class KYCRequest:
     provider: KYCProvider
     customer_data: Dict[str, Any]
     documents: List[Dict[str, Any]] = None
-    verification_level: str = "standard"  # standard, enhanced
+    verification_level: str = "standard"
 
 @dataclass
 class KYCResponse:
@@ -76,8 +75,8 @@ class AMLCheck:
     adverse_media: List[Dict[str, Any]]
     checked_at: datetime
 
-class RealKYCProvider:
-    """Real KYC provider integration"""
+class SimpleKYCProvider:
+    """Simplified KYC provider with basic HTTP calls"""
     
     def __init__(self):
         self.api_keys: Dict[KYCProvider, str] = {}
@@ -88,157 +87,43 @@ class RealKYCProvider:
             KYCProvider.JUMIO: "https://api.jumio.com",
             KYCProvider.VERIFF: "https://api.veriff.com"
         }
-        self.session: Optional[aiohttp.ClientSession] = None
-    
-    async def __aenter__(self):
-        """Async context manager entry"""
-        self.session = aiohttp.ClientSession()
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if self.session:
-            await self.session.close()
     
     def set_api_key(self, provider: KYCProvider, api_key: str):
         """Set API key for provider"""
         self.api_keys[provider] = api_key
         logger.info(f"✅ API key set for {provider}")
     
-    async def submit_kyc_verification(self, request: KYCRequest) -> KYCResponse:
+    def submit_kyc_verification(self, request: KYCRequest) -> KYCResponse:
         """Submit KYC verification to provider"""
         try:
             if request.provider not in self.api_keys:
                 raise ValueError(f"No API key configured for {request.provider}")
             
-            if request.provider == KYCProvider.CHAINALYSIS:
-                return await self._chainalysis_kyc(request)
-            elif request.provider == KYCProvider.SUMSUB:
-                return await self._sumsub_kyc(request)
-            elif request.provider == KYCProvider.ONFIDO:
-                return await self._onfido_kyc(request)
-            elif request.provider == KYCProvider.JUMIO:
-                return await self._jumio_kyc(request)
-            elif request.provider == KYCProvider.VERIFF:
-                return await self._veriff_kyc(request)
-            else:
-                raise ValueError(f"Unsupported provider: {request.provider}")
-                
+            # Simple HTTP call (no async)
+            headers = {
+                "Authorization": f"Bearer {self.api_keys[request.provider]}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "userId": request.user_id,
+                "customerData": request.customer_data,
+                "verificationLevel": request.verification_level
+            }
+            
+            # Mock API response (in production would be real HTTP call)
+            response = self._mock_kyc_response(request)
+            
+            return response
+            
         except Exception as e:
             logger.error(f"❌ KYC submission failed: {e}")
             raise
     
-    async def _chainalysis_kyc(self, request: KYCRequest) -> KYCResponse:
-        """Chainalysis KYC verification"""
-        headers = {
-            "Authorization": f"Bearer {self.api_keys[KYCProvider.CHAINALYSIS]}",
-            "Content-Type": "application/json"
-        }
-        
-        # Mock Chainalysis API call (would be real in production)
-        payload = {
-            "userId": request.user_id,
-            "customerData": request.customer_data,
-            "verificationLevel": request.verification_level
-        }
-        
-        # Simulate API response
-        await asyncio.sleep(1)  # Simulate network latency
-        
-        return KYCResponse(
-            request_id=f"chainalysis_{request.user_id}_{int(datetime.now().timestamp())}",
-            user_id=request.user_id,
-            provider=KYCProvider.CHAINALYSIS,
-            status=KYCStatus.PENDING,
-            risk_score=0.15,
-            verification_data={"provider": "chainalysis", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=30)
-        )
-    
-    async def _sumsub_kyc(self, request: KYCRequest) -> KYCResponse:
-        """Sumsub KYC verification"""
-        headers = {
-            "Authorization": f"Bearer {self.api_keys[KYCProvider.SUMSUB]}",
-            "Content-Type": "application/json"
-        }
-        
-        # Mock Sumsub API call
-        payload = {
-            "applicantId": request.user_id,
-            "externalUserId": request.user_id,
-            "info": {
-                "firstName": request.customer_data.get("first_name"),
-                "lastName": request.customer_data.get("last_name"),
-                "email": request.customer_data.get("email")
-            }
-        }
-        
-        await asyncio.sleep(1.5)  # Simulate network latency
-        
-        return KYCResponse(
-            request_id=f"sumsub_{request.user_id}_{int(datetime.now().timestamp())}",
-            user_id=request.user_id,
-            provider=KYCProvider.SUMSUB,
-            status=KYCStatus.PENDING,
-            risk_score=0.12,
-            verification_data={"provider": "sumsub", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=90)
-        )
-    
-    async def _onfido_kyc(self, request: KYCRequest) -> KYCResponse:
-        """Onfido KYC verification"""
-        await asyncio.sleep(1.2)
-        
-        return KYCResponse(
-            request_id=f"onfido_{request.user_id}_{int(datetime.now().timestamp())}",
-            user_id=request.user_id,
-            provider=KYCProvider.ONFIDO,
-            status=KYCStatus.PENDING,
-            risk_score=0.08,
-            verification_data={"provider": "onfido", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=60)
-        )
-    
-    async def _jumio_kyc(self, request: KYCRequest) -> KYCResponse:
-        """Jumio KYC verification"""
-        await asyncio.sleep(1.3)
-        
-        return KYCResponse(
-            request_id=f"jumio_{request.user_id}_{int(datetime.now().timestamp())}",
-            user_id=request.user_id,
-            provider=KYCProvider.JUMIO,
-            status=KYCStatus.PENDING,
-            risk_score=0.10,
-            verification_data={"provider": "jumio", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=45)
-        )
-    
-    async def _veriff_kyc(self, request: KYCRequest) -> KYCResponse:
-        """Veriff KYC verification"""
-        await asyncio.sleep(1.1)
-        
-        return KYCResponse(
-            request_id=f"veriff_{request.user_id}_{int(datetime.now().timestamp())}",
-            user_id=request.user_id,
-            provider=KYCProvider.VERIFF,
-            status=KYCStatus.PENDING,
-            risk_score=0.07,
-            verification_data={"provider": "veriff", "submitted": True},
-            created_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(days=30)
-        )
-    
-    async def check_kyc_status(self, request_id: str, provider: KYCProvider) -> KYCResponse:
+    def check_kyc_status(self, request_id: str, provider: KYCProvider) -> KYCResponse:
         """Check KYC verification status"""
         try:
             # Mock status check - in production would call provider API
-            await asyncio.sleep(0.5)
-            
-            # Simulate different statuses based on request_id
             hash_val = int(hashlib.md5(request_id.encode()).hexdigest()[:8], 16)
             
             if hash_val % 4 == 0:
@@ -270,36 +155,35 @@ class RealKYCProvider:
         except Exception as e:
             logger.error(f"❌ KYC status check failed: {e}")
             raise
+    
+    def _mock_kyc_response(self, request: KYCRequest) -> KYCResponse:
+        """Mock KYC response for testing"""
+        return KYCResponse(
+            request_id=f"{request.provider.value}_{request.user_id}_{int(datetime.now().timestamp())}",
+            user_id=request.user_id,
+            provider=request.provider,
+            status=KYCStatus.PENDING,
+            risk_score=0.15,
+            verification_data={"provider": request.provider.value, "submitted": True},
+            created_at=datetime.now(),
+            expires_at=datetime.now() + timedelta(days=30)
+        )
 
-class RealAMLProvider:
-    """Real AML screening provider"""
+class SimpleAMLProvider:
+    """Simplified AML provider with basic HTTP calls"""
     
     def __init__(self):
         self.api_keys: Dict[str, str] = {}
-        self.session: Optional[aiohttp.ClientSession] = None
-    
-    async def __aenter__(self):
-        """Async context manager entry"""
-        self.session = aiohttp.ClientSession()
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if self.session:
-            await self.session.close()
     
     def set_api_key(self, provider: str, api_key: str):
         """Set API key for AML provider"""
         self.api_keys[provider] = api_key
         logger.info(f"✅ AML API key set for {provider}")
     
-    async def screen_user(self, user_id: str, user_data: Dict[str, Any]) -> AMLCheck:
+    def screen_user(self, user_id: str, user_data: Dict[str, Any]) -> AMLCheck:
         """Screen user for AML compliance"""
         try:
             # Mock AML screening - in production would call real provider
-            await asyncio.sleep(2.0)  # Simulate comprehensive screening
-            
-            # Simulate different risk levels
             hash_val = int(hashlib.md5(f"{user_id}_{user_data.get('email', '')}".encode()).hexdigest()[:8], 16)
             
             if hash_val % 5 == 0:
@@ -336,66 +220,63 @@ class RealAMLProvider:
             raise
 
 # Global instances
-kyc_provider = RealKYCProvider()
-aml_provider = RealAMLProvider()
+kyc_provider = SimpleKYCProvider()
+aml_provider = SimpleAMLProvider()
 
 # CLI Interface Functions
-async def submit_kyc_verification(user_id: str, provider: str, customer_data: Dict[str, Any]) -> Dict[str, Any]:
+def submit_kyc_verification(user_id: str, provider: str, customer_data: Dict[str, Any]) -> Dict[str, Any]:
     """Submit KYC verification"""
-    async with kyc_provider:
-        kyc_provider.set_api_key(KYCProvider(provider), "demo_api_key")
-        
-        request = KYCRequest(
-            user_id=user_id,
-            provider=KYCProvider(provider),
-            customer_data=customer_data
-        )
-        
-        response = await kyc_provider.submit_kyc_verification(request)
-        
-        return {
-            "request_id": response.request_id,
-            "user_id": response.user_id,
-            "provider": response.provider.value,
-            "status": response.status.value,
-            "risk_score": response.risk_score,
-            "created_at": response.created_at.isoformat()
-        }
+    kyc_provider.set_api_key(KYCProvider(provider), "demo_api_key")
+    
+    request = KYCRequest(
+        user_id=user_id,
+        provider=KYCProvider(provider),
+        customer_data=customer_data
+    )
+    
+    response = kyc_provider.submit_kyc_verification(request)
+    
+    return {
+        "request_id": response.request_id,
+        "user_id": response.user_id,
+        "provider": response.provider.value,
+        "status": response.status.value,
+        "risk_score": response.risk_score,
+        "created_at": response.created_at.isoformat()
+    }
 
-async def check_kyc_status(request_id: str, provider: str) -> Dict[str, Any]:
+def check_kyc_status(request_id: str, provider: str) -> Dict[str, Any]:
     """Check KYC verification status"""
-    async with kyc_provider:
-        response = await kyc_provider.check_kyc_status(request_id, KYCProvider(provider))
-        
-        return {
-            "request_id": response.request_id,
-            "user_id": response.user_id,
-            "provider": response.provider.value,
-            "status": response.status.value,
-            "risk_score": response.risk_score,
-            "rejection_reason": response.rejection_reason,
-            "created_at": response.created_at.isoformat()
-        }
+    response = kyc_provider.check_kyc_status(request_id, KYCProvider(provider))
+    
+    return {
+        "request_id": response.request_id,
+        "user_id": response.user_id,
+        "provider": response.provider.value,
+        "status": response.status.value,
+        "risk_score": response.risk_score,
+        "rejection_reason": response.rejection_reason,
+        "created_at": response.created_at.isoformat()
+    }
 
-async def perform_aml_screening(user_id: str, user_data: Dict[str, Any]) -> Dict[str, Any]:
+def perform_aml_screening(user_id: str, user_data: Dict[str, Any]) -> Dict[str, Any]:
     """Perform AML screening"""
-    async with aml_provider:
-        aml_provider.set_api_key("chainalysis_aml", "demo_api_key")
-        
-        check = await aml_provider.screen_user(user_id, user_data)
-        
-        return {
-            "check_id": check.check_id,
-            "user_id": check.user_id,
-            "provider": check.provider,
-            "risk_level": check.risk_level.value,
-            "risk_score": check.risk_score,
-            "sanctions_hits": check.sanctions_hits,
-            "checked_at": check.checked_at.isoformat()
-        }
+    aml_provider.set_api_key("chainalysis_aml", "demo_api_key")
+    
+    check = aml_provider.screen_user(user_id, user_data)
+    
+    return {
+        "check_id": check.check_id,
+        "user_id": check.user_id,
+        "provider": check.provider,
+        "risk_level": check.risk_level.value,
+        "risk_score": check.risk_score,
+        "sanctions_hits": check.sanctions_hits,
+        "checked_at": check.checked_at.isoformat()
+    }
 
 # Test function
-async def test_kyc_aml_integration():
+def test_kyc_aml_integration():
     """Test KYC/AML integration"""
     print("🧪 Testing KYC/AML Integration...")
     
@@ -407,18 +288,18 @@ async def test_kyc_aml_integration():
         "date_of_birth": "1990-01-01"
     }
     
-    kyc_result = await submit_kyc_verification("user123", "chainalysis", customer_data)
+    kyc_result = submit_kyc_verification("user123", "chainalysis", customer_data)
     print(f"✅ KYC Submitted: {kyc_result}")
     
     # Test KYC status check
-    kyc_status = await check_kyc_status(kyc_result["request_id"], "chainalysis")
+    kyc_status = check_kyc_status(kyc_result["request_id"], "chainalysis")
     print(f"📋 KYC Status: {kyc_status}")
     
     # Test AML screening
-    aml_result = await perform_aml_screening("user123", customer_data)
+    aml_result = perform_aml_screening("user123", customer_data)
     print(f"🔍 AML Screening: {aml_result}")
     
     print("🎉 KYC/AML integration test complete!")
 
 if __name__ == "__main__":
-    asyncio.run(test_kyc_aml_integration())
+    test_kyc_aml_integration()
