@@ -87,6 +87,12 @@ aitbc miner status
 - **📚 Documentation Excellence**: World-class documentation with perfect organization
 - **🔗 Chain Isolation**: AITBC coins properly chain-isolated and secure
 
+### 📋 **Current Release: v0.2.2**
+- **Release Date**: March 2026
+- **Focus**: Documentation and repository management
+- **📖 Release Notes**: [View detailed release notes](RELEASE_v0.2.2.md)
+- **🎯 Status**: Production ready with perfect documentation
+
 ---
 
 ## 🏗️ **Architecture Overview**
@@ -468,7 +474,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ---
 
 **Last Updated**: 2026-03-26  
-**Version**: 1.0.0  
+**Version**: 0.2.2  
 **Quality Score**: 10/10 (Perfect)  
 **Status**: Production Ready  
 **License**: MIT
