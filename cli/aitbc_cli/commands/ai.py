@@ -38,32 +38,27 @@ def status(port, model, provider_wallet, marketplace_url):
 @click.option('--wallet', 'provider_wallet', required=True, help='Provider wallet address (for verification)')
 @click.option('--marketplace-url', default='http://127.0.0.1:8014', help='Marketplace API base URL')
 def start(port, model, provider_wallet, marketplace_url):
-    """Start AI provider service (systemd)."""
-    click.echo(f"Starting AI provider service...")
+    """Start AI provider service - provides setup instructions"""
+    click.echo(f"AI Provider Service Setup:")
     click.echo(f"   Port: {port}")
     click.echo(f"   Model: {model}")
     click.echo(f"   Wallet: {provider_wallet}")
     click.echo(f"   Marketplace: {marketplace_url}")
     
-    # Check if systemd service exists
-    service_cmd = f"systemctl start aitbc-ai-provider"
-    try:
-        subprocess.run(service_cmd.split(), check=True, capture_output=True)
-        click.echo("✅ AI Provider service started")
-        click.echo(f"   Use 'aitbc ai status --port {port}' to verify")
-    except subprocess.CalledProcessError as e:
-        click.echo(f"❌ Failed to start AI Provider service: {e}")
-        click.echo("   Note: AI Provider should be a separate systemd service")
+    click.echo("\n📋 To start the AI Provider service:")
+    click.echo(f"   1. Create systemd service: /etc/systemd/system/aitbc-ai-provider.service")
+    click.echo(f"   2. Run: sudo systemctl daemon-reload")
+    click.echo(f"   3. Run: sudo systemctl enable aitbc-ai-provider")
+    click.echo(f"   4. Run: sudo systemctl start aitbc-ai-provider")
+    click.echo(f"\n💡 Use 'aitbc ai status --port {port}' to verify service is running")
 
 @ai_group.command()
 def stop():
-    """Stop AI provider service (systemd)."""
-    click.echo("Stopping AI provider service...")
-    try:
-        subprocess.run(["systemctl", "stop", "aitbc-ai-provider"], check=True, capture_output=True)
-        click.echo("✅ AI Provider service stopped")
-    except subprocess.CalledProcessError as e:
-        click.echo(f"❌ Failed to stop AI Provider service: {e}")
+    """Stop AI provider service - provides shutdown instructions"""
+    click.echo("📋 To stop the AI Provider service:")
+    click.echo("   1. Run: sudo systemctl stop aitbc-ai-provider")
+    click.echo("   2. Run: sudo systemctl status aitbc-ai-provider (to verify)")
+    click.echo("\n💡 Use 'aitbc ai status' to check if service is stopped")
 
 @ai_group.command()
 @click.option('--to', required=True, help='Provider host (IP)')

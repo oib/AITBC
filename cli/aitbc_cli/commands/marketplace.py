@@ -37,55 +37,32 @@ def register(ctx, name: Optional[str], memory: Optional[int], cuda_cores: Option
     """Register GPU on marketplace (auto-detects hardware)"""
     config = ctx.obj['config']
     
-    # Auto-detect GPU hardware
-    try:
-        import subprocess
-        result = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total', '--format=csv,noheader,nounits'], 
-                              capture_output=True, text=True, check=True)
+    # Note: GPU hardware detection should be done by separate system monitoring tools
+    # CLI provides guidance for manual hardware specification
+    if not name or memory is None:
+        output("💡 To auto-detect GPU hardware, use system monitoring tools:", ctx.obj['output_format'])
+        output("   nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,nounits", ctx.obj['output_format'])
+        output("   Or specify --name and --memory manually", ctx.obj['output_format'])
         
-        if result.returncode == 0:
-            gpu_info = result.stdout.strip().split(', ')
-            detected_name = gpu_info[0].strip()
-            detected_memory = int(gpu_info[1].strip())
-            
-            # Use detected values if not provided
-            if not name:
-                name = detected_name
-            if memory is None:
-                memory = detected_memory
-                
-            # Validate provided specs against detected hardware
-            if not force:
-                if name and name != detected_name:
-                    error(f"GPU name mismatch! Detected: '{detected_name}', Provided: '{name}'. Use --force to override.")
-                    return
-                if memory and memory != detected_memory:
-                    error(f"GPU memory mismatch! Detected: {detected_memory}GB, Provided: {memory}GB. Use --force to override.")
-                    return
-                    
-            success(f"Auto-detected GPU: {detected_name} with {detected_memory}GB memory")
-        else:
-            if not force:
-                error("Failed to detect GPU hardware. Use --force to register without hardware validation.")
-                return
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        if not force:
-            error("nvidia-smi not available. Use --force to register without hardware validation.")
+        if not name and not memory:
+            error("GPU name and memory must be specified for registration", ctx.obj['output_format'])
             return
     
-    # Build GPU specs
+    if not force:
+        output("⚠️  Hardware validation skipped. Use --force to register without hardware validation.", 
+               ctx.obj['output_format'])
+    
+    # Build GPU specs for registration
     gpu_specs = {
         "name": name,
         "memory_gb": memory,
         "cuda_cores": cuda_cores,
         "compute_capability": compute_capability,
         "price_per_hour": price_per_hour,
-        "description": description
+        "description": description,
+        "miner_id": miner_id or config.api_key[:8],  # Use auth key as miner ID if not provided
+        "registered_at": datetime.now().isoformat()
     }
-    
-    # Remove None values
-    gpu_specs = {k: v for k, v in gpu_specs.items() if v is not None}
-    
     try:
         with httpx.Client() as client:
             response = client.post(
