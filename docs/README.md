@@ -24,7 +24,36 @@
 - **GitHub PR Resolution**: All dependency updates completed and pushed
 - **Chain Isolation**: AITBC coins properly chain-isolated and secure
 
-## � **Documentation Organization by Reading Level**
+## 🧭 **Quick Navigation Guide**
+
+### 📚 **🔍 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation
+
+### 🎯 **Find Your Path:**
+
+| **I'm a...** | **Start Here** | **Next Steps** | **Goal** |
+|--------------|----------------|----------------|---------|
+| **👤 New User** | [Beginner Guide](beginner/README.md) → [Getting Started](beginner/01_getting_started/) | [CLI Basics](beginner/05_cli/) | Use AITBC effectively |
+| **👨‍💻 Developer** | [Beginner](beginner/README.md) → [Project Structure](beginner/02_project/) | [Intermediate](intermediate/README.md) | Build on AITBC |
+| **⛏️ Miner** | [Beginner](beginner/README.md) → [Mining Guide](beginner/04_miners/) | [Advanced](advanced/README.md) | Run mining operations |
+| **🔧 Admin** | [Beginner](beginner/README.md) → [CLI](beginner/05_cli/) | [Infrastructure](advanced/04_deployment/) | Manage systems |
+| **🎓 Expert** | [Advanced](advanced/README.md) → [Expert Topics](expert/README.md) | [Research](archive/README.md) | Deep expertise |
+
+### 📚 **Documentation Map:**
+```
+📁 docs/
+├── 🏠 README.md                    # ← You are here
+├── 📖 about/                       # Documentation about docs
+├── 🎯 beginner/                    # Start here (new users)
+├── 🌉 intermediate/                # Bridge to advanced
+├── 🚀 advanced/                   # Deep technical content
+├── 🎓 expert/                      # Specialized expertise
+├── 🗂️ archive/                     # Historical documents
+├── ✅ completed/                   # Finished projects
+├── 🔗 [symlinks]                   # External docs access
+└── 📋 [topic areas]                # Subject-specific docs
+```
+
+## 🧭 **Documentation Organization by Reading Level**
 
 ### 🟢 **Beginner** (Getting Started & Basic Usage)
 For new users, developers getting started, and basic operational tasks.
@@ -107,6 +136,62 @@ Files are now organized with systematic prefixes based on reading level:
 - **Intermediate**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`, `07_`
 - **Advanced**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`
 - **Expert**: `01_`, `02_`, `03_`, `04_`, `05_`, `06_`
+
+## 🔗 **Related Resources & Cross-References**
+
+### 📚 **Documentation Navigation:**
+- **🏠 Main Docs**: [← Back to Overview](./README.md) (you are here)
+- **📖 About Docs**: [Documentation Organization](about/DOCS_ORGANIZATION_ANALYSIS.md)
+- **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
+- **🗂️ Archive Guide**: [Archive Organization](archive/README.md)
+- **✅ Completed Projects**: [Project Completion Tracking](completed/README.md)
+
+### 🔗 **External Documentation (Symlinks):**
+- **💻 CLI Technical**: [CLI Technical Docs](cli-technical/) → `/cli/docs/`
+- **📜 Contracts**: [Smart Contracts](contracts/) → `/contracts/docs/`
+- **🧪 Testing**: [Test Documentation](testing/) → `/tests/docs/`
+- **🌐 Website**: [Website Docs](website/) → `/website/docs/`
+- **⛓️ Blockchain**: [Blockchain Node](blockchain/node/) → `/apps/blockchain-node/docs/`
+
+### 🎯 **Topic-Specific Documentation:**
+- **🔒 Security**: [Security Documentation](security/) - Security best practices
+- **🏛️ Governance**: [Governance Docs](governance/) - Governance and policies
+- **📋 Policies**: [Project Policies](policies/) - Project policies and procedures
+- **🔧 Infrastructure**: [Infrastructure Docs](infrastructure/) - System infrastructure
+- **📊 Analytics**: [Analytics Documentation](analytics/) - Data analytics
+- **📱 Mobile**: [Mobile Documentation](mobile/) - Mobile applications
+- **🔄 Exchange**: [Exchange Documentation](exchange/) - Exchange systems
+- **🛠️ Development**: [Development Docs](development/) - Development workflows
+- **🚀 Deployment**: [Deployment Docs](deployment/) - Deployment guides
+- **📝 Implementation**: [Implementation Docs](implementation/) - Implementation details
+- **🔧 Maintenance**: [Maintenance Docs](maintenance/) - Maintenance procedures
+
+### 🌉 **Learning Path Cross-References:**
+- **👤 Beginner Path**: [Beginner Overview](beginner/README.md) → [Getting Started](beginner/01_getting_started/)
+- **🌉 Intermediate Path**: [Intermediate Overview](intermediate/README.md) → [Planning](intermediate/01_planning/)
+- **🚀 Advanced Path**: [Advanced Overview](advanced/README.md) → [Blockchain](advanced/01_blockchain/)
+- **🎓 Expert Path**: [Expert Overview](expert/README.md) → [Issues](expert/01_issues/)
+
+### 🔄 **Related Content by Topic:**
+- **🤖 AI & Agents**: [Intermediate Agents](intermediate/02_agents/) → [Expert Tasks](expert/02_tasks/)
+- **⛓️ Blockchain**: [Advanced Blockchain](advanced/01_blockchain/) → [Expert Issues](expert/01_issues/)
+- **👛 CLI Tools**: [Beginner CLI](beginner/05_cli/) → [CLI Technical](cli-technical/)
+- **🏪 Marketplace**: [Intermediate Marketplace](intermediate/07_marketplace/) → [Exchange](exchange/)
+- **🔒 Security**: [Advanced Security](advanced/06_security/) → [Security](security/)
+
+### 📊 **Project Documentation:**
+- **📋 Project Overview**: [Project Documentation](project/) - Project information
+- **✅ Completed Work**: [Completed Projects](completed/) - Finished tasks
+- **📈 Summaries**: [Project Summaries](summaries/) - Project summaries
+- **🔄 Workflows**: [Workflows](workflows/) - Development workflows
+
+### 🆘 **Help & Support:**
+- **📖 Documentation Issues**: [Report Doc Issues](https://github.com/oib/AITBC/issues)
+- **💬 Community Forum**: [AITBC Forum](https://forum.aitbc.net)
+- **🆘 Technical Support**: [AITBC Support](https://support.aitbc.net)
+- **📚 Learning Resources**: [Additional Resources](beginner/README.md#-getting-help)
+
+---
 
 ## 🔗 **Related Resources**
 

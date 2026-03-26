@@ -4,13 +4,30 @@
 **Prerequisites**: Intermediate knowledge of AITBC ecosystem  
 **Estimated Time**: 2-4 hours per topic  
 
-## 🎯 **Advanced Learning Path**
+## 🧭 **Navigation Path:**
+**� [Documentation Home](../README.md)** → **🚀 Advanced** → *You are here*
+
+**breadcrumb**: Home → Advanced → Overview
+
+---
+
+## 🎯 **See Also:**
+- **🌉 Previous Level**: [Intermediate Documentation](../intermediate/README.md) - Bridge concepts
+- **🎓 Next Level**: [Expert Documentation](../expert/README.md) - Specialized expertise
+- **📋 Project Info**: [Project Documentation](../project/) - Project overview
+- **🔒 Security Focus**: [Security Documentation](../security/) - Security best practices
+
+**Related Topics:**
+- **⛓️ Blockchain**: [Advanced Blockchain](01_blockchain/) → [Expert Issues](../expert/01_issues/)
+- **🏗️ Architecture**: [System Architecture](03_architecture/) → [Expert Workflows](../expert/06_workflow/)
+- **🔒 Security**: [Advanced Security](06_security/) → [Security Documentation](../security/)
+- **🚀 Deployment**: [Deployment Strategies](04_deployment/) → [Infrastructure Docs](../infrastructure/)
 
 This section contains advanced topics for experienced developers and system administrators who want to deepen their understanding of the AITBC ecosystem.
 
 ---
 
-## 📚 **Advanced Topics Available:**
+## 🎯 **Advanced Learning Path**
 
 ### **🔗 01_blockchain**
 - **Content**: Advanced blockchain concepts and implementations
