@@ -4,7 +4,24 @@
 **Prerequisites**: Beginner AITBC knowledge completed  
 **Estimated Time**: 2-4 hours per topic  
 
-## 🎯 **Bridge to Advanced Topics**
+## 🧭 **Navigation Path:**
+**🏠 [Documentation Home](../README.md)** → **� Intermediate** → *You are here*
+
+** breadcrumb**: Home → Intermediate → Overview
+
+---
+
+## �🎯 **See Also:**
+- **🎯 Previous Level**: [Beginner Documentation](../beginner/README.md) - Foundation knowledge
+- **🚀 Next Level**: [Advanced Documentation](../advanced/README.md) - Deep technical content
+- **📋 Project Info**: [Project Documentation](../project/) - Project overview
+- **🤖 AI Focus**: [Analytics Documentation](../analytics/) - AI and analytics
+
+**Related Topics:**
+- **🤖 AI Agents**: [Intermediate Agents](02_agents/) → [Expert Tasks](../expert/02_tasks/)
+- **⛓️ Cross-Chain**: [Cross-Chain Operations](04_cross_chain/) → [Advanced Blockchain](../advanced/01_blockchain/)
+- **🏪 Marketplace**: [Marketplace Operations](07_marketplace/) → [Exchange Documentation](../exchange/)
+- **👛 SDK Development**: [Agent SDK](03_agent_sdk/) → [Advanced Development](../advanced/05_development/)
 
 This section bridges the gap between beginner knowledge and advanced expertise. It's designed for users who understand AITBC basics and want to deepen their knowledge with more complex concepts and practical applications.
 
