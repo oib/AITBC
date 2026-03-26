@@ -373,7 +373,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 ### **📞 Contact & Connect:**
 - **🌊 Windsurf**: [https://windsurf.com/refer?referral_code=4j75hl1x7ibz3yj8](https://windsurf.com/refer?referral_code=4j75hl1x7ibz3yj8)
 - **🐦 X**: [@bubuIT_net](https://x.com/bubuIT_net)
-- **� Email**: support@aitbc.net
+- **📧 Email**: andreas.fleckl@bubuit.net
 
 ---
 
