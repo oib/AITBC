@@ -17,8 +17,7 @@ on:
 
 jobs:
   test-cli-level1:
-    runs-on: debian
-    if: false 
+    runs-on: debian 
     
     strategy:
       matrix:
@@ -31,10 +30,10 @@ jobs:
           echo "Current PWD: $(pwd)"
           echo "Forcing absolute workspace path..."
           
-          # Clean and create absolute workspace
-          rm -rf /opt/gitea-runner/workspace
-          mkdir -p /opt/gitea-runner/workspace
-          cd /opt/gitea-runner/workspace
+          # Clean and create isolated workspace
+          rm -rf /opt/gitea-runner/cli-workspace
+          mkdir -p /opt/gitea-runner/cli-workspace
+          cd /opt/gitea-runner/cli-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
