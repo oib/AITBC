@@ -223,12 +223,10 @@ jobs:
                     echo 'mypy = "^1.0.0"' >> "repo/packages/py/$pkg/pyproject.toml"
                     
                     # Create a simple Python module
-                    cat > "repo/packages/py/$pkg/src/$pkg/__init__.py" << 'EOF'
-"""Test package for CI."""
-
-__version__ = "0.1.0"
-__author__ = "AITBC Team"
-EOF
+                    echo '"""Test package for CI."""' > "repo/packages/py/$pkg/src/$pkg/__init__.py"
+                    echo '' >> "repo/packages/py/$pkg/src/$pkg/__init__.py"
+                    echo '__version__ = "0.1.0"' >> "repo/packages/py/$pkg/src/$pkg/__init__.py"
+                    echo '__author__ = "AITBC Team"' >> "repo/packages/py/$pkg/src/$pkg/__init__.py"
                   done
                   
                   cd repo
