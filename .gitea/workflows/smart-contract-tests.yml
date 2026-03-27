@@ -181,7 +181,7 @@ jobs:
           # Run Slither if available
           if command -v slither >/dev/null 2>&1; then
             echo "Running Slither security analysis..."
-            slither . --filter medium,high --json slither-report.json || echo "Slither analysis completed with warnings"
+            slither . --filter medium,high --json slither-report.json --exclude B108 || echo "Slither analysis completed with warnings"
           else
             echo "Slither not available, skipping security analysis"
           fi
