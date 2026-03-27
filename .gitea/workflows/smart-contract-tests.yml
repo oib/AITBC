@@ -41,6 +41,9 @@ jobs:
           mkdir -p /opt/aitbc/solidity-workspace
           cd /opt/aitbc/solidity-workspace
           
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
@@ -299,6 +302,10 @@ jobs:
           rm -rf /opt/aitbc/solidity-lint-workspace
           mkdir -p /opt/aitbc/solidity-lint-workspace
           cd /opt/aitbc/solidity-lint-workspace
+          
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
           cd repo
 
