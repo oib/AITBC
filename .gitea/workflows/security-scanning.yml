@@ -16,9 +16,9 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
-          rm -rf /opt/gitea-runner/security-workspace
-          mkdir -p /opt/gitea-runner/security-workspace
-          cd /opt/gitea-runner/security-workspace
+          rm -rf /opt/aitbc/security-workspace
+          mkdir -p /opt/aitbc/security-workspace
+          cd /opt/aitbc/security-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."

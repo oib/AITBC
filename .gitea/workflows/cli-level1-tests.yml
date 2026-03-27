@@ -32,9 +32,9 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
-          rm -rf /opt/gitea-runner/cli-workspace
-          mkdir -p /opt/gitea-runner/cli-workspace
-          cd /opt/gitea-runner/cli-workspace
+          rm -rf /opt/aitbc/cli-workspace
+          mkdir -p /opt/aitbc/cli-workspace
+          cd /opt/aitbc/cli-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
@@ -136,7 +136,7 @@ jobs:
 
       - name: Upload coverage reports
         run: |
-          cd /opt/gitea-runner/cli-workspace/repo
+          cd /opt/aitbc/cli-workspace/repo
           if [ -f "package.json" ]; then
             npm run test:coverage || echo "Coverage completed"
           else
