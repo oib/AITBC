@@ -54,13 +54,23 @@ jobs:
               python3 -m pipx ensurepath
             fi
             
-            echo "=== POETRY INSTALLATION (via pipx) ==="
-            # Use pipx to install poetry (manages its own venv)
+            echo "=== POETRY SETUP ==="
+            # Add poetry to PATH and install if needed
+            export PATH="$PATH:/root/.local/bin"
             if ! command -v poetry >/dev/null 2>&1; then
               echo "Installing poetry with pipx..."
               pipx install poetry
+              export PATH="$PATH:/root/.local/bin"
             else
-              echo "Poetry already available"
+              echo "Poetry already available at $(which poetry)"
+            fi
+            
+            # Use full path as fallback
+            POETRY_CMD="/root/.local/share/pipx/venvs/poetry/bin/poetry"
+            if [ -f "$POETRY_CMD" ]; then
+              echo "Using poetry at: $POETRY_CMD"
+            else
+              POETRY_CMD="poetry"
             fi
             
             echo "=== PROJECT VIRTUAL ENVIRONMENT ==="
@@ -73,9 +83,9 @@ jobs:
             echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
-            # Use poetry (installed via pipx) to install project dependencies
+            # Use poetry to install project dependencies
             echo "Installing project dependencies with poetry..."
-            poetry install
+            $POETRY_CMD install
             
             echo "✅ Python dependencies installed!"
             echo "=== SECURITY FIXES ==="
