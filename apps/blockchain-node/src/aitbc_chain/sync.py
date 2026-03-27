@@ -16,7 +16,8 @@ from sqlmodel import Session, select
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
-from .models import Block, Transaction, Account
+from .models import Block, Account
+from aitbc_chain.models import Transaction as ChainTransaction
 
 logger = get_logger(__name__)
 
@@ -317,7 +318,7 @@ class ChainSync:
                     sender_acct.nonce += 1
                 recipient_acct.balance += value
 
-                tx = Transaction(
+                tx = ChainTransaction(
                     chain_id=self._chain_id,
                     tx_hash=tx_hash,
                     block_height=block_data["height"],
@@ -392,7 +393,7 @@ class ChainSync:
         for old_block in blocks_to_remove:
             # Remove transactions in the block
             old_txs = session.exec(
-                select(Transaction).where(Transaction.chain_id == self._chain_id).where(Transaction.block_height == old_block.height)
+                select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id).where(ChainTransaction.block_height == old_block.height)
             ).all()
             for tx in old_txs:
                 session.delete(tx)
@@ -422,7 +423,7 @@ class ChainSync:
             ).first()
 
             total_blocks = session.exec(select(Block).where(Block.chain_id == self._chain_id)).all()
-            total_txs = session.exec(select(Transaction).where(Transaction.chain_id == self._chain_id)).all()
+            total_txs = session.exec(select(ChainTransaction).where(ChainTransaction.chain_id == self._chain_id)).all()
 
         return {
             "chain_id": self._chain_id,
