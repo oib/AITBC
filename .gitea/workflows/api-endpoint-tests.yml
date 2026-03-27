@@ -172,49 +172,47 @@ jobs:
           echo "🧪 Testing Coordinator API endpoints..."
           
           # Create coordinator API test
-          cat > test_coordinator_api.py << 'EOF'
-import requests
-import json
-
-def test_coordinator_health():
-    try:
-        response = requests.get('http://localhost:8000/', timeout=5)
-        print(f"✅ Coordinator health check: {response.status_code}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"❌ Coordinator health error: {e}")
-        return False
-
-def test_coordinator_endpoints():
-    endpoints = [
-        'http://localhost:8000/',
-        'http://localhost:8000/health',
-        'http://localhost:8000/info'
-    ]
-    
-    results = []
-    for endpoint in endpoints:
-        try:
-            response = requests.get(endpoint, timeout=5)
-            print(f"✅ {endpoint}: {response.status_code}")
-            results.append(response.status_code == 200)
-        except Exception as e:
-            print(f"❌ {endpoint}: {e}")
-            results.append(False)
-    
-    return all(results)
-
-if __name__ == "__main__":
-    print("🧪 Testing Coordinator API...")
-    
-    health_ok = test_coordinator_health()
-    endpoints_ok = test_coordinator_endpoints()
-    
-    if health_ok and endpoints_ok:
-        print("✅ Coordinator API tests passed")
-    else:
-        print("❌ Coordinator API tests failed")
-EOF
+          echo 'import requests' > test_coordinator_api.py
+          echo 'import json' >> test_coordinator_api.py
+          echo '' >> test_coordinator_api.py
+          echo 'def test_coordinator_health():' >> test_coordinator_api.py
+          echo '    try:' >> test_coordinator_api.py
+          echo '        response = requests.get('"'"'http://localhost:8000/'"'"', timeout=5)' >> test_coordinator_api.py
+          echo '        print(f"✅ Coordinator health check: {response.status_code}")' >> test_coordinator_api.py
+          echo '        return response.status_code == 200' >> test_coordinator_api.py
+          echo '    except Exception as e:' >> test_coordinator_api.py
+          echo '        print(f"❌ Coordinator health error: {e}")' >> test_coordinator_api.py
+          echo '        return False' >> test_coordinator_api.py
+          echo '' >> test_coordinator_api.py
+          echo 'def test_coordinator_endpoints():' >> test_coordinator_api.py
+          echo '    endpoints = [' >> test_coordinator_api.py
+          echo '        '"'"'http://localhost:8000/'"'"',' >> test_coordinator_api.py
+          echo '        '"'"'http://localhost:8000/health'"'"',' >> test_coordinator_api.py
+          echo '        '"'"'http://localhost:8000/info'"'"'' >> test_coordinator_api.py
+          echo '    ]' >> test_coordinator_api.py
+          echo '    ' >> test_coordinator_api.py
+          echo '    results = []' >> test_coordinator_api.py
+          echo '    for endpoint in endpoints:' >> test_coordinator_api.py
+          echo '        try:' >> test_coordinator_api.py
+          echo '            response = requests.get(endpoint, timeout=5)' >> test_coordinator_api.py
+          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_coordinator_api.py
+          echo '            results.append(response.status_code == 200)' >> test_coordinator_api.py
+          echo '        except Exception as e:' >> test_coordinator_api.py
+          echo '            print(f"❌ {endpoint}: {e}")' >> test_coordinator_api.py
+          echo '            results.append(False)' >> test_coordinator_api.py
+          echo '    ' >> test_coordinator_api.py
+          echo '    return all(results)' >> test_coordinator_api.py
+          echo '' >> test_coordinator_api.py
+          echo 'if __name__ == "__main__":' >> test_coordinator_api.py
+          echo '    print("🧪 Testing Coordinator API...")' >> test_coordinator_api.py
+          echo '    ' >> test_coordinator_api.py
+          echo '    health_ok = test_coordinator_health()' >> test_coordinator_api.py
+          echo '    endpoints_ok = test_coordinator_endpoints()' >> test_coordinator_api.py
+          echo '    ' >> test_coordinator_api.py
+          echo '    if health_ok and endpoints_ok:' >> test_coordinator_api.py
+          echo '        print("✅ Coordinator API tests passed")' >> test_coordinator_api.py
+          echo '    else:' >> test_coordinator_api.py
+          echo '        print("❌ Coordinator API tests failed")' >> test_coordinator_api.py
           
           python test_coordinator_api.py
           
@@ -229,49 +227,47 @@ EOF
           echo "🧪 Testing Exchange API endpoints..."
           
           # Create exchange API test
-          cat > test_exchange_api.py << 'EOF'
-import requests
-import json
-
-def test_exchange_health():
-    try:
-        response = requests.get('http://localhost:8001/', timeout=5)
-        print(f"✅ Exchange health check: {response.status_code}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"❌ Exchange health error: {e}")
-        return False
-
-def test_exchange_endpoints():
-    endpoints = [
-        'http://localhost:8001/',
-        'http://localhost:8001/health',
-        'http://localhost:8001/markets'
-    ]
-    
-    results = []
-    for endpoint in endpoints:
-        try:
-            response = requests.get(endpoint, timeout=5)
-            print(f"✅ {endpoint}: {response.status_code}")
-            results.append(response.status_code == 200)
-        except Exception as e:
-            print(f"❌ {endpoint}: {e}")
-            results.append(False)
-    
-    return all(results)
-
-if __name__ == "__main__":
-    print("🧪 Testing Exchange API...")
-    
-    health_ok = test_exchange_health()
-    endpoints_ok = test_exchange_endpoints()
-    
-    if health_ok and endpoints_ok:
-        print("✅ Exchange API tests passed")
-    else:
-        print("❌ Exchange API tests failed")
-EOF
+          echo 'import requests' > test_exchange_api.py
+          echo 'import json' >> test_exchange_api.py
+          echo '' >> test_exchange_api.py
+          echo 'def test_exchange_health():' >> test_exchange_api.py
+          echo '    try:' >> test_exchange_api.py
+          echo '        response = requests.get('"'"'http://localhost:8001/'"'"', timeout=5)' >> test_exchange_api.py
+          echo '        print(f"✅ Exchange health check: {response.status_code}")' >> test_exchange_api.py
+          echo '        return response.status_code == 200' >> test_exchange_api.py
+          echo '    except Exception as e:' >> test_exchange_api.py
+          echo '        print(f"❌ Exchange health error: {e}")' >> test_exchange_api.py
+          echo '        return False' >> test_exchange_api.py
+          echo '' >> test_exchange_api.py
+          echo 'def test_exchange_endpoints():' >> test_exchange_api.py
+          echo '    endpoints = [' >> test_exchange_api.py
+          echo '        '"'"'http://localhost:8001/'"'"',' >> test_exchange_api.py
+          echo '        '"'"'http://localhost:8001/health'"'"',' >> test_exchange_api.py
+          echo '        '"'"'http://localhost:8001/info'"'"'' >> test_exchange_api.py
+          echo '    ]' >> test_exchange_api.py
+          echo '    ' >> test_exchange_api.py
+          echo '    results = []' >> test_exchange_api.py
+          echo '    for endpoint in endpoints:' >> test_exchange_api.py
+          echo '        try:' >> test_exchange_api.py
+          echo '            response = requests.get(endpoint, timeout=5)' >> test_exchange_api.py
+          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_exchange_api.py
+          echo '            results.append(response.status_code == 200)' >> test_exchange_api.py
+          echo '        except Exception as e:' >> test_exchange_api.py
+          echo '            print(f"❌ {endpoint}: {e}")' >> test_exchange_api.py
+          echo '            results.append(False)' >> test_exchange_api.py
+          echo '    ' >> test_exchange_api.py
+          echo '    return all(results)' >> test_exchange_api.py
+          echo '' >> test_exchange_api.py
+          echo 'if __name__ == "__main__":' >> test_exchange_api.py
+          echo '    print("🧪 Testing Exchange API...")' >> test_exchange_api.py
+          echo '    ' >> test_exchange_api.py
+          echo '    health_ok = test_exchange_health()' >> test_exchange_api.py
+          echo '    endpoints_ok = test_exchange_endpoints()' >> test_exchange_api.py
+          echo '    ' >> test_exchange_api.py
+          echo '    if health_ok and endpoints_ok:' >> test_exchange_api.py
+          echo '        print("✅ Exchange API tests passed")' >> test_exchange_api.py
+          echo '    else:' >> test_exchange_api.py
+          echo '        print("❌ Exchange API tests failed")' >> test_exchange_api.py
           
           python test_exchange_api.py
           
