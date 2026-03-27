@@ -31,10 +31,6 @@ jobs:
             path: "packages/solidity/aitbc-token"
             config: "hardhat.config.ts"
             tool: "hardhat"
-          - name: "contracts-root"
-            path: "contracts"
-            config: "hardhat.config.js"
-            tool: "hardhat"
     
     steps:
       - name: Setup workspace
@@ -96,6 +92,7 @@ jobs:
           echo "✅ Node.js $(node -v) is available and ready"
           
           # Install npm dependencies
+          echo "Installing npm dependencies..."
           npm install --legacy-peer-deps
           
           # Verify installation
