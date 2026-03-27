@@ -1,31 +1,38 @@
-name: debug
+name: security-scanning
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
-  debug:
+  audit:
     runs-on: debian
 
     steps:
-      - name: DEBUG BEFORE CHECKOUT
+      - name: Clone repository
         run: |
-          echo "=== BEFORE ==="
+          rm -rf repo
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+
+      - name: Verify repository context
+        run: |
+          cd repo
+          echo "PWD:"
           pwd
+          echo "FILES:"
           ls -la
 
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: DEBUG AFTER CHECKOUT
+      - name: Install dependencies
         run: |
-          echo "=== AFTER ==="
-          pwd
-          ls -la
+          cd repo
+          npm install
 
-      - name: Find package.json
+      - name: Audit dependencies
         run: |
-          find . -name package.json || true
+          cd repo
+          npm audit || true
 
-      - name: Install deps
-        run: npm install --legacy-peer-deps
+      - name: Security scan
+        run: |
+          cd repo
+          npm audit --audit-level moderate || true

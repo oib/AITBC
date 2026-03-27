@@ -6,14 +6,17 @@ on:
 
 jobs:
   test:
-    runs-on: debian 
+    runs-on: debian
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Clone repository
+        run: |
+          rm -rf repo
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Verify repository context
         run: |
+          cd repo
           echo "Current working directory:"
           pwd
           echo "Files in directory:"
@@ -21,7 +24,14 @@ jobs:
           echo "Looking for package.json:"
           ls -la package.json || echo "package.json not found"
 
-      - run: |
+      - name: Install dependencies
+        run: |
+          cd repo
+          npm install --legacy-peer-deps
+
+      - name: Test runner
+        run: |
+          cd repo
           echo "Runner OK"
           hostname
           whoami
