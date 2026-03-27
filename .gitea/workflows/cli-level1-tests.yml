@@ -21,7 +21,7 @@ jobs:
     
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20, 24]
         
     steps:
       - name: Nuclear fix - absolute path control
@@ -126,9 +126,9 @@ jobs:
           fi
 
       - name: Upload coverage reports
-        if: matrix.node-version == '20'
+        if: matrix.node-version == '24'
         run: |
-          cd /opt/gitea-runner/workspace/repo
+          cd /opt/gitea-runner/cli-workspace/repo
           if [ -f "package.json" ]; then
             npm run test:coverage || echo "Coverage completed"
           else
