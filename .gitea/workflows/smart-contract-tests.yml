@@ -25,9 +25,15 @@ jobs:
           - name: "aitbc-token"
             path: "packages/solidity/aitbc-token"
             config: "hardhat.config.ts"
-          - name: "contracts-root"
+            tool: "hardhat"
+          - name: "contracts-root-hardhat"
+            path: "contracts"
+            config: "hardhat.config.js"
+            tool: "hardhat"
+          - name: "contracts-root-foundry"
             path: "contracts"
             config: "foundry.toml"
+            tool: "foundry"
     
     steps:
       - name: Setup workspace
@@ -71,11 +77,38 @@ jobs:
           
           echo "✅ Node.js $(node -v) is available and ready"
 
-      - name: Install Foundry
-        if: matrix.project.config == 'foundry.toml'
+      - name: Install Hardhat Dependencies
+        if: matrix.project.tool == 'hardhat'
         run: |
-          echo "=== INSTALLING FOUNDRY ==="
+          echo "=== INSTALLING HARDHAT DEPENDENCIES ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
+          
+          echo "Current Node.js version: $(node -v)"
+          echo "Using installed Node.js version - no installation needed"
+          
+          # Verify Node.js is available
+          if ! command -v node >/dev/null 2>&1; then
+            echo "❌ Node.js not found - please install Node.js first"
+            exit 1
+          fi
+          
+          echo "✅ Node.js $(node -v) is available and ready"
+          
+          # Install npm dependencies
+          npm install --legacy-peer-deps
+          
+          # Verify installation
+          npx hardhat --version
+          echo "✅ Hardhat dependencies installed successfully"
+
+      - name: Install Foundry (Optional)
+        if: matrix.project.tool == 'foundry'
+        run: |
+          echo "=== INSTALLING FOUNDRY (OPTIONAL) ==="
+          cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
+          
+          echo "⚠️  Foundry installation - optional for legacy support"
+          echo "💡 Consider migrating to Hardhat for better CI compatibility"
           
           # Install foundryup
           curl -L https://foundry.paradigm.xyz | bash
@@ -124,24 +157,31 @@ jobs:
           cast --version
           echo "✅ Foundry tools installed successfully"
 
-      - name: Install Hardhat Dependencies
-        if: matrix.project.config == 'hardhat.config.ts'
+      - name: Compile Contracts (Hardhat)
+        if: matrix.project.tool == 'hardhat'
         run: |
-          echo "=== INSTALLING HARDHAT DEPENDENCIES ==="
+          echo "=== COMPILING HARDHAT CONTRACTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          # Install npm dependencies
-          npm install --legacy-peer-deps
+          echo "🔥 Using Hardhat - CI-friendly and reliable"
           
-          # Verify installation
-          npx hardhat --version
-          echo "✅ Hardhat dependencies installed successfully"
+          # Compile contracts
+          npx hardhat compile
+          
+          # Check compilation output
+          echo "Compilation artifacts:"
+          ls -la artifacts/
+          
+          echo "✅ Hardhat contracts compiled successfully"
 
       - name: Compile Contracts (Foundry)
-        if: matrix.project.config == 'foundry.toml'
+        if: matrix.project.tool == 'foundry'
         run: |
           echo "=== COMPILING FOUNDARY CONTRACTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
+          
+          echo "⚠️  Using Foundry - legacy support only"
+          echo "💡 Consider migrating to Hardhat for better CI compatibility"
           
           # Ensure PATH is set
           export PATH="$HOME/.foundry/bin:$PATH"
@@ -156,26 +196,27 @@ jobs:
           
           echo "✅ Foundry contracts compiled successfully"
 
-      - name: Compile Contracts (Hardhat)
-        if: matrix.project.config == 'hardhat.config.ts'
+      - name: Run Contract Tests (Hardhat)
+        if: matrix.project.tool == 'hardhat'
         run: |
-          echo "=== COMPILING HARDHAT CONTRACTS ==="
+          echo "=== RUNNING HARDHAT CONTRACT TESTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          # Compile contracts
-          npm run build
+          echo "🔥 Using Hardhat - CI-friendly and reliable"
           
-          # Check compilation output
-          echo "Compilation artifacts:"
-          ls -la artifacts/
+          # Run tests
+          npx hardhat test
           
-          echo "✅ Hardhat contracts compiled successfully"
+          echo "✅ Hardhat contract tests completed"
 
       - name: Run Contract Tests (Foundry)
-        if: matrix.project.config == 'foundry.toml'
+        if: matrix.project.tool == 'foundry'
         run: |
           echo "=== RUNNING FOUNDRY CONTRACT TESTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
+          
+          echo "⚠️  Using Foundry - legacy support only"
+          echo "💡 Consider migrating to Hardhat for better CI compatibility"
           
           # Ensure PATH is set
           export PATH="$HOME/.foundry/bin:$PATH"
@@ -186,23 +227,15 @@ jobs:
           
           echo "✅ Foundry contract tests completed"
 
-      - name: Run Contract Tests (Hardhat)
-        if: matrix.project.config == 'hardhat.config.ts'
-        run: |
-          echo "=== RUNNING HARDHAT CONTRACT TESTS ==="
-          cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
-          
-          # Run tests
-          npm run test
-          
-          echo "✅ Hardhat contract tests completed"
-
       - name: Contract Security Analysis
         run: |
           echo "=== CONTRACT SECURITY ANALYSIS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
+            echo "⚠️  Using Foundry - legacy support only"
+            echo "💡 Consider migrating to Hardhat for better CI compatibility"
+            
             # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
             source ~/.bashrc 2>/dev/null || true
@@ -220,9 +253,10 @@ jobs:
             forge test --gas-report --fail-on-revert || echo "Security tests completed"
             
           else
+            echo "🔥 Using Hardhat - CI-friendly and reliable"
             # Hardhat security checks
             echo "Running Hardhat security checks..."
-            npm run test 2>&1 | grep -i "revert\|error\|fail" || echo "Security checks completed"
+            npx hardhat test 2>&1 | grep -i "revert\|error\|fail" || echo "Security checks completed"
           fi
           
           echo "✅ Contract security analysis completed"
@@ -232,7 +266,9 @@ jobs:
           echo "=== GAS OPTIMIZATION REPORT ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
+            echo "⚠️  Using Foundry - legacy support only"
+            
             # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
             source ~/.bashrc 2>/dev/null || true
@@ -244,8 +280,9 @@ jobs:
             cat gas-report.txt | grep -A 20 "Gas report" || echo "No gas report available"
             
           else
+            echo "🔥 Using Hardhat - CI-friendly and reliable"
             echo "Gas optimization for Hardhat project:"
-            echo "Check npm test output for gas usage information"
+            echo "Check npx hardhat test output for gas usage information"
           fi
           
           echo "✅ Gas optimization report completed"
@@ -255,7 +292,9 @@ jobs:
           echo "=== CONTRACT SIZE ANALYSIS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
+            echo "⚠️  Using Foundry - legacy support only"
+            
             # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
             source ~/.bashrc 2>/dev/null || true
@@ -271,6 +310,7 @@ jobs:
             done
             
           else
+            echo "🔥 Using Hardhat - CI-friendly and reliable"
             echo "Contract sizes for Hardhat project:"
             ls -la artifacts/contracts/ | head -10
           fi
@@ -287,7 +327,9 @@ jobs:
           mkdir -p test-results
           
           # Copy test results
-          if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
+            echo "⚠️  Foundry test results - legacy support only"
+            
             # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
             source ~/.bashrc 2>/dev/null || true
@@ -298,8 +340,9 @@ jobs:
             cp slither-report.json test-results/ 2>/dev/null || true
             
           else
+            echo "🔥 Hardhat test results - CI-friendly and reliable"
             # Hardhat results
-            npm run test > test-results/hardhat-test-output.txt 2>&1 || true
+            npx hardhat test > test-results/hardhat-test-output.txt 2>&1 || true
             cp -r artifacts/ test-results/ 2>/dev/null || true
           fi
           
@@ -330,7 +373,8 @@ jobs:
         run: |
           echo "=== LINTING SOLIDITY CONTRACTS ==="
           
-          # Lint Hardhat projects
+          # Lint Hardhat projects (priority)
+          echo "🔥 Linting Hardhat projects - CI-friendly and reliable"
           if [ -d "packages/solidity/aitbc-token" ]; then
             cd packages/solidity/aitbc-token
             npm install --legacy-peer-deps
@@ -338,8 +382,17 @@ jobs:
             cd ../../..
           fi
           
-          # Lint Foundry projects
+          if [ -f "contracts/hardhat.config.js" ]; then
+            cd contracts
+            npm install --legacy-peer-deps
+            npm run lint || echo "Linting completed with warnings"
+            cd ..
+          fi
+          
+          # Lint Foundry projects (legacy support)
           if [ -f "contracts/foundry.toml" ]; then
+            echo "⚠️  Linting Foundry projects - legacy support only"
+            echo "💡 Consider migrating to Hardhat for better CI compatibility"
             cd contracts
             
             # Install and setup forge for linting
