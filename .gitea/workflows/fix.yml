@@ -38,6 +38,20 @@ jobs:
             npm audit fix || true
           elif [ -f "pyproject.toml" ]; then
             echo "✅ Python project detected!"
+            echo "=== PYTHON SETUP ==="
+            
+            # Install Python and pip if not available
+            if ! command -v python3 >/dev/null 2>&1; then
+              echo "Installing Python 3..."
+              apt-get update
+              apt-get install -y python3 python3-pip python3-venv
+            fi
+            
+            if ! command -v pip >/dev/null 2>&1; then
+              echo "Installing pip..."
+              python3 -m pip install --upgrade pip
+            fi
+            
             echo "=== PYTHON DEPENDENCIES ==="
             if command -v poetry >/dev/null 2>&1; then
               echo "Poetry found, installing dependencies..."
