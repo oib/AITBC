@@ -15,6 +15,11 @@ on:
     - cron: '0 6 * * *'  # Daily at 6 AM UTC
   workflow_dispatch:
 
+# Prevent parallel execution - run workflows serially
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
+
 jobs:
   test-cli-level1:
     runs-on: debian 
