@@ -46,28 +46,39 @@ jobs:
             if ! command -v python3 >/dev/null 2>&1; then
               echo "Installing Python 3..."
               apt-get update
-              apt-get install -y python3 python3-pip python3-venv python3-full
+              apt-get install -y python3 python3-pip python3-venv python3-full pipx
             fi
             
-            echo "=== VIRTUAL ENVIRONMENT ==="
-            # Create and use virtual environment
+            # Install pipx if not available (for poetry)
+            if ! command -v pipx >/dev/null 2>&1; then
+              echo "Installing pipx..."
+              python3 -m pip install --user pipx
+              python3 -m pipx ensurepath
+            fi
+            
+            echo "=== POETRY INSTALLATION (via pipx) ==="
+            # Use pipx to install poetry (manages its own venv)
+            if ! command -v poetry >/dev/null 2>&1; then
+              echo "Installing poetry with pipx..."
+              pipx install poetry
+            else
+              echo "Poetry already available"
+            fi
+            
+            echo "=== PROJECT VIRTUAL ENVIRONMENT ==="
+            # Create venv for project dependencies
             python3 -m venv venv
             source venv/bin/activate
             
-            echo "Virtual environment activated"
+            echo "Project venv activated"
             echo "Python in venv: $(python --version)"
             echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
-            # Use venv pip explicitly to avoid system pip
-            if command -v poetry >/dev/null 2>&1; then
-              echo "Poetry found, installing dependencies..."
-              poetry install
-            else
-              echo "Installing poetry with venv pip..."
-              venv/bin/pip install poetry
-              poetry install
-            fi
+            # Use poetry (installed via pipx) to install project dependencies
+            echo "Installing project dependencies with poetry..."
+            poetry install
+            
             echo "✅ Python dependencies installed!"
           else
             echo "❌ No supported project type found!"
