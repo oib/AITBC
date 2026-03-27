@@ -16,25 +16,22 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Setup Node.js
+        working-directory: repo
         run: |
-          cd repo
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           apt-get install -y nodejs
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install --legacy-peer-deps
+        working-directory: repo
+        run: npm install --legacy-peer-deps
 
       - name: Run tests
-        run: |
-          cd repo
-          npm test || echo "Tests completed"
+        working-directory: repo
+        run: npm test || echo "Tests completed"
 
       - name: Build
-        run: |
-          cd repo
-          npm run build || echo "Build completed"
+        working-directory: repo
+        run: npm run build || echo "Build completed"
 
   deploy:
     needs: build
@@ -48,7 +45,7 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Deploy
+        working-directory: repo
         run: |
-          cd repo
           echo "Deploy step would run here"
           # Add deployment commands here

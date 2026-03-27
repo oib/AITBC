@@ -30,23 +30,20 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Setup Node ${{ matrix.node-version }}
+        working-directory: repo
         run: |
-          cd repo
           curl -fsSL https://deb.nodesource.com/setup_${{ matrix.node-version }}.x | bash -
           apt-get install -y nodejs
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install --legacy-peer-deps
+        working-directory: repo
+        run: npm install --legacy-peer-deps
 
       - name: Run CLI Level 1 Tests
-        run: |
-          cd repo
-          npm run test:cli:level1 || echo "CLI tests completed"
+        working-directory: repo
+        run: npm run test:cli:level1 || echo "CLI tests completed"
 
       - name: Upload coverage reports
         if: matrix.node-version == '20'
-        run: |
-          cd repo
-          npm run test:coverage || echo "Coverage completed"
+        working-directory: repo
+        run: npm run test:coverage || echo "Coverage completed"

@@ -15,8 +15,8 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Verify repository context
+        working-directory: repo
         run: |
-          cd repo
           echo "Current working directory:"
           pwd
           echo "Files in directory:"
@@ -25,13 +25,12 @@ jobs:
           ls -la package.json || echo "package.json not found"
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install --legacy-peer-deps
+        working-directory: repo
+        run: npm install --legacy-peer-deps
 
       - name: Test runner
+        working-directory: repo
         run: |
-          cd repo
           echo "Runner OK"
           hostname
           whoami
