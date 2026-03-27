@@ -128,24 +128,8 @@ jobs:
             
             # Test specific imports that are failing
             echo "Testing problematic imports..."
-            venv/bin/python -c "
-import sys
-print('Testing src import...')
-sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/agent-protocols/src')
-try:
-    import message_protocol
-    print('✅ src.message_protocol import successful')
-except Exception as e:
-    print(f'❌ src import failed: {e}')
-
-print('Testing aitbc import...')
-sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/blockchain-node/src')
-try:
-    import aitbc_chain
-    print('✅ aitbc_chain import successful')
-except Exception as e:
-    print(f'❌ aitbc import failed: {e}')
-"
+            venv/bin/python -c "import sys; print('Testing src import...'); sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/agent-protocols/src'); exec('try:\n    import message_protocol\n    print(\"✅ src.message_protocol import successful\")\nexcept Exception as e:\n    print(f\"❌ src import failed: {e}\n')"
+            venv/bin/python -c "import sys; print('Testing aitbc import...'); sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/blockchain-node/src'); exec('try:\n    import aitbc_chain\n    print(\"✅ aitbc_chain import successful\")\nexcept Exception as e:\n    print(f\"❌ aitbc import failed: {e}\n')"
             
             echo "=== RUNNING PYTHON TESTS ==="
             echo "Attempting to run tests with comprehensive error handling..."
