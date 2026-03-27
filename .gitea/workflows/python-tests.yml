@@ -93,7 +93,7 @@ jobs:
             echo "=== ADDITIONAL DEPENDENCIES ==="
             # Install missing dependencies that cause import errors
             echo "Installing additional test dependencies..."
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi
             
             echo "=== PYTHON PATH SETUP ==="
             # Set up comprehensive Python path for complex import patterns
@@ -108,6 +108,22 @@ jobs:
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-crypto/src:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-sdk/src:$PYTHONPATH"
             
+            echo "=== IMPORT SYMLINKS ==="
+            # Create symlinks to resolve problematic imports
+            cd /opt/gitea-runner/workspace/repo
+            # Create src symlink for agent-protocols
+            if [ -d "apps/agent-protocols/src" ] && [ ! -L "src" ]; then
+              ln -sf apps/agent-protocols/src src
+            fi
+            # Create aitbc symlink for blockchain-node
+            if [ -d "apps/blockchain-node/src/aitbc_chain" ] && [ ! -L "aitbc" ]; then
+              ln -sf apps/blockchain-node/src/aitbc_chain aitbc
+            fi
+            # Create coordinator-api src symlink
+            if [ -d "apps/coordinator-api/src" ] && [ ! -L "coordinator_src" ]; then
+              ln -sf apps/coordinator-api/src coordinator_src
+            fi
+            
             echo "=== PYTEST INSTALLATION ==="
             echo "Installing pytest with test dependencies..."
             venv/bin/pip install pytest pytest-cov pytest-mock
@@ -118,8 +134,13 @@ jobs:
             mkdir -p /opt/gitea-runner/workspace/repo/data
             mkdir -p /opt/gitea-runner/workspace/repo/data/blockchain
             mkdir -p /opt/gitea-runner/workspace/repo/apps/blockchain-node/data
+            mkdir -p /opt/gitea-runner/workspace/repo/tmp
             touch /opt/gitea-runner/workspace/repo/data/blockchain/mempool.db
             touch /opt/gitea-runner/workspace/repo/apps/blockchain-node/data/mempool.db
+            touch /opt/gitea-runner/workspace/repo/tmp/test_coordinator.db
+            chmod 666 /opt/gitea-runner/workspace/repo/data/blockchain/mempool.db
+            chmod 666 /opt/gitea-runner/workspace/repo/apps/blockchain-node/data/mempool.db
+            chmod 666 /opt/gitea-runner/workspace/repo/tmp/test_coordinator.db
             
             echo "=== IMPORT DEBUGGING ==="
             echo "Python path: $PYTHONPATH"
@@ -193,7 +214,7 @@ jobs:
             
             python3 -m venv venv && source venv/bin/activate
             $POETRY_CMD install --no-root
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests pytest pytest-cov pytest-mock
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi pytest pytest-cov pytest-mock
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
