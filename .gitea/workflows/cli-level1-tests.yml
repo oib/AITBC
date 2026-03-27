@@ -24,6 +24,8 @@ jobs:
         python-version: [3.13.5]
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
     - name: Checkout code
       uses: actions/checkout@v6
       
@@ -134,6 +136,8 @@ jobs:
     if: always()
     
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
     - name: Download all artifacts
       uses: actions/download-artifact@v8
       
