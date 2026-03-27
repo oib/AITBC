@@ -92,7 +92,7 @@ jobs:
               $POETRY_CMD install --no-root
             else
               echo "poetry.lock is out of sync, regenerating..."
-              $POETRY_CMD lock --no-update
+              $POETRY_CMD lock
               echo "Installing dependencies with updated lock file..."
               $POETRY_CMD install --no-root
             fi
