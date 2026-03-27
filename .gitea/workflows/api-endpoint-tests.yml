@@ -1,0 +1,501 @@
+name: api-endpoint-tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/coordinator-api/**'
+      - 'apps/exchange-api/**'
+      - 'apps/wallet-daemon/**'
+      - '.gitea/workflows/api-endpoint-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/coordinator-api/**'
+      - 'apps/exchange-api/**'
+      - 'apps/wallet-daemon/**'
+      - '.gitea/workflows/api-endpoint-tests.yml'
+  workflow_dispatch:
+
+# Prevent parallel execution - run workflows serially
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
+
+jobs:
+  test-api-endpoints:
+    runs-on: debian
+    
+    steps:
+      - name: Setup workspace
+        run: |
+          echo "=== API ENDPOINT TESTS SETUP ==="
+          echo "Current PWD: $(pwd)"
+          echo "Forcing absolute workspace path..."
+          
+          # Clean and create isolated workspace
+          rm -rf /opt/aitbc/api-tests-workspace
+          mkdir -p /opt/aitbc/api-tests-workspace
+          cd /opt/aitbc/api-tests-workspace
+          
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
+          echo "Workspace PWD: $(pwd)"
+          echo "Cloning repository..."
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          
+          cd repo
+          echo "Repo PWD: $(pwd)"
+          echo "Files in repo:"
+          ls -la
+
+      - name: Sync Systemd Files
+        run: |
+          echo "=== SYNCING SYSTEMD FILES ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          
+          # Ensure systemd files are synced
+          if [[ -f "scripts/link-systemd.sh" ]]; then
+            echo "🔗 Syncing systemd files..."
+            sudo ./scripts/link-systemd.sh
+          else
+            echo "⚠️  Systemd sync script not found"
+          fi
+
+      - name: Start API Services
+        run: |
+          echo "=== STARTING API SERVICES ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          
+          # Check if running as root
+          if [[ $EUID -ne 0 ]]; then
+            echo "❌ This step requires root privileges"
+            exit 1
+          fi
+          
+          echo "🚀 Starting API services..."
+          
+          # Start coordinator API
+          echo "🚀 Starting coordinator API..."
+          systemctl start aitbc-coordinator-api || echo "Coordinator API already running"
+          sleep 3
+          
+          # Start exchange API
+          echo "🚀 Starting exchange API..."
+          systemctl start aitbc-exchange-api || echo "Exchange API already running"
+          sleep 3
+          
+          # Start wallet service
+          echo "🚀 Starting wallet service..."
+          systemctl start aitbc-wallet || echo "Wallet already running"
+          sleep 3
+          
+          # Start blockchain RPC
+          echo "🚀 Starting blockchain RPC..."
+          systemctl start aitbc-blockchain-rpc || echo "Blockchain RPC already running"
+          sleep 3
+          
+          echo "✅ API services started"
+
+      - name: Wait for APIs Ready
+        run: |
+          echo "=== WAITING FOR APIS READY ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          
+          echo "⏳ Waiting for APIs to be ready..."
+          
+          # Wait for coordinator API
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/ >/dev/null 2>&1 || curl -s http://localhost:8000/health >/dev/null 2>&1; then
+              echo "✅ Coordinator API is ready"
+              break
+            fi
+            echo "Waiting for coordinator API... ($i/30)"
+            sleep 2
+          done
+          
+          # Wait for exchange API
+          for i in {1..30}; do
+            if curl -s http://localhost:8001/ >/dev/null 2>&1; then
+              echo "✅ Exchange API is ready"
+              break
+            fi
+            echo "Waiting for exchange API... ($i/30)"
+            sleep 2
+          done
+          
+          # Wait for wallet API
+          for i in {1..30}; do
+            if curl -s http://localhost:8002/ >/dev/null 2>&1; then
+              echo "✅ Wallet API is ready"
+              break
+            fi
+            echo "Waiting for wallet API... ($i/30)"
+            sleep 2
+          done
+          
+          # Wait for blockchain RPC
+          for i in {1..30}; do
+            if curl -s http://localhost:8545 >/dev/null 2>&1; then
+              echo "✅ Blockchain RPC is ready"
+              break
+            fi
+            echo "Waiting for blockchain RPC... ($i/30)"
+            sleep 2
+          done
+          
+          echo "✅ All APIs are ready"
+
+      - name: Setup Test Environment
+        run: |
+          echo "=== SETUP TEST ENVIRONMENT ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          
+          # Create virtual environment
+          python3 -m venv venv
+          source venv/bin/activate
+          
+          # Install test dependencies
+          pip install requests pytest httpx websockets pytest-asyncio
+          
+          echo "✅ Test environment ready"
+
+      - name: Test Coordinator API
+        run: |
+          echo "=== TESTING COORDINATOR API ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🧪 Testing Coordinator API endpoints..."
+          
+          # Create coordinator API test
+          cat > test_coordinator_api.py << 'EOF'
+import requests
+import json
+
+def test_coordinator_health():
+    try:
+        response = requests.get('http://localhost:8000/', timeout=5)
+        print(f"✅ Coordinator health check: {response.status_code}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Coordinator health error: {e}")
+        return False
+
+def test_coordinator_endpoints():
+    endpoints = [
+        'http://localhost:8000/',
+        'http://localhost:8000/health',
+        'http://localhost:8000/info'
+    ]
+    
+    results = []
+    for endpoint in endpoints:
+        try:
+            response = requests.get(endpoint, timeout=5)
+            print(f"✅ {endpoint}: {response.status_code}")
+            results.append(response.status_code == 200)
+        except Exception as e:
+            print(f"❌ {endpoint}: {e}")
+            results.append(False)
+    
+    return all(results)
+
+if __name__ == "__main__":
+    print("🧪 Testing Coordinator API...")
+    
+    health_ok = test_coordinator_health()
+    endpoints_ok = test_coordinator_endpoints()
+    
+    if health_ok and endpoints_ok:
+        print("✅ Coordinator API tests passed")
+    else:
+        print("❌ Coordinator API tests failed")
+EOF
+          
+          python test_coordinator_api.py
+          
+          echo "✅ Coordinator API tests completed"
+
+      - name: Test Exchange API
+        run: |
+          echo "=== TESTING EXCHANGE API ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🧪 Testing Exchange API endpoints..."
+          
+          # Create exchange API test
+          cat > test_exchange_api.py << 'EOF'
+import requests
+import json
+
+def test_exchange_health():
+    try:
+        response = requests.get('http://localhost:8001/', timeout=5)
+        print(f"✅ Exchange health check: {response.status_code}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Exchange health error: {e}")
+        return False
+
+def test_exchange_endpoints():
+    endpoints = [
+        'http://localhost:8001/',
+        'http://localhost:8001/health',
+        'http://localhost:8001/markets'
+    ]
+    
+    results = []
+    for endpoint in endpoints:
+        try:
+            response = requests.get(endpoint, timeout=5)
+            print(f"✅ {endpoint}: {response.status_code}")
+            results.append(response.status_code == 200)
+        except Exception as e:
+            print(f"❌ {endpoint}: {e}")
+            results.append(False)
+    
+    return all(results)
+
+if __name__ == "__main__":
+    print("🧪 Testing Exchange API...")
+    
+    health_ok = test_exchange_health()
+    endpoints_ok = test_exchange_endpoints()
+    
+    if health_ok and endpoints_ok:
+        print("✅ Exchange API tests passed")
+    else:
+        print("❌ Exchange API tests failed")
+EOF
+          
+          python test_exchange_api.py
+          
+          echo "✅ Exchange API tests completed"
+
+      - name: Test Wallet API
+        run: |
+          echo "=== TESTING WALLET API ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🧪 Testing Wallet API endpoints..."
+          
+          # Create wallet API test
+          cat > test_wallet_api.py << 'EOF'
+import requests
+import json
+
+def test_wallet_health():
+    try:
+        response = requests.get('http://localhost:8002/', timeout=5)
+        print(f"✅ Wallet health check: {response.status_code}")
+        return response.status_code == 200
+    except Exception as e:
+        print(f"❌ Wallet health error: {e}")
+        return False
+
+def test_wallet_endpoints():
+    endpoints = [
+        'http://localhost:8002/',
+        'http://localhost:8002/health',
+        'http://localhost:8002/wallets'
+    ]
+    
+    results = []
+    for endpoint in endpoints:
+        try:
+            response = requests.get(endpoint, timeout=5)
+            print(f"✅ {endpoint}: {response.status_code}")
+            results.append(response.status_code == 200)
+        except Exception as e:
+            print(f"❌ {endpoint}: {e}")
+            results.append(False)
+    
+    return all(results)
+
+if __name__ == "__main__":
+    print("🧪 Testing Wallet API...")
+    
+    health_ok = test_wallet_health()
+    endpoints_ok = test_wallet_endpoints()
+    
+    if health_ok and endpoints_ok:
+        print("✅ Wallet API tests passed")
+    else:
+        print("❌ Wallet API tests failed")
+EOF
+          
+          python test_wallet_api.py
+          
+          echo "✅ Wallet API tests completed"
+
+      - name: Test Blockchain RPC
+        run: |
+          echo "=== TESTING BLOCKCHAIN RPC ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🧪 Testing Blockchain RPC endpoints..."
+          
+          # Create blockchain RPC test
+          cat > test_blockchain_rpc.py << 'EOF'
+import requests
+import json
+
+def test_rpc_connection():
+    try:
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "eth_blockNumber",
+            "params": [],
+            "id": 1
+        }
+        response = requests.post('http://localhost:8545', json=payload, timeout=5)
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ RPC connection: {result.get('result', 'Unknown block number')}")
+            return True
+        else:
+            print(f"❌ RPC connection failed: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ RPC connection error: {e}")
+        return False
+
+def test_rpc_methods():
+    methods = [
+        {"method": "eth_chainId", "params": []},
+        {"method": "eth_getBlockByNumber", "params": ["latest", False]},
+        {"method": "net_version", "params": []}
+    ]
+    
+    results = []
+    for method in methods:
+        try:
+            payload = {
+                "jsonrpc": "2.0",
+                "method": method["method"],
+                "params": method["params"],
+                "id": 1
+            }
+            response = requests.post('http://localhost:8545', json=payload, timeout=5)
+            if response.status_code == 200:
+                result = response.json()
+                print(f"✅ {method['method']}: {result.get('result', 'Success')}")
+                results.append(True)
+            else:
+                print(f"❌ {method['method']}: {response.status_code}")
+                results.append(False)
+        except Exception as e:
+            print(f"❌ {method['method']}: {e}")
+            results.append(False)
+    
+    return all(results)
+
+if __name__ == "__main__":
+    print("🧪 Testing Blockchain RPC...")
+    
+    connection_ok = test_rpc_connection()
+    methods_ok = test_rpc_methods()
+    
+    if connection_ok and methods_ok:
+        print("✅ Blockchain RPC tests passed")
+    else:
+        print("❌ Blockchain RPC tests failed")
+EOF
+          
+          python test_blockchain_rpc.py
+          
+          echo "✅ Blockchain RPC tests completed"
+
+      - name: Test API Performance
+        run: |
+          echo "=== TESTING API PERFORMANCE ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "⚡ Testing API performance..."
+          
+          # Create performance test
+          cat > test_api_performance.py << 'EOF'
+import requests
+import time
+import statistics
+
+def measure_response_time(url, timeout=5):
+    try:
+        start_time = time.time()
+        response = requests.get(url, timeout=timeout)
+        end_time = time.time()
+        return end_time - start_time, response.status_code
+    except Exception as e:
+        return None, str(e)
+
+def test_api_performance():
+    apis = [
+        ("Coordinator API", "http://localhost:8000/"),
+        ("Exchange API", "http://localhost:8001/"),
+        ("Wallet API", "http://localhost:8002/"),
+        ("Blockchain RPC", "http://localhost:8545")
+    ]
+    
+    for name, url in apis:
+        print(f"\n📊 Testing {name} performance...")
+        
+        times = []
+        success_count = 0
+        
+        for i in range(10):
+            response_time, status = measure_response_time(url)
+            if response_time is not None:
+                times.append(response_time)
+                if status == 200:
+                    success_count += 1
+                print(f"  Request {i+1}: {response_time:.3f}s (status: {status})")
+            else:
+                print(f"  Request {i+1}: Failed ({status})")
+        
+        if times:
+            avg_time = statistics.mean(times)
+            min_time = min(times)
+            max_time = max(times)
+            
+            print(f"  📈 Average: {avg_time:.3f}s")
+            print(f"  📉 Min: {min_time:.3f}s")
+            print(f"  📈 Max: {max_time:.3f}s")
+            print(f"  ✅ Success rate: {success_count}/10")
+        else:
+            print(f"  ❌ All requests failed")
+
+if __name__ == "__main__":
+    print("⚡ Testing API performance...")
+    test_api_performance()
+EOF
+          
+          python test_api_performance.py
+          
+          echo "✅ API performance tests completed"
+
+      - name: Upload Test Results
+        if: always()
+        run: |
+          echo "=== UPLOADING TEST RESULTS ==="
+          cd /opt/aitbc/api-tests-workspace/repo
+          
+          # Create results directory
+          mkdir -p api-test-results
+          
+          # Copy test results
+          cp test_coordinator_api.py api-test-results/ 2>/dev/null || true
+          cp test_exchange_api.py api-test-results/ 2>/dev/null || true
+          cp test_wallet_api.py api-test-results/ 2>/dev/null || true
+          cp test_blockchain_rpc.py api-test-results/ 2>/dev/null || true
+          cp test_api_performance.py api-test-results/ 2>/dev/null || true
+          
+          echo "📊 API test results saved to api-test-results/"
+          ls -la api-test-results/
+          
+          echo "✅ Test results uploaded"

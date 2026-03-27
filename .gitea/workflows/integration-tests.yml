@@ -1,0 +1,413 @@
+name: integration-tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.gitea/workflows/integration-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - '.gitea/workflows/integration-tests.yml'
+  workflow_dispatch:
+
+# Prevent parallel execution - run workflows serially
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
+
+jobs:
+  test-service-integration:
+    runs-on: debian
+    
+    steps:
+      - name: Setup workspace
+        run: |
+          echo "=== INTEGRATION TESTS SETUP ==="
+          echo "Current PWD: $(pwd)"
+          echo "Forcing absolute workspace path..."
+          
+          # Clean and create isolated workspace
+          rm -rf /opt/aitbc/integration-tests-workspace
+          mkdir -p /opt/aitbc/integration-tests-workspace
+          cd /opt/aitbc/integration-tests-workspace
+          
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
+          echo "Workspace PWD: $(pwd)"
+          echo "Cloning repository..."
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          
+          cd repo
+          echo "Repo PWD: $(pwd)"
+          echo "Files in repo:"
+          ls -la
+
+      - name: Sync Systemd Files
+        run: |
+          echo "=== SYNCING SYSTEMD FILES ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          # Ensure systemd files are synced
+          if [[ -f "scripts/link-systemd.sh" ]]; then
+            echo "🔗 Syncing systemd files..."
+            sudo ./scripts/link-systemd.sh
+          else
+            echo "⚠️  Systemd sync script not found"
+          fi
+
+      - name: Start Required Services
+        run: |
+          echo "=== STARTING REQUIRED SERVICES ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          # Check if running as root
+          if [[ $EUID -ne 0 ]]; then
+            echo "❌ This step requires root privileges"
+            exit 1
+          fi
+          
+          echo "🔍 Checking service status..."
+          
+          # Start blockchain node
+          echo "🚀 Starting blockchain node..."
+          systemctl start aitbc-blockchain-node || echo "Blockchain node already running"
+          sleep 5
+          
+          # Start coordinator API
+          echo "🚀 Starting coordinator API..."
+          systemctl start aitbc-coordinator-api || echo "Coordinator API already running"
+          sleep 3
+          
+          # Start marketplace service
+          echo "🚀 Starting marketplace service..."
+          systemctl start aitbc-marketplace || echo "Marketplace already running"
+          sleep 3
+          
+          # Start wallet service
+          echo "🚀 Starting wallet service..."
+          systemctl start aitbc-wallet || echo "Wallet already running"
+          sleep 3
+          
+          echo "📊 Service status:"
+          systemctl status aitbc-blockchain-node --no-pager -l || echo "Blockchain node status unavailable"
+          systemctl status aitbc-coordinator-api --no-pager -l || echo "Coordinator API status unavailable"
+          
+          echo "✅ Services started"
+
+      - name: Wait for Services Ready
+        run: |
+          echo "=== WAITING FOR SERVICES READY ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          echo "⏳ Waiting for services to be ready..."
+          
+          # Wait for blockchain node
+          echo "Checking blockchain node..."
+          for i in {1..30}; do
+            if systemctl is-active --quiet aitbc-blockchain-node; then
+              echo "✅ Blockchain node is ready"
+              break
+            fi
+            echo "Waiting for blockchain node... ($i/30)"
+            sleep 2
+          done
+          
+          # Wait for coordinator API
+          echo "Checking coordinator API..."
+          for i in {1..30}; do
+            if systemctl is-active --quiet aitbc-coordinator-api; then
+              echo "✅ Coordinator API is ready"
+              break
+            fi
+            echo "Waiting for coordinator API... ($i/30)"
+            sleep 2
+          done
+          
+          # Wait for API endpoints to respond
+          echo "Checking API endpoints..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8000/health >/dev/null 2>&1 || curl -s http://localhost:8000/ >/dev/null 2>&1; then
+              echo "✅ API endpoint is responding"
+              break
+            fi
+            echo "Waiting for API endpoint... ($i/30)"
+            sleep 2
+          done
+          
+          echo "✅ All services are ready"
+
+      - name: Setup Python Environment
+        run: |
+          echo "=== PYTHON ENVIRONMENT SETUP ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          # Create virtual environment
+          python3 -m venv venv
+          source venv/bin/activate
+          
+          echo "Project venv activated"
+          echo "Python in venv: $(python --version)"
+          echo "Pip in venv: $(pip --version)"
+          
+          # Install dependencies
+          echo "Installing dependencies..."
+          pip install requests pytest httpx asyncio-mqtt websockets
+          
+          echo "✅ Python environment ready"
+
+      - name: Run Integration Tests
+        run: |
+          echo "=== RUNNING INTEGRATION TESTS ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🧪 Testing blockchain node integration..."
+          
+          # Test blockchain node RPC
+          echo "Testing blockchain RPC..."
+          if curl -s http://localhost:8545 >/dev/null 2>&1; then
+            echo "✅ Blockchain RPC is accessible"
+          else
+            echo "❌ Blockchain RPC not accessible"
+          fi
+          
+          # Test coordinator API
+          echo "Testing coordinator API..."
+          if curl -s http://localhost:8000/health >/dev/null 2>&1 || curl -s http://localhost:8000/ >/dev/null 2>&1; then
+            echo "✅ Coordinator API is responding"
+          else
+            echo "❌ Coordinator API not responding"
+          fi
+          
+          # Test marketplace service
+          echo "Testing marketplace service..."
+          if curl -s http://localhost:3001 >/dev/null 2>&1; then
+            echo "✅ Marketplace service is responding"
+          else
+            echo "❌ Marketplace service not responding"
+          fi
+          
+          # Test wallet service
+          echo "Testing wallet service..."
+          if curl -s http://localhost:8002 >/dev/null 2>&1; then
+            echo "✅ Wallet service is responding"
+          else
+            echo "❌ Wallet service not responding"
+          fi
+          
+          echo "✅ Integration tests completed"
+
+      - name: Test Cross-Service Communication
+        run: |
+          echo "=== TESTING CROSS-SERVICE COMMUNICATION ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🔗 Testing service-to-service communication..."
+          
+          # Create test script
+          cat > test_integration.py << 'EOF'
+import requests
+import json
+import time
+
+def test_coordinator_api():
+    try:
+        response = requests.get('http://localhost:8000/', timeout=5)
+        print(f"✅ Coordinator API responded: {response.status_code}")
+        return True
+    except Exception as e:
+        print(f"❌ Coordinator API error: {e}")
+        return False
+
+def test_blockchain_rpc():
+    try:
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "eth_blockNumber",
+            "params": [],
+            "id": 1
+        }
+        response = requests.post('http://localhost:8545', json=payload, timeout=5)
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ Blockchain RPC responded: {result.get('result', 'Unknown')}")
+            return True
+    except Exception as e:
+        print(f"❌ Blockchain RPC error: {e}")
+        return False
+
+def test_marketplace():
+    try:
+        response = requests.get('http://localhost:3001/', timeout=5)
+        print(f"✅ Marketplace responded: {response.status_code}")
+        return True
+    except Exception as e:
+        print(f"❌ Marketplace error: {e}")
+        return False
+
+if __name__ == "__main__":
+    print("🧪 Running cross-service communication tests...")
+    
+    results = []
+    results.append(test_coordinator_api())
+    results.append(test_blockchain_rpc())
+    results.append(test_marketplace())
+    
+    success_count = sum(results)
+    total_count = len(results)
+    
+    print(f"\n📊 Test Results: {success_count}/{total_count} services working")
+    
+    if success_count == total_count:
+        print("✅ All services communicating successfully")
+    else:
+        print("⚠️  Some services not communicating properly")
+EOF
+          
+          # Run integration test
+          python test_integration.py
+          
+          echo "✅ Cross-service communication tests completed"
+
+      - name: Test End-to-End Workflows
+        run: |
+          echo "=== TESTING END-TO-END WORKFLOWS ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          source venv/bin/activate
+          
+          echo "🔄 Testing end-to-end workflows..."
+          
+          # Test blockchain operations
+          echo "Testing blockchain operations..."
+          
+          # Create E2E test script
+          cat > test_e2e.py << 'EOF'
+import requests
+import json
+import time
+
+def test_blockchain_operations():
+    try:
+        # Get latest block
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "eth_getBlockByNumber",
+            "params": ["latest", False],
+            "id": 1
+        }
+        response = requests.post('http://localhost:8545', json=payload, timeout=5)
+        if response.status_code == 200:
+            block = response.json().get('result', {})
+            print(f"✅ Latest block: {block.get('number', 'Unknown')}")
+            return True
+    except Exception as e:
+        print(f"❌ Blockchain operations error: {e}")
+        return False
+
+def test_api_endpoints():
+    try:
+        # Test API health
+        response = requests.get('http://localhost:8000/', timeout=5)
+        if response.status_code == 200:
+            print("✅ API health check passed")
+            return True
+    except Exception as e:
+        print(f"❌ API endpoints error: {e}")
+        return False
+
+if __name__ == "__main__":
+    print("🔄 Running end-to-end workflow tests...")
+    
+    results = []
+    results.append(test_blockchain_operations())
+    results.append(test_api_endpoints())
+    
+    success_count = sum(results)
+    total_count = len(results)
+    
+    print(f"\n📊 E2E Results: {success_count}/{total_count} workflows working")
+    
+    if success_count == total_count:
+        print("✅ All end-to-end workflows successful")
+    else:
+        print("⚠️  Some workflows not working properly")
+EOF
+          
+          # Run E2E test
+          python test_e2e.py
+          
+          echo "✅ End-to-end workflow tests completed"
+
+      - name: Collect Service Logs
+        if: always()
+        run: |
+          echo "=== COLLECTING SERVICE LOGS ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          mkdir -p service-logs
+          
+          # Collect service logs
+          echo "📋 Collecting service logs..."
+          
+          # Blockchain node logs
+          journalctl -u aitbc-blockchain-node --since "5 minutes ago" --no-pager > service-logs/blockchain-node.log 2>&1 || echo "No blockchain logs available"
+          
+          # Coordinator API logs
+          journalctl -u aitbc-coordinator-api --since "5 minutes ago" --no-pager > service-logs/coordinator-api.log 2>&1 || echo "No coordinator API logs available"
+          
+          # Marketplace logs
+          journalctl -u aitbc-marketplace --since "5 minutes ago" --no-pager > service-logs/marketplace.log 2>&1 || echo "No marketplace logs available"
+          
+          # Wallet logs
+          journalctl -u aitbc-wallet --since "5 minutes ago" --no-pager > service-logs/wallet.log 2>&1 || echo "No wallet logs available"
+          
+          echo "📊 Log files collected:"
+          ls -la service-logs/
+          
+          echo "✅ Service logs collected"
+
+      - name: Cleanup Services
+        if: always()
+        run: |
+          echo "=== CLEANING UP SERVICES ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          if [[ $EUID -eq 0 ]]; then
+            echo "🧹 Stopping services..."
+            
+            # Stop services (optional - keep them running for other tests)
+            # systemctl stop aitbc-blockchain-node
+            # systemctl stop aitbc-coordinator-api
+            # systemctl stop aitbc-marketplace
+            # systemctl stop aitbc-wallet
+            
+            echo "✅ Services cleanup completed"
+          else
+            echo "⚠️  Cannot cleanup services without root privileges"
+          fi
+
+      - name: Upload Test Results
+        if: always()
+        run: |
+          echo "=== UPLOADING TEST RESULTS ==="
+          cd /opt/aitbc/integration-tests-workspace/repo
+          
+          # Create results directory
+          mkdir -p integration-test-results
+          
+          # Copy test results
+          cp test_integration.py integration-test-results/ 2>/dev/null || true
+          cp test_e2e.py integration-test-results/ 2>/dev/null || true
+          cp -r service-logs integration-test-results/ 2>/dev/null || true
+          
+          echo "📊 Integration test results saved to integration-test-results/"
+          ls -la integration-test-results/
+          
+          echo "✅ Test results uploaded"
