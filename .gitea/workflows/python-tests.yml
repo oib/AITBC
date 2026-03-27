@@ -129,23 +129,23 @@ jobs:
             # Test specific imports that are failing
             echo "Testing problematic imports..."
             venv/bin/python -c "
-            try:
-                import sys
-                print('Testing src import...')
-                sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/agent-protocols/src')
-                import message_protocol
-                print('✅ src.message_protocol import successful')
-            except Exception as e:
-                print(f'❌ src import failed: {e}')
-                
-            try:
-                print('Testing aitbc import...')
-                sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/blockchain-node/src')
-                import aitbc_chain
-                print('✅ aitbc_chain import successful')
-            except Exception as e:
-                print(f'❌ aitbc import failed: {e}')
-            "
+import sys
+print('Testing src import...')
+sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/agent-protocols/src')
+try:
+    import message_protocol
+    print('✅ src.message_protocol import successful')
+except Exception as e:
+    print(f'❌ src import failed: {e}')
+
+print('Testing aitbc import...')
+sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/blockchain-node/src')
+try:
+    import aitbc_chain
+    print('✅ aitbc_chain import successful')
+except Exception as e:
+    print(f'❌ aitbc import failed: {e}')
+"
             
             echo "=== RUNNING PYTHON TESTS ==="
             echo "Attempting to run tests with comprehensive error handling..."
