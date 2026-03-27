@@ -3,7 +3,8 @@ from __future__ import annotations
 import pytest
 from sqlmodel import Session
 
-from aitbc_chain.models import Block, Transaction, Receipt
+from aitbc_chain.models import Block, Receipt
+from aitbc_chain.models import Transaction as ChainTransaction
 
 
 def _insert_block(session: Session, height: int = 0) -> Block:
@@ -23,7 +24,7 @@ def _insert_block(session: Session, height: int = 0) -> Block:
 def test_relationships(session: Session) -> None:
     block = _insert_block(session, height=1)
 
-    tx = Transaction(
+    tx = ChainTransaction(
         tx_hash="0x" + "1" * 64,
         block_height=block.height,
         sender="alice",

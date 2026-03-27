@@ -119,7 +119,7 @@ class InMemoryMempool:
             return
         lowest = min(self._transactions.values(), key=lambda t: (t.fee, -t.received_at))
         del self._transactions[lowest.tx_hash]
-        metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+        metrics_registry.increment(f"mempool_evictions_total_{self.chain_id}")
 
 
 class DatabaseMempool:
