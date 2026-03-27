@@ -47,11 +47,6 @@ jobs:
               apt-get install -y python3 python3-pip python3-venv python3-full
             fi
             
-            if ! command -v pip >/dev/null 2>&1; then
-              echo "Installing pip..."
-              python3 -m pip install --upgrade pip
-            fi
-            
             echo "=== VIRTUAL ENVIRONMENT ==="
             # Create and use virtual environment
             python3 -m venv venv
@@ -62,20 +57,21 @@ jobs:
             echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
+            # Use venv pip explicitly to avoid system pip
             if command -v poetry >/dev/null 2>&1; then
               echo "Poetry found, installing dependencies..."
               poetry install
             else
-              echo "Installing poetry..."
-              pip install poetry
+              echo "Installing poetry with venv pip..."
+              venv/bin/pip install poetry
               poetry install
             fi
             echo "✅ Running security scan..."
-            pip install safety bandit
+            venv/bin/pip install safety bandit
             echo "=== Safety check (dependencies) ==="
-            safety check || echo "Safety check completed"
+            venv/bin/safety check || echo "Safety check completed"
             echo "=== Bandit check (code security) ==="
-            bandit -r . -f json || echo "Bandit scan completed"
+            venv/bin/bandit -r . -f json || echo "Bandit scan completed"
           else
             echo "❌ No supported project type found!"
             exit 1
