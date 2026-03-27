@@ -93,14 +93,20 @@ jobs:
             echo "=== ADDITIONAL DEPENDENCIES ==="
             # Install missing dependencies that cause import errors
             echo "Installing additional test dependencies..."
-            venv/bin/pip install pydantic-settings
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy
             
             echo "=== PYTHON PATH SETUP ==="
-            # Set up comprehensive Python path
+            # Set up comprehensive Python path for complex import patterns
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/*/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/agent-protocols/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/blockchain-node/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/coordinator-api/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/cli:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-crypto/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-sdk/src:$PYTHONPATH"
             
             echo "=== PYTEST INSTALLATION ==="
             echo "Installing pytest with test dependencies..."
@@ -172,12 +178,18 @@ jobs:
             
             python3 -m venv venv && source venv/bin/activate
             $POETRY_CMD install --no-root
-            venv/bin/pip install pydantic-settings pytest pytest-cov pytest-mock
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy pytest pytest-cov pytest-mock
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/*/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/agent-protocols/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/blockchain-node/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/coordinator-api/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/cli:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-crypto/src:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/packages/py/aitbc-sdk/src:$PYTHONPATH"
             
             echo "=== RUNNING SPECIFIC TEST MODULES ==="
             # Try specific test modules that are likely to work
