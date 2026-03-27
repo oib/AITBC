@@ -74,7 +74,7 @@ class Block(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     __tablename__ = "transaction"
-    __table_args__ = (UniqueConstraint("chain_id", "tx_hash", name="uix_tx_chain_hash"),)
+    __table_args__ = (UniqueConstraint("chain_id", "hash", name="uix_transaction_chain_hash"), {"extend_existing": True})
     
     id: Optional[int] = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -116,7 +116,7 @@ class Transaction(SQLModel, table=True):
 
 class Receipt(SQLModel, table=True):
     __tablename__ = "receipt"
-    __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"),)
+    __table_args__ = (UniqueConstraint("chain_id", "receipt_id", name="uix_receipt_chain_id"), {"extend_existing": True})
     
     id: Optional[int] = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -158,6 +158,7 @@ class Receipt(SQLModel, table=True):
 
 class Account(SQLModel, table=True):
     __tablename__ = "account"
+    __table_args__ = {"extend_existing": True}
     
     chain_id: str = Field(primary_key=True)
     address: str = Field(primary_key=True)
@@ -167,6 +168,7 @@ class Account(SQLModel, table=True):
 
 class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
+    __table_args__ = {"extend_existing": True}
     job_id: str = Field(primary_key=True)
     buyer: str = Field(foreign_key="account.address")
     provider: str = Field(foreign_key="account.address")
