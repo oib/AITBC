@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: debian:host
+    runs-on: gitea-runner
 
     steps:
       - name: Checkout
