@@ -9,18 +9,40 @@ jobs:
     runs-on: debian
 
     steps:
-      - name: Full control execution (nuclear fix)
+      - name: Nuclear fix - absolute path control
         run: |
+          echo "=== NUCLEAR FIX ==="
+          echo "Current PWD: $(pwd)"
+          echo "Forcing absolute workspace path..."
+          
+          # Clean and create absolute workspace
+          rm -rf /opt/gitea-runner/workspace
           mkdir -p /opt/gitea-runner/workspace
           cd /opt/gitea-runner/workspace
-          rm -rf repo
+          
+          echo "Workspace PWD: $(pwd)"
+          echo "Cloning repository..."
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          
           cd repo
-          pwd
+          echo "Repo PWD: $(pwd)"
+          echo "Files in repo:"
           ls -la
-          echo "Looking for package.json:"
-          ls -la package.json || echo "package.json not found"
-          npm install --legacy-peer-deps
-          echo "Runner verification:"
+          
+          echo "=== PACKAGE.JSON CHECK ==="
+          if [ -f "package.json" ]; then
+            echo "✅ package.json found!"
+            cat package.json | head -5
+            echo "=== NPM INSTALL ==="
+            npm install --legacy-peer-deps
+            echo "✅ npm install completed!"
+          else
+            echo "❌ package.json NOT found!"
+            echo "Current directory contents:"
+            find . -name "package.json" 2>/dev/null || echo "No package.json found anywhere"
+          fi
+          
+          echo "=== RUNNER INFO ==="
           hostname
           whoami
+          echo "Final PWD: $(pwd)"
