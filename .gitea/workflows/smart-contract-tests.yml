@@ -116,14 +116,42 @@ jobs:
           
           echo "🔥 Using Hardhat - CI-friendly and reliable"
           
+          # Clear cache and recompile
+          echo "Clearing Hardhat cache..."
+          npx hardhat clean
+          
           # Compile contracts
+          echo "Compiling contracts..."
           npx hardhat compile
           
-          # Check compilation output
-          echo "Compilation artifacts:"
-          ls -la artifacts/
-          
-          echo "✅ Hardhat contracts compiled successfully"
+          # Check if compilation succeeded
+          if [[ $? -eq 0 ]]; then
+            echo "✅ Hardhat contracts compiled successfully"
+            # Check compilation output
+            echo "Compilation artifacts:"
+            ls -la artifacts/
+          else
+            echo "❌ Compilation failed, trying with older OpenZeppelin version..."
+            
+            # Fallback: downgrade OpenZeppelin
+            echo "Installing OpenZeppelin v4.9.6 (compatible with older Solidity)..."
+            npm install --save-dev "@openzeppelin/contracts@^4.9.6" --legacy-peer-deps
+            
+            # Clear cache and recompile
+            npx hardhat clean
+            npx hardhat compile
+            
+            if [[ $? -eq 0 ]]; then
+              echo "✅ Hardhat contracts compiled successfully with OpenZeppelin v4.9.6"
+              echo "Compilation artifacts:"
+              ls -la artifacts/
+            else
+              echo "❌ Compilation still failed, checking for issues..."
+              echo "Available contracts:"
+              find contracts/ -name "*.sol" | head -5
+              exit 1
+            fi
+          fi
 
       
       - name: Run Contract Tests (Hardhat)
