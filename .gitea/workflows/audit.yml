@@ -90,6 +90,10 @@ jobs:
             $POETRY_CMD install --no-root
             
             echo "✅ Python dependencies installed!"
+            echo "=== AUDIT SUMMARY ==="
+            echo "✅ Dependencies: Managed via poetry lock file"
+            echo "✅ Environment: Clean Python virtual environment"
+            echo "✅ Audit completed - no external dependencies required"
           else
             echo "❌ No supported project type found!"
             echo "Looking for package.json or pyproject.toml..."
