@@ -5,7 +5,7 @@ on:
 
 jobs:
   fix:
-    runs-on: debian:host 
+    runs-on: gitea-runner 
 
     steps:
       - uses: actions/checkout@v4

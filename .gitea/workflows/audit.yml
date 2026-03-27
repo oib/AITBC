@@ -1,11 +1,11 @@
-name: audit
+gitea-runnername: audit
 
 on:
   push:
 
 jobs:
   audit:
-    runs-on: debian:host
+    runs-on: gitea-runner
 
     steps:
       - uses: actions/checkout@v4
