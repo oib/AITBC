@@ -95,6 +95,10 @@ jobs:
           echo "Installing npm dependencies..."
           npm install --legacy-peer-deps
           
+          # Install missing Hardhat toolbox dependencies
+          echo "Installing Hardhat toolbox dependencies..."
+          npm install --save-dev "@nomicfoundation/hardhat-chai-matchers@^2.0.0" "@nomicfoundation/hardhat-ethers@^3.0.0" "@nomicfoundation/hardhat-ignition-ethers@^0.15.0" "@nomicfoundation/hardhat-network-helpers@^1.0.0" "@nomicfoundation/hardhat-verify@^2.0.0" "@typechain/ethers-v6@^0.5.0" "@typechain/hardhat@^9.0.0" "ethers@^6.4.0" "hardhat-gas-reporter@^1.0.8" "solidity-coverage@^0.8.1" "typechain@^8.3.0" --legacy-peer-deps
+          
           # Verify installation
           npx hardhat --version
           echo "✅ Hardhat dependencies installed successfully"
