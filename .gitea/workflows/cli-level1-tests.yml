@@ -128,7 +128,7 @@ jobs:
         retention-days: 7
         
   test-summary:
-    runs-on: ubuntu-latest
+    runs-on: debian 
     needs: test-cli-level1
     if: always()
     
