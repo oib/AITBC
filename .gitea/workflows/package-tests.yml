@@ -45,26 +45,46 @@ jobs:
           echo "Current PWD: $(pwd)"
           echo "Forcing absolute workspace path..."
           
-          # Clean and create isolated workspace
+          # Clean and create isolated workspace with alternative strategy
           echo "Cleaning previous workspace..."
           rm -rf /opt/aitbc/python-packages-workspace
           
           echo "Creating workspace directory..."
-          mkdir -p /opt/aitbc/python-packages-workspace || {
-            echo "❌ Failed to create workspace directory"
+          # Try multiple workspace locations
+          WORKSPACE_DIRS=(
+            "/opt/aitbc/python-packages-workspace"
+            "/tmp/python-packages-workspace"
+            "/var/tmp/python-packages-workspace"
+          )
+          
+          WORKSPACE_DIR=""
+          for dir in "${WORKSPACE_DIRS[@]}"; do
+            echo "Trying workspace directory: $dir"
+            if mkdir -p "$dir" 2>/dev/null && cd "$dir" 2>/dev/null; then
+              WORKSPACE_DIR="$dir"
+              echo "✅ Workspace created successfully at: $WORKSPACE_DIR"
+              break
+            else
+              echo "❌ Failed to use: $dir"
+            fi
+          done
+          
+          if [[ -z "$WORKSPACE_DIR" ]]; then
+            echo "❌ All workspace locations failed"
             echo "Current directory: $(pwd)"
-            echo "Available space: $(df -h /opt/aitbc | tail -1)"
-            exit 1
-          }
+            echo "Available space: $(df -h / | head -5)"
+            echo "Trying current directory as fallback..."
+            WORKSPACE_DIR="$(pwd)/workspace"
+            mkdir -p "$WORKSPACE_DIR" || {
+              echo "❌ Cannot create any workspace directory"
+              exit 1
+            }
+            cd "$WORKSPACE_DIR"
+          fi
           
-          cd /opt/aitbc/python-packages-workspace || {
-            echo "❌ Failed to change to workspace directory"
-            exit 1
-          }
-          
-          echo "✅ Workspace created successfully"
+          echo "✅ Using workspace: $WORKSPACE_DIR"
           echo "Current PWD: $(pwd)"
-          echo "Directory permissions: $(ls -la /opt/aitbc/python-packages-workspace)"
+          echo "Directory permissions: $(ls -la .)"
           
           # Ensure no git lock files exist system-wide
           find /opt/aitbc -name "*.lock" -delete 2>/dev/null || true
@@ -84,15 +104,22 @@ jobs:
           # Clean any existing repo directory first
           rm -rf repo
           
+          # Check filesystem space and permissions
+          echo "Filesystem check:"
+          df -h . | head -2
+          echo "Current directory permissions: $(ls -ld .)"
+          
           # Try standard clone first
-          if git clone "$REPO_URL" repo; then
+          echo "Attempting standard clone..."
+          if git clone "$REPO_URL" repo 2>/dev/null; then
             echo "✅ Standard clone successful"
           else
             echo "❌ Standard clone failed, trying alternatives..."
             
             # Try shallow clone
             rm -rf repo
-            if git clone --depth 1 "$REPO_URL" repo; then
+            echo "Attempting shallow clone..."
+            if git clone --depth 1 "$REPO_URL" repo 2>/dev/null; then
               echo "✅ Shallow clone successful"
             else
               echo "❌ Shallow clone failed, trying local copy..."
@@ -101,47 +128,35 @@ jobs:
               if [[ -d "/opt/aitbc/.git" ]]; then
                 echo "Using local repository copy..."
                 rm -rf repo
-                cp -r /opt/aitbc repo
-                cd repo
-                git remote set-url origin "$REPO_URL" 2>/dev/null || true
-                cd ..
-              elif [[ -d "/opt/aitbc" ]]; then
-                echo "Creating minimal repo structure..."
-                rm -rf repo
-                mkdir -p repo || {
-                  echo "❌ Failed to create repo directory"
-                  echo "Current directory: $(pwd)"
-                  echo "Parent directory contents:"
-                  ls -la /opt/aitbc/python-packages-workspace/
-                  exit 1
-                }
-                
-                echo "Copying package directories..."
-                if [[ -d "/opt/aitbc/packages/py" ]]; then
-                  cp -r /opt/aitbc/packages/py repo/
+                if cp -r /opt/aitbc repo 2>/dev/null; then
+                  cd repo
+                  git remote set-url origin "$REPO_URL" 2>/dev/null || true
+                  cd ..
                 else
-                  echo "❌ No packages/py directory found in /opt/aitbc"
-                  echo "Available directories in /opt/aitbc:"
+                  echo "❌ Local copy failed, trying manual setup..."
+                fi
+              fi
+              
+              # If all else fails, create minimal structure
+              if [[ ! -d "repo" ]]; then
+                echo "Creating minimal repo structure..."
+                if [[ -d "/opt/aitbc/packages/py" ]]; then
+                  mkdir -p repo
+                  cp -r /opt/aitbc/packages/py repo/
+                  cd repo
+                  git init
+                  git config --global http.sslVerify false
+                  git config --global http.postBuffer 1048576000
+                  git remote add origin "$REPO_URL"
+                  git add .
+                  git commit -m "Initial commit for CI" 2>/dev/null || true
+                  cd ..
+                else
+                  echo "❌ No packages/py directory found"
+                  echo "Available in /opt/aitbc:"
                   ls -la /opt/aitbc/ | head -10
                   exit 1
                 fi
-                
-                cd repo
-                git init
-                git config --global http.sslVerify false
-                git config --global http.postBuffer 1048576000
-                git remote add origin "$REPO_URL"
-                git add .
-                git commit -m "Initial commit for CI" 2>/dev/null || true
-                cd ..
-              else
-                echo "❌ No repository available, creating minimal structure..."
-                mkdir -p repo/packages/py || {
-                  echo "❌ Failed to create minimal structure"
-                  exit 1
-                }
-                echo "❌ Cannot proceed without repository"
-                exit 1
               fi
             fi
           fi
