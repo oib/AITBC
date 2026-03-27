@@ -15,19 +15,17 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Enter repo + debug
+        working-directory: repo
         run: |
-          cd repo
           echo "PWD:"
           pwd
           echo "FILES:"
           ls -la
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install --legacy-peer-deps
+        working-directory: repo
+        run: npm install --legacy-peer-deps
 
       - name: Build
-        run: |
-          cd repo
-          npm run build || echo "no build"
+        working-directory: repo
+        run: npm run build || echo "no build"
