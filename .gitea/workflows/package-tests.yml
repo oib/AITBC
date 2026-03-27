@@ -121,6 +121,19 @@ jobs:
           echo "=== INSTALLING DEPENDENCIES ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
           
+          # Ensure Poetry is available and PATH is set
+          export PATH="$HOME/.local/bin:$PATH"
+          
+          # Verify Poetry installation
+          if ! command -v poetry >/dev/null 2>&1; then
+            echo "❌ Poetry not found, installing..."
+            curl -sSL https://install.python-poetry.org | python3 -
+            export PATH="$HOME/.local/bin:$PATH"
+          fi
+          
+          # Verify Poetry is working
+          poetry --version
+          
           # Install dependencies with Poetry
           poetry install --with dev
           
@@ -132,6 +145,9 @@ jobs:
         run: |
           echo "=== RUNNING LINTING ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
+          
+          # Ensure Poetry is available
+          export PATH="$HOME/.local/bin:$PATH"
           
           # Run mypy type checking
           echo "Running mypy..."
@@ -152,6 +168,9 @@ jobs:
           echo "=== RUNNING PYTHON PACKAGE TESTS ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
           
+          # Ensure Poetry is available
+          export PATH="$HOME/.local/bin:$PATH"
+          
           # Run tests with pytest
           poetry run pytest -v --tb=short --cov=src --cov-report=xml --cov-report=term || echo "Tests completed with failures"
           
@@ -161,6 +180,9 @@ jobs:
         run: |
           echo "=== BUILDING PYTHON PACKAGE ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
+          
+          # Ensure Poetry is available
+          export PATH="$HOME/.local/bin:$PATH"
           
           # Build package with Poetry
           poetry build
@@ -174,6 +196,9 @@ jobs:
         run: |
           echo "=== VALIDATING PYTHON PACKAGE ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
+          
+          # Ensure Poetry is available
+          export PATH="$HOME/.local/bin:$PATH"
           
           # Check package metadata
           poetry version
