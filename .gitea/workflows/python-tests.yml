@@ -88,6 +88,8 @@ jobs:
             echo "=== PYTHON DEPENDENCIES ==="
             # Install dependencies only (skip current project to avoid package issues)
             echo "Installing dependencies with poetry (no-root mode)..."
+            # Update lock file if pyproject.toml changed
+            $POETRY_CMD lock --no-update || echo "Lock file update completed"
             $POETRY_CMD install --no-root
             
             echo "=== ADDITIONAL DEPENDENCIES ==="
@@ -231,6 +233,7 @@ jobs:
             [ -f "$POETRY_CMD" ] && POETRY_CMD="$POETRY_CMD" || POETRY_CMD="poetry"
             
             python3 -m venv venv && source venv/bin/activate
+            $POETRY_CMD lock --no-update || echo "Lock file update completed"
             $POETRY_CMD install --no-root
             venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi pytest pytest-cov pytest-mock
             
