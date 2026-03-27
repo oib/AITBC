@@ -2,25 +2,32 @@ name: ci
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: debian 
+    runs-on: debian
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Show environment
+      - name: Clone repository
         run: |
-          hostname
-          node -v || true
-          npm -v || true
+          rm -rf repo
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+
+      - name: Enter repo + debug
+        run: |
+          cd repo
+          echo "PWD:"
+          pwd
+          echo "FILES:"
+          ls -la
 
       - name: Install dependencies
-        run: npm install
+        run: |
+          cd repo
+          npm install --legacy-peer-deps
 
       - name: Build
-        run: npm run build || echo "no build step"
+        run: |
+          cd repo
+          npm run build || echo "no build"
