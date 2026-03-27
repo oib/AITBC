@@ -4,7 +4,7 @@
 # Creates symbolic links from active systemd to repository systemd files
 # Keeps active systemd always in sync with repository
 
-set -e
+# set -e  # Disabled to allow script to continue even if some operations fail
 
 REPO_SYSTEMD_DIR="/opt/aitbc/systemd"
 ACTIVE_SYSTEMD_DIR="/etc/systemd/system"
@@ -96,7 +96,11 @@ fi
 
 echo
 echo "🔄 Reloading systemd daemon..."
-systemctl daemon-reload
+if systemctl daemon-reload 2>/dev/null; then
+    echo "    ✅ Systemd daemon reloaded successfully"
+else
+    echo "    ⚠️  Systemd daemon reload failed, but continuing..."
+fi
 
 echo
 echo "✅ Systemd linking completed!"
