@@ -92,7 +92,7 @@ jobs:
             # Check for common Python security issues
             echo "Running safety check..."
             venv/bin/pip install safety
-            venv/bin/safety scan || echo "Safety scan completed with warnings"
+            venv/bin/safety scan --offline || echo "Safety scan completed with warnings"
           else
             echo "❌ No supported project type found!"
             exit 1
