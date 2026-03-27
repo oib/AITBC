@@ -13,6 +13,11 @@ on:
       - '.gitea/workflows/package-tests.yml'
   workflow_dispatch:
 
+# Prevent parallel execution - run workflows serially
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
+
 jobs:
   test-python-packages:
     runs-on: debian

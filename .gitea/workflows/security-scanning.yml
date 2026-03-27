@@ -2,7 +2,15 @@ name: security-scanning
 
 on:
   push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
   workflow_dispatch:
+
+# Prevent parallel execution - run workflows serially
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
 
 jobs:
   audit:

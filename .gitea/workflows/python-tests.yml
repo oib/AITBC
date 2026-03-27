@@ -3,9 +3,23 @@ name: python-tests
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'apps/coordinator-api/**'
+      - 'packages/py/**'
+      - '.gitea/workflows/python-tests.yml'
   pull_request:
     branches: [ main, develop ]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'apps/coordinator-api/**'
+      - 'packages/py/**'
+      - '.gitea/workflows/python-tests.yml'
   workflow_dispatch:
+
+concurrency:
+  group: ci-workflows
+  cancel-in-progress: true
 
 jobs:
   test:
