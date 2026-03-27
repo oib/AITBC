@@ -74,7 +74,7 @@ class Block(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     __tablename__ = "transaction"
-    __table_args__ = (UniqueConstraint("chain_id", "hash", name="uix_transaction_chain_hash"), {"extend_existing": True})
+    __table_args__ = (UniqueConstraint("chain_id", "tx_hash", name="uix_transaction_chain_hash"), {"extend_existing": True})
     
     id: Optional[int] = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
