@@ -89,8 +89,8 @@ jobs:
             
             echo "✅ Running security scan..."
             venv/bin/pip install safety bandit
-            echo "=== Safety check (dependencies) ==="
-            venv/bin/safety check || echo "Safety check completed"
+            echo "=== Safety scan (dependencies) ==="
+            venv/bin/safety scan || echo "Safety scan completed"
             echo "=== Bandit check (code security) ==="
             venv/bin/bandit -r . -f json || echo "Bandit scan completed"
           else
