@@ -85,7 +85,17 @@ jobs:
             echo "=== PYTHON DEPENDENCIES ==="
             # Use poetry to install dependencies only (skip current project)
             echo "Installing dependencies with poetry (no-root mode)..."
-            $POETRY_CMD install --no-root
+            
+            # Check if poetry.lock is in sync, regenerate if needed
+            if $POETRY_CMD check --lock 2>/dev/null; then
+              echo "poetry.lock is in sync, installing dependencies..."
+              $POETRY_CMD install --no-root
+            else
+              echo "poetry.lock is out of sync, regenerating..."
+              $POETRY_CMD lock --no-update
+              echo "Installing dependencies with updated lock file..."
+              $POETRY_CMD install --no-root
+            fi
             
             echo "✅ Running security scan..."
             # Install bandit for code security only (skip Safety CLI)
