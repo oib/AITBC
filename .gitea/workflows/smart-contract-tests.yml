@@ -96,10 +96,27 @@ jobs:
           # Verify installation
           if ! command -v forge >/dev/null 2>&1; then
             echo "❌ Forge not found, trying alternative installation..."
-            # Try direct installation
+            # Try direct installation with verification
             curl -L https://github.com/foundry-rs/foundry/releases/download/nightly/foundryup-linux-amd64 -o foundryup
             chmod +x foundryup
-            ./foundryup --version nightly
+            
+            # Verify the downloaded file is not corrupted
+            if ! head -1 foundryup | grep -q "#!/bin/bash"; then
+              echo "❌ Downloaded foundryup is corrupted, trying different method..."
+              rm -f foundryup
+              # Try installing foundry directly
+              curl -L https://github.com/foundry-rs/foundry/releases/download/nightly/foundry-linux-amd64.tar.gz -o foundry.tar.gz
+              tar -xzf foundry.tar.gz
+              chmod +x foundry
+              mkdir -p $HOME/.foundry/bin
+              mv foundry $HOME/.foundry/bin/
+              mv cast $HOME/.foundry/bin/ 2>/dev/null || true
+              mv chisel $HOME/.foundry/bin/ 2>/dev/null || true
+            else
+              echo "✅ Downloaded foundryup looks good, installing..."
+              ./foundryup --version nightly
+            fi
+            
             export PATH="$HOME/.foundry/bin:$PATH"
           fi
           
