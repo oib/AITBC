@@ -202,17 +202,15 @@ jobs:
                   # Create minimal package directories for testing
                   for pkg in aitbc-core aitbc-crypto aitbc-sdk aitbc-agent-sdk; do
                     mkdir -p "repo/packages/py/$pkg"
-                    cat > "repo/packages/py/$pkg/pyproject.toml" << 'EOF'
-[tool.poetry]
-name = "$pkg"
-version = "0.1.0"
-description = "Test package for CI"
-authors = ["AITBC Team"]
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-EOF
+                    echo '[tool.poetry]' > "repo/packages/py/$pkg/pyproject.toml"
+                    echo "name = \"$pkg\"" >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo 'version = "0.1.0"' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo 'description = "Test package for CI"' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo 'authors = ["AITBC Team"]' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo '' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo '[build-system]' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo 'requires = ["poetry-core"]' >> "repo/packages/py/$pkg/pyproject.toml"
+                    echo 'build-backend = "poetry.core.masonry.api"' >> "repo/packages/py/$pkg/pyproject.toml"
                   done
                   
                   cd repo
