@@ -5,7 +5,7 @@ on:
 
 jobs:
   fix:
-    runs-on: incus-debian
+    runs-on: debian:host 
 
     steps:
       - uses: actions/checkout@v4

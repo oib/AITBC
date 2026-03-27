@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: incus-debian
+    runs-on: debian:host 
 
     steps:
       - name: Checkout
