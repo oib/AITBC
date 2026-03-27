@@ -92,7 +92,8 @@ jobs:
             echo "Running basic code quality checks only..."
             # Install and run flake8 for code quality
             venv/bin/pip install flake8
-            venv/bin/flake8 . --select=E9,F63,F7,F82 --quiet --ignore=all || echo "Code quality checks completed"
+            # Suppress Python warnings and run flake8
+            venv/bin/python -W ignore::DeprecationWarning -W ignore::SyntaxWarning -m flake8 . --select=E9,F63,F7,F82 --quiet --ignore=all || echo "Code quality checks completed"
             echo "✅ Code quality checks completed - critical errors only"
           else
             echo "❌ No supported project type found!"
