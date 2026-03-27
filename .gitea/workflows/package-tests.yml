@@ -45,6 +45,9 @@ jobs:
           mkdir -p /opt/aitbc/python-packages-workspace
           cd /opt/aitbc/python-packages-workspace
           
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
@@ -199,6 +202,9 @@ jobs:
           mkdir -p /opt/aitbc/javascript-packages-workspace
           cd /opt/aitbc/javascript-packages-workspace
           
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
@@ -337,6 +343,10 @@ jobs:
           rm -rf /opt/aitbc/compatibility-workspace
           mkdir -p /opt/aitbc/compatibility-workspace
           cd /opt/aitbc/compatibility-workspace
+          
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
           cd repo
 
@@ -404,6 +414,10 @@ jobs:
           rm -rf /opt/aitbc/integration-workspace
           mkdir -p /opt/aitbc/integration-workspace
           cd /opt/aitbc/integration-workspace
+          
+          # Ensure no git lock files exist
+          find . -name "*.lock" -delete 2>/dev/null || true
+          
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
           cd repo
 
