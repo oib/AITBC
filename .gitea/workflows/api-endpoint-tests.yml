@@ -337,71 +337,69 @@ jobs:
           echo "🧪 Testing Blockchain RPC endpoints..."
           
           # Create blockchain RPC test
-          cat > test_blockchain_rpc.py << 'EOF'
-import requests
-import json
-
-def test_rpc_connection():
-    try:
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "eth_blockNumber",
-            "params": [],
-            "id": 1
-        }
-        response = requests.post('http://localhost:8545', json=payload, timeout=5)
-        if response.status_code == 200:
-            result = response.json()
-            print(f"✅ RPC connection: {result.get('result', 'Unknown block number')}")
-            return True
-        else:
-            print(f"❌ RPC connection failed: {response.status_code}")
-            return False
-    except Exception as e:
-        print(f"❌ RPC connection error: {e}")
-        return False
-
-def test_rpc_methods():
-    methods = [
-        {"method": "eth_chainId", "params": []},
-        {"method": "eth_getBlockByNumber", "params": ["latest", False]},
-        {"method": "net_version", "params": []}
-    ]
-    
-    results = []
-    for method in methods:
-        try:
-            payload = {
-                "jsonrpc": "2.0",
-                "method": method["method"],
-                "params": method["params"],
-                "id": 1
-            }
-            response = requests.post('http://localhost:8545', json=payload, timeout=5)
-            if response.status_code == 200:
-                result = response.json()
-                print(f"✅ {method['method']}: {result.get('result', 'Success')}")
-                results.append(True)
-            else:
-                print(f"❌ {method['method']}: {response.status_code}")
-                results.append(False)
-        except Exception as e:
-            print(f"❌ {method['method']}: {e}")
-            results.append(False)
-    
-    return all(results)
-
-if __name__ == "__main__":
-    print("🧪 Testing Blockchain RPC...")
-    
-    connection_ok = test_rpc_connection()
-    methods_ok = test_rpc_methods()
-    
-    if connection_ok and methods_ok:
-        print("✅ Blockchain RPC tests passed")
-    else:
-        print("❌ Blockchain RPC tests failed")
-EOF
+          echo 'import requests' > test_blockchain_rpc.py
+          echo 'import json' >> test_blockchain_rpc.py
+          echo '' >> test_blockchain_rpc.py
+          echo 'def test_rpc_connection():' >> test_blockchain_rpc.py
+          echo '    try:' >> test_blockchain_rpc.py
+          echo '        payload = {' >> test_blockchain_rpc.py
+          echo '            "jsonrpc": "2.0",' >> test_blockchain_rpc.py
+          echo '            "method": "eth_blockNumber",' >> test_blockchain_rpc.py
+          echo '            "params": [],' >> test_blockchain_rpc.py
+          echo '            "id": 1' >> test_blockchain_rpc.py
+          echo '        }' >> test_blockchain_rpc.py
+          echo '        response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_blockchain_rpc.py
+          echo '        if response.status_code == 200:' >> test_blockchain_rpc.py
+          echo '            result = response.json()' >> test_blockchain_rpc.py
+          echo '            print(f"✅ RPC connection: {result.get('"'"'result'"'"', '"'"'Unknown block number'"'"')}")' >> test_blockchain_rpc.py
+          echo '            return True' >> test_blockchain_rpc.py
+          echo '        else:' >> test_blockchain_rpc.py
+          echo '            print(f"❌ RPC connection failed: {response.status_code}")' >> test_blockchain_rpc.py
+          echo '            return False' >> test_blockchain_rpc.py
+          echo '    except Exception as e:' >> test_blockchain_rpc.py
+          echo '        print(f"❌ RPC connection error: {e}")' >> test_blockchain_rpc.py
+          echo '        return False' >> test_blockchain_rpc.py
+          echo '' >> test_blockchain_rpc.py
+          echo 'def test_rpc_methods():' >> test_blockchain_rpc.py
+          echo '    methods = [' >> test_blockchain_rpc.py
+          echo '        {"method": "eth_getBalance", "params": ["0x0000000000000000000000000000000000000000", "latest"]},' >> test_blockchain_rpc.py
+          echo '        {"method": "eth_chainId", "params": []},' >> test_blockchain_rpc.py
+          echo '        {"method": "eth_gasPrice", "params": []}' >> test_blockchain_rpc.py
+          echo '    ]' >> test_blockchain_rpc.py
+          echo '    ' >> test_blockchain_rpc.py
+          echo '    results = []' >> test_blockchain_rpc.py
+          echo '    for method in methods:' >> test_blockchain_rpc.py
+          echo '        try:' >> test_blockchain_rpc.py
+          echo '            payload = {' >> test_blockchain_rpc.py
+          echo '                "jsonrpc": "2.0",' >> test_blockchain_rpc.py
+          echo '                "method": method["method"],' >> test_blockchain_rpc.py
+          echo '                "params": method["params"],' >> test_blockchain_rpc.py
+          echo '                "id": 1' >> test_blockchain_rpc.py
+          echo '            }' >> test_blockchain_rpc.py
+          echo '            response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_blockchain_rpc.py
+          echo '            if response.status_code == 200:' >> test_blockchain_rpc.py
+          echo '                result = response.json()' >> test_blockchain_rpc.py
+          echo '                print(f"✅ {method['"'"'method'"'"']}: {result.get('"'"'result'"'"', '"'"'Success'"'"')}")' >> test_blockchain_rpc.py
+          echo '                results.append(True)' >> test_blockchain_rpc.py
+          echo '            else:' >> test_blockchain_rpc.py
+          echo '                print(f"❌ {method['"'"'method'"'"']}: {response.status_code}")' >> test_blockchain_rpc.py
+          echo '                results.append(False)' >> test_blockchain_rpc.py
+          echo '        except Exception as e:' >> test_blockchain_rpc.py
+          echo '            print(f"❌ {method['"'"'method'"'"']}: {e}")' >> test_blockchain_rpc.py
+          echo '            results.append(False)' >> test_blockchain_rpc.py
+          echo '    ' >> test_blockchain_rpc.py
+          echo '    return all(results)' >> test_blockchain_rpc.py
+          echo '' >> test_blockchain_rpc.py
+          echo 'if __name__ == "__main__":' >> test_blockchain_rpc.py
+          echo '    print("🧪 Testing Blockchain RPC...")' >> test_blockchain_rpc.py
+          echo '    ' >> test_blockchain_rpc.py
+          echo '    connection_ok = test_rpc_connection()' >> test_blockchain_rpc.py
+          echo '    methods_ok = test_rpc_methods()' >> test_blockchain_rpc.py
+          echo '    ' >> test_blockchain_rpc.py
+          echo '    if connection_ok and methods_ok:' >> test_blockchain_rpc.py
+          echo '        print("✅ Blockchain RPC tests passed")' >> test_blockchain_rpc.py
+          echo '    else:' >> test_blockchain_rpc.py
+          echo '        print("❌ Blockchain RPC tests failed")' >> test_blockchain_rpc.py
           
           python test_blockchain_rpc.py
           
