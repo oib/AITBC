@@ -74,18 +74,32 @@ jobs:
           echo "=== INSTALLING FOUNDRY ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          # Check if foundryup is available
-          if ! command -v foundryup >/dev/null 2>&1; then
-            echo "Installing foundryup..."
-            curl -L https://foundry.paradigm.xyz | bash
-            export PATH="$HOME/.foundry/bin:$PATH"
-          fi
+          # Install foundryup
+          curl -L https://foundry.paradigm.xyz | bash
+          
+          # Source the shell environment
+          source ~/.bashrc 2>/dev/null || source ~/.zshrc 2>/dev/null || true
+          
+          # Add to PATH explicitly
+          export PATH="$HOME/.foundry/bin:$PATH"
+          echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> ~/.bashrc
           
           # Install foundry
           foundryup --version nightly
+          
+          # Update PATH again and verify
           export PATH="$HOME/.foundry/bin:$PATH"
           
           # Verify installation
+          if ! command -v forge >/dev/null 2>&1; then
+            echo "❌ Forge not found, trying alternative installation..."
+            # Try direct installation
+            curl -L https://github.com/foundry-rs/foundry/releases/download/nightly/foundryup-linux-amd64 -o foundryup
+            chmod +x foundryup
+            ./foundryup --version nightly
+            export PATH="$HOME/.foundry/bin:$PATH"
+          fi
+          
           forge --version
           cast --version
           echo "✅ Foundry tools installed successfully"
@@ -109,7 +123,9 @@ jobs:
           echo "=== COMPILING FOUNDARY CONTRACTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
+          # Ensure PATH is set
           export PATH="$HOME/.foundry/bin:$PATH"
+          source ~/.bashrc 2>/dev/null || true
           
           # Build contracts
           forge build
@@ -141,7 +157,9 @@ jobs:
           echo "=== RUNNING FOUNDRY CONTRACT TESTS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
+          # Ensure PATH is set
           export PATH="$HOME/.foundry/bin:$PATH"
+          source ~/.bashrc 2>/dev/null || true
           
           # Run tests with verbose output
           forge test --gas-report -vv
@@ -165,7 +183,9 @@ jobs:
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
           if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+            # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc 2>/dev/null || true
             
             # Run Slither if available
             if command -v slither >/dev/null 2>&1; then
@@ -193,7 +213,9 @@ jobs:
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
           if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+            # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc 2>/dev/null || true
             
             # Generate gas report
             forge test --gas-report > gas-report.txt 2>&1 || true
@@ -214,7 +236,9 @@ jobs:
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
           if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+            # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc 2>/dev/null || true
             
             # Check contract sizes
             echo "Contract bytecode sizes:"
@@ -244,7 +268,9 @@ jobs:
           
           # Copy test results
           if [ "${{ matrix.project.config }}" == "foundry.toml" ]; then
+            # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc 2>/dev/null || true
             
             # Foundry results
             forge test --gas-report -vv > test-results/forge-test-output.txt 2>&1 || true
@@ -296,10 +322,13 @@ jobs:
             if ! command -v forge >/dev/null 2>&1; then
               curl -L https://foundry.paradigm.xyz | bash
               export PATH="$HOME/.foundry/bin:$PATH"
+              source ~/.bashrc 2>/dev/null || true
               foundryup --version nightly
             fi
             
+            # Ensure PATH is set
             export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc 2>/dev/null || true
             
             # Format check
             forge fmt --check || echo "Formatting check completed with warnings"
