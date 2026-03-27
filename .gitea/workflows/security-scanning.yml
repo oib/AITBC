@@ -1,13 +1,31 @@
-name: security
+name: debug
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
-  audit:
-    runs-on: debian 
+  debug:
+    runs-on: debian
+
     steps:
-      - uses: actions/checkout@v4
-      - run: npm install
-      - run: npm audit || true
+      - name: DEBUG BEFORE CHECKOUT
+        run: |
+          echo "=== BEFORE ==="
+          pwd
+          ls -la
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: DEBUG AFTER CHECKOUT
+        run: |
+          echo "=== AFTER ==="
+          pwd
+          ls -la
+
+      - name: Find package.json
+        run: |
+          find . -name package.json || true
+
+      - name: Install deps
+        run: npm install --legacy-peer-deps
