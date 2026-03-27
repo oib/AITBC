@@ -5,7 +5,7 @@ on:
 
 jobs:
   audit:
-    runs-on: gitea-runner 
+    runs-on: debian 
     steps:
       - uses: actions/checkout@v4
       - run: npm install

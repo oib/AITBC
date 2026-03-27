@@ -16,7 +16,7 @@ on:
 
 jobs:
   test-cli-level1:
-    runs-on: gitea-runner 
+    runs-on: debian 
     
     strategy:
       matrix:
