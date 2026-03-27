@@ -19,9 +19,9 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
-          rm -rf /opt/gitea-runner/python-workspace
-          mkdir -p /opt/gitea-runner/python-workspace
-          cd /opt/gitea-runner/python-workspace
+          rm -rf /opt/aitbc/python-workspace
+          mkdir -p /opt/aitbc/python-workspace
+          cd /opt/aitbc/python-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
@@ -201,9 +201,9 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
-          rm -rf /opt/gitea-runner/python-workspace
-          mkdir -p /opt/gitea-runner/python-workspace
-          cd /opt/gitea-runner/python-workspace
+          rm -rf /opt/aitbc/python-workspace
+          mkdir -p /opt/aitbc/python-workspace
+          cd /opt/aitbc/python-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
