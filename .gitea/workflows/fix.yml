@@ -1,0 +1,16 @@
+name: autofix
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix:
+    runs-on: incus-debian
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: npm install
+
+      - name: Auto fix vulnerabilities
+        run: npm audit fix || true

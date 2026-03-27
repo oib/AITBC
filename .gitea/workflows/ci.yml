@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: incus-debian
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show environment
+        run: |
+          hostname
+          node -v || true
+          npm -v || true
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build || echo "no build step"
