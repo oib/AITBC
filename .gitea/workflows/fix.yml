@@ -15,11 +15,9 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install
+        working-directory: repo
+        run: npm install
 
       - name: Auto fix vulnerabilities
-        run: |
-          cd repo
-          npm audit fix || true
+        working-directory: repo
+        run: npm audit fix || true

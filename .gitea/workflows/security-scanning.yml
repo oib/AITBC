@@ -15,24 +15,21 @@ jobs:
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
       - name: Verify repository context
+        working-directory: repo
         run: |
-          cd repo
           echo "PWD:"
           pwd
           echo "FILES:"
           ls -la
 
       - name: Install dependencies
-        run: |
-          cd repo
-          npm install
+        working-directory: repo
+        run: npm install
 
       - name: Audit dependencies
-        run: |
-          cd repo
-          npm audit || true
+        working-directory: repo
+        run: npm audit || true
 
       - name: Security scan
-        run: |
-          cd repo
-          npm audit --audit-level moderate || true
+        working-directory: repo
+        run: npm audit --audit-level moderate || true
