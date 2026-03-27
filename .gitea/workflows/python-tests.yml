@@ -93,7 +93,7 @@ jobs:
             echo "=== ADDITIONAL DEPENDENCIES ==="
             # Install missing dependencies that cause import errors
             echo "Installing additional test dependencies..."
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests
             
             echo "=== PYTHON PATH SETUP ==="
             # Set up comprehensive Python path for complex import patterns
@@ -112,16 +112,47 @@ jobs:
             echo "Installing pytest with test dependencies..."
             venv/bin/pip install pytest pytest-cov pytest-mock
             
-            echo "=== RUNNING PYTHON TESTS ==="
+            echo "=== DATABASE SETUP ==="
+            # Create database directories for blockchain-node tests
+            echo "Setting up database directories..."
+            mkdir -p /opt/gitea-runner/workspace/repo/data
+            mkdir -p /opt/gitea-runner/workspace/repo/data/blockchain
+            mkdir -p /opt/gitea-runner/workspace/repo/apps/blockchain-node/data
+            touch /opt/gitea-runner/workspace/repo/data/blockchain/mempool.db
+            touch /opt/gitea-runner/workspace/repo/apps/blockchain-node/data/mempool.db
+            
+            echo "=== IMPORT DEBUGGING ==="
             echo "Python path: $PYTHONPATH"
             echo "Available modules:"
             venv/bin/python -c "import sys; print('\\n'.join(sys.path))"
             
+            # Test specific imports that are failing
+            echo "Testing problematic imports..."
+            venv/bin/python -c "
+            try:
+                import sys
+                print('Testing src import...')
+                sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/agent-protocols/src')
+                import message_protocol
+                print('✅ src.message_protocol import successful')
+            except Exception as e:
+                print(f'❌ src import failed: {e}')
+                
+            try:
+                print('Testing aitbc import...')
+                sys.path.insert(0, '/opt/gitea-runner/workspace/repo/apps/blockchain-node/src')
+                import aitbc_chain
+                print('✅ aitbc_chain import successful')
+            except Exception as e:
+                print(f'❌ aitbc import failed: {e}')
+            "
+            
+            echo "=== RUNNING PYTHON TESTS ==="
             echo "Attempting to run tests with comprehensive error handling..."
             # Try to run tests with maximum error handling
             venv/bin/python -m pytest \
               --tb=short \
-              --maxfail=5 \
+              --maxfail=10 \
               --disable-warnings \
               -v \
               || echo "Tests completed with some import errors (expected in CI)"
@@ -178,7 +209,7 @@ jobs:
             
             python3 -m venv venv && source venv/bin/activate
             $POETRY_CMD install --no-root
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy pytest pytest-cov pytest-mock
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests pytest pytest-cov pytest-mock
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
