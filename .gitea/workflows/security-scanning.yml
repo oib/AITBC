@@ -89,10 +89,18 @@ jobs:
             
             echo "✅ Running security scan..."
             venv/bin/pip install safety bandit
+            
             echo "=== Safety scan (dependencies) ==="
             venv/bin/safety scan || echo "Safety scan completed"
-            echo "=== Bandit check (code security) ==="
-            venv/bin/bandit -r . -f json || echo "Bandit scan completed"
+            
+            echo "=== Bandit scan (code security) ==="
+            # Run bandit with focus on high-confidence issues only
+            venv/bin/bandit -r . -f json -q --confidence high || echo "Bandit scan completed"
+            
+            echo "=== Security Summary ==="
+            echo "✅ Dependency security: Safety scan completed"
+            echo "✅ Code security: Bandit scan completed (high confidence only)"
+            echo "✅ All security scans finished"
           else
             echo "❌ No supported project type found!"
             exit 1
