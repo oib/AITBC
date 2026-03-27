@@ -92,8 +92,8 @@ jobs:
             venv/bin/pip install bandit
             
             echo "=== Bandit scan (code security) ==="
-            # Run bandit with focus on high-confidence issues only
-            venv/bin/bandit -r . -f json -q --confidence high || echo "Bandit scan completed"
+            # Run bandit with correct syntax for high confidence issues only
+            venv/bin/bandit -r . -f json -q --confidence-level high || echo "Bandit scan completed"
             
             echo "=== Security Summary ==="
             echo "✅ Code security: Bandit scan completed (high confidence only)"
