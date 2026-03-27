@@ -46,9 +46,25 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
+          echo "Cleaning previous workspace..."
           rm -rf /opt/aitbc/python-packages-workspace
-          mkdir -p /opt/aitbc/python-packages-workspace
-          cd /opt/aitbc/python-packages-workspace
+          
+          echo "Creating workspace directory..."
+          mkdir -p /opt/aitbc/python-packages-workspace || {
+            echo "❌ Failed to create workspace directory"
+            echo "Current directory: $(pwd)"
+            echo "Available space: $(df -h /opt/aitbc | tail -1)"
+            exit 1
+          }
+          
+          cd /opt/aitbc/python-packages-workspace || {
+            echo "❌ Failed to change to workspace directory"
+            exit 1
+          }
+          
+          echo "✅ Workspace created successfully"
+          echo "Current PWD: $(pwd)"
+          echo "Directory permissions: $(ls -la /opt/aitbc/python-packages-workspace)"
           
           # Ensure no git lock files exist system-wide
           find /opt/aitbc -name "*.lock" -delete 2>/dev/null || true
@@ -87,8 +103,24 @@ jobs:
                 cd ..
               elif [[ -d "/opt/aitbc" ]]; then
                 echo "Creating minimal repo structure..."
-                mkdir -p repo
-                cp -r /opt/aitbc/packages/py repo/
+                mkdir -p repo || {
+                  echo "❌ Failed to create repo directory"
+                  echo "Current directory: $(pwd)"
+                  echo "Parent directory contents:"
+                  ls -la /opt/aitbc/python-packages-workspace/
+                  exit 1
+                }
+                
+                echo "Copying package directories..."
+                if [[ -d "/opt/aitbc/packages/py" ]]; then
+                  cp -r /opt/aitbc/packages/py repo/
+                else
+                  echo "❌ No packages/py directory found in /opt/aitbc"
+                  echo "Available directories in /opt/aitbc:"
+                  ls -la /opt/aitbc/ | head -10
+                  exit 1
+                fi
+                
                 cd repo
                 git init
                 git config --global http.sslVerify false
@@ -99,7 +131,10 @@ jobs:
                 cd ..
               else
                 echo "❌ No repository available, creating minimal structure..."
-                mkdir -p repo/packages/py
+                mkdir -p repo/packages/py || {
+                  echo "❌ Failed to create minimal structure"
+                  exit 1
+                }
                 echo "❌ Cannot proceed without repository"
                 exit 1
               fi
