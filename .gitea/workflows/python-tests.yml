@@ -95,7 +95,7 @@ jobs:
             echo "=== ADDITIONAL DEPENDENCIES ==="
             # Install missing dependencies that cause import errors
             echo "Installing additional test dependencies..."
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi eth-account
             
             echo "=== PYTHON PATH SETUP ==="
             # Set up comprehensive Python path for complex import patterns
@@ -236,7 +236,7 @@ jobs:
             python3 -m venv venv && source venv/bin/activate
             $POETRY_CMD lock || echo "Lock file update completed"
             $POETRY_CMD install --no-root
-            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi pytest pytest-cov pytest-mock
+            venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi pytest pytest-cov pytest-mock eth-account
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/aitbc:$PYTHONPATH"
