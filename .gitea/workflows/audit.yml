@@ -29,14 +29,32 @@ jobs:
           echo "Files in repo:"
           ls -la
           
-          echo "=== PACKAGE.JSON CHECK ==="
+          echo "=== PROJECT TYPE CHECK ==="
           if [ -f "package.json" ]; then
-            echo "✅ package.json found!"
+            echo "✅ Node.js project detected!"
+            echo "Package.json content:"
+            cat package.json
             echo "=== NPM INSTALL ==="
             npm install --legacy-peer-deps
-            echo "✅ Running audit..."
+            echo "✅ Running npm audit..."
             npm audit || true
+          elif [ -f "pyproject.toml" ]; then
+            echo "✅ Python project detected!"
+            echo "PyProject.toml content:"
+            head -10 pyproject.toml
+            echo "=== PYTHON DEPENDENCIES ==="
+            if command -v poetry >/dev/null 2>&1; then
+              echo "Poetry found, installing dependencies..."
+              poetry install
+            else
+              echo "Installing poetry..."
+              pip install poetry
+              poetry install
+            fi
+            echo "✅ Python dependencies installed!"
           else
-            echo "❌ package.json NOT found!"
+            echo "❌ No supported project type found!"
+            echo "Looking for package.json or pyproject.toml..."
+            find . -name "package.json" -o -name "pyproject.toml" 2>/dev/null || echo "No project files found"
             exit 1
           fi
