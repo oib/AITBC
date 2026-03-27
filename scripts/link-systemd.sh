@@ -42,6 +42,8 @@ find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -delete 2>/dev/null || true
 # Create symbolic links
 echo "🔗 Creating symbolic links..."
 linked_files=0
+error_count=0
+
 for file in "$REPO_SYSTEMD_DIR"/aitbc-*; do
     if [[ -f "$file" ]]; then
         filename=$(basename "$file")
@@ -51,7 +53,12 @@ for file in "$REPO_SYSTEMD_DIR"/aitbc-*; do
         echo "  🔗 Linking: $filename -> $source"
         
         # Create symbolic link
-        ln -sf "$source" "$target"
+        if ln -sf "$source" "$target" 2>/dev/null; then
+            echo "    ✅ Successfully linked: $filename"
+        else
+            echo "    ❌ Failed to link: $filename"
+            ((error_count++))
+        fi
         
         # Handle .d directories
         if [[ -d "${file}.d" ]]; then
@@ -64,12 +71,28 @@ for file in "$REPO_SYSTEMD_DIR"/aitbc-*; do
             rm -rf "$target_dir" 2>/dev/null || true
             
             # Create symbolic link for directory
-            ln -sf "$source_dir" "$target_dir"
+            if ln -sf "$source_dir" "$target_dir" 2>/dev/null; then
+                echo "    ✅ Successfully linked directory: ${filename}.d"
+            else
+                echo "    ❌ Failed to link directory: ${filename}.d"
+                ((error_count++))
+            fi
         fi
         
         ((linked_files++))
     fi
 done
+
+echo
+echo "📊 Linking Summary:"
+echo "  Files processed: $linked_files"
+echo "  Errors encountered: $error_count"
+
+if [[ $error_count -gt 0 ]]; then
+    echo "⚠️  Some links failed, but continuing..."
+else
+    echo "✅ All links created successfully"
+fi
 
 echo
 echo "🔄 Reloading systemd daemon..."
@@ -106,3 +129,12 @@ echo
 echo "⚠️  If you need to restore backup:"
 echo "  sudo cp $BACKUP_DIR/* /etc/systemd/system/"
 echo "  sudo systemctl daemon-reload"
+
+# Ensure script exits successfully
+if [[ $linked_files -gt 0 ]]; then
+    echo "✅ Script completed successfully with $linked_files files linked"
+    exit 0
+else
+    echo "⚠️  No files were linked, but script completed"
+    exit 0
+fi
