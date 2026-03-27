@@ -1,0 +1,15 @@
+name: test
+
+on:
+  push:
+
+jobs:
+  test:
+    runs-on: incus-debian
+
+    steps:
+      - run: |
+          echo "Runner OK"
+          hostname
+          whoami
+          pwd
