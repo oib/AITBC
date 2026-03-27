@@ -83,9 +83,9 @@ jobs:
             echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
-            # Use poetry to install project dependencies
-            echo "Installing project dependencies with poetry..."
-            $POETRY_CMD install
+            # Use poetry to install dependencies only (skip current project)
+            echo "Installing dependencies with poetry (no-root mode)..."
+            $POETRY_CMD install --no-root
             
             echo "✅ Running security scan..."
             venv/bin/pip install safety bandit
