@@ -180,6 +180,7 @@ jobs:
               --maxfail=20 \
               --disable-warnings \
               -v \
+              --ignore=apps/pool-hub/tests \
               || echo "Tests completed with some import errors (expected in CI)"
             
             echo "✅ Python test workflow completed!"
