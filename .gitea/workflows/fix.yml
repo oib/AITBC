@@ -89,11 +89,11 @@ jobs:
             
             echo "✅ Python dependencies installed!"
             echo "=== CODE QUALITY FIXES ==="
-            echo "Running basic code quality checks..."
-            # Install and run flake8 for code quality
+            echo "Running critical code quality checks only..."
+            # Install and run flake8 for critical errors only
             venv/bin/pip install flake8
-            venv/bin/flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics || echo "Code quality checks completed with warnings"
-            echo "✅ Code quality checks completed"
+            venv/bin/flake8 . --select=E9,F63,F7,F82 --quiet || echo "Code quality checks completed"
+            echo "✅ Code quality checks completed - critical errors only"
           else
             echo "❌ No supported project type found!"
             exit 1
