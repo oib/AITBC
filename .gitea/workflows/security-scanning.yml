@@ -7,7 +7,6 @@ on:
 jobs:
   audit:
     runs-on: debian
-    if: false
 
     steps:
       - name: Nuclear fix - absolute path control
@@ -16,10 +15,10 @@ jobs:
           echo "Current PWD: $(pwd)"
           echo "Forcing absolute workspace path..."
           
-          # Clean and create absolute workspace
-          rm -rf /opt/gitea-runner/workspace
-          mkdir -p /opt/gitea-runner/workspace
-          cd /opt/gitea-runner/workspace
+          # Clean and create isolated workspace
+          rm -rf /opt/gitea-runner/security-workspace
+          mkdir -p /opt/gitea-runner/security-workspace
+          cd /opt/gitea-runner/security-workspace
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
