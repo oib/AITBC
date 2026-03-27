@@ -9,15 +9,12 @@ jobs:
     runs-on: debian
 
     steps:
-      - name: Clone repository
+      - name: Full control execution (nuclear fix)
         run: |
+          mkdir -p /opt/gitea-runner/workspace
+          cd /opt/gitea-runner/workspace
           rm -rf repo
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
-
-      - name: Install dependencies
-        working-directory: repo
-        run: npm install
-
-      - name: Audit dependencies
-        working-directory: repo
-        run: npm audit || true
+          cd repo
+          npm install
+          npm audit || true
