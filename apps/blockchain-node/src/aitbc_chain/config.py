@@ -62,8 +62,8 @@ class ChainSettings(BaseSettings):
     gossip_broadcast_url: Optional[str] = None
 
     # Keystore for proposer private key (future block signing)
-    keystore_path: Path = Path("./keystore")
-    keystore_password_file: Path = Path("./keystore/.password")
+    keystore_path: Path = Path("/opt/aitbc/data/keystore")
+    keystore_password_file: Path = Path("/opt/aitbc/data/keystore/.password")
 
 
 settings = ChainSettings()
