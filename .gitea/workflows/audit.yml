@@ -1,4 +1,4 @@
-name: security
+name: audit
 
 on:
   push:
@@ -6,7 +6,11 @@ on:
 jobs:
   audit:
     runs-on: incus-debian
+
     steps:
       - uses: actions/checkout@v4
+
       - run: npm install
-      - run: npm audit || true
+
+      - name: Audit dependencies
+        run: npm audit || true
