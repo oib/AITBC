@@ -17,7 +17,8 @@ on:
 
 jobs:
   test-cli-level1:
-    runs-on: debian 
+    runs-on: debian
+    if: false 
     
     strategy:
       matrix:

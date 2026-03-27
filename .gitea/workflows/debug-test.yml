@@ -6,6 +6,7 @@ on:
 jobs:
   debug:
     runs-on: debian
+    if: false
 
     steps:
       - name: Ultimate debug - show everything
