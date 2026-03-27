@@ -180,7 +180,6 @@ jobs:
               --maxfail=20 \
               --disable-warnings \
               -v \
-              -k "not test_mempool and not test_tx and not test_agent_protocols" \
               || echo "Tests completed with some import errors (expected in CI)"
             
             echo "✅ Python test workflow completed!"
