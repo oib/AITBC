@@ -32,11 +32,13 @@ def _estimate_size(tx: Dict[str, Any]) -> int:
 class InMemoryMempool:
     """In-memory mempool with fee-based prioritization and size limits."""
 
-    def __init__(self, max_size: int = 10_000, min_fee: int = 0) -> None:
+    def __init__(self, max_size: int = 10_000, min_fee: int = 0, chain_id: str = None) -> None:
+        from .config import settings
         self._lock = Lock()
         self._transactions: Dict[str, PendingTransaction] = {}
         self._max_size = max_size
         self._min_fee = min_fee
+        self.chain_id = chain_id or settings.chain_id
 
     def add(self, tx: Dict[str, Any], chain_id: str = None) -> str:
         from .config import settings

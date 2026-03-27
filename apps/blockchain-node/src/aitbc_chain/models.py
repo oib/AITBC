@@ -43,8 +43,8 @@ class Block(SQLModel, table=True):
         back_populates="block",
         sa_relationship_kwargs={
             "lazy": "selectin",
-            "primaryjoin": "and_(Transaction.block_height==Block.height, Transaction.chain_id==Block.chain_id)",
-            "foreign_keys": "[Transaction.block_height, Transaction.chain_id]"
+            "primaryjoin": "and_(aitbc_chain.models.Transaction.block_height==Block.height, aitbc_chain.models.Transaction.chain_id==Block.chain_id)",
+            "foreign_keys": "[aitbc_chain.models.Transaction.block_height, aitbc_chain.models.Transaction.chain_id]"
         }
     )
     receipts: List["Receipt"] = Relationship(
@@ -103,8 +103,8 @@ class Transaction(SQLModel, table=True):
     block: Optional["Block"] = Relationship(
         back_populates="transactions",
         sa_relationship_kwargs={
-            "primaryjoin": "and_(Transaction.block_height==Block.height, Transaction.chain_id==Block.chain_id)",
-            "foreign_keys": "[Transaction.block_height, Transaction.chain_id]"
+            "primaryjoin": "and_(aitbc_chain.models.Transaction.block_height==Block.height, aitbc_chain.models.Transaction.chain_id==Block.chain_id)",
+            "foreign_keys": "[aitbc_chain.models.Transaction.block_height, aitbc_chain.models.Transaction.chain_id]"
         }
     )
 
