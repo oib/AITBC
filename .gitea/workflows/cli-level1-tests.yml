@@ -48,8 +48,23 @@ jobs:
           if [ -f "package.json" ]; then
             echo "✅ Node.js project detected!"
             echo "=== NODE.JS SETUP ==="
-            curl -fsSL https://deb.nodesource.com/setup_${{ matrix.node-version }}.x | bash -
-            apt-get install -y nodejs
+            echo "Current Node.js version: $(node -v)"
+            echo "Target Node.js version: ${{ matrix.node-version }}"
+            
+            # Node.js version management
+            if [[ "${{ matrix.node-version }}" == "24" ]]; then
+              echo "✅ Node.js 24 already installed and current"
+              echo "Skipping installation - using existing Node.js 24.13.0"
+            elif [[ "${{ matrix.node-version }}" == "20" ]]; then
+              echo "Installing Node.js 20 LTS for stability testing..."
+              curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+              apt-get install -y nodejs
+              echo "Node.js 20 installed: $(node -v)"
+            else
+              echo "Installing Node.js ${{ matrix.node-version }}..."
+              curl -fsSL https://deb.nodesource.com/setup_${{ matrix.node-version }}.x | bash -
+              apt-get install -y nodejs
+            fi
             
             echo "=== NPM INSTALL ==="
             npm install --legacy-peer-deps
