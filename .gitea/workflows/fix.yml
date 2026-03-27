@@ -11,23 +11,29 @@ jobs:
     steps:
       - name: Nuclear fix - absolute path control
         run: |
-          echo "=== FIX NUCLEAR FIX ==="
+          echo "=== AUTOFIX NUCLEAR FIX ==="
+          echo "Current PWD: $(pwd)"
+          echo "Forcing absolute workspace path..."
           
-          # Force absolute workspace
+          # Clean and create absolute workspace
           rm -rf /opt/gitea-runner/workspace
           mkdir -p /opt/gitea-runner/workspace
           cd /opt/gitea-runner/workspace
           
+          echo "Workspace PWD: $(pwd)"
+          echo "Cloning repository..."
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          
           cd repo
-          
           echo "Repo PWD: $(pwd)"
-          echo "Looking for package.json..."
-          ls -la package.json
+          echo "Files in repo:"
+          ls -la
           
+          echo "=== PACKAGE.JSON CHECK ==="
           if [ -f "package.json" ]; then
-            echo "✅ Installing dependencies..."
-            npm install
+            echo "✅ package.json found!"
+            echo "=== NPM INSTALL ==="
+            npm install --legacy-peer-deps
             echo "✅ Auto-fixing vulnerabilities..."
             npm audit fix || true
           else
