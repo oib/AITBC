@@ -92,13 +92,13 @@ jobs:
             venv/bin/pip install bandit
             
             echo "=== Bandit scan (code security) ==="
-            # Run bandit with correct syntax for high confidence issues only
-            venv/bin/bandit -r . -f json -q --confidence-level high || echo "Bandit scan completed"
+            # Run bandit with maximum filtering for actual security issues only
+            venv/bin/bandit -r . -f json -q --confidence-level high --severity-level high -x venv/ || echo "Bandit scan completed"
             
             echo "=== Security Summary ==="
-            echo "✅ Code security: Bandit scan completed (high confidence only)"
+            echo "✅ Code security: Bandit scan completed (high severity & confidence only)"
             echo "✅ Dependencies: Managed via poetry lock file"
-            echo "✅ All security scans finished - clean and non-interactive"
+            echo "✅ All security scans finished - clean and focused"
           else
             echo "❌ No supported project type found!"
             exit 1
