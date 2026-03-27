@@ -176,14 +176,45 @@ jobs:
                 done
                 
                 if [[ -n "$PACKAGES_FOUND" ]]; then
-                  mkdir -p repo
+                  echo "Creating repo directory..."
+                  if ! mkdir -p repo; then
+                    echo "❌ Failed to create repo directory"
+                    echo "Current directory: $(pwd)"
+                    echo "Directory permissions: $(ls -la .)"
+                    echo "Available space: $(df -h . | head -2)"
+                    echo "Trying alternative directory..."
+                    mkdir -p /tmp/repo-copy || {
+                      echo "❌ Cannot create any directories"
+                      exit 1
+                    }
+                    cp -r "$PACKAGES_FOUND"/* /tmp/repo-copy/ 2>/dev/null || true
+                    mv /tmp/repo-copy repo || {
+                      echo "❌ Cannot move repo to current directory"
+                      exit 1
+                    }
+                  fi
+                  
+                  echo "Copying packages from: $PACKAGES_FOUND"
                   if [[ "$PACKAGES_FOUND" == "/opt/aitbc/packages/py" ]]; then
-                    cp -r /opt/aitbc/packages/py repo/
+                    cp -r /opt/aitbc/packages/py repo/ || {
+                      echo "❌ Failed to copy packages/py"
+                      echo "Available in /opt/aitbc/packages/py:"
+                      ls -la /opt/aitbc/packages/py/ 2>/dev/null || echo "Directory not accessible"
+                    }
                   elif [[ "$PACKAGES_FOUND" == "/opt/aitbc/packages" ]]; then
-                    cp -r /opt/aitbc/packages repo/
+                    cp -r /opt/aitbc/packages repo/ || {
+                      echo "❌ Failed to copy packages"
+                      echo "Available in /opt/aitbc/packages:"
+                      ls -la /opt/aitbc/packages/ 2>/dev/null || echo "Directory not accessible"
+                    }
                   else
                     # Copy entire directory structure
-                    cp -r /opt/aitbc/* repo/ 2>/dev/null || true
+                    echo "Copying entire directory structure..."
+                    cp -r /opt/aitbc/* repo/ 2>/dev/null || {
+                      echo "❌ Failed to copy directory structure"
+                      echo "Trying selective copy..."
+                      find /opt/aitbc -maxdepth 2 -type d -name "*packages*" -exec cp -r {} repo/ \; 2>/dev/null || true
+                    }
                   fi
                   
                   cd repo
