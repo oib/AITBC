@@ -56,6 +56,8 @@ jobs:
           # Ensure systemd files are synced
           if [[ -f "scripts/link-systemd.sh" ]]; then
             echo "🔗 Syncing systemd files..."
+            # Update script with correct repository path
+            sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/integration-tests-workspace/repo/systemd\"|g" scripts/link-systemd.sh
             sudo ./scripts/link-systemd.sh
           else
             echo "⚠️  Systemd sync script not found"

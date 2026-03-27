@@ -60,6 +60,8 @@ jobs:
             # Run the linking script
             if [[ -f "scripts/link-systemd.sh" ]]; then
               echo "🔗 Running systemd linking script..."
+              # Update script with correct repository path
+              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
               ./scripts/link-systemd.sh
             else
               echo "❌ Link script not found, creating manual sync..."
