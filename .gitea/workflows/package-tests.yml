@@ -202,7 +202,7 @@ jobs:
                   # Create minimal package directories for testing
                   for pkg in aitbc-core aitbc-crypto aitbc-sdk aitbc-agent-sdk; do
                     mkdir -p "repo/packages/py/$pkg"
-                    cat > "repo/packages/py/$pkg/pyproject.toml" << EOF
+                    cat > "repo/packages/py/$pkg/pyproject.toml" << 'EOF'
 [tool.poetry]
 name = "$pkg"
 version = "0.1.0"
