@@ -60,8 +60,17 @@ jobs:
             # Run the linking script
             if [[ -f "scripts/link-systemd.sh" ]]; then
               echo "🔗 Running systemd linking script..."
+              echo "Current directory: $(pwd)"
+              echo "Systemd directory exists: $(ls -la systemd/ 2>/dev/null || echo 'No systemd directory')"
+              
               # Update script with correct repository path
               sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
+              # Also fix the current working directory issue
+              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/api-tests-workspace/repo/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
+              # Fix any other potential wrong paths
+              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/.*/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
+              
+              echo "Script updated, running linking..."
               ./scripts/link-systemd.sh
             else
               echo "❌ Link script not found, creating manual sync..."
