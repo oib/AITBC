@@ -282,49 +282,47 @@ jobs:
           echo "🧪 Testing Wallet API endpoints..."
           
           # Create wallet API test
-          cat > test_wallet_api.py << 'EOF'
-import requests
-import json
-
-def test_wallet_health():
-    try:
-        response = requests.get('http://localhost:8002/', timeout=5)
-        print(f"✅ Wallet health check: {response.status_code}")
-        return response.status_code == 200
-    except Exception as e:
-        print(f"❌ Wallet health error: {e}")
-        return False
-
-def test_wallet_endpoints():
-    endpoints = [
-        'http://localhost:8002/',
-        'http://localhost:8002/health',
-        'http://localhost:8002/wallets'
-    ]
-    
-    results = []
-    for endpoint in endpoints:
-        try:
-            response = requests.get(endpoint, timeout=5)
-            print(f"✅ {endpoint}: {response.status_code}")
-            results.append(response.status_code == 200)
-        except Exception as e:
-            print(f"❌ {endpoint}: {e}")
-            results.append(False)
-    
-    return all(results)
-
-if __name__ == "__main__":
-    print("🧪 Testing Wallet API...")
-    
-    health_ok = test_wallet_health()
-    endpoints_ok = test_wallet_endpoints()
-    
-    if health_ok and endpoints_ok:
-        print("✅ Wallet API tests passed")
-    else:
-        print("❌ Wallet API tests failed")
-EOF
+          echo 'import requests' > test_wallet_api.py
+          echo 'import json' >> test_wallet_api.py
+          echo '' >> test_wallet_api.py
+          echo 'def test_wallet_health():' >> test_wallet_api.py
+          echo '    try:' >> test_wallet_api.py
+          echo '        response = requests.get('"'"'http://localhost:8002/'"'"', timeout=5)' >> test_wallet_api.py
+          echo '        print(f"✅ Wallet health check: {response.status_code}")' >> test_wallet_api.py
+          echo '        return response.status_code == 200' >> test_wallet_api.py
+          echo '    except Exception as e:' >> test_wallet_api.py
+          echo '        print(f"❌ Wallet health error: {e}")' >> test_wallet_api.py
+          echo '        return False' >> test_wallet_api.py
+          echo '' >> test_wallet_api.py
+          echo 'def test_wallet_endpoints():' >> test_wallet_api.py
+          echo '    endpoints = [' >> test_wallet_api.py
+          echo '        '"'"'http://localhost:8002/'"'"',' >> test_wallet_api.py
+          echo '        '"'"'http://localhost:8002/health'"'"',' >> test_wallet_api.py
+          echo '        '"'"'http://localhost:8002/wallets'"'"'' >> test_wallet_api.py
+          echo '    ]' >> test_wallet_api.py
+          echo '    ' >> test_wallet_api.py
+          echo '    results = []' >> test_wallet_api.py
+          echo '    for endpoint in endpoints:' >> test_wallet_api.py
+          echo '        try:' >> test_wallet_api.py
+          echo '            response = requests.get(endpoint, timeout=5)' >> test_wallet_api.py
+          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_wallet_api.py
+          echo '            results.append(response.status_code == 200)' >> test_wallet_api.py
+          echo '        except Exception as e:' >> test_wallet_api.py
+          echo '            print(f"❌ {endpoint}: {e}")' >> test_wallet_api.py
+          echo '            results.append(False)' >> test_wallet_api.py
+          echo '    ' >> test_wallet_api.py
+          echo '    return all(results)' >> test_wallet_api.py
+          echo '' >> test_wallet_api.py
+          echo 'if __name__ == "__main__":' >> test_wallet_api.py
+          echo '    print("🧪 Testing Wallet API...")' >> test_wallet_api.py
+          echo '    ' >> test_wallet_api.py
+          echo '    health_ok = test_wallet_health()' >> test_wallet_api.py
+          echo '    endpoints_ok = test_wallet_endpoints()' >> test_wallet_api.py
+          echo '    ' >> test_wallet_api.py
+          echo '    if health_ok and endpoints_ok:' >> test_wallet_api.py
+          echo '        print("✅ Wallet API tests passed")' >> test_wallet_api.py
+          echo '    else:' >> test_wallet_api.py
+          echo '        print("❌ Wallet API tests failed")' >> test_wallet_api.py
           
           python test_wallet_api.py
           
