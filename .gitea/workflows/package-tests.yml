@@ -134,6 +134,12 @@ jobs:
           # Verify Poetry is working
           poetry --version
           
+          # Check and update lock file if needed
+          if ! poetry check --lock; then
+            echo "Lock file out of sync, regenerating..."
+            poetry lock --no-update
+          fi
+          
           # Install dependencies with Poetry
           poetry install --with dev
           
