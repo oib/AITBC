@@ -100,6 +100,7 @@ jobs:
             echo "=== PYTHON PATH SETUP ==="
             # Set up comprehensive Python path for complex import patterns
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/aitbc:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/*/src:$PYTHONPATH"
@@ -238,6 +239,7 @@ jobs:
             venv/bin/pip install pydantic-settings sqlmodel sqlalchemy requests slowapi pytest pytest-cov pytest-mock
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
+            export PYTHONPATH="/opt/gitea-runner/workspace/repo/aitbc:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/src:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps:$PYTHONPATH"
             export PYTHONPATH="/opt/gitea-runner/workspace/repo/apps/*/src:$PYTHONPATH"
