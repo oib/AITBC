@@ -86,9 +86,9 @@ jobs:
             echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
-            # Install ALL dependencies (including current project)
-            echo "Installing all dependencies with poetry..."
-            $POETRY_CMD install
+            # Install dependencies only (skip current project to avoid package issues)
+            echo "Installing dependencies with poetry (no-root mode)..."
+            $POETRY_CMD install --no-root
             
             echo "=== ADDITIONAL DEPENDENCIES ==="
             # Install missing dependencies that cause import errors
@@ -171,7 +171,7 @@ jobs:
             [ -f "$POETRY_CMD" ] && POETRY_CMD="$POETRY_CMD" || POETRY_CMD="poetry"
             
             python3 -m venv venv && source venv/bin/activate
-            $POETRY_CMD install
+            $POETRY_CMD install --no-root
             venv/bin/pip install pydantic-settings pytest pytest-cov pytest-mock
             
             export PYTHONPATH="/opt/gitea-runner/workspace/repo:$PYTHONPATH"
