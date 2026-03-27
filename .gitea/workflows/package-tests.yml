@@ -81,6 +81,9 @@ jobs:
           # Clone with multiple fallback strategies
           REPO_URL="https://gitea.bubuit.net/oib/aitbc.git"
           
+          # Clean any existing repo directory first
+          rm -rf repo
+          
           # Try standard clone first
           if git clone "$REPO_URL" repo; then
             echo "✅ Standard clone successful"
@@ -97,12 +100,14 @@ jobs:
               # Try local repository copy
               if [[ -d "/opt/aitbc/.git" ]]; then
                 echo "Using local repository copy..."
+                rm -rf repo
                 cp -r /opt/aitbc repo
                 cd repo
                 git remote set-url origin "$REPO_URL" 2>/dev/null || true
                 cd ..
               elif [[ -d "/opt/aitbc" ]]; then
                 echo "Creating minimal repo structure..."
+                rm -rf repo
                 mkdir -p repo || {
                   echo "❌ Failed to create repo directory"
                   echo "Current directory: $(pwd)"
