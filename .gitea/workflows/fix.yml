@@ -44,13 +44,22 @@ jobs:
             if ! command -v python3 >/dev/null 2>&1; then
               echo "Installing Python 3..."
               apt-get update
-              apt-get install -y python3 python3-pip python3-venv
+              apt-get install -y python3 python3-pip python3-venv python3-full
             fi
             
             if ! command -v pip >/dev/null 2>&1; then
               echo "Installing pip..."
               python3 -m pip install --upgrade pip
             fi
+            
+            echo "=== VIRTUAL ENVIRONMENT ==="
+            # Create and use virtual environment
+            python3 -m venv venv
+            source venv/bin/activate
+            
+            echo "Virtual environment activated"
+            echo "Python in venv: $(python --version)"
+            echo "Pip in venv: $(pip --version)"
             
             echo "=== PYTHON DEPENDENCIES ==="
             if command -v poetry >/dev/null 2>&1; then
