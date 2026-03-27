@@ -9,9 +9,17 @@ jobs:
     runs-on: debian
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Clone repository
+        run: |
+          rm -rf repo
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
-      - run: npm install
+      - name: Install dependencies
+        run: |
+          cd repo
+          npm install
 
       - name: Audit dependencies
-        run: npm audit || true
+        run: |
+          cd repo
+          npm audit || true

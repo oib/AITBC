@@ -6,12 +6,20 @@ on:
 
 jobs:
   fix:
-    runs-on: debian 
+    runs-on: debian
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Clone repository
+        run: |
+          rm -rf repo
+          git clone https://gitea.bubuit.net/oib/aitbc.git repo
 
-      - run: npm install
+      - name: Install dependencies
+        run: |
+          cd repo
+          npm install
 
       - name: Auto fix vulnerabilities
-        run: npm audit fix || true
+        run: |
+          cd repo
+          npm audit fix || true
