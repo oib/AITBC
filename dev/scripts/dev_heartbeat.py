@@ -38,7 +38,7 @@ def check_build_tests():
     rc, out = sh("poetry check")
     checks.append(("poetry check", rc == 0, out))
     # 2) Fast syntax check of CLI package
-    rc, out = sh("python3 -m py_compile cli/aitbc_cli/main.py")
+    rc, out = sh("python3 -m py_compile cli/core/main.py")
     checks.append(("cli syntax", rc == 0, out if rc != 0 else "OK"))
     # 3) Minimal test run (dry-run or 1 quick test)
     rc, out = sh("python3 -m pytest tests/ -v --collect-only 2>&1 | head -20")
