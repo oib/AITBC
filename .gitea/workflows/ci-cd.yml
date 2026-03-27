@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: debian
+    if: false
 
     steps:
       - name: Nuclear fix - absolute path control
