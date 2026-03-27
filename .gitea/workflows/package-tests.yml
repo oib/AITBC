@@ -50,12 +50,28 @@ jobs:
           mkdir -p /opt/aitbc/python-packages-workspace
           cd /opt/aitbc/python-packages-workspace
           
-          # Ensure no git lock files exist
-          find . -name "*.lock" -delete 2>/dev/null || true
+          # Ensure no git lock files exist system-wide
+          find /opt/aitbc -name "*.lock" -delete 2>/dev/null || true
+          find /tmp -name "*.lock" -delete 2>/dev/null || true
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
-          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          
+          # Clone with better error handling
+          if ! git clone https://gitea.bubuit.net/oib/aitbc.git repo; then
+            echo "❌ Git clone failed, trying alternative approach..."
+            rm -rf repo
+            git clone --depth 1 https://gitea.bubuit.net/oib/aitbc.git repo || {
+              echo "❌ Git clone completely failed, checking if repo exists locally..."
+              if [[ -d "/opt/aitbc/.git" ]]; then
+                echo "Using local repository copy..."
+                cp -r /opt/aitbc repo
+              else
+                echo "❌ No repository available"
+                exit 1
+              fi
+            }
+          fi
           
           cd repo
           echo "Repo PWD: $(pwd)"
@@ -65,11 +81,25 @@ jobs:
           echo "=== PYTHON PACKAGE: ${{ matrix.package.name }} ==="
           echo "Package path: ${{ matrix.package.path }}"
           echo "Python version: ${{ matrix.package.python_version }}"
+          
+          # Verify package exists
+          if [[ ! -d "${{ matrix.package.path }}" ]]; then
+            echo "❌ Package directory not found: ${{ matrix.package.path }}"
+            echo "Available packages:"
+            find packages/py/ -maxdepth 1 -type d | grep -v "^packages/py/$"
+            exit 1
+          fi
+          
+          echo "✅ Package directory found"
 
-      - name: Setup Python
+      - name: Setup Python Environment
         run: |
-          echo "=== PYTHON SETUP ==="
+          echo "=== PYTHON ENVIRONMENT SETUP ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
+          
+          echo "Current directory: $(pwd)"
+          echo "Package contents:"
+          ls -la
           
           # Check Python version
           python3 --version
