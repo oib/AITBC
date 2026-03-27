@@ -9,6 +9,18 @@ jobs:
     runs-on: debian 
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify repository context
+        run: |
+          echo "Current working directory:"
+          pwd
+          echo "Files in directory:"
+          ls -la
+          echo "Looking for package.json:"
+          ls -la package.json || echo "package.json not found"
+
       - run: |
           echo "Runner OK"
           hostname
