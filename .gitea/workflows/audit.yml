@@ -2,6 +2,7 @@ debianname: audit
 
 on:
   push:
+  workflow_dispatch:
 
 jobs:
   audit:
