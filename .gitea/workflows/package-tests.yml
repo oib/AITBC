@@ -94,7 +94,9 @@ jobs:
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           
-          # Set git configuration
+          # Set git configuration and check Git status
+          echo "Git configuration and status:"
+          git --version
           git config --global http.sslVerify false
           git config --global http.postBuffer 1048576000
           
@@ -108,6 +110,22 @@ jobs:
           echo "Filesystem check:"
           df -h . | head -2
           echo "Current directory permissions: $(ls -ld .)"
+          echo "Current directory contents:"
+          ls -la | head -10
+          
+          # Test Git operations first
+          echo "Testing Git operations..."
+          if ! git status >/dev/null 2>&1; then
+            echo "❌ Git status failed, trying to fix..."
+            cd / || {
+              echo "❌ Cannot change to root directory"
+              exit 1
+            }
+            cd "$WORKSPACE_DIR" || {
+              echo "❌ Cannot return to workspace directory"
+              exit 1
+            }
+          fi
           
           # Try standard clone first
           echo "Attempting standard clone..."
