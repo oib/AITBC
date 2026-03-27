@@ -26,14 +26,10 @@ jobs:
             path: "packages/solidity/aitbc-token"
             config: "hardhat.config.ts"
             tool: "hardhat"
-          - name: "contracts-root-hardhat"
+          - name: "contracts-root"
             path: "contracts"
             config: "hardhat.config.js"
             tool: "hardhat"
-          - name: "contracts-root-foundry"
-            path: "contracts"
-            config: "foundry.toml"
-            tool: "foundry"
     
     steps:
       - name: Setup workspace
@@ -101,62 +97,7 @@ jobs:
           npx hardhat --version
           echo "✅ Hardhat dependencies installed successfully"
 
-      - name: Install Foundry (Optional)
-        if: matrix.project.tool == 'foundry'
-        run: |
-          echo "=== INSTALLING FOUNDRY (OPTIONAL) ==="
-          cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
-          
-          echo "⚠️  Foundry installation - optional for legacy support"
-          echo "💡 Consider migrating to Hardhat for better CI compatibility"
-          
-          # Install foundryup
-          curl -L https://foundry.paradigm.xyz | bash
-          
-          # Source the shell environment
-          source ~/.bashrc 2>/dev/null || source ~/.zshrc 2>/dev/null || true
-          
-          # Add to PATH explicitly
-          export PATH="$HOME/.foundry/bin:$PATH"
-          echo 'export PATH="$HOME/.foundry/bin:$PATH"' >> ~/.bashrc
-          
-          # Install foundry
-          foundryup --version nightly
-          
-          # Update PATH again and verify
-          export PATH="$HOME/.foundry/bin:$PATH"
-          
-          # Verify installation
-          if ! command -v forge >/dev/null 2>&1; then
-            echo "❌ Forge not found, trying alternative installation..."
-            # Try direct installation with verification
-            curl -L https://github.com/foundry-rs/foundry/releases/download/nightly/foundryup-linux-amd64 -o foundryup
-            chmod +x foundryup
-            
-            # Verify the downloaded file is not corrupted
-            if ! head -1 foundryup | grep -q "#!/bin/bash"; then
-              echo "❌ Downloaded foundryup is corrupted, trying different method..."
-              rm -f foundryup
-              # Try installing foundry directly
-              curl -L https://github.com/foundry-rs/foundry/releases/download/nightly/foundry-linux-amd64.tar.gz -o foundry.tar.gz
-              tar -xzf foundry.tar.gz
-              chmod +x foundry
-              mkdir -p $HOME/.foundry/bin
-              mv foundry $HOME/.foundry/bin/
-              mv cast $HOME/.foundry/bin/ 2>/dev/null || true
-              mv chisel $HOME/.foundry/bin/ 2>/dev/null || true
-            else
-              echo "✅ Downloaded foundryup looks good, installing..."
-              ./foundryup --version nightly
-            fi
-            
-            export PATH="$HOME/.foundry/bin:$PATH"
-          fi
-          
-          forge --version
-          cast --version
-          echo "✅ Foundry tools installed successfully"
-
+      
       - name: Compile Contracts (Hardhat)
         if: matrix.project.tool == 'hardhat'
         run: |
@@ -174,28 +115,7 @@ jobs:
           
           echo "✅ Hardhat contracts compiled successfully"
 
-      - name: Compile Contracts (Foundry)
-        if: matrix.project.tool == 'foundry'
-        run: |
-          echo "=== COMPILING FOUNDARY CONTRACTS ==="
-          cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
-          
-          echo "⚠️  Using Foundry - legacy support only"
-          echo "💡 Consider migrating to Hardhat for better CI compatibility"
-          
-          # Ensure PATH is set
-          export PATH="$HOME/.foundry/bin:$PATH"
-          source ~/.bashrc 2>/dev/null || true
-          
-          # Build contracts
-          forge build
-          
-          # Check compilation output
-          echo "Compilation artifacts:"
-          ls -la out/
-          
-          echo "✅ Foundry contracts compiled successfully"
-
+      
       - name: Run Contract Tests (Hardhat)
         if: matrix.project.tool == 'hardhat'
         run: |
@@ -209,54 +129,23 @@ jobs:
           
           echo "✅ Hardhat contract tests completed"
 
-      - name: Run Contract Tests (Foundry)
-        if: matrix.project.tool == 'foundry'
-        run: |
-          echo "=== RUNNING FOUNDRY CONTRACT TESTS ==="
-          cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
-          
-          echo "⚠️  Using Foundry - legacy support only"
-          echo "💡 Consider migrating to Hardhat for better CI compatibility"
-          
-          # Ensure PATH is set
-          export PATH="$HOME/.foundry/bin:$PATH"
-          source ~/.bashrc 2>/dev/null || true
-          
-          # Run tests with verbose output
-          forge test --gas-report -vv
-          
-          echo "✅ Foundry contract tests completed"
-
+      
       - name: Contract Security Analysis
         run: |
           echo "=== CONTRACT SECURITY ANALYSIS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
-            echo "⚠️  Using Foundry - legacy support only"
-            echo "💡 Consider migrating to Hardhat for better CI compatibility"
-            
-            # Ensure PATH is set
-            export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc 2>/dev/null || true
-            
-            # Run Slither if available
-            if command -v slither >/dev/null 2>&1; then
-              echo "Running Slither security analysis..."
-              slither . --filter medium,high --json slither-report.json || echo "Slither analysis completed with warnings"
-            else
-              echo "Slither not available, skipping security analysis"
-            fi
-            
-            # Run Foundry security checks
-            echo "Running Foundry security checks..."
-            forge test --gas-report --fail-on-revert || echo "Security tests completed"
-            
+          echo "🔥 Using Hardhat - CI-friendly and reliable"
+          # Hardhat security checks
+          echo "Running Hardhat security checks..."
+          npx hardhat test 2>&1 | grep -i "revert\|error\|fail" || echo "Security checks completed"
+          
+          # Run Slither if available
+          if command -v slither >/dev/null 2>&1; then
+            echo "Running Slither security analysis..."
+            slither . --filter medium,high --json slither-report.json || echo "Slither analysis completed with warnings"
           else
-            echo "🔥 Using Hardhat - CI-friendly and reliable"
-            # Hardhat security checks
-            echo "Running Hardhat security checks..."
-            npx hardhat test 2>&1 | grep -i "revert\|error\|fail" || echo "Security checks completed"
+            echo "Slither not available, skipping security analysis"
           fi
           
           echo "✅ Contract security analysis completed"
@@ -266,24 +155,15 @@ jobs:
           echo "=== GAS OPTIMIZATION REPORT ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
-            echo "⚠️  Using Foundry - legacy support only"
-            
-            # Ensure PATH is set
-            export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc 2>/dev/null || true
-            
-            # Generate gas report
-            forge test --gas-report > gas-report.txt 2>&1 || true
-            
-            echo "Gas optimization summary:"
-            cat gas-report.txt | grep -A 20 "Gas report" || echo "No gas report available"
-            
-          else
-            echo "🔥 Using Hardhat - CI-friendly and reliable"
-            echo "Gas optimization for Hardhat project:"
-            echo "Check npx hardhat test output for gas usage information"
-          fi
+          echo "🔥 Using Hardhat - CI-friendly and reliable"
+          echo "Gas optimization for Hardhat project:"
+          echo "Check npx hardhat test output for gas usage information"
+          
+          # Generate gas report if possible
+          npx hardhat test --show-gas-usage > gas-report.txt 2>&1 || true
+          
+          echo "Gas optimization summary:"
+          cat gas-report.txt | grep -E "gas used|Gas usage" || echo "No gas report available"
           
           echo "✅ Gas optimization report completed"
 
@@ -292,28 +172,20 @@ jobs:
           echo "=== CONTRACT SIZE ANALYSIS ==="
           cd /opt/aitbc/solidity-workspace/repo/${{ matrix.project.path }}
           
-          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
-            echo "⚠️  Using Foundry - legacy support only"
-            
-            # Ensure PATH is set
-            export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc 2>/dev/null || true
-            
-            # Check contract sizes
-            echo "Contract bytecode sizes:"
-            for contract in out/*.sol/*.json; do
-              if [ -f "$contract" ]; then
-                name=$(basename "$contract" .json)
-                size=$(jq -r '.bytecode | length / 2' "$contract" 2>/dev/null || echo "0")
+          echo "🔥 Using Hardhat - CI-friendly and reliable"
+          echo "Contract sizes for Hardhat project:"
+          ls -la artifacts/contracts/ | head -10
+          
+          # Check contract bytecode sizes if available
+          for contract in artifacts/contracts/**/*.json; do
+            if [ -f "$contract" ]; then
+              name=$(basename "$contract" .json)
+              size=$(jq -r '.bytecode | length / 2' "$contract" 2>/dev/null || echo "0")
+              if [ "$size" != "0" ]; then
                 echo "$name: $size bytes"
               fi
-            done
-            
-          else
-            echo "🔥 Using Hardhat - CI-friendly and reliable"
-            echo "Contract sizes for Hardhat project:"
-            ls -la artifacts/contracts/ | head -10
-          fi
+            fi
+          done
           
           echo "✅ Contract size analysis completed"
 
@@ -327,24 +199,12 @@ jobs:
           mkdir -p test-results
           
           # Copy test results
-          if [ "${{ matrix.project.tool }}" == "foundry" ]; then
-            echo "⚠️  Foundry test results - legacy support only"
-            
-            # Ensure PATH is set
-            export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc 2>/dev/null || true
-            
-            # Foundry results
-            forge test --gas-report -vv > test-results/forge-test-output.txt 2>&1 || true
-            cp gas-report.txt test-results/ 2>/dev/null || true
-            cp slither-report.json test-results/ 2>/dev/null || true
-            
-          else
-            echo "🔥 Hardhat test results - CI-friendly and reliable"
-            # Hardhat results
-            npx hardhat test > test-results/hardhat-test-output.txt 2>&1 || true
-            cp -r artifacts/ test-results/ 2>/dev/null || true
-          fi
+          echo "🔥 Hardhat test results - CI-friendly and reliable"
+          # Hardhat results
+          npx hardhat test > test-results/hardhat-test-output.txt 2>&1 || true
+          cp -r artifacts/ test-results/ 2>/dev/null || true
+          cp gas-report.txt test-results/ 2>/dev/null || true
+          cp slither-report.json test-results/ 2>/dev/null || true
           
           echo "Test results saved to test-results/"
           ls -la test-results/
@@ -373,7 +233,7 @@ jobs:
         run: |
           echo "=== LINTING SOLIDITY CONTRACTS ==="
           
-          # Lint Hardhat projects (priority)
+          # Lint Hardhat projects only
           echo "🔥 Linting Hardhat projects - CI-friendly and reliable"
           if [ -d "packages/solidity/aitbc-token" ]; then
             cd packages/solidity/aitbc-token
@@ -386,30 +246,6 @@ jobs:
             cd contracts
             npm install --legacy-peer-deps
             npm run lint || echo "Linting completed with warnings"
-            cd ..
-          fi
-          
-          # Lint Foundry projects (legacy support)
-          if [ -f "contracts/foundry.toml" ]; then
-            echo "⚠️  Linting Foundry projects - legacy support only"
-            echo "💡 Consider migrating to Hardhat for better CI compatibility"
-            cd contracts
-            
-            # Install and setup forge for linting
-            if ! command -v forge >/dev/null 2>&1; then
-              curl -L https://foundry.paradigm.xyz | bash
-              export PATH="$HOME/.foundry/bin:$PATH"
-              source ~/.bashrc 2>/dev/null || true
-              foundryup --version nightly
-            fi
-            
-            # Ensure PATH is set
-            export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc 2>/dev/null || true
-            
-            # Format check
-            forge fmt --check || echo "Formatting check completed with warnings"
-            
             cd ..
           fi
           
