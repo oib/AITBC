@@ -9,29 +9,18 @@ jobs:
     runs-on: debian
 
     steps:
-      - name: Clone repository
+      - name: Full control execution (nuclear fix)
         run: |
+          mkdir -p /opt/gitea-runner/workspace
+          cd /opt/gitea-runner/workspace
           rm -rf repo
           git clone https://gitea.bubuit.net/oib/aitbc.git repo
-
-      - name: Verify repository context
-        working-directory: repo
-        run: |
-          echo "Current working directory:"
+          cd repo
           pwd
-          echo "Files in directory:"
           ls -la
           echo "Looking for package.json:"
           ls -la package.json || echo "package.json not found"
-
-      - name: Install dependencies
-        working-directory: repo
-        run: npm install --legacy-peer-deps
-
-      - name: Test runner
-        working-directory: repo
-        run: |
-          echo "Runner OK"
+          npm install --legacy-peer-deps
+          echo "Runner verification:"
           hostname
           whoami
-          pwd
