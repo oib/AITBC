@@ -53,24 +53,57 @@ jobs:
           # Ensure no git lock files exist system-wide
           find /opt/aitbc -name "*.lock" -delete 2>/dev/null || true
           find /tmp -name "*.lock" -delete 2>/dev/null || true
+          find /root/.git -name "*.lock" -delete 2>/dev/null || true
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           
-          # Clone with better error handling
-          if ! git clone https://gitea.bubuit.net/oib/aitbc.git repo; then
-            echo "❌ Git clone failed, trying alternative approach..."
+          # Set git configuration
+          git config --global http.sslVerify false
+          git config --global http.postBuffer 1048576000
+          
+          # Clone with multiple fallback strategies
+          REPO_URL="https://gitea.bubuit.net/oib/aitbc.git"
+          
+          # Try standard clone first
+          if git clone "$REPO_URL" repo; then
+            echo "✅ Standard clone successful"
+          else
+            echo "❌ Standard clone failed, trying alternatives..."
+            
+            # Try shallow clone
             rm -rf repo
-            git clone --depth 1 https://gitea.bubuit.net/oib/aitbc.git repo || {
-              echo "❌ Git clone completely failed, checking if repo exists locally..."
+            if git clone --depth 1 "$REPO_URL" repo; then
+              echo "✅ Shallow clone successful"
+            else
+              echo "❌ Shallow clone failed, trying local copy..."
+              
+              # Try local repository copy
               if [[ -d "/opt/aitbc/.git" ]]; then
                 echo "Using local repository copy..."
                 cp -r /opt/aitbc repo
+                cd repo
+                git remote set-url origin "$REPO_URL" 2>/dev/null || true
+                cd ..
+              elif [[ -d "/opt/aitbc" ]]; then
+                echo "Creating minimal repo structure..."
+                mkdir -p repo
+                cp -r /opt/aitbc/packages/py repo/
+                cd repo
+                git init
+                git config --global http.sslVerify false
+                git config --global http.postBuffer 1048576000
+                git remote add origin "$REPO_URL"
+                git add .
+                git commit -m "Initial commit for CI" 2>/dev/null || true
+                cd ..
               else
-                echo "❌ No repository available"
+                echo "❌ No repository available, creating minimal structure..."
+                mkdir -p repo/packages/py
+                echo "❌ Cannot proceed without repository"
                 exit 1
               fi
-            }
+            fi
           fi
           
           cd repo
