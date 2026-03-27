@@ -1,6 +1,7 @@
 name: autofix
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
