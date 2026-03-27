@@ -90,17 +90,18 @@ jobs:
             echo "✅ Running security scan..."
             venv/bin/pip install safety bandit
             
-            echo "=== Safety scan (dependencies) ==="
-            venv/bin/safety scan || echo "Safety scan completed"
+            echo "=== Safety scan (dependencies) - OFFLINE MODE ==="
+            # Use Safety in offline mode to avoid authentication
+            venv/bin/safety scan --offline --json || echo "Safety scan completed"
             
             echo "=== Bandit scan (code security) ==="
             # Run bandit with focus on high-confidence issues only
             venv/bin/bandit -r . -f json -q --confidence high || echo "Bandit scan completed"
             
             echo "=== Security Summary ==="
-            echo "✅ Dependency security: Safety scan completed"
+            echo "✅ Dependency security: Safety scan completed (offline mode)"
             echo "✅ Code security: Bandit scan completed (high confidence only)"
-            echo "✅ All security scans finished"
+            echo "✅ All security scans finished - no authentication required"
           else
             echo "❌ No supported project type found!"
             exit 1
