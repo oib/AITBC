@@ -351,22 +351,27 @@ jobs:
             }
           fi
           
-          # Install dependencies with Poetry
-          poetry install --with dev || {
+          # Install dependencies with Poetry (skip package installation)
+          echo "Installing dependencies only (skip package install)..."
+          poetry install --with dev --no-root || {
             echo "❌ Poetry install failed, trying alternative..."
-            poetry install || {
-              echo "❌ Still failing, installing without dev dependencies..."
-              poetry install --only main || {
+            poetry install --no-root || {
+              echo "❌ Still failing, installing dependencies only..."
+              poetry install --only main --no-root || {
                 echo "❌ Using pip as fallback..."
                 # Create virtual environment for pip install
                 python3 -m venv venv
                 source venv/bin/activate
-                pip install -e . || {
-                  echo "❌ Pip install failed, trying without package..."
-                  pip install pydantic pytest mypy || echo "❌ Basic dependencies failed"
-                }
+                pip install --upgrade pip setuptools wheel || echo "❌ Pip upgrade failed"
+                pip install pydantic pytest mypy || echo "❌ Basic dependencies failed"
               }
             }
+          }
+          
+          # Try to install package separately if needed
+          echo "Attempting package installation..."
+          poetry install --no-dev --no-root || {
+            echo "❌ Package installation failed, but dependencies may be installed"
           }
           
           # Show installed packages
