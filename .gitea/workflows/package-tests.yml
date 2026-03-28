@@ -573,12 +573,19 @@ jobs:
             echo "Building root-level package with python -m build..."
             python3 -m pip install build -q
             python3 -m build
-          else
+          elif [[ -f "pyproject.toml" ]]; then
             # Ensure Poetry is available
             export PATH="$HOME/.local/bin:$PATH"
             
             # Build package with Poetry
             poetry build
+          elif [[ -f "setup.py" ]]; then
+            echo "No pyproject.toml found, using setup.py..."
+            python3 -m pip install build setuptools wheel -q
+            python3 -m build
+          else
+            echo "❌ No pyproject.toml or setup.py found"
+            exit 1
           fi
           
           # Check build output
