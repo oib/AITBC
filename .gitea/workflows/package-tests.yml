@@ -651,6 +651,7 @@ jobs:
           echo "Forcing absolute workspace path..."
           
           # Clean and create isolated workspace
+          cd / || true
           rm -rf /opt/aitbc/javascript-packages-workspace
           mkdir -p /opt/aitbc/javascript-packages-workspace
           cd /opt/aitbc/javascript-packages-workspace
@@ -793,6 +794,7 @@ jobs:
       - name: Setup workspace
         run: |
           echo "=== CROSS-LANGUAGE COMPATIBILITY TESTS ==="
+          cd / || true
           rm -rf /opt/aitbc/compatibility-workspace
           mkdir -p /opt/aitbc/compatibility-workspace
           cd /opt/aitbc/compatibility-workspace
@@ -864,6 +866,7 @@ jobs:
       - name: Setup workspace
         run: |
           echo "=== PACKAGE INTEGRATION TESTS ==="
+          cd / || true
           rm -rf /opt/aitbc/integration-workspace
           mkdir -p /opt/aitbc/integration-workspace
           cd /opt/aitbc/integration-workspace
