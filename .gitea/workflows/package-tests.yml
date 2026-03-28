@@ -531,7 +531,18 @@ jobs:
       - name: Build Package
         run: |
           echo "=== BUILDING PYTHON PACKAGE ==="
-          cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
+          echo "Current PWD before cd: $(pwd)"
+          
+          # Ensure we're in the correct directory
+          cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} || {
+            echo "❌ Failed to cd to package path, trying alternatives..."
+            cd /opt/aitbc/python-packages-workspace/repo || cd / || true
+            cd ${{ matrix.package.path }} 2>/dev/null || true
+          }
+          
+          echo "Current PWD after cd: $(pwd)"
+          echo "Directory contents:"
+          ls -la
           
           # For root-level packages (like aitbc-cli), use python build instead of poetry
           if [[ "${{ matrix.package.path }}" == "." ]]; then
@@ -547,7 +558,11 @@ jobs:
           fi
           
           # Check build output
-          ls -la dist/
+          ls -la dist/ 2>/dev/null || {
+            echo "❌ dist/ not found, checking current directory:"
+            ls -la
+            find . -name "dist" -type d 2>/dev/null || echo "No dist directory found"
+          }
           
           echo "✅ Python package built successfully"
 
