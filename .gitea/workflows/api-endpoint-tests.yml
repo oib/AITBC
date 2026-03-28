@@ -192,15 +192,22 @@ jobs:
           echo '    ]' >> test_coordinator_api.py
           echo '    ' >> test_coordinator_api.py
           echo '    results = []' >> test_coordinator_api.py
+          echo '    api_results = {"test": "coordinator_api", "endpoints": []}' >> test_coordinator_api.py
           echo '    for endpoint in endpoints:' >> test_coordinator_api.py
           echo '        try:' >> test_coordinator_api.py
           echo '            response = requests.get(endpoint, timeout=5)' >> test_coordinator_api.py
+          echo '            success = response.status_code == 200' >> test_coordinator_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_coordinator_api.py
           echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_coordinator_api.py
-          echo '            results.append(response.status_code == 200)' >> test_coordinator_api.py
+          echo '            results.append(success)' >> test_coordinator_api.py
           echo '        except Exception as e:' >> test_coordinator_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_coordinator_api.py
           echo '            print(f"❌ {endpoint}: {e}")' >> test_coordinator_api.py
           echo '            results.append(False)' >> test_coordinator_api.py
           echo '    ' >> test_coordinator_api.py
+          echo '    api_results["success"] = all(results)' >> test_coordinator_api.py
+          echo '    with open("coordinator_api_results.json", "w") as f:' >> test_coordinator_api.py
+          echo '        json.dump(api_results, f, indent=2)' >> test_coordinator_api.py
           echo '    return all(results)' >> test_coordinator_api.py
           echo '' >> test_coordinator_api.py
           echo 'if __name__ == "__main__":' >> test_coordinator_api.py
@@ -247,15 +254,22 @@ jobs:
           echo '    ]' >> test_exchange_api.py
           echo '    ' >> test_exchange_api.py
           echo '    results = []' >> test_exchange_api.py
+          echo '    api_results = {"test": "exchange_api", "endpoints": []}' >> test_exchange_api.py
           echo '    for endpoint in endpoints:' >> test_exchange_api.py
           echo '        try:' >> test_exchange_api.py
           echo '            response = requests.get(endpoint, timeout=5)' >> test_exchange_api.py
+          echo '            success = response.status_code == 200' >> test_exchange_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_exchange_api.py
           echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_exchange_api.py
-          echo '            results.append(response.status_code == 200)' >> test_exchange_api.py
+          echo '            results.append(success)' >> test_exchange_api.py
           echo '        except Exception as e:' >> test_exchange_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_exchange_api.py
           echo '            print(f"❌ {endpoint}: {e}")' >> test_exchange_api.py
           echo '            results.append(False)' >> test_exchange_api.py
           echo '    ' >> test_exchange_api.py
+          echo '    api_results["success"] = all(results)' >> test_exchange_api.py
+          echo '    with open("exchange_api_results.json", "w") as f:' >> test_exchange_api.py
+          echo '        json.dump(api_results, f, indent=2)' >> test_exchange_api.py
           echo '    return all(results)' >> test_exchange_api.py
           echo '' >> test_exchange_api.py
           echo 'if __name__ == "__main__":' >> test_exchange_api.py
@@ -302,15 +316,22 @@ jobs:
           echo '    ]' >> test_wallet_api.py
           echo '    ' >> test_wallet_api.py
           echo '    results = []' >> test_wallet_api.py
+          echo '    api_results = {"test": "wallet_api", "endpoints": []}' >> test_wallet_api.py
           echo '    for endpoint in endpoints:' >> test_wallet_api.py
           echo '        try:' >> test_wallet_api.py
           echo '            response = requests.get(endpoint, timeout=5)' >> test_wallet_api.py
+          echo '            success = response.status_code == 200' >> test_wallet_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_wallet_api.py
           echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_wallet_api.py
-          echo '            results.append(response.status_code == 200)' >> test_wallet_api.py
+          echo '            results.append(success)' >> test_wallet_api.py
           echo '        except Exception as e:' >> test_wallet_api.py
+          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_wallet_api.py
           echo '            print(f"❌ {endpoint}: {e}")' >> test_wallet_api.py
           echo '            results.append(False)' >> test_wallet_api.py
           echo '    ' >> test_wallet_api.py
+          echo '    api_results["success"] = all(results)' >> test_wallet_api.py
+          echo '    with open("wallet_api_results.json", "w") as f:' >> test_wallet_api.py
+          echo '        json.dump(api_results, f, indent=2)' >> test_wallet_api.py
           echo '    return all(results)' >> test_wallet_api.py
           echo '' >> test_wallet_api.py
           echo 'if __name__ == "__main__":' >> test_wallet_api.py
@@ -388,6 +409,12 @@ jobs:
           echo '            print(f"❌ {method['"'"'method'"'"']}: {e}")' >> test_blockchain_rpc.py
           echo '            results.append(False)' >> test_blockchain_rpc.py
           echo '    ' >> test_blockchain_rpc.py
+          echo '    rpc_results = {"test": "blockchain_rpc", "methods": []}' >> test_blockchain_rpc.py
+          echo '    for i, method in enumerate(methods):' >> test_blockchain_rpc.py
+          echo '        rpc_results["methods"].append({"method": method["method"], "success": results[i] if i < len(results) else False})' >> test_blockchain_rpc.py
+          echo '    rpc_results["success"] = all(results)' >> test_blockchain_rpc.py
+          echo '    with open("blockchain_rpc_results.json", "w") as f:' >> test_blockchain_rpc.py
+          echo '        json.dump(rpc_results, f, indent=2)' >> test_blockchain_rpc.py
           echo '    return all(results)' >> test_blockchain_rpc.py
           echo '' >> test_blockchain_rpc.py
           echo 'if __name__ == "__main__":' >> test_blockchain_rpc.py
@@ -460,8 +487,14 @@ jobs:
           echo '            print(f"  📉 Min: {min_time:.3f}s")' >> test_api_performance.py
           echo '            print(f"  📈 Max: {max_time:.3f}s")' >> test_api_performance.py
           echo '            print(f"  ✅ Success rate: {success_count}/10")' >> test_api_performance.py
+          echo '            ' >> test_api_performance.py
+          echo '            api_results[api_name] = {"avg_time": avg_time, "min_time": min_time, "max_time": max_time, "success_rate": success_count}' >> test_api_performance.py
           echo '        else:' >> test_api_performance.py
           echo '            print(f"  ❌ All requests failed")' >> test_api_performance.py
+          echo '            api_results[api_name] = {"error": "All requests failed"}' >> test_api_performance.py
+          echo '    ' >> test_api_performance.py
+          echo '    with open("api_performance_results.json", "w") as f:' >> test_api_performance.py
+          echo '        json.dump(api_results, f, indent=2)' >> test_api_performance.py
           echo '' >> test_api_performance.py
           echo 'if __name__ == "__main__":' >> test_api_performance.py
           echo '    print("⚡ Testing API performance...")' >> test_api_performance.py
@@ -481,11 +514,11 @@ jobs:
           mkdir -p api-test-results
           
           # Copy test results
-          cp test_coordinator_api.py api-test-results/ 2>/dev/null || true
-          cp test_exchange_api.py api-test-results/ 2>/dev/null || true
-          cp test_wallet_api.py api-test-results/ 2>/dev/null || true
-          cp test_blockchain_rpc.py api-test-results/ 2>/dev/null || true
-          cp test_api_performance.py api-test-results/ 2>/dev/null || true
+          cp coordinator_api_results.json api-test-results/ 2>/dev/null || true
+          cp exchange_api_results.json api-test-results/ 2>/dev/null || true
+          cp wallet_api_results.json api-test-results/ 2>/dev/null || true
+          cp blockchain_rpc_results.json api-test-results/ 2>/dev/null || true
+          cp api_performance_results.json api-test-results/ 2>/dev/null || true
           
           echo "📊 API test results saved to api-test-results/"
           ls -la api-test-results/
