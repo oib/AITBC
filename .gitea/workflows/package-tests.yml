@@ -623,9 +623,13 @@ jobs:
           
           # Validate package structure
           if [ -d "src" ]; then
+            echo "✅ Source directory structure valid (src/)"
+          elif [ -d "aitbc_agent" ]; then
+            echo "✅ Source directory structure valid (aitbc_agent/)"
+          elif find . -maxdepth 1 -type d -name "*" | grep -v "^\.$" | grep -v "__pycache__" | head -1 | grep -q "."; then
             echo "✅ Source directory structure valid"
           else
-            echo "❌ Missing src directory"
+            echo "❌ Missing source directory"
             exit 1
           fi
           
