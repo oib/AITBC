@@ -1,5 +1,9 @@
 import { verify as verifySignature, createPublicKey } from "crypto";
-import type { ReceiptListResponse, ReceiptSummary, RequestOptions } from "./types";
+import type {
+  ReceiptListResponse,
+  ReceiptSummary,
+  RequestOptions,
+} from "./types";
 import { AitbcClient } from "./client";
 
 export interface PaginatedReceipts {
@@ -57,19 +61,19 @@ export class ReceiptService {
 
     while (attempt <= this.maxRetries) {
       try {
-        const data = await this.client.request<ReceiptListResponse & { next_cursor?: string }>(
-          "GET",
-          `/v1/jobs/${jobId}/receipts`,
-          {
-            ...options,
-            query: {
-              cursor,
-              limit,
-            },
-          }
-        );
+        const data = await this.client.request<
+          ReceiptListResponse & { next_cursor?: string }
+        >("GET", `/v1/jobs/${jobId}/receipts`, {
+          ...options,
+          query: {
+            cursor,
+            limit,
+          },
+        });
         return {
-          items: (data.items ?? []).filter((r) => !r.jobId || r.jobId === jobId),
+          items: (data.items ?? []).filter(
+            (r) => !r.jobId || r.jobId === jobId,
+          ),
           nextCursor: data.next_cursor ?? (data as any).nextCursor ?? null,
         };
       } catch (err) {
@@ -83,7 +87,10 @@ export class ReceiptService {
     throw lastError ?? new Error("Failed to fetch receipts");
   }
 
-  async validateReceipt(receipt: ReceiptSummary, options?: ReceiptValidationOptions): Promise<ReceiptValidationResult> {
+  async validateReceipt(
+    receipt: ReceiptSummary,
+    options?: ReceiptValidationOptions,
+  ): Promise<ReceiptValidationResult> {
     // Placeholder for full cryptographic verification: delegate to coordinator API
     const {
       minerVerifier,
@@ -94,14 +101,13 @@ export class ReceiptService {
       ...requestOptions
     } = options ?? {};
     try {
-      const data = await this.client.request<{ valid: boolean; reason?: string }>(
-        "POST",
-        "/v1/receipts/verify",
-        {
-          ...requestOptions,
-          body: JSON.stringify(this.buildVerificationPayload(receipt)),
-        }
-      );
+      const data = await this.client.request<{
+        valid: boolean;
+        reason?: string;
+      }>("POST", "/v1/receipts/verify", {
+        ...requestOptions,
+        body: JSON.stringify(this.buildVerificationPayload(receipt)),
+      });
       return { valid: !!data.valid, reason: data.reason };
     } catch (err) {
       // Fallback to local checks if API unavailable
@@ -111,9 +117,11 @@ export class ReceiptService {
         coordinatorVerifier,
         minerPublicKeyPem ?? this.minerPublicKeyPem,
         coordinatorPublicKeyPem ?? this.coordinatorPublicKeyPem,
-        signatureAlgorithm ?? this.signatureAlgorithm ?? "ed25519"
+        signatureAlgorithm ?? this.signatureAlgorithm ?? "ed25519",
       );
-      return local.valid ? local : { valid: false, reason: (err as Error).message };
+      return local.valid
+        ? local
+        : { valid: false, reason: (err as Error).message };
     }
   }
 
@@ -132,7 +140,9 @@ export class ReceiptService {
   async validateLocally(
     receipt: ReceiptSummary,
     minerVerifier?: (receipt: ReceiptSummary) => Promise<boolean> | boolean,
-    coordinatorVerifier?: (receipt: ReceiptSummary) => Promise<boolean> | boolean,
+    coordinatorVerifier?: (
+      receipt: ReceiptSummary,
+    ) => Promise<boolean> | boolean,
     minerPublicKeyPem?: string,
     coordinatorPublicKeyPem?: string,
     signatureAlgorithm: string = "ed25519",
@@ -158,22 +168,35 @@ export class ReceiptService {
       const ok = await minerVerifier(receipt);
       if (!ok) return { valid: false, reason: "miner signature invalid" };
     } else if (minerPublicKeyPem) {
-      const ok = this.verifyWithCrypto(minerSig, minerPublicKeyPem, payloadForSig, signatureAlgorithm);
+      const ok = this.verifyWithCrypto(
+        minerSig,
+        minerPublicKeyPem,
+        payloadForSig,
+        signatureAlgorithm,
+      );
       if (!ok) return { valid: false, reason: "miner signature invalid" };
     }
     if (coordinatorVerifier) {
       const ok = await coordinatorVerifier(receipt);
       if (!ok) return { valid: false, reason: "coordinator signature invalid" };
     } else if (coordinatorPublicKeyPem) {
-      const ok = this.verifyWithCrypto(coordinatorSig, coordinatorPublicKeyPem, payloadForSig, signatureAlgorithm);
+      const ok = this.verifyWithCrypto(
+        coordinatorSig,
+        coordinatorPublicKeyPem,
+        payloadForSig,
+        signatureAlgorithm,
+      );
       if (!ok) return { valid: false, reason: "coordinator signature invalid" };
     }
     return { valid: true };
   }
 
-  private sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
+  private sanitizePayload(
+    payload: Record<string, unknown>,
+  ): Record<string, unknown> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { signature, minerSignature, coordinatorSignature, ...rest } = payload ?? {};
+    const { signature, minerSignature, coordinatorSignature, ...rest } =
+      payload ?? {};
     return rest;
   }
 
@@ -192,7 +215,12 @@ export class ReceiptService {
         return verifySignature(null, message, key, sig);
       }
       if (alg.toLowerCase() === "secp256k1") {
-        return verifySignature("sha256", message, { key, dsaEncoding: "ieee-p1363" }, sig);
+        return verifySignature(
+          "sha256",
+          message,
+          { key, dsaEncoding: "ieee-p1363" },
+          sig,
+        );
       }
       if (alg.toLowerCase().startsWith("rsa")) {
         return verifySignature("sha256", message, key, sig);

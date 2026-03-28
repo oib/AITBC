@@ -46,7 +46,10 @@ export class AitbcClient {
   }
 
   // Coordinator API Methods
-  async match(payload: MatchRequest, options?: RequestOptions): Promise<MatchResponse> {
+  async match(
+    payload: MatchRequest,
+    options?: RequestOptions,
+  ): Promise<MatchResponse> {
     const raw = await this.request<any>("POST", "/v1/match", {
       ...options,
       body: JSON.stringify({
@@ -88,14 +91,21 @@ export class AitbcClient {
     return { raw };
   }
 
-  async sign(request: WalletSignRequest, options?: RequestOptions): Promise<WalletSignResponse> {
-    return this.request<WalletSignResponse>("POST", `/v1/wallets/${encodeURIComponent(request.walletId)}/sign`, {
-      ...options,
-      body: JSON.stringify({
-        password: request.password,
-        message_base64: request.messageBase64,
-      }),
-    });
+  async sign(
+    request: WalletSignRequest,
+    options?: RequestOptions,
+  ): Promise<WalletSignResponse> {
+    return this.request<WalletSignResponse>(
+      "POST",
+      `/v1/wallets/${encodeURIComponent(request.walletId)}/sign`,
+      {
+        ...options,
+        body: JSON.stringify({
+          password: request.password,
+          message_base64: request.messageBase64,
+        }),
+      },
+    );
   }
 
   // Job Management Methods
@@ -110,11 +120,17 @@ export class AitbcClient {
     return this.request<Job>("GET", `/v1/jobs/${jobId}`, options);
   }
 
-  async getJobStatus(jobId: string, options?: RequestOptions): Promise<JobStatus> {
+  async getJobStatus(
+    jobId: string,
+    options?: RequestOptions,
+  ): Promise<JobStatus> {
     return this.request<JobStatus>("GET", `/v1/jobs/${jobId}/status`, options);
   }
 
-  async getJobResult(jobId: string, options?: RequestOptions): Promise<JobResult> {
+  async getJobResult(
+    jobId: string,
+    options?: RequestOptions,
+  ): Promise<JobResult> {
     return this.request<JobResult>("GET", `/v1/jobs/${jobId}/result`, options);
   }
 
@@ -122,16 +138,32 @@ export class AitbcClient {
     await this.request<void>("DELETE", `/v1/jobs/${jobId}`, options);
   }
 
-  async listJobs(options?: RequestOptions): Promise<{ items: Job[]; next_offset?: string }> {
-    return this.request<{ items: Job[]; next_offset?: string }>("GET", "/v1/jobs", options);
+  async listJobs(
+    options?: RequestOptions,
+  ): Promise<{ items: Job[]; next_offset?: string }> {
+    return this.request<{ items: Job[]; next_offset?: string }>(
+      "GET",
+      "/v1/jobs",
+      options,
+    );
   }
 
   // Receipt Methods
-  async getJobReceipts(jobId: string, options?: RequestOptions): Promise<ReceiptListResponse> {
-    return this.request<ReceiptListResponse>("GET", `/v1/jobs/${jobId}/receipts`, options);
+  async getJobReceipts(
+    jobId: string,
+    options?: RequestOptions,
+  ): Promise<ReceiptListResponse> {
+    return this.request<ReceiptListResponse>(
+      "GET",
+      `/v1/jobs/${jobId}/receipts`,
+      options,
+    );
   }
 
-  async verifyReceipt(receipt: ReceiptSummary, options?: RequestOptions): Promise<{ valid: boolean }> {
+  async verifyReceipt(
+    receipt: ReceiptSummary,
+    options?: RequestOptions,
+  ): Promise<{ valid: boolean }> {
     return this.request<{ valid: boolean }>("POST", "/v1/receipts/verify", {
       ...options,
       body: JSON.stringify(receipt),
@@ -140,47 +172,108 @@ export class AitbcClient {
 
   // Blockchain Explorer Methods
   async getBlocks(options?: RequestOptions): Promise<BlockListResponse> {
-    return this.request<BlockListResponse>("GET", "/v1/explorer/blocks", options);
+    return this.request<BlockListResponse>(
+      "GET",
+      "/v1/explorer/blocks",
+      options,
+    );
   }
 
-  async getBlock(height: string | number, options?: RequestOptions): Promise<BlockSummary> {
-    return this.request<BlockSummary>("GET", `/v1/explorer/blocks/${height}`, options);
+  async getBlock(
+    height: string | number,
+    options?: RequestOptions,
+  ): Promise<BlockSummary> {
+    return this.request<BlockSummary>(
+      "GET",
+      `/v1/explorer/blocks/${height}`,
+      options,
+    );
   }
 
-  async getTransactions(options?: RequestOptions): Promise<TransactionListResponse> {
-    return this.request<TransactionListResponse>("GET", "/v1/explorer/transactions", options);
+  async getTransactions(
+    options?: RequestOptions,
+  ): Promise<TransactionListResponse> {
+    return this.request<TransactionListResponse>(
+      "GET",
+      "/v1/explorer/transactions",
+      options,
+    );
   }
 
-  async getTransaction(hash: string, options?: RequestOptions): Promise<TransactionSummary> {
-    return this.request<TransactionSummary>("GET", `/v1/explorer/transactions/${hash}`, options);
+  async getTransaction(
+    hash: string,
+    options?: RequestOptions,
+  ): Promise<TransactionSummary> {
+    return this.request<TransactionSummary>(
+      "GET",
+      `/v1/explorer/transactions/${hash}`,
+      options,
+    );
   }
 
   async getAddresses(options?: RequestOptions): Promise<AddressListResponse> {
-    return this.request<AddressListResponse>("GET", "/v1/explorer/addresses", options);
+    return this.request<AddressListResponse>(
+      "GET",
+      "/v1/explorer/addresses",
+      options,
+    );
   }
 
-  async getAddress(address: string, options?: RequestOptions): Promise<AddressSummary> {
-    return this.request<AddressSummary>("GET", `/v1/explorer/addresses/${address}`, options);
+  async getAddress(
+    address: string,
+    options?: RequestOptions,
+  ): Promise<AddressSummary> {
+    return this.request<AddressSummary>(
+      "GET",
+      `/v1/explorer/addresses/${address}`,
+      options,
+    );
   }
 
   async getReceipts(options?: RequestOptions): Promise<ReceiptListResponse> {
-    return this.request<ReceiptListResponse>("GET", "/v1/explorer/receipts", options);
+    return this.request<ReceiptListResponse>(
+      "GET",
+      "/v1/explorer/receipts",
+      options,
+    );
   }
 
   // Marketplace Methods
-  async getMarketplaceStats(options?: RequestOptions): Promise<MarketplaceStats> {
-    return this.request<MarketplaceStats>("GET", "/v1/marketplace/stats", options);
+  async getMarketplaceStats(
+    options?: RequestOptions,
+  ): Promise<MarketplaceStats> {
+    return this.request<MarketplaceStats>(
+      "GET",
+      "/v1/marketplace/stats",
+      options,
+    );
   }
 
-  async getMarketplaceOffers(options?: RequestOptions): Promise<MarketplaceOffer[]> {
-    return this.request<MarketplaceOffer[]>("GET", "/v1/marketplace/offers", options);
+  async getMarketplaceOffers(
+    options?: RequestOptions,
+  ): Promise<MarketplaceOffer[]> {
+    return this.request<MarketplaceOffer[]>(
+      "GET",
+      "/v1/marketplace/offers",
+      options,
+    );
   }
 
-  async getMarketplaceOffer(offerId: string, options?: RequestOptions): Promise<MarketplaceOffer> {
-    return this.request<MarketplaceOffer>("GET", `/v1/marketplace/offers/${offerId}`, options);
+  async getMarketplaceOffer(
+    offerId: string,
+    options?: RequestOptions,
+  ): Promise<MarketplaceOffer> {
+    return this.request<MarketplaceOffer>(
+      "GET",
+      `/v1/marketplace/offers/${offerId}`,
+      options,
+    );
   }
 
-  async submitMarketplaceBid(bid: MarketplaceBid, options?: RequestOptions): Promise<void> {
+  async submitMarketplaceBid(
+    bid: MarketplaceBid,
+    options?: RequestOptions,
+  ): Promise<void> {
     await this.request<void>("POST", "/v1/marketplace/bids", {
       ...options,
       body: JSON.stringify(bid),
@@ -188,7 +281,10 @@ export class AitbcClient {
   }
 
   // Authentication Methods
-  async login(credentials: { username: string; password: string }, options?: RequestOptions): Promise<MarketplaceSession> {
+  async login(
+    credentials: { username: string; password: string },
+    options?: RequestOptions,
+  ): Promise<MarketplaceSession> {
     return this.request<MarketplaceSession>("POST", "/v1/users/login", {
       ...options,
       body: JSON.stringify(credentials),
@@ -199,21 +295,33 @@ export class AitbcClient {
     await this.request<void>("POST", "/v1/users/logout", options);
   }
 
-  async request<T>(method: string, path: string, options: RequestOptions = {}): Promise<T> {
+  async request<T>(
+    method: string,
+    path: string,
+    options: RequestOptions = {},
+  ): Promise<T> {
     const response = await this.rawRequest(method, path, options);
     const text = await response.text();
     if (!response.ok) {
-      throw new Error(`AITBC request failed (${response.status}): ${text || response.statusText}`);
+      throw new Error(
+        `AITBC request failed (${response.status}): ${text || response.statusText}`,
+      );
     }
     return text ? (JSON.parse(text) as T) : ({} as T);
   }
 
-  async rawRequest(method: string, path: string, options: RequestOptions = {}): Promise<Response> {
+  async rawRequest(
+    method: string,
+    path: string,
+    options: RequestOptions = {},
+  ): Promise<Response> {
     const url = this.buildUrl(path, options.query);
     const headers = this.buildHeaders(options.headers);
 
     const controller = new AbortController();
-    const timeoutId = this.timeout ? setTimeout(() => controller.abort(), this.timeout) : undefined;
+    const timeoutId = this.timeout
+      ? setTimeout(() => controller.abort(), this.timeout)
+      : undefined;
 
     try {
       return await this.fetchImpl(url, {
@@ -247,7 +355,9 @@ export class AitbcClient {
       headers["X-Api-Key"] = this.apiKey;
     }
     if (this.basicAuth) {
-      const token = btoa(`${this.basicAuth.username}:${this.basicAuth.password}`);
+      const token = btoa(
+        `${this.basicAuth.username}:${this.basicAuth.password}`,
+      );
       headers["Authorization"] = `Basic ${token}`;
     }
     if (extra) {
