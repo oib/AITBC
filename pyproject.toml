@@ -162,7 +162,7 @@ dev = [
     "types-requests>=2.33.0.20260327,<3.0.0.0",
     "types-setuptools>=82.0.0.20260210,<83.0.0.0",
     "types-PyYAML==6.0.12.20250915",
-    "sqlalchemy[mypy]==2.0.25"
+    "sqlalchemy[mypy]>=2.0.48,<3.0.0"
 ]
 
 [project.scripts]
