@@ -149,7 +149,14 @@ jobs:
               if [[ -d "/opt/aitbc/.git" ]]; then
                 echo "Using local repository copy..."
                 rm -rf repo
-                if cp -r /opt/aitbc repo 2>/dev/null; then
+                # Use git archive or copy specific directories to avoid workspace pollution
+                if git clone --depth 1 file:///opt/aitbc repo 2>/dev/null; then
+                  echo "✅ Local git clone successful"
+                  cd repo
+                  git remote set-url origin "$REPO_URL" 2>/dev/null || true
+                  cd ..
+                elif cp -r /opt/aitbc/.git repo/ 2>/dev/null && cp -r /opt/aitbc/packages repo/ 2>/dev/null && cp -r /opt/aitbc/cli repo/ 2>/dev/null && cp -r /opt/aitbc/apps repo/ 2>/dev/null && cp /opt/aitbc/pyproject.toml repo/ 2>/dev/null && cp /opt/aitbc/setup.py repo/ 2>/dev/null; then
+                  echo "✅ Selective copy successful"
                   cd repo
                   git remote set-url origin "$REPO_URL" 2>/dev/null || true
                   cd ..
