@@ -37,7 +37,11 @@ jobs:
         working-directory: packages/js/aitbc-sdk
         run: |
           echo "=== INSTALLING JS SDK DEPENDENCIES ==="
-          npm ci
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
           echo "✅ Dependencies installed"
 
       - name: Build TypeScript
