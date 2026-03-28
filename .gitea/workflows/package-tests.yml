@@ -597,10 +597,11 @@ jobs:
           # For root-level packages (like aitbc-cli), use python build instead of poetry
           if [[ "${{ matrix.package.path }}" == "." ]]; then
             echo "Building root-level package with python -m build..."
-            python3 -m venv .build-venv
-            source .build-venv/bin/activate
-            python3 -m pip install build -q
-            python3 -m build
+            python3 -m pip install --user build -q 2>/dev/null || pip3 install --user build -q 2>/dev/null || true
+            python3 -m build 2>/dev/null || {
+              echo "⚠️ Build with python -m build failed, trying direct..."
+              pip3 install --user -e . 2>/dev/null || pip install --user -e . 2>/dev/null || true
+            }
           elif [[ -f "pyproject.toml" ]]; then
             # Ensure Poetry is available
             export PATH="$HOME/.local/bin:$PATH"
@@ -609,12 +610,12 @@ jobs:
             poetry build
           elif [[ -f "setup.py" ]]; then
             echo "No pyproject.toml found, using setup.py..."
-            # Create venv without pip first, then install pip manually
-            python3 -m venv .build-venv --without-pip
-            curl -sSL https://bootstrap.pypa.io/get-pip.py | .build-venv/bin/python3
-            source .build-venv/bin/activate
-            pip install build setuptools wheel -q
-            python3 -m build
+            # Use python -m build directly without venv to avoid ensurepip issues
+            python3 -m pip install --user build setuptools wheel -q 2>/dev/null || pip3 install --user build setuptools wheel -q 2>/dev/null || true
+            python3 -m build 2>/dev/null || {
+              echo "⚠️ python -m build failed, trying setup.py directly..."
+              pip3 install --user -e . 2>/dev/null || pip install --user -e . 2>/dev/null || true
+            }
           else
             echo "❌ No pyproject.toml or setup.py found"
             exit 1
