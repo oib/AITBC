@@ -1,15 +1,28 @@
 [Unit]
-Description=AITBC Wallet Daemon Service
+Description=AITBC Wallet Daemon with Multi-Chain Support
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/aitbc/apps/wallet-daemon/src
-Environment=PYTHONPATH=/opt/aitbc/packages/py/aitbc-crypto/src:/opt/aitbc/packages/py/aitbc-sdk/src
-ExecStart=/opt/aitbc/apps/wallet-daemon/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8002
-Restart=always
-RestartSec=3
+Group=root
+WorkingDirectory=/opt/aitbc/apps/wallet
+Environment=PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-crypto/src:/opt/aitbc/packages/py/aitbc-sdk/src
+Environment=COORDINATOR_API_KEY=test-key
+ExecStart=/usr/bin/python3 /opt/aitbc/apps/wallet/simple_daemon.py
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=false
+Restart=on-failure
+RestartSec=10
+StartLimitInterval=60
+StartLimitBurst=3
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-wallet-daemon
 
 [Install]
 WantedBy=multi-user.target
