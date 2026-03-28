@@ -99,6 +99,14 @@ jobs:
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
           
+          # Ensure we're in the workspace directory
+          cd "$WORKSPACE_DIR" 2>/dev/null || cd /opt/aitbc/python-packages-workspace 2>/dev/null || {
+            echo "❌ Cannot access workspace, trying to recover..."
+            cd / || exit 1
+            mkdir -p /opt/aitbc/python-packages-workspace
+            cd /opt/aitbc/python-packages-workspace
+          }
+          
           # Set git configuration and check Git status
           echo "Git configuration and status:"
           git --version
