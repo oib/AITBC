@@ -450,6 +450,13 @@ jobs:
             }
           fi
           
+          # Check if pyproject.toml exists (required for poetry)
+          if [[ ! -f "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/pyproject.toml" ]]; then
+            echo "⚠️ No pyproject.toml found, skipping Poetry dependency installation"
+            echo "Package has setup.py only - dependencies will be installed during build"
+            exit 0
+          fi
+          
           # Check and update lock file if needed
           echo "Checking Poetry lock file..."
           # Ensure we're in a valid directory before running poetry
