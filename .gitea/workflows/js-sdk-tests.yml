@@ -26,12 +26,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: packages/js/aitbc-sdk/package-lock.json
+      - name: Verify Node.js version
+        run: |
+          echo "=== VERIFYING NODE.JS ==="
+          node --version
+          npm --version
+          echo "✅ Using system Node.js"
 
       - name: Install dependencies
         working-directory: packages/js/aitbc-sdk
