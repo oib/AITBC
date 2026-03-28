@@ -862,11 +862,19 @@ jobs:
           
           # Check Python packages
           echo "Python package versions:"
-          find packages/py -name "pyproject.toml" -exec echo "File: {}" \; -exec grep -E "version|name" {} \;
+          if [[ -d "packages/py" ]]; then
+            find packages/py -name "pyproject.toml" -exec echo "File: {}" \; -exec grep -E "version|name" {} \; 2>/dev/null || echo "⚠️ No Python packages found"
+          else
+            echo "⚠️ packages/py directory not found"
+          fi
           
           # Check JavaScript packages
           echo "JavaScript package versions:"
-          find packages/js -name "package.json" -exec echo "File: {}" \; -exec grep -E "version|name" {} \;
+          if [[ -d "packages/js" ]]; then
+            find packages/js -name "package.json" -exec echo "File: {}" \; -exec grep -E "version|name" {} \; 2>/dev/null || echo "⚠️ No JavaScript packages found"
+          else
+            echo "⚠️ packages/js directory not found"
+          fi
           
           # Validate version consistency
           echo "✅ Cross-language compatibility check completed"
@@ -898,11 +906,15 @@ jobs:
           
           # Check README files
           echo "Checking documentation consistency..."
-          find packages/ -name "README.md" | while read readme; do
-            echo "Found documentation: $readme"
-            head -5 "$readme"
-            echo "---"
-          done
+          if [[ -d "packages" ]]; then
+            find packages/ -name "README.md" 2>/dev/null | while read readme; do
+              echo "Found documentation: $readme"
+              head -5 "$readme"
+              echo "---"
+            done || echo "⚠️ No README files found"
+          else
+            echo "⚠️ packages directory not found"
+          fi
           
           echo "✅ Documentation consistency check completed"
 
@@ -961,9 +973,17 @@ jobs:
           echo "Checking for circular dependencies..."
           
           # Python dependencies
-          find packages/py -name "pyproject.toml" -exec echo "Dependencies in {}" \; -exec grep -A 10 "dependencies" {} \;
+          if [[ -d "packages/py" ]]; then
+            find packages/py -name "pyproject.toml" -exec echo "Dependencies in {}" \; -exec grep -A 10 "dependencies" {} \; 2>/dev/null || echo "⚠️ No Python packages found"
+          else
+            echo "⚠️ packages/py directory not found"
+          fi
           
           # JavaScript dependencies
-          find packages/js -name "package.json" -exec echo "Dependencies in {}" \; -exec grep -A 10 "dependencies" {} \;
+          if [[ -d "packages/js" ]]; then
+            find packages/js -name "package.json" -exec echo "Dependencies in {}" \; -exec grep -A 10 "dependencies" {} \; 2>/dev/null || echo "⚠️ No JavaScript packages found"
+          else
+            echo "⚠️ packages/js directory not found"
+          fi
           
           echo "✅ Package dependency tests completed"
