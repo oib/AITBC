@@ -452,28 +452,21 @@ jobs:
           
           # Check and update lock file if needed
           echo "Checking Poetry lock file..."
-          if ! poetry check --lock 2>/dev/null; then
+          # Ensure we're in a valid directory before running poetry
+          cd / 2>/dev/null || true
+          if ! poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} check --lock 2>/dev/null; then
             echo "Lock file out of sync, regenerating..."
             
-            # Fix directory access issues first
-            if ! pwd >/dev/null 2>&1; then
-              echo "❌ Directory access issue, trying to fix..."
-              cd / && cd "$(pwd)" || {
-                echo "❌ Cannot fix directory access"
-                exit 1
-              }
-            fi
-            
-            poetry lock || {
+            poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} lock || {
               echo "❌ Poetry lock failed, trying to fix classifiers..."
               # Try to fix common classifier issues
-              sed -i 's/Programming Language :: Python :: 3\.13\.[0-9]*/Programming Language :: Python :: 3.13/' pyproject.toml 2>/dev/null || true
-              poetry lock || {
+              sed -i 's/Programming Language :: Python :: 3\.13\.[0-9]*/Programming Language :: Python :: 3.13/' /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/pyproject.toml 2>/dev/null || true
+              poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} lock || {
                 echo "❌ Still failing, removing classifiers and retrying..."
-                sed -i '/Programming Language :: Python :: 3\.[0-9]\+\.[0-9]\+/d' pyproject.toml 2>/dev/null || true
-                poetry lock || {
+                sed -i '/Programming Language :: Python :: 3\.[0-9]\+\.[0-9]\+/d' /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/pyproject.toml 2>/dev/null || true
+                poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} lock || {
                   echo "❌ All attempts failed, installing without lock..."
-                  poetry install --with dev --no-root || poetry install --no-root
+                  poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --with dev --no-root || poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --no-root
                 }
               }
             }
@@ -481,11 +474,12 @@ jobs:
           
           # Install dependencies with Poetry (skip package installation)
           echo "Installing dependencies only (skip package install)..."
-          poetry install --with dev --no-root || {
+          cd / 2>/dev/null || true
+          poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --with dev --no-root || {
             echo "❌ Poetry install failed, trying alternative..."
-            poetry install --no-root || {
+            poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --no-root || {
               echo "❌ Still failing, installing dependencies only..."
-              poetry install --only main --no-root || {
+              poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --only main --no-root || {
                 echo "❌ Using pip as fallback..."
                 # Create virtual environment for pip install
                 python3 -m venv venv
@@ -498,12 +492,13 @@ jobs:
           
           # Try to install package separately if needed
           echo "Attempting package installation..."
-          poetry install --no-dev --no-root || {
+          cd / 2>/dev/null || true
+          poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} install --no-dev --no-root || {
             echo "❌ Package installation failed, but dependencies may be installed"
           }
           
           # Show installed packages
-          poetry show
+          poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} show
           echo "✅ Dependencies installed successfully"
 
       - name: Run Linting
