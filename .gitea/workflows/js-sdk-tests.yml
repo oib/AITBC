@@ -65,6 +65,12 @@ jobs:
           npx prettier --check "src/**/*.ts"
           echo "✅ Prettier formatting checks passed"
 
+      - name: Create test results directory
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          mkdir -p test-results
+          echo "✅ Test results directory created"
+
       - name: Run vitest tests
         working-directory: packages/js/aitbc-sdk
         run: |
