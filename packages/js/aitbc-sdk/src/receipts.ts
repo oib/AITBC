@@ -172,7 +172,7 @@ export class ReceiptService {
   }
 
   private sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
-    const { signature, minerSignature, coordinatorSignature, ...rest } = payload ?? {};
+    const { _signature, _minerSignature, _coordinatorSignature, ...rest } = payload ?? {};
     return rest;
   }
 
