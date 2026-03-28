@@ -487,7 +487,7 @@ jobs:
           echo '        print("✅ All end-to-end workflows successful")' >> test_e2e.py
           echo '    else:' >> test_e2e.py
           echo '        print("⚠️  Some workflows not working properly")' >> test_e2e.py
-          
+          fi
           # Run E2E test
           python test_e2e.py
           
