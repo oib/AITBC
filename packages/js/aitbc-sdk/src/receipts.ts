@@ -172,7 +172,8 @@ export class ReceiptService {
   }
 
   private sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
-    const { _signature, _minerSignature, _coordinatorSignature, ...rest } = payload ?? {};
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { signature, minerSignature, coordinatorSignature, ...rest } = payload ?? {};
     return rest;
   }
 
