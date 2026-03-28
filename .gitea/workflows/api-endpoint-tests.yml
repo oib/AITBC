@@ -462,6 +462,8 @@ jobs:
           echo '        ("Blockchain RPC", "http://localhost:8545")' >> test_api_performance.py
           echo '    ]' >> test_api_performance.py
           echo '    ' >> test_api_performance.py
+          echo '    api_results = {}' >> test_api_performance.py
+          echo '    ' >> test_api_performance.py
           echo '    for api_name, api_url in apis:' >> test_api_performance.py
           echo '        print(f"🧪 Testing {api_name} performance...")' >> test_api_performance.py
           echo '        ' >> test_api_performance.py
