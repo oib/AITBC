@@ -6,7 +6,7 @@ const createClient = () =>
   new AitbcClient({
     baseUrl: "https://api.example.com",
     apiKey: "test-key",
-    fetchImpl: async (input: RequestInfo | URL, init?: RequestInit) =>
+    fetchImpl: async (_input: RequestInfo | URL, _init?: RequestInit) =>
       new Response(JSON.stringify({ job_id: "job", candidates: [] }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
