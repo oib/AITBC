@@ -596,7 +596,9 @@ jobs:
             poetry build
           elif [[ -f "setup.py" ]]; then
             echo "No pyproject.toml found, using setup.py..."
-            python3 -m venv .build-venv
+            # Create venv without pip first, then install pip manually
+            python3 -m venv .build-venv --without-pip
+            curl -sSL https://bootstrap.pypa.io/get-pip.py | .build-venv/bin/python3
             source .build-venv/bin/activate
             pip install build setuptools wheel -q
             python3 -m build
