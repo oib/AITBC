@@ -11,7 +11,9 @@ class ThrowingClient {
 
 describe("ReceiptService signature verification", () => {
   const { publicKey, privateKey } = generateKeyPairSync("ed25519");
-  const publicKeyPem = publicKey.export({ type: "spki", format: "pem" }).toString();
+  const publicKeyPem = publicKey
+    .export({ type: "spki", format: "pem" })
+    .toString();
 
   const baseReceipt: ReceiptSummary = {
     receiptId: "r1",
