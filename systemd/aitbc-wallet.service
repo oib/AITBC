@@ -10,7 +10,7 @@ Group=root
 WorkingDirectory=/opt/aitbc/apps/wallet
 Environment=PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-crypto/src:/opt/aitbc/packages/py/aitbc-sdk/src
 Environment=COORDINATOR_API_KEY=test-key
-ExecStart=/usr/bin/python3 /opt/aitbc/apps/wallet/simple_daemon.py
+ExecStart=/opt/aitbc/apps/wallet/.venv/bin/python /opt/aitbc/apps/wallet/simple_daemon.py
 KillMode=mixed
 TimeoutStopSec=5
 PrivateTmp=false
