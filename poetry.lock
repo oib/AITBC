@@ -3539,4 +3539,4 @@ dev = ["bandit", "black", "isort", "mypy", "pytest", "pytest-asyncio", "pytest-c
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5,<4.0"
-content-hash = "d93bbd8aa53723f2fbc5a7542285dbb12d85af9089343e7611b9d903e1830b9a"
+content-hash = "58011f5fee15fca3c30ec9e9826fcc419b0dff2540a7d88c221ba9c3c4250ba6"
