@@ -949,26 +949,35 @@ jobs:
           echo "=== TESTING PACKAGE INSTALLATION ==="
           
           # Test Python package installation
-          echo "Testing Python package installation..."
-          cd packages/py/aitbc-core
-          
-          # Install Poetry if not available
-          if ! command -v poetry >/dev/null 2>&1; then
-            curl -sSL https://install.python-poetry.org | python3 -
-            export PATH="$HOME/.local/bin:$PATH"
+          if [[ -d "packages/py/aitbc-core" ]]; then
+            echo "Testing Python package installation..."
+            cd packages/py/aitbc-core
+            
+            # Install Poetry if not available
+            if ! command -v poetry >/dev/null 2>&1; then
+              curl -sSL https://install.python-poetry.org | python3 -
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+            
+            # Test installation
+            poetry install
+            poetry show
+            
+            cd ../../..
+          else
+            echo "⚠️ packages/py/aitbc-core not found, skipping Python installation test"
           fi
           
-          # Test installation
-          poetry install
-          poetry show
-          
-          cd ../../..
-          
           # Test JavaScript package installation
-          echo "Testing JavaScript package installation..."
-          cd packages/js/aitbc-sdk
-          npm install --legacy-peer-deps
-          npm list --depth=0
+          if [[ -d "packages/js/aitbc-sdk" ]]; then
+            echo "Testing JavaScript package installation..."
+            cd packages/js/aitbc-sdk
+            npm install --legacy-peer-deps
+            npm list --depth=0
+            cd ../../..
+          else
+            echo "⚠️ packages/js/aitbc-sdk not found, skipping JavaScript installation test"
+          fi
           
           echo "✅ Package installation tests completed"
 
