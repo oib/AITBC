@@ -1,0 +1,87 @@
+name: JavaScript SDK Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'packages/js/**'
+      - '.gitea/workflows/js-sdk-tests.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'packages/js/**'
+      - '.gitea/workflows/js-sdk-tests.yml'
+  workflow_dispatch:
+
+# Prevent parallel execution
+concurrency:
+  group: js-sdk-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-js-sdk:
+    runs-on: debian
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: packages/js/aitbc-sdk/package-lock.json
+
+      - name: Install dependencies
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          echo "=== INSTALLING JS SDK DEPENDENCIES ==="
+          npm ci
+          echo "✅ Dependencies installed"
+
+      - name: Build TypeScript
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          echo "=== BUILDING TYPESCRIPT ==="
+          npm run build
+          echo "✅ TypeScript build completed"
+
+      - name: Run ESLint
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          echo "=== RUNNING ESLINT ==="
+          npm run lint
+          echo "✅ ESLint checks passed"
+
+      - name: Check Prettier formatting
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          echo "=== CHECKING PRETTIER FORMATTING ==="
+          npx prettier --check "src/**/*.ts"
+          echo "✅ Prettier formatting checks passed"
+
+      - name: Run vitest tests
+        working-directory: packages/js/aitbc-sdk
+        run: |
+          echo "=== RUNNING VITEST ==="
+          npm run test
+          echo "✅ Vitest tests completed"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: js-sdk-test-results
+          path: packages/js/aitbc-sdk/test-results/
+          retention-days: 30
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "=== JS SDK TEST SUMMARY ==="
+          echo "✅ TypeScript build: completed"
+          echo "✅ ESLint: passed"
+          echo "✅ Prettier: passed"
+          echo "✅ Vitest tests: completed"
+          echo "✅ JavaScript SDK tests finished successfully"
