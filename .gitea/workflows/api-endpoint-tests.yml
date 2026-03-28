@@ -444,6 +444,7 @@ jobs:
           echo 'import requests' > test_api_performance.py
           echo 'import time' >> test_api_performance.py
           echo 'import statistics' >> test_api_performance.py
+          echo 'import json' >> test_api_performance.py
           echo '' >> test_api_performance.py
           echo 'def measure_response_time(url, timeout=5):' >> test_api_performance.py
           echo '    try:' >> test_api_performance.py
