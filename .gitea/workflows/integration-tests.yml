@@ -288,57 +288,55 @@ jobs:
           echo "Testing blockchain operations..."
           
           # Create E2E test script
-          cat > test_e2e.py << 'EOF'
-import requests
-import json
-import time
-
-def test_blockchain_operations():
-    try:
-        # Get latest block
-        payload = {
-            "jsonrpc": "2.0",
-            "method": "eth_getBlockByNumber",
-            "params": ["latest", False],
-            "id": 1
-        }
-        response = requests.post('http://localhost:8545', json=payload, timeout=5)
-        if response.status_code == 200:
-            block = response.json().get('result', {})
-            print(f"✅ Latest block: {block.get('number', 'Unknown')}")
-            return True
-    except Exception as e:
-        print(f"❌ Blockchain operations error: {e}")
-        return False
-
-def test_api_endpoints():
-    try:
-        # Test API health
-        response = requests.get('http://localhost:8000/', timeout=5)
-        if response.status_code == 200:
-            print("✅ API health check passed")
-            return True
-    except Exception as e:
-        print(f"❌ API endpoints error: {e}")
-        return False
-
-if __name__ == "__main__":
-    print("🔄 Running end-to-end workflow tests...")
-    
-    results = []
-    results.append(test_blockchain_operations())
-    results.append(test_api_endpoints())
-    
-    success_count = sum(results)
-    total_count = len(results)
-    
-    print(f"\n📊 E2E Results: {success_count}/{total_count} workflows working")
-    
-    if success_count == total_count:
-        print("✅ All end-to-end workflows successful")
-    else:
-        print("⚠️  Some workflows not working properly")
-EOF
+          echo 'import requests' > test_e2e.py
+          echo 'import json' >> test_e2e.py
+          echo 'import time' >> test_e2e.py
+          echo '' >> test_e2e.py
+          echo 'def test_blockchain_operations():' >> test_e2e.py
+          echo '    try:' >> test_e2e.py
+          echo '        # Get latest block' >> test_e2e.py
+          echo '        payload = {' >> test_e2e.py
+          echo '            "jsonrpc": "2.0",' >> test_e2e.py
+          echo '            "method": "eth_getBlockByNumber",' >> test_e2e.py
+          echo '            "params": ["latest", False],' >> test_e2e.py
+          echo '            "id": 1' >> test_e2e.py
+          echo '        }' >> test_e2e.py
+          echo '        response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_e2e.py
+          echo '        if response.status_code == 200:' >> test_e2e.py
+          echo '            block = response.json().get('"'"'result'"'"', {})' >> test_e2e.py
+          echo '            print(f"✅ Latest block: {block.get('"'"'number'"'"', '"'"'Unknown'"'"')}")' >> test_e2e.py
+          echo '            return True' >> test_e2e.py
+          echo '    except Exception as e:' >> test_e2e.py
+          echo '        print(f"❌ Blockchain operations error: {e}")' >> test_e2e.py
+          echo '        return False' >> test_e2e.py
+          echo '' >> test_e2e.py
+          echo 'def test_api_endpoints():' >> test_e2e.py
+          echo '    try:' >> test_e2e.py
+          echo '        # Test API health' >> test_e2e.py
+          echo '        response = requests.get('"'"'http://localhost:8000/'"'"', timeout=5)' >> test_e2e.py
+          echo '        if response.status_code == 200:' >> test_e2e.py
+          echo '            print("✅ API health check passed")' >> test_e2e.py
+          echo '            return True' >> test_e2e.py
+          echo '    except Exception as e:' >> test_e2e.py
+          echo '        print(f"❌ API endpoints error: {e}")' >> test_e2e.py
+          echo '        return False' >> test_e2e.py
+          echo '' >> test_e2e.py
+          echo 'if __name__ == "__main__":' >> test_e2e.py
+          echo '    print("🔄 Running end-to-end workflow tests...")' >> test_e2e.py
+          echo '    ' >> test_e2e.py
+          echo '    results = []' >> test_e2e.py
+          echo '    results.append(test_blockchain_operations())' >> test_e2e.py
+          echo '    results.append(test_api_endpoints())' >> test_e2e.py
+          echo '    ' >> test_e2e.py
+          echo '    success_count = sum(results)' >> test_e2e.py
+          echo '    total_count = len(results)' >> test_e2e.py
+          echo '    ' >> test_e2e.py
+          echo '    print(f"\n📊 E2E Results: {success_count}/{total_count} workflows working")' >> test_e2e.py
+          echo '    ' >> test_e2e.py
+          echo '    if success_count == total_count:' >> test_e2e.py
+          echo '        print("✅ All end-to-end workflows successful")' >> test_e2e.py
+          echo '    else:' >> test_e2e.py
+          echo '        print("⚠️  Some workflows not working properly")' >> test_e2e.py
           
           # Run E2E test
           python test_e2e.py
