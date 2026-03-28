@@ -25,6 +25,9 @@ jobs:
     strategy:
       matrix:
         package:
+          - name: "aitbc-cli"
+            path: "."
+            python_version: "3.13"
           - name: "aitbc-core"
             path: "packages/py/aitbc-core"
             python_version: "3.13"
@@ -519,11 +522,18 @@ jobs:
           echo "=== BUILDING PYTHON PACKAGE ==="
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
           
-          # Ensure Poetry is available
-          export PATH="$HOME/.local/bin:$PATH"
-          
-          # Build package with Poetry
-          poetry build
+          # For root-level packages (like aitbc-cli), use python build instead of poetry
+          if [[ "${{ matrix.package.path }}" == "." ]]; then
+            echo "Building root-level package with python -m build..."
+            python3 -m pip install build -q
+            python3 -m build
+          else
+            # Ensure Poetry is available
+            export PATH="$HOME/.local/bin:$PATH"
+            
+            # Build package with Poetry
+            poetry build
+          fi
           
           # Check build output
           ls -la dist/
