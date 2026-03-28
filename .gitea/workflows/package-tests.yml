@@ -140,7 +140,8 @@ jobs:
             echo "❌ Standard clone failed, trying alternatives..."
             
             # Try shallow clone
-            rm -rf repo
+            cd / || true
+            rm -rf repo 2>/dev/null || true
             echo "Attempting shallow clone..."
             if git clone --depth 1 "$REPO_URL" repo 2>/dev/null; then
               echo "✅ Shallow clone successful"
@@ -150,7 +151,8 @@ jobs:
               # Try local repository copy
               if [[ -d "/opt/aitbc/.git" ]]; then
                 echo "Using local repository copy..."
-                rm -rf repo
+                cd / || true
+                rm -rf repo 2>/dev/null || true
                 # Use git archive or copy specific directories to avoid workspace pollution
                 if git clone --depth 1 file:///opt/aitbc repo 2>/dev/null; then
                   echo "✅ Local git clone successful"
