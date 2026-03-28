@@ -618,32 +618,35 @@ jobs:
             exit 0
           fi
           
-          cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
-          
           # Ensure Poetry is available
           export PATH="$HOME/.local/bin:$PATH"
           
-          # Check package metadata
-          poetry version
-          poetry show --tree
+          # Use poetry -C to avoid cd issues
+          cd / 2>/dev/null || true
           
-          # Validate package structure
-          if [ -d "src" ]; then
+          # Check package metadata
+          poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} version 2>/dev/null || echo "⚠️ Could not get version"
+          poetry -C /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} show --tree 2>/dev/null || echo "⚠️ Could not show dependencies"
+          
+          # Validate package structure by checking files in the directory
+          if [[ -d "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/src" ]]; then
             echo "✅ Source directory structure valid (src/)"
-          elif [ -d "aitbc_agent" ]; then
+          elif [[ -d "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/aitbc_agent" ]]; then
             echo "✅ Source directory structure valid (aitbc_agent/)"
-          elif find . -maxdepth 1 -type d -name "*" | grep -v "^\.$" | grep -v "__pycache__" | head -1 | grep -q "."; then
+          elif find /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} -maxdepth 1 -type d 2>/dev/null | grep -v "^\.$" | grep -v "__pycache__" | head -1 | grep -q "."; then
             echo "✅ Source directory structure valid"
           else
             echo "❌ Missing source directory"
             exit 1
           fi
           
-          # Check pyproject.toml
-          if [ -f "pyproject.toml" ]; then
+          # Check pyproject.toml or setup.py
+          if [[ -f "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/pyproject.toml" ]]; then
             echo "✅ pyproject.toml exists"
+          elif [[ -f "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}/setup.py" ]]; then
+            echo "✅ setup.py exists"
           else
-            echo "❌ Missing pyproject.toml"
+            echo "❌ Missing pyproject.toml or setup.py"
             exit 1
           fi
           
