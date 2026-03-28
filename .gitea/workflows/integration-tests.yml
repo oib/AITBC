@@ -378,7 +378,7 @@ jobs:
             echo '        print("✅ All services communicating successfully")' >> test_integration.py
             echo '    else:' >> test_integration.py
             echo '        print("⚠️  Some services not communicating properly")' >> test_integration.py
-          
+          fi
           # Run integration test
           python test_integration.py
           
