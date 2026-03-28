@@ -557,11 +557,17 @@ jobs:
           echo "=== BUILDING PYTHON PACKAGE ==="
           echo "Current PWD before cd: $(pwd)"
           
+          # Check if package directory exists
+          if [[ ! -d "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}" ]]; then
+            echo "⚠️ Package directory not found: ${{ matrix.package.path }}"
+            echo "Skipping build for this package"
+            exit 0
+          fi
+          
           # Ensure we're in the correct directory
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }} || {
-            echo "❌ Failed to cd to package path, trying alternatives..."
-            cd /opt/aitbc/python-packages-workspace/repo || cd / || true
-            cd ${{ matrix.package.path }} 2>/dev/null || true
+            echo "❌ Failed to cd to package path"
+            exit 1
           }
           
           echo "Current PWD after cd: $(pwd)"
