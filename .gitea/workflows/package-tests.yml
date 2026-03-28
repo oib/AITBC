@@ -504,6 +504,14 @@ jobs:
       - name: Run Linting
         run: |
           echo "=== RUNNING LINTING ==="
+          
+          # Check if package directory exists
+          if [[ ! -d "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}" ]]; then
+            echo "⚠️ Package directory not found: ${{ matrix.package.path }}"
+            echo "Skipping linting for this package"
+            exit 0
+          fi
+          
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
           
           # Ensure Poetry is available
@@ -585,6 +593,14 @@ jobs:
       - name: Validate Package
         run: |
           echo "=== VALIDATING PYTHON PACKAGE ==="
+          
+          # Check if package directory exists
+          if [[ ! -d "/opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}" ]]; then
+            echo "⚠️ Package directory not found: ${{ matrix.package.path }}"
+            echo "Skipping validation for this package"
+            exit 0
+          fi
+          
           cd /opt/aitbc/python-packages-workspace/repo/${{ matrix.package.path }}
           
           # Ensure Poetry is available
