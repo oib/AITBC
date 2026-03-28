@@ -319,7 +319,7 @@ jobs:
             echo '    else:' >> test_integration.py
             echo '        print("⚠️  Some services not communicating properly (mock)")' >> test_integration.py
           else
-            echo "� Testing service-to-service communication..."
+            echo "🔗 Testing service-to-service communication..."
             
             # Create real test script
             echo 'import requests' > test_integration.py
@@ -334,50 +334,50 @@ jobs:
             echo '    except Exception as e:' >> test_integration.py
             echo '        print(f"❌ Coordinator API error: {e}")' >> test_integration.py
             echo '        return False' >> test_integration.py
-          echo '' >> test_integration.py
-          echo 'def test_blockchain_rpc():' >> test_integration.py
-          echo '    try:' >> test_integration.py
-          echo '        payload = {' >> test_integration.py
-          echo '            "jsonrpc": "2.0",' >> test_integration.py
-          echo '            "method": "eth_blockNumber",' >> test_integration.py
-          echo '            "params": [],' >> test_integration.py
-          echo '            "id": 1' >> test_integration.py
-          echo '        }' >> test_integration.py
-          echo '        response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_integration.py
-          echo '        if response.status_code == 200:' >> test_integration.py
-          echo '            result = response.json()' >> test_integration.py
-          echo '            print(f"✅ Blockchain RPC responded: {result.get('"'"'result'"'"', '"'"'Unknown'"'"')}")' >> test_integration.py
-          echo '            return True' >> test_integration.py
-          echo '    except Exception as e:' >> test_integration.py
-          echo '        print(f"❌ Blockchain RPC error: {e}")' >> test_integration.py
-          echo '        return False' >> test_integration.py
-          echo '' >> test_integration.py
-          echo 'def test_marketplace():' >> test_integration.py
-          echo '    try:' >> test_integration.py
-          echo '        response = requests.get('"'"'http://localhost:3001/'"'"', timeout=5)' >> test_integration.py
-          echo '        print(f"✅ Marketplace responded: {response.status_code}")' >> test_integration.py
-          echo '        return True' >> test_integration.py
-          echo '    except Exception as e:' >> test_integration.py
-          echo '        print(f"❌ Marketplace error: {e}")' >> test_integration.py
-          echo '        return False' >> test_integration.py
-          echo '' >> test_integration.py
-          echo 'if __name__ == "__main__":' >> test_integration.py
-          echo '    print("🧪 Running cross-service communication tests...")' >> test_integration.py
-          echo '    ' >> test_integration.py
-          echo '    results = []' >> test_integration.py
-          echo '    results.append(test_coordinator_api())' >> test_integration.py
-          echo '    results.append(test_blockchain_rpc())' >> test_integration.py
+            echo '' >> test_integration.py
+            echo 'def test_blockchain_rpc():' >> test_integration.py
+            echo '    try:' >> test_integration.py
+            echo '        payload = {' >> test_integration.py
+            echo '            "jsonrpc": "2.0",' >> test_integration.py
+            echo '            "method": "eth_blockNumber",' >> test_integration.py
+            echo '            "params": [],' >> test_integration.py
+            echo '            "id": 1' >> test_integration.py
+            echo '        }' >> test_integration.py
+            echo '        response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_integration.py
+            echo '        if response.status_code == 200:' >> test_integration.py
+            echo '            result = response.json()' >> test_integration.py
+            echo '            print(f"✅ Blockchain RPC responded: {result.get('"'"'result'"'"', '"'"'Unknown'"'"')}")' >> test_integration.py
+            echo '            return True' >> test_integration.py
+            echo '    except Exception as e:' >> test_integration.py
+            echo '        print(f"❌ Blockchain RPC error: {e}")' >> test_integration.py
+            echo '        return False' >> test_integration.py
+            echo '' >> test_integration.py
+            echo 'def test_marketplace():' >> test_integration.py
+            echo '    try:' >> test_integration.py
+            echo '        response = requests.get('"'"'http://localhost:3001/'"'"', timeout=5)' >> test_integration.py
+            echo '        print(f"✅ Marketplace responded: {response.status_code}")' >> test_integration.py
+            echo '        return True' >> test_integration.py
+            echo '    except Exception as e:' >> test_integration.py
+            echo '        print(f"❌ Marketplace error: {e}")' >> test_integration.py
+            echo '        return False' >> test_integration.py
+            echo '' >> test_integration.py
+            echo 'if __name__ == "__main__":' >> test_integration.py
+            echo '    print("🧪 Running cross-service communication tests...")' >> test_integration.py
+            echo '    ' >> test_integration.py
+            echo '    results = []' >> test_integration.py
+            echo '    results.append(test_coordinator_api())' >> test_integration.py
+            echo '    results.append(test_blockchain_rpc())' >> test_integration.py
           echo '    results.append(test_marketplace())' >> test_integration.py
-          echo '    ' >> test_integration.py
-          echo '    success_count = sum(results)' >> test_integration.py
-          echo '    total_count = len(results)' >> test_integration.py
-          echo '    ' >> test_integration.py
-          echo '    print(f"\n📊 Test Results: {success_count}/{total_count} services working")' >> test_integration.py
-          echo '    ' >> test_integration.py
-          echo '    if success_count == total_count:' >> test_integration.py
-          echo '        print("✅ All services communicating successfully")' >> test_integration.py
-          echo '    else:' >> test_integration.py
-          echo '        print("⚠️  Some services not communicating properly")' >> test_integration.py
+            echo '    ' >> test_integration.py
+            echo '    success_count = sum(results)' >> test_integration.py
+            echo '    total_count = len(results)' >> test_integration.py
+            echo '    ' >> test_integration.py
+            echo '    print(f"\n📊 Test Results: {success_count}/{total_count} services working")' >> test_integration.py
+            echo '    ' >> test_integration.py
+            echo '    if success_count == total_count:' >> test_integration.py
+            echo '        print("✅ All services communicating successfully")' >> test_integration.py
+            echo '    else:' >> test_integration.py
+            echo '        print("⚠️  Some services not communicating properly")' >> test_integration.py
           
           # Run integration test
           python test_integration.py
