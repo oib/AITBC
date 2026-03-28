@@ -5,9 +5,9 @@ After=network.target
 [Service]
 Type=exec
 User=root
-WorkingDirectory=/root/aitbc/apps/marketplace-ui
-Environment=PATH=/root/aitbc/.venv/bin
-ExecStart=/root/aitbc/.venv/bin/python server.py --port 3001
+WorkingDirectory=/opt/aitbc/apps/marketplace-ui
+Environment=PATH=/opt/aitbc/.venv/bin
+ExecStart=/opt/aitbc/.venv/bin/python server.py --port 3001
 Restart=always
 RestartSec=10
 
