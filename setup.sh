@@ -48,9 +48,9 @@ check_prerequisites() {
     command -v systemctl >/dev/null 2>&1 || error "systemctl is not available"
     
     # Check Python version
-    python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    if [ "$(printf '%s\n' "3.8" "$python_version" | sort -V | head -n1)" != "3.8" ]; then
-        error "Python 3.8+ is required, found $python_version"
+    python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+    if [ "$(printf '%s\n' "3.13.5" "$python_version" | sort -V | head -n1)" != "3.13.5" ]; then
+        error "Python 3.13.5+ is required, found $python_version"
     fi
     
     success "Prerequisites check passed"
