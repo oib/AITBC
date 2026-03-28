@@ -50,6 +50,8 @@ jobs:
           
           # Clean and create isolated workspace with alternative strategy
           echo "Cleaning previous workspace..."
+          # Change to root first to avoid 'No such file or directory' if we're in the workspace
+          cd / || true
           rm -rf /opt/aitbc/python-packages-workspace
           
           echo "Creating workspace directory..."
