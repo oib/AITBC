@@ -12,7 +12,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let b = pallas::Base::from(24);
     let sum = a + b;
 
-    println!("✅ Basic field arithmetic working: {:?} + {:?} = {:?}", a, b, sum);
+    println!(
+        "✅ Basic field arithmetic working: {:?} + {:?} = {:?}",
+        a, b, sum
+    );
 
     println!("\n📊 Research Status:");
     println!("   - Environment setup: ✅ Complete");
