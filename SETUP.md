@@ -20,7 +20,7 @@ sudo ./setup.sh
 ## What the Setup Script Does
 
 1. **Prerequisites Check**
-   - Verifies Python 3.8+, pip3, git, systemd
+   - Verifies Python 3.13.5+, pip3, git, systemd
    - Checks for root privileges
 
 2. **Repository Setup**
