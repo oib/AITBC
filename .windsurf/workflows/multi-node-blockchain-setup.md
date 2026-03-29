@@ -37,7 +37,7 @@ cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
 mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
 
 # 4. Setup AITBC CLI tool
-# Use central virtual environment
+# Use central virtual environment (dependencies already installed)
 source /opt/aitbc/venv/bin/activate
 pip install -e /opt/aitbc/cli/ 2>/dev/null || true
 echo 'alias aitbc="source /opt/aitbc/venv/bin/activate && aitbc"' >> ~/.bashrc
@@ -59,8 +59,8 @@ ls -la /etc/aitbc/blockchain.env
 ## Directory Structure
 
 - `/opt/aitbc/venv` - Central Python virtual environment
-- `/opt/aitbc/requirements.txt` - Python dependencies
-- `/etc/aitbc/blockchain.env` - Central environment configuration
+- `/opt/aitbc/requirements.txt` - Python dependencies (includes CLI dependencies)
+- `/etc/aitbc/.env` - Central environment configuration
 - `/var/lib/aitbc/data` - Blockchain database files
 - `/var/lib/aitbc/keystore` - Wallet credentials
 - `/var/log/aitbc/` - Service logs
@@ -69,7 +69,7 @@ ls -la /etc/aitbc/blockchain.env
 
 ### Environment Configuration
 
-The workflow uses the central `/etc/aitbc/blockchain.env` file as the configuration for both nodes:
+The workflow uses the central `/etc/aitbc/.env` file as the configuration for both nodes:
 
 - **Base Configuration**: The central config contains all default settings
 - **Node-Specific Adaptation**: Each node adapts the config for its role (genesis vs follower)
