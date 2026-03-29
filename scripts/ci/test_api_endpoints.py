@@ -10,7 +10,7 @@ import sys
 # Service ports (must match systemd config)
 SERVICES = {
     "coordinator": {"url": "http://localhost:8000", "endpoints": ["/", "/health", "/info"]},
-    "exchange": {"url": "http://localhost:8001", "endpoints": ["/", "/health", "/info"]},
+    "exchange": {"url": "http://localhost:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": "http://localhost:8003", "endpoints": ["/", "/health", "/wallets"]},
     "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": []},
 }
@@ -105,9 +105,9 @@ def main():
 
     print("\n⚡ Performance tests...")
     perf = test_performance([
-        ("Coordinator", "http://localhost:8000/"),
-        ("Exchange", "http://localhost:8001/"),
-        ("Wallet", "http://localhost:8003/"),
+        ("Coordinator", "http://localhost:8000/health"),
+        ("Exchange", "http://localhost:8001/api/health"),
+        ("Wallet", "http://localhost:8003/health"),
     ])
     all_results["performance"] = perf
 

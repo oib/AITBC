@@ -24,6 +24,8 @@ export type { IERC20 } from "./@openzeppelin/contracts/token/ERC20/IERC20";
 export { IERC20__factory } from "./factories/@openzeppelin/contracts/token/ERC20/IERC20__factory";
 export type { ECDSA } from "./@openzeppelin/contracts/utils/cryptography/ECDSA";
 export { ECDSA__factory } from "./factories/@openzeppelin/contracts/utils/cryptography/ECDSA__factory";
+export type { MessageHashUtils } from "./@openzeppelin/contracts/utils/cryptography/MessageHashUtils";
+export { MessageHashUtils__factory } from "./factories/@openzeppelin/contracts/utils/cryptography/MessageHashUtils__factory";
 export type { ERC165 } from "./@openzeppelin/contracts/utils/introspection/ERC165";
 export { ERC165__factory } from "./factories/@openzeppelin/contracts/utils/introspection/ERC165__factory";
 export type { IERC165 } from "./@openzeppelin/contracts/utils/introspection/IERC165";

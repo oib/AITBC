@@ -30,29 +30,41 @@ jobs:
 
       - name: Verify Rust toolchain
         run: |
+          # Fix HOME mismatch (gitea-runner HOME vs euid root)
+          export HOME=/root
+          export RUSTUP_HOME="$HOME/.rustup"
+          export CARGO_HOME="$HOME/.cargo"
+          export PATH="$CARGO_HOME/bin:$PATH"
+
           if ! command -v rustc >/dev/null 2>&1; then
             echo "Installing Rust..."
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            source "$HOME/.cargo/env"
           fi
+          source "$CARGO_HOME/env" 2>/dev/null || true
           rustc --version
           cargo --version
           rustup component add rustfmt clippy 2>/dev/null || true
 
       - name: Check formatting
         run: |
+          export HOME=/root
+          export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
           cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
           cargo fmt -- --check 2>/dev/null && echo "✅ Formatting OK" || echo "⚠️ Format warnings"
 
       - name: Run Clippy
         run: |
+          export HOME=/root
+          export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
           cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
           cargo clippy -- -D warnings 2>/dev/null && echo "✅ Clippy OK" || echo "⚠️ Clippy warnings"
 
       - name: Build
         run: |
+          export HOME=/root
+          export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
           cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
           cargo build --release
@@ -60,6 +72,8 @@ jobs:
 
       - name: Run tests
         run: |
+          export HOME=/root
+          export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
           cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
           cargo test && echo "✅ Tests passed" || echo "⚠️ Tests completed with issues"

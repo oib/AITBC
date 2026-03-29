@@ -37,16 +37,18 @@ class JobExecution:
 class ComputeProvider(Agent):
     """Agent that provides computational resources"""
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.current_offers: List[ResourceOffer] = []
         self.active_jobs: List[JobExecution] = []
-        self.earnings = 0.0
-        self.utilization_rate = 0.0
+        self.earnings: float = 0.0
+        self.utilization_rate: float = 0.0
+        self.pricing_model: Dict[str, Any] = {}
+        self.dynamic_pricing: Dict[str, Any] = {}
         
     @classmethod
-    def register(cls, name: str, capabilities: Dict[str, Any], pricing_model: Dict[str, Any]) -> 'ComputeProvider':
-        """Register as a compute provider"""
+    def create_provider(cls, name: str, capabilities: Dict[str, Any], pricing_model: Dict[str, Any]) -> 'ComputeProvider':
+        """Create and register a compute provider"""
         agent = super().create(name, "compute_provider", capabilities)
         provider = cls(agent.identity, agent.capabilities)
         provider.pricing_model = pricing_model
@@ -112,7 +114,7 @@ class ComputeProvider(Agent):
             logger.error(f"Failed to enable dynamic pricing: {e}")
             return False
     
-    async def _dynamic_pricing_loop(self):
+    async def _dynamic_pricing_loop(self) -> None:
         """Background task for dynamic price adjustments"""
         while getattr(self, 'dynamic_pricing', {}).get('enabled', False):
             try:
@@ -173,7 +175,7 @@ class ComputeProvider(Agent):
             logger.error(f"Failed to accept job: {e}")
             return False
     
-    async def _execute_job(self, job: JobExecution, job_request: Dict[str, Any]):
+    async def _execute_job(self, job: JobExecution, job_request: Dict[str, Any]) -> None:
         """Execute a computational job"""
         try:
             # Simulate job execution
@@ -202,7 +204,7 @@ class ComputeProvider(Agent):
             job.status = "failed"
             logger.error(f"Job execution failed: {job.job_id} - {e}")
     
-    async def _notify_job_completion(self, job: JobExecution, earnings: float):
+    async def _notify_job_completion(self, job: JobExecution, earnings: float) -> None:
         """Notify consumer about job completion"""
         notification = {
             "job_id": job.job_id,
@@ -215,7 +217,7 @@ class ComputeProvider(Agent):
         
         await self.send_message(job.consumer_id, "job_completion", notification)
     
-    def _update_utilization(self):
+    def _update_utilization(self) -> None:
         """Update current utilization rate"""
         self.utilization_rate = len(self.active_jobs) / self.capabilities.max_concurrent_jobs
     
@@ -227,8 +229,8 @@ class ComputeProvider(Agent):
             "utilization_rate": self.utilization_rate,
             "active_jobs": len(self.active_jobs),
             "total_earnings": self.earnings,
-            "average_job_duration": sum(j.actual_duration.total_seconds() for j in completed_jobs) / len(completed_jobs) if completed_jobs else 0,
-            "quality_score": sum(j.quality_score for j in completed_jobs if j.quality_score) / len(completed_jobs) if completed_jobs else 0,
+            "average_job_duration": sum(j.actual_duration.total_seconds() for j in completed_jobs if j.actual_duration) / len(completed_jobs) if completed_jobs else 0,
+            "quality_score": sum(j.quality_score for j in completed_jobs if j.quality_score is not None) / len(completed_jobs) if completed_jobs else 0,
             "current_offers": len(self.current_offers)
         }
     
