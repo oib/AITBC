@@ -107,24 +107,15 @@ jobs:
           echo "Cloning repository..."
           
           # Ensure we're in the workspace directory
-          cd "$WORKSPACE_DIR" 2>/dev/null || cd /opt/aitbc/python-packages-workspace 2>/dev/null || {
-            echo "❌ Cannot access workspace, trying to recover..."
-            cd / || exit 1
-            mkdir -p /opt/aitbc/python-packages-workspace
-            cd /opt/aitbc/python-packages-workspace
-          }
+          # Use external workspace strategy
+          WORKSPACE_BASE="/var/lib/aitbc-workspaces/python-packages"
+          rm -rf "$WORKSPACE_BASE" 2>/dev/null || true
+          mkdir -p "$WORKSPACE_BASE"
+          cd "$WORKSPACE_BASE"
           
-          # Set git configuration and check Git status
-          echo "Git configuration and status:"
-          git --version
-          git config --global http.sslVerify false
-          git config --global http.postBuffer 1048576000
-          
-          # Clone with multiple fallback strategies
-          REPO_URL="http://10.0.3.107:3000/oib/aitbc.git"
-          
-          # Clean any existing repo directory first
-          rm -rf repo
+          # Clone repository
+          git clone http://10.0.3.107:3000/oib/aitbc.git repo
+          cd repo
           
           # Check filesystem space and permissions
           echo "Filesystem check:"
@@ -723,14 +714,10 @@ jobs:
           
           # Clean and create isolated workspace
           cd / || true
-          rm -rf /opt/aitbc/javascript-packages-workspace 2>/dev/null || true
-          if [[ -d "/opt/aitbc/javascript-packages-workspace" ]]; then
-            find /opt/aitbc/javascript-packages-workspace -type f -delete 2>/dev/null || true
-            find /opt/aitbc/javascript-packages-workspace -type d -delete 2>/dev/null || true
-            rm -rf /opt/aitbc/javascript-packages-workspace 2>/dev/null || true
-          fi
-          mkdir -p /opt/aitbc/javascript-packages-workspace
-          cd /opt/aitbc/javascript-packages-workspace
+          WORKSPACE_BASE="/var/lib/aitbc-workspaces/javascript-packages"
+          rm -rf "$WORKSPACE_BASE" 2>/dev/null || true
+          mkdir -p "$WORKSPACE_BASE"
+          cd "$WORKSPACE_BASE"
           
           # Ensure no git lock files exist
           find . -name "*.lock" -delete 2>/dev/null || true
@@ -954,10 +941,11 @@ jobs:
       - name: Setup workspace
         run: |
           echo "=== PACKAGE INTEGRATION TESTS ==="
-          cd / || true
-          rm -rf /opt/aitbc/integration-workspace
-          mkdir -p /opt/aitbc/integration-workspace
-          cd /opt/aitbc/integration-workspace
+          # Use external workspace for security tests
+          WORKSPACE_BASE="/var/lib/aitbc-workspaces/security-tests"
+          rm -rf "$WORKSPACE_BASE" 2>/dev/null || true
+          mkdir -p "$WORKSPACE_BASE"
+          cd "$WORKSPACE_BASE"
           
           # Ensure no git lock files exist
           find . -name "*.lock" -delete 2>/dev/null || true
