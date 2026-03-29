@@ -5,7 +5,7 @@ Swarm Coordinator - for agents participating in collective intelligence
 import asyncio
 import json
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any  # noqa: F401
 from datetime import datetime
 from dataclasses import dataclass
 from .agent import Agent
@@ -37,7 +37,7 @@ class SwarmDecision:
 class SwarmCoordinator(Agent):
     """Agent that participates in swarm intelligence"""
     
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.joined_swarms: Dict[str, Dict[str, Any]] = {}
         self.swarm_reputation: Dict[str, float] = {}
@@ -91,7 +91,7 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to join swarm {swarm_type}: {e}")
             return False
     
-    async def _swarm_participation_loop(self, swarm_id: str):
+    async def _swarm_participation_loop(self, swarm_id: str) -> None:
         """Background task for active swarm participation"""
         while swarm_id in self.joined_swarms:
             try:
@@ -145,7 +145,7 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to broadcast to swarm: {e}")
             return False
     
-    async def _contribute_swarm_data(self, swarm_id: str):
+    async def _contribute_swarm_data(self, swarm_id: str) -> None:
         """Contribute data to swarm intelligence"""
         try:
             swarm_type = self.joined_swarms[swarm_id]["type"]
@@ -308,22 +308,22 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to analyze swarm benefits: {e}")
             return {"error": str(e)}
     
-    async def _register_with_swarm(self, swarm_id: str, registration: Dict[str, Any]):
+    async def _register_with_swarm(self, swarm_id: str, registration: Dict[str, Any]) -> None:
         """Register with swarm coordinator (placeholder)"""
         # TODO: Implement actual swarm registration
         await asyncio.sleep(0.1)
     
-    async def _broadcast_to_swarm_network(self, message: SwarmMessage):
+    async def _broadcast_to_swarm_network(self, message: SwarmMessage) -> None:
         """Broadcast message to swarm network (placeholder)"""
         # TODO: Implement actual swarm broadcasting
         await asyncio.sleep(0.1)
     
-    async def _process_swarm_messages(self, swarm_id: str):
+    async def _process_swarm_messages(self, swarm_id: str) -> None:
         """Process incoming swarm messages (placeholder)"""
         # TODO: Implement actual message processing
         await asyncio.sleep(0.1)
     
-    async def _participate_in_decisions(self, swarm_id: str):
+    async def _participate_in_decisions(self, swarm_id: str) -> None:
         """Participate in swarm decision making (placeholder)"""
         # TODO: Implement actual decision participation
         await asyncio.sleep(0.1)
