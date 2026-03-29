@@ -80,6 +80,7 @@ cp keystore/* /var/lib/aitbc/keystore/
 
 # Update systemd services to use central .env and standard paths
 # Note: systemd services already reference /opt/aitbc/.env by default
+# The separate .env.production file has been merged into central .env
 # No need to modify EnvironmentFile as they should use the central .env
 # Just ensure the paths in .env are correct for the standard directory structure
 
@@ -270,11 +271,13 @@ cp /opt/aitbc/.env.aitbc.backup /opt/aitbc/.env   # aitbc
 
 ### Service Configuration
 
-- **Environment File**: All services use `/opt/aitbc/.env` (no separate config files)
+- **Environment File**: All services use `/opt/aitbc/.env` (merged from .env.production)
 - **Virtual Environment**: Central venv at `/opt/aitbc/venv`
 - **Database Files**: `/var/lib/aitbc/data`
 - **Wallet Credentials**: `/var/lib/aitbc/keystore`
 - **Service Logs**: `/var/log/aitbc/` via journald
+- **Standardized Paths**: All paths use `/var/lib/aitbc/` structure
+- **No Separate Config Files**: `.env.production` merged into central `.env`
 
 ## Troubleshooting
 
