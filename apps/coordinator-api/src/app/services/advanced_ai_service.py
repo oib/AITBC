@@ -17,7 +17,8 @@ import numpy as np
 from datetime import datetime
 import uuid
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from .advanced_reinforcement_learning import AdvancedReinforcementLearningEngine
 from .multi_modal_fusion import MultiModalFusionEngine
@@ -25,7 +26,7 @@ from .gpu_multimodal import GPUAcceleratedMultiModal
 from .advanced_learning import AdvancedLearningService
 from ..storage import get_session
 
-logger = get_logger(__name__)
+
 
 # Pydantic models for API
 class RLTrainingRequest(BaseModel):

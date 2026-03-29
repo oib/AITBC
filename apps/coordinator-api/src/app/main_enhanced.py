@@ -30,11 +30,12 @@ from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from .config import settings
 from .storage.db import init_db
 
-logger = get_logger(__name__)
+
 
 
 def create_app() -> FastAPI:

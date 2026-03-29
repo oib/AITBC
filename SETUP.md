@@ -32,15 +32,42 @@ sudo ./setup.sh
    - Installs dependencies from `requirements.txt` when available
    - Falls back to core dependencies if requirements missing
 
-4. **Systemd Services**
+4. **Runtime Directories**
+   - Creates standard Linux directories:
+     - `/var/lib/aitbc/keystore/` - Blockchain keys
+     - `/var/lib/aitbc/data/` - Database files  
+     - `/var/lib/aitbc/logs/` - Application logs
+     - `/etc/aitbc/` - Configuration files
+   - Sets proper permissions and ownership
+
+5. **Systemd Services**
    - Installs service files to `/etc/systemd/system/`
    - Enables auto-start on boot
    - Provides fallback manual startup
 
-5. **Service Management**
+6. **Service Management**
    - Creates `/opt/aitbc/start-services.sh` for manual control
    - Creates `/opt/aitbc/health-check.sh` for monitoring
    - Sets up logging to `/var/log/aitbc-*.log`
+
+## Runtime Directories
+
+AITBC uses standard Linux system directories for runtime data:
+
+```
+/var/lib/aitbc/
+├── keystore/     # Blockchain private keys (700 permissions)
+├── data/         # Database files (.db, .sqlite)
+└── logs/         # Application logs
+
+/etc/aitbc/       # Configuration files
+/var/log/aitbc/   # System logging (symlink)
+```
+
+### Security Notes
+- **Keystore**: Restricted to root/aitbc user only
+- **Data**: Writable by services, readable by admin
+- **Logs**: Rotated automatically by logrotate
 
 ## Service Endpoints
 
@@ -60,10 +87,13 @@ sudo ./setup.sh
 # Restart all services
 /opt/aitbc/start-services.sh
 
-# View logs
-tail -f /var/log/aitbc-wallet.log
-tail -f /var/log/aitbc-coordinator.log
-tail -f /var/log/aitbc-exchange.log
+# View logs (new standard locations)
+tail -f /var/lib/aitbc/logs/aitbc-wallet.log
+tail -f /var/lib/aitbc/logs/aitbc-coordinator.log
+tail -f /var/lib/aitbc/logs/aitbc-exchange.log
+
+# Check keystore
+ls -la /var/lib/aitbc/keystore/
 
 # Systemd control
 systemctl status aitbc-wallet
@@ -74,9 +104,10 @@ systemctl stop aitbc-exchange-api
 ## Troubleshooting
 
 ### Services Not Starting
-1. Check logs: `tail -f /var/log/aitbc-*.log`
+1. Check logs: `tail -f /var/lib/aitbc/logs/aitbc-*.log`
 2. Verify ports: `netstat -tlnp | grep ':800'`
 3. Check processes: `ps aux | grep python`
+4. Verify runtime directories: `ls -la /var/lib/aitbc/`
 
 ### Missing Dependencies
 The setup script handles missing `requirements.txt` files by installing core dependencies:

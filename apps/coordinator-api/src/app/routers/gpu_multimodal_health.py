@@ -16,7 +16,7 @@ from ..storage import get_session
 from ..services.multimodal_agent import MultiModalAgentService
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 router = APIRouter()
 
 

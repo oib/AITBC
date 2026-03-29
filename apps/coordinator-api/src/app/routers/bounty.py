@@ -20,7 +20,7 @@ from ..services.bounty_service import BountyService
 from ..services.blockchain_service import BlockchainService
 from ..auth import get_current_user
 
-logger = get_logger(__name__)
+
 router = APIRouter()
 
 # Pydantic models for request/response

@@ -10,9 +10,10 @@ from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import websockets
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 
 class DataSource(str, Enum):

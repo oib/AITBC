@@ -3,7 +3,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple
 import numpy as np
 from dataclasses import dataclass
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 @dataclass
 class FHEContext:

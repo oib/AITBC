@@ -20,7 +20,7 @@ class ChainSettings(BaseSettings):
 
     chain_id: str = ""
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
-    db_path: Path = Path("/opt/aitbc/data/chain.db")
+    db_path: Path = Path("/var/lib/aitbc/data/chain.db")
 
     rpc_bind_host: str = "127.0.0.1"
     rpc_bind_port: int = 8080
@@ -62,8 +62,8 @@ class ChainSettings(BaseSettings):
     gossip_broadcast_url: Optional[str] = None
 
     # Keystore for proposer private key (future block signing)
-    keystore_path: Path = Path("/opt/aitbc/data/keystore")
-    keystore_password_file: Path = Path("/opt/aitbc/data/keystore/.password")
+    keystore_path: Path = Path("/var/lib/aitbc/keystore")
+    keystore_password_file: Path = Path("/var/lib/aitbc/keystore/.password")
 
 
 settings = ChainSettings()

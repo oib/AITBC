@@ -41,7 +41,7 @@ def encrypt_private_key(private_key_hex: str, password: str) -> dict:
     }
 
 
-def create_keystore(address: str, password: str, keystore_dir: Path | str = "/opt/aitbc/keystore", force: bool = False) -> Path:
+def create_keystore(address: str, password: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore", force: bool = False) -> Path:
     """Create encrypted keystore file and return its path."""
     keystore_dir = Path(keystore_dir)
     keystore_dir.mkdir(parents=True, exist_ok=True)
@@ -66,7 +66,7 @@ def create_keystore(address: str, password: str, keystore_dir: Path | str = "/op
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate encrypted keystore for an account")
     parser.add_argument("address", help="Account address (e.g., aitbc1treasury)")
-    parser.add_argument("--output-dir", type=Path, default=Path("/opt/aitbc/keystore"), help="Keystore directory")
+    parser.add_argument("--output-dir", type=Path, default=Path("/var/lib/aitbc/keystore"), help="Keystore directory")
     parser.add_argument("--force", action="store_true", help="Overwrite existing keystore file")
     parser.add_argument("--password", help="Encryption password (or read from KEYSTORE_PASSWORD / keystore/.password)")
     args = parser.parse_args()
@@ -84,11 +84,11 @@ def main() -> None:
     if not password:
         password = os.getenv("KEYSTORE_PASSWORD")
     if not password:
-        pw_file = Path("/opt/aitbc/keystore/.password")
+        pw_file = Path("/var/lib/aitbc/keystore/.password")
         if pw_file.exists():
             password = pw_file.read_text().strip()
     if not password:
-        print("No password provided. Set KEYSTORE_PASSWORD, pass --password, or create /opt/aitbc/keystore/.password")
+        print("No password provided. Set KEYSTORE_PASSWORD, pass --password, or create /var/lib/aitbc/keystore/.password")
         sys.exit(1)
 
     print(f"Generating keystore for {args.address}...")

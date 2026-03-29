@@ -19,7 +19,8 @@ from enum import Enum
 import jwt
 import hashlib
 import secrets
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..tenant_management import TenantManagementService
 from ..access_control import AccessLevel, ParticipantRole
@@ -27,7 +28,7 @@ from ..storage.db import get_db
 from ..domain.multitenant import Tenant, TenantUser, TenantApiKey, TenantQuota
 from ..exceptions import TenantError, QuotaExceededError
 
-logger = get_logger(__name__)
+
 
 # Pydantic models for API requests/responses
 class EnterpriseAuthRequest(BaseModel):

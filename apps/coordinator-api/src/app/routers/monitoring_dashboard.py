@@ -15,7 +15,7 @@ from typing import Dict, Any, List
 from ..storage import get_session
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 router = APIRouter()
 
 # Templates would be stored in a templates directory in production

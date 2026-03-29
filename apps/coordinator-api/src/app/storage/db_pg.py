@@ -8,11 +8,12 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from typing import Generator, Optional, Dict, Any, List
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime
 from decimal import Decimal
 
-logger = get_logger(__name__)
+
 
 from .config_pg import settings
 

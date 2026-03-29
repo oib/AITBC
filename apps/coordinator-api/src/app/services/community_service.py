@@ -6,7 +6,8 @@ Services for managing OpenClaw developer tools, SDKs, and third-party solutions
 from typing import Optional, List, Dict, Any
 from sqlmodel import Session, select
 from datetime import datetime
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from uuid import uuid4
 
 from ..domain.community import (
@@ -14,7 +15,7 @@ from ..domain.community import (
     CommunityPost, Hackathon, DeveloperTier, SolutionStatus, LabStatus
 )
 
-logger = get_logger(__name__)
+
 
 class DeveloperEcosystemService:
     """Service for managing the developer ecosystem and SDKs"""

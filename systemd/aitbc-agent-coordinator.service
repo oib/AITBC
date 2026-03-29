@@ -8,7 +8,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/agent-services/agent-coordinator/src
 Environment=PYTHONPATH=/opt/aitbc
-ExecStart=/opt/aitbc/agent-venv/bin/python coordinator.py
+ExecStart=/usr/bin/python3 coordinator.py
 Restart=always
 RestartSec=10
 

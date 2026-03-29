@@ -3,7 +3,7 @@ import sqlite3
 def fix_db():
     print("Fixing transaction table on aitbc node...")
     
-    conn = sqlite3.connect('/opt/aitbc/data/ait-mainnet/chain.db')
+    conn = sqlite3.connect('/var/lib/aitbc/data/ait-mainnet/chain.db')
     cursor = conn.cursor()
     
     try:

@@ -16,7 +16,7 @@ from ..schemas import ConfidentialAccessLog
 from ..config import settings
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 
 
 @dataclass

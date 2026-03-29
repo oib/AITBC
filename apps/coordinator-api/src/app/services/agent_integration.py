@@ -5,7 +5,8 @@ Integrates agent orchestration with existing ML ZK proof system and provides dep
 
 import asyncio
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from uuid import uuid4
@@ -44,7 +45,7 @@ class ZKProofService:
             "details": {"mock": True}
         }
 
-logger = get_logger(__name__)
+
 
 
 class DeploymentStatus(str, Enum):

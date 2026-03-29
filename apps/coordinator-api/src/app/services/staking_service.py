@@ -16,7 +16,7 @@ from ..domain.bounty import (
 from ..storage import get_session
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 
 class StakingService:
     """Service for managing AI agent staking"""

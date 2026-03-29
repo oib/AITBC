@@ -9,7 +9,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, and_, or_, func
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,7 +24,7 @@ from ..domain.certification import (
 from ..domain.reputation import AgentReputation
 from ..domain.rewards import AgentRewardProfile
 
-logger = get_logger(__name__)
+
 
 
 class CertificationSystem:
