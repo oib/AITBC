@@ -13,6 +13,7 @@ This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis aut
 - Redis available for cross-node gossip
 - Python venv at `/opt/aitbc/venv`
 - AITBC CLI tool available (aliased as `aitbc`)
+- CLI tool configured to use `/etc/aitbc/blockchain.env` by default
 
 ## Directory Structure
 
@@ -34,6 +35,7 @@ The workflow uses the central `/etc/aitbc/blockchain.env` file as the configurat
 - **Path Updates**: Paths are updated to use the standardized directory structure
 - **Backup Strategy**: Original config is backed up before modifications
 - **Standard Location**: Config moved to `/etc/aitbc/` following system standards
+- **CLI Integration**: AITBC CLI tool uses this config file by default
 
 ### 1. Prepare aitbc1 (Genesis Authority Node)
 
