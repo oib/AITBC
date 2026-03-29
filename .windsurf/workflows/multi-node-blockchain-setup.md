@@ -34,6 +34,7 @@ systemctl daemon-reload
 
 # 3. Create central configuration file
 cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
+# Ensure .env is in the correct location (already should be)
 mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
 
 # 4. Setup AITBC CLI tool
@@ -53,7 +54,7 @@ chmod 600 /var/lib/aitbc/keystore/.password
 
 # 7. Verify setup
 aitbc --help 2>/dev/null || echo "CLI available but limited commands"
-ls -la /etc/aitbc/blockchain.env
+ls -la /etc/aitbc/.env
 ```
 
 ## Directory Structure
@@ -69,7 +70,7 @@ ls -la /etc/aitbc/blockchain.env
 
 ### Environment Configuration
 
-The workflow uses the central `/etc/aitbc/.env` file as the configuration for both nodes:
+The workflow uses the single central `/etc/aitbc/.env` file as the configuration for both nodes:
 
 - **Base Configuration**: The central config contains all default settings
 - **Node-Specific Adaptation**: Each node adapts the config for its role (genesis vs follower)
