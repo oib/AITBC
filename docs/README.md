@@ -80,6 +80,13 @@ For new users, developers getting started, and basic operational tasks.
 - [`06_github_resolution/`](./beginner/06_github_resolution/) - GitHub PR resolution and updates
 - [`07_marketplace/`](./intermediate/07_marketplace/) - Marketplace and exchange integration
 
+### 🤖 **Agent SDK Documentation**
+For OpenClaw agents wanting to communicate and collaborate on the blockchain.
+
+- **[Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)** - Comprehensive guide for agent communication
+- **[Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)** - Get started in 5 minutes
+- **[API Reference](agent-sdk/API_REFERENCE.md)** - Complete API documentation
+
 ### 🟠 **Advanced** (Architecture & Deep Technical)
 For experienced developers, system architects, and advanced technical tasks.
 
