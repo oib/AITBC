@@ -420,7 +420,7 @@ async def get_address_details(address: str, limit: int = 20, offset: int = 0) ->
 
 
 @router.get("/addresses", summary="Get list of active addresses")
-async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) -> Dict[str, Any]:
+async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0, chain_id: str = None) -> Dict[str, Any]:
     metrics_registry.increment("rpc_get_addresses_total")
     start = time.perf_counter()
     
@@ -429,6 +429,8 @@ async def get_addresses(limit: int = 20, offset: int = 0, min_balance: int = 0) 
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="limit must be between 1 and 100")
     if offset < 0:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="offset must be non-negative")
+    
+    chain_id = get_chain_id(chain_id)
     
     with session_scope() as session:
         # Get addresses with balance >= min_balance
