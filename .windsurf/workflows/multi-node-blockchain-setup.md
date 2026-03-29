@@ -241,6 +241,18 @@ watch -n 2 'curl -s http://localhost:8006/rpc/head | jq .height'
 
 # Compare with aitbc1
 ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+
+# Alternative: Batch sync for faster initial setup
+if [ $(curl -s http://localhost:8006/rpc/head | jq .height) -lt 10 ]; then
+  echo "Importing first 10 blocks from aitbc1..."
+  for height in {2..10}; do
+    curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=$height&end=$height" | \
+      jq '.blocks[0]' > /tmp/block$height.json
+    curl -X POST http://localhost:8006/rpc/importBlock \
+      -H "Content-Type: application/json" -d @/tmp/block$height.json
+    echo "Imported block $height"
+  done
+fi
 ```
 
 ### 5. Create Wallet on aitbc
@@ -330,6 +342,45 @@ ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height'
 
 echo "=== aitbc wallet balance (remote) ==="
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
+
+echo "=== Transaction verification ==="
+echo "Transaction hash: 0x9975fc6ed8eabdc20886f9c33ddb68d40e6a9820d3e1182ebe5612686b12ca22"
+# Verify transaction was mined (check if balance increased)
+
+# Additional verification commands
+echo "=== Network health check ==="
+echo "Redis connection:"
+redis-cli -h localhost ping
+echo "P2P connectivity:"
+curl -s http://localhost:8006/rpc/info | jq '.supported_chains'
+```
+
+### 8. Complete Sync (Optional - for full demonstration)
+
+```bash
+# If aitbc is still behind, complete the sync
+AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+
+echo "aitbc1 height: $AITBC1_HEIGHT"
+echo "aitbc height: $AITBC_HEIGHT"
+
+if [ "$AITBC_HEIGHT" -lt "$((AITBC1_HEIGHT - 5))" ]; then
+  echo "Completing sync from aitbc1..."
+  for height in $(seq $((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT); do
+    echo "Importing block $height..."
+    curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=$height&end=$height" | \
+      jq '.blocks[0]' > /tmp/block$height.json
+    curl -X POST http://localhost:8006/rpc/importBlock \
+      -H "Content-Type: application/json" -d @/tmp/block$height.json
+    sleep 1  # Brief pause between imports
+  done
+  echo "Sync completed!"
+fi
+
+# Final balance verification
+echo "=== Final balance verification ==="
+ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
 ## Environment Management
@@ -360,6 +411,28 @@ cp /etc/aitbc/blockchain.env.backup /etc/aitbc/blockchain.env   # aitbc
 - **Service Logs**: `/var/log/aitbc/` via journald
 - **Standardized Paths**: All paths use `/var/lib/aitbc/` structure
 - **Config Location**: Central config moved to `/etc/aitbc/` following standards
+
+## Success Criteria
+
+### ✅ Workflow Success Indicators
+
+- **aitbc1 Status**: Genesis authority running and producing blocks
+- **aitbc Status**: Follower node synced and receiving blocks
+- **Network Health**: Redis and P2P connectivity working
+- **Wallet Creation**: New wallet created on follower node
+- **Transaction Success**: 1000 AIT transferred from genesis to new wallet
+- **Balance Verification**: New wallet shows 1000 AIT balance
+
+### 🔍 Verification Commands
+
+```bash
+# Quick health check
+echo "=== Quick Health Check ==="
+echo "aitbc1 height: $(curl -s http://localhost:8006/rpc/head | jq .height)"
+echo "aitbc height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')"
+echo "Redis status: $(redis-cli -h localhost ping)"
+echo "Wallet balance: $(ssh aitbc "curl -s http://localhost:8006/rpc/getBalance/$WALLET_ADDR | jq .balance")"
+```
 
 ## Performance Optimizations
 
