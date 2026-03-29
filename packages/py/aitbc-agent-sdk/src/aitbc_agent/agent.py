@@ -21,12 +21,12 @@ class AgentCapabilities:
     """Agent capability specification"""
     compute_type: str  # "inference", "training", "processing"
     gpu_memory: Optional[int] = None
-    supported_models: List[str] = None
+    supported_models: Optional[List[str]] = None
     performance_score: float = 0.0
     max_concurrent_jobs: int = 1
     specialization: Optional[str] = None
     
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.supported_models is None:
             self.supported_models = []
 
@@ -47,6 +47,9 @@ class AgentIdentity:
             password=None
         )
         
+        if not isinstance(private_key, rsa.RSAPrivateKey):
+            raise TypeError("Only RSA private keys are supported")
+        
         signature = private_key.sign(
             message_str.encode(),
             padding.PSS(
@@ -64,6 +67,9 @@ class AgentIdentity:
         public_key = serialization.load_pem_public_key(
             self.public_key.encode()
         )
+        
+        if not isinstance(public_key, rsa.RSAPublicKey):
+            raise TypeError("Only RSA public keys are supported")
         
         try:
             public_key.verify(
