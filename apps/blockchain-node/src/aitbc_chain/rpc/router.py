@@ -661,7 +661,7 @@ async def get_blockchain_info(chain_id: str = None) -> Dict[str, Any]:
             "genesis_params": genesis_params,
             "proposer_id": cfg.proposer_id,
             "supported_chains": [c.strip() for c in cfg.supported_chains.split(",") if c.strip()],
-            "rpc_version": "0.1.0"
+            "rpc_version": "v0.2.2"
         }
         
         metrics_registry.observe("rpc_info_duration_seconds", time.perf_counter() - start)

@@ -108,7 +108,7 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="AITBC Blockchain Node", version="0.1.0", lifespan=lifespan)
+    app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
 
     # Middleware (applied in reverse order)
     app.add_middleware(RequestLoggingMiddleware)
