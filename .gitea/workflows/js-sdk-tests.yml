@@ -36,6 +36,10 @@ jobs:
       - name: Install dependencies
         run: |
           cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          
           if [[ -f package-lock.json ]]; then
             npm ci
           else
