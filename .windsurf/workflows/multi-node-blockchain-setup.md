@@ -126,16 +126,16 @@ ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc1.backup
 
 # Update .env for aitbc1 genesis authority configuration
-sed -i 's|proposer_id=.*|proposer_id=aitbc1genesis|g' /etc/aitbc/blockchain.env
-sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/blockchain.env
-sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/blockchain.env
-sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/blockchain.env
-sed -i 's|enable_block_production=true|enable_block_production=true|g' /etc/aitbc/blockchain.env
-sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g' /etc/aitbc/blockchain.env
-sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/blockchain.env
+sed -i 's|proposer_id=.*|proposer_id=aitbc1genesis|g' /etc/aitbc/.env
+sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
+sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
+sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
+sed -i 's|enable_block_production=true|enable_block_production=true|g' /etc/aitbc/.env
+sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g' /etc/aitbc/.env
+sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
 
 # Add trusted proposers for follower nodes
-echo "trusted_proposers=aitbc1genesis" >> /etc/aitbc/blockchain.env
+echo "trusted_proposers=aitbc1genesis" >> /etc/aitbc/.env
 
 # Create genesis block with wallets (using Python script until CLI is fully implemented)
 cd /opt/aitbc/apps/blockchain-node
@@ -145,10 +145,10 @@ cd /opt/aitbc/apps/blockchain-node
   --total-supply 1000000000
 
 # Get actual genesis wallet address and update config
-GENESIS_ADDR=$(cat /opt/aitbc/apps/blockchain-node/keystore/aitbc1genesis.json | jq -r '.address')
+GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')
 echo "Genesis address: $GENESIS_ADDR"
-sed -i "s|proposer_id=.*|proposer_id=$GENESIS_ADDR|g" /etc/aitbc/blockchain.env
-sed -i "s|trusted_proposers=.*|trusted_proposers=$GENESIS_ADDR|g" /etc/aitbc/blockchain.env
+sed -i "s|proposer_id=.*|proposer_id=$GENESIS_ADDR|g" /etc/aitbc/.env
+sed -i "s|trusted_proposers=.*|trusted_proposers=$GENESIS_ADDR|g" /etc/aitbc/.env
 
 # Copy genesis and allocations to standard location
 mkdir -p /var/lib/aitbc/data/ait-mainnet
@@ -156,7 +156,7 @@ cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/genesis.json /var/lib/aitbc/
 cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
 cp /opt/aitbc/apps/blockchain-node/keystore/* /var/lib/aitbc/keystore/
 
-# Note: systemd services should already use /etc/aitbc/blockchain.env
+# Note: systemd services should already use /etc/aitbc/.env
 # No need to update systemd if they are properly configured
 
 # Enable and start blockchain services
@@ -204,21 +204,21 @@ ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup
 
 # Update .env for aitbc follower node configuration
-sed -i 's|proposer_id=.*|proposer_id=follower-node-aitbc|g' /etc/aitbc/blockchain.env
-sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/blockchain.env
-sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/blockchain.env
-sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/blockchain.env
-sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/blockchain.env
-sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://10.1.223.40:6379|g' /etc/aitbc/blockchain.env
-sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/blockchain.env
-sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96|g' /etc/aitbc/blockchain.env
+sed -i 's|proposer_id=.*|proposer_id=follower-node-aitbc|g' /etc/aitbc/.env
+sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
+sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
+sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
+sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/.env
+sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://10.1.223.40:6379|g' /etc/aitbc/.env
+sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
+sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96|g' /etc/aitbc/.env
 
 # Note: aitbc should sync genesis from aitbc1, not copy it
 # The follower node will receive the genesis block via blockchain sync
 # ⚠️  DO NOT: scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
 # ✅ INSTEAD: Wait for automatic sync via blockchain protocol
 
-# Note: systemd services should already use /etc/aitbc/blockchain.env
+# Note: systemd services should already use /etc/aitbc/.env
 # No need to update systemd if they are properly configured
 
 # Stop any existing services and clear old data
