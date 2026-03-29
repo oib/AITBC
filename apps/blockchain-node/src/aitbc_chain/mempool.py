@@ -115,6 +115,22 @@ class InMemoryMempool:
         with self._lock:
             return len(self._transactions)
 
+    def get_pending_transactions(self, chain_id: str = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get pending transactions for RPC endpoint"""
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
+        
+        with self._lock:
+            # Get transactions sorted by fee (highest first) and time
+            sorted_txs = sorted(
+                self._transactions.values(),
+                key=lambda t: (-t.fee, t.received_at)
+            )
+            
+            # Return only the content, limited by the limit parameter
+            return [tx.content for tx in sorted_txs[:limit]]
+
     def _evict_lowest_fee(self) -> None:
         """Evict the lowest-fee transaction to make room."""
         if not self._transactions:
@@ -258,6 +274,20 @@ class DatabaseMempool:
             chain_id = settings.chain_id
         with self._lock:
             return self._conn.execute("SELECT COUNT(*) FROM mempool WHERE chain_id = ?", (chain_id,)).fetchone()[0]
+
+    def get_pending_transactions(self, chain_id: str = None, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get pending transactions for RPC endpoint"""
+        from .config import settings
+        if chain_id is None:
+            chain_id = settings.chain_id
+        
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT content FROM mempool WHERE chain_id = ? ORDER BY fee DESC, received_at ASC LIMIT ?",
+                (chain_id, limit)
+            ).fetchall()
+        
+        return [json.loads(row[0]) for row in rows]
 
     def _update_gauge(self, chain_id: str = None) -> None:
         from .config import settings
