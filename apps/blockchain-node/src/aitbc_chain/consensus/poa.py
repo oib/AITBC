@@ -151,7 +151,7 @@ class PoAProposer:
                     tx_data = tx.content
                     sender = tx_data.get("sender")
                     recipient = tx_data.get("payload", {}).get("to")
-                    value = tx_data.get("payload", {}).get("value", 0)
+                    value = tx_data.get("payload", {}).get("amount", 0)  # Fixed: use "amount" instead of "value"
                     fee = tx_data.get("fee", 0)
                     
                     if not sender or not recipient:
