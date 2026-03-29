@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class JobRequest:
     """Compute job request specification"""
+
     consumer_id: str
     job_type: str
     model_id: Optional[str] = None
@@ -28,6 +29,7 @@ class JobRequest:
 @dataclass
 class JobResult:
     """Result from a compute job"""
+
     job_id: str
     provider_id: str
     status: str  # "completed", "failed", "timeout"
@@ -46,9 +48,13 @@ class ComputeConsumer(Agent):
         self.completed_jobs: List[JobResult] = []
         self.total_spent: float = 0.0
 
-    async def submit_job(self, job_type: str, input_data: Dict[str, Any],
-                         requirements: Optional[Dict[str, Any]] = None,
-                         max_price: float = 0.0) -> str:
+    async def submit_job(
+        self,
+        job_type: str,
+        input_data: Dict[str, Any],
+        requirements: Optional[Dict[str, Any]] = None,
+        max_price: float = 0.0,
+    ) -> str:
         """Submit a compute job to the network"""
         job = JobRequest(
             consumer_id=self.identity.id,
