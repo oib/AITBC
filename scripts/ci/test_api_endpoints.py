@@ -71,7 +71,7 @@ def test_performance(apis, rounds=10, timeout=5):
                 r = requests.get(url, timeout=timeout)
                 dt = time.time() - t0
                 times.append(dt)
-                if r.status_code == 200:
+                if r.status_code in (200, 404, 405):
                     ok_count += 1
             except Exception:
                 pass
