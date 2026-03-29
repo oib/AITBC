@@ -16,7 +16,7 @@ from decimal import Decimal
 import json
 
 # Database configurations
-SQLITE_DB = "/opt/aitbc/data/coordinator.db"
+SQLITE_DB = "/var/lib/aitbc/data/coordinator.db"
 PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_coordinator",

@@ -6,7 +6,8 @@ REST API endpoints for advanced agent orchestration, edge computing integration,
 """
 
 from typing import List, Optional
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -25,7 +26,7 @@ from ..schemas.openclaw_enhanced import (
     EcosystemDevelopmentRequest, EcosystemDevelopmentResponse
 )
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/openclaw/enhanced", tags=["OpenClaw Enhanced"])
 

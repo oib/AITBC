@@ -46,6 +46,13 @@ data/
 apps/blockchain-node/data/
 
 # ===================
+# Runtime Directories (System Standard)
+# ===================
+/var/lib/aitbc/
+/etc/aitbc/
+/var/log/aitbc/
+
+# ===================
 # Logs & Runtime
 # ===================
 *.log

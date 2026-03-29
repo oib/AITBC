@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Any, Dict, Optional
 from secrets import token_hex
 from datetime import datetime
 
-logger = get_logger(__name__)
+
 
 from aitbc_crypto.signing import ReceiptSigner
 

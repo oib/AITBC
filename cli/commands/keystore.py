@@ -23,14 +23,14 @@ def keystore():
 @click.option("--address", required=True, help="Wallet address (id) to create")
 @click.option(
     "--password-file",
-    default="/opt/aitbc/data/keystore/.password",
+    default="/var/lib/aitbc/keystore/.password",
     show_default=True,
     type=click.Path(exists=True, dir_okay=False),
     help="Path to password file",
 )
 @click.option(
     "--output",
-    default="/opt/aitbc/data/keystore",
+    default="/var/lib/aitbc/keystore",
     show_default=True,
     help="Directory to write keystore files",
 )

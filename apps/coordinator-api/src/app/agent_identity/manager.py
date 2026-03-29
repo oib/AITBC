@@ -8,7 +8,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete
 from sqlalchemy.exc import SQLAlchemyError
@@ -25,7 +26,7 @@ from .core import AgentIdentityCore
 from .registry import CrossChainRegistry
 from .wallet_adapter import MultiChainWalletAdapter
 
-logger = get_logger(__name__)
+
 
 
 class AgentIdentityManager:

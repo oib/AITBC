@@ -15,9 +15,10 @@ from dataclasses import dataclass, field
 import hashlib
 import secrets
 from pydantic import BaseModel, Field, validator
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 class RegionStatus(str, Enum):
     """Region deployment status"""

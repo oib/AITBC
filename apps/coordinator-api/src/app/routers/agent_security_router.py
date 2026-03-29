@@ -7,7 +7,8 @@ Provides REST API endpoints for security management and auditing
 
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Optional
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..domain.agent import (
     AIAgentWorkflow, AgentExecution, AgentStatus, VerificationLevel
@@ -21,7 +22,7 @@ from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session, select
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/agents/security", tags=["Agent Security"])
 

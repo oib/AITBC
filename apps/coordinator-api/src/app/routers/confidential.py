@@ -27,7 +27,7 @@ from ..services.access_control import AccessController
 from ..auth import get_api_key
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 
 # Initialize router and security
 router = APIRouter(prefix="/confidential", tags=["confidential"])

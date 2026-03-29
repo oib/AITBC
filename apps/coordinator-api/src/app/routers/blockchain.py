@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 router = APIRouter(tags=["blockchain"])
 
 

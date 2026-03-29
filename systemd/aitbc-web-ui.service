@@ -27,7 +27,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data
+ReadWritePaths=/var/lib/aitbc/logs /var/lib/aitbc/data
 LimitNOFILE=65536
 
 # Resource limits

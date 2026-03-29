@@ -8,7 +8,8 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 import random
 
 from sqlmodel import Session, select, update, delete, and_, or_, func
@@ -18,7 +19,7 @@ from ..domain.agent_performance import (
     CreativeCapability, AgentCapability, AgentPerformanceProfile
 )
 
-logger = get_logger(__name__)
+
 
 
 class CreativityEnhancementEngine:

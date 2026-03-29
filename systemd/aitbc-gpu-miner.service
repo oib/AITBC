@@ -9,7 +9,7 @@ User=debian
 Group=debian
 WorkingDirectory=/home/debian/aitbc
 Environment=PYTHONPATH=/home/debian/aitbc
-ExecStart=/home/debian/aitbc/venv/bin/python /home/debian/aitbc/gpu_miner_simple.py
+ExecStart=/usr/bin/python3 /home/debian/aitbc/gpu_miner_simple.py
 Restart=on-failure
 RestartSec=30
 StartLimitInterval=300

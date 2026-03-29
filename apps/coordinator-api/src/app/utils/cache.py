@@ -7,9 +7,10 @@ from typing import Any, Optional, Dict
 from functools import wraps
 import hashlib
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 
 class CacheManager:

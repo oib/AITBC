@@ -12,9 +12,10 @@ from typing import Dict, List, Any, Optional, Tuple
 from collections import deque, defaultdict
 import json
 from dataclasses import dataclass, asdict
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 
 @dataclass

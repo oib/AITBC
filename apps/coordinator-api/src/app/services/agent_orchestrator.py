@@ -4,7 +4,8 @@ Implements multi-agent coordination and sub-task management
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime, timedelta
 from enum import Enum
@@ -14,7 +15,7 @@ from dataclasses import dataclass, asdict, field
 from .task_decomposition import TaskDecomposition, SubTask, SubTaskStatus, GPU_Tier
 from .bid_strategy_engine import BidResult, BidStrategy, UrgencyLevel
 
-logger = get_logger(__name__)
+
 
 
 class OrchestratorStatus(str, Enum):

@@ -12,7 +12,8 @@ from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
 import json
 from decimal import Decimal
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, func, Field
 from sqlalchemy.exc import SQLAlchemyError
@@ -26,7 +27,7 @@ from ..domain.marketplace import MarketplaceOffer, MarketplaceBid
 from ..domain.agent_identity import AgentIdentity
 from ..reputation.engine import CrossChainReputationEngine
 
-logger = get_logger(__name__)
+
 
 
 class GlobalMarketplaceService:

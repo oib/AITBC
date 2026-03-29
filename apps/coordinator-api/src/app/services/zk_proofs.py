@@ -9,12 +9,15 @@ from pathlib import Path
 from typing import Dict, Any, Optional, List
 import tempfile
 import os
+import logging
 
 from ..schemas import Receipt, JobResult
 from ..config import settings
 from ..logging import get_logger
 
 logger = get_logger(__name__)
+
+
 
 
 class ZKProofService:

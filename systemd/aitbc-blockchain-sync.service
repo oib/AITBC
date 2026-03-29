@@ -8,10 +8,10 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
 EnvironmentFile=/opt/aitbc/.env
-Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
 EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.chain_sync --redis redis://localhost:6379 --node-id ait18yefwwclgmyu2a74zvv0hj3a3xw6gxsn4akrj963kp069j9xy5ns3kurun --rpc-port 8006 --leader-host 10.1.223.40 --source-host 10.1.223.40 --source-port 8006 --import-host 10.1.223.40 --import-port 8006
+ExecStart=/usr/bin/python3 -m aitbc_chain.chain_sync --redis redis://localhost:6379 --node-id ait18yefwwclgmyu2a74zvv0hj3a3xw6gxsn4akrj963kp069j9xy5ns3kurun --rpc-port 8006 --leader-host 10.1.223.40 --source-host 10.1.223.40 --source-port 8006 --import-host 10.1.223.40 --import-port 8006
 Restart=always
 RestartSec=5
 StandardOutput=journal

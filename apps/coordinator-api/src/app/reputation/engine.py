@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, func
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,7 +21,7 @@ from ..domain.cross_chain_reputation import (
     CrossChainReputationConfig, ReputationMetrics
 )
 
-logger = get_logger(__name__)
+
 
 
 class CrossChainReputationEngine:

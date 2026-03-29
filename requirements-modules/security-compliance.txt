@@ -1,0 +1,12 @@
+# AITBC Security & Compliance Module Requirements
+# Specialized dependencies for security, authentication, and compliance
+
+# Authentication & Security
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+
+# Encryption & Cryptography (additional to core)
+cryptography>=41.0.0
+
+# Compliance & Monitoring
+sentry-sdk>=2.0.0
