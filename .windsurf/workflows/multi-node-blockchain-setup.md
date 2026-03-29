@@ -47,8 +47,11 @@ git pull origin main
 # Install/update dependencies
 /opt/aitbc/venv/bin/pip install -r requirements.txt
 
-# Create required directories
+# Check and create required directories if they don't exist
 mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+# Verify directories exist
+ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 
 # Copy and adapt central .env for aitbc1 (genesis authority)
 cp /opt/aitbc/.env /opt/aitbc/.env.aitbc1.backup
@@ -119,8 +122,11 @@ git pull origin main
 # Install/update dependencies
 /opt/aitbc/venv/bin/pip install -r requirements.txt
 
-# Create required directories
+# Check and create required directories if they don't exist
 mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+# Verify directories exist
+ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 
 # Copy and adapt central .env for aitbc (follower node)
 cp /opt/aitbc/.env /opt/aitbc/.env.aitbc.backup
