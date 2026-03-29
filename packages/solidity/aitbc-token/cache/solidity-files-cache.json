@@ -1,18 +1,18 @@
 {
   "_format": "hh-sol-cache-2",
   "files": {
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/contracts/AIToken.sol": {
-      "lastModificationDate": 1758948750896,
+    "/opt/aitbc/packages/solidity/aitbc-token/contracts/AIToken.sol": {
+      "lastModificationDate": 1774686815247,
       "contentHash": "9da3e499c2dda7c4cfdc56c633b86873",
       "sourceName": "contracts/AIToken.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -42,18 +42,18 @@
         "AIToken"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/access/AccessControl.sol": {
-      "lastModificationDate": 1758948616475,
-      "contentHash": "d0e2c05f09a3aea7cd299bbd4a435ee2",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/access/AccessControl.sol": {
+      "lastModificationDate": 1774782027955,
+      "contentHash": "798a29e3c30dbd3eda1a67add26571e2",
       "sourceName": "@openzeppelin/contracts/access/AccessControl.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -82,18 +82,54 @@
         "AccessControl"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
-      "lastModificationDate": 1758948616511,
-      "contentHash": "59dfce11284f2636db261df9b6a18f81",
-      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
+      "lastModificationDate": 1774782027963,
+      "contentHash": "b038f3665d2262af34fe6009e3cd78dd",
+      "sourceName": "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "ECDSA"
+      ]
+    },
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/ERC20.sol": {
+      "lastModificationDate": 1774782027967,
+      "contentHash": "d15c4d05583536e080f1960ab282772d",
+      "sourceName": "@openzeppelin/contracts/token/ERC20/ERC20.sol",
+      "solcConfig": {
+        "version": "0.8.25",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -123,54 +159,18 @@
         "ERC20"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/ECDSA.sol": {
-      "lastModificationDate": 1758948616491,
-      "contentHash": "81de029d56aa803972be03c5d277cb6c",
-      "sourceName": "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "ECDSA"
-      ]
-    },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol": {
-      "lastModificationDate": 1758948616595,
-      "contentHash": "260f3968eefa3bbd30520cff5384cd93",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol": {
+      "lastModificationDate": 1774782027987,
+      "contentHash": "fab97298382d4c32182a66ec35255b71",
       "sourceName": "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -191,60 +191,24 @@
         "../Strings.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.24"
       ],
       "artifacts": [
         "MessageHashUtils"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/access/IAccessControl.sol": {
-      "lastModificationDate": 1758948616567,
-      "contentHash": "def1e8f7b6cac577cf2600655bf3bdf8",
-      "sourceName": "@openzeppelin/contracts/access/IAccessControl.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        ">=0.8.4"
-      ],
-      "artifacts": [
-        "IAccessControl"
-      ]
-    },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Context.sol": {
-      "lastModificationDate": 1758948616483,
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Context.sol": {
+      "lastModificationDate": 1774782027959,
       "contentHash": "67bfbc07588eb8683b3fd8f6f909563e",
       "sourceName": "@openzeppelin/contracts/utils/Context.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -269,18 +233,18 @@
         "Context"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": {
-      "lastModificationDate": 1758948616511,
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/introspection/ERC165.sol": {
+      "lastModificationDate": 1774782027967,
       "contentHash": "0906d06dca25210d4696dcef6dad2909",
       "sourceName": "@openzeppelin/contracts/utils/introspection/ERC165.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -307,18 +271,54 @@
         "ERC165"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
-      "lastModificationDate": 1758948616575,
-      "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
-      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/access/IAccessControl.sol": {
+      "lastModificationDate": 1774782027979,
+      "contentHash": "def1e8f7b6cac577cf2600655bf3bdf8",
+      "sourceName": "@openzeppelin/contracts/access/IAccessControl.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        ">=0.8.4"
+      ],
+      "artifacts": [
+        "IAccessControl"
+      ]
+    },
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/introspection/IERC165.sol": {
+      "lastModificationDate": 1774782027983,
+      "contentHash": "7074c93b1ea0a122063f26ddd1db1032",
+      "sourceName": "@openzeppelin/contracts/utils/introspection/IERC165.sol",
+      "solcConfig": {
+        "version": "0.8.25",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -343,18 +343,18 @@
         "IERC165"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
-      "lastModificationDate": 1758948616491,
-      "contentHash": "5041977bbe908de2e6ed0270447f79ad",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/interfaces/draft-IERC6093.sol": {
+      "lastModificationDate": 1774782027963,
+      "contentHash": "bcc76f4747d56c28c40ae272ef3470a6",
       "sourceName": "@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -381,18 +381,18 @@
         "IERC721Errors"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
-      "lastModificationDate": 1758948616579,
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
+      "lastModificationDate": 1774782027983,
       "contentHash": "9261adf6457863de3e9892f51317ec89",
       "sourceName": "@openzeppelin/contracts/token/ERC20/IERC20.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -417,18 +417,18 @@
         "IERC20"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
-      "lastModificationDate": 1758948616579,
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol": {
+      "lastModificationDate": 1774782027983,
       "contentHash": "513778b30d2750f5d2b9b19bbcf748a5",
       "sourceName": "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -455,18 +455,18 @@
         "IERC20Metadata"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
-      "lastModificationDate": 1758948616623,
-      "contentHash": "d8f70caf0e0c77dc908176ed44812fb7",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Strings.sol": {
+      "lastModificationDate": 1774782027999,
+      "contentHash": "d2fa243e766a193585b7e9bf36898d80",
       "sourceName": "@openzeppelin/contracts/utils/Strings.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -486,27 +486,104 @@
       "imports": [
         "./math/Math.sol",
         "./math/SafeCast.sol",
-        "./math/SignedMath.sol"
+        "./math/SignedMath.sol",
+        "./Bytes.sol"
       ],
       "versionPragmas": [
-        "^0.8.20"
+        "^0.8.24"
       ],
       "artifacts": [
         "Strings"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
-      "lastModificationDate": 1758948616595,
-      "contentHash": "5ec781e33d3a9ac91ffdc83d94420412",
-      "sourceName": "@openzeppelin/contracts/utils/math/Math.sol",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Bytes.sol": {
+      "lastModificationDate": 1774782027959,
+      "contentHash": "3b32ea3a40a2d708f61e7161f081ca93",
+      "sourceName": "@openzeppelin/contracts/utils/Bytes.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./math/Math.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.24"
+      ],
+      "artifacts": [
+        "Bytes"
+      ]
+    },
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
+      "lastModificationDate": 1774782027995,
+      "contentHash": "ae3528afb8bdb0a7dcfba5b115ee8074",
+      "sourceName": "@openzeppelin/contracts/utils/math/SignedMath.sol",
+      "solcConfig": {
+        "version": "0.8.25",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./SafeCast.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "SignedMath"
+      ]
+    },
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/Math.sol": {
+      "lastModificationDate": 1774782027987,
+      "contentHash": "5b8c6935ac52b7494df19d6feb38f5cc",
+      "sourceName": "@openzeppelin/contracts/utils/math/Math.sol",
+      "solcConfig": {
+        "version": "0.8.25",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -534,56 +611,18 @@
         "Math"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/SignedMath.sol": {
-      "lastModificationDate": 1758948616619,
-      "contentHash": "ae3528afb8bdb0a7dcfba5b115ee8074",
-      "sourceName": "@openzeppelin/contracts/utils/math/SignedMath.sol",
-      "solcConfig": {
-        "version": "0.8.24",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "evmVersion": "paris",
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [
-        "./SafeCast.sol"
-      ],
-      "versionPragmas": [
-        "^0.8.20"
-      ],
-      "artifacts": [
-        "SignedMath"
-      ]
-    },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/SafeCast.sol": {
-      "lastModificationDate": 1758948616611,
-      "contentHash": "2adca1150f58fc6f3d1f0a0f22ee7cca",
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/math/SafeCast.sol": {
+      "lastModificationDate": 1774782027995,
+      "contentHash": "f28a38cd37f4225d0a91fb5405dd850f",
       "sourceName": "@openzeppelin/contracts/utils/math/SafeCast.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -608,18 +647,18 @@
         "SafeCast"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Panic.sol": {
-      "lastModificationDate": 1758948616603,
+    "/opt/aitbc/packages/solidity/aitbc-token/node_modules/@openzeppelin/contracts/utils/Panic.sol": {
+      "lastModificationDate": 1774782027991,
       "contentHash": "2133dc13536b4a6a98131e431fac59e1",
       "sourceName": "@openzeppelin/contracts/utils/Panic.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
@@ -644,18 +683,18 @@
         "Panic"
       ]
     },
-    "/home/oib/windsurf/aitbc/packages/solidity/aitbc-token/contracts/AITokenRegistry.sol": {
-      "lastModificationDate": 1758946778726,
+    "/opt/aitbc/packages/solidity/aitbc-token/contracts/AITokenRegistry.sol": {
+      "lastModificationDate": 1774686815247,
       "contentHash": "5e787829fa19b0a69c958e431fea5757",
       "sourceName": "contracts/AITokenRegistry.sol",
       "solcConfig": {
-        "version": "0.8.24",
+        "version": "0.8.25",
         "settings": {
           "optimizer": {
             "enabled": true,
             "runs": 200
           },
-          "evmVersion": "paris",
+          "evmVersion": "cancun",
           "outputSelection": {
             "*": {
               "*": [
