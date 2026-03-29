@@ -17,12 +17,22 @@ This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis aut
 
 - `/opt/aitbc/venv` - Central Python virtual environment
 - `/opt/aitbc/requirements.txt` - Python dependencies
+- `/opt/aitbc/.env` - Central environment configuration
 - `/var/lib/aitbc/data` - Blockchain database files
 - `/var/lib/aitbc/keystore` - Wallet credentials
-- `/etc/aitbc/` - Configuration files
+- `/etc/aitbc/` - System configuration files
 - `/var/log/aitbc/` - Service logs
 
 ## Steps
+
+### Environment Configuration
+
+The workflow uses the central `/opt/aitbc/.env` file as the base configuration for both nodes:
+
+- **Base Configuration**: The central `.env` contains all default settings
+- **Node-Specific Adaptation**: Each node adapts the `.env` for its role (genesis vs follower)
+- **Path Updates**: Paths are updated to use the standardized directory structure
+- **Backup Strategy**: Original `.env` is backed up before modifications
 
 ### 1. Prepare aitbc1 (Genesis Authority Node)
 
@@ -40,26 +50,20 @@ git pull origin main
 # Create required directories
 mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-# Set up environment configuration
-cat > /etc/aitbc/blockchain.env << 'EOF'
-# Blockchain Node Configuration (aitbc1 - genesis authority)
-chain_id=ait-mainnet
-supported_chains=ait-mainnet
-rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
-p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
-proposer_id=aitbc1genesis
-enable_block_production=true
-block_time_seconds=10
-keystore_path=/var/lib/aitbc/keystore
-keystore_password_file=/var/lib/aitbc/keystore/.password
-gossip_backend=broadcast
-gossip_broadcast_url=redis://localhost:6379
-db_path=/var/lib/aitbc/data/ait-mainnet/chain.db
-mint_per_unit=0
-coordinator_ratio=0.05
-EOF
+# Copy and adapt central .env for aitbc1 (genesis authority)
+cp /opt/aitbc/.env /opt/aitbc/.env.aitbc1.backup
+
+# Update .env for aitbc1 genesis authority configuration
+sed -i 's|proposer_id=.*|proposer_id=aitbc1genesis|g' /opt/aitbc/.env
+sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /opt/aitbc/.env
+sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /opt/aitbc/.env
+sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /opt/aitbc/.env
+sed -i 's|enable_block_production=true|enable_block_production=true|g' /opt/aitbc/.env
+sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g' /opt/aitbc/.env
+sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /opt/aitbc/.env
+
+# Add trusted proposers for follower nodes
+echo "trusted_proposers=aitbc1genesis" >> /opt/aitbc/.env
 
 # Create genesis block with wallets
 cd /opt/aitbc/apps/blockchain-node
@@ -74,10 +78,10 @@ cp data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
 cp data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
 cp keystore/* /var/lib/aitbc/keystore/
 
-# Update systemd services to use new paths
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
-sed -i 's|WorkingDirectory=/opt/aitbc/apps/blockchain-node|WorkingDirectory=/opt/aitbc/apps/blockchain-node|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
-sed -i 's|ExecStart=/opt/aitbc/venv/bin/python|ExecStart=/opt/aitbc/venv/bin/python|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+# Update systemd services to use central .env and standard paths
+# Note: systemd services already reference /opt/aitbc/.env by default
+# No need to modify EnvironmentFile as they should use the central .env
+# Just ensure the paths in .env are correct for the standard directory structure
 
 # Enable and start blockchain services
 systemctl daemon-reload
@@ -117,33 +121,25 @@ git pull origin main
 # Create required directories
 mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-# Set up follower configuration
-cat > /etc/aitbc/blockchain.env << 'EOF'
-# Blockchain Node Configuration (aitbc - follower node)
-chain_id=ait-mainnet
-supported_chains=ait-mainnet
-rpc_bind_host=0.0.0.0
-rpc_bind_port=8006
-p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
-proposer_id=follower-node-aitbc
-enable_block_production=false
-block_time_seconds=10
-keystore_path=/var/lib/aitbc/keystore
-keystore_password_file=/var/lib/aitbc/keystore/.password
-gossip_backend=broadcast
-gossip_broadcast_url=redis://10.1.223.40:6379
-db_path=/var/lib/aitbc/data/ait-mainnet/chain.db
-mint_per_unit=0
-coordinator_ratio=0.05
-EOF
+# Copy and adapt central .env for aitbc (follower node)
+cp /opt/aitbc/.env /opt/aitbc/.env.aitbc.backup
 
-# Copy genesis from aitbc1
-scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
-scp aitbc1:/var/lib/aitbc/data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
+# Update .env for aitbc follower node configuration
+sed -i 's|proposer_id=.*|proposer_id=follower-node-aitbc|g' /opt/aitbc/.env
+sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /opt/aitbc/.env
+sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /opt/aitbc/.env
+sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /opt/aitbc/.env
+sed -i 's|enable_block_production=true|enable_block_production=false|g' /opt/aitbc/.env
+sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://10.1.223.40:6379|g' /opt/aitbc/.env
+sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /opt/aitbc/.env
+sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96|g' /opt/aitbc/.env
 
-# Update systemd services
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+# Note: aitbc should sync genesis from aitbc1, not copy it
+# The follower node will receive the genesis block via blockchain sync
+
+# Note: systemd services already reference /opt/aitbc/.env by default
+# No need to modify EnvironmentFile as they should use the central .env
+# The .env file has been updated above with follower node configuration
 
 # Stop any existing services and clear old data
 systemctl stop aitbc-blockchain-* 2>/dev/null || true
@@ -253,17 +249,37 @@ echo "=== aitbc wallet balance ==="
 curl -s "http://localhost:8006/rpc/getBalance/$WALLET_ADDR" | jq .
 ```
 
+## Environment Management
+
+### Central .env Configuration
+
+The workflow uses `/opt/aitbc/.env` as the central configuration file:
+
+```bash
+# View current configuration
+cat /opt/aitbc/.env
+
+# Restore from backup if needed
+cp /opt/aitbc/.env.aitbc1.backup /opt/aitbc/.env  # aitbc1
+cp /opt/aitbc/.env.aitbc.backup /opt/aitbc/.env   # aitbc
+
+# Key configuration differences:
+# aitbc1: proposer_id=aitbc1genesis, enable_block_production=true
+# aitbc: proposer_id=follower-node-aitbc, enable_block_production=false
+```
+
+### Service Configuration
+
+- **Environment File**: All services use `/opt/aitbc/.env` (no separate config files)
+- **Virtual Environment**: Central venv at `/opt/aitbc/venv`
+- **Database Files**: `/var/lib/aitbc/data`
+- **Wallet Credentials**: `/var/lib/aitbc/keystore`
+- **Service Logs**: `/var/log/aitbc/` via journald
+
 ## Troubleshooting
 
 - **Services won't start**: Check `/var/log/aitbc/` for service logs
 - **Sync issues**: Verify Redis connectivity between nodes
 - **Transaction failures**: Check wallet nonce and balance
 - **Permission errors**: Ensure `/var/lib/aitbc/` is owned by root with proper permissions
-
-## Notes
-
-- Only one `.env` file is used at `/etc/aitbc/blockchain.env`
-- All services use the central venv at `/opt/aitbc/venv`
-- Database files are stored in `/var/lib/aitbc/data`
-- Wallet credentials are in `/var/lib/aitbc/keystore`
-- Service logs go to `/var/log/aitbc/` via journald
+- **Configuration issues**: Verify `.env` file contents and systemd service EnvironmentFile paths
