@@ -859,7 +859,7 @@ cat /opt/aitbc/performance/baseline.txt
    ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats | jq .'
    ```
 
-5. **� Basic Monitoring Setup**
+5. **📊 Basic Monitoring Setup**
    ```bash
    # Setup basic monitoring without Grafana/Prometheus
    /opt/aitbc/scripts/workflow/22_advanced_monitoring.sh
@@ -867,6 +867,102 @@ cat /opt/aitbc/performance/baseline.txt
    # Start metrics API: python3 /opt/aitbc/monitoring/metrics_api.py
    # Dashboard: http://<node-ip>:8080
    ```
+
+6. **🔗 Cross-Node Consensus Testing**
+   ```bash
+   # Test and debug consensus mechanisms between nodes
+   /opt/aitbc/scripts/workflow/31_consensus_testing.sh
+   
+   # View consensus debugging report
+   cat /opt/aitbc/consensus_debug_*.txt
+   ```
+
+7. **📜 Smart Contract Testing & Service Integration**
+   ```bash
+   # Test and debug smart contracts and service integrations
+   /opt/aitbc/scripts/workflow/32_contract_service_testing.sh
+   
+   # View contract debugging report
+   cat /opt/aitbc/contract_debug_*.txt
+   ```
+
+8. **🔧 Enhanced Contract & Service Testing**
+   ```bash
+   # Test available services with proper API structure
+   /opt/aitbc/scripts/workflow/33_enhanced_contract_service_testing.sh
+   
+   # View enhanced debugging report
+   cat /opt/aitbc/enhanced_contract_debug_*.txt
+   
+   # View testing fixes applied
+   cat /opt/aitbc/final_testing_fixes.txt
+   ```
+
+9. **🏥 Service Health Monitoring & Alerting**
+   ```bash
+   # Run quick health check of all services
+   /opt/aitbc/scripts/workflow/34_service_health_monitoring.sh quick
+   
+   # Run continuous monitoring (5 minutes)
+   /opt/aitbc/scripts/workflow/34_service_health_monitoring.sh continuous 300
+   
+   # View recent alerts
+   /opt/aitbc/scripts/workflow/34_service_health_monitoring.sh alerts
+   
+   # Generate monitoring report
+   /opt/aitbc/scripts/workflow/34_service_health_monitoring.sh report
+   ```
+
+10. **🚀 Contract Deployment & Service Integration**
+    ```bash
+    # Run end-to-end contract deployment and service integration testing
+    /opt/aitbc/scripts/workflow/35_contract_deployment_integration.sh
+    
+    # View integration report
+    cat /opt/aitbc/contract_integration_report_*.txt
+    ```
+
+11. **🔒 Contract Security & Vulnerability Testing**
+    ```bash
+    # Run comprehensive security analysis for contracts and services
+    /opt/aitbc/scripts/workflow/36_contract_security_testing.sh
+    
+    # View security reports
+    cat /opt/aitbc/security_reports/security_report_*.txt
+    
+    # View security findings
+    cat /opt/aitbc/security_reports/security_findings.log
+    ```
+
+12. **📊 Contract Event Monitoring & Logging**
+    ```bash
+    # Run comprehensive event monitoring and logging
+    /opt/aitbc/scripts/workflow/37_contract_event_monitoring.sh
+    
+    # View contract events
+    tail -f /var/log/aitbc/events/contract_events.log
+    
+    # View service events
+    tail -f /var/log/aitbc/events/service_events.log
+    
+    # View event dashboard
+    cat /var/log/aitbc/events/event_dashboard_*.txt
+    ```
+
+13. **📈 Contract Data Analytics & Reporting**
+    ```bash
+    # Run comprehensive data analytics and reporting
+    /opt/aitbc/scripts/workflow/38_contract_data_analytics.sh
+    
+    # View analytics reports
+    cat /var/log/aitbc/analytics/reports/analytics_report_*.txt
+    
+    # View analytics data
+    cat /var/log/aitbc/analytics/data/contract_metrics.csv
+    
+    # View visualization data
+    cat /var/log/aitbc/analytics/visualizations/contract_metrics.json
+    ```
 
 ### **Short-term Goals (1-4 weeks)**
 
@@ -948,6 +1044,15 @@ cat /opt/aitbc/performance/baseline.txt
     ssh aitbc 'curl -s http://localhost:8006/rpc/marketplace/listings | jq .'
     ```
 
+14. **🔗 Cross-Node Consensus Testing**
+    ```bash
+    # Test and debug consensus mechanisms between nodes
+    /opt/aitbc/scripts/workflow/31_consensus_testing.sh
+    
+    # View consensus debugging report
+    cat /opt/aitbc/consensus_debug_*.txt
+    ```
+
 ### **Long-term Goals (3+ months)**
 
 14. **🌐 Multi-Region Deployment**
@@ -964,6 +1069,861 @@ cat /opt/aitbc/performance/baseline.txt
     - Multi-tenancy support
     - Advanced access control
     - Compliance frameworks
+
+---
+
+### 🔗 Cross-Node Consensus Testing
+
+#### **Consensus Testing & Debugging**
+
+This feature tests and debugs the most critical aspect of a multi-node blockchain network - ensuring all nodes maintain consensus on the blockchain state.
+
+```bash
+# Run comprehensive consensus testing
+/opt/aitbc/scripts/workflow/31_consensus_testing.sh
+```
+
+#### **What It Tests:**
+
+1. **🌐 Basic Connectivity Consensus**
+   - Network reachability between nodes
+   - RPC endpoint availability
+   - Cross-node communication
+
+2. **📏 Block Height Consensus**
+   - Synchronization of block heights
+   - Sync gap detection and reporting
+   - Bulk sync triggering when needed
+
+3. **🏛️ Genesis Block Consensus**
+   - Genesis block hash consistency
+   - Chain origin verification
+   - Initial state agreement
+
+4. **💳 Transaction Consensus**
+   - Transaction propagation testing
+   - Cross-node transaction verification
+   - Mempool synchronization
+
+5. **⛓️ Chain State Consensus**
+   - Total transactions consistency
+   - Chain hash verification
+   - State synchronization
+
+6. **🌐 Network Partition Testing**
+   - Simulated network partitions
+   - Recovery mechanism testing
+   - Partition tolerance verification
+
+#### **Debugging Features:**
+
+- **📊 Comprehensive Reporting**: Detailed consensus status reports
+- **🔧 Automated Diagnostics**: Automatic identification of consensus issues
+- **📋 Recommendations**: Specific actions to fix consensus problems
+- **🚨 Alert System**: Immediate notification of consensus failures
+
+#### **Why This Feature is Critical:**
+
+- **🔍 Bug Detection**: Identifies consensus-breaking bugs before they affect production
+- **🛠️ Debugging**: Provides detailed insights into consensus mechanism behavior
+- **📈 Performance**: Monitors consensus performance and identifies bottlenecks
+- **🔒 Security**: Ensures network integrity and prevents consensus attacks
+- **🚀 Reliability**: Validates network resilience under various conditions
+
+#### **Troubleshooting:**
+
+```bash
+# Check consensus status quickly
+curl -s http://localhost:8006/rpc/head | jq .height
+ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height'
+
+# Fix large sync gaps
+/opt/aitbc/scripts/fast_bulk_sync.sh
+
+# View detailed consensus report
+cat /opt/aitbc/consensus_debug_*.txt
+```
+
+---
+
+### 📜 Smart Contract Testing & Service Integration
+
+#### **Contract & Service Testing**
+
+This feature tests and debugs smart contracts and their integration with various blockchain services, ensuring proper deployment, execution, and cross-service communication.
+
+```bash
+# Run comprehensive contract and service testing
+/opt/aitbc/scripts/workflow/32_contract_service_testing.sh
+```
+
+#### **What It Tests:**
+
+1. **🚀 Contract Deployment Testing**
+   - Smart contract deployment verification
+   - Contract address generation
+   - Deployment error handling
+
+2. **⚡ Contract Execution Testing**
+   - Contract function call testing
+   - Transaction hash verification
+   - Gas limit validation
+
+3. **📊 Contract State Testing**
+   - Contract state query testing
+   - Storage variable verification
+   - State consistency checks
+
+4. **🔌 Service Integration Testing**
+   - Marketplace service availability
+   - AI service integration
+   - Exchange service connectivity
+   - Governance service access
+
+5. **🌐 Cross-Node Contract Testing**
+   - Contract availability on follower nodes
+   - Cross-node contract state synchronization
+   - Distributed contract execution
+
+6. **🤝 Service Contract Interaction**
+   - Marketplace contract interactions
+   - Service-to-contract communication
+   - Integration workflow testing
+
+7. **🔒 Contract Security Testing**
+   - Access control verification
+   - Gas limit enforcement
+   - Sender authentication
+
+8. **⚡ Contract Performance Testing**
+   - Response time measurement
+   - Performance benchmarking
+   - Resource utilization monitoring
+
+#### **Debugging Features:**
+
+- **📋 Comprehensive Reporting**: Detailed contract and service status reports
+- **🔧 Automated Diagnostics**: Automatic identification of contract issues
+- **📊 Performance Metrics**: Contract execution performance data
+- **🚨 Security Analysis**: Contract security vulnerability assessment
+
+#### **Why This Feature is Critical:**
+
+- **📜 Contract Reliability**: Ensures smart contracts deploy and execute correctly
+- **🔌 Service Integration**: Validates proper communication between contracts and services
+- **🌐 Cross-Node Consistency**: Ensures contracts are available across all nodes
+- **🔒 Security Validation**: Tests contract security measures and access controls
+- **⚡ Performance Monitoring**: Identifies performance bottlenecks in contract execution
+
+#### **Example Contract Debugging Report:**
+```
+AITBC Contract & Service Debugging Report
+====================================
+Date: Sun Mar 29 19:20:00 CEST 2026
+
+CONTRACT TESTING
+---------------
+Contract Address: 0xabc123...
+Deployment Status: Success
+Execution Result: 0xdef456...
+Performance: 150ms
+
+SERVICE INTEGRATION
+------------------
+Marketplace: Available
+AI Service: Available
+Exchange Service: Available
+Governance Service: Available
+
+CROSS-NODE STATUS
+-----------------
+Contract on Genesis: Available
+Contract on Follower: Available
+
+RECOMMENDATIONS
+--------------
+✅ All contract and service tests passed
+✅ Contract performance is acceptable
+✅ Services are properly integrated
+```
+
+#### **Troubleshooting:**
+
+```bash
+# Check contract deployment status
+curl -s http://localhost:8006/rpc/contract/list | jq .
+
+# Test contract state query
+curl -s "http://localhost:8006/rpc/contract/state/<contract_address>"
+
+# Check service health
+curl -s http://localhost:8006/rpc/marketplace/status
+ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats'
+
+# View contract debugging report
+cat /opt/aitbc/contract_debug_*.txt
+```
+
+---
+
+### 🏥 Service Health Monitoring & Alerting
+
+#### **Continuous Service Monitoring**
+
+This feature provides comprehensive health monitoring and alerting for all blockchain services, ensuring continuous visibility into system health and performance.
+
+```bash
+# Run comprehensive service health monitoring
+/opt/aitbc/scripts/workflow/34_service_health_monitoring.sh
+```
+
+#### **What It Monitors:**
+
+1. **🖥️ System Resources**
+   - CPU usage monitoring with alerts
+   - Memory usage tracking
+   - Disk space monitoring
+   - System performance metrics
+
+2. **⛓️ Blockchain Health**
+   - Block height tracking
+   - Transaction count monitoring
+   - Cross-node synchronization status
+   - Consensus health checks
+
+3. **🔌 Service Status**
+   - Blockchain RPC availability
+   - AI service health and metrics
+   - Marketplace service status
+   - Coordinator API health
+   - Contract service availability
+
+4. **📜 Contract Service Monitoring**
+   - Contract endpoint availability
+   - Implementation file verification
+   - Contract deployment readiness
+   - Cross-node contract sync
+
+5. **⚡ Performance Monitoring**
+   - Response time measurement
+   - Service latency tracking
+   - Performance threshold alerts
+   - Bottleneck identification
+
+#### **Monitoring Modes:**
+
+- **Quick Health Check**: Rapid status assessment of all services
+- **Continuous Monitoring**: Ongoing monitoring with configurable intervals
+- **Alert Management**: Real-time alert generation and logging
+- **Report Generation**: Comprehensive monitoring reports
+
+#### **Alerting Features:**
+
+- **🚨 Real-time Alerts**: Immediate notification of service issues
+- **📊 Performance Alerts**: High response time and resource usage warnings
+- **🔄 Sync Alerts**: Cross-node synchronization gap notifications
+- **📝 Alert Logging**: Persistent alert history and analysis
+
+#### **Why This Feature is Critical:**
+
+- **🏥 Proactive Monitoring**: Detect issues before they impact users
+- **📈 Performance Tracking**: Monitor service performance over time
+- **🔍 Issue Detection**: Quick identification of service problems
+- **📋 Historical Analysis**: Track service health trends and patterns
+- **🚨 Alert Management**: Immediate notification of critical issues
+
+#### **Example Monitoring Output:**
+```
+=== QUICK HEALTH CHECK ===
+
+Checking system resources...
+✅ System: CPU usage OK (25.3%)
+✅ System: Memory usage OK (42.1%)
+✅ System: Disk usage OK (67%)
+
+Checking blockchain metrics...
+✅ Blockchain: Block height 3625
+✅ Blockchain: 9 transactions
+✅ Blockchain: Cross-node sync OK (diff: 0)
+
+Checking service-specific metrics...
+✅ AI Service: 4 jobs, 100.0 AIT revenue
+✅ Marketplace: 2 active listings
+✅ Coordinator API: Status alive
+
+Checking contract service health...
+✅ Contract Service: 1 contracts available
+✅ Contract Service: 4 implementation files
+```
+
+#### **Troubleshooting:**
+
+```bash
+# Check recent alerts
+/opt/aitbc/scripts/workflow/34_service_health_monitoring.sh alerts
+
+# View monitoring logs
+tail -f /var/log/aitbc/service_monitoring.log
+
+# Generate detailed report
+/opt/aitbc/scripts/workflow/34_service_health_monitoring.sh report
+
+# Run continuous monitoring for 10 minutes
+/opt/aitbc/scripts/workflow/34_service_health_monitoring.sh continuous 600
+```
+
+---
+
+### 🚀 Contract Deployment & Service Integration
+
+#### **End-to-End Contract Testing**
+
+This feature provides comprehensive testing of contract deployment, execution, and integration with all blockchain services, ensuring complete end-to-end functionality.
+
+```bash
+# Run comprehensive contract deployment and service integration testing
+/opt/aitbc/scripts/workflow/35_contract_deployment_integration.sh
+```
+
+#### **What It Tests:**
+
+1. **🚀 Contract Deployment Testing**
+   - Contract deployment via RPC endpoints
+   - Transaction hash generation and verification
+   - Contract address allocation and validation
+
+2. **⚡ Contract Execution Testing**
+   - Contract function call testing
+   - Gas limit validation and optimization
+   - Transaction processing and confirmation
+
+3. **📊 Contract State Testing**
+   - Contract state query functionality
+   - Storage variable verification
+   - State consistency across nodes
+
+4. **🔌 Service Integration Testing**
+   - Marketplace service integration
+   - AI service connectivity and functionality
+   - Coordinator API health and availability
+
+5. **🌐 Cross-Node Contract Testing**
+   - Contract availability on follower nodes
+   - Cross-node contract state synchronization
+   - Distributed contract execution
+
+6. **🤝 Contract-Marketplace Integration**
+   - Marketplace listings for contract services
+   - Contract service specifications
+   - Resource type and pricing validation
+
+7. **🤖 Contract-AI Service Integration**
+   - AI-powered contract analysis
+   - Security vulnerability assessment
+   - Contract optimization suggestions
+
+8. **⚡ Contract Performance Testing**
+   - Response time measurement
+   - Gas usage optimization
+   - Performance benchmarking
+
+9. **🏥 Service Health Verification**
+   - Comprehensive service health checks
+   - Service availability validation
+   - Performance metrics collection
+
+#### **Integration Scenarios:**
+
+- **Contract Deployment**: Deploy smart contracts via RPC endpoints
+- **Service Interaction**: Test contract integration with marketplace, AI, and coordinator services
+- **Cross-Node Sync**: Verify contract availability across all nodes
+- **Performance Analysis**: Measure and optimize contract execution performance
+- **Health Monitoring**: Ensure all services remain healthy during contract operations
+
+#### **Why This Feature is Critical:**
+
+- **🚀 Deployment Validation**: Ensures contracts can be deployed successfully
+- **🔌 Service Integration**: Validates contract interaction with all blockchain services
+- **🌐 Cross-Node Consistency**: Ensures contracts are available across the network
+- **⚡ Performance Assurance**: Validates contract execution performance
+- **🏥 Health Monitoring**: Maintains service health during contract operations
+
+#### **Example Integration Test:**
+```
+🧪 Testing: Contract Deployment
+================================
+✅ PASS: Contract deployment
+
+🧪 Testing: Contract Execution
+================================
+✅ PASS: Contract execution successful
+
+🧪 Testing: Service Integration
+================================
+✅ PASS: Marketplace service integrated
+✅ PASS: AI service integrated
+✅ PASS: Coordinator API integrated
+
+🧪 Testing: Cross-Node Contract
+================================
+✅ PASS: Contract available on follower node
+```
+
+#### **Troubleshooting:**
+
+```bash
+# Check contract deployment status
+curl -s http://localhost:8006/rpc/contracts | jq .
+
+# Test contract execution
+curl -s -X POST http://localhost:8006/rpc/contracts/call \
+  -H "Content-Type: application/json" \
+  -d '{"contract_address": "0x...", "function": "getValue", "inputs": []}'
+
+# View integration report
+cat /opt/aitbc/contract_integration_report_*.txt
+
+# Check service health during contract operations
+/opt/aitbc/scripts/workflow/34_service_health_monitoring.sh quick
+```
+
+---
+
+### 🔒 Contract Security & Vulnerability Testing
+
+#### **Comprehensive Security Analysis**
+
+This feature provides thorough security analysis for smart contracts and blockchain services, identifying vulnerabilities and ensuring secure deployment.
+
+```bash
+# Run comprehensive security analysis
+/opt/aitbc/scripts/workflow/36_contract_security_testing.sh
+```
+
+#### **What It Tests:**
+
+1. **🔍 Contract Code Security Analysis**
+   - Hardcoded secrets detection
+   - Input validation verification
+   - Error handling assessment
+   - Code pattern analysis for security issues
+
+2. **🔌 Service Security Testing**
+   - Authentication mechanism verification
+   - Encryption and TLS configuration
+   - Service access control validation
+   - Cross-service communication security
+
+3. **🛡️ Contract Vulnerability Scanning**
+   - Reentrancy vulnerability detection
+   - Integer overflow/underflow analysis
+   - Unchecked external call identification
+   - Common contract security patterns
+
+4. **🔗 Service Integration Security**
+   - Marketplace service data validation
+   - AI service data exposure assessment
+   - Cross-service data flow security
+   - Integration point vulnerability analysis
+
+5. **⛓️ Blockchain Security Testing**
+   - Consensus mechanism health verification
+   - Transaction processing security
+   - Node synchronization security
+   - Blockchain integrity validation
+
+6. **🔐 API Security Testing**
+   - Rate limiting implementation
+   - Input validation verification
+   - API endpoint security assessment
+   - Request/response security analysis
+
+7. **🌐 Cross-Node Security Testing**
+   - Node-to-node communication security
+   - Node identity verification
+   - Network security assessment
+   - Distributed system security
+
+#### **Security Categories:**
+
+- **🚨 Critical**: Immediate security risks requiring urgent attention
+- **⚠️ High**: Significant security issues that should be addressed promptly
+- **⚠️ Medium**: Moderate security concerns that should be addressed
+- **ℹ️ Low**: Minor security issues or recommendations for improvement
+
+#### **Security Findings:**
+
+The security testing generates detailed findings including:
+- **Vulnerability Description**: Clear explanation of identified issues
+- **Severity Assessment**: Risk level classification
+- **Recommendations**: Specific actions to address security issues
+- **Evidence**: Technical details supporting findings
+
+#### **Why This Feature is Critical:**
+
+- **🛡️ Proactive Security**: Identify vulnerabilities before exploitation
+- **🔍 Comprehensive Analysis**: Cover all aspects of contract and service security
+- **📊 Risk Assessment**: Prioritize security issues by severity
+- **🔧 Remediation Guidance**: Clear recommendations for fixing issues
+- **📋 Compliance**: Ensure security best practices are followed
+
+#### **Example Security Test:**
+```
+🔍 Testing: Contract Code Security Analysis
+================================
+✅ Contract files found
+⚠️ MEDIUM: Code Security - Potential hardcoded secrets in guardian_contract.py
+⚠️ MEDIUM: Input Validation - Missing input validation in guardian_contract.py
+✅ PASS: Contract code security analysis
+```
+
+#### **Security Report:**
+```
+AITBC Contract Security & Vulnerability Report
+=============================================
+Date: 2026-03-29 19:41:00 CEST
+
+EXECUTIVE SUMMARY
+----------------
+Tests Passed: 7
+Tests Failed: 2
+Total Tests: 9
+
+SECURITY ASSESSMENT
+------------------
+⚠️ 2 security issues detected
+🔍 Review security findings before production deployment
+📋 Address identified vulnerabilities
+
+SERVICE SECURITY STATUS
+---------------------
+Blockchain RPC: Secure
+Coordinator API: Vulnerable
+Marketplace Service: Secure
+AI Service: Secure
+```
+
+#### **Troubleshooting:**
+
+```bash
+# View detailed security findings
+cat /opt/aitbc/security_reports/security_findings.log
+
+# Check specific vulnerability categories
+grep "CRITICAL" /opt/aitbc/security_reports/security_findings.log
+
+# Generate security recommendations
+grep "Recommendation" /opt/aitbc/security_reports/security_findings.log
+
+# Monitor security over time
+tail -f /opt/aitbc/security_reports/security_findings.log
+```
+
+---
+
+### 📊 Contract Event Monitoring & Logging
+
+#### **Comprehensive Event Tracking**
+
+This feature provides thorough event tracking and logging for contract operations and service interactions, enabling real-time monitoring and historical analysis of all blockchain activities.
+
+```bash
+# Run comprehensive event monitoring and logging
+/opt/aitbc/scripts/workflow/37_contract_event_monitoring.sh
+```
+
+#### **What It Monitors:**
+
+1. **📝 Event Logging Setup**
+   - Event log directory creation and configuration
+   - Log rotation setup for event files
+   - Permission and access control configuration
+   - Event log file initialization
+
+2. **📋 Contract Event Monitoring**
+   - Contract deployment events
+   - Contract execution events
+   - Contract state change events
+   - Contract interaction tracking
+
+3. **🔌 Service Event Monitoring**
+   - Marketplace service events
+   - AI service events
+   - Blockchain service events
+   - Coordinator API events
+
+4. **⏱️ Real-time Event Monitoring**
+   - Live event tracking
+   - Event stream processing
+   - Real-time notification system
+   - Event buffering and batching
+
+5. **🔍 Event Querying and Analysis**
+   - Event filtering and searching
+   - Event pattern analysis
+   - Event statistics and metrics
+   - Historical event analysis
+
+6. **🌐 Cross-node Event Synchronization**
+   - Multi-node event coordination
+   - Event replication across nodes
+   - Distributed event logging
+   - Cross-node event consistency
+
+7. **📦 Event Retention and Archival**
+   - Log rotation configuration
+   - Event archival policies
+   - Long-term event storage
+   - Event backup and recovery
+
+8. **📊 Event Dashboard Generation**
+   - Real-time event dashboards
+   - Event visualization
+   - Event metrics and KPIs
+   - Event trend analysis
+
+#### **Event Types Tracked:**
+
+- **Contract Events**: DEPLOY, EXECUTION, STATE_CHANGE, ERROR
+- **Service Events**: LISTING_CREATED, JOB_SUBMITTED, BLOCK_MINED, API_CALL
+- **System Events**: NODE_START, NODE_STOP, SYNC_COMPLETE, ERROR
+
+#### **Event Log Structure:**
+
+```
+[2026-03-29 19:44:00] [CONTRACT] [DEPLOY] 0xtest_contract:constructor - Contract deployed successfully
+[2026-03-29 19:44:01] [SERVICE] [MARKETPLACE] [LISTING_CREATED] New listing created: demo_001
+[2026-03-29 19:44:02] [CONTRACT] [EXECUTION] 0xguardian_001:storeValue - Function executed with gas: 21000
+```
+
+#### **Why This Feature is Critical:**
+
+- **📊 Visibility**: Complete visibility into all contract and service activities
+- **🔍 Debugging**: Comprehensive event tracking for debugging and troubleshooting
+- **📈 Analytics**: Event data for analysis and optimization
+- **🔒 Audit Trail**: Complete audit trail for compliance and security
+- **⚡ Real-time Monitoring**: Live monitoring of blockchain operations
+
+#### **Example Event Monitoring:**
+```
+📊 Testing: Contract Event Monitoring
+================================
+✅ PASS: Contract deployment event logging
+✅ PASS: Contract execution event logging
+✅ PASS: Contract state change event logging
+
+📊 Testing: Service Event Monitoring
+================================
+✅ PASS: Marketplace service event logging
+✅ PASS: AI service event logging
+✅ PASS: Blockchain service event logging
+```
+
+#### **Event Dashboard:**
+```
+AITBC Event Monitoring Dashboard
+=============================
+Generated: 2026-03-29 19:44:00 CEST
+
+EVENT SUMMARY
+------------
+Contract Events: 15
+Service Events: 23
+Total Events: 38
+
+RECENT CONTRACT EVENTS
+----------------------
+[2026-03-29 19:44:00] [CONTRACT] [DEPLOY] 0xtest_contract:constructor
+[2026-03-29 19:44:01] [CONTRACT] [EXECUTION] 0xguardian_001:storeValue
+[2026-03-29 19:44:02] [CONTRACT] [STATE_CHANGE] 0xguardian_001:storage
+
+EVENT DISTRIBUTION
+------------------
+Contract Events by Type:
+3 [DEPLOY]
+8 [EXECUTION]
+4 [STATE_CHANGE]
+```
+
+#### **Troubleshooting:**
+
+```bash
+# View live contract events
+tail -f /var/log/aitbc/events/contract_events.log
+
+# View live service events
+tail -f /var/log/aitbc/events/service_events.log
+
+# Search for specific events
+grep "DEPLOY" /var/log/aitbc/events/contract_events.log
+
+# Analyze event patterns
+grep -o "\[.*\]" /var/log/aitbc/events/contract_events.log | sort | uniq -c
+
+# Check event log sizes
+du -sh /var/log/aitbc/events/
+
+# Force log rotation
+logrotate -f /etc/logrotate.d/aitbc-events
+```
+
+---
+
+### 📈 Contract Data Analytics & Reporting
+
+#### **Comprehensive Data Analysis**
+
+This feature provides thorough data analysis and reporting for contract operations and service metrics, enabling insights into blockchain performance and utilization patterns.
+
+```bash
+# Run comprehensive data analytics and reporting
+/opt/aitbc/scripts/workflow/38_contract_data_analytics.sh
+```
+
+#### **What It Analyzes:**
+
+1. **📊 Analytics Setup**
+   - Analytics directory structure creation
+   - Data files initialization
+   - Metrics collection configuration
+   - Report generation setup
+
+2. **📋 Contract Data Collection**
+   - Contract deployment metrics
+   - Blockchain height tracking
+   - Transaction volume analysis
+   - Contract event data analysis
+
+3. **🔌 Service Data Collection**
+   - Marketplace service metrics
+   - AI service performance data
+   - Service response time analysis
+   - Service utilization statistics
+
+4. **📊 Data Aggregation**
+   - Historical data aggregation
+   - Statistical analysis
+   - Performance metrics compilation
+   - Trend calculation
+
+5. **📈 Trend Analysis**
+   - Growth rate calculations
+   - Performance trends
+   - Utilization patterns
+   - Predictive analytics
+
+6. **📋 Report Generation**
+   - Comprehensive analytics reports
+   - Executive summaries
+   - Performance dashboards
+   - Trend reports
+
+7. **📊 Visualization Data Preparation**
+   - JSON data for charts
+   - Graph data formatting
+   - Dashboard data structures
+   - Real-time data feeds
+
+8. **🤖 Automated Analytics**
+   - Scheduled data collection
+   - Automated report generation
+   - Continuous monitoring
+   - Alert configuration
+
+9. **📤 Data Export**
+   - CSV export functionality
+   - Data backup procedures
+   - External system integration
+   - Historical data archiving
+
+#### **Analytics Metrics Tracked:**
+
+- **Contract Metrics**: Contract count, blockchain height, transaction volume
+- **Service Metrics**: Marketplace listings, AI jobs, revenue, response times
+- **Performance Metrics**: Response times, throughput, error rates
+- **Trend Metrics**: Growth rates, utilization trends, performance trends
+
+#### **Data Structure:**
+
+```
+timestamp,contract_count,blockchain_height,tx_count
+2026-03-29 19:46:00,5,3950,150
+2026-03-29 19:47:00,6,3951,155
+2026-03-29 19:48:00,7,3952,160
+```
+
+#### **Why This Feature is Critical:**
+
+- **📊 Insights**: Deep insights into blockchain performance and utilization
+- **📈 Trends**: Identification of trends and patterns in contract usage
+- **🔍 Optimization**: Data-driven optimization of blockchain operations
+- **📋 Reporting**: Comprehensive reporting for stakeholders
+- **🤖 Automation**: Automated analytics for continuous monitoring
+
+#### **Example Analytics Report:**
+```
+📈 Testing: Contract Data Collection
+================================
+✅ PASS: Contract metrics collection
+✅ PASS: Contract event data analysis
+
+📈 Testing: Service Data Collection
+================================
+✅ PASS: Service metrics collection
+✅ PASS: Service performance analysis
+```
+
+#### **Analytics Dashboard:**
+```
+AITBC Contract Data Analytics Report
+=================================
+Generated: 2026-03-29 19:46:00 CEST
+
+EXECUTIVE SUMMARY
+-----------------
+Report Period: 2026-03-29
+Data Sources: Contract metrics, Service metrics, Event logs
+
+CONTRACT ANALYTICS
+------------------
+Current Contract Count: 7
+Blockchain Height: 3952
+Total Transactions: 160
+
+SERVICE ANALYTICS
+-----------------
+Marketplace Listings: 12
+AI Jobs Processed: 25
+AI Revenue: 125.5 AIT
+
+PERFORMANCE METRICS
+------------------
+Blockchain RPC Response Time: 45ms
+AI Service Response Time: 120ms
+
+TREND ANALYSIS
+--------------
+Contract Growth: 16.7%
+```
+
+#### **Troubleshooting:**
+
+```bash
+# View analytics data
+cat /var/log/aitbc/analytics/data/contract_metrics.csv
+
+# Check analytics reports
+ls -la /var/log/aitbc/analytics/reports/
+
+# Verify automated analytics
+cat /etc/cron.d/aitbc-analytics
+
+# Export analytics data
+/opt/aitbc/scripts/workflow/38_contract_data_analytics.sh export
+
+# Generate custom report
+/opt/aitbc/scripts/workflow/38_contract_data_analytics.sh report
+```
 
 ---
 
