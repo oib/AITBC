@@ -2,6 +2,15 @@
     "folders": [
         {
             "path": "../.."
+        },
+        {
+            "path": "../../../../var/lib/aitbc"
+        },
+        {
+            "path": "../../../../etc/aitbc"
+        },
+        {
+            "path": "../../../../var/log/aitbc"
         }
     ]
 }
