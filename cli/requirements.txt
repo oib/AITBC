@@ -1,0 +1,4 @@
+click>=8.0.0
+requests>=2.25.0
+pydantic>=2.0.0
+cryptography>=3.4.0
