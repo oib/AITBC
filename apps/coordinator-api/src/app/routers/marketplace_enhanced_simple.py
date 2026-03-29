@@ -6,7 +6,8 @@ REST API endpoints for enhanced marketplace features
 """
 
 from typing import List, Optional, Dict, Any
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
@@ -16,7 +17,7 @@ from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/marketplace/enhanced", tags=["Marketplace Enhanced"])
 

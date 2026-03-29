@@ -8,7 +8,8 @@ Provides REST API endpoints for agent workflow management and execution
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from typing import List, Optional
 from datetime import datetime
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..domain.agent import (
     AIAgentWorkflow, AgentWorkflowCreate, AgentWorkflowUpdate,
@@ -20,7 +21,7 @@ from ..storage import get_session
 from ..deps import require_admin_key
 from sqlmodel import Session, select
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/agents", tags=["AI Agents"])
 

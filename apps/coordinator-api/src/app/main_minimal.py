@@ -20,9 +20,10 @@ from .routers.marketplace_offers import router as marketplace_offers
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .exceptions import AITBCError, ErrorResponse
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 
 def create_app() -> FastAPI:

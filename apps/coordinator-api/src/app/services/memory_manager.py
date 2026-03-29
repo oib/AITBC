@@ -7,7 +7,8 @@ Handles memory lifecycle management, versioning, and optimization
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
@@ -17,7 +18,7 @@ import json
 from .ipfs_storage_service import IPFSStorageService, MemoryMetadata, IPFSUploadResult
 from ..storage import get_session
 
-logger = get_logger(__name__)
+
 
 
 class MemoryType(str, Enum):

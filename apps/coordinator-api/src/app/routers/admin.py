@@ -11,9 +11,10 @@ from ..services import JobService, MinerService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 from ..config import settings
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/admin", tags=["admin"])
 

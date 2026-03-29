@@ -8,9 +8,9 @@ Type=simple
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PATH=/opt/aitbc/.venv/bin
+Environment=PATH=/usr/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-ExecStart=/opt/aitbc/.venv/bin/python -m app.services.advanced_ai_service
+ExecStart=/usr/bin/python3 -m app.services.advanced_ai_service
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
@@ -23,7 +23,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data
+ReadWritePaths=/var/lib/aitbc/logs /var/lib/aitbc/data
 
 # Resource limits
 LimitNOFILE=65536

@@ -8,9 +8,10 @@ from slowapi.util import get_remote_address
 from ..deps import require_admin_key
 from ..utils.cache_management import get_cache_stats, clear_cache, warm_cache
 from ..config import settings
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/cache", tags=["cache-management"])
 

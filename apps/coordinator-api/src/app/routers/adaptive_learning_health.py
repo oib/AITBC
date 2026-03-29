@@ -10,12 +10,15 @@ from datetime import datetime
 import sys
 import psutil
 from typing import Dict, Any
+import logging
 
 from ..storage import get_session
 from ..services.adaptive_learning import AdaptiveLearningService
+
+logger = logging.getLogger(__name__)
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 router = APIRouter()
 
 

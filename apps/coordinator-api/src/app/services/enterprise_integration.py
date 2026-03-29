@@ -13,9 +13,10 @@ from enum import Enum
 from dataclasses import dataclass, field
 from pydantic import BaseModel, Field, validator
 import xml.etree.ElementTree as ET
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 class IntegrationType(str, Enum):
     """Enterprise integration types"""
@@ -661,7 +662,7 @@ class EnterpriseIntegrationFramework:
     
     def __init__(self):
         self.integrations = {}  # Active integrations
-        self.logger = get_logger(__name__)
+        self.
         
     async def create_integration(self, config: IntegrationConfig) -> bool:
         """Create and initialize enterprise integration"""

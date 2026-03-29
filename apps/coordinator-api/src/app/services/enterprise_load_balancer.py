@@ -14,9 +14,10 @@ from enum import Enum
 from dataclasses import dataclass, field
 import numpy as np
 from pydantic import BaseModel, Field, validator
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 class LoadBalancingAlgorithm(str, Enum):
     """Load balancing algorithms"""

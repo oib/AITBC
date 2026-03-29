@@ -13,9 +13,10 @@ from ..storage import get_session
 from ..metrics import marketplace_requests_total, marketplace_errors_total
 from ..utils.cache import cached, get_cache_config
 from ..config import settings
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["marketplace"])
 

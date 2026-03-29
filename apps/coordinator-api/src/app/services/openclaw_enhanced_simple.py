@@ -4,7 +4,8 @@ Basic OpenClaw integration features compatible with existing infrastructure
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from uuid import uuid4
@@ -13,7 +14,7 @@ from enum import Enum
 from sqlmodel import Session, select
 from ..domain import MarketplaceOffer, MarketplaceBid
 
-logger = get_logger(__name__)
+
 
 
 class SkillType(str, Enum):

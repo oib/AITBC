@@ -13,7 +13,8 @@ from uuid import uuid4
 from enum import Enum
 import hashlib
 import secrets
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, func, Field
 from sqlalchemy.exc import SQLAlchemyError
@@ -25,7 +26,7 @@ from ..domain.agent_identity import (
 from ..domain.cross_chain_reputation import CrossChainReputationAggregation
 from ..reputation.engine import CrossChainReputationEngine
 
-logger = get_logger(__name__)
+
 
 
 class WalletStatus(str, Enum):

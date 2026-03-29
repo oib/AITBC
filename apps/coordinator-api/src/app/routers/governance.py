@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..storage import get_session
 from ..services.governance_service import GovernanceService
@@ -18,7 +19,7 @@ from ..domain.governance import (
     ProposalStatus, VoteType, GovernanceRole
 )
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/governance", tags=["governance"])
 

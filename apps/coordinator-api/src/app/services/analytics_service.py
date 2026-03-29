@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from uuid import uuid4
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, and_, or_, func
 from sqlalchemy.exc import SQLAlchemyError
@@ -23,7 +24,7 @@ from ..domain.trading import TradingAnalytics
 from ..domain.rewards import RewardAnalytics
 from ..domain.reputation import AgentReputation
 
-logger = get_logger(__name__)
+
 
 
 class DataCollector:

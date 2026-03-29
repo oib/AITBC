@@ -15,7 +15,7 @@ Environment=SERVICE_TYPE=gpu-multimodal
 Environment=GPU_ENABLED=true
 Environment=CUDA_VISIBLE_DEVICES=0
 Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python -m aitbc_gpu_multimodal.main
+ExecStart=/usr/bin/python3 -m aitbc_gpu_multimodal.main
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
@@ -28,7 +28,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/logs /opt/aitbc/data /dev/nvidia*
+ReadWritePaths=/var/lib/aitbc/logs /var/lib/aitbc/data /dev/nvidia*
 LimitNOFILE=65536
 
 # GPU access

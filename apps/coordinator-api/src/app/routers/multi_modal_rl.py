@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..storage import get_session
 from ..services.multi_modal_fusion import MultiModalFusionEngine
@@ -19,7 +20,7 @@ from ..domain.agent_performance import (
     CreativeCapability
 )
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/multi-modal-rl", tags=["multi-modal-rl"])
 

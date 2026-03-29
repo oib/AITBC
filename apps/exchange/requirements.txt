@@ -1,8 +1,0 @@
-# AITBC Trade Exchange Requirements
-# Compatible with Python 3.13+
-
-fastapi>=0.111.0
-uvicorn[standard]>=0.30.0
-sqlalchemy>=2.0.30
-pydantic>=2.7.0
-python-multipart>=0.0.6

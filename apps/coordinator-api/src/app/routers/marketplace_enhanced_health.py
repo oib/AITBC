@@ -15,7 +15,7 @@ from ..storage import get_session
 from ..services.marketplace_enhanced import EnhancedMarketplaceService
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 router = APIRouter()
 
 

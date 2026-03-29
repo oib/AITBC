@@ -9,7 +9,8 @@ from typing import Dict, List, Optional, Any, Set
 from uuid import uuid4
 import json
 import hashlib
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,7 +20,7 @@ from ..domain.agent_identity import (
     IdentityStatus, VerificationType, ChainType
 )
 
-logger = get_logger(__name__)
+
 
 
 class CrossChainRegistry:

@@ -7,7 +7,8 @@ Enhanced with multi-jurisdictional support and regional governance
 from typing import Optional, List, Dict, Any
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from uuid import uuid4
 
 from ..domain.governance import (
@@ -15,7 +16,7 @@ from ..domain.governance import (
     ProposalStatus, VoteType, GovernanceRole
 )
 
-logger = get_logger(__name__)
+
 
 class GovernanceService:
     """Core service for managing DAO operations and voting"""

@@ -15,7 +15,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from uuid import uuid4
 
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from .websocket_stream_manager import (
     WebSocketStreamManager, StreamConfig, MessageType, 
     stream_manager, WebSocketStream
@@ -23,7 +24,7 @@ from .websocket_stream_manager import (
 from .gpu_multimodal import GPUMultimodalProcessor
 from .multi_modal_fusion import MultiModalFusionService
 
-logger = get_logger(__name__)
+
 
 
 class FusionStreamType(Enum):
