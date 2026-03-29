@@ -14,7 +14,7 @@ from fastapi.responses import PlainTextResponse
 
 from aitbc_chain.metrics import metrics_registry
 
-app = FastAPI(title="Mock Coordinator API", version="0.1.0")
+app = FastAPI(title="Mock Coordinator API", version="v0.2.2")
 
 SIMULATED_MINERS: List[str] = ["miner-alpha", "miner-beta", "miner-gamma"]
 SIMULATED_CLIENTS: List[str] = ["client-labs", "client-trading", "client-research"]

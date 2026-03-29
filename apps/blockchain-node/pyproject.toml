@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc-blockchain-node"
-version = "0.1.0"
+version = "v0.2.2"
 description = "AITBC blockchain node service"
 authors = ["AITBC Team"]
 packages = [
