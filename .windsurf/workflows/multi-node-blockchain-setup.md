@@ -15,6 +15,38 @@ This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis aut
 - AITBC CLI tool available (aliased as `aitbc`)
 - CLI tool configured to use `/etc/aitbc/blockchain.env` by default
 
+## Pre-Flight Setup
+
+Before running the workflow, ensure the following setup is complete:
+
+```bash
+# 1. Stop existing services
+systemctl stop aitbc-blockchain-* 2>/dev/null || true
+
+# 2. Update systemd services to use standard config location
+sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+systemctl daemon-reload
+
+# 3. Move central config to standard location
+cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup
+mv /opt/aitbc/.env /etc/aitbc/blockchain.env
+
+# 4. Setup AITBC CLI tool
+python3 -m venv /opt/aitbc/cli/venv
+source /opt/aitbc/cli/venv/bin/activate
+pip install -e /opt/aitbc/cli/
+echo 'alias aitbc="source /opt/aitbc/cli/venv/bin/activate && aitbc"' >> ~/.bashrc
+source ~/.bashrc
+
+# 5. Clean old data (optional but recommended)
+rm -rf /var/lib/aitbc/data/ait-mainnet/*
+rm -rf /var/lib/aitbc/keystore/*
+
+# 6. Verify setup
+aitbc --help
+ls -la /etc/aitbc/blockchain.env
+```
+
 ## Directory Structure
 
 - `/opt/aitbc/venv` - Central Python virtual environment
@@ -57,10 +89,7 @@ mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 
 # Copy and adapt central .env for aitbc1 (genesis authority)
-cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup
-
-# Move central .env to standard config location
-mv /opt/aitbc/.env /etc/aitbc/blockchain.env
+cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc1.backup
 
 # Update .env for aitbc1 genesis authority configuration
 sed -i 's|proposer_id=.*|proposer_id=aitbc1genesis|g' /etc/aitbc/blockchain.env
@@ -79,9 +108,9 @@ aitbc blockchain setup --chain-id ait-mainnet --total-supply 1000000000
 
 # Copy genesis and allocations to standard location
 mkdir -p /var/lib/aitbc/data/ait-mainnet
-cp data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
-cp data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
-cp keystore/* /var/lib/aitbc/keystore/
+cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
+cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
+cp /opt/aitbc/apps/blockchain-node/keystore/* /var/lib/aitbc/keystore/
 
 # Note: systemd services should already use /etc/aitbc/blockchain.env
 # No need to update systemd if they are properly configured
@@ -128,10 +157,7 @@ mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 
 # Copy and adapt central .env for aitbc (follower node)
-cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup
-
-# Move central .env to standard config location
-mv /opt/aitbc/.env /etc/aitbc/blockchain.env
+cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup
 
 # Update .env for aitbc follower node configuration
 sed -i 's|proposer_id=.*|proposer_id=follower-node-aitbc|g' /etc/aitbc/blockchain.env
