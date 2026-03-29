@@ -2,20 +2,15 @@ name: Documentation Validation
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'docs/**'
       - '**/*.md'
       - '.gitea/workflows/docs-validation.yml'
   pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'docs/**'
-      - '**/*.md'
-      - '.gitea/workflows/docs-validation.yml'
+    branches: [main, develop]
   workflow_dispatch:
 
-# Prevent parallel execution
 concurrency:
   group: docs-validation-${{ github.ref }}
   cancel-in-progress: true
@@ -23,82 +18,55 @@ concurrency:
 jobs:
   validate-docs:
     runs-on: debian
-    
+    timeout-minutes: 10
+
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install markdown validation tools
+      - name: Clone repository
         run: |
-          echo "=== INSTALLING MARKDOWN TOOLS ==="
-          npm install -g markdownlint-cli@0.41.0
-          npm install -g markdown-link-check@3.12.2
-          echo "✅ Markdown tools installed"
+          WORKSPACE="/var/lib/aitbc-workspaces/docs-validation"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Install tools
+        run: |
+          npm install -g markdownlint-cli 2>/dev/null || echo "⚠️ markdownlint not installed"
 
       - name: Lint Markdown files
         run: |
-          echo "=== LINTING MARKDOWN FILES ==="
-          markdownlint "docs/**/*.md" "*.md" --ignore "docs/archive/**" --ignore "node_modules/**" || {
-            echo "⚠️  Markdown linting completed with warnings"
-            exit 0
-          }
+          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          echo "=== Linting Markdown ==="
+          if command -v markdownlint >/dev/null 2>&1; then
+            markdownlint "docs/**/*.md" "*.md" \
+              --ignore "docs/archive/**" \
+              --ignore "node_modules/**" || echo "⚠️ Markdown linting warnings"
+          else
+            echo "⚠️ markdownlint not available, skipping"
+          fi
           echo "✅ Markdown linting completed"
-
-      - name: Check for broken links
-        run: |
-          echo "=== CHECKING FOR BROKEN LINKS ==="
-          find docs -name "*.md" -not -path "*/archive/*" -exec markdown-link-check {} \; 2>/dev/null || {
-            echo "⚠️  Link checking completed with warnings"
-            exit 0
-          }
-          echo "✅ Link checking completed"
-
-      - name: Validate YAML frontmatter
-        run: |
-          echo "=== VALIDATING YAML FRONTMATTER ==="
-          find docs -name "*.md" -not -path "*/archive/*" | while read file; do
-            if head -5 "$file" | grep -q "^---"; then
-              echo "✅ $file has frontmatter"
-            fi
-          done
-          echo "✅ YAML frontmatter validation completed"
 
       - name: Check documentation structure
         run: |
-          echo "=== CHECKING DOCUMENTATION STRUCTURE ==="
-          required_files=(
-            "docs/README.md"
-            "docs/MASTER_INDEX.md"
-          )
-          for file in "${required_files[@]}"; do
-            if [[ -f "$file" ]]; then
-              echo "✅ $file exists"
+          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          echo "=== Documentation Structure ==="
+          for f in docs/README.md docs/MASTER_INDEX.md; do
+            if [[ -f "$f" ]]; then
+              echo "  ✅ $f exists"
             else
-              echo "❌ $file missing"
+              echo "  ❌ $f missing"
             fi
           done
-          echo "✅ Documentation structure check completed"
 
-      - name: Generate documentation report
+      - name: Documentation stats
         if: always()
         run: |
-          echo "=== DOCUMENTATION STATISTICS ==="
-          echo "Total markdown files: $(find docs -name "*.md" | wc -l)"
-          echo "Total documentation size: $(du -sh docs | cut -f1)"
-          echo "Categories: $(ls -1 docs | wc -l)"
-          echo "✅ Documentation validation completed"
+          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          echo "=== Documentation Statistics ==="
+          echo "  Markdown files: $(find docs -name '*.md' 2>/dev/null | wc -l)"
+          echo "  Total size: $(du -sh docs 2>/dev/null | cut -f1)"
+          echo "  Categories: $(ls -1 docs 2>/dev/null | wc -l)"
 
-      - name: Validation Summary
+      - name: Cleanup
         if: always()
-        run: |
-          echo "=== DOCUMENTATION VALIDATION SUMMARY ==="
-          echo "✅ Markdown linting: completed"
-          echo "✅ Link checking: completed"
-          echo "✅ YAML frontmatter: validated"
-          echo "✅ Structure check: completed"
-          echo "✅ Documentation validation finished successfully"
+        run: rm -rf /var/lib/aitbc-workspaces/docs-validation

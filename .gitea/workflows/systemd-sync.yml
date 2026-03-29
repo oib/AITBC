@@ -1,192 +1,86 @@
-name: systemd-sync
+name: Systemd Sync
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'systemd/**'
       - '.gitea/workflows/systemd-sync.yml'
+  pull_request:
+    branches: [main, develop]
   workflow_dispatch:
 
-# Prevent parallel execution - run workflows serially
 concurrency:
-  group: ci-workflows
+  group: systemd-sync-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   sync-systemd:
     runs-on: debian
-    
+    timeout-minutes: 5
+
     steps:
-      - name: Setup workspace
+      - name: Clone repository
         run: |
-          echo "=== SYSTEMD SYNC SETUP ==="
-          echo "Current PWD: $(pwd)"
-          echo "Forcing absolute workspace path..."
-          
-          # Clean and create isolated workspace
-          rm -rf /opt/aitbc/systemd-sync-workspace
-          mkdir -p /opt/aitbc/systemd-sync-workspace
-          cd /opt/aitbc/systemd-sync-workspace
-          
-          # Ensure no git lock files exist
-          find . -name "*.lock" -delete 2>/dev/null || true
-          
-          echo "Workspace PWD: $(pwd)"
-          echo "Cloning repository..."
-          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
-          
-          cd repo
-          echo "Repo PWD: $(pwd)"
-          echo "Files in repo:"
-          ls -la
+          WORKSPACE="/var/lib/aitbc-workspaces/systemd-sync"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
-      - name: Sync Systemd Files
+      - name: Validate service files
         run: |
-          echo "=== SYNCING SYSTEMD FILES ==="
-          cd /opt/aitbc/systemd-sync-workspace/repo
-          
-          echo "Repository systemd files:"
-          ls -la systemd/ | head -10
-          echo
-          echo "Active systemd files:"
-          ls -la /etc/systemd/system/aitbc-* | head -5 || echo "No active files found"
-          echo
-          
-          # Check if running as root (should be in CI)
-          if [[ $EUID -eq 0 ]]; then
-            echo "✅ Running as root - can sync systemd files"
-            
-            # Run the linking script
-            if [[ -f "scripts/link-systemd.sh" ]]; then
-              echo "🔗 Running systemd linking script..."
-              echo "Current directory: $(pwd)"
-              echo "Systemd directory exists: $(ls -la systemd/ 2>/dev/null || echo 'No systemd directory')"
-              
-              # Update script with correct repository path
-              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
-              # Also fix the current working directory issue
-              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/api-tests-workspace/repo/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
-              # Fix any other potential wrong paths
-              sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/.*/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd-sync-workspace/repo/systemd\"|g" scripts/link-systemd.sh
-              
-              echo "Script updated, running linking..."
-              ./scripts/link-systemd.sh
+          cd /var/lib/aitbc-workspaces/systemd-sync/repo
+          echo "=== Validating systemd service files ==="
+
+          if [[ ! -d "systemd" ]]; then
+            echo "⚠️ No systemd directory found"
+            exit 0
+          fi
+
+          errors=0
+          for f in systemd/*.service; do
+            fname=$(basename "$f")
+            echo -n "  $fname: "
+
+            # Check required fields
+            if grep -q "ExecStart=" "$f" && grep -q "Description=" "$f"; then
+              echo "✅ valid"
             else
-              echo "❌ Link script not found, creating manual sync..."
-              
-              # Manual sync as fallback
-              REPO_SYSTEMD_DIR="/opt/aitbc/systemd-sync-workspace/repo/systemd"
-              ACTIVE_SYSTEMD_DIR="/etc/systemd/system"
-              
-              # Create backup
-              BACKUP_DIR="/opt/aitbc/systemd-backup-$(date +%Y%m%d-%H%M%S)"
-              mkdir -p "$BACKUP_DIR"
-              find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -exec cp {} "$BACKUP_DIR/" \; 2>/dev/null || true
-              
-              # Create symbolic links
-              for file in "$REPO_SYSTEMD_DIR"/aitbc-*; do
-                if [[ -f "$file" ]]; then
-                  filename=$(basename "$file")
-                  target="$ACTIVE_SYSTEMD_DIR/$filename"
-                  source="$REPO_SYSTEMD_DIR/$filename"
-                  
-                  echo "🔗 Linking: $filename"
-                  ln -sf "$source" "$target"
-                  
-                  # Handle .d directories
-                  if [[ -d "${file}.d" ]]; then
-                    target_dir="${target}.d"
-                    source_dir="${file}.d"
-                    rm -rf "$target_dir" 2>/dev/null || true
-                    ln -sf "$source_dir" "$target_dir"
-                  fi
-                fi
-              done
-              
-              systemctl daemon-reload
-              echo "✅ Manual systemd sync completed"
+              echo "❌ missing ExecStart or Description"
+              errors=$((errors + 1))
             fi
-            
-          else
-            echo "⚠️  Not running as root - systemd sync requires root privileges"
-            echo "   To sync manually: sudo ./scripts/link-systemd.sh"
-          fi
+          done
 
-      - name: Verify Sync
+          echo "=== Found $(ls systemd/*.service 2>/dev/null | wc -l) service files, $errors errors ==="
+
+      - name: Sync service files
         run: |
-          echo "=== VERIFYING SYSTEMD SYNC ==="
-          cd /opt/aitbc/systemd-sync-workspace/repo
-          
-          if [[ $EUID -eq 0 ]]; then
-            echo "🔍 Verifying systemd links..."
-            
-            # Check if links exist
-            echo "Checking symbolic links:"
-            for file in systemd/aitbc-*; do
-              if [[ -f "$file" ]]; then
-                filename=$(basename "$file")
-                target="/etc/systemd/system/$filename"
-                
-                if [[ -L "$target" ]]; then
-                  echo "✅ $filename -> $(readlink "$target")"
-                elif [[ -f "$target" ]]; then
-                  echo "⚠️  $filename exists but is not a link (copied file)"
-                else
-                  echo "❌ $filename not found in active systemd"
-                fi
-              fi
-            done
-            
-            echo
-            echo "📊 Summary:"
-            echo "  Repository files: $(find systemd -name 'aitbc-*' -type f | wc -l)"
-            echo "  Active files: $(find /etc/systemd/system -name 'aitbc-*' -type f | wc -l)"
-            echo "  Symbolic links: $(find /etc/systemd/system -name 'aitbc-*' -type l | wc -l)"
-            
-          else
-            echo "⚠️  Cannot verify without root privileges"
+          cd /var/lib/aitbc-workspaces/systemd-sync/repo
+
+          if [[ ! -d "systemd" ]]; then
+            exit 0
           fi
 
-      - name: Service Status Check
+          echo "=== Syncing systemd files ==="
+          for f in systemd/*.service; do
+            fname=$(basename "$f")
+            cp "$f" "/etc/systemd/system/$fname"
+            echo "  ✅ $fname synced"
+          done
+
+          systemctl daemon-reload
+          echo "✅ Systemd daemon reloaded"
+
+      - name: Service status check
+        run: |
+          echo "=== AITBC Service Status ==="
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-node aitbc-blockchain-rpc aitbc-adaptive-learning; do
+            status=$(systemctl is-active "$svc" 2>/dev/null || echo "not-found")
+            enabled=$(systemctl is-enabled "$svc" 2>/dev/null || echo "not-found")
+            printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
+          done
+
+      - name: Cleanup
         if: always()
-        run: |
-          echo "=== SERVICE STATUS CHECK ==="
-          
-          if [[ $EUID -eq 0 ]]; then
-            echo "🔍 Checking AITBC service status..."
-            
-            # Check if services are enabled
-            echo "Enabled services:"
-            systemctl list-unit-files 'aitbc-*' --state=enabled | head -5 || echo "No enabled services found"
-            
-            echo
-            echo "Failed services:"
-            systemctl list-units 'aitbc-*' --state=failed | head -5 || echo "No failed services found"
-            
-            echo
-            echo "Running services:"
-            systemctl list-units 'aitbc-*' --state=running | head -5 || echo "No running services found"
-            
-          else
-            echo "⚠️  Cannot check service status without root privileges"
-          fi
-
-      - name: Instructions
-        run: |
-          echo "=== SYSTEMD SYNC INSTRUCTIONS ==="
-          echo
-          echo "🔧 Manual sync (if needed):"
-          echo "  sudo ./scripts/link-systemd.sh"
-          echo
-          echo "🔄 Restart services:"
-          echo "  sudo systemctl restart aitbc-blockchain-node"
-          echo "  sudo systemctl restart aitbc-coordinator-api"
-          echo "  sudo systemctl restart aitbc-*"
-          echo
-          echo "🔍 Check status:"
-          echo "  sudo systemctl status aitbc-*"
-          echo
-          echo "🔍 Verify links:"
-          echo "  ls -la /etc/systemd/system/aitbc-*"
-          echo "  readlink /etc/systemd/system/aitbc-blockchain-node.service"
+        run: rm -rf /var/lib/aitbc-workspaces/systemd-sync
