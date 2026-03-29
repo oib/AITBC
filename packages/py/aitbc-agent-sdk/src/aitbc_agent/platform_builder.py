@@ -25,14 +25,18 @@ class PlatformBuilder:
         self.config.update(config)
         return self
 
-    def add_provider(self, name: str, capabilities: Dict[str, Any]) -> "PlatformBuilder":
+    def add_provider(
+        self, name: str, capabilities: Dict[str, Any]
+    ) -> "PlatformBuilder":
         """Add a compute provider agent"""
         agent = Agent.create(name, "compute_provider", capabilities)
         self.agents.append(agent)
         logger.info(f"Added provider: {name}")
         return self
 
-    def add_consumer(self, name: str, capabilities: Dict[str, Any]) -> "PlatformBuilder":
+    def add_consumer(
+        self, name: str, capabilities: Dict[str, Any]
+    ) -> "PlatformBuilder":
         """Add a compute consumer agent"""
         agent = Agent.create(name, "compute_consumer", capabilities)
         self.agents.append(agent)
