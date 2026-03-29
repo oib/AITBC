@@ -102,9 +102,8 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
         print(f"Starting mining with wallet '{wallet_name}' using {threads} threads...")
         
         mining_config = {
-            "miner_address": wallet_name,  # Simplified for demo
-            "threads": threads,
-            "enabled": True
+            "proposer_address": wallet_name,  # Fixed field name for PoA
+            "threads": threads
         }
         
         try:
@@ -235,7 +234,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
         print(f"   Prompt: {prompt[:50]}...")
         
         job_data = {
-            "client_address": wallet_name,  # Simplified for demo
+            "wallet_address": wallet_name,  # Fixed field name
             "job_type": job_type,
             "prompt": prompt,
             "payment": payment
