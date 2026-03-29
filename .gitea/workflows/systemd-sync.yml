@@ -32,6 +32,9 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/systemd-sync/repo
           echo "=== Validating systemd service files ==="
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           if [[ ! -d "systemd" ]]; then
             echo "⚠️ No systemd directory found"

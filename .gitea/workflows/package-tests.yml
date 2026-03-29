@@ -48,6 +48,9 @@ jobs:
           echo "=== Testing ${{ matrix.package.name }} ==="
           echo "Directory: $(pwd)"
           ls -la
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           # Create venv
           python3 -m venv venv
