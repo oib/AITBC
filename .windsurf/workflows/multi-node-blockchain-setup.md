@@ -20,41 +20,8 @@ This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis aut
 Before running the workflow, ensure the following setup is complete:
 
 ```bash
-# 1. Stop existing services
-systemctl stop aitbc-blockchain-* 2>/dev/null || true
-
-# 2. Update ALL systemd configurations (main files + drop-ins + overrides)
-# Update main service files
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
-# Update drop-in configs
-find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \; 2>/dev/null || true
-# Fix override configs (wrong venv paths)
-find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "override.conf" -exec sed -i 's|/opt/aitbc/apps/blockchain-node/.venv/bin/python3|/opt/aitbc/venv/bin/python3|g' {} \; 2>/dev/null || true
-systemctl daemon-reload
-
-# 3. Create central configuration file
-cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
-# Ensure .env is in the correct location (already should be)
-mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
-
-# 4. Setup AITBC CLI tool
-# Use central virtual environment (dependencies already installed)
-source /opt/aitbc/venv/bin/activate
-pip install -e /opt/aitbc/cli/ 2>/dev/null || true
-echo 'alias aitbc="source /opt/aitbc/venv/bin/activate && aitbc"' >> ~/.bashrc
-source ~/.bashrc
-
-# 5. Clean old data (optional but recommended)
-rm -rf /var/lib/aitbc/data/ait-mainnet/*
-rm -rf /var/lib/aitbc/keystore/*
-
-# 6. Create keystore password file
-echo 'aitbc123' > /var/lib/aitbc/keystore/.password
-chmod 600 /var/lib/aitbc/keystore/.password
-
-# 7. Verify setup
-aitbc --help 2>/dev/null || echo "CLI available but limited commands"
-ls -la /etc/aitbc/.env
+# Run the pre-flight setup script
+/opt/aitbc/scripts/workflow/01_preflight_setup.sh
 ```
 
 ## Directory Structure
@@ -106,66 +73,8 @@ The workflow uses the single central `/etc/aitbc/.env` file as the configuration
 ### 1. Prepare aitbc1 (Genesis Authority Node)
 
 ```bash
-# We are already on aitbc1 node (localhost)
-# No SSH needed - running locally
-
-# Pull latest code
-cd /opt/aitbc
-git pull origin main
-
-# Install/update dependencies
-/opt/aitbc/venv/bin/pip install -r requirements.txt
-
-# Check and create required directories if they don't exist
-mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
-
-# Verify directories exist
-ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
-
-# Copy and adapt central .env for aitbc1 (genesis authority)
-cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc1.backup
-
-# Update .env for aitbc1 genesis authority configuration
-sed -i 's|proposer_id=.*|proposer_id=aitbc1genesis|g' /etc/aitbc/.env
-sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
-sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
-sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
-sed -i 's|enable_block_production=true|enable_block_production=true|g' /etc/aitbc/.env
-sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g' /etc/aitbc/.env
-sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
-
-# Add trusted proposers for follower nodes
-echo "trusted_proposers=aitbc1genesis" >> /etc/aitbc/.env
-
-# Create genesis block with wallets (using Python script until CLI is fully implemented)
-cd /opt/aitbc/apps/blockchain-node
-/opt/aitbc/venv/bin/python scripts/setup_production.py \
-  --base-dir /opt/aitbc/apps/blockchain-node \
-  --chain-id ait-mainnet \
-  --total-supply 1000000000
-
-# Get actual genesis wallet address and update config
-GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')
-echo "Genesis address: $GENESIS_ADDR"
-sed -i "s|proposer_id=.*|proposer_id=$GENESIS_ADDR|g" /etc/aitbc/.env
-sed -i "s|trusted_proposers=.*|trusted_proposers=$GENESIS_ADDR|g" /etc/aitbc/.env
-
-# Copy genesis and allocations to standard location
-mkdir -p /var/lib/aitbc/data/ait-mainnet
-cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
-cp /opt/aitbc/apps/blockchain-node/data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
-cp /opt/aitbc/apps/blockchain-node/keystore/* /var/lib/aitbc/keystore/
-
-# Note: systemd services should already use /etc/aitbc/.env
-# No need to update systemd if they are properly configured
-
-# Enable and start blockchain services
-systemctl daemon-reload
-systemctl enable aitbc-blockchain-node aitbc-blockchain-rpc
-systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
-
-# Monitor startup
-journalctl -f -u aitbc-blockchain-node -u aitbc-blockchain-rpc
+# Run the genesis authority setup script
+/opt/aitbc/scripts/workflow/02_genesis_authority_setup.sh
 ```
 
 ### 2. Verify aitbc1 Genesis State
@@ -184,54 +93,8 @@ curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
 ### 3. Prepare aitbc (Follower Node)
 
 ```bash
-# SSH to aitbc
-ssh aitbc
-
-# Pull latest code
-cd /opt/aitbc
-git pull origin main
-
-# Install/update dependencies
-/opt/aitbc/venv/bin/pip install -r requirements.txt
-
-# Check and create required directories if they don't exist
-mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
-
-# Verify directories exist
-ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
-
-# Copy and adapt central .env for aitbc (follower node)
-cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup
-
-# Update .env for aitbc follower node configuration
-sed -i 's|proposer_id=.*|proposer_id=follower-node-aitbc|g' /etc/aitbc/.env
-sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
-sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
-sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
-sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/.env
-sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://10.1.223.40:6379|g' /etc/aitbc/.env
-sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
-sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96|g' /etc/aitbc/.env
-
-# Note: aitbc should sync genesis from aitbc1, not copy it
-# The follower node will receive the genesis block via blockchain sync
-# ⚠️  DO NOT: scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
-# ✅ INSTEAD: Wait for automatic sync via blockchain protocol
-
-# Note: systemd services should already use /etc/aitbc/.env
-# No need to update systemd if they are properly configured
-
-# Stop any existing services and clear old data
-systemctl stop aitbc-blockchain-* 2>/dev/null || true
-rm -f /var/lib/aitbc/data/ait-mainnet/chain.db*
-
-# Start follower services
-systemctl daemon-reload
-systemctl enable aitbc-blockchain-node aitbc-blockchain-rpc
-systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
-
-# Monitor sync
-journalctl -f -u aitbc-blockchain-node -u aitbc-blockchain-rpc
+# Run the follower node setup script (executed on aitbc)
+ssh aitbc '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
 ```
 
 ### 4. Watch Blockchain Sync
@@ -259,15 +122,8 @@ fi
 ### 5. Create Wallet on aitbc
 
 ```bash
-# On aitbc, create a new wallet using AITBC simple wallet CLI
-ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py create --name aitbc-user --password-file /var/lib/aitbc/keystore/.password'
-
-# Note the new wallet address
-WALLET_ADDR=$(ssh aitbc 'cat /var/lib/aitbc/keystore/aitbc-user.json | jq -r .address')
-echo "New wallet: $WALLET_ADDR"
-
-# Verify wallet was created successfully
-ssh aitbc "python /opt/aitbc/cli/simple_wallet.py list --format json | jq '.[] | select(.name == \"aitbc-user\")'"
+# Run the wallet creation script
+/opt/aitbc/scripts/workflow/04_create_wallet.sh
 ```
 
 **🔑 Wallet Attachment & Coin Access:**
@@ -287,58 +143,15 @@ The newly created wallet on aitbc will:
 ### 6. Send 1000 AIT from Genesis to aitbc Wallet
 
 ```bash
-# On aitbc1, send 1000 AIT using AITBC simple wallet CLI
-python /opt/aitbc/cli/simple_wallet.py send \
-  --from aitbc1genesis \
-  --to $WALLET_ADDR \
-  --amount 1000 \
-  --fee 10 \
-  --password-file /var/lib/aitbc/keystore/.password \
-  --rpc-url http://localhost:8006
-
-# Get transaction hash for verification (simplified - using RPC to check latest transaction)
-TX_HASH=$(curl -s http://localhost:8006/rpc/transactions --limit 1 | jq -r '.transactions[0].hash' 2>/dev/null || echo "Transaction hash retrieval failed")
-echo "Transaction hash: $TX_HASH"
-
-# Wait for transaction to be mined
-echo "Waiting for transaction to be mined..."
-for i in {1..10}; do
-  sleep 2
-  BALANCE=$(ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq .balance")
-  if [ "$BALANCE" -gt "0" ]; then
-    echo "Transaction mined! Balance: $BALANCE AIT"
-    break
-  fi
-  echo "Check $i/10: Balance = $BALANCE AIT"
-done
-
-# Final balance verification
-ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
+# Run the transaction sending script
+/opt/aitbc/scripts/workflow/05_send_transaction.sh
 ```
 
 ### 7. Final Verification
 
 ```bash
-# Check both nodes are in sync
-echo "=== aitbc1 height (localhost) ==="
-curl -s http://localhost:8006/rpc/head | jq .height
-
-echo "=== aitbc height (remote) ==="
-ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height'
-
-echo "=== aitbc wallet balance (remote) ==="
-ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
-
-echo "=== Transaction verification ==="
-echo "Transaction hash: 0x9975fc6ed8eabdc20886f9c33ddb68d40e6a9820d3e1182ebe5612686b12ca22"
-# Verify transaction was mined (check if balance increased)
-
-# Additional verification commands
-echo "=== Network health check ==="
-echo "Redis connection:"
-redis-cli -h localhost ping
-echo "P2P connectivity:"
-curl -s http://localhost:8006/rpc/info | jq '.supported_chains'
+# Run the final verification script
+/opt/aitbc/scripts/workflow/06_final_verification.sh
 ```
 
 ### 8. Complete Sync (Optional - for full demonstration)
