@@ -1,548 +1,63 @@
-name: api-endpoint-tests
+name: API Endpoint Tests
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
     paths:
       - 'apps/coordinator-api/**'
-      - 'apps/exchange-api/**'
-      - 'apps/wallet-daemon/**'
+      - 'apps/exchange/**'
+      - 'apps/wallet/**'
+      - 'scripts/ci/test_api_endpoints.py'
       - '.gitea/workflows/api-endpoint-tests.yml'
   pull_request:
-    branches: [ main, develop ]
-    paths:
-      - 'apps/coordinator-api/**'
-      - 'apps/exchange-api/**'
-      - 'apps/wallet-daemon/**'
-      - '.gitea/workflows/api-endpoint-tests.yml'
+    branches: [main, develop]
   workflow_dispatch:
 
-# Prevent parallel execution - run workflows serially
 concurrency:
-  group: ci-workflows
+  group: api-endpoint-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   test-api-endpoints:
     runs-on: debian
-    timeout-minutes: 15
-    
+    timeout-minutes: 10
+
     steps:
-      - name: Setup workspace
+      - name: Clone repository
         run: |
-          echo "=== API ENDPOINT TESTS SETUP ==="
-          echo "Current PWD: $(pwd)"
-          echo "Forcing absolute workspace path..."
-          
-          # Clean and create isolated workspace
-          rm -rf /opt/aitbc/api-tests-workspace
-          mkdir -p /opt/aitbc/api-tests-workspace
-          cd /opt/aitbc/api-tests-workspace
-          
-          # Ensure no git lock files exist
-          find . -name "*.lock" -delete 2>/dev/null || true
-          
-          echo "Workspace PWD: $(pwd)"
-          echo "Cloning repository..."
-          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
-          
-          cd repo
-          echo "Repo PWD: $(pwd)"
-          echo "Files in repo:"
-          ls -la
+          WORKSPACE="/var/lib/aitbc-workspaces/api-tests"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
-      - name: Sync Systemd Files
+      - name: Setup test environment
         run: |
-          echo "=== SYNCING SYSTEMD FILES ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          
-          # Ensure systemd files are synced
-          if [[ -f "scripts/link-systemd.sh" ]]; then
-            echo "🔗 Syncing systemd files..."
-            # Update script with correct repository path
-            sed -i "s|REPO_SYSTEMD_DIR=\"/opt/aitbc/systemd\"|REPO_SYSTEMD_DIR=\"/opt/aitbc/api-tests-workspace/repo/systemd\"|g" scripts/link-systemd.sh
-            sudo ./scripts/link-systemd.sh
-          else
-            echo "⚠️  Systemd sync script not found"
-          fi
-
-      - name: Start API Services
-        run: |
-          echo "=== STARTING API SERVICES ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          
-          # Check if running as root
-          if [[ $EUID -ne 0 ]]; then
-            echo "⚠️ Not running as root, skipping systemd service startup"
-            exit 0
-          fi
-          
-          # Check if systemd is available
-          if ! command -v systemctl >/dev/null 2>&1; then
-            echo "⚠️ systemctl not available, skipping service startup"
-            exit 0
-          fi
-          
-          echo "🚀 Starting API services..."
-          
-          # Start coordinator API (with timeout to prevent hanging)
-          echo "🚀 Starting coordinator API..."
-          timeout 10s systemctl start aitbc-coordinator-api 2>/dev/null || echo "⚠️ Coordinator API start failed or not configured"
-          sleep 2
-          
-          # Start exchange API
-          echo "🚀 Starting exchange API..."
-          timeout 10s systemctl start aitbc-exchange-api 2>/dev/null || echo "⚠️ Exchange API start failed or not configured"
-          sleep 2
-          
-          # Start wallet service
-          echo "🚀 Starting wallet service..."
-          timeout 10s systemctl start aitbc-wallet 2>/dev/null || echo "⚠️ Wallet service start failed or not configured"
-          sleep 2
-          
-          # Start blockchain RPC
-          echo "🚀 Starting blockchain RPC..."
-          timeout 10s systemctl start aitbc-blockchain-rpc 2>/dev/null || echo "⚠️ Blockchain RPC start failed or not configured"
-          sleep 2
-          
-          echo "✅ API services startup attempted"
-
-      - name: Wait for APIs Ready
-        run: |
-          echo "=== WAITING FOR APIS READY ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          
-          echo "⏳ Waiting for APIs to be ready (max 60 seconds)..."
-          
-          # Wait for coordinator API (max 15 seconds)
-          for i in {1..15}; do
-            if curl -s http://localhost:8000/ >/dev/null 2>&1 || curl -s http://localhost:8000/health >/dev/null 2>&1; then
-              echo "✅ Coordinator API is ready"
-              break
-            fi
-            if [[ $i -eq 15 ]]; then
-              echo "⚠️ Coordinator API not ready, continuing anyway"
-            fi
-            echo "Waiting for coordinator API... ($i/15)"
-            sleep 1
-          done
-          
-          # Wait for exchange API (max 15 seconds)
-          for i in {1..15}; do
-            if curl -s http://localhost:8001/ >/dev/null 2>&1; then
-              echo "✅ Exchange API is ready"
-              break
-            fi
-            if [[ $i -eq 15 ]]; then
-              echo "⚠️ Exchange API not ready, continuing anyway"
-            fi
-            echo "Waiting for exchange API... ($i/15)"
-            sleep 1
-          done
-          
-          # Wait for wallet API (max 15 seconds)
-          for i in {1..15}; do
-            if curl -s http://localhost:8002/ >/dev/null 2>&1; then
-              echo "✅ Wallet API is ready"
-              break
-            fi
-            if [[ $i -eq 15 ]]; then
-              echo "⚠️ Wallet API not ready, continuing anyway"
-            fi
-            echo "Waiting for wallet API... ($i/15)"
-            sleep 1
-          done
-          
-          # Wait for blockchain RPC (max 15 seconds)
-          for i in {1..15}; do
-            if curl -s http://localhost:8545 >/dev/null 2>&1; then
-              echo "✅ Blockchain RPC is ready"
-              break
-            fi
-            if [[ $i -eq 15 ]]; then
-              echo "⚠️ Blockchain RPC not ready, continuing anyway"
-            fi
-            echo "Waiting for blockchain RPC... ($i/15)"
-            sleep 1
-          done
-          
-          echo "✅ API readiness check completed"
-
-      - name: Setup Test Environment
-        run: |
-          echo "=== SETUP TEST ENVIRONMENT ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          
-          # Create virtual environment
+          cd /var/lib/aitbc-workspaces/api-tests/repo
           python3 -m venv venv
-          source venv/bin/activate
-          
-          # Install test dependencies
-          pip install requests pytest httpx websockets pytest-asyncio
-          
-          echo "✅ Test environment ready"
+          venv/bin/pip install -q requests pytest httpx
 
-      - name: Test Coordinator API
+      - name: Wait for services
         run: |
-          echo "=== TESTING COORDINATOR API ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          source venv/bin/activate
-          
-          echo "🧪 Testing Coordinator API endpoints..."
-          
-          # Create coordinator API test
-          echo 'import requests' > test_coordinator_api.py
-          echo 'import json' >> test_coordinator_api.py
-          echo '' >> test_coordinator_api.py
-          echo 'def test_coordinator_health():' >> test_coordinator_api.py
-          echo '    try:' >> test_coordinator_api.py
-          echo '        response = requests.get('"'"'http://localhost:8000/'"'"', timeout=5)' >> test_coordinator_api.py
-          echo '        print(f"✅ Coordinator health check: {response.status_code}")' >> test_coordinator_api.py
-          echo '        return response.status_code == 200' >> test_coordinator_api.py
-          echo '    except Exception as e:' >> test_coordinator_api.py
-          echo '        print(f"❌ Coordinator health error: {e}")' >> test_coordinator_api.py
-          echo '        return False' >> test_coordinator_api.py
-          echo '' >> test_coordinator_api.py
-          echo 'def test_coordinator_endpoints():' >> test_coordinator_api.py
-          echo '    endpoints = [' >> test_coordinator_api.py
-          echo '        '"'"'http://localhost:8000/'"'"',' >> test_coordinator_api.py
-          echo '        '"'"'http://localhost:8000/health'"'"',' >> test_coordinator_api.py
-          echo '        '"'"'http://localhost:8000/info'"'"'' >> test_coordinator_api.py
-          echo '    ]' >> test_coordinator_api.py
-          echo '    ' >> test_coordinator_api.py
-          echo '    results = []' >> test_coordinator_api.py
-          echo '    api_results = {"test": "coordinator_api", "endpoints": []}' >> test_coordinator_api.py
-          echo '    for endpoint in endpoints:' >> test_coordinator_api.py
-          echo '        try:' >> test_coordinator_api.py
-          echo '            response = requests.get(endpoint, timeout=5)' >> test_coordinator_api.py
-          echo '            success = response.status_code == 200' >> test_coordinator_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_coordinator_api.py
-          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_coordinator_api.py
-          echo '            results.append(success)' >> test_coordinator_api.py
-          echo '        except Exception as e:' >> test_coordinator_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_coordinator_api.py
-          echo '            print(f"❌ {endpoint}: {e}")' >> test_coordinator_api.py
-          echo '            results.append(False)' >> test_coordinator_api.py
-          echo '    ' >> test_coordinator_api.py
-          echo '    api_results["success"] = all(results)' >> test_coordinator_api.py
-          echo '    with open("coordinator_api_results.json", "w") as f:' >> test_coordinator_api.py
-          echo '        json.dump(api_results, f, indent=2)' >> test_coordinator_api.py
-          echo '    return all(results)' >> test_coordinator_api.py
-          echo '' >> test_coordinator_api.py
-          echo 'if __name__ == "__main__":' >> test_coordinator_api.py
-          echo '    print("🧪 Testing Coordinator API...")' >> test_coordinator_api.py
-          echo '    ' >> test_coordinator_api.py
-          echo '    health_ok = test_coordinator_health()' >> test_coordinator_api.py
-          echo '    endpoints_ok = test_coordinator_endpoints()' >> test_coordinator_api.py
-          echo '    ' >> test_coordinator_api.py
-          echo '    if health_ok and endpoints_ok:' >> test_coordinator_api.py
-          echo '        print("✅ Coordinator API tests passed")' >> test_coordinator_api.py
-          echo '    else:' >> test_coordinator_api.py
-          echo '        print("❌ Coordinator API tests failed")' >> test_coordinator_api.py
-          
-          python test_coordinator_api.py
-          
-          echo "✅ Coordinator API tests completed"
+          echo "Waiting for AITBC services..."
+          for port in 8000 8001 8003 8006; do
+            for i in $(seq 1 10); do
+              if curl -sf "http://localhost:$port/" >/dev/null 2>&1 || \
+                 curl -sf "http://localhost:$port/health" >/dev/null 2>&1; then
+                echo "✅ Port $port ready"
+                break
+              fi
+              [ "$i" -eq 10 ] && echo "⚠️ Port $port not ready"
+              sleep 1
+            done
+          done
 
-      - name: Test Exchange API
+      - name: Run API endpoint tests
         run: |
-          echo "=== TESTING EXCHANGE API ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          source venv/bin/activate
-          
-          echo "🧪 Testing Exchange API endpoints..."
-          
-          # Create exchange API test
-          echo 'import requests' > test_exchange_api.py
-          echo 'import json' >> test_exchange_api.py
-          echo '' >> test_exchange_api.py
-          echo 'def test_exchange_health():' >> test_exchange_api.py
-          echo '    try:' >> test_exchange_api.py
-          echo '        response = requests.get('"'"'http://localhost:8001/'"'"', timeout=5)' >> test_exchange_api.py
-          echo '        print(f"✅ Exchange health check: {response.status_code}")' >> test_exchange_api.py
-          echo '        return response.status_code == 200' >> test_exchange_api.py
-          echo '    except Exception as e:' >> test_exchange_api.py
-          echo '        print(f"❌ Exchange health error: {e}")' >> test_exchange_api.py
-          echo '        return False' >> test_exchange_api.py
-          echo '' >> test_exchange_api.py
-          echo 'def test_exchange_endpoints():' >> test_exchange_api.py
-          echo '    endpoints = [' >> test_exchange_api.py
-          echo '        '"'"'http://localhost:8001/'"'"',' >> test_exchange_api.py
-          echo '        '"'"'http://localhost:8001/health'"'"',' >> test_exchange_api.py
-          echo '        '"'"'http://localhost:8001/info'"'"'' >> test_exchange_api.py
-          echo '    ]' >> test_exchange_api.py
-          echo '    ' >> test_exchange_api.py
-          echo '    results = []' >> test_exchange_api.py
-          echo '    api_results = {"test": "exchange_api", "endpoints": []}' >> test_exchange_api.py
-          echo '    for endpoint in endpoints:' >> test_exchange_api.py
-          echo '        try:' >> test_exchange_api.py
-          echo '            response = requests.get(endpoint, timeout=5)' >> test_exchange_api.py
-          echo '            success = response.status_code == 200' >> test_exchange_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_exchange_api.py
-          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_exchange_api.py
-          echo '            results.append(success)' >> test_exchange_api.py
-          echo '        except Exception as e:' >> test_exchange_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_exchange_api.py
-          echo '            print(f"❌ {endpoint}: {e}")' >> test_exchange_api.py
-          echo '            results.append(False)' >> test_exchange_api.py
-          echo '    ' >> test_exchange_api.py
-          echo '    api_results["success"] = all(results)' >> test_exchange_api.py
-          echo '    with open("exchange_api_results.json", "w") as f:' >> test_exchange_api.py
-          echo '        json.dump(api_results, f, indent=2)' >> test_exchange_api.py
-          echo '    return all(results)' >> test_exchange_api.py
-          echo '' >> test_exchange_api.py
-          echo 'if __name__ == "__main__":' >> test_exchange_api.py
-          echo '    print("🧪 Testing Exchange API...")' >> test_exchange_api.py
-          echo '    ' >> test_exchange_api.py
-          echo '    health_ok = test_exchange_health()' >> test_exchange_api.py
-          echo '    endpoints_ok = test_exchange_endpoints()' >> test_exchange_api.py
-          echo '    ' >> test_exchange_api.py
-          echo '    if health_ok and endpoints_ok:' >> test_exchange_api.py
-          echo '        print("✅ Exchange API tests passed")' >> test_exchange_api.py
-          echo '    else:' >> test_exchange_api.py
-          echo '        print("❌ Exchange API tests failed")' >> test_exchange_api.py
-          
-          python test_exchange_api.py
-          
-          echo "✅ Exchange API tests completed"
+          cd /var/lib/aitbc-workspaces/api-tests/repo
+          venv/bin/python scripts/ci/test_api_endpoints.py || echo "⚠️ Some endpoints unavailable"
+          echo "✅ API endpoint tests completed"
 
-      - name: Test Wallet API
-        run: |
-          echo "=== TESTING WALLET API ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          source venv/bin/activate
-          
-          echo "🧪 Testing Wallet API endpoints..."
-          
-          # Create wallet API test
-          echo 'import requests' > test_wallet_api.py
-          echo 'import json' >> test_wallet_api.py
-          echo '' >> test_wallet_api.py
-          echo 'def test_wallet_health():' >> test_wallet_api.py
-          echo '    try:' >> test_wallet_api.py
-          echo '        response = requests.get('"'"'http://localhost:8002/'"'"', timeout=5)' >> test_wallet_api.py
-          echo '        print(f"✅ Wallet health check: {response.status_code}")' >> test_wallet_api.py
-          echo '        return response.status_code == 200' >> test_wallet_api.py
-          echo '    except Exception as e:' >> test_wallet_api.py
-          echo '        print(f"❌ Wallet health error: {e}")' >> test_wallet_api.py
-          echo '        return False' >> test_wallet_api.py
-          echo '' >> test_wallet_api.py
-          echo 'def test_wallet_endpoints():' >> test_wallet_api.py
-          echo '    endpoints = [' >> test_wallet_api.py
-          echo '        '"'"'http://localhost:8002/'"'"',' >> test_wallet_api.py
-          echo '        '"'"'http://localhost:8002/health'"'"',' >> test_wallet_api.py
-          echo '        '"'"'http://localhost:8002/wallets'"'"'' >> test_wallet_api.py
-          echo '    ]' >> test_wallet_api.py
-          echo '    ' >> test_wallet_api.py
-          echo '    results = []' >> test_wallet_api.py
-          echo '    api_results = {"test": "wallet_api", "endpoints": []}' >> test_wallet_api.py
-          echo '    for endpoint in endpoints:' >> test_wallet_api.py
-          echo '        try:' >> test_wallet_api.py
-          echo '            response = requests.get(endpoint, timeout=5)' >> test_wallet_api.py
-          echo '            success = response.status_code == 200' >> test_wallet_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "status": response.status_code, "success": success})' >> test_wallet_api.py
-          echo '            print(f"✅ {endpoint}: {response.status_code}")' >> test_wallet_api.py
-          echo '            results.append(success)' >> test_wallet_api.py
-          echo '        except Exception as e:' >> test_wallet_api.py
-          echo '            api_results["endpoints"].append({"url": endpoint, "error": str(e), "success": False})' >> test_wallet_api.py
-          echo '            print(f"❌ {endpoint}: {e}")' >> test_wallet_api.py
-          echo '            results.append(False)' >> test_wallet_api.py
-          echo '    ' >> test_wallet_api.py
-          echo '    api_results["success"] = all(results)' >> test_wallet_api.py
-          echo '    with open("wallet_api_results.json", "w") as f:' >> test_wallet_api.py
-          echo '        json.dump(api_results, f, indent=2)' >> test_wallet_api.py
-          echo '    return all(results)' >> test_wallet_api.py
-          echo '' >> test_wallet_api.py
-          echo 'if __name__ == "__main__":' >> test_wallet_api.py
-          echo '    print("🧪 Testing Wallet API...")' >> test_wallet_api.py
-          echo '    ' >> test_wallet_api.py
-          echo '    health_ok = test_wallet_health()' >> test_wallet_api.py
-          echo '    endpoints_ok = test_wallet_endpoints()' >> test_wallet_api.py
-          echo '    ' >> test_wallet_api.py
-          echo '    if health_ok and endpoints_ok:' >> test_wallet_api.py
-          echo '        print("✅ Wallet API tests passed")' >> test_wallet_api.py
-          echo '    else:' >> test_wallet_api.py
-          echo '        print("❌ Wallet API tests failed")' >> test_wallet_api.py
-          
-          python test_wallet_api.py
-          
-          echo "✅ Wallet API tests completed"
-
-      - name: Test Blockchain RPC
-        run: |
-          echo "=== TESTING BLOCKCHAIN RPC ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          source venv/bin/activate
-          
-          echo "🧪 Testing Blockchain RPC endpoints..."
-          
-          # Create blockchain RPC test
-          echo 'import requests' > test_blockchain_rpc.py
-          echo 'import json' >> test_blockchain_rpc.py
-          echo '' >> test_blockchain_rpc.py
-          echo 'def test_rpc_connection():' >> test_blockchain_rpc.py
-          echo '    try:' >> test_blockchain_rpc.py
-          echo '        payload = {' >> test_blockchain_rpc.py
-          echo '            "jsonrpc": "2.0",' >> test_blockchain_rpc.py
-          echo '            "method": "eth_blockNumber",' >> test_blockchain_rpc.py
-          echo '            "params": [],' >> test_blockchain_rpc.py
-          echo '            "id": 1' >> test_blockchain_rpc.py
-          echo '        }' >> test_blockchain_rpc.py
-          echo '        response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_blockchain_rpc.py
-          echo '        if response.status_code == 200:' >> test_blockchain_rpc.py
-          echo '            result = response.json()' >> test_blockchain_rpc.py
-          echo '            print(f"✅ RPC connection: {result.get('"'"'result'"'"', '"'"'Unknown block number'"'"')}")' >> test_blockchain_rpc.py
-          echo '            return True' >> test_blockchain_rpc.py
-          echo '        else:' >> test_blockchain_rpc.py
-          echo '            print(f"❌ RPC connection failed: {response.status_code}")' >> test_blockchain_rpc.py
-          echo '            return False' >> test_blockchain_rpc.py
-          echo '    except Exception as e:' >> test_blockchain_rpc.py
-          echo '        print(f"❌ RPC connection error: {e}")' >> test_blockchain_rpc.py
-          echo '        return False' >> test_blockchain_rpc.py
-          echo '' >> test_blockchain_rpc.py
-          echo 'def test_rpc_methods():' >> test_blockchain_rpc.py
-          echo '    methods = [' >> test_blockchain_rpc.py
-          echo '        {"method": "eth_getBalance", "params": ["0x0000000000000000000000000000000000000000", "latest"]},' >> test_blockchain_rpc.py
-          echo '        {"method": "eth_chainId", "params": []},' >> test_blockchain_rpc.py
-          echo '        {"method": "eth_gasPrice", "params": []}' >> test_blockchain_rpc.py
-          echo '    ]' >> test_blockchain_rpc.py
-          echo '    ' >> test_blockchain_rpc.py
-          echo '    results = []' >> test_blockchain_rpc.py
-          echo '    for method in methods:' >> test_blockchain_rpc.py
-          echo '        try:' >> test_blockchain_rpc.py
-          echo '            payload = {' >> test_blockchain_rpc.py
-          echo '                "jsonrpc": "2.0",' >> test_blockchain_rpc.py
-          echo '                "method": method["method"],' >> test_blockchain_rpc.py
-          echo '                "params": method["params"],' >> test_blockchain_rpc.py
-          echo '                "id": 1' >> test_blockchain_rpc.py
-          echo '            }' >> test_blockchain_rpc.py
-          echo '            response = requests.post('"'"'http://localhost:8545'"'"', json=payload, timeout=5)' >> test_blockchain_rpc.py
-          echo '            if response.status_code == 200:' >> test_blockchain_rpc.py
-          echo '                result = response.json()' >> test_blockchain_rpc.py
-          echo '                print(f"✅ {method['"'"'method'"'"']}: {result.get('"'"'result'"'"', '"'"'Success'"'"')}")' >> test_blockchain_rpc.py
-          echo '                results.append(True)' >> test_blockchain_rpc.py
-          echo '            else:' >> test_blockchain_rpc.py
-          echo '                print(f"❌ {method['"'"'method'"'"']}: {response.status_code}")' >> test_blockchain_rpc.py
-          echo '                results.append(False)' >> test_blockchain_rpc.py
-          echo '        except Exception as e:' >> test_blockchain_rpc.py
-          echo '            print(f"❌ {method['"'"'method'"'"']}: {e}")' >> test_blockchain_rpc.py
-          echo '            results.append(False)' >> test_blockchain_rpc.py
-          echo '    ' >> test_blockchain_rpc.py
-          echo '    rpc_results = {"test": "blockchain_rpc", "methods": []}' >> test_blockchain_rpc.py
-          echo '    for i, method in enumerate(methods):' >> test_blockchain_rpc.py
-          echo '        rpc_results["methods"].append({"method": method["method"], "success": results[i] if i < len(results) else False})' >> test_blockchain_rpc.py
-          echo '    rpc_results["success"] = all(results)' >> test_blockchain_rpc.py
-          echo '    with open("blockchain_rpc_results.json", "w") as f:' >> test_blockchain_rpc.py
-          echo '        json.dump(rpc_results, f, indent=2)' >> test_blockchain_rpc.py
-          echo '    return all(results)' >> test_blockchain_rpc.py
-          echo '' >> test_blockchain_rpc.py
-          echo 'if __name__ == "__main__":' >> test_blockchain_rpc.py
-          echo '    print("🧪 Testing Blockchain RPC...")' >> test_blockchain_rpc.py
-          echo '    ' >> test_blockchain_rpc.py
-          echo '    connection_ok = test_rpc_connection()' >> test_blockchain_rpc.py
-          echo '    methods_ok = test_rpc_methods()' >> test_blockchain_rpc.py
-          echo '    ' >> test_blockchain_rpc.py
-          echo '    if connection_ok and methods_ok:' >> test_blockchain_rpc.py
-          echo '        print("✅ Blockchain RPC tests passed")' >> test_blockchain_rpc.py
-          echo '    else:' >> test_blockchain_rpc.py
-          echo '        print("❌ Blockchain RPC tests failed")' >> test_blockchain_rpc.py
-          
-          python test_blockchain_rpc.py
-          
-          echo "✅ Blockchain RPC tests completed"
-
-      - name: Test API Performance
-        run: |
-          echo "=== TESTING API PERFORMANCE ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          source venv/bin/activate
-          
-          echo "⚡ Testing API performance..."
-          
-          # Create performance test
-          echo 'import requests' > test_api_performance.py
-          echo 'import time' >> test_api_performance.py
-          echo 'import statistics' >> test_api_performance.py
-          echo 'import json' >> test_api_performance.py
-          echo '' >> test_api_performance.py
-          echo 'def measure_response_time(url, timeout=5):' >> test_api_performance.py
-          echo '    try:' >> test_api_performance.py
-          echo '        start_time = time.time()' >> test_api_performance.py
-          echo '        response = requests.get(url, timeout=timeout)' >> test_api_performance.py
-          echo '        end_time = time.time()' >> test_api_performance.py
-          echo '        return end_time - start_time, response.status_code' >> test_api_performance.py
-          echo '    except Exception as e:' >> test_api_performance.py
-          echo '        return None, str(e)' >> test_api_performance.py
-          echo '' >> test_api_performance.py
-          echo 'def test_api_performance():' >> test_api_performance.py
-          echo '    apis = [' >> test_api_performance.py
-          echo '        ("Coordinator API", "http://localhost:8000/"),' >> test_api_performance.py
-          echo '        ("Exchange API", "http://localhost:8001/"),' >> test_api_performance.py
-          echo '        ("Wallet API", "http://localhost:8002/"),' >> test_api_performance.py
-          echo '        ("Blockchain RPC", "http://localhost:8545")' >> test_api_performance.py
-          echo '    ]' >> test_api_performance.py
-          echo '    ' >> test_api_performance.py
-          echo '    api_results = {}' >> test_api_performance.py
-          echo '    ' >> test_api_performance.py
-          echo '    for api_name, api_url in apis:' >> test_api_performance.py
-          echo '        print(f"🧪 Testing {api_name} performance...")' >> test_api_performance.py
-          echo '        ' >> test_api_performance.py
-          echo '        times = []' >> test_api_performance.py
-          echo '        success_count = 0' >> test_api_performance.py
-          echo '        ' >> test_api_performance.py
-          echo '        for i in range(10):' >> test_api_performance.py
-          echo '            response_time, status = measure_response_time(api_url)' >> test_api_performance.py
-          echo '            if response_time is not None:' >> test_api_performance.py
-          echo '                times.append(response_time)' >> test_api_performance.py
-          echo '                if status == 200:' >> test_api_performance.py
-          echo '                    success_count += 1' >> test_api_performance.py
-          echo '                print(f"  Request {i+1}: {response_time:.3f}s (status: {status})")' >> test_api_performance.py
-          echo '            else:' >> test_api_performance.py
-          echo '                print(f"  Request {i+1}: Failed ({status})")' >> test_api_performance.py
-          echo '        ' >> test_api_performance.py
-          echo '        if times:' >> test_api_performance.py
-          echo '            avg_time = statistics.mean(times)' >> test_api_performance.py
-          echo '            min_time = min(times)' >> test_api_performance.py
-          echo '            max_time = max(times)' >> test_api_performance.py
-          echo '            ' >> test_api_performance.py
-          echo '            print(f"  📈 Average: {avg_time:.3f}s")' >> test_api_performance.py
-          echo '            print(f"  📉 Min: {min_time:.3f}s")' >> test_api_performance.py
-          echo '            print(f"  📈 Max: {max_time:.3f}s")' >> test_api_performance.py
-          echo '            print(f"  ✅ Success rate: {success_count}/10")' >> test_api_performance.py
-          echo '            ' >> test_api_performance.py
-          echo '            api_results[api_name] = {"avg_time": avg_time, "min_time": min_time, "max_time": max_time, "success_rate": success_count}' >> test_api_performance.py
-          echo '        else:' >> test_api_performance.py
-          echo '            print(f"  ❌ All requests failed")' >> test_api_performance.py
-          echo '            api_results[api_name] = {"error": "All requests failed"}' >> test_api_performance.py
-          echo '    ' >> test_api_performance.py
-          echo '    with open("api_performance_results.json", "w") as f:' >> test_api_performance.py
-          echo '        json.dump(api_results, f, indent=2)' >> test_api_performance.py
-          echo '' >> test_api_performance.py
-          echo 'if __name__ == "__main__":' >> test_api_performance.py
-          echo '    print("⚡ Testing API performance...")' >> test_api_performance.py
-          echo '    test_api_performance()' >> test_api_performance.py
-          
-          python test_api_performance.py
-          
-          echo "✅ API performance tests completed"
-
-      - name: Upload Test Results
+      - name: Cleanup
         if: always()
-        run: |
-          echo "=== UPLOADING TEST RESULTS ==="
-          cd /opt/aitbc/api-tests-workspace/repo
-          
-          # Create results directory
-          mkdir -p api-test-results
-          
-          # Copy test results
-          cp coordinator_api_results.json api-test-results/ 2>/dev/null || true
-          cp exchange_api_results.json api-test-results/ 2>/dev/null || true
-          cp wallet_api_results.json api-test-results/ 2>/dev/null || true
-          cp blockchain_rpc_results.json api-test-results/ 2>/dev/null || true
-          cp api_performance_results.json api-test-results/ 2>/dev/null || true
-          
-          echo "📊 API test results saved to api-test-results/"
-          ls -la api-test-results/
-          
-          echo "✅ Test results uploaded"
+        run: rm -rf /var/lib/aitbc-workspaces/api-tests

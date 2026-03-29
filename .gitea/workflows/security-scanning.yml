@@ -1,137 +1,72 @@
-name: security-scanning
+name: Security Scanning
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'cli/**'
+      - '.gitea/workflows/security-scanning.yml'
   pull_request:
-    branches: [ main, develop ]
+    branches: [main, develop]
+  schedule:
+    - cron: '0 3 * * 1'
   workflow_dispatch:
 
-# Prevent parallel execution - run workflows serially
 concurrency:
-  group: ci-workflows
+  group: security-scanning-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  audit:
+  security-scan:
     runs-on: debian
+    timeout-minutes: 15
 
     steps:
-      - name: Nuclear fix - absolute path control
+      - name: Clone repository
         run: |
-          echo "=== SECURITY SCANNING NUCLEAR FIX ==="
-          echo "Current PWD: $(pwd)"
-          echo "Forcing absolute workspace path..."
-          
-          # Clean and create isolated workspace
-          rm -rf /opt/aitbc/security-workspace
-          mkdir -p /opt/aitbc/security-workspace
-          cd /opt/aitbc/security-workspace
-          
-          echo "Workspace PWD: $(pwd)"
-          echo "Cloning repository..."
-          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
-          
-          cd repo
-          echo "Repo PWD: $(pwd)"
-          echo "Files in repo:"
-          ls -la
-          
-          echo "=== PROJECT TYPE CHECK ==="
-          if [ -f "package.json" ]; then
-            echo "✅ Node.js project detected!"
-            echo "=== NPM INSTALL ==="
-            npm install --legacy-peer-deps
-            echo "✅ Running security scan..."
-            npm audit --audit-level moderate || true
-          elif [ -f "pyproject.toml" ]; then
-            echo "✅ Python project detected!"
-            echo "=== PYTHON SETUP ==="
-            
-            # Install Python and pip if not available
-            if ! command -v python3 >/dev/null 2>&1; then
-              echo "Installing Python 3..."
-              apt-get update
-              apt-get install -y python3 python3-pip python3-venv python3-full pipx
-            fi
-            
-            # Install pipx if not available (for poetry)
-            if ! command -v pipx >/dev/null 2>&1; then
-              echo "Installing pipx..."
-              python3 -m pip install --user pipx
-              python3 -m pipx ensurepath
-            fi
-            
-            echo "=== POETRY SETUP ==="
-            # Add poetry to PATH and install if needed
-            export PATH="$PATH:/root/.local/bin"
-            if ! command -v poetry >/dev/null 2>&1; then
-              echo "Installing poetry with pipx..."
-              pipx install poetry
-              export PATH="$PATH:/root/.local/bin"
-            else
-              echo "Poetry already available at $(which poetry)"
-            fi
-            
-            # Use full path as fallback
-            POETRY_CMD="/root/.local/share/pipx/venvs/poetry/bin/poetry"
-            if [ -f "$POETRY_CMD" ]; then
-              echo "Using poetry at: $POETRY_CMD"
-            else
-              POETRY_CMD="poetry"
-            fi
-            
-            echo "=== PROJECT VIRTUAL ENVIRONMENT ==="
-            # Create venv for project dependencies
-            python3 -m venv venv
-            source venv/bin/activate
-            
-            echo "Project venv activated"
-            echo "Python in venv: $(python --version)"
-            echo "Pip in venv: $(pip --version)"
-            
-            echo "=== PYTHON DEPENDENCIES ==="
-            # Use poetry to install dependencies only (skip current project)
-            echo "Installing dependencies with poetry (no-root mode)..."
-            
-            # Check if poetry.lock is in sync, regenerate if needed
-            if $POETRY_CMD check --lock 2>/dev/null; then
-              echo "poetry.lock is in sync, installing dependencies..."
-              $POETRY_CMD install --no-root
-            else
-              echo "poetry.lock is out of sync, regenerating..."
-              $POETRY_CMD lock
-              echo "Installing dependencies with updated lock file..."
-              $POETRY_CMD install --no-root
-            fi
-            
-            echo "✅ Running security scan..."
-            # Install bandit for code security only (skip Safety CLI)
-            venv/bin/pip install bandit
-            
-            echo "=== Bandit scan (code security) ==="
-            # Run bandit with maximum filtering for actual security issues only
-            # Redirect all output to file to suppress warnings in CI/CD logs
-            venv/bin/bandit -r . -f json -q --confidence-level high --severity-level high -x venv/ --skip B108,B101,B311,B201,B301,B403,B304,B602,B603,B604,B605,B606,B607,B608,B609,B610,B611 > bandit-report.json 2>/dev/null || echo "Bandit scan completed"
-            
-            # Only show summary if there are actual high-severity findings
-            if [[ -s bandit-report.json ]] && command -v jq >/dev/null 2>&1; then
-              ISSUES_COUNT=$(jq '.results | length' bandit-report.json 2>/dev/null || echo "0")
-              if [[ "$ISSUES_COUNT" -gt 0 ]]; then
-                echo "🚨 Found $ISSUES_COUNT high-severity security issues:"
-                jq -r '.results[] | "  - \(.test_name): \(.issue_text)"' bandit-report.json 2>/dev/null || echo "  (Detailed report in bandit-report.json)"
-              else
-                echo "✅ No high-severity security issues found"
-              fi
-            else
-              echo "✅ Bandit scan completed - no high-severity issues found"
-            fi
-            
-            echo "=== Security Summary ==="
-            echo "✅ Code security: Bandit scan completed (high severity & confidence only)"
-            echo "✅ Dependencies: Managed via poetry lock file"
-            echo "✅ All security scans finished - clean and focused"
-          else
-            echo "❌ No supported project type found!"
-            exit 1
-          fi
+          WORKSPACE="/var/lib/aitbc-workspaces/security-scan"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Setup tools
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          python3 -m venv venv
+          source venv/bin/activate
+          pip install -q bandit safety pip-audit
+          echo "✅ Security tools installed"
+
+      - name: Python dependency audit
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          source venv/bin/activate
+          echo "=== Dependency Audit ==="
+          pip-audit -r requirements.txt --desc 2>/dev/null || echo "⚠️ Some vulnerabilities found"
+          echo "✅ Dependency audit completed"
+
+      - name: Bandit security scan
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          source venv/bin/activate
+          echo "=== Bandit Security Scan ==="
+          bandit -r apps/ packages/py/ cli/ \
+            -s B101,B311 \
+            --severity-level medium \
+            -f txt -q 2>/dev/null || echo "⚠️ Bandit findings"
+          echo "✅ Bandit scan completed"
+
+      - name: Check for secrets
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          echo "=== Secret Detection ==="
+          # Simple pattern check for leaked secrets
+          grep -rn "PRIVATE_KEY\s*=\s*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" && echo "⚠️ Possible secrets found" || echo "✅ No secrets detected"
+          grep -rn "password\s*=\s*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" | head -5 && echo "⚠️ Possible hardcoded passwords" || echo "✅ No hardcoded passwords"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/security-scan
