@@ -134,13 +134,13 @@ jobs:
           npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || true
 
           # Build
-          npm run build 2>/dev/null && echo "✅ Build passed" || echo "⚠️ Build failed"
+          npm run build && echo "✅ Build passed" || echo "⚠️ Build failed"
 
           # Lint
           npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
 
           # Test
-          npm test 2>/dev/null && echo "✅ Tests passed" || echo "⚠️ Tests skipped"
+          npm test && echo "✅ Tests passed" || echo "⚠️ Tests skipped"
 
           echo "✅ ${{ matrix.package.name }} completed"
 

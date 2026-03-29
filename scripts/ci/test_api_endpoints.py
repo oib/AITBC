@@ -12,15 +12,8 @@ SERVICES = {
     "coordinator": {"url": "http://localhost:8000", "endpoints": ["/", "/health", "/info"]},
     "exchange": {"url": "http://localhost:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": "http://localhost:8003", "endpoints": ["/", "/health", "/wallets"]},
-    "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": []},
+    "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": ["/health", "/rpc/head", "/rpc/info", "/rpc/supply"]},
 }
-
-RPC_METHODS = [
-    {"method": "eth_blockNumber", "params": []},
-    {"method": "eth_getBalance", "params": ["0x0000000000000000000000000000000000000000", "latest"]},
-    {"method": "eth_chainId", "params": []},
-    {"method": "eth_gasPrice", "params": []},
-]
 
 
 def test_service_endpoints(name, base_url, endpoints, timeout=5):
@@ -37,25 +30,6 @@ def test_service_endpoints(name, base_url, endpoints, timeout=5):
         except Exception as e:
             results["endpoints"].append({"url": url, "error": str(e), "success": False})
             print(f"  ❌ {url}: {e}")
-            results["success"] = False
-    return results
-
-
-def test_rpc(base_url, timeout=5):
-    results = {"service": "blockchain_rpc", "methods": [], "success": True}
-    for m in RPC_METHODS:
-        payload = {"jsonrpc": "2.0", "method": m["method"], "params": m["params"], "id": 1}
-        try:
-            r = requests.post(base_url, json=payload, timeout=timeout)
-            ok = r.status_code == 200
-            result_val = r.json().get("result", "N/A") if ok else None
-            results["methods"].append({"method": m["method"], "status": r.status_code, "result": str(result_val), "success": ok})
-            print(f"  {'✅' if ok else '❌'} {m['method']}: {result_val}")
-            if not ok:
-                results["success"] = False
-        except Exception as e:
-            results["methods"].append({"method": m["method"], "error": str(e), "success": False})
-            print(f"  ❌ {m['method']}: {e}")
             results["success"] = False
     return results
 
@@ -95,10 +69,7 @@ def main():
 
     for name, cfg in SERVICES.items():
         print(f"\n🧪 Testing {name}...")
-        if name == "blockchain_rpc":
-            r = test_rpc(cfg["url"])
-        else:
-            r = test_service_endpoints(name, cfg["url"], cfg["endpoints"])
+        r = test_service_endpoints(name, cfg["url"], cfg["endpoints"])
         all_results[name] = r
         if not r["success"]:
             overall_ok = False
@@ -108,6 +79,7 @@ def main():
         ("Coordinator", "http://localhost:8000/health"),
         ("Exchange", "http://localhost:8001/api/health"),
         ("Wallet", "http://localhost:8003/health"),
+        ("Blockchain RPC", "http://localhost:8006/health"),
     ])
     all_results["performance"] = perf
 

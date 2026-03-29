@@ -55,11 +55,11 @@ jobs:
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
-            npx hardhat compile 2>/dev/null && echo "✅ Compiled" || echo "⚠️ Compile failed"
-            npx hardhat test 2>/dev/null && echo "✅ Tests passed" || echo "⚠️ Tests failed"
+            npx hardhat compile && echo "✅ Compiled" || echo "⚠️ Compile failed"
+            npx hardhat test && echo "✅ Tests passed" || echo "⚠️ Tests failed"
           elif [[ -f "foundry.toml" ]]; then
-            forge build 2>/dev/null && echo "✅ Compiled" || echo "⚠️ Compile failed"
-            forge test 2>/dev/null && echo "✅ Tests passed" || echo "⚠️ Tests failed"
+            forge build && echo "✅ Compiled" || echo "⚠️ Compile failed"
+            forge test && echo "✅ Tests passed" || echo "⚠️ Tests failed"
           else
             npm run build 2>/dev/null || echo "⚠️ No build script"
             npm test 2>/dev/null || echo "⚠️ No test script"

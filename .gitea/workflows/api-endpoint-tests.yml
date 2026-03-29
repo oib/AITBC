@@ -42,10 +42,19 @@ jobs:
           echo "Waiting for AITBC services..."
           for port in 8000 8001 8003 8006; do
             for i in $(seq 1 15); do
-              if curl -sf "http://localhost:$port/health" >/dev/null 2>&1 || \
-                 curl -sf "http://localhost:$port/api/health" >/dev/null 2>&1 || \
-                 curl -sf "http://localhost:$port/" >/dev/null 2>&1; then
-                echo "✅ Port $port ready"
+              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
+                break
+              fi
+              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/api/health" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
+                break
+              fi
+              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/" 2>/dev/null) || code=0
+              if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+                echo "✅ Port $port ready (HTTP $code)"
                 break
               fi
               [ "$i" -eq 15 ] && echo "⚠️ Port $port not ready"
