@@ -4,7 +4,8 @@ from sqlalchemy import func
 import asyncio
 import json
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -894,3 +895,207 @@ async def get_transactions(chain_id: str = None, limit: int = 20, offset: int = 
             "chain_id": chain_id,
             "error": str(e)
         }
+
+
+# MARKETPLACE ENDPOINTS
+
+class MarketplaceCreateRequest(BaseModel):
+    """Request to create marketplace listing"""
+    seller_address: str
+    item_type: str
+    price: float
+    description: str
+
+# In-memory storage for demo (in production, use database)
+_marketplace_listings = [
+    {
+        "listing_id": "demo_001",
+        "seller_address": "ait1demo_seller_123...",
+        "item_type": "GPU",
+        "price": 1000.0,
+        "description": "High-performance NVIDIA RTX 4090 for AI training",
+        "status": "active",
+        "created_at": datetime.now().isoformat()
+    },
+    {
+        "listing_id": "demo_002", 
+        "seller_address": "ait1demo_provider_456...",
+        "item_type": "Compute",
+        "price": 500.0,
+        "description": "10 hours of GPU compute time for deep learning",
+        "status": "active",
+        "created_at": datetime.now().isoformat()
+    }
+]
+
+@router.get("/marketplace/listings", summary="List marketplace items", tags=["marketplace"])
+async def marketplace_listings() -> Dict[str, Any]:
+    """Get all marketplace listings"""
+    try:
+        metrics_registry.increment("rpc_marketplace_listings_total")
+        
+        # Filter active listings
+        active_listings = [listing for listing in _marketplace_listings if listing.get("status") == "active"]
+        
+        return {
+            "listings": active_listings,
+            "total": len(active_listings),
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        metrics_registry.increment("rpc_marketplace_listings_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/marketplace/create", summary="Create marketplace listing", tags=["marketplace"])
+async def marketplace_create(request: MarketplaceCreateRequest) -> Dict[str, Any]:
+    """Create a new marketplace listing"""
+    try:
+        metrics_registry.increment("rpc_marketplace_create_total")
+        
+        # Generate unique listing ID
+        listing_id = f"listing_{len(_marketplace_listings) + 1:03d}"
+        
+        # Create new listing
+        new_listing = {
+            "listing_id": listing_id,
+            "seller_address": request.seller_address,
+            "item_type": request.item_type,
+            "price": request.price,
+            "description": request.description,
+            "status": "active",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # Add to storage
+        _marketplace_listings.append(new_listing)
+        
+        return {
+            "listing_id": listing_id,
+            "status": "created",
+            "message": "Marketplace listing created successfully",
+            "listing": new_listing
+        }
+        
+    except Exception as e:
+        metrics_registry.increment("rpc_marketplace_create_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# AI SERVICES ENDPOINTS
+
+class AIJobRequest(BaseModel):
+    """AI job submission request"""
+    wallet_address: str = Field(..., description="Client wallet address")
+    job_type: str = Field(..., description="Type of AI job (text, image, training, etc.)")
+    prompt: str = Field(..., description="AI prompt or task description")
+    payment: float = Field(..., ge=0, description="Payment in AIT")
+    parameters: Optional[Dict[str, Any]] = Field(default=None, description="Additional job parameters")
+
+# In-memory storage for demo (in production, use database)
+_ai_jobs = [
+    {
+        "job_id": "job_demo_001",
+        "wallet_address": "ait1demo_client_123...",
+        "job_type": "text",
+        "prompt": "Generate a summary of blockchain technology",
+        "payment": 100.0,
+        "status": "completed",
+        "created_at": (datetime.now() - timedelta(hours=1)).isoformat(),
+        "completed_at": (datetime.now() - timedelta(minutes=30)).isoformat(),
+        "result": {
+            "output": "Blockchain is a distributed ledger technology...",
+            "tokens_used": 150,
+            "processing_time": "2.5 minutes"
+        }
+    },
+    {
+        "job_id": "job_demo_002",
+        "wallet_address": "ait1demo_client_456...",
+        "job_type": "image",
+        "prompt": "Create an image of a futuristic blockchain city",
+        "payment": 250.0,
+        "status": "processing",
+        "created_at": (datetime.now() - timedelta(minutes=15)).isoformat(),
+        "estimated_completion": (datetime.now() + timedelta(minutes=10)).isoformat()
+    }
+]
+
+@router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
+async def ai_submit_job(request: AIJobRequest) -> Dict[str, Any]:
+    """Submit a new AI job for processing"""
+    try:
+        metrics_registry.increment("rpc_ai_submit_total")
+        
+        # Generate unique job ID
+        import uuid
+        job_id = f"job_{uuid.uuid4().hex[:8]}"
+        
+        # Calculate estimated completion time
+        estimated_completion = datetime.now() + timedelta(minutes=30)
+        
+        # Create new job
+        new_job = {
+            "job_id": job_id,
+            "wallet_address": request.wallet_address,
+            "job_type": request.job_type,
+            "prompt": request.prompt,
+            "payment": request.payment,
+            "parameters": request.parameters or {},
+            "status": "queued",
+            "created_at": datetime.now().isoformat(),
+            "estimated_completion": estimated_completion.isoformat()
+        }
+        
+        # Add to storage
+        _ai_jobs.append(new_job)
+        
+        return {
+            "job_id": job_id,
+            "status": "queued",
+            "message": "AI job submitted successfully",
+            "estimated_completion": estimated_completion.isoformat(),
+            "wallet_address": request.wallet_address,
+            "payment": request.payment,
+            "job_type": request.job_type
+        }
+        
+    except Exception as e:
+        metrics_registry.increment("rpc_ai_submit_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/ai/stats", summary="AI service statistics", tags=["ai"])
+async def ai_stats() -> Dict[str, Any]:
+    """Get AI service statistics"""
+    try:
+        metrics_registry.increment("rpc_ai_stats_total")
+        
+        total_jobs = len(_ai_jobs)
+        status_counts = {}
+        type_counts = {}
+        total_revenue = 0.0
+        
+        for job in _ai_jobs:
+            # Count by status
+            status = job.get("status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+            
+            # Count by type
+            job_type = job.get("job_type", "unknown")
+            type_counts[job_type] = type_counts.get(job_type, 0) + 1
+            
+            # Sum revenue for completed jobs
+            if status == "completed":
+                total_revenue += job.get("payment", 0.0)
+        
+        return {
+            "total_jobs": total_jobs,
+            "status_breakdown": status_counts,
+            "type_breakdown": type_counts,
+            "total_revenue": total_revenue,
+            "average_payment": total_revenue / max(1, status_counts.get("completed", 0)),
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        metrics_registry.increment("rpc_ai_stats_errors_total")
+        raise HTTPException(status_code=500, detail=str(e))
