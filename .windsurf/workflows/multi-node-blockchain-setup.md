@@ -178,57 +178,36 @@ The newly created wallet on aitbc will:
 ### 11. Complete Sync (Optional - for full demonstration)
 
 ```bash
-# If aitbc is still behind, complete the sync
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
-
-echo "aitbc1 height: $AITBC1_HEIGHT"
-echo "aitbc height: $AITBC_HEIGHT"
-
-if [ "$AITBC_HEIGHT" -lt "$((AITBC1_HEIGHT - 5))" ]; then
-  echo "Completing sync from aitbc1..."
-  for height in $(seq $((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT); do
-    echo "Importing block $height..."
-    curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=$height&end=$height" | \
-      jq '.blocks[0]' > /tmp/block$height.json
-    curl -X POST http://localhost:8006/rpc/importBlock \
-      -H "Content-Type: application/json" -d @/tmp/block$height.json
-    sleep 1  # Brief pause between imports
-  done
-  echo "Sync completed!"
-fi
-
-# Final balance verification
-echo "=== Final balance verification ==="
-ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
+# Complete blockchain synchronization between nodes
+/opt/aitbc/scripts/workflow/12_complete_sync.sh
 ```
 
-### 13. Legacy Environment File Cleanup
+### 12. Legacy Environment File Cleanup
 
 ```bash
 # Remove all legacy .env.production and .env references from systemd services
-/opt/aitbc/scripts/workflow/01_preflight_setup.sh
+/opt/aitbc/scripts/workflow/13_maintenance_automation.sh
 ```
 
-### 14. Final Configuration Verification
+### 13. Final Configuration Verification
 
 ```bash
 # Verify all configurations are using centralized files
-/opt/aitbc/scripts/workflow/06_final_verification.sh
+/opt/aitbc/scripts/workflow/13_maintenance_automation.sh
 ```
 
-### 15. Cross-Node Code Synchronization
+### 14. Cross-Node Code Synchronization
 
 ```bash
 # Ensure aitbc node stays synchronized with aitbc1 after code changes
-ssh aitbc 'cd /opt/aitbc && git pull origin main'
+/opt/aitbc/scripts/workflow/13_maintenance_automation.sh
 ```
 
-### 16. Complete Workflow Execution
+### 15. Complete Workflow Execution
 
 ```bash
 # Execute the complete multi-node blockchain setup workflow
-/opt/aitbc/scripts/workflow/setup_multinode_blockchain.sh
+/opt/aitbc/scripts/workflow/14_production_ready.sh
 ```
 
 ### 🔍 Configuration Overview
@@ -342,26 +321,14 @@ PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/s
 
 #### **Keystore Issues**
 ```bash
-# Create keystore password file
-echo 'aitbc123' > /var/lib/aitbc/keystore/.password
-chmod 600 /var/lib/aitbc/keystore/.password
-
-# Check keystore permissions
-ls -la /var/lib/aitbc/keystore/
+# Create keystore password file and check permissions
+/opt/aitbc/scripts/workflow/01_preflight_setup.sh
 ```
 
 #### **Sync Issues**
 ```bash
-# Check network connectivity between nodes
-ping 10.1.223.40  # aitbc1 from aitbc
-ping 10.1.223.93  # aitbc from aitbc1
-
-# Check Redis connectivity
-redis-cli -h 10.1.223.40 ping
-
-# Compare blockchain heights
-curl -s http://localhost:8006/rpc/head | jq .height
-ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height'
+# Check and fix blockchain synchronization issues
+/opt/aitbc/scripts/workflow/08_blockchain_sync_fix.sh
 ```
 
 ### General Troubleshooting
