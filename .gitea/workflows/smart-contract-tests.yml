@@ -49,7 +49,7 @@ jobs:
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
-          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           
           cd repo
           echo "Repo PWD: $(pwd)"
@@ -264,7 +264,7 @@ jobs:
           # Ensure no git lock files exist
           find . -name "*.lock" -delete 2>/dev/null || true
           
-          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           cd repo
 
       - name: Lint Solidity Contracts

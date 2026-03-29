@@ -114,7 +114,7 @@ jobs:
           cd "$WORKSPACE_BASE"
           
           # Clone repository
-          git clone http://10.0.3.107:3000/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           cd repo
           
           # Check filesystem space and permissions
@@ -724,7 +724,7 @@ jobs:
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
-          git clone http://10.0.3.107:3000/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           
           cd repo
           echo "Repo PWD: $(pwd)"
@@ -865,7 +865,7 @@ jobs:
           # Ensure no git lock files exist
           find . -name "*.lock" -delete 2>/dev/null || true
           
-          git clone http://10.0.3.107:3000/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           cd repo
 
       - name: Test SDK Compatibility
@@ -950,7 +950,7 @@ jobs:
           # Ensure no git lock files exist
           find . -name "*.lock" -delete 2>/dev/null || true
           
-          git clone http://10.0.3.107:3000/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           cd repo
 
       - name: Test Package Installation

@@ -30,7 +30,7 @@ jobs:
           
           echo "Workspace PWD: $(pwd)"
           echo "Cloning repository..."
-          git clone https://gitea.bubuit.net/oib/aitbc.git repo
+          git clone http://gitea.bubuit.net:3000/oib/aitbc.git repo
           
           cd repo
           echo "Repo PWD: $(pwd)"
