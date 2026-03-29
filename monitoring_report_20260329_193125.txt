@@ -1,0 +1,42 @@
+AITBC Service Health Monitoring Report
+==================================
+Date: So 29 Mär 2026 19:31:25 CEST
+Monitoring Interval: 30s
+
+SYSTEM STATUS
+------------
+CPU Usage: %
+Memory Usage: %
+Disk Usage: 47%
+
+SERVICE STATUS
+--------------
+Blockchain RPC: unknown
+AI Service: unknown
+Marketplace: unknown
+Coordinator API: unknown
+Contract Service: unknown
+
+BLOCKCHAIN METRICS
+------------------
+Block Height: 3941
+Total Transactions: 9
+Cross-node Sync: 28 blocks
+
+SERVICE METRICS
+---------------
+AI Jobs: 4
+AI Revenue: 100.0 AIT
+Marketplace Listings: 2
+Contract Files: 4
+
+RECENT ALERTS
+-------------
+[2026-03-29 19:29:21] [ALERT] Blockchain: Large sync gap: 1089 blocks
+[2026-03-29 19:31:25] [ALERT] Blockchain: Large sync gap: 28 blocks
+
+RECOMMENDATIONS
+--------------
+- CRITICAL: Blockchain RPC not responding - check service status
+- WARNING: AI service not responding - check follower node
+- WARNING: Coordinator API not responding - check service configuration
