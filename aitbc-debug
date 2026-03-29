@@ -1,0 +1,40 @@
+#!/bin/bash
+# AITBC CLI - Debug wrapper script
+cd /opt/aitbc/cli
+source /opt/aitbc/venv/bin/activate
+
+echo "Current directory: $(pwd)"
+echo "Python path: $PYTHONPATH"
+echo "Virtual environment: $VIRTUAL_ENV"
+
+# Debug the CLI loading
+python -c "
+import sys
+sys.path.insert(0, '.')
+print('Python path:', sys.path[:3])
+
+try:
+    from core.main import cli
+    print('CLI import: SUCCESS')
+    
+    # Check commands
+    from core.main import commands
+    print(f'Commands loaded: {len(commands)}')
+    
+    # Try to add commands
+    for cmd in commands:
+        try:
+            cli.add_command(cmd)
+        except Exception as e:
+            print(f'Error adding {cmd.name}: {e}')
+    
+    print('Final commands:', list(cli.commands.keys()))
+    
+except Exception as e:
+    print(f'CLI import failed: {e}')
+    import traceback
+    traceback.print_exc()
+"
+
+echo "--- Running actual CLI ---"
+python core/main.py "$@"

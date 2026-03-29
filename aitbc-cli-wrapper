@@ -1,0 +1,12 @@
+#!/bin/bash
+# AITBC CLI Wrapper Script
+# This script properly activates the venv and runs the CLI
+
+# Activate virtual environment
+source /opt/aitbc/venv/bin/activate
+
+# Change to CLI directory
+cd /opt/aitbc/cli
+
+# Run the CLI with all arguments
+python core/main.py "$@"
