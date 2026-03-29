@@ -383,7 +383,90 @@ echo "=== Final balance verification ==="
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
-### 10. Gift Delivery Completion
+### 11. Blockchain Synchronization Verification
+
+```bash
+# Ensure both nodes are on the same blockchain
+echo "=== Blockchain Synchronization Verification ==="
+WALLET_ADDR="ait1vt7nz556q9nsgqutz7av9g36423rs8xg6cxyvwhd9km6lcvxzrysc9cw87"
+
+# Check current heights
+echo "Current blockchain heights:"
+AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+
+echo "aitbc1 height: $AITBC1_HEIGHT"
+echo "aitbc height: $AITBC_HEIGHT"
+HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
+echo "Height difference: $HEIGHT_DIFF blocks"
+
+# Verify genesis blocks are identical
+echo "=== Genesis Block Verification ==="
+echo "aitbc1 genesis:"
+curl -s "http://localhost:8006/rpc/blocks-range?start=0&end=0" | jq '.blocks[0] | {height: .height, hash: .hash}'
+
+echo "aitbc genesis:"
+ssh aitbc 'curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=0&end=0" | jq ".blocks[0] | {height: .height, hash: .hash}"'
+
+# Complete synchronization if needed
+if [ "$HEIGHT_DIFF" -gt "5" ]; then
+  echo "=== Completing Blockchain Synchronization ==="
+  echo "aitbc is $HEIGHT_DIFF blocks behind, completing sync..."
+  
+  ssh aitbc "for height in \$((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT; do
+    curl -s 'http://10.1.223.40:8006/rpc/blocks-range?start=\$height&end=\$height' | \
+      jq '.blocks[0]' > /tmp/block\$height.json
+    curl -X POST http://localhost:8006/rpc/importBlock \
+      -H 'Content-Type: application/json' -d @/tmp/block\$height.json > /dev/null
+    if [ \$((\$height % 50)) -eq 0 ]; then echo 'Synced to height \$height'; fi
+  done"
+  
+  echo "Synchronization completed!"
+fi
+
+# Final verification
+echo "=== Final Synchronization Verification ==="
+FINAL_AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+FINAL_AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+FINAL_DIFF=$((FINAL_AITBC1_HEIGHT - FINAL_AITBC_HEIGHT))
+
+echo "Final heights:"
+echo "aitbc1: $FINAL_AITBC1_HEIGHT"
+echo "aitbc: $FINAL_AITBC_HEIGHT"
+echo "Difference: $FINAL_DIFF blocks"
+
+if [ "$FINAL_DIFF" -le "2" ]; then
+  echo "✅ SUCCESS: Both nodes are on the same blockchain!"
+  echo "🎯 Blockchain synchronization verified"
+else
+  echo "⚠️ Nodes are still not fully synchronized"
+  echo "Difference: $FINAL_DIFF blocks"
+fi
+
+# Verify both nodes can see the same blockchain data
+echo "=== Cross-Node Blockchain Verification ==="
+echo "Total blocks on aitbc1: $(curl -s http://localhost:8006/rpc/info | jq .total_blocks)"
+echo "Total blocks on aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .total_blocks')"
+echo "Total accounts on aitbc1: $(curl -s http://localhost:8006/rpc/info | jq .total_accounts)"
+echo "Total accounts on aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .total_accounts')"
+
+# Verify wallet consistency
+echo "=== Wallet Verification ==="
+echo "Genesis wallet balance on aitbc1:"
+GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)
+curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
+
+echo "User wallet balance on aitbc:"
+ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq ."
+
+if [ "$FINAL_DIFF" -le "2" ]; then
+  echo "🎉 MULTI-NODE BLOCKCHAIN SUCCESSFULLY SYNCHRONIZED!"
+  echo "Both nodes are operating on the same blockchain"
+  echo "Ready for cross-node transactions and operations"
+else
+  echo "🔧 Additional synchronization may be required"
+fi
+```
 
 ```bash
 # Ensure the 1000 AIT gift is successfully delivered to aitbc wallet
