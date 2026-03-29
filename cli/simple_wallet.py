@@ -539,7 +539,7 @@ def submit_ai_job(wallet_name: str, job_type: str, prompt: str, payment: float,
         return None
     def get_balance(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR, 
                 rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
-    """Get wallet balance and transaction info"""
+        """Get wallet balance and transaction info"""
     try:
         keystore_path = keystore_dir / f"{wallet_name}.json"
         if not keystore_path.exists():
