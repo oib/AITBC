@@ -36,6 +36,10 @@ jobs:
       - name: Lint Markdown files
         run: |
           cd /var/lib/aitbc-workspaces/docs-validation/repo
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          
           echo "=== Linting Markdown ==="
           if command -v markdownlint >/dev/null 2>&1; then
             markdownlint "docs/**/*.md" "*.md" \

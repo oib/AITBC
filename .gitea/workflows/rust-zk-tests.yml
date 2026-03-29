@@ -28,9 +28,13 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
-      - name: Verify Rust toolchain
+      - name: Setup Rust environment
         run: |
-          # Fix HOME mismatch (gitea-runner HOME vs euid root)
+          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          
           export HOME=/root
           export RUSTUP_HOME="$HOME/.rustup"
           export CARGO_HOME="$HOME/.cargo"

@@ -42,6 +42,9 @@ jobs:
           WORKSPACE="/var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}"
           cd "$WORKSPACE/repo/${{ matrix.project.path }}"
           echo "=== Testing ${{ matrix.project.name }} ==="
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           if [[ ! -f "package.json" ]]; then
             echo "⚠️ No package.json, skipping"
@@ -87,6 +90,9 @@ jobs:
       - name: Lint contracts
         run: |
           cd /var/lib/aitbc-workspaces/solidity-lint/repo
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
           for project in packages/solidity/aitbc-token apps/zk-circuits; do
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
