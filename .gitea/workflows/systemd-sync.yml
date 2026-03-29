@@ -76,8 +76,8 @@ jobs:
         run: |
           echo "=== AITBC Service Status ==="
           for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-node aitbc-blockchain-rpc aitbc-adaptive-learning; do
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "not-found")
-            enabled=$(systemctl is-enabled "$svc" 2>/dev/null || echo "not-found")
+            status=$(systemctl is-active "$svc" 2>/dev/null) || status="not-found"
+            enabled=$(systemctl is-enabled "$svc" 2>/dev/null) || enabled="not-found"
             printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
           done
 

@@ -2,10 +2,6 @@
 AITBC Core Utilities
 """
 
-from . import logging
-
-__all__ = ["logging"]
-
-from . import logging
+from . import logging  # noqa: F811 — aitbc.logging submodule, not stdlib
 
 __all__ = ["logging"]
