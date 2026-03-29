@@ -383,6 +383,59 @@ echo "=== Final balance verification ==="
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
+### 9. Transaction Verification and Mining
+
+```bash
+# Wait for transaction to be mined and verify
+echo "=== Transaction Mining Verification ==="
+TX_HASH="0x125a1150045acb9f8c74f30dbc8b9db98d48f3cced650949e31916fcb618b61e"
+
+echo "Transaction hash: $TX_HASH"
+echo "Waiting for transaction to be included in a block..."
+
+# Monitor for transaction inclusion
+for i in {1..30}; do
+  echo "Check $i/30: Looking for transaction in recent blocks..."
+  
+  # Check recent blocks for our transaction
+  RECENT_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+  START_HEIGHT=$((RECENT_HEIGHT - 5))
+  
+  for height in $(seq $START_HEIGHT $RECENT_HEIGHT); do
+    BLOCK_TXS=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | jq '.blocks[0].transactions | length')
+    if [ "$BLOCK_TXS" -gt "0" ]; then
+      echo "Found block $height with $BLOCK_TXS transactions"
+      # Get detailed block info
+      BLOCK_DETAIL=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height")
+      echo "Block $height details:"
+      echo "$BLOCK_DETAIL" | jq '.blocks[0] | {height: .height, hash: .hash, tx_count: .tx_count}'
+    fi
+  done
+  
+  # Check wallet balance
+  CURRENT_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
+  echo "Current wallet balance: $CURRENT_BALANCE AIT"
+  
+  if [ "$CURRENT_BALANCE" -gt "0" ]; then
+    echo "🎉 Transaction successfully mined! Balance: $CURRENT_BALANCE AIT"
+    break
+  fi
+  
+  sleep 2
+done
+
+# Final verification
+echo "=== FINAL VERIFICATION ==="
+FINAL_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
+echo "Final wallet balance: $FINAL_BALANCE AIT"
+
+if [ "$FINAL_BALANCE" -gt "0" ]; then
+  echo "✅ SUCCESS: 1000 AIT successfully transferred to aitbc wallet!"
+else
+  echo "⚠️ Transaction still pending - may need more time for mining"
+fi
+```
+
 ## Environment Management
 
 ### Central .env Configuration
@@ -432,6 +485,60 @@ echo "aitbc1 height: $(curl -s http://localhost:8006/rpc/head | jq .height)"
 echo "aitbc height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')"
 echo "Redis status: $(redis-cli -h localhost ping)"
 echo "Wallet balance: $(ssh aitbc "curl -s http://localhost:8006/rpc/getBalance/$WALLET_ADDR | jq .balance")"
+```
+
+### 📊 Advanced Monitoring
+
+```bash
+# Real-time blockchain monitoring
+echo "=== Real-time Monitoring ==="
+watch -n 5 'echo "=== aitbc1 ===" && curl -s http://localhost:8006/rpc/head | jq .height && echo "=== aitbc ===" && ssh aitbc "curl -s http://localhost:8006/rpc/head | jq .height" && echo "=== Wallet Balance ===" && ssh aitbc "curl -s http://localhost:8006/rpc/getBalance/$WALLET_ADDR | jq .balance"'
+
+# Transaction pool monitoring (if available)
+echo "=== Transaction Pool Status ==="
+curl -s http://localhost:8006/rpc/mempool | jq . 2>/dev/null || echo "Mempool endpoint not available"
+
+# Network statistics
+echo "=== Network Statistics ==="
+echo "Total blocks: $(curl -s http://localhost:8006/rpc/info | jq .total_blocks)"
+echo "Total transactions: $(curl -s http://localhost:8006/rpc/info | jq .total_transactions)"
+echo "Total accounts: $(curl -s http://localhost:8006/rpc/info | jq .total_accounts)"
+
+# Genesis wallet balance check
+echo "=== Genesis Wallet Status ==="
+GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)
+echo "Genesis address: $GENESIS_ADDR"
+echo "Genesis balance: $(curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .balance)"
+```
+
+### 🚀 Performance Testing
+
+```bash
+# Test transaction throughput
+echo "=== Performance Testing ==="
+echo "Sending test transactions..."
+for i in {1..3}; do
+  echo "Sending transaction $i..."
+  # Create a small test transaction
+  TEST_TX=$(cat << EOF
+{
+  "type": "transfer",
+  "sender": "$GENESIS_ADDR",
+  "nonce": $((i + 1)),
+  "fee": 10,
+  "payload": {},
+  "recipient": "$WALLET_ADDR",
+  "value": 100
+}
+EOF
+)
+  
+  TX_RESULT=$(curl -X POST http://localhost:8006/rpc/sendTx -H "Content-Type: application/json" -d "$TEST_TX")
+  echo "Transaction $i result: $TX_RESULT"
+  sleep 1
+done
+
+echo "Performance test completed!"
 ```
 
 ## Performance Optimizations
