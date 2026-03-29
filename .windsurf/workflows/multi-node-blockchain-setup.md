@@ -25,22 +25,22 @@ systemctl stop aitbc-blockchain-* 2>/dev/null || true
 
 # 2. Update ALL systemd configurations (main files + drop-ins + overrides)
 # Update main service files
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
 # Update drop-in configs
-find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null || true
+find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "10-central-env.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \; 2>/dev/null || true
 # Fix override configs (wrong venv paths)
 find /etc/systemd/system/aitbc-blockchain-*.service.d/ -name "override.conf" -exec sed -i 's|/opt/aitbc/apps/blockchain-node/.venv/bin/python3|/opt/aitbc/venv/bin/python3|g' {} \; 2>/dev/null || true
 systemctl daemon-reload
 
-# 3. Move central config to standard location
-cp /opt/aitbc/.env /etc/aitbc/blockchain.env.backup 2>/dev/null || true
-mv /opt/aitbc/.env /etc/aitbc/blockchain.env 2>/dev/null || true
+# 3. Create central configuration file
+cp /opt/aitbc/.env /etc/aitbc/.env.backup 2>/dev/null || true
+mv /opt/aitbc/.env /etc/aitbc/.env 2>/dev/null || true
 
 # 4. Setup AITBC CLI tool
-python3 -m venv /opt/aitbc/cli/venv 2>/dev/null || true
-source /opt/aitbc/cli/venv/bin/activate
+# Use central virtual environment
+source /opt/aitbc/venv/bin/activate
 pip install -e /opt/aitbc/cli/ 2>/dev/null || true
-echo 'alias aitbc="source /opt/aitbc/cli/venv/bin/activate && aitbc"' >> ~/.bashrc
+echo 'alias aitbc="source /opt/aitbc/venv/bin/activate && aitbc"' >> ~/.bashrc
 source ~/.bashrc
 
 # 5. Clean old data (optional but recommended)
