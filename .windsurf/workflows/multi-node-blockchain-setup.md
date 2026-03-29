@@ -12,6 +12,7 @@ This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis aut
 - Both nodes have the AITBC repository cloned
 - Redis available for cross-node gossip
 - Python venv at `/opt/aitbc/venv`
+- AITBC CLI tool available (aliased as `aitbc`)
 
 ## Directory Structure
 
@@ -71,12 +72,8 @@ sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/blockchain.env
 # Add trusted proposers for follower nodes
 echo "trusted_proposers=aitbc1genesis" >> /etc/aitbc/blockchain.env
 
-# Create genesis block with wallets
-cd /opt/aitbc/apps/blockchain-node
-/opt/aitbc/venv/bin/python scripts/setup_production.py \
-  --base-dir /opt/aitbc/apps/blockchain-node \
-  --chain-id ait-mainnet \
-  --total-supply 1000000000
+# Create genesis block with wallets using AITBC CLI
+aitbc blockchain setup --chain-id ait-mainnet --total-supply 1000000000
 
 # Copy genesis and allocations to standard location
 mkdir -p /var/lib/aitbc/data/ait-mainnet
@@ -178,12 +175,8 @@ ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
 ### 5. Create Wallet on aitbc
 
 ```bash
-# On aitbc, create a new wallet
-cd /opt/aitbc/apps/blockchain-node
-/opt/aitbc/venv/bin/python scripts/keystore.py \
-  --name aitbc-user \
-  --create \
-  --password $(cat /var/lib/aitbc/keystore/.password)
+# On aitbc, create a new wallet using AITBC CLI
+aitbc wallet create --name aitbc-user --password $(cat /var/lib/aitbc/keystore/.password)
 
 # Note the new wallet address
 WALLET_ADDR=$(cat /var/lib/aitbc/keystore/aitbc-user.json | jq -r '.address')
@@ -193,51 +186,12 @@ echo "New wallet: $WALLET_ADDR"
 ### 6. Send 1000 AIT from Genesis to aitbc Wallet
 
 ```bash
-# On aitbc1, create and sign transaction
-cd /opt/aitbc/apps/blockchain-node
-
-# Get genesis wallet private key
-PASSWORD=$(cat /var/lib/aitbc/keystore/.password)
-GENESIS_KEY=$(/opt/aitbc/venv/bin/python -c "
-import json, sys
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
-import base64
-
-with open('/var/lib/aitbc/keystore/aitbc1genesis.json') as f:
-    ks = json.load(f)
-
-# Decrypt private key
-crypto = ks['crypto']
-salt = bytes.fromhex(crypto['kdfparams']['salt'])
-kdf = PBKDF2HMAC(hashes.SHA256(), 32, salt, crypto['kdfparams']['c'])
-key = kdf.derive('$PASSWORD'.encode())
-aesgcm = AESGCM(key)
-nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
-priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto['ciphertext']), None)
-print(priv.hex())
-")
-
-# Create transaction to send 1000 AIT
-TX_JSON=$(cat << EOF
-{
-  "sender": "$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')",
-  "recipient": "$WALLET_ADDR",
-  "value": 1000,
-  "fee": 10,
-  "nonce": 0,
-  "type": "transfer",
-  "payload": {}
-}
-EOF
-)
-
-# Submit transaction via RPC
-curl -X POST http://localhost:8006/sendTx \
-  -H "Content-Type: application/json" \
-  -d "$TX_JSON"
+# On aitbc1, send 1000 AIT using AITBC CLI
+aitbc transaction send \
+  --from aitbc1genesis \
+  --to $WALLET_ADDR \
+  --amount 1000 \
+  --fee 10
 
 # Wait for transaction to be mined
 sleep 15
