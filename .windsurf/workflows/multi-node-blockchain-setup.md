@@ -78,6 +78,30 @@ The workflow uses the central `/etc/aitbc/blockchain.env` file as the configurat
 - **Standard Location**: Config moved to `/etc/aitbc/` following system standards
 - **CLI Integration**: AITBC CLI tool uses this config file by default
 
+### 🚨 Important: Genesis Block Architecture
+
+**CRITICAL**: Only the genesis authority node (aitbc1) should have the genesis block!
+
+```bash
+# ❌ WRONG - Do NOT copy genesis block to follower nodes
+# scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json aitbc:/var/lib/aitbc/data/ait-mainnet/
+
+# ✅ CORRECT - Follower nodes sync genesis via blockchain protocol
+# aitbc will automatically receive genesis block from aitbc1 during sync
+```
+
+**Architecture Overview:**
+1. **aitbc1 (Genesis Authority)**: Creates genesis block with initial wallets
+2. **aitbc (Follower Node)**: Syncs from aitbc1, receives genesis block automatically
+3. **Wallet Creation**: New wallets attach to existing blockchain using genesis keys
+4. **Access AIT Coins**: Genesis wallets control initial supply, new wallets receive via transactions
+
+**Key Principles:**
+- **Single Genesis Source**: Only aitbc1 creates and holds the original genesis block
+- **Blockchain Sync**: Followers receive blockchain data through sync protocol, not file copying
+- **Wallet Attachment**: New wallets attach to existing chain, don't create new genesis
+- **Coin Access**: AIT coins are accessed through transactions from genesis wallets
+
 ### 1. Prepare aitbc1 (Genesis Authority Node)
 
 ```bash
@@ -190,6 +214,8 @@ sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llr
 
 # Note: aitbc should sync genesis from aitbc1, not copy it
 # The follower node will receive the genesis block via blockchain sync
+# ⚠️  DO NOT: scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
+# ✅ INSTEAD: Wait for automatic sync via blockchain protocol
 
 # Note: systemd services should already use /etc/aitbc/blockchain.env
 # No need to update systemd if they are properly configured
@@ -227,6 +253,20 @@ ssh aitbc 'cd /opt/aitbc/apps/blockchain-node && /opt/aitbc/venv/bin/python scri
 WALLET_ADDR=$(ssh aitbc 'cat /var/lib/aitbc/keystore/aitbc-user.json | jq -r .address')
 echo "New wallet: $WALLET_ADDR"
 ```
+
+**🔑 Wallet Attachment & Coin Access:**
+
+The newly created wallet on aitbc will:
+1. **Attach to Existing Blockchain**: Connect to the blockchain created by aitbc1
+2. **Use Genesis Keys**: Access the blockchain using the genesis block's cryptographic keys
+3. **Receive AIT Coins**: Get coins through transactions from genesis wallets
+4. **No New Genesis**: Does NOT create a new genesis block or chain
+
+**Important Notes:**
+- The wallet attaches to the existing blockchain network
+- AIT coins are transferred from genesis wallets, not created
+- The wallet can only transact after receiving coins from genesis
+- All wallets share the same blockchain, created by aitbc1
 
 ### 6. Send 1000 AIT from Genesis to aitbc Wallet
 
