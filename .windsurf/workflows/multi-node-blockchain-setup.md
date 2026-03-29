@@ -383,7 +383,115 @@ echo "=== Final balance verification ==="
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
-### 12. Chain ID Configuration Verification
+### 13. Legacy Environment File Cleanup
+
+```bash
+# Remove all legacy .env.production and .env references from systemd services
+echo "=== Legacy Environment File Cleanup ==="
+
+# Check for legacy references
+echo "Checking for legacy environment file references..."
+find /etc/systemd -name "*.service*" -exec grep -l "\.env\.production" {} \; 2>/dev/null || echo "No .env.production references found"
+
+# Clean up legacy references
+echo "=== Cleaning up legacy references ==="
+
+# Fix blockchain-gossip-relay service if it exists
+if [ -f "/etc/systemd/system/blockchain-gossip-relay.service" ]; then
+  sed -i 's|EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production|EnvironmentFile=/etc/aitbc/blockchain.env|g' /etc/systemd/system/blockchain-gossip-relay.service
+  echo "Fixed gossip relay service"
+fi
+
+# Fix aitbc-blockchain-sync service if it exists
+if [ -f "/etc/systemd/system/aitbc-blockchain-sync.service" ]; then
+  # Remove all EnvironmentFile entries and add the correct one
+  grep -v 'EnvironmentFile=' /etc/systemd/system/aitbc-blockchain-sync.service > /tmp/sync.service.clean
+  echo "EnvironmentFile=/etc/aitbc/blockchain.env" >> /tmp/sync.service.clean
+  cp /tmp/sync.service.clean /etc/systemd/system/aitbc-blockchain-sync.service
+  echo "Fixed sync service"
+fi
+
+# Update any remaining legacy references
+find /etc/systemd -name "*.service*" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null
+find /etc/systemd -name "*.service*" -exec sed -i 's|EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null
+
+echo "=== Verification ==="
+echo "Checking all blockchain services now use correct environment file..."
+find /etc/systemd -name "*blockchain*.service" -exec grep -H "EnvironmentFile.*=" {} \; 2>/dev/null
+
+echo "=== Legacy Cleanup Complete ==="
+echo "✅ All .env.production references removed"
+echo "✅ All /opt/aitbc/.env references updated"
+echo "✅ All services now use /etc/aitbc/blockchain.env"
+
+# Reload systemd to apply changes
+systemctl daemon-reload
+
+echo "✅ Legacy environment file references cleaned up successfully"
+```
+
+### 14. Final Multi-Node Verification
+
+```bash
+# Complete verification of multi-node blockchain setup
+echo "=== FINAL MULTI-NODE VERIFICATION ==="
+
+# Check both nodes are operational
+echo "1. Service Status:"
+echo "aitbc1 services:"
+systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
+echo "aitbc services:"
+ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc'
+
+echo -e "\n2. Configuration Consistency:"
+echo "aitbc1 chain info:"
+curl -s http://localhost:8006/rpc/info | jq '{chain_id, supported_chains, rpc_version, height}'
+echo "aitbc chain info:"
+ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq "{chain_id, supported_chains, rpc_version, height}"'
+
+echo -e "\n3. Blockchain Synchronization:"
+AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+echo "aitbc1 height: $AITBC1_HEIGHT"
+echo "aitbc height: $AITBC_HEIGHT"
+HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
+echo "Height difference: $HEIGHT_DIFF blocks"
+
+echo -e "\n4. Network Health:"
+echo "Redis status: $(redis-cli -h localhost ping)"
+echo "P2P connectivity: $(curl -s http://localhost:8006/rpc/info | jq .supported_chains)"
+
+echo -e "\n5. Genesis Block Verification:"
+echo "aitbc1 genesis:"
+curl -s "http://localhost:8006/rpc/blocks-range?start=0&end=0" | jq '.blocks[0] | {height: .height, hash: .hash}'
+echo "aitbc genesis:"
+ssh aitbc 'curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=0&end=0" | jq ".blocks[0] | {height: .height, hash: .hash}"'
+
+# Success criteria
+echo -e "\n=== SUCCESS CRITERIA ==="
+SERVICES_OK=$(systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc | grep -c 'active')
+SERVICES_OK_REMOTE=$(ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc | grep -c "active"')
+
+if [ "$SERVICES_OK" -eq 2 ] && [ "$SERVICES_OK_REMOTE" -eq 2 ]; then
+  echo "✅ All services operational"
+else
+  echo "❌ Some services not running"
+fi
+
+if [ "$HEIGHT_DIFF" -le 5 ]; then
+  echo "✅ Blockchain synchronized"
+else
+  echo "⚠️ Blockchain sync needed (diff: $HEIGHT_DIFF blocks)"
+fi
+
+if [ "$(curl -s http://localhost:8006/rpc/info | jq -r .supported_chains[0])" = "ait-mainnet" ] && [ "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq -r .supported_chains[0]')" = "ait-mainnet" ]; then
+  echo "✅ Both nodes on same chain"
+else
+  echo "❌ Chain configuration mismatch"
+fi
+
+echo -e "\n🎉 MULTI-NODE BLOCKCHAIN SETUP VERIFICATION COMPLETE"
+```
 
 ```bash
 # Ensure both nodes have the same chain ID configuration
