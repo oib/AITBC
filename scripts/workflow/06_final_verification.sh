@@ -1,6 +1,6 @@
 #!/bin/bash
 # Final Verification Script for AITBC Multi-Node Blockchain
-# This script verifies the complete multi-node setup
+# This script verifies the complete multi-node setup using enhanced CLI
 
 set -e  # Exit on any error
 
@@ -12,44 +12,48 @@ if [ -z "$WALLET_ADDR" ]; then
   exit 1
 fi
 
-# Check both nodes are in sync
+# Check both nodes are in sync using CLI
 echo "1. Checking blockchain heights..."
 echo "=== aitbc1 height (localhost) ==="
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+AITBC1_HEIGHT=$(python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r '.height')
 echo $AITBC1_HEIGHT
 
 echo "=== aitbc height (remote) ==="
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
+AITBC_HEIGHT=$(ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r ".height"')
 echo $AITBC_HEIGHT
 
 HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
 echo "Height difference: $HEIGHT_DIFF blocks"
 
-# Check wallet balance
+# Check wallet balance using CLI
 echo "2. Checking aitbc wallet balance..."
 echo "=== aitbc wallet balance (remote) ==="
-BALANCE=$(ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq .")
+BALANCE=$(ssh aitbc "python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user --format json | jq -r '.balance'")
 echo $BALANCE AIT
 
-# Transaction verification
-echo "3. Transaction verification..."
-echo "Transaction hash: 0x9975fc6ed8eabdc20886f9c33ddb68d40e6a9820d3e1182ebe5612686b12ca22"
-# Verify transaction was mined (check if balance increased)
+# Get blockchain information using CLI
+echo "3. Blockchain information..."
+echo "=== Chain Information ==="
+python /opt/aitbc/cli/simple_wallet.py chain
 
-# Network health check
+# Network health check using CLI
 echo "4. Network health check..."
-echo "=== Redis connection ==="
-redis-cli -h localhost ping
+echo "=== Network Status (aitbc1) ==="
+python /opt/aitbc/cli/simple_wallet.py network
 
-echo "=== RPC connectivity ==="
-curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains, .rpc_version'
+echo "=== Network Status (aitbc) ==="
+ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network'
 
-echo "=== Service status ==="
+# Service status
+echo "5. Service status..."
+echo "=== Service Status (aitbc1) ==="
 systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
+
+echo "=== Service Status (aitbc) ==="
 ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc'
 
 # Success criteria
-echo "5. Success criteria check..."
+echo "6. Success criteria check..."
 if [ "$HEIGHT_DIFF" -le 5 ]; then
   echo "✅ Blockchain synchronized (height difference: $HEIGHT_DIFF)"
 else
@@ -74,5 +78,6 @@ else
   echo "❌ aitbc services not operational"
 fi
 
-echo "✅ Final verification completed!"
+echo "✅ Final verification completed using enhanced CLI!"
 echo "Multi-node blockchain setup is ready for operation."
+echo "All operations now use CLI tool with advanced capabilities."
