@@ -80,11 +80,12 @@ except ImportError:
     print("WARNING: ML ZK proofs router not available (missing dependencies)")
 from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
 from .exceptions import AITBCError, ErrorResponse
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from .config import settings
 from .storage.db import init_db
 
-logger = get_logger(__name__)
+
 
 from contextlib import asynccontextmanager
 

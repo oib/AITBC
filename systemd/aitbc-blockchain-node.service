@@ -8,10 +8,10 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
 EnvironmentFile=/opt/aitbc/.env
-Environment=PATH=/opt/aitbc/apps/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
 #EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production
-ExecStart=/opt/aitbc/apps/blockchain-node/.venv/bin/python3 -m aitbc_chain.combined_main
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main
 Restart=always
 RestartSec=5
 StandardOutput=journal

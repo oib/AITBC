@@ -13,7 +13,8 @@ from enum import Enum
 import secrets
 import hashlib
 from collections import defaultdict
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update, delete, func, Field
 from sqlalchemy.exc import SQLAlchemyError
@@ -27,7 +28,7 @@ from ..agent_identity.wallet_adapter_enhanced import (
 from ..services.cross_chain_bridge_enhanced import CrossChainBridgeService
 from ..reputation.engine import CrossChainReputationEngine
 
-logger = get_logger(__name__)
+
 
 
 class TransactionPriority(str, Enum):

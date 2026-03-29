@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from sqlmodel import Session, select, update
 from sqlalchemy.exc import SQLAlchemyError
@@ -19,7 +20,7 @@ from ..domain.agent_identity import (
     AgentWalletCreate, AgentWalletUpdate
 )
 
-logger = get_logger(__name__)
+
 
 
 class WalletAdapter(ABC):

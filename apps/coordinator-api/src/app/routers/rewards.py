@@ -9,7 +9,8 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query
 from pydantic import BaseModel, Field
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..storage import get_session
 from ..services.reward_service import RewardEngine
@@ -17,7 +18,7 @@ from ..domain.rewards import (
     AgentRewardProfile, RewardTier, RewardType, RewardStatus
 )
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/v1/rewards", tags=["rewards"])
 

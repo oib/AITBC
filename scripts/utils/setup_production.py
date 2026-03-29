@@ -15,9 +15,9 @@ from pathlib import Path
 
 # Configuration
 CHAIN_ID = "ait-mainnet"
-DATA_DIR = Path("/opt/aitbc/data/ait-mainnet")
+DATA_DIR = Path("/var/lib/aitbc/data/ait-mainnet")
 DB_PATH = DATA_DIR / "chain.db"
-KEYS_DIR = Path("/opt/aitbc/keystore")
+KEYS_DIR = Path("/var/lib/aitbc/keystore")
 PASSWORD_FILE = KEYS_DIR / ".password"
 NODE_VENV = Path("/opt/aitbc/apps/blockchain-node/.venv/bin/python")
 NODE_ENV = Path("/opt/aitbc/apps/blockchain-node/.env")

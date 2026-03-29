@@ -6,7 +6,8 @@ Uses RPC to connect to Bitcoin Core (or alternative like Block.io)
 
 import os
 import json
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, Optional
 
 try:
@@ -16,7 +17,7 @@ except ImportError:
     HTTP_CLIENT_AVAILABLE = False
     logging.warning("httpx not available, bitcoin wallet functions will be disabled")
 
-logger = get_logger(__name__)
+
 
 # Bitcoin wallet configuration (credentials from environment)
 WALLET_CONFIG = {

@@ -4,7 +4,8 @@ Implements meta-learning, federated learning, and continuous model improvement
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Tuple, Union
 from datetime import datetime, timedelta
 from enum import Enum
@@ -12,7 +13,7 @@ import json
 import numpy as np
 from dataclasses import dataclass, asdict, field
 
-logger = get_logger(__name__)
+
 
 
 class LearningType(str, Enum):

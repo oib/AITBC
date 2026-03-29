@@ -7,7 +7,7 @@ from .marketplace import MarketplaceOffer, MarketplaceBid
 from .user import User, Wallet, Transaction, UserSession
 from .payment import JobPayment, PaymentEscrow
 from .gpu_marketplace import GPURegistry, ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPUReview
-from .agent import AIAgentWorkflow, AgentStep, AgentExecution, AgentStepExecution, AgentMarketplace
+from .agent import AIAgentWorkflow, AgentStep, AgentExecution, AgentStepExecution, AgentMarketplace, AgentStatus
 
 __all__ = [
     "Job",
@@ -31,4 +31,5 @@ __all__ = [
     "AgentExecution",
     "AgentStepExecution",
     "AgentMarketplace",
+    "AgentStatus",
 ]

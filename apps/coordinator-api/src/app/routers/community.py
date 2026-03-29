@@ -9,7 +9,8 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from pydantic import BaseModel, Field
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
 from ..storage import get_session
 from ..services.community_service import (
@@ -21,7 +22,7 @@ from ..domain.community import (
     CommunityPost, Hackathon, DeveloperTier, SolutionStatus, LabStatus
 )
 
-logger = get_logger(__name__)
+
 
 router = APIRouter(prefix="/community", tags=["community"])
 

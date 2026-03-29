@@ -8,8 +8,8 @@ Type=simple
 User=debian
 Group=debian
 WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
-Environment=PATH=/opt/coordinator-api/.venv/bin
-ExecStart=/opt/coordinator-api/.venv/bin/python -m uvicorn src.app.routers.openclaw_enhanced_app:app --host 127.0.0.1 --port 8007
+Environment=PATH=/usr/bin
+ExecStart=/usr/bin/python3 -m uvicorn src.app.routers.openclaw_enhanced_app:app --host 127.0.0.1 --port 8007
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5

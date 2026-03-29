@@ -77,6 +77,54 @@ clone_repo() {
     success "Repository cloned successfully"
 }
 
+# Setup runtime directories
+setup_runtime_directories() {
+    log "Setting up runtime directories..."
+    
+    # Create standard Linux directories
+    directories=(
+        "/var/lib/aitbc"
+        "/var/lib/aitbc/keystore"
+        "/var/lib/aitbc/data"
+        "/var/lib/aitbc/logs"
+        "/etc/aitbc"
+        "/var/log/aitbc"
+    )
+    
+    for dir in "${directories[@]}"; do
+        mkdir -p "$dir"
+        log "Created directory: $dir"
+    done
+    
+    # Set permissions
+    chmod 755 /var/lib/aitbc
+    chmod 700 /var/lib/aitbc/keystore  # Secure keystore
+    chmod 755 /var/lib/aitbc/data
+    chmod 755 /var/lib/aitbc/logs
+    chmod 755 /etc/aitbc
+    chmod 755 /var/log/aitbc
+    
+    # Set ownership
+    chown root:root /var/lib/aitbc
+    chown root:root /var/lib/aitbc/keystore
+    chown root:root /var/lib/aitbc/data
+    chown root:root /var/lib/aitbc/logs
+    chown root:root /etc/aitbc
+    chown root:root /var/log/aitbc
+    
+    # Create README files
+    echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
+    echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
+    echo "# Application databases" > /var/lib/aitbc/data/README.md
+    echo "# Application logs" > /var/lib/aitbc/logs/README.md
+    echo "# AITBC Configuration Files" > /etc/aitbc/README.md
+    
+    # Create symlink for standard logging
+    ln -sf /var/lib/aitbc/logs /var/log/aitbc
+    
+    success "Runtime directories setup completed"
+}
+
 # Setup Python virtual environments
 setup_venvs() {
     log "Setting up Python virtual environments..."
@@ -296,11 +344,12 @@ EOF
 
 # Main function
 main() {
-    log "Starting AITBC local setup..."
+    log "Starting AITBC setup..."
     
     check_root
     check_prerequisites
     clone_repo
+    setup_runtime_directories
     setup_venvs
     install_services
     create_startup_script
@@ -315,10 +364,16 @@ main() {
     echo "  Exchange API: http://localhost:8001/api/health"
     echo "  Coordinator API: http://localhost:8000/health"
     echo ""
+    echo "Runtime Directories:"
+    echo "  Keystore: /var/lib/aitbc/keystore/"
+    echo "  Data: /var/lib/aitbc/data/"
+    echo "  Logs: /var/lib/aitbc/logs/"
+    echo "  Config: /etc/aitbc/"
+    echo ""
     echo "Management Commands:"
     echo "  Health check: /opt/aitbc/health-check.sh"
     echo "  Restart services: /opt/aitbc/start-services.sh"
-    echo "  View logs: tail -f /var/log/aitbc-*.log"
+    echo "  View logs: tail -f /var/lib/aitbc/logs/aitbc-*.log"
 }
 
 # Run main function

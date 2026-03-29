@@ -4,14 +4,15 @@ Implements intelligent task splitting and sub-task management
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime, timedelta
 from enum import Enum
 import json
 from dataclasses import dataclass, asdict, field
 
-logger = get_logger(__name__)
+
 
 
 class TaskType(str, Enum):

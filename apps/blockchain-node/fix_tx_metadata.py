@@ -2,7 +2,7 @@ import sqlite3
 
 def fix():
     try:
-        conn = sqlite3.connect('/opt/aitbc/data/ait-mainnet/chain.db')
+        conn = sqlite3.connect('/var/lib/aitbc/data/ait-mainnet/chain.db')
         cur = conn.cursor()
         
         cur.execute('PRAGMA table_info("transaction")')

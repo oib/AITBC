@@ -30,7 +30,7 @@ class DatabaseConfig(BaseSettings):
 
         # Default SQLite path - consistent with blockchain-node pattern
         if self.adapter == "sqlite":
-            return "sqlite:////opt/aitbc/data/coordinator.db"
+            return "sqlite:////var/lib/aitbc/data/coordinator.db"
 
         # Default PostgreSQL connection string
         return f"{self.adapter}://localhost:5432/coordinator"
@@ -187,7 +187,7 @@ class Settings(BaseSettings):
         if self.database.url:
             return self.database.url
         # Default SQLite path - consistent with blockchain-node pattern
-        return "sqlite:////opt/aitbc/data/coordinator.db"
+        return "sqlite:////var/lib/aitbc/data/coordinator.db"
 
     @database_url.setter
     def database_url(self, value: str):

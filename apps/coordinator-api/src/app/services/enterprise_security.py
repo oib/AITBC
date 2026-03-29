@@ -22,9 +22,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.fernet import Fernet
 import jwt
 from pydantic import BaseModel, Field, validator
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 class SecurityLevel(str, Enum):
     """Security levels for enterprise data"""

@@ -13,9 +13,9 @@ from pathlib import Path
 
 # Configuration
 CHAIN_ID = "ait-mainnet"
-DATA_DIR = Path("/opt/aitbc/data/ait-mainnet")
+DATA_DIR = Path("/var/lib/aitbc/data/ait-mainnet")
 DB_PATH = DATA_DIR / "chain.db"
-KEYS_DIR = Path("/opt/aitbc/keystore")
+KEYS_DIR = Path("/var/lib/aitbc/keystore")
 
 # Check for proposer key in keystore
 PROPOSER_KEY_FILE = KEYS_DIR / "aitbc1genesis.json"

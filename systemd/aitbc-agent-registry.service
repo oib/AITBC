@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=debian
-Group=debian
-WorkingDirectory=/opt/aitbc/apps/agent-registry/src
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/agent-services/agent-registry/src
 Environment=PYTHONPATH=/opt/aitbc
-ExecStart=/opt/aitbc/apps/coordinator-api/.venv/bin/python app.py
+ExecStart=/usr/bin/python3 app.py
 Restart=always
 RestartSec=10
 

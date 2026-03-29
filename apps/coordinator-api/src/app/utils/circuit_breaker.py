@@ -7,9 +7,10 @@ from datetime import datetime, timedelta
 from typing import Any, Callable, Optional, Dict
 from functools import wraps
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 
-logger = get_logger(__name__)
+
 
 
 class CircuitState(Enum):

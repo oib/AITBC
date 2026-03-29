@@ -7,8 +7,8 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-explorer
 # Using the blockchain node venv since the coordinator one is broken
-Environment=PATH=/opt/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
-ExecStart=/opt/blockchain-node/.venv/bin/python3 main.py
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/aitbc/venv/bin/python main.py
 Restart=always
 RestartSec=5
 StandardOutput=syslog

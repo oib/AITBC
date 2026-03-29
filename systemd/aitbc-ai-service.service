@@ -8,7 +8,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/ai-engine/src
 Environment=PYTHONPATH=/opt/aitbc
-ExecStart=/opt/aitbc/ai-venv/bin/python ai_service.py
+ExecStart=/usr/bin/python3 ai_service.py
 Restart=always
 RestartSec=10
 

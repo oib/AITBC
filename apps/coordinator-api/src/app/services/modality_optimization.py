@@ -7,7 +7,8 @@ Specialized optimization for text, image, audio, video, tabular, and graph data
 """
 
 import asyncio
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Union, Tuple
 from datetime import datetime
 from enum import Enum
@@ -16,7 +17,7 @@ import numpy as np
 from ..storage import get_session
 from .multimodal_agent import ModalityType
 
-logger = get_logger(__name__)
+
 
 
 class OptimizationStrategy(str, Enum):

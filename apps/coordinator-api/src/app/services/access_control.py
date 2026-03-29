@@ -12,7 +12,7 @@ from ..schemas import ConfidentialAccessRequest, ConfidentialAccessLog
 from ..config import settings
 from ..logging import get_logger
 
-logger = get_logger(__name__)
+
 
 
 class AccessPurpose(str, Enum):

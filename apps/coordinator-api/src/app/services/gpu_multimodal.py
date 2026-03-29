@@ -11,7 +11,8 @@ import asyncio
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from aitbc.logging import get_logger
+import logging
+logger = logging.getLogger(__name__)
 from typing import Dict, List, Any, Optional, Tuple, Union
 import numpy as np
 from datetime import datetime
@@ -20,7 +21,7 @@ import time
 from ..storage import get_session
 from .multimodal_agent import ModalityType, ProcessingMode
 
-logger = get_logger(__name__)
+
 
 
 class CUDAKernelOptimizer:
