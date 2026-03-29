@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
 import requests
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 # Default paths
 DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
@@ -166,6 +166,106 @@ def list_wallets(keystore_dir: Path = DEFAULT_KEYSTORE_DIR) -> list:
     return wallets
 
 
+def get_balance(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR, 
+                rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+    """Get wallet balance and transaction info"""
+    try:
+        keystore_path = keystore_dir / f"{wallet_name}.json"
+        if not keystore_path.exists():
+            print(f"Error: Wallet '{wallet_name}' not found")
+            return None
+        
+        with open(keystore_path) as f:
+            wallet_data = json.load(f)
+        
+        address = wallet_data['address']
+        
+        # Get balance from RPC
+        response = requests.get(f"{rpc_url}/rpc/getBalance/{address}")
+        if response.status_code == 200:
+            balance_data = response.json()
+            return {
+                "address": address,
+                "balance": balance_data.get("balance", 0),
+                "nonce": balance_data.get("nonce", 0),
+                "wallet_name": wallet_name
+            }
+        else:
+            print(f"Error getting balance: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
+                    rpc_url: str = DEFAULT_RPC_URL, limit: int = 10) -> List[Dict]:
+    """Get wallet transaction history"""
+    try:
+        keystore_path = keystore_dir / f"{wallet_name}.json"
+        if not keystore_path.exists():
+            print(f"Error: Wallet '{wallet_name}' not found")
+            return []
+        
+        with open(keystore_path) as f:
+            wallet_data = json.load(f)
+        
+        address = wallet_data['address']
+        
+        # Get transactions from RPC
+        response = requests.get(f"{rpc_url}/rpc/transactions?address={address}&limit={limit}")
+        if response.status_code == 200:
+            tx_data = response.json()
+            return tx_data.get("transactions", [])
+        else:
+            print(f"Error getting transactions: {response.text}")
+            return []
+    except Exception as e:
+        print(f"Error: {e}")
+        return []
+
+
+def get_chain_info(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+    """Get blockchain information"""
+    try:
+        response = requests.get(f"{rpc_url}/rpc/info")
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"Error getting chain info: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
+def get_network_status(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+    """Get network status and health"""
+    try:
+        # Get head block
+        head_response = requests.get(f"{rpc_url}/rpc/head")
+        if head_response.status_code == 200:
+            head_data = head_response.json()
+            
+            # Get chain info
+            chain_info = get_chain_info(rpc_url)
+            
+            return {
+                "height": head_data.get("height", 0),
+                "hash": head_data.get("hash", ""),
+                "chain_id": chain_info.get("chain_id", "") if chain_info else "",
+                "supported_chains": chain_info.get("supported_chains", "") if chain_info else "",
+                "rpc_version": chain_info.get("rpc_version", "") if chain_info else "",
+                "timestamp": head_data.get("timestamp", 0)
+            }
+        else:
+            print(f"Error getting network status: {head_response.text}")
+            return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="AITBC Wallet CLI")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -189,6 +289,26 @@ def main():
     # List wallets command
     list_parser = subparsers.add_parser("list", help="List wallets")
     list_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
+    
+    # Balance command
+    balance_parser = subparsers.add_parser("balance", help="Get wallet balance")
+    balance_parser.add_argument("--name", required=True, help="Wallet name")
+    balance_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
+    
+    # Transactions command
+    tx_parser = subparsers.add_parser("transactions", help="Get wallet transactions")
+    tx_parser.add_argument("--name", required=True, help="Wallet name")
+    tx_parser.add_argument("--limit", type=int, default=10, help="Number of transactions")
+    tx_parser.add_argument("--format", choices=["table", "json"], default="table", help="Output format")
+    tx_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
+    
+    # Chain info command
+    chain_parser = subparsers.add_parser("chain", help="Get blockchain information")
+    chain_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
+    
+    # Network status command
+    network_parser = subparsers.add_parser("network", help="Get network status")
+    network_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
     
     args = parser.parse_args()
     
@@ -250,6 +370,53 @@ def main():
             print("Wallets:")
             for wallet in wallets:
                 print(f"  {wallet['name']}: {wallet['address']}")
+    
+    elif args.command == "balance":
+        balance_info = get_balance(args.name, rpc_url=args.rpc_url)
+        if balance_info:
+            print(f"Wallet: {balance_info['wallet_name']}")
+            print(f"Address: {balance_info['address']}")
+            print(f"Balance: {balance_info['balance']} AIT")
+            print(f"Nonce: {balance_info['nonce']}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "transactions":
+        transactions = get_transactions(args.name, limit=args.limit, rpc_url=args.rpc_url)
+        
+        if args.format == "json":
+            print(json.dumps(transactions, indent=2))
+        else:
+            print(f"Transactions for {args.name}:")
+            for i, tx in enumerate(transactions, 1):
+                print(f"  {i}. Hash: {tx.get('hash', 'N/A')}")
+                print(f"     Amount: {tx.get('value', 0)} AIT")
+                print(f"     Fee: {tx.get('fee', 0)} AIT")
+                print(f"     Type: {tx.get('type', 'N/A')}")
+                print()
+    
+    elif args.command == "chain":
+        chain_info = get_chain_info(rpc_url=args.rpc_url)
+        if chain_info:
+            print("Blockchain Information:")
+            print(f"  Chain ID: {chain_info.get('chain_id', 'N/A')}")
+            print(f"  Supported Chains: {chain_info.get('supported_chains', 'N/A')}")
+            print(f"  RPC Version: {chain_info.get('rpc_version', 'N/A')}")
+            print(f"  Height: {chain_info.get('height', 'N/A')}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "network":
+        network_info = get_network_status(rpc_url=args.rpc_url)
+        if network_info:
+            print("Network Status:")
+            print(f"  Height: {network_info['height']}")
+            print(f"  Latest Block: {network_info['hash'][:16]}...")
+            print(f"  Chain ID: {network_info['chain_id']}")
+            print(f"  RPC Version: {network_info['rpc_version']}")
+            print(f"  Timestamp: {network_info['timestamp']}")
+        else:
+            sys.exit(1)
     
     else:
         parser.print_help()
