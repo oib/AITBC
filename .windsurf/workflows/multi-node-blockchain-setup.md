@@ -82,7 +82,6 @@ cp data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
 cp keystore/* /var/lib/aitbc/keystore/
 
 # Update systemd services to use standard config location
-# Update EnvironmentFile paths to use /etc/aitbc/blockchain.env
 sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
 
 # Enable and start blockchain services
