@@ -383,7 +383,83 @@ echo "=== Final balance verification ==="
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
-### 11. Blockchain Synchronization Verification
+### 12. Chain ID Configuration Verification
+
+```bash
+# Ensure both nodes have the same chain ID configuration
+echo "=== Chain ID Configuration Verification ==="
+
+# Check current chain ID configuration
+echo "Current chain ID configurations:"
+echo "aitbc1 chain ID: $(curl -s http://localhost:8006/rpc/info | jq .chain_id)"
+echo "aitbc supported chains: $(curl -s http://localhost:8006/rpc/info | jq .supported_chains)"
+echo "aitbc chain ID: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .chain_id')"
+echo "aitbc supported chains: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .supported_chains')"
+
+# Check configuration files
+echo "=== Configuration File Check ==="
+echo "aitbc1 chain_id config:"
+grep "chain_id=" /etc/aitbc/blockchain.env
+
+echo "aitbc chain_id config:"
+ssh aitbc "grep 'chain_id=' /etc/aitbc/blockchain.env"
+
+# Fix chain ID inconsistency if needed
+AITBC1_CHAIN=$(curl -s http://localhost:8006/rpc/info | jq -r '.supported_chains[0]')
+AITBC_CHAIN=$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq -r '.supported_chains[0]')
+
+echo "aitbc1 supports: $AITBC1_CHAIN"
+echo "aitbc supports: $AITBC_CHAIN"
+
+if [ "$AITBC1_CHAIN" != "$AITBC_CHAIN" ]; then
+  echo "=== Fixing Chain ID Inconsistency ==="
+  echo "Updating aitbc to use same chain as aitbc1: $AITBC1_CHAIN"
+  
+  # Update aitbc configuration
+  ssh aitbc "sed -i 's|chain_id=.*|chain_id=$AITBC1_CHAIN|g' /etc/aitbc/blockchain.env"
+  
+  echo "Updated aitbc configuration:"
+  ssh aitbc "grep 'chain_id=' /etc/aitbc/blockchain.env"
+  
+  # Restart aitbc services to apply new chain ID
+  echo "Restarting aitbc services..."
+  ssh aitbc "systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc"
+  sleep 5
+  
+  echo "Verifying chain ID after restart:"
+  ssh aitbc "curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains'"
+else
+  echo "✅ Chain IDs are consistent"
+fi
+
+# Final chain ID verification
+echo "=== Final Chain ID Verification ==="
+echo "aitbc1: $(curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains')"
+echo "aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains')"
+
+# Check if chain IDs are properly set
+if [ "$(curl -s http://localhost:8006/rpc/info | jq .chain_id)" = "null" ] || [ "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .chain_id')" = "null" ]; then
+  echo "⚠️ WARNING: Chain ID showing as null on one or both nodes"
+  echo "This may indicate a configuration issue with the blockchain node"
+  echo "Supported chains should be: ait-mainnet"
+else
+  echo "✅ Chain IDs are properly configured"
+fi
+
+# Verify both nodes can communicate on the same chain
+echo "=== Cross-Chain Communication Test ==="
+echo "Testing if both nodes are on compatible chains..."
+
+if [ "$AITBC1_CHAIN" = "$AITBC_CHAIN" ] && [ "$AITBC1_CHAIN" = "ait-mainnet" ]; then
+  echo "✅ SUCCESS: Both nodes are on the same chain (ait-mainnet)"
+  echo "🎯 Ready for cross-node transactions and operations"
+else
+  echo "⚠️ Chain configuration needs attention"
+  echo "Expected: ait-mainnet"
+  echo "aitbc1: $AITBC1_CHAIN"
+  echo "aitbc: $AITBC_CHAIN"
+fi
+```
 
 ```bash
 # Ensure both nodes are on the same blockchain
