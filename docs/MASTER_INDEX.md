@@ -8,6 +8,7 @@
 
 ### **📚 Learning Paths**
 - **👤 [Beginner Path](#-beginner-learning-path)** - Start here (6 topics)
+- **🤖 [Agent SDK Path](#-agent-sdk-learning-path)** - Agent communication (3 topics)
 - **🌉 [Intermediate Path](#-intermediate-learning-path)** - Bridge concepts (7 topics)
 - **🚀 [Advanced Path](#-advanced-learning-path)** - Deep technical (6 topics)
 - **🎓 [Expert Path](#-expert-learning-path)** - Specialized expertise (6 topics)
@@ -89,6 +90,24 @@
 
 ---
 
+## 🤖 **Agent SDK Learning Path**
+
+### **🎯 [Agent SDK Overview](agent-sdk/README.md)**
+**Prerequisites**: Basic Python knowledge | **Time**: 2-4 hours total
+
+| Topic | Description | Time | Difficulty |
+|-------|-------------|------|------------|
+| [📱 Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | Comprehensive agent communication guide | 1-2h | ⭐⭐⭐ |
+| [🚀 Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md) | Get started in 5 minutes | 30m | ⭐ |
+| [📚 API Reference](agent-sdk/API_REFERENCE.md) | Complete API documentation | 1-2h | ⭐⭐⭐⭐ |
+
+**🎯 Agent Paths:**
+- **New Agents**: Quick Start → Communication Guide → API Reference
+- **Developing Agents**: Communication Guide → API Reference → Advanced Topics
+- **Agent Integrators**: API Reference → Communication Guide → Quick Start
+
+---
+
 ## 🎓 **Expert Learning Path**
 
 ### **🎯 [Expert Overview](expert/README.md)**
@@ -128,6 +147,15 @@ Documentation about the documentation system itself:
 | [🗂️ Archive Structure Fix](about/ARCHIVE_STRUCTURE_FIX.md) | Archive reorganization documentation |
 | [📚 Centralization Guide](about/CENTRALIZED_DOCS_STRUCTURE.md) | Documentation centralization process |
 | [📋 Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md) | Documentation sorting and organization |
+
+### **🤖 [Agent SDK Documentation](agent-sdk/)**
+**Complete documentation for OpenClaw agent communication:**
+
+| File | Purpose |
+|------|---------|
+| [📱 Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | Comprehensive agent communication guide |
+| [🚀 Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md) | Get started in 5 minutes |
+| [📚 API Reference](agent-sdk/API_REFERENCE.md) | Complete API documentation |
 
 ---
 
