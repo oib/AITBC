@@ -841,25 +841,15 @@ if [ "$FINAL_BALANCE" -eq "0" ]; then
   CURRENT_NONCE=$(curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .nonce)
   echo "Current nonce: $CURRENT_NONCE"
   
-  # Create new transaction with correct nonce
-  NEW_TX=$(cat << EOF
-{
-  "type": "transfer",
-  "sender": "$GENESIS_ADDR",
-  "nonce": $((CURRENT_NONCE + 1)),
-  "fee": 10,
-  "payload": {},
-  "recipient": "$WALLET_ADDR",
-  "value": 1000
-}
-EOF
-)
-  
-  echo "Submitting new transaction:"
-  echo "$NEW_TX" | jq .
-  
-  NEW_TX_RESULT=$(curl -X POST http://localhost:8006/rpc/sendTx -H "Content-Type: application/json" -d "$NEW_TX")
-  echo "New transaction result: $NEW_TX_RESULT"
+  # Send new transaction using CLI tool
+  echo "Submitting new transaction using CLI tool:"
+  python /opt/aitbc/cli/simple_wallet.py send \
+    --from aitbc1genesis \
+    --to $WALLET_ADDR \
+    --amount 1000 \
+    --fee 10 \
+    --password-file /var/lib/aitbc/keystore/.password \
+    --rpc-url http://localhost:8006
   
   # Wait for new transaction to be mined
   echo "Waiting for new transaction to be mined..."
@@ -1026,22 +1016,14 @@ echo "=== Performance Testing ==="
 echo "Sending test transactions..."
 for i in {1..3}; do
   echo "Sending transaction $i..."
-  # Create a small test transaction
-  TEST_TX=$(cat << EOF
-{
-  "type": "transfer",
-  "sender": "$GENESIS_ADDR",
-  "nonce": $((i + 1)),
-  "fee": 10,
-  "payload": {},
-  "recipient": "$WALLET_ADDR",
-  "value": 100
-}
-EOF
-)
-  
-  TX_RESULT=$(curl -X POST http://localhost:8006/rpc/sendTx -H "Content-Type: application/json" -d "$TEST_TX")
-  echo "Transaction $i result: $TX_RESULT"
+  # Send test transaction using CLI tool
+  python /opt/aitbc/cli/simple_wallet.py send \
+    --from aitbc1genesis \
+    --to $WALLET_ADDR \
+    --amount 100 \
+    --fee 10 \
+    --password-file /var/lib/aitbc/keystore/.password \
+    --rpc-url http://localhost:8006
   sleep 1
 done
 
