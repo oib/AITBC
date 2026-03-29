@@ -132,9 +132,6 @@ async def get_block(height: int) -> Dict[str, Any]:
 
 @router.get("/blocks-range", summary="Get blocks in height range")
 # Working contract endpoints
-from .contract_service import contract_service
-# Agent messaging contract endpoints
-@router.get("/messaging/contract/state", summary="Get messaging contract state")
 async def get_messaging_contract_state() -> Dict[str, Any]:
     """Get the current state of the messaging contract"""
     state = {
@@ -154,10 +151,6 @@ async def deploy_messaging_contract(deploy_data: dict) -> Dict[str, Any]:
 async def list_contracts() -> Dict[str, Any]:
     return contract_service.list_contracts()
 
-# Agent messaging contract endpoints
-from .contracts.agent_messaging_contract import messaging_contract
-
-@router.get("/rpc/messaging/topics", summary="Get forum topics")
 async def get_forum_topics(limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> Dict[str, Any]:
     """Get list of forum topics"""
     return messaging_contract.get_topics(limit, offset, sort_by)
@@ -248,3 +241,67 @@ async def get_messaging_contract_state() -> Dict[str, Any]:
         "total_agents": len(messaging_contract.agent_reputations)
     }
     return {"success": True, "contract_state": state}
+
+# Agent messaging endpoints
+@router.get("/rpc/messaging/topics", summary="Get forum topics")
+async def get_forum_topics(limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> Dict[str, Any]:
+    """Get list of forum topics"""
+    return messaging_contract.get_topics(limit, offset, sort_by)
+
+@router.post("/rpc/messaging/topics/create", summary="Create forum topic")
+async def create_forum_topic(topic_data: dict) -> Dict[str, Any]:
+    """Create a new forum topic"""
+    return messaging_contract.create_topic(
+        topic_data.get("agent_id"),
+        topic_data.get("agent_address"),
+        topic_data.get("title"),
+        topic_data.get("description"),
+        topic_data.get("tags", [])
+    )
+
+@router.post("/rpc/messaging/messages/post", summary="Post message")
+async def post_message(message_data: dict) -> Dict[str, Any]:
+    """Post a message to a forum topic"""
+    return messaging_contract.post_message(
+        message_data.get("agent_id"),
+        message_data.get("agent_address"),
+        message_data.get("topic_id"),
+        message_data.get("content"),
+        message_data.get("message_type", "post"),
+        message_data.get("parent_message_id")
+    )
+EOF && echo "✅ Added working endpoints" && echo -e "\n6. Restarting node with fixed configuration:" && systemctl restart aitbc-blockchain-node && sleep 5 && echo "✅ Node restarted" && echo -e "\n7. Testing fixed endpoints:" && curl -s http://localhost:8006/rpc/messaging/topics | jq .success && echo -e "\n8. Creating test topic:" && curl -s -X POST http://localhost:8006/rpc/messaging/topics/create \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "test_agent", "agent_address": "ait1test_agent", "title": "Fixed Test Topic", "description": "Testing after fixes", "tags": ["test"]}' | jq .topic_id
+
+# Agent messaging contract endpoints
+@router.get("/rpc/messaging/topics", summary="Get forum topics")
+async def get_forum_topics(limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> Dict[str, Any]:
+    """Get list of forum topics"""
+    return messaging_contract.get_topics(limit, offset, sort_by)
+
+@router.post("/rpc/messaging/topics/create", summary="Create forum topic")
+async def create_forum_topic(topic_data: dict) -> Dict[str, Any]:
+    """Create a new forum topic"""
+    return messaging_contract.create_topic(
+        topic_data.get("agent_id"),
+        topic_data.get("agent_address"),
+        topic_data.get("title"),
+        topic_data.get("description"),
+        topic_data.get("tags", [])
+    )
+
+@router.post("/rpc/messaging/messages/post", summary="Post message")
+async def post_message(message_data: dict) -> Dict[str, Any]:
+    """Post a message to a forum topic"""
+    return messaging_contract.post_message(
+        message_data.get("agent_id"),
+        message_data.get("agent_address"),
+        message_data.get("topic_id"),
+        message_data.get("content"),
+        message_data.get("message_type", "post"),
+        message_data.get("parent_message_id")
+    )
+EOF && echo "✅ Added clean endpoints" && echo -e "\n5. Restarting node:" && systemctl restart aitbc-blockchain-node && sleep 5 && echo "✅ Node restarted" && echo -e "\n6. Testing messaging contract:" && curl -s http://localhost:8006/rpc/messaging/topics | jq .success && echo -e "\n7. Creating test topic:" && curl -s -X POST http://localhost:8006/rpc/messaging/topics/create \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "test_agent", "agent_address": "ait1test_agent", "title": "Working Test Topic", "description": "Testing after syntax fix", "tags": ["test"]}' | jq .topic_id
