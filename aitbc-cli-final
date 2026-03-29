@@ -1,0 +1,5 @@
+#!/bin/bash
+# AITBC CLI - Final working wrapper
+cd /opt/aitbc/cli
+source /opt/aitbc/venv/bin/activate
+python aitbc-fixed.py "$@"
