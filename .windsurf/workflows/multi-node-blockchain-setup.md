@@ -81,8 +81,8 @@ cp data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
 cp data/ait-mainnet/allocations.json /var/lib/aitbc/data/ait-mainnet/
 cp keystore/* /var/lib/aitbc/keystore/
 
-# Update systemd services to use standard config location
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+# Note: systemd services should already use /etc/aitbc/blockchain.env
+# No need to update systemd if they are properly configured
 
 # Enable and start blockchain services
 systemctl daemon-reload
@@ -144,9 +144,8 @@ sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llr
 # Note: aitbc should sync genesis from aitbc1, not copy it
 # The follower node will receive the genesis block via blockchain sync
 
-# Update systemd services to use standard config location
-# Update EnvironmentFile paths to use /etc/aitbc/blockchain.env
-sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' /opt/aitbc/systemd/aitbc-blockchain-*.service
+# Note: systemd services should already use /etc/aitbc/blockchain.env
+# No need to update systemd if they are properly configured
 
 # Stop any existing services and clear old data
 systemctl stop aitbc-blockchain-* 2>/dev/null || true
