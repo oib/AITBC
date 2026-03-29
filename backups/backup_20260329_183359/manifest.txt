@@ -1,0 +1,11 @@
+AITBC Backup Manifest
+Created: So 29 Mär 2026 18:33:59 CEST
+Hostname: aitbc1
+Block Height: 2222
+Total Accounts: 3
+Total Transactions: 4
+
+Contents:
+- Configuration files
+- Wallet keystore
+- Database files

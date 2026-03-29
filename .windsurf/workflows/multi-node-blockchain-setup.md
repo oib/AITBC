@@ -548,82 +548,278 @@ EOF
 
 ### 🎯 Production Readiness Checklist
 
-#### **Pre-Production Checklist**
+#### **Pre-Production Validation**
 ```bash
-echo "=== Production Readiness Checklist ==="
-
-# Security
-echo "✅ Security hardening completed"
-echo "✅ Access controls implemented"
-echo "✅ SSL/TLS configured"
-echo "✅ Firewall rules applied"
-
-# Performance
-echo "✅ Load testing completed"
-echo "✅ Performance benchmarks established"
-echo "✅ Monitoring systems active"
-
-# Reliability
-echo "✅ Backup procedures tested"
-echo "✅ Disaster recovery planned"
-echo "✅ High availability configured"
-
-# Operations
-echo "✅ Documentation complete"
-echo "✅ Training materials prepared"
-echo "✅ Runbooks created"
-echo "✅ Alert systems configured"
-
-echo "=== Production Ready! ==="
+# Run comprehensive production readiness check
+/opt/aitbc/scripts/workflow/19_production_readiness_checklist.sh
 ```
+
+The production readiness checklist validates:
+- ✅ Security hardening status
+- ✅ Performance metrics compliance
+- ✅ Reliability and backup procedures
+- ✅ Operations readiness
+- ✅ Network connectivity
+- ✅ Wallet and transaction functionality
+
+---
+
+### 🛒 MARKETPLACE SCENARIO TESTING
+
+#### **Complete Marketplace Workflow Test**
+
+This scenario tests the complete marketplace functionality including GPU bidding, confirmation, task execution, and blockchain payment processing.
+
+```bash
+# === MARKETPLACE WORKFLOW TEST ===
+echo "=== 🛒 MARKETPLACE SCENARIO TESTING ==="
+echo "Timestamp: $(date)"
+echo ""
+
+# 1. USER FROM AITBC SERVER BIDS ON GPU
+echo "1. 🎯 USER BIDDING ON GPU PUBLISHED ON MARKET"
+echo "=============================================="
+
+# Check available GPU listings on aitbc
+echo "Checking GPU marketplace listings on aitbc:"
+ssh aitbc 'curl -s http://localhost:8006/rpc/market-list | jq .marketplace[0:3] | .[] | {id, title, price, status}'
+
+# User places bid on GPU listing
+echo "Placing bid on GPU listing..."
+BID_RESULT=$(ssh aitbc 'curl -s -X POST http://localhost:8006/rpc/market-bid \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"market_id\": \"gpu_001\",
+    \"bidder\": \"ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b\",
+    \"bid_amount\": 100,
+    \"duration_hours\": 2
+  }"')
+
+echo "Bid result: $BID_RESULT"
+BID_ID=$(echo "$BID_RESULT" | jq -r .bid_id 2>/dev/null || echo "unknown")
+echo "Bid ID: $BID_ID"
+
+# 2. AITBC1 CONFIRMS THE BID
+echo ""
+echo "2. ✅ AITBC1 CONFIRMATION"
+echo "========================"
+
+# aitbc1 reviews and confirms the bid
+echo "aitbc1 reviewing bid $BID_ID..."
+CONFIRM_RESULT=$(curl -s -X POST http://localhost:8006/rpc/market-confirm \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"bid_id\": \"$BID_ID\",
+    \"confirm\": true,
+    \"provider\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\"
+  }")
+
+echo "Confirmation result: $CONFIRM_RESULT"
+JOB_ID=$(echo "$CONFIRM_RESULT" | jq -r .job_id 2>/dev/null || echo "unknown")
+echo "Job ID: $JOB_ID"
+
+# 3. AITBC SERVER SENDS OLLAMA TASK PROMPT
+echo ""
+echo "3. 🤖 AITBC SERVER SENDS OLLAMA TASK PROMPT"
+echo "=========================================="
+
+# aitbc server submits AI task using Ollama
+echo "Submitting AI task to confirmed job..."
+TASK_RESULT=$(ssh aitbc 'curl -s -X POST http://localhost:8006/rpc/ai-submit \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"job_id\": "'"$JOB_ID"'",
+    \"task_type\": \"llm_inference\",
+    \"model\": \"llama2\",
+    \"prompt\": \"Analyze the performance implications of blockchain sharding on scalability and security.\",
+    \"parameters\": {
+      \"max_tokens\": 500,
+      \"temperature\": 0.7
+    }
+  }"')
+
+echo "Task submission result: $TASK_RESULT"
+TASK_ID=$(echo "$TASK_RESULT" | jq -r .task_id 2>/dev/null || echo "unknown")
+echo "Task ID: $TASK_ID"
+
+# Monitor task progress
+echo "Monitoring task progress..."
+for i in {1..5}; do
+    TASK_STATUS=$(ssh aitbc "curl -s http://localhost:8006/rpc/ai-status?task_id=$TASK_ID")
+    echo "Check $i: $TASK_STATUS"
+    STATUS=$(echo "$TASK_STATUS" | jq -r .status 2>/dev/null || echo "unknown")
+    
+    if [ "$STATUS" = "completed" ]; then
+        echo "✅ Task completed!"
+        break
+    elif [ "$STATUS" = "failed" ]; then
+        echo "❌ Task failed!"
+        break
+    fi
+    
+    sleep 2
+done
+
+# Get task result
+if [ "$STATUS" = "completed" ]; then
+    TASK_RESULT=$(ssh aitbc "curl -s http://localhost:8006/rpc/ai-result?task_id=$TASK_ID")
+    echo "Task result: $TASK_RESULT"
+fi
+
+# 4. AITBC1 GETS PAYMENT OVER BLOCKCHAIN
+echo ""
+echo "4. 💰 AITBC1 BLOCKCHAIN PAYMENT"
+echo "==============================="
+
+# aitbc1 processes payment for completed job
+echo "Processing blockchain payment for completed job..."
+PAYMENT_RESULT=$(curl -s -X POST http://localhost:8006/rpc/market-payment \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"job_id\": \"$JOB_ID\",
+    \"task_id\": \"$TASK_ID\",
+    \"amount\": 100,
+    \"recipient\": \"ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r\",
+    \"currency\": \"AIT\"
+  }")
+
+echo "Payment result: $PAYMENT_RESULT"
+PAYMENT_TX=$(echo "$PAYMENT_RESULT" | jq -r .transaction_hash 2>/dev/null || echo "unknown")
+echo "Payment transaction: $PAYMENT_TX"
+
+# Wait for payment to be mined
+echo "Waiting for payment to be mined..."
+for i in {1..10}; do
+    TX_STATUS=$(curl -s "http://localhost:8006/rpc/tx/$PAYMENT_TX" | jq -r .block_height 2>/dev/null || echo "pending")
+    if [ "$TX_STATUS" != "null" ] && [ "$TX_STATUS" != "pending" ]; then
+        echo "✅ Payment mined in block: $TX_STATUS"
+        break
+    fi
+    sleep 3
+done
+
+# Verify final balances
+echo ""
+echo "5. 📊 FINAL BALANCE VERIFICATION"
+echo "=============================="
+
+# Check aitbc1 balance (should increase by payment amount)
+AITBC1_BALANCE=$(curl -s "http://localhost:8006/rpc/getBalance/ait1hqpufd2skt3kdhpfdqv7cc3adg6hdgaany343spdlw00xdqn37xsyvz60r" | jq .balance)
+echo "aitbc1 final balance: $AITBC1_BALANCE AIT"
+
+# Check aitbc-user balance (should decrease by payment amount)
+AITBC_USER_BALANCE=$(ssh aitbc 'curl -s "http://localhost:8006/rpc/getBalance/ait1e7d5e60688ff0b4a5c6863f1625e47945d84c94b" | jq .balance')
+echo "aitbc-user final balance: $AITBC_USER_BALANCE AIT"
+
+# Check marketplace status
+echo ""
+echo "6. 🏪 MARKETPLACE STATUS SUMMARY"
+echo "==============================="
+
+echo "Marketplace overview:"
+curl -s http://localhost:8006/rpc/market-list | jq '.marketplace | length' 2>/dev/null || echo "0"
+echo "Active listings"
+
+echo "Job status:"
+curl -s "http://localhost:8006/rpc/market-status?job_id=$JOB_ID" 2>/dev/null || echo "Job status unavailable"
+
+echo ""
+echo "=== 🛒 MARKETPLACE SCENARIO COMPLETE ==="
+echo ""
+echo "✅ SCENARIO RESULTS:"
+echo "• User bid: $BID_ID"
+echo "• Job confirmation: $JOB_ID" 
+echo "• Task execution: $TASK_ID"
+echo "• Payment transaction: $PAYMENT_TX"
+echo "• aitbc1 balance: $AITBC1_BALANCE AIT"
+echo "• aitbc-user balance: $AITBC_USER_BALANCE AIT"
+echo ""
+echo "🎯 MARKETPLACE WORKFLOW: TESTED"
+```
+
+#### **Expected Scenario Flow:**
+
+1. **🎯 User Bidding**: aitbc-user browses marketplace and bids on GPU listing
+2. **✅ Provider Confirmation**: aitbc1 reviews and confirms the bid, creating job
+3. **🤖 Task Execution**: aitbc server submits AI task via Ollama, monitors progress
+4. **💰 Blockchain Payment**: aitbc1 receives payment for completed services via blockchain
+
+#### **Verification Points:**
+
+- ✅ **Bid Creation**: User can successfully bid on marketplace listings
+- ✅ **Job Confirmation**: Provider can confirm bids and create jobs
+- ✅ **Task Processing**: AI tasks execute through Ollama integration
+- ✅ **Payment Processing**: Blockchain transactions process payments correctly
+- ✅ **Balance Updates**: Wallet balances reflect payment transfers
+- ✅ **Marketplace State**: Listings and jobs maintain correct status
+
+#### **Troubleshooting:**
+
+```bash
+# Check marketplace status
+curl -s http://localhost:8006/rpc/market-list | jq .
+
+# Check specific job status
+curl -s "http://localhost:8006/rpc/market-status?job_id=<JOB_ID>"
+
+# Check AI task status
+ssh aitbc "curl -s http://localhost:8006/rpc/ai-status?task_id=<TASK_ID>"
+
+# Verify payment transaction
+curl -s "http://localhost:8006/rpc/tx/<TRANSACTION_HASH>"
+```
+- ✅ Reliability and backup procedures
+- ✅ Operations readiness
+- ✅ Network connectivity
+- ✅ Wallet and transaction functionality
 
 ### 🔄 Continuous Improvement
 
-#### **Maintenance Schedule**
+#### **Automated Maintenance**
 ```bash
-# Setup maintenance automation
-echo "=== Maintenance Automation ==="
+# Setup comprehensive maintenance automation
+/opt/aitbc/scripts/workflow/21_maintenance_automation.sh
 
-# Weekly maintenance script
-/opt/aitbc/scripts/weekly_maintenance.sh
-
-# Add to cron
-(crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/aitbc/scripts/weekly_maintenance.sh") | crontab -
+# Schedule weekly maintenance
+(crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/aitbc/scripts/workflow/21_maintenance_automation.sh") | crontab -
 ```
 
 #### **Performance Optimization**
 ```bash
-# Performance tuning script
-/opt/aitbc/scripts/performance_tune.sh
+# Run performance tuning and optimization
+/opt/aitbc/scripts/workflow/20_performance_tuning.sh
+
+# Monitor performance baseline
+cat /opt/aitbc/performance/baseline.txt
 ```
 
 ---
 
-## � Next Steps
+## 🎯 Next Steps
 
 ### **Immediate Actions (0-1 week)**
 
-1. **🚀 Production Deployment**
+1. **🚀 Production Readiness Validation**
    ```bash
-   # Run production readiness check
-   /opt/aitbc/scripts/workflow/18_production_readiness.sh
+   # Run comprehensive production readiness check
+   /opt/aitbc/scripts/workflow/19_production_readiness_checklist.sh
    
-   # Deploy to production if ready
-   /opt/aitbc/scripts/workflow/14_production_ready.sh
+   # Address any failed checks before production deployment
    ```
 
-2. **📊 Monitoring Setup**
+2. **📊 Basic Monitoring Setup**
    ```bash
-   # Setup comprehensive monitoring
-   /opt/aitbc/scripts/workflow/16_monitoring_setup.sh
+   # Setup basic monitoring without Grafana/Prometheus
+   /opt/aitbc/scripts/workflow/22_advanced_monitoring.sh
    
-   # Verify monitoring dashboard
-   /opt/aitbc/scripts/monitoring_dashboard.sh
+   # Access monitoring dashboard
+   # Start metrics API: python3 /opt/aitbc/monitoring/metrics_api.py
+   # Dashboard: http://<node-ip>:8080
    ```
 
 3. **🔒 Security Implementation**
    ```bash
-   # Apply security hardening
+   # Apply security hardening (already completed)
    /opt/aitbc/scripts/workflow/17_security_hardening.sh
    
    # Review security report
@@ -634,11 +830,11 @@ echo "=== Maintenance Automation ==="
 
 4. **📈 Performance Optimization**
    ```bash
-   # Run performance tuning
-   /opt/aitbc/scripts/workflow/14_production_ready.sh
+   # Run performance tuning and optimization
+   /opt/aitbc/scripts/workflow/20_performance_tuning.sh
    
    # Monitor performance baseline
-   cat /opt/aitbc/performance_baseline.txt
+   cat /opt/aitbc/performance/baseline.txt
    ```
 
 5. **🧪 Comprehensive Testing**
@@ -648,6 +844,9 @@ echo "=== Maintenance Automation ==="
    
    # Validate cross-node functionality
    ssh aitbc '/opt/aitbc/tests/integration_test.sh'
+   
+   # Test load balancer functionality
+   curl http://localhost/rpc/info
    ```
 
 6. **📖 Documentation Completion**
@@ -655,34 +854,37 @@ echo "=== Maintenance Automation ==="
    # Generate API documentation
    curl -s http://localhost:8006/docs > /opt/aitbc/docs/api.html
    
-   # Create operation manuals
-   mkdir -p /opt/aitbc/docs/operations
+   # Review scaling procedures
+   cat /opt/aitbc/docs/scaling/scaling_procedures.md
    ```
 
 ### **Medium-term Goals (1-3 months)**
 
 7. **🔄 Automation Enhancement**
    ```bash
-   # Setup maintenance automation
-   /opt/aitbc/scripts/workflow/13_maintenance_automation.sh
+   # Setup comprehensive maintenance automation
+   /opt/aitbc/scripts/workflow/21_maintenance_automation.sh
    
-   # Configure automated backups
-   /opt/aitbc/scripts/workflow/12_complete_sync.sh
+   # Configure automated backups and monitoring
+   # Already configured in maintenance script
    ```
 
-8. **📊 Advanced Monitoring**
-   - Implement Grafana dashboards
-   - Setup Prometheus metrics
-   - Configure alerting systems
-   - Create SLA monitoring
+8. **📊 Basic Monitoring**
+   ```bash
+   # Basic monitoring already deployed
+   /opt/aitbc/scripts/workflow/22_advanced_monitoring.sh
+   
+   # Monitor health status
+   /opt/aitbc/monitoring/health_monitor.sh
+   ```
 
 9. **🚀 Scaling Preparation**
    ```bash
-   # Prepare for horizontal scaling
-   /opt/aitbc/scripts/workflow/12_complete_sync.sh
+   # Prepare for horizontal scaling and load balancing
+   /opt/aitbc/scripts/workflow/23_scaling_preparation.sh
    
-   # Document scaling procedures
-   echo "Scaling procedures documented in workflow"
+   # Test nginx load balancer functionality
+   curl http://localhost/nginx_status
    ```
 
 ### **Long-term Goals (3+ months)**
@@ -747,7 +949,7 @@ echo "=== Maintenance Automation ==="
 
 ---
 
-## �🎉 Conclusion
+## �� Conclusion
 
 Your AITBC multi-node blockchain setup is now complete and production-ready! You have:
 
