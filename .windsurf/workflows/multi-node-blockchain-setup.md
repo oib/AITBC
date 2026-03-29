@@ -186,740 +186,104 @@ ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 
 ```bash
 # Remove all legacy .env.production and .env references from systemd services
-echo "=== Legacy Environment File Cleanup ==="
+/opt/aitbc/scripts/workflow/01_preflight_setup.sh
+```
 
-# Check for legacy references
-echo "Checking for legacy environment file references..."
-find /etc/systemd -name "*.service*" -exec grep -l "\.env\.production" {} \; 2>/dev/null || echo "No .env.production references found"
+### 14. Final Configuration Verification
 
-# Clean up legacy references
-echo "=== Cleaning up legacy references ==="
-
-# Fix blockchain-gossip-relay service if it exists
-if [ -f "/etc/systemd/system/blockchain-gossip-relay.service" ]; then
-  sed -i 's|EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production|EnvironmentFile=/etc/aitbc/blockchain.env|g' /etc/systemd/system/blockchain-gossip-relay.service
-  echo "Fixed gossip relay service"
-fi
-
-# Fix aitbc-blockchain-sync service if it exists
-if [ -f "/etc/systemd/system/aitbc-blockchain-sync.service" ]; then
-  # Remove all EnvironmentFile entries and add the correct one
-  grep -v 'EnvironmentFile=' /etc/systemd/system/aitbc-blockchain-sync.service > /tmp/sync.service.clean
-  echo "EnvironmentFile=/etc/aitbc/blockchain.env" >> /tmp/sync.service.clean
-  cp /tmp/sync.service.clean /etc/systemd/system/aitbc-blockchain-sync.service
-  echo "Fixed sync service"
-fi
-
-# Update any remaining legacy references
-find /etc/systemd -name "*.service*" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null
-find /etc/systemd -name "*.service*" -exec sed -i 's|EnvironmentFile=/opt/aitbc/apps/blockchain-node/.env.production|EnvironmentFile=/etc/aitbc/blockchain.env|g' {} \; 2>/dev/null
-
-echo "=== Verification ==="
-echo "Checking all blockchain services now use correct environment file..."
-find /etc/systemd -name "*blockchain*.service" -exec grep -H "EnvironmentFile.*=" {} \; 2>/dev/null
-
-echo "=== Legacy Cleanup Complete ==="
-echo "✅ All .env.production references removed"
-echo "✅ All /opt/aitbc/.env references updated"
-echo "✅ All services now use /etc/aitbc/blockchain.env"
-
-# Reload systemd to apply changes
-systemctl daemon-reload
-
-echo "✅ Legacy environment file references cleaned up successfully"
+```bash
+# Verify all configurations are using centralized files
+/opt/aitbc/scripts/workflow/06_final_verification.sh
 ```
 
 ### 15. Cross-Node Code Synchronization
 
 ```bash
 # Ensure aitbc node stays synchronized with aitbc1 after code changes
-echo "=== Cross-Node Code Synchronization ==="
-
-# This step should be run on aitbc1 after making code changes
-echo "Running on aitbc1 - pushing changes to remote..."
-# git push origin main  # This would be done by the user
-
-echo "Now synchronizing aitbc node with latest changes..."
-ssh aitbc 'cd /opt/aitbc && echo "=== aitbc: Pulling latest changes ===" && git status'
-
-# Check if aitbc has local changes that need to be stashed
-ssh aitbc 'cd /opt/aitbc && if [ -n "$(git status --porcelain)" ]; then
-  echo "Local changes found, stashing..."
-  git stash push -m "Auto-stash before pull"
-fi'
-
-echo "Pulling latest changes from aitbc1..."
 ssh aitbc 'cd /opt/aitbc && git pull origin main'
-
-echo "Checking if services need restart after code update..."
-ssh aitbc 'cd /opt/aitbc && if [ -n "$(git log --oneline -1 | grep -E "(feat|fix|refactor|chore).*:")" ]; then
-  echo "Code changes detected, checking if blockchain services need restart..."
-  # Check if blockchain node code was updated
-  if git log --oneline -1 | grep -E "(blockchain|rpc|sync|config)"; then
-    echo "Blockchain code updated, restarting services..."
-    systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
-    sleep 3
-    echo "Services restarted successfully"
-  fi
-fi'
-
-echo "=== Cross-Node Synchronization Complete ==="
-echo "✅ aitbc node synchronized with latest changes from aitbc1"
-
-# Verify both nodes are running same version
-echo "\n=== Version Verification ==="
-echo "aitbc1 RPC version: $(curl -s http://localhost:8006/rpc/info | jq .rpc_version)"
-echo "aitbc RPC version: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .rpc_version')"
-
-if [ "$(curl -s http://localhost:8006/rpc/info | jq .rpc_version)" = "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .rpc_version')" ]; then
-  echo "✅ Both nodes running same version"
-else
-  echo "⚠️ Version mismatch detected - services may need restart"
-fi
 ```
 
 ### 16. Complete Workflow Execution
 
 ```bash
 # Execute the complete multi-node blockchain setup workflow
-echo "=== COMPLETE MULTI-NODE BLOCKCHAIN WORKFLOW ==="
-echo "This workflow will set up a complete multi-node blockchain network"
-echo "with aitbc1 as genesis authority and aitbc as follower node"
-echo
-read -p "Do you want to execute the complete workflow? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-  echo "🚀 Starting complete multi-node blockchain setup..."
-  
-  # Execute all steps in sequence
-  echo "Step 1: Pre-Flight Setup"
-  # [Pre-flight setup commands]
-  
-  echo "Step 2: Genesis Authority Setup (aitbc1)"
-  # [Genesis authority commands]
-  
-  echo "Step 3: Genesis State Verification"
-  # [Genesis verification commands]
-  
-  echo "Step 4: Follower Node Setup (aitbc)"
-  # [Follower node commands]
-  
-  echo "Step 5: Sync Verification"
-  # [Sync verification commands]
-  
-  echo "Step 6: Wallet Creation"
-  # [Wallet creation commands]
-  
-  echo "Step 7: Transaction Processing"
-  # [Transaction commands]
-  
-  echo "Step 8: Complete Sync"
-  # [Complete sync commands]
-  
-  echo "Step 9: Transaction Verification"
-  # [Transaction verification commands]
-  
-  echo "Step 10: Gift Delivery Completion"
-  # [Gift delivery commands]
-  
-  echo "Step 11: Blockchain Synchronization Verification"
-  # [Blockchain sync verification commands]
-  
-  echo "Step 12: Chain ID Configuration Verification"
-  # [Chain ID verification commands]
-  
-  echo "Step 13: Legacy Environment File Cleanup"
-  # [Legacy cleanup commands]
-  
-  echo "Step 14: Final Multi-Node Verification"
-  # [Final verification commands]
-  
-  echo "Step 15: Cross-Node Code Synchronization"
-  # [Cross-node sync commands]
-  
-  echo "\n🎉 COMPLETE MULTI-NODE BLOCKCHAIN SETUP FINISHED!"
-  echo "\n📋 Summary:"
-  echo "✅ aitbc1: Genesis authority node running"
-  echo "✅ aitbc: Follower node synchronized"
-  echo "✅ Network: Multi-node blockchain operational"
-  echo "✅ Transactions: Cross-node transfers working"
-  echo "✅ Configuration: Both nodes properly configured"
-  echo "✅ Code: Both nodes synchronized with latest changes"
-  
-else
-  echo "Workflow execution cancelled."
-  echo "You can run individual steps as needed."
-fi
+/opt/aitbc/scripts/workflow/setup_multinode_blockchain.sh
 ```
 
-```bash
-# Complete verification of multi-node blockchain setup using enhanced CLI
-echo "=== FINAL MULTI-NODE VERIFICATION ==="
+### 🔍 Configuration Overview
 
-# Check both nodes are operational using CLI
-echo "1. Service Status:"
-echo "aitbc1 services:"
-systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
-echo "aitbc services:"
-ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc'
-
-echo -e "\n2. Configuration Consistency using CLI:"
-echo "aitbc1 chain info:"
-python /opt/aitbc/cli/simple_wallet.py chain
-echo "aitbc chain info:"
-ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py chain'
-
-echo -e "\n3. Blockchain Synchronization using CLI:"
-AITBC1_HEIGHT=$(python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r .height)
-AITBC_HEIGHT=$(ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r .height')
-echo "aitbc1 height: $AITBC1_HEIGHT"
-echo "aitbc height: $AITBC_HEIGHT"
-HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
-echo "Height difference: $HEIGHT_DIFF blocks"
-
-echo -e "\n4. Network Health using CLI:"
-echo "aitbc1 network status:"
-python /opt/aitbc/cli/simple_wallet.py network
-echo "aitbc network status:"
-ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network'
-
-echo -e "\n5. Genesis Block Verification using CLI:"
-echo "aitbc1 genesis block:"
-curl -s "http://localhost:8006/rpc/blocks-range?start=0&end=0" | jq '.blocks[0] | {height: .height, hash: .hash}'
-echo "aitbc genesis block:"
-ssh aitbc 'curl -s "http://localhost:8006/rpc/blocks-range?start=0&end=0" | jq ".blocks[0] | {height: .height, hash: .hash}"'
-
-# Success criteria
-echo -e "\n=== SUCCESS CRITERIA ==="
-SERVICES_OK=$(systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc | grep -c 'active')
-SERVICES_OK_REMOTE=$(ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc | grep -c "active"')
-
-if [ "$SERVICES_OK" -eq 2 ] && [ "$SERVICES_OK_REMOTE" -eq 2 ]; then
-  echo "✅ All services operational"
-else
-  echo "❌ Some services not running"
-fi
-
-if [ "$HEIGHT_DIFF" -le 5 ]; then
-  echo "✅ Blockchain synchronized"
-else
-  echo "⚠️ Blockchain sync needed (diff: $HEIGHT_DIFF blocks)"
-fi
-
-if [ "$(curl -s http://localhost:8006/rpc/info | jq -r .supported_chains[0])" = "ait-mainnet" ] && [ "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq -r .supported_chains[0]')" = "ait-mainnet" ]; then
-  echo "✅ Both nodes on same chain"
-else
-  echo "❌ Chain configuration mismatch"
-fi
-
-echo -e "\n🎉 MULTI-NODE BLOCKCHAIN SETUP VERIFICATION COMPLETE"
-```
-
-```bash
-# Ensure both nodes have the same chain ID configuration
-echo "=== Chain ID Configuration Verification ==="
-
-# Check current chain ID configuration
-echo "Current chain ID configurations:"
-echo "aitbc1 chain ID: $(curl -s http://localhost:8006/rpc/info | jq .chain_id)"
-echo "aitbc supported chains: $(curl -s http://localhost:8006/rpc/info | jq .supported_chains)"
-echo "aitbc chain ID: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .chain_id')"
-echo "aitbc supported chains: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .supported_chains')"
-
-# Check configuration files
-echo "=== Configuration File Check ==="
-echo "aitbc1 chain_id config:"
-grep "chain_id=" /etc/aitbc/blockchain.env
-
-echo "aitbc chain_id config:"
-ssh aitbc "grep 'chain_id=' /etc/aitbc/blockchain.env"
-
-# Fix chain ID inconsistency if needed
-AITBC1_CHAIN=$(curl -s http://localhost:8006/rpc/info | jq -r '.supported_chains[0]')
-AITBC_CHAIN=$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq -r '.supported_chains[0]')
-
-echo "aitbc1 supports: $AITBC1_CHAIN"
-echo "aitbc supports: $AITBC_CHAIN"
-
-if [ "$AITBC1_CHAIN" != "$AITBC_CHAIN" ]; then
-  echo "=== Fixing Chain ID Inconsistency ==="
-  echo "Updating aitbc to use same chain as aitbc1: $AITBC1_CHAIN"
-  
-  # Update aitbc configuration
-  ssh aitbc "sed -i 's|chain_id=.*|chain_id=$AITBC1_CHAIN|g' /etc/aitbc/blockchain.env"
-  
-  echo "Updated aitbc configuration:"
-  ssh aitbc "grep 'chain_id=' /etc/aitbc/blockchain.env"
-  
-  # Restart aitbc services to apply new chain ID
-  echo "Restarting aitbc services..."
-  ssh aitbc "systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc"
-  sleep 5
-  
-  echo "Verifying chain ID after restart:"
-  ssh aitbc "curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains'"
-else
-  echo "✅ Chain IDs are consistent"
-fi
-
-# Final chain ID verification
-echo "=== Final Chain ID Verification ==="
-echo "aitbc1: $(curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains')"
-echo "aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq '.chain_id, .supported_chains')"
-
-# Check if chain IDs are properly set
-if [ "$(curl -s http://localhost:8006/rpc/info | jq .chain_id)" = "null" ] || [ "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .chain_id')" = "null" ]; then
-  echo "⚠️ WARNING: Chain ID showing as null on one or both nodes"
-  echo "This may indicate a configuration issue with the blockchain node"
-  echo "Supported chains should be: ait-mainnet"
-else
-  echo "✅ Chain IDs are properly configured"
-fi
-
-# Verify both nodes can communicate on the same chain
-echo "=== Cross-Chain Communication Test ==="
-echo "Testing if both nodes are on compatible chains..."
-
-if [ "$AITBC1_CHAIN" = "$AITBC_CHAIN" ] && [ "$AITBC1_CHAIN" = "ait-mainnet" ]; then
-  echo "✅ SUCCESS: Both nodes are on the same chain (ait-mainnet)"
-  echo "🎯 Ready for cross-node transactions and operations"
-else
-  echo "⚠️ Chain configuration needs attention"
-  echo "Expected: ait-mainnet"
-  echo "aitbc1: $AITBC1_CHAIN"
-  echo "aitbc: $AITBC_CHAIN"
-fi
-```
-
-```bash
-# Ensure both nodes are on the same blockchain
-echo "=== Blockchain Synchronization Verification ==="
-WALLET_ADDR="ait1vt7nz556q9nsgqutz7av9g36423rs8xg6cxyvwhd9km6lcvxzrysc9cw87"
-
-# Check current heights
-echo "Current blockchain heights:"
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
-
-echo "aitbc1 height: $AITBC1_HEIGHT"
-echo "aitbc height: $AITBC_HEIGHT"
-HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
-echo "Height difference: $HEIGHT_DIFF blocks"
-
-# Verify genesis blocks are identical
-echo "=== Genesis Block Verification ==="
-echo "aitbc1 genesis:"
-curl -s "http://localhost:8006/rpc/blocks-range?start=0&end=0" | jq '.blocks[0] | {height: .height, hash: .hash}'
-
-echo "aitbc genesis:"
-ssh aitbc 'curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=0&end=0" | jq ".blocks[0] | {height: .height, hash: .hash}"'
-
-# Complete synchronization if needed
-if [ "$HEIGHT_DIFF" -gt "5" ]; then
-  echo "=== Completing Blockchain Synchronization ==="
-  echo "aitbc is $HEIGHT_DIFF blocks behind, completing sync..."
-  
-  ssh aitbc "for height in \$((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT; do
-    curl -s 'http://10.1.223.40:8006/rpc/blocks-range?start=\$height&end=\$height' | \
-      jq '.blocks[0]' > /tmp/block\$height.json
-    curl -X POST http://localhost:8006/rpc/importBlock \
-      -H 'Content-Type: application/json' -d @/tmp/block\$height.json > /dev/null
-    if [ \$((\$height % 50)) -eq 0 ]; then echo 'Synced to height \$height'; fi
-  done"
-  
-  echo "Synchronization completed!"
-fi
-
-# Final verification
-echo "=== Final Synchronization Verification ==="
-FINAL_AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-FINAL_AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
-FINAL_DIFF=$((FINAL_AITBC1_HEIGHT - FINAL_AITBC_HEIGHT))
-
-echo "Final heights:"
-echo "aitbc1: $FINAL_AITBC1_HEIGHT"
-echo "aitbc: $FINAL_AITBC_HEIGHT"
-echo "Difference: $FINAL_DIFF blocks"
-
-if [ "$FINAL_DIFF" -le "2" ]; then
-  echo "✅ SUCCESS: Both nodes are on the same blockchain!"
-  echo "🎯 Blockchain synchronization verified"
-else
-  echo "⚠️ Nodes are still not fully synchronized"
-  echo "Difference: $FINAL_DIFF blocks"
-fi
-
-# Verify both nodes can see the same blockchain data
-echo "=== Cross-Node Blockchain Verification ==="
-echo "Total blocks on aitbc1: $(curl -s http://localhost:8006/rpc/info | jq .total_blocks)"
-echo "Total blocks on aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .total_blocks')"
-echo "Total accounts on aitbc1: $(curl -s http://localhost:8006/rpc/info | jq .total_accounts)"
-echo "Total accounts on aitbc: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .total_accounts')"
-
-# Verify wallet consistency
-echo "=== Wallet Verification ==="
-echo "Genesis wallet balance on aitbc1:"
-GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)
-curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
-
-echo "User wallet balance on aitbc:"
-ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq ."
-
-if [ "$FINAL_DIFF" -le "2" ]; then
-  echo "🎉 MULTI-NODE BLOCKCHAIN SUCCESSFULLY SYNCHRONIZED!"
-  echo "Both nodes are operating on the same blockchain"
-  echo "Ready for cross-node transactions and operations"
-else
-  echo "🔧 Additional synchronization may be required"
-fi
-```
-
-```bash
-# Ensure the 1000 AIT gift is successfully delivered to aitbc wallet
-echo "=== Gift Delivery Completion ==="
-WALLET_ADDR="ait1vt7nz556q9nsgqutz7av9g36423rs8xg6cxyvwhd9km6lcvxzrysc9cw87"
-TX_HASH="0x125a1150045acb9f8c74f30dbc8b9db98d48f3cced650949e31916fcb618b61e"
-
-echo "Target wallet: $WALLET_ADDR"
-echo "Transaction hash: $TX_HASH"
-
-# Check current status
-echo "Current wallet balance:"
-ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq ."
-
-echo "Network transaction count:"
-curl -s http://localhost:8006/rpc/info | jq .total_transactions
-
-# Step 1: Complete aitbc sync
-echo "=== Step 1: Complete aitbc sync ==="
-AITBC1_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-AITBC_HEIGHT=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
-
-echo "aitbc1 height: $AITBC1_HEIGHT"
-echo "aitbc height: $AITBC_HEIGHT"
-
-if [ "$AITBC_HEIGHT" -lt "$((AITBC1_HEIGHT - 2))" ]; then
-  echo "Completing sync to current height..."
-  ssh aitbc "for height in \$((AITBC_HEIGHT + 1)) $AITBC1_HEIGHT; do
-    curl -s 'http://10.1.223.40:8006/rpc/blocks-range?start=\$height&end=\$height' | \
-      jq '.blocks[0]' > /tmp/block\$height.json
-    curl -X POST http://localhost:8006/rpc/importBlock \
-      -H 'Content-Type: application/json' -d @/tmp/block\$height.json > /dev/null
-    if [ \$((\$height % 10)) -eq 0 ]; then echo 'Synced to height \$height'; fi
-  done"
-  echo "Sync completed!"
-fi
-
-# Step 2: Check if transaction was mined
-echo "=== Step 2: Check transaction mining status ==="
-for i in {1..20}; do
-  echo "Check $i/20: Monitoring for transaction inclusion..."
-  
-  # Check wallet balance
-  CURRENT_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-  echo "Current balance: $CURRENT_BALANCE AIT"
-  
-  # Check recent blocks for transactions
-  RECENT_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-  START_HEIGHT=$((RECENT_HEIGHT - 3))
-  
-  for height in $(seq $START_HEIGHT $RECENT_HEIGHT); do
-    BLOCK_TXS=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | jq '.blocks[0].transactions | length')
-    if [ "$BLOCK_TXS" -gt "0" ]; then
-      echo "Found block $height with $BLOCK_TXS transactions!"
-      echo "Checking if our transaction is included..."
-      # Get block details for verification
-      BLOCK_DETAIL=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height")
-      echo "$BLOCK_DETAIL" | jq '.blocks[0] | {height: .height, hash: .hash, tx_count: .tx_count}'
-    fi
-  done
-  
-  if [ "$CURRENT_BALANCE" -gt "0" ]; then
-    echo "🎉 SUCCESS: Gift delivered! Balance: $CURRENT_BALANCE AIT"
-    break
-  fi
-  
-  sleep 3
-done
-
-# Step 3: If still pending, resubmit transaction
-echo "=== Step 3: Resubmit transaction if needed ==="
-FINAL_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-
-if [ "$FINAL_BALANCE" -eq "0" ]; then
-  echo "Gift not yet delivered, resubmitting transaction..."
-  
-  GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)
-  echo "Genesis address: $GENESIS_ADDR"
-  
-  # Get current nonce
-  CURRENT_NONCE=$(curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .nonce)
-  echo "Current nonce: $CURRENT_NONCE"
-  
-  # Send new transaction using CLI tool
-  echo "Submitting new transaction using CLI tool:"
-  python /opt/aitbc/cli/simple_wallet.py send \
-    --from aitbc1genesis \
-    --to $WALLET_ADDR \
-    --amount 1000 \
-    --fee 10 \
-    --password-file /var/lib/aitbc/keystore/.password \
-    --rpc-url http://localhost:8006
-  
-  # Wait for new transaction to be mined
-  echo "Waiting for new transaction to be mined..."
-  for i in {1..15}; do
-    UPDATED_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-    echo "Check $i/15: Balance = $UPDATED_BALANCE AIT"
-    
-    if [ "$UPDATED_BALANCE" -gt "0" ]; then
-      echo "🎉 SUCCESS: Gift finally delivered! Balance: $UPDATED_BALANCE AIT"
-      break
-    fi
-    
-    sleep 2
-  done
-fi
-
-# Final verification
-echo "=== FINAL GIFT DELIVERY VERIFICATION ==="
-FINAL_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-echo "Final wallet balance: $FINAL_BALANCE AIT"
-
-if [ "$FINAL_BALANCE" -ge "1000" ]; then
-  echo "✅ GIFT DELIVERY SUCCESSFUL!"
-  echo "🎁 aitbc received $FINAL_BALANCE AIT from genesis wallet"
-elif [ "$FINAL_BALANCE" -gt "0" ]; then
-  echo "⚠️ Partial gift delivery: $FINAL_BALANCE AIT received"
-else
-  echo "❌ Gift delivery failed - wallet still has 0 AIT"
-  echo "🔍 Manual investigation required"
-fi
-```
-
-```bash
-# Wait for transaction to be mined and verify
-echo "=== Transaction Mining Verification ==="
-TX_HASH="0x125a1150045acb9f8c74f30dbc8b9db98d48f3cced650949e31916fcb618b61e"
-
-echo "Transaction hash: $TX_HASH"
-echo "Waiting for transaction to be included in a block..."
-
-# Monitor for transaction inclusion
-for i in {1..30}; do
-  echo "Check $i/30: Looking for transaction in recent blocks..."
-  
-  # Check recent blocks for our transaction
-  RECENT_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
-  START_HEIGHT=$((RECENT_HEIGHT - 5))
-  
-  for height in $(seq $START_HEIGHT $RECENT_HEIGHT); do
-    BLOCK_TXS=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | jq '.blocks[0].transactions | length')
-    if [ "$BLOCK_TXS" -gt "0" ]; then
-      echo "Found block $height with $BLOCK_TXS transactions"
-      # Get detailed block info
-      BLOCK_DETAIL=$(curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height")
-      echo "Block $height details:"
-      echo "$BLOCK_DETAIL" | jq '.blocks[0] | {height: .height, hash: .hash, tx_count: .tx_count}'
-    fi
-  done
-  
-  # Check wallet balance
-  CURRENT_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-  echo "Current wallet balance: $CURRENT_BALANCE AIT"
-  
-  if [ "$CURRENT_BALANCE" -gt "0" ]; then
-    echo "🎉 Transaction successfully mined! Balance: $CURRENT_BALANCE AIT"
-    break
-  fi
-  
-  sleep 2
-done
-
-# Final verification
-echo "=== FINAL VERIFICATION ==="
-FINAL_BALANCE=$(ssh aitbc "curl -s 'http://localhost:8006/rpc/getBalance/$WALLET_ADDR' | jq .balance")
-echo "Final wallet balance: $FINAL_BALANCE AIT"
-
-if [ "$FINAL_BALANCE" -gt "0" ]; then
-  echo "✅ SUCCESS: 1000 AIT successfully transferred to aitbc wallet!"
-else
-  echo "⚠️ Transaction still pending - may need more time for mining"
-fi
-```
-
-## Environment Management
-
-### Central .env Configuration
-
-The workflow uses `/etc/aitbc/blockchain.env` as the central configuration file:
-
-```bash
-# View current configuration
-cat /etc/aitbc/blockchain.env
-
-# Restore from backup if needed
-cp /etc/aitbc/blockchain.env.backup /etc/aitbc/blockchain.env  # aitbc1
-cp /etc/aitbc/blockchain.env.backup /etc/aitbc/blockchain.env   # aitbc
-
-# Key configuration differences:
-# aitbc1: proposer_id=aitbc1genesis, enable_block_production=true
-# aitbc: proposer_id=follower-node-aitbc, enable_block_production=false
-```
-
-### Service Configuration
-
-- **Environment File**: All services use `/etc/aitbc/blockchain.env` (standard config location)
-- **Virtual Environment**: Central venv at `/opt/aitbc/venv`
-- **Database Files**: `/var/lib/aitbc/data`
-- **Wallet Credentials**: `/var/lib/aitbc/keystore`
-- **Service Logs**: `/var/log/aitbc/` via journald
-- **Standardized Paths**: All paths use `/var/lib/aitbc/` structure
-- **Config Location**: Central config moved to `/etc/aitbc/` following standards
-
-## Success Criteria
-
-### ✅ Workflow Success Indicators
-
-- **aitbc1 Status**: Genesis authority running and producing blocks
-- **aitbc Status**: Follower node synced and receiving blocks
-- **Network Health**: Redis and P2P connectivity working
-- **Wallet Creation**: New wallet created on follower node
-- **Transaction Success**: 1000 AIT transferred from genesis to new wallet
-- **Balance Verification**: New wallet shows 1000 AIT balance
+The workflow uses `/etc/aitbc/blockchain.env` as the central configuration file.
 
 ### 🔍 Verification Commands
 
 ```bash
 # Quick health check
-echo "=== Quick Health Check ==="
-echo "aitbc1 height: $(curl -s http://localhost:8006/rpc/head | jq .height)"
-echo "aitbc height: $(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')"
-echo "Redis status: $(redis-cli -h localhost ping)"
-echo "Wallet balance: $(ssh aitbc "curl -s http://localhost:8006/rpc/getBalance/$WALLET_ADDR | jq .balance")"
+/opt/aitbc/scripts/health_check.sh
 ```
 
 ### 📊 Advanced Monitoring
 
 ```bash
 # Real-time blockchain monitoring
-echo "=== Real-time Monitoring ==="
-watch -n 5 'echo "=== aitbc1 ===" && curl -s http://localhost:8006/rpc/head | jq .height && echo "=== aitbc ===" && ssh aitbc "curl -s http://localhost:8006/rpc/head | jq .height" && echo "=== Wallet Balance ===" && ssh aitbc "curl -s http://localhost:8006/rpc/getBalance/$WALLET_ADDR | jq .balance"'
-
-# Transaction pool monitoring (if available)
-echo "=== Transaction Pool Status ==="
-curl -s http://localhost:8006/rpc/mempool | jq . 2>/dev/null || echo "Mempool endpoint not available"
-
-# Network statistics
-echo "=== Network Statistics ==="
-echo "Total blocks: $(curl -s http://localhost:8006/rpc/info | jq .total_blocks)"
-echo "Total transactions: $(curl -s http://localhost:8006/rpc/info | jq .total_transactions)"
-echo "Total accounts: $(curl -s http://localhost:8006/rpc/info | jq .total_accounts)"
-
-# Genesis wallet balance check
-echo "=== Genesis Wallet Status ==="
-GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)
-echo "Genesis address: $GENESIS_ADDR"
-echo "Genesis balance: $(curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .balance)"
+watch -n 5 '/opt/aitbc/scripts/health_check.sh'
 ```
 
 ### 🚀 Performance Testing
 
 ```bash
 # Test transaction throughput
-echo "=== Performance Testing ==="
-echo "Sending test transactions..."
-for i in {1..3}; do
-  echo "Sending transaction $i..."
-  # Send test transaction using CLI tool
-  python /opt/aitbc/cli/simple_wallet.py send \
-    --from aitbc1genesis \
-    --to $WALLET_ADDR \
-    --amount 100 \
-    --fee 10 \
-    --password-file /var/lib/aitbc/keystore/.password \
-    --rpc-url http://localhost:8006
-  sleep 1
-done
-
-echo "Performance test completed!"
+/opt/aitbc/tests/integration_test.sh
 ```
 
-## Performance Optimizations
+## Performance Optimization
 
 ### Blockchain Performance
 
 #### **Block Production Tuning**
-```bash
-# Optimize block time for faster consensus (in /etc/aitbc/blockchain.env)
+Optimize block time for faster consensus (in `/etc/aitbc/blockchain.env`):
+```
 block_time_seconds=2  # Default: 10, faster for testing
-
-# Enable/disable block production based on node role
-# aitbc1 (genesis): enable_block_production=true
-# aitbc (follower): enable_block_production=false
 ```
 
 #### **Network Optimization**
-```bash
-# Optimize P2P settings
+Optimize P2P settings:
+```
 p2p_bind_port=7070  # Standard port for P2P communication
-
-# Redis gossip optimization
-gossip_broadcast_url=redis://localhost:6379  # Local Redis for aitbc1
-gossip_broadcast_url=redis://10.1.223.40:6379  # Remote Redis for aitbc
 ```
 
 #### **Database Performance**
-```bash
-# Ensure proper database permissions and location
+Ensure proper database permissions and location:
+```
 db_path=/var/lib/aitbc/data/ait-mainnet/chain.db
 chmod 755 /var/lib/aitbc/data
-chmod 644 /var/lib/aitbc/data/ait-mainnet/chain.db
 ```
 
 ### System Resource Optimization
 
 #### **Memory Management**
+Monitor memory usage:
 ```bash
-# Monitor memory usage
 systemctl status aitbc-blockchain-node --no-pager | grep Memory
-
-# Optimize Python memory usage (in systemd service)
-Environment=PYTHONOPTIMIZE=1
-Environment=PYTHONUNBUFFERED=1
 ```
 
 #### **CPU Optimization**
+Set process affinity for better performance:
 ```bash
-# Set process affinity for better performance
-cpuset=/opt/aitbc/systemd/cpuset.conf
 echo "CPUAffinity=0-3" > /opt/aitbc/systemd/cpuset.conf
 ```
 
 ### Monitoring and Metrics
 
 #### **Real-time Monitoring**
+Monitor blockchain height in real-time:
 ```bash
-# Monitor blockchain height in real-time
 watch -n 2 'curl -s http://localhost:8006/rpc/head | jq .height'
-
-# Monitor service status
-watch -n 5 'systemctl status aitbc-blockchain-* --no-pager'
-
-# Monitor resource usage
-watch -n 5 'ps aux | grep python | grep aitbc'
 ```
 
 #### **Performance Metrics**
+Check block production rate:
 ```bash
-# Check block production rate
 curl -s http://localhost:8006/rpc/info | jq '.genesis_params.block_time_seconds'
-
-# Monitor transaction pool
-curl -s http://localhost:8006/rpc/mempool | jq .
-
-# Check network sync status
-curl -s http://localhost:8006/rpc/syncStatus | jq .
 ```
 
 ## Troubleshooting
@@ -1000,7 +364,7 @@ Now that your multi-node blockchain is operational, you can explore advanced fea
 /opt/aitbc/cli/enterprise_cli.py --help
 
 # Batch transactions
-python /opt/aitbc/cli/enterprise_cli.py sample  # Create sample batch file
+python /opt/aitbc/cli/enterprise_cli.py sample
 python /opt/aitbc/cli/enterprise_cli.py batch --file sample_batch.json --password-file /var/lib/aitbc/keystore/.password
 
 # Mining operations
@@ -1019,11 +383,6 @@ python /opt/aitbc/cli/enterprise_cli.py ai submit --wallet client --type "text-g
 #### **Multi-Node Expansion**
 ```bash
 # Add additional nodes to the network
-# 1. Provision new node (aitbc2, aitbc3, etc.)
-# 2. Install dependencies and setup environment
-# 3. Configure as follower node
-# 4. Join existing network
-
 # Example: Add aitbc2 as third node
 ssh aitbc2 'bash /opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
 ```
@@ -1096,40 +455,7 @@ systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
 echo "=== Health Monitoring Setup ==="
 
 # Create health check script
-cat > /opt/aitbc/scripts/health_check.sh << 'EOF'
-#!/bin/bash
-# Comprehensive health check for AITBC multi-node setup
-
-echo "=== AITBC Multi-Node Health Check ==="
-
-# Check services
-echo "1. Service Status:"
-systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
-ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc'
-
-# Check blockchain sync
-echo "2. Blockchain Sync:"
-HEIGHT1=$(curl -s http://localhost:8006/rpc/head | jq .height)
-HEIGHT2=$(ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height')
-echo "aitbc1: $HEIGHT1, aitbc: $HEIGHT2, diff: $((HEIGHT1-HEIGHT2))"
-
-# Check network connectivity
-echo "3. Network Connectivity:"
-ping -c 1 10.1.223.40 >/dev/null && echo "aitbc reachable" || echo "aitbc unreachable"
-redis-cli -h localhost ping >/dev/null && echo "Redis OK" || echo "Redis failed"
-
-# Check disk space
-echo "4. Disk Usage:"
-df -h /var/lib/aitbc/ | tail -1
-
-# Check memory usage
-echo "5. Memory Usage:"
-free -h | grep Mem
-
-echo "=== Health Check Complete ==="
-EOF
-
-chmod +x /opt/aitbc/scripts/health_check.sh
+/opt/aitbc/scripts/health_check.sh
 
 # Setup cron job for health checks
 (crontab -l 2>/dev/null; echo "*/5 * * * * /opt/aitbc/scripts/health_check.sh >> /var/log/aitbc/health_check.log") | crontab -
@@ -1157,17 +483,7 @@ cat > /etc/logrotate.d/aitbc << EOF
 EOF
 
 # Setup log monitoring
-cat > /opt/aitbc/scripts/log_monitor.sh << 'EOF'
-#!/bin/bash
-# Monitor AITBC logs for critical errors
-
-tail -f /var/log/aitbc/blockchain-node.log | grep --line-buffered -E "(ERROR|CRITICAL|FATAL)" | while read line; do
-    echo "$(date): $line" >> /var/log/aitbc/critical_errors.log
-    # Send alert (configure your alert system here)
-done
-EOF
-
-chmod +x /opt/aitbc/scripts/log_monitor.sh
+/opt/aitbc/scripts/log_monitor.sh
 ```
 
 ### 🔒 Security Hardening
@@ -1187,23 +503,6 @@ ufw enable
 sed -i 's|#PermitRootLogin yes|PermitRootLogin no|g' /etc/ssh/sshd_config
 sed -i 's|#PasswordAuthentication yes|PasswordAuthentication no|g' /etc/ssh/sshd_config
 systemctl restart ssh
-
-# SSL/TLS for RPC (configure your reverse proxy)
-cat > /etc/nginx/sites-available/aitbc-rpc << EOF
-server {
-    listen 443 ssl;
-    server_name your-domain.com;
-    
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
-    
-    location / {
-        proxy_pass http://localhost:8006;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-    }
-}
-EOF
 ```
 
 #### **Access Control**
@@ -1233,42 +532,7 @@ EOF
 echo "=== Scaling Preparation ==="
 
 # Create node provisioning script
-cat > /opt/aitbc/scripts/provision_node.sh << 'EOF'
-#!/bin/bash
-# Provision new AITBC node
-
-NODE_NAME=$1
-if [ -z "$NODE_NAME" ]; then
-    echo "Usage: $0 <node-name>"
-    exit 1
-fi
-
-echo "Provisioning node: $NODE_NAME"
-
-# Install dependencies
-apt update && apt install -y python3 python3-venv redis-server
-
-# Setup directories
-mkdir -p /var/lib/aitbc/{data,keystore}
-mkdir -p /etc/aitbc
-mkdir -p /var/log/aitbc
-
-# Copy configuration
-scp aitbc1:/etc/aitbc/blockchain.env /etc/aitbc/
-scp aitbc1:/opt/aitbc/aitbc-cli-final /opt/aitbc/
-
-# Pull code
-cd /opt/aitbc
-git pull origin main
-
-# Setup as follower
-sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/blockchain.env
-sed -i 's|proposer_id=.*|proposer_id=follower-node-'$NODE_NAME'|g' /etc/aitbc/blockchain.env
-
-echo "Node $NODE_NAME provisioned successfully"
-EOF
-
-chmod +x /opt/aitbc/scripts/provision_node.sh
+/opt/aitbc/scripts/provision_node.sh
 ```
 
 #### **Load Balancing**
@@ -1315,73 +579,14 @@ echo "=== Load Testing Setup ==="
 # Install load testing tools
 pip install locust
 
-# Create load test script
-cat > /opt/aitbc/tests/load_test.py << 'EOF'
-from locust import HttpUser, task, between
-import json
-
-class AITBCUser(HttpUser):
-    wait_time = between(1, 3)
-    
-    def on_start(self):
-        # Setup test wallet
-        response = self.client.post("/rpc/wallet/create", json={"name": "test-wallet"})
-        self.wallet_data = response.json()
-    
-    @task(3)
-    def check_balance(self):
-        self.client.get(f"/rpc/getBalance/{self.wallet_data['address']}")
-    
-    @task(2)
-    def get_network_status(self):
-        self.client.get("/rpc/network")
-    
-    @task(1)
-    def send_transaction(self):
-        tx_data = {
-            "from": self.wallet_data['address'],
-            "to": "ait1testaddress123...",
-            "amount": 1,
-            "fee": 1
-        }
-        self.client.post("/rpc/sendTx", json=tx_data)
-EOF
-
 # Run load test
-locust -f /opt/aitbc/tests/load_test.py --host http://localhost:8006
+/opt/aitbc/tests/load_test.py
 ```
 
 #### **Integration Testing**
 ```bash
 # Create comprehensive test suite
-cat > /opt/aitbc/tests/integration_test.sh << 'EOF'
-#!/bin/bash
-# Integration test suite for AITBC multi-node setup
-
-echo "=== AITBC Integration Tests ==="
-
-# Test 1: Basic connectivity
-echo "1. Testing connectivity..."
-curl -s http://localhost:8006/rpc/head >/dev/null && echo "✅ RPC accessible" || echo "❌ RPC failed"
-ssh aitbc 'curl -s http://localhost:8006/rpc/head' >/dev/null && echo "✅ Remote RPC accessible" || echo "❌ Remote RPC failed"
-
-# Test 2: Wallet operations
-echo "2. Testing wallet operations..."
-python /opt/aitbc/cli/simple_wallet.py list >/dev/null && echo "✅ Wallet list works" || echo "❌ Wallet list failed"
-
-# Test 3: Transaction operations
-echo "3. Testing transactions..."
-# Create test wallet
-python /opt/aitbc/cli/simple_wallet.py create --name test-integration --password-file /var/lib/aitbc/keystore/.password >/dev/null && echo "✅ Wallet creation works" || echo "❌ Wallet creation failed"
-
-# Test 4: Blockchain operations
-echo "4. Testing blockchain operations..."
-python /opt/aitbc/cli/simple_wallet.py chain >/dev/null && echo "✅ Chain info works" || echo "❌ Chain info failed"
-
-echo "=== Integration Tests Complete ==="
-EOF
-
-chmod +x /opt/aitbc/tests/integration_test.sh
+/opt/aitbc/tests/integration_test.sh
 ```
 
 ### 📚 Documentation and Training
@@ -1491,29 +696,7 @@ echo "=== Production Ready! ==="
 echo "=== Maintenance Automation ==="
 
 # Weekly maintenance script
-cat > /opt/aitbc/scripts/weekly_maintenance.sh << 'EOF'
-#!/bin/bash
-# Weekly maintenance tasks
-
-echo "=== Weekly Maintenance ==="
-
-# Clean old logs
-find /var/log/aitbc -name "*.log" -mtime +7 -delete
-
-# Update software
-cd /opt/aitbc && git pull origin main
-/opt/aitbc/venv/bin/pip install -r requirements.txt
-
-# Restart services if needed
-systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
-
-# Run health check
-/opt/aitbc/scripts/health_check.sh
-
-echo "=== Weekly Maintenance Complete ==="
-EOF
-
-chmod +x /opt/aitbc/scripts/weekly_maintenance.sh
+/opt/aitbc/scripts/weekly_maintenance.sh
 
 # Add to cron
 (crontab -l 2>/dev/null; echo "0 2 * * 0 /opt/aitbc/scripts/weekly_maintenance.sh") | crontab -
@@ -1522,28 +705,7 @@ chmod +x /opt/aitbc/scripts/weekly_maintenance.sh
 #### **Performance Optimization**
 ```bash
 # Performance tuning script
-cat > /opt/aitbc/scripts/performance_tune.sh << 'EOF'
-#!/bin/bash
-# Performance optimization
-
-echo "=== Performance Tuning ==="
-
-# Optimize Redis
-redis-cli CONFIG SET maxmemory 2gb
-redis-cli CONFIG SET maxmemory-policy allkeys-lru
-
-# Optimize Python processes
-echo 'ulimit -n 65536' >> /etc/security/limits.conf
-
-# Optimize system parameters
-echo 'vm.swappiness=10' >> /etc/sysctl.conf
-echo 'net.core.somaxconn=65535' >> /etc/sysctl.conf
-sysctl -p
-
-echo "=== Performance Tuning Complete ==="
-EOF
-
-chmod +x /opt/aitbc/scripts/performance_tune.sh
+/opt/aitbc/scripts/performance_tune.sh
 ```
 
 ---
