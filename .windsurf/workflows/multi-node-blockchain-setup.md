@@ -37,8 +37,8 @@ The workflow uses the central `/opt/aitbc/.env` file as the base configuration f
 ### 1. Prepare aitbc1 (Genesis Authority Node)
 
 ```bash
-# SSH to aitbc1
-ssh aitbc1
+# We are already on aitbc1 node (localhost)
+# No SSH needed - running locally
 
 # Pull latest code
 cd /opt/aitbc
@@ -240,14 +240,14 @@ curl -s "http://localhost:8006/rpc/getBalance/$WALLET_ADDR" | jq .
 
 ```bash
 # Check both nodes are in sync
-echo "=== aitbc1 height ==="
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
-
-echo "=== aitbc height ==="
+echo "=== aitbc1 height (localhost) ==="
 curl -s http://localhost:8006/rpc/head | jq .height
 
-echo "=== aitbc wallet balance ==="
-curl -s "http://localhost:8006/rpc/getBalance/$WALLET_ADDR" | jq .
+echo "=== aitbc height (remote) ==="
+ssh aitbc 'curl -s http://localhost:8006/rpc/head | jq .height'
+
+echo "=== aitbc wallet balance (remote) ==="
+ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
 ## Environment Management
