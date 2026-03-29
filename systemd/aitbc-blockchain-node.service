@@ -7,7 +7,7 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
-EnvironmentFile=/opt/aitbc/.env
+EnvironmentFile=/etc/aitbc/blockchain.env
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main

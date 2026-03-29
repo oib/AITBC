@@ -247,5 +247,10 @@ def version(ctx):
     output(f"AITBC CLI version {__version__}", ctx.obj['output_format'])
 
 
+def main():
+    """Main entry point for AITBC CLI"""
+    return cli()
+
+
 if __name__ == "__main__":
     cli()
