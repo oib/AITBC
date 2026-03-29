@@ -538,35 +538,35 @@ def submit_ai_job(wallet_name: str, job_type: str, prompt: str, payment: float,
         print(f"Error: {e}")
         return None
     def get_balance(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR, 
-                rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+                    rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
         """Get wallet balance and transaction info"""
-    try:
-        keystore_path = keystore_dir / f"{wallet_name}.json"
-        if not keystore_path.exists():
-            print(f"Error: Wallet '{wallet_name}' not found")
+        try:
+            keystore_path = keystore_dir / f"{wallet_name}.json"
+            if not keystore_path.exists():
+                print(f"Error: Wallet '{wallet_name}' not found")
+                return None
+            
+            with open(keystore_path) as f:
+                wallet_data = json.load(f)
+            
+            address = wallet_data['address']
+            
+            # Get balance from RPC
+            response = requests.get(f"{rpc_url}/rpc/getBalance/{address}")
+            if response.status_code == 200:
+                balance_data = response.json()
+                return {
+                    "address": address,
+                    "balance": balance_data.get("balance", 0),
+                    "nonce": balance_data.get("nonce", 0),
+                    "wallet_name": wallet_name
+                }
+            else:
+                print(f"Error getting balance: {response.text}")
+                return None
+        except Exception as e:
+            print(f"Error: {e}")
             return None
-        
-        with open(keystore_path) as f:
-            wallet_data = json.load(f)
-        
-        address = wallet_data['address']
-        
-        # Get balance from RPC
-        response = requests.get(f"{rpc_url}/rpc/getBalance/{address}")
-        if response.status_code == 200:
-            balance_data = response.json()
-            return {
-                "address": address,
-                "balance": balance_data.get("balance", 0),
-                "nonce": balance_data.get("nonce", 0),
-                "wallet_name": wallet_name
-            }
-        else:
-            print(f"Error getting balance: {response.text}")
-            return None
-    except Exception as e:
-        print(f"Error: {e}")
-        return None
 
 
 def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR,

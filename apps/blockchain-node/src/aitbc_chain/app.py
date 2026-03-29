@@ -14,7 +14,7 @@ from .gossip import create_backend, gossip_broker
 from .logger import get_logger
 from .mempool import init_mempool
 from .metrics import metrics_registry
-from .rpc.router import router as rpc_router
+from .rpc.router import router as rpc_router, set_poa_proposer
 from .rpc.websocket import router as websocket_router
 # from .escrow_routes import router as escrow_router  # Not yet implemented
 
@@ -99,6 +99,33 @@ async def lifespan(app: FastAPI):
         broadcast_url=settings.gossip_broadcast_url,
     )
     await gossip_broker.set_backend(backend)
+    
+    # Initialize PoA proposer for mining integration
+    if settings.enable_block_production and settings.proposer_id:
+        try:
+            from .consensus import PoAProposer, ProposerConfig
+            proposer_config = ProposerConfig(
+                chain_id=settings.chain_id,
+                proposer_id=settings.proposer_id,
+                interval_seconds=settings.block_time_seconds,
+                max_block_size_bytes=settings.max_block_size_bytes,
+                max_txs_per_block=settings.max_txs_per_block,
+            )
+            proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+            
+            # Set the proposer for mining integration
+            set_poa_proposer(proposer)
+            
+            # Start the proposer if block production is enabled
+            asyncio.create_task(proposer.start())
+            
+            _app_logger.info("PoA proposer initialized for mining integration", extra={
+                "proposer_id": settings.proposer_id,
+                "chain_id": settings.chain_id
+            })
+        except Exception as e:
+            _app_logger.warning(f"Failed to initialize PoA proposer for mining: {e}")
+    
     _app_logger.info("Blockchain node started", extra={"supported_chains": settings.supported_chains})
     try:
         yield
