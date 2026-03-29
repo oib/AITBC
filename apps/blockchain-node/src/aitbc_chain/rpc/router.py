@@ -900,6 +900,36 @@ async def get_transactions(chain_id: str = None, limit: int = 20, offset: int = 
         }
 
 
+@router.get("/mempool", summary="Get mempool contents", tags=["mempool"])
+async def get_mempool_contents(chain_id: str = None, limit: int = 100):
+    """Get current mempool contents"""
+    try:
+        chain_id = get_chain_id(chain_id)
+        metrics_registry.increment("rpc_mempool_total")
+        
+        mempool = get_mempool()
+        mempool_contents = mempool.get_pending_transactions(chain_id, limit)
+        
+        return {
+            "transactions": mempool_contents,
+            "total": len(mempool_contents),
+            "limit": limit,
+            "chain_id": chain_id,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        metrics_registry.increment("rpc_mempool_errors_total")
+        return {
+            "transactions": [],
+            "total": 0,
+            "limit": limit,
+            "chain_id": chain_id,
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
+
 # MARKETPLACE ENDPOINTS
 
 class MarketplaceCreateRequest(BaseModel):
