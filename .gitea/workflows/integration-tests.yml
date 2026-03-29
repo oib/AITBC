@@ -69,7 +69,7 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           python3 -m venv venv
-          venv/bin/pip install -q requests pytest httpx pytest-asyncio
+          venv/bin/pip install -q requests pytest httpx pytest-asyncio pytest-timeout click
 
       - name: Run integration tests
         run: |
@@ -91,7 +91,7 @@ jobs:
         run: |
           echo "=== Service Status ==="
           for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
-            status=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
             echo "  $svc: $status"
           done
 

@@ -39,7 +39,7 @@ jobs:
           source venv/bin/activate
           pip install -q --upgrade pip setuptools wheel
           pip install -q -r requirements.txt
-          pip install -q pytest pytest-asyncio pytest-cov pytest-mock
+          pip install -q pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout click
           echo "✅ Python $(python3 --version) environment ready"
 
       - name: Run linting
