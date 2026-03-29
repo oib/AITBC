@@ -9,7 +9,7 @@ PYTHON_CMD="/opt/aitbc/venv/bin/python"
 # Test 1: Basic connectivity
 echo "1. Testing connectivity..."
 curl -s http://localhost:8006/rpc/head >/dev/null && echo "✅ RPC accessible" || echo "❌ RPC failed"
-ssh aitbc 'curl -s http://localhost:8006/rpc/head' >/dev/null && echo "✅ Remote RPC accessible" || echo "❌ Remote RPC failed"
+ssh -i ~/.ssh/id_ed25519_aitbc -o StrictHostKeyChecking=no root@aitbc1 'curl -s http://localhost:8006/rpc/head' >/dev/null && echo "✅ Remote RPC accessible" || echo "❌ Remote RPC failed"
 
 # Test 2: Wallet operations
 echo "2. Testing wallet operations..."
