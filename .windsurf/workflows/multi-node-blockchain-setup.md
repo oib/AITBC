@@ -259,12 +259,15 @@ fi
 ### 5. Create Wallet on aitbc
 
 ```bash
-# On aitbc, create a new wallet using Python script (CLI not fully implemented)
-ssh aitbc 'cd /opt/aitbc/apps/blockchain-node && /opt/aitbc/venv/bin/python scripts/keystore.py --name aitbc-user --create --password $(cat /var/lib/aitbc/keystore/.password)'
+# On aitbc, create a new wallet using AITBC CLI tool
+ssh aitbc 'source /opt/aitbc/venv/bin/activate && aitbc wallet create --name aitbc-user --password-file /var/lib/aitbc/keystore/.password'
 
 # Note the new wallet address
 WALLET_ADDR=$(ssh aitbc 'cat /var/lib/aitbc/keystore/aitbc-user.json | jq -r .address')
 echo "New wallet: $WALLET_ADDR"
+
+# Verify wallet was created successfully
+ssh aitbc "source /opt/aitbc/venv/bin/activate && aitbc wallet list --format json | jq '.[] | select(.name == \"aitbc-user\")'"
 ```
 
 **🔑 Wallet Attachment & Coin Access:**
@@ -284,50 +287,34 @@ The newly created wallet on aitbc will:
 ### 6. Send 1000 AIT from Genesis to aitbc Wallet
 
 ```bash
-# On aitbc1, send 1000 AIT using Python script (CLI not fully implemented)
-GENESIS_KEY=$(/opt/aitbc/venv/bin/python -c "
-import json, sys
-from cryptography.hazmat.primitives.asymmetric import ed25519
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.primitives import hashes
+# On aitbc1, send 1000 AIT using AITBC CLI tool
+source /opt/aitbc/venv/bin/activate
 
-with open('/var/lib/aitbc/keystore/aitbc1genesis.json') as f:
-    ks = json.load(f)
+# Send transaction from genesis wallet to aitbc wallet
+aitbc wallet send \
+  --from aitbc1genesis \
+  --to $WALLET_ADDR \
+  --amount 1000 \
+  --password-file /var/lib/aitbc/keystore/.password \
+  --fee 10
 
-# Decrypt private key
-crypto = ks['crypto']
-salt = bytes.fromhex(crypto['kdfparams']['salt'])
-kdf = PBKDF2HMAC(hashes.SHA256(), 32, salt, crypto['kdfparams']['c'])
-key = kdf.derive('aitbc123'.encode())
-aesgcm = AESGCM(key)
-nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
-priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto['ciphertext']), None)
-print(priv.hex())
-")
-
-# Create and submit transaction
-TX_JSON=$(cat << EOF
-{
-  "sender": "$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r .address)",
-  "recipient": "$WALLET_ADDR",
-  "value": 1000,
-  "fee": 10,
-  "nonce": 0,
-  "type": "transfer",
-  "payload": {}
-}
-EOF
-)
-
-curl -X POST http://localhost:8006/sendTx \
-  -H "Content-Type: application/json" \
-  -d "$TX_JSON"
+# Get transaction hash for verification
+TX_HASH=$(aitbc wallet transactions --from aitbc1genesis --limit 1 --format json | jq -r '.[0].hash')
+echo "Transaction hash: $TX_HASH"
 
 # Wait for transaction to be mined
-sleep 15
+echo "Waiting for transaction to be mined..."
+for i in {1..10}; do
+  sleep 2
+  BALANCE=$(ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq .balance")
+  if [ "$BALANCE" -gt "0" ]; then
+    echo "Transaction mined! Balance: $BALANCE AIT"
+    break
+  fi
+  echo "Check $i/10: Balance = $BALANCE AIT"
+done
 
-# Verify balance on aitbc
+# Final balance verification
 ssh aitbc "curl -s \"http://localhost:8006/rpc/getBalance/$WALLET_ADDR\" | jq ."
 ```
 
