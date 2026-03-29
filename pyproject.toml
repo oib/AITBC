@@ -136,7 +136,10 @@ dependencies = [
     "ruff (>=0.15.8,<0.16.0)",
     "sqlalchemy (>=2.0.48,<3.0.0)",
     "types-requests (>=2.33.0.20260327,<3.0.0.0)",
-    "types-setuptools (>=82.0.0.20260210,<83.0.0.0)"
+    "types-setuptools (>=82.0.0.20260210,<83.0.0.0)",
+    # Blockchain dependencies
+    "web3>=6.11.0",
+    "eth-account>=0.13.0"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
