@@ -140,21 +140,42 @@ The newly created wallet on aitbc will:
 - The wallet can only transact after receiving coins from genesis
 - All wallets share the same blockchain, created by aitbc1
 
-### 6. Send 1000 AIT from Genesis to aitbc Wallet
+### 6. Blockchain Sync Fix (Enhanced)
 
 ```bash
-# Run the transaction sending script
-/opt/aitbc/scripts/workflow/05_send_transaction.sh
+# Fix blockchain synchronization issues between nodes
+/opt/aitbc/scripts/workflow/08_blockchain_sync_fix.sh
 ```
 
-### 7. Final Verification
+### 7. Send 1000 AIT from Genesis to aitbc Wallet (Enhanced)
+
+```bash
+# Run the enhanced transaction manager
+/opt/aitbc/scripts/workflow/09_transaction_manager.sh
+```
+
+### 8. Final Verification
 
 ```bash
 # Run the final verification script
 /opt/aitbc/scripts/workflow/06_final_verification.sh
 ```
 
-### 8. Complete Sync (Optional - for full demonstration)
+### 9. Complete Workflow (All-in-One)
+
+```bash
+# Execute the complete optimized workflow
+/opt/aitbc/scripts/workflow/10_complete_workflow.sh
+```
+
+### 10. Network Optimization (Performance Enhancement)
+
+```bash
+# Optimize network configuration and performance
+/opt/aitbc/scripts/workflow/11_network_optimizer.sh
+```
+
+### 11. Complete Sync (Optional - for full demonstration)
 
 ```bash
 # If aitbc is still behind, complete the sync
