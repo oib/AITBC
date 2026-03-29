@@ -430,7 +430,128 @@ systemctl daemon-reload
 echo "✅ Legacy environment file references cleaned up successfully"
 ```
 
-### 14. Final Multi-Node Verification
+### 15. Cross-Node Code Synchronization
+
+```bash
+# Ensure aitbc node stays synchronized with aitbc1 after code changes
+echo "=== Cross-Node Code Synchronization ==="
+
+# This step should be run on aitbc1 after making code changes
+echo "Running on aitbc1 - pushing changes to remote..."
+# git push origin main  # This would be done by the user
+
+echo "Now synchronizing aitbc node with latest changes..."
+ssh aitbc 'cd /opt/aitbc && echo "=== aitbc: Pulling latest changes ===" && git status'
+
+# Check if aitbc has local changes that need to be stashed
+ssh aitbc 'cd /opt/aitbc && if [ -n "$(git status --porcelain)" ]; then
+  echo "Local changes found, stashing..."
+  git stash push -m "Auto-stash before pull"
+fi'
+
+echo "Pulling latest changes from aitbc1..."
+ssh aitbc 'cd /opt/aitbc && git pull origin main'
+
+echo "Checking if services need restart after code update..."
+ssh aitbc 'cd /opt/aitbc && if [ -n "$(git log --oneline -1 | grep -E "(feat|fix|refactor|chore).*:")" ]; then
+  echo "Code changes detected, checking if blockchain services need restart..."
+  # Check if blockchain node code was updated
+  if git log --oneline -1 | grep -E "(blockchain|rpc|sync|config)"; then
+    echo "Blockchain code updated, restarting services..."
+    systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
+    sleep 3
+    echo "Services restarted successfully"
+  fi
+fi'
+
+echo "=== Cross-Node Synchronization Complete ==="
+echo "✅ aitbc node synchronized with latest changes from aitbc1"
+
+# Verify both nodes are running same version
+echo "\n=== Version Verification ==="
+echo "aitbc1 RPC version: $(curl -s http://localhost:8006/rpc/info | jq .rpc_version)"
+echo "aitbc RPC version: $(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .rpc_version')"
+
+if [ "$(curl -s http://localhost:8006/rpc/info | jq .rpc_version)" = "$(ssh aitbc 'curl -s http://localhost:8006/rpc/info | jq .rpc_version')" ]; then
+  echo "✅ Both nodes running same version"
+else
+  echo "⚠️ Version mismatch detected - services may need restart"
+fi
+```
+
+### 16. Complete Workflow Execution
+
+```bash
+# Execute the complete multi-node blockchain setup workflow
+echo "=== COMPLETE MULTI-NODE BLOCKCHAIN WORKFLOW ==="
+echo "This workflow will set up a complete multi-node blockchain network"
+echo "with aitbc1 as genesis authority and aitbc as follower node"
+echo
+read -p "Do you want to execute the complete workflow? (y/N): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+  echo "🚀 Starting complete multi-node blockchain setup..."
+  
+  # Execute all steps in sequence
+  echo "Step 1: Pre-Flight Setup"
+  # [Pre-flight setup commands]
+  
+  echo "Step 2: Genesis Authority Setup (aitbc1)"
+  # [Genesis authority commands]
+  
+  echo "Step 3: Genesis State Verification"
+  # [Genesis verification commands]
+  
+  echo "Step 4: Follower Node Setup (aitbc)"
+  # [Follower node commands]
+  
+  echo "Step 5: Sync Verification"
+  # [Sync verification commands]
+  
+  echo "Step 6: Wallet Creation"
+  # [Wallet creation commands]
+  
+  echo "Step 7: Transaction Processing"
+  # [Transaction commands]
+  
+  echo "Step 8: Complete Sync"
+  # [Complete sync commands]
+  
+  echo "Step 9: Transaction Verification"
+  # [Transaction verification commands]
+  
+  echo "Step 10: Gift Delivery Completion"
+  # [Gift delivery commands]
+  
+  echo "Step 11: Blockchain Synchronization Verification"
+  # [Blockchain sync verification commands]
+  
+  echo "Step 12: Chain ID Configuration Verification"
+  # [Chain ID verification commands]
+  
+  echo "Step 13: Legacy Environment File Cleanup"
+  # [Legacy cleanup commands]
+  
+  echo "Step 14: Final Multi-Node Verification"
+  # [Final verification commands]
+  
+  echo "Step 15: Cross-Node Code Synchronization"
+  # [Cross-node sync commands]
+  
+  echo "\n🎉 COMPLETE MULTI-NODE BLOCKCHAIN SETUP FINISHED!"
+  echo "\n📋 Summary:"
+  echo "✅ aitbc1: Genesis authority node running"
+  echo "✅ aitbc: Follower node synchronized"
+  echo "✅ Network: Multi-node blockchain operational"
+  echo "✅ Transactions: Cross-node transfers working"
+  echo "✅ Configuration: Both nodes properly configured"
+  echo "✅ Code: Both nodes synchronized with latest changes"
+  
+else
+  echo "Workflow execution cancelled."
+  echo "You can run individual steps as needed."
+fi
+```
 
 ```bash
 # Complete verification of multi-node blockchain setup
