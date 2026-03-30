@@ -55,8 +55,6 @@ config/.lycheeignore
 # Environment directories
 dev/env/node_modules/
 dev/env/.venv/
-dev/env/package.json
-dev/env/package-lock.json
 ```
 
 ### Cache and Temporary → `dev/cache/`
