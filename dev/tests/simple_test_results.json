@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-03-02 11:15:26",
+  "results": {
+    "Connectivity": [
+      {
+        "test": "aitbc health check",
+        "success": true,
+        "output": "{\"status\":\"ok\",\"env\":\"dev\",\"python_version\":\"3.13.5\"}"
+      },
+      {
+        "test": "aitbc1 health check",
+        "success": true,
+        "output": "{\"status\":\"ok\",\"env\":\"dev\",\"python_version\":\"3.13.5\"}"
+      },
+      {
+        "test": "Ollama GPU service",
+        "success": true,
+        "output": "NAME                                     ID              SIZE      MODIFIED      \nlauchacarro/qwen2.5-translator:latest    0a947c33631d    986 MB    4 months ago     \ngemma3:1b                                8648f39daa8f    815 MB    11 months ago"
+      },
+      {
+        "test": "SSH to aitbc container",
+        "success": true,
+        "output": "SSH_OK"
+      },
+      {
+        "test": "SSH to aitbc1 container",
+        "success": true,
+        "output": "SSH_OK"
+      }
+    ],
+    "Marketplace": [
+      {
+        "test": "aitbc marketplace offers",
+        "success": true,
+        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://10.1.223.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
+      },
+      {
+        "test": "aitbc1 marketplace offers",
+        "success": true,
+        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://10.1.223.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
+      },
+      {
+        "test": "aitbc marketplace stats",
+        "success": true,
+        "output": "{\"totalOffers\":1,\"openCapacity\":16,\"averagePrice\":0.25,\"activeBids\":1}"
+      },
+      {
+        "test": "aitbc1 marketplace stats",
+        "success": true,
+        "output": "{\"totalOffers\":1,\"openCapacity\":16,\"averagePrice\":0.25,\"activeBids\":1}"
+      }
+    ],
+    "GPU Services": [
+      {
+        "test": "List available models",
+        "success": true,
+        "output": "NAME                                     ID              SIZE      MODIFIED      \nlauchacarro/qwen2.5-translator:latest    0a947c33631d    986 MB    4 months ago     \ngemma3:1b                                8648f39daa8f    815 MB    11 months ago"
+      },
+      {
+        "test": "Direct Ollama inference",
+        "success": true,
+        "output": "{\"model\":\"gemma3:1b\",\"created_at\":\"2026-03-02T10:15:25.876856614Z\",\"response\":\"Okay, I see you've just typed \\\"Test\\\". \\n\\nIs there anything specific you'd like me to do? For example, do you want me to:\\n\\n*   **Answer a question?** (Tell me what the question is!)\\n*   **Generate text?** (Like a poem, story, or explanation)\\n*   **Translate something?**\\n*   **Summarize something?**\\n*   **Just chat?**\\n\\nLet me know what you need!\",\"done\":true,\"done_reason\":\"stop\",\"context\":[105,2364,107,3694,106,107,105,4368,107,19058,236764,564,1460,611,236789,560,1164,46271,623,3694,3056,236743,108,4602,993,4658,3530,611,236789,236753,1133,786,531,776,236881,1701,2591,236764,776,611,1461,786,531,236787,108,236829,139,1018,7925,496,2934,236881,1018,568,54593,786,1144,506,2934,563,15520,107,236829,139,1018,43204,1816,236881,1018,568,17729,496,27355,236764,3925,236764,653,15569,236768,107,236829,139,1018,40414,2613,236881,1018,107,236829,139,1018,160773,969,2613,236881,1018,107,236829,139,1018,11896,11184,236881,1018,108,6481,786,1281,1144,611,1202,236888],\"total_duration\":5268485544,\"load_duration\":4658661679,\"prompt_eval_count\":10,\"prompt_eval_duration\":18367844,\"eval_count\":104,\"eval_duration\":488258173}"
+      },
+      {
+        "test": "Check miner1 offers on aitbc",
+        "success": true,
+        "output": ""
+      }
+    ],
+    "Container Operations": [
+      {
+        "test": "aitbc container memory",
+        "success": true,
+        "output": "gesamt       benutzt     frei      gemns.  Puffer/Cache verf\u00fcgbar\nSpeicher:       62Gi       465Mi        60Gi        17Mi       2,0Gi        62Gi"
+      },
+      {
+        "test": "aitbc container disk",
+        "success": true,
+        "output": "Dateisystem    Gr\u00f6\u00dfe Benutzt Verf. Verw% Eingeh\u00e4ngt auf\n/dev/sda1        17T    7,3T  9,2T   45% /\nnone            492K    4,0K  488K    1% /dev"
+      },
+      {
+        "test": "aitbc1 container memory",
+        "success": true,
+        "output": "gesamt       benutzt     frei      gemns.  Puffer/Cache verf\u00fcgbar\nSpeicher:       62Gi       526Mi        61Gi        17Mi       1,2Gi        62Gi"
+      },
+      {
+        "test": "aitbc1 container disk",
+        "success": true,
+        "output": "Dateisystem    Gr\u00f6\u00dfe Benutzt Verf. Verw% Eingeh\u00e4ngt auf\n/dev/sda1        17T    7,3T  9,2T   45% /\nnone            492K    4,0K  488K    1% /dev"
+      }
+    ],
+    "User Configurations": [
+      {
+        "test": "miner1 directory",
+        "success": true,
+        "output": "insgesamt 8\ndrwxrwxr-x 1 oib oib  58 26. Feb 19:34 .\ndrwxrwxr-x 1 oib oib  26 26. Feb 12:40 ..\n-rw-rw-r-- 1 oib oib 293 24. Feb 01:16 miner_wallet.json\n-rw-rw-r-- 1 oib oib 147 26. Feb 19:34 question.txt"
+      },
+      {
+        "test": "client1 directory",
+        "success": true,
+        "output": "insgesamt 12\ndrwxrwxr-x 1 oib oib   56 26. Feb 19:34 .\ndrwxrwxr-x 1 oib oib   26 26. Feb 12:40 ..\n-rw-rw-r-- 1 oib oib 5624 26. Feb 19:34 answer.txt\n-rw-rw-r-- 1 oib oib  297 24. Feb 01:16 client_wallet.json"
+      },
+      {
+        "test": "miner1 wallet",
+        "success": true,
+        "output": "{\n  \"name\": \"test_miner\",\n  \"address\": \"test_miner_address_placeholder\",\n  \"private_key\": \"TEST_MINER_PRIVATE_KEY_PLACEHOLDER\",\n  \"public_key\": \"TEST_MINER_PUBLIC_KEY_PLACEHOLDER\",\n  \"mnemonic\": \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n}"
+      },
+      {
+        "test": "client1 wallet",
+        "success": true,
+        "output": "{\n  \"name\": \"test_client\",\n  \"address\": \"test_client_address_placeholder\",\n  \"private_key\": \"TEST_CLIENT_PRIVATE_KEY_PLACEHOLDER\",\n  \"public_key\": \"TEST_CLIENT_PUBLIC_KEY_PLACEHOLDER\",\n  \"mnemonic\": \"abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about\"\n}"
+      }
+    ]
+  }
+}
