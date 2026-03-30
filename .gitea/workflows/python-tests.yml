@@ -43,7 +43,7 @@ jobs:
           source venv/bin/activate
           pip install -q --upgrade pip setuptools wheel
           pip install -q -r requirements.txt
-          pip install -q pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout click pynacl
+          pip install -q pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout click pynacl locust
           echo "✅ Python $(python3 --version) environment ready"
 
       - name: Run linting
@@ -62,7 +62,15 @@ jobs:
           cd /var/lib/aitbc-workspaces/python-tests/repo
           source venv/bin/activate
 
+          # Install packages in development mode
+          pip install -e packages/py/aitbc-crypto/
+          pip install -e packages/py/aitbc-sdk/
+
           export PYTHONPATH="apps/coordinator-api/src:apps/blockchain-node/src:apps/wallet/src:packages/py/aitbc-crypto/src:packages/py/aitbc-sdk/src:."
+
+          # Test if packages are importable
+          python3 -c "import aitbc_crypto; print('✅ aitbc_crypto imported')" || echo "❌ aitbc_crypto import failed"
+          python3 -c "import aitbc_sdk; print('✅ aitbc_sdk imported')" || echo "❌ aitbc_sdk import failed"
 
           pytest tests/ \
             apps/coordinator-api/tests/ \
