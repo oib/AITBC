@@ -58,7 +58,8 @@ jobs:
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
           if [[ -d "cli/tests" ]]; then
-            pytest cli/tests/ -q --tb=short || echo "⚠️ Some CLI tests failed"
+            # Run the CLI test runner that uses virtual environment
+            python3 cli/tests/run_cli_tests.py || echo "⚠️ Some CLI tests failed"
           else
             echo "⚠️ No CLI tests directory"
           fi

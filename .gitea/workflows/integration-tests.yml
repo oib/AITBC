@@ -84,7 +84,7 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           python3 -m venv venv
-          venv/bin/pip install -q requests pytest httpx pytest-asyncio pytest-timeout click
+          venv/bin/pip install -q requests pytest httpx pytest-asyncio pytest-timeout click locust
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
