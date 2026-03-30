@@ -129,32 +129,47 @@ setup_runtime_directories() {
 setup_venvs() {
     log "Setting up Python virtual environments..."
     
-    # Wallet service
-    log "Setting up wallet service..."
-    cd /opt/aitbc/apps/wallet
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install --upgrade pip
-    pip install fastapi uvicorn pydantic httpx python-dotenv websockets
+    # Create central virtual environment if it doesn't exist
+    if [ ! -d "/opt/aitbc/venv" ]; then
+        log "Creating central virtual environment..."
+        cd /opt/aitbc
+        python3 -m venv venv
+        source venv/bin/activate
+        pip install --upgrade pip
+        
+        # Install main requirements
+        if [ -f "requirements.txt" ]; then
+            pip install -r requirements.txt
+        fi
+    else
+        log "Central virtual environment already exists, activating..."
+        source /opt/aitbc/venv/bin/activate
+    fi
     
-    # Coordinator API
-    log "Setting up coordinator API..."
+    # Install service dependencies in central venv
+    log "Installing service dependencies..."
+    
+    # Wallet service dependencies
+    log "Installing wallet service dependencies..."
+    cd /opt/aitbc/apps/wallet
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt
+    else
+        pip install fastapi uvicorn pydantic httpx python-dotenv websockets
+    fi
+    
+    # Coordinator API dependencies
+    log "Installing coordinator API dependencies..."
     cd /opt/aitbc/apps/coordinator-api
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install --upgrade pip
     if [ -f "requirements.txt" ]; then
         pip install -r requirements.txt
     else
         pip install fastapi uvicorn pydantic httpx python-dotenv
     fi
     
-    # Exchange API
-    log "Setting up exchange API..."
+    # Exchange API dependencies
+    log "Installing exchange API dependencies..."
     cd /opt/aitbc/apps/exchange
-    python3 -m venv .venv
-    source .venv/bin/activate
-    pip install --upgrade pip
     if [ -f "requirements.txt" ]; then
         pip install -r requirements.txt
     else
