@@ -3,7 +3,7 @@ import sys
 import os
 
 # Security: Lock sys.path to trusted locations to prevent malicious package shadowing
-# Keep: site-packages under /opt/aitbc (venv), stdlib paths, and our app directory
+# Keep: site-packages under /opt/aitbc (venv), stdlib paths, our app directory, and crypto/sdk paths
 _LOCKED_PATH = []
 for p in sys.path:
     if 'site-packages' in p and '/opt/aitbc' in p:
@@ -12,7 +12,14 @@ for p in sys.path:
         _LOCKED_PATH.append(p)
     elif p.startswith('/opt/aitbc/apps/coordinator-api'):  # our app code
         _LOCKED_PATH.append(p)
-sys.path = _LOCKED_PATH
+    elif p.startswith('/opt/aitbc/packages/py/aitbc-crypto'):  # crypto module
+        _LOCKED_PATH.append(p)
+    elif p.startswith('/opt/aitbc/packages/py/aitbc-sdk'):  # sdk module
+        _LOCKED_PATH.append(p)
+
+# Add crypto and sdk paths to sys.path
+sys.path.insert(0, '/opt/aitbc/packages/py/aitbc-crypto/src')
+sys.path.insert(0, '/opt/aitbc/packages/py/aitbc-sdk/src')
 
 from sqlalchemy.orm import Session
 from typing import Annotated

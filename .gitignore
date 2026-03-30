@@ -168,11 +168,7 @@ temp/
 # ===================
 # Wallet Files (contain private keys)
 # ===================
-*.json
-home/client/client_wallet.json
-home/genesis_wallet.json
-home/miner/miner_wallet.json
-
+# Specific wallet and private key JSON files (contain private keys)
 # ===================
 # Project Specific
 # ===================
@@ -306,7 +302,6 @@ logs/
 *.db
 *.sqlite
 wallet*.json
-keystore/
 certificates/
 
 # Guardian contract databases (contain spending limits)
