@@ -262,7 +262,7 @@ systemctl enable aitbc-multimodal-gpu.service
 systemctl enable aitbc-multimodal.service
 systemctl enable aitbc-modality-optimization.service
 systemctl enable aitbc-adaptive-learning.service
-systemctl enable aitbc-marketplace-enhanced.service
+systemctl enable aitbc-marketplace.service
 systemctl enable aitbc-openclaw-enhanced.service
 systemctl enable aitbc-loadbalancer-geo.service
 ```

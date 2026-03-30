@@ -48,7 +48,7 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 /etc/systemd/system/aitbc-multimodal.service           # Port 8011
 /etc/systemd/system/aitbc-modality-optimization.service # Port 8012
 /etc/systemd/system/aitbc-adaptive-learning.service     # Port 8013
-/etc/systemd/system/aitbc-marketplace-enhanced.service  # Port 8014
+/etc/systemd/system/aitbc-marketplace.service      # Port 8014
 /etc/systemd/system/aitbc-openclaw-enhanced.service     # Port 8015
 /etc/systemd/system/aitbc-web-ui.service               # Port 8016
 ```
