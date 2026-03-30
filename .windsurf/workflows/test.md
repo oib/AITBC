@@ -1,13 +1,13 @@
 ---
-description: Test and debug workflow for AITBC platform
+description: Test and debug workflow for AITBC platform including OpenClaw agents and AI operations
 title: AITBC Testing and Debugging Workflow
-version: 2.0
+version: 3.0
 auto_execution_mode: 3
 ---
 
 # AITBC Testing and Debugging Workflow
 
-This workflow helps you run tests and debug issues in the AITBC platform using the current consolidated project structure.
+This workflow helps you run tests and debug issues in the AITBC platform using the current consolidated project structure, including OpenClaw agents, AI operations, and modular workflows.
 
 ## Prerequisites
 
@@ -16,12 +16,14 @@ This workflow helps you run tests and debug issues in the AITBC platform using t
 - Virtual environment: `/opt/aitbc/venv`
 - CLI wrapper: `/opt/aitbc/aitbc-cli`
 - Services running on correct ports (8000, 8001, 8006)
+- OpenClaw 2026.3.24+ installed and gateway running
 
 ### Environment Setup
 ```bash
 cd /opt/aitbc
 source venv/bin/activate
 ./aitbc-cli --version
+openclaw --version
 ```
 
 ## Testing Workflow
@@ -44,7 +46,114 @@ python run_cli_tests.py
 python -m pytest cli/tests/test_marketplace.py -v
 ```
 
-### 2. Run Integration Tests
+### 2. Run OpenClaw Agent Tests
+```bash
+# Test OpenClaw gateway status
+openclaw status --agent all
+
+# Test basic agent communication
+openclaw agent --agent main --message "Test communication" --thinking minimal
+
+# Test session-based workflow
+SESSION_ID="test-$(date +%s)"
+openclaw agent --agent main --session-id $SESSION_ID --message "Initialize test session" --thinking low
+openclaw agent --agent main --session-id $SESSION_ID --message "Continue test session" --thinking medium
+
+# Test multi-agent coordination
+openclaw agent --agent coordinator --message "Test coordination" --thinking high &
+openclaw agent --agent worker --message "Test worker response" --thinking medium &
+wait
+```
+
+### 3. Run AI Operations Tests
+```bash
+# Test AI job submission
+cd /opt/aitbc
+source venv/bin/activate
+./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Test AI job" --payment 10
+
+# Monitor AI job status
+./aitbc-cli ai-ops --action status --job-id "latest"
+
+# Test resource allocation
+./aitbc-cli resource allocate --agent-id test-agent --cpu 2 --memory 4096 --duration 3600
+
+# Test marketplace operations
+./aitbc-cli marketplace --action list
+./aitbc-cli marketplace --action create --name "Test Service" --price 50 --wallet genesis-ops
+```
+
+### 5. Run Modular Workflow Tests
+```bash
+# Test core setup module
+cd /opt/aitbc
+source venv/bin/activate
+./aitbc-cli chain
+./aitbc-cli network
+
+# Test operations module
+systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.service
+python3 /tmp/aitbc1_heartbeat.py
+
+# Test advanced features module
+./aitbc-cli contract list
+./aitbc-cli marketplace --action list
+
+# Test production module
+curl -s http://localhost:8006/health | jq .
+ssh aitbc1 'curl -s http://localhost:8006/health | jq .'
+
+# Test marketplace module
+./aitbc-cli marketplace --action create --name "Test Service" --price 25 --wallet genesis-ops
+./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Test marketplace" --payment 25
+
+# Test reference module
+./aitbc-cli --help
+./aitbc-cli list
+./aitbc-cli balance --name genesis-ops
+```
+
+### 6. Run Advanced AI Operations Tests
+```bash
+# Test complex AI pipeline
+SESSION_ID="advanced-test-$(date +%s)"
+openclaw agent --agent main --session-id $SESSION_ID --message "Design complex AI pipeline for testing" --thinking high
+
+# Test parallel AI operations
+./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "Parallel AI test" --payment 100
+
+# Test multi-model ensemble
+./aitbc-cli ai-submit --wallet genesis-ops --type ensemble --models "resnet50,vgg16" --payment 200
+
+# Test distributed AI economics
+./aitbc-cli ai-submit --wallet genesis-ops --type distributed --nodes "aitbc,aitbc1" --payment 500
+
+# Monitor advanced AI operations
+./aitbc-cli ai-ops --action status --job-id "latest"
+./aitbc-cli resource status
+```
+
+### 7. Run Cross-Node Coordination Tests
+```bash
+# Test cross-node blockchain sync
+GENESIS_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq .height)
+FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height)
+echo "Height difference: $((FOLLOWER_HEIGHT - GENESIS_HEIGHT))"
+
+# Test cross-node transactions
+./aitbc-cli send --from genesis-ops --to follower-addr --amount 100 --password 123
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli balance --name follower-ops'
+
+# Test smart contract messaging
+curl -X POST http://localhost:8006/rpc/messaging/topics/create \
+  -H "Content-Type: application/json" \
+  -d '{"agent_id": "test", "agent_address": "address", "title": "Test", "description": "Test"}'
+
+# Test cross-node AI coordination
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli ai-submit --wallet follower-ops --type inference --prompt "Cross-node test" --payment 50'
+```
+
+### 8. Run Integration Tests
 ```bash
 # Run all integration tests
 cd /opt/aitbc
@@ -185,7 +294,7 @@ curl -s http://localhost:8000/v1/jobs/{job_id}/payment \
   -H "X-Api-Key: client_dev_key_1" | python3 -m json.tool
 ```
 
-### 10. Common Debug Commands
+### 12. Common Debug Commands
 ```bash
 # Check Python environment
 cd /opt/aitbc
@@ -208,9 +317,60 @@ netstat -tlnp | grep -E "(8000|8001|8006|11434)"
 ./aitbc-cli --version
 ./aitbc-cli wallet list
 ./aitbc-cli chain
+
+# Check OpenClaw functionality
+openclaw --version
+openclaw status --agent all
+
+# Check AI operations
+./aitbc-cli ai-ops --action status --job-id "latest"
+./aitbc-cli resource status
+
+# Check modular workflow status
+curl -s http://localhost:8006/health | jq .
+ssh aitbc1 'curl -s http://localhost:8006/health | jq .'
 ```
 
-### 11. Performance Testing
+### 13. OpenClaw Agent Debugging
+```bash
+# Test OpenClaw gateway connectivity
+openclaw status --agent all
+
+# Debug agent communication
+openclaw agent --agent main --message "Debug test" --thinking high
+
+# Test session management
+SESSION_ID="debug-$(date +%s)"
+openclaw agent --agent main --session-id $SESSION_ID --message "Session debug test" --thinking medium
+
+# Test multi-agent coordination
+openclaw agent --agent coordinator --message "Debug coordination test" --thinking high &
+openclaw agent --agent worker --message "Debug worker response" --thinking medium &
+wait
+
+# Check agent workspace
+openclaw workspace --status
+```
+
+### 14. AI Operations Debugging
+```bash
+# Debug AI job submission
+cd /opt/aitbc
+source venv/bin/activate
+./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Debug test" --payment 10
+
+# Monitor AI job execution
+./aitbc-cli ai-ops --action status --job-id "latest"
+
+# Debug resource allocation
+./aitbc-cli resource allocate --agent-id debug-agent --cpu 1 --memory 2048 --duration 1800
+
+# Debug marketplace operations
+./aitbc-cli marketplace --action list
+./aitbc-cli marketplace --action create --name "Debug Service" --price 5 --wallet genesis-ops
+```
+
+### 15. Performance Testing
 ```bash
 # Run tests with performance profiling
 cd /opt/aitbc
@@ -222,9 +382,15 @@ ab -n 100 -c 10 http://localhost:8000/health
 
 # Test blockchain RPC performance
 time curl -s http://localhost:8006/rpc/head | python3 -m json.tool
+
+# Test OpenClaw agent performance
+time openclaw agent --agent main --message "Performance test" --thinking high
+
+# Test AI operations performance
+time ./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Performance test" --payment 10
 ```
 
-### 12. Clean Test Environment
+### 16. Clean Test Environment
 ```bash
 # Clean pytest cache
 cd /opt/aitbc
@@ -358,7 +524,54 @@ python -m pytest cli/tests/ --cov-fail-under=80
 python -m pytest cli/tests/test_cli_basic.py -v
 ```
 
-## Recent Updates (v2.0)
+## Recent Updates (v3.0)
+
+### New Testing Capabilities
+- **OpenClaw Agent Testing**: Added comprehensive agent communication and coordination tests
+- **AI Operations Testing**: Added AI job submission, resource allocation, and marketplace testing
+- **Modular Workflow Testing**: Added testing for all 6 modular workflow components
+- **Advanced AI Operations**: Added testing for complex AI pipelines and cross-node coordination
+- **Cross-Node Coordination**: Added testing for distributed AI operations and blockchain messaging
+
+### Enhanced Testing Structure
+- **Multi-Agent Workflows**: Session-based agent coordination testing
+- **AI Pipeline Testing**: Complex AI workflow orchestration testing
+- **Distributed Testing**: Cross-node blockchain and AI operations testing
+- **Performance Testing**: Added OpenClaw and AI operations performance benchmarks
+- **Debugging Tools**: Enhanced troubleshooting for agent and AI operations
+
+### Updated Project Structure
+- **Working Directory**: `/opt/aitbc`
+- **Virtual Environment**: `/opt/aitbc/venv`
+- **CLI Wrapper**: `./aitbc-cli`
+- **OpenClaw Integration**: OpenClaw 2026.3.24+ gateway and agents
+- **Modular Workflows**: 6 focused workflow modules
+- **Test Structure**: Updated to include agent and AI testing
+
+### Service Port Updates
+- **Coordinator API**: Port 8000
+- **Exchange API**: Port 8001
+- **Blockchain RPC**: Port 8006
+- **Ollama**: Port 11434 (GPU operations)
+- **OpenClaw Gateway**: Default port (configured in OpenClaw)
+
+### Enhanced Testing Features
+- **Agent Testing**: Multi-agent communication and coordination
+- **AI Testing**: Job submission, monitoring, resource allocation
+- **Workflow Testing**: Modular workflow component testing
+- **Cross-Node Testing**: Distributed operations and coordination
+- **Performance Testing**: Comprehensive performance benchmarking
+- **Debugging**: Enhanced troubleshooting for all components
+
+### Current Commands
+- **CLI Commands**: Updated to use actual CLI implementation
+- **OpenClaw Commands**: Agent communication and coordination
+- **AI Operations**: Job submission, monitoring, marketplace
+- **Service Management**: Updated to current systemd services
+- **Modular Workflows**: Testing for all workflow modules
+- **Environment**: Proper venv activation and usage
+
+## Previous Updates (v2.0)
 
 ### Updated Project Structure
 - **Working Directory**: Updated to `/opt/aitbc`
