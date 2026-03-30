@@ -238,7 +238,7 @@ check_service "Learning Service" "http://localhost:8010/health"
 # Check additional services
 check_service "Explorer" "http://localhost:8005/health"
 check_service "Web UI" "http://localhost:8016/health"
-check_service "Agent Coordinator" "http://localhost:8006/health"
+check_service "Agent Coordinator" "http://localhost:8011/health"
 check_service "Agent Registry" "http://localhost:8008/health"
 check_service "Multimodal Service" "http://localhost:8002/health"
 check_service "Modality Optimization" "http://localhost:8004/health"
