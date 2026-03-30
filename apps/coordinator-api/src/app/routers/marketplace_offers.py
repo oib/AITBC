@@ -24,9 +24,10 @@ async def sync_offers(
     """Create marketplace offers from all registered miners"""
     
     # Get all registered miners
-    miners = session.execute(select(Miner).where(Miner.status == "ONLINE")).all()
+    miners = session.execute(select(Miner).where(Miner.status == "ONLINE")).scalars().all()
     
     created_offers = []
+    offer_objects = []
     
     for miner in miners:
         # Check if offer already exists
@@ -54,9 +55,13 @@ async def sync_offers(
             )
             
             session.add(offer)
-            created_offers.append(offer.id)
+            offer_objects.append(offer)
     
     session.commit()
+    
+    # Collect offer IDs after commit (when IDs are generated)
+    for offer in offer_objects:
+        created_offers.append(offer.id)
     
     return {
         "status": "ok",

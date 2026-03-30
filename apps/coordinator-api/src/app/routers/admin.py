@@ -29,6 +29,68 @@ async def debug_settings() -> dict:  # type: ignore[arg-type]
     }
 
 
+@router.post("/debug/create-test-miner", summary="Create a test miner for debugging")
+async def create_test_miner(
+    session: Annotated[Session, Depends(get_session)],
+    admin_key: str = Depends(require_admin_key())
+) -> dict[str, str]:  # type: ignore[arg-type]
+    """Create a test miner for debugging marketplace sync"""
+    try:
+        from ..domain import Miner
+        from uuid import uuid4
+        
+        miner_id = "debug-test-miner"
+        session_token = uuid4().hex
+        
+        # Check if miner already exists
+        existing_miner = session.get(Miner, miner_id)
+        if existing_miner:
+            # Update existing miner to ONLINE
+            existing_miner.status = "ONLINE"
+            existing_miner.last_heartbeat = datetime.utcnow()
+            existing_miner.session_token = session_token
+            session.add(existing_miner)
+            session.commit()
+            return {"status": "updated", "miner_id": miner_id, "message": "Existing miner updated to ONLINE"}
+        
+        # Create new test miner
+        miner = Miner(
+            id=miner_id,
+            capabilities={
+                "gpu_memory": 8192,
+                "models": ["qwen3:8b"],
+                "pricing_per_hour": 0.50,
+                "gpu": "RTX 4090",
+                "gpu_memory_gb": 8192,
+                "gpu_count": 1,
+                "cuda_version": "12.0",
+                "supported_models": ["qwen3:8b"]
+            },
+            concurrency=1,
+            region="test-region",
+            session_token=session_token,
+            status="ONLINE",
+            inflight=0,
+            last_heartbeat=datetime.utcnow()
+        )
+        
+        session.add(miner)
+        session.commit()
+        session.refresh(miner)
+        
+        logger.info(f"Created test miner: {miner_id}")
+        return {
+            "status": "created", 
+            "miner_id": miner_id, 
+            "session_token": session_token,
+            "message": "Test miner created successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to create test miner: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/test-key", summary="Test API key validation")
 async def test_key(
     api_key: str = Header(default=None, alias="X-Api-Key")
@@ -102,23 +164,26 @@ async def list_jobs(session: Annotated[Session, Depends(get_session)], admin_key
 
 @router.get("/miners", summary="List miners")
 async def list_miners(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
-    miner_service = MinerService(session)
-    miners = [
+    from sqlmodel import select
+    from ..domain import Miner
+    
+    miners = session.execute(select(Miner)).scalars().all()
+    miner_list = [
         {
-            "miner_id": record.id,
-            "status": record.status,
-            "inflight": record.inflight,
-            "concurrency": record.concurrency,
-            "region": record.region,
-            "last_heartbeat": record.last_heartbeat.isoformat(),
-            "average_job_duration_ms": record.average_job_duration_ms,
-            "jobs_completed": record.jobs_completed,
-            "jobs_failed": record.jobs_failed,
-            "last_receipt_id": record.last_receipt_id,
+            "miner_id": miner.id,
+            "status": miner.status,
+            "inflight": miner.inflight,
+            "concurrency": miner.concurrency,
+            "region": miner.region,
+            "last_heartbeat": miner.last_heartbeat.isoformat(),
+            "average_job_duration_ms": miner.average_job_duration_ms,
+            "jobs_completed": miner.jobs_completed,
+            "jobs_failed": miner.jobs_failed,
+            "last_receipt_id": miner.last_receipt_id,
         }
-        for record in miner_service.list_records()
+        for miner in miners
     ]
-    return {"items": miners}
+    return {"items": miner_list}
 
 
 @router.get("/status", summary="Get system status", response_model=None)
