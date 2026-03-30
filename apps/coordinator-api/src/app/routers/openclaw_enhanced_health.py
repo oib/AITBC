@@ -14,7 +14,7 @@ from typing import Dict, Any
 
 from ..storage import get_session
 from ..services.openclaw_enhanced import OpenClawEnhancedService
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 router = APIRouter()
