@@ -8,6 +8,7 @@ authors = ["AITBC Team"]
 python = "^3.13"
 requests = "^2.33.0"
 urllib3 = "^2.6.3"
+idna = "^3.7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
