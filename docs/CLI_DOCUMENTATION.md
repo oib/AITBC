@@ -2,7 +2,15 @@
 
 ## Overview
 
-The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the AITBC blockchain network, AI operations, marketplace interactions, and agent workflows.
+The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the AITBC blockchain network, AI operations, marketplace interactions, agent workflows, and advanced economic intelligence operations. With the AI Economics Masters transformation, the CLI now provides sophisticated economic modeling and marketplace strategy capabilities.
+
+## 🚀 **New in v0.2.3: AI Economics Masters Integration**
+
+### **Economic Intelligence Commands**
+- **Distributed AI Job Economics**: Cross-node cost optimization and revenue sharing
+- **Marketplace Strategy**: Dynamic pricing and competitive positioning
+- **Investment Management**: Portfolio optimization and ROI tracking
+- **Economic Modeling**: Predictive economics and market forecasting
 
 ## Installation
 
