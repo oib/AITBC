@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from models import Base
 
 # Database configuration
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./exchange.db")
+DATABASE_URL = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db")
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):
