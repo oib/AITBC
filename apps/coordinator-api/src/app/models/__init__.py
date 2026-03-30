@@ -3,7 +3,7 @@ Models package for the AITBC Coordinator API
 """
 
 # Import basic types from types.py to avoid circular imports
-from ..types import (
+from ..custom_types import (
     JobState,
     Constraints,
 )

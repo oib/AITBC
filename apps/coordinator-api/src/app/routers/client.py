@@ -7,7 +7,7 @@ from datetime import datetime
 
 from ..deps import require_client_key
 from ..schemas import JobCreate, JobView, JobResult, JobPaymentCreate
-from ..types import JobState
+from ..custom_types import JobState
 from ..services import JobService
 from ..services.payments import PaymentService
 from ..config import settings
