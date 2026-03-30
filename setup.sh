@@ -164,6 +164,7 @@ install_services() {
         "aitbc-exchange-api.service"
         "aitbc-blockchain-node.service"
         "aitbc-blockchain-rpc.service"
+        "aitbc-multimodal-gpu.service"
     )
     
     for service in "${services[@]}"; do
@@ -239,12 +240,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
         
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"
@@ -272,6 +273,7 @@ setup_autostart() {
     systemctl enable aitbc-exchange-api.service
     systemctl enable aitbc-blockchain-node.service
     systemctl enable aitbc-blockchain-rpc.service
+    systemctl enable aitbc-multimodal-gpu.service
     
     success "Auto-start configured"
 }
