@@ -1,0 +1,18 @@
+INFO:     Started server process [977321]
+INFO:     Waiting for application startup.
+{"timestamp": "2026-03-15T10:11:08.623101Z", "level": "INFO", "logger": "aitbc_chain.app", "message": "Blockchain node started", "supported_chains": "aitbc-brother-chain"}
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8011 (Press CTRL+C to quit)
+INFO:     127.0.0.1:39938 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:37594 - "GET /rpc/head?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50756 - "POST /rpc/admin/mintFaucet HTTP/1.1" 200 OK
+INFO:     127.0.0.1:44414 - "GET /rpc/getBalance/aitbc1e3bdd9ef1e8aba996a2baaa047aed9fd233f6298?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     127.0.0.1:59906 - "GET /rpc/syncStatus?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53170 - "GET /rpc/head?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40422 - "POST /rpc/admin/mintFaucet?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     127.0.0.1:40434 - "GET /rpc/getBalance/aitbc1e3bdd9ef1e8aba996a2baaa047aed9fd233f6298?chain_id=aitbc-brother-chain HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+{"timestamp": "2026-03-15T21:49:09.055353Z", "level": "INFO", "logger": "aitbc_chain.app", "message": "Blockchain node stopped"}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [977321]

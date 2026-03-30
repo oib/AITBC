@@ -1,0 +1,50 @@
+{
+  "files.exclude": {
+    "**/.git": true,
+    "**/.svn": true,
+    "**/.hg": true,
+    "**/CVS": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true,
+    "**/node_modules": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true,
+    "**/.venv": true,
+    "**/logs": true,
+    "**/cli_env": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/.venv/**": true,
+    "**/logs/**": true,
+    "**/cli_env/**": true
+  },
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.formatting.provider": "black",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true
+  },
+  "files.associations": {
+    "*.py": "python",
+    "*.sh": "shellscript",
+    "*.yaml": "yaml",
+    "*.yml": "yaml",
+    "*.md": "markdown"
+  },
+  "python.defaultInterpreterPath": "./cli/venv/bin/python",
+  "terminal.integrated.cwd": ".",
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.patterns": {
+    "*.py": "*.py",
+    "*.sh": "*.sh",
+    "*.md": "*.md",
+    "package.json": "package-lock.json",
+    "pyproject.toml": "poetry.lock",
+    ".env.example": ".env*"
+  }
+}
