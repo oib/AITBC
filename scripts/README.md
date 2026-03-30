@@ -77,10 +77,21 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8001 | Coordinator API | Main API service |
-| 8002 | Wallet Daemon | Wallet management |
-| 8003 | Blockchain RPC | Blockchain node RPC |
-| 8000 | Coordinator API (alt) | Alternative API |
+| 8000 | Coordinator API | Main API service |
+| 8001 | Exchange API | Trading functionality |
+| 8002 | Marketplace API | GPU compute marketplace |
+| 8003 | Wallet API | Digital wallet management |
+| 8004 | Explorer | Blockchain explorer |
+| 8006 | Blockchain RPC | Blockchain node RPC |
+| 8007 | Web UI | Web user interface |
+| 8010 | GPU Service | GPU-accelerated processing |
+| 8011 | Learning Service | Machine learning |
+| 8012 | Agent Coordinator | Agent orchestration |
+| 8013 | Agent Registry | Agent registration |
+| 8014 | OpenClaw Service | Edge computing |
+| 8015 | AI Service | Advanced AI capabilities |
+| 8020 | Multimodal Service | Multi-modal processing |
+| 8021 | Modality Optimization | Modality optimization |
 | 8081 | Blockchain Node 1 | Blockchain instance |
 | 8082 | Blockchain Node 2 | Blockchain instance |
 | 8006 | Coordinator API (dev) | Development API |
@@ -88,9 +99,20 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 ## 🔍 Health Endpoints
 
 The scripts test these health endpoints:
-- `http://localhost:8001/health` - Coordinator API
-- `http://localhost:8002/health` - Wallet Daemon  
-- `http://localhost:8003/health` - Blockchain RPC
+- `http://localhost:8000/health` - Coordinator API
+- `http://localhost:8001/api/health` - Exchange API
+- `http://localhost:8002/health` - Marketplace API
+- `http://localhost:8003/health` - Wallet API
+- `http://localhost:8004/health` - Explorer
+- `http://localhost:8007/` - Web UI
+- `http://localhost:8010/health` - GPU Service
+- `http://localhost:8011/health` - Learning Service
+- `http://localhost:8012/health` - Agent Coordinator
+- `http://localhost:8013/health` - Agent Registry
+- `http://localhost:8014/health` - OpenClaw Service
+- `http://localhost:8015/health` - AI Service
+- `http://localhost:8020/health` - Multimodal Service
+- `http://localhost:8021/health` - Modality Optimization
 
 ## 📝 Output Examples
 
@@ -112,9 +134,21 @@ The scripts test these health endpoints:
 ### Service Status:
 ```
 [INFO] Checking AITBC service ports...
-[SUCCESS] Coordinator API (port 8001): RUNNING
-[SUCCESS] Wallet Daemon (port 8002): RUNNING
-[WARNING] Blockchain RPC (port 8003): NOT RUNNING
+[SUCCESS] Coordinator API (port 8000): RUNNING
+[SUCCESS] Exchange API (port 8001): RUNNING
+[SUCCESS] Marketplace API (port 8002): RUNNING
+[SUCCESS] Wallet API (port 8003): RUNNING
+[SUCCESS] Explorer (port 8004): RUNNING
+[SUCCESS] Blockchain RPC (port 8006): RUNNING
+[SUCCESS] Web UI (port 8007): RUNNING
+[SUCCESS] GPU Service (port 8010): RUNNING
+[SUCCESS] Learning Service (port 8011): RUNNING
+[SUCCESS] Agent Coordinator (port 8012): RUNNING
+[SUCCESS] Agent Registry (port 8013): RUNNING
+[SUCCESS] OpenClaw Service (port 8014): RUNNING
+[SUCCESS] AI Service (port 8015): RUNNING
+[SUCCESS] Multimodal Service (port 8020): RUNNING
+[SUCCESS] Modality Optimization (port 8021): RUNNING
 ```
 
 ## 🛠️ Troubleshooting

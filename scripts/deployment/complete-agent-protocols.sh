@@ -73,8 +73,8 @@ class AITBCServiceIntegration:
             "coordinator_api": "http://localhost:8000",
             "blockchain_rpc": "http://localhost:8006",
             "exchange_service": "http://localhost:8001",
-            "marketplace": "http://localhost:8014",
-            "agent_registry": "http://localhost:8003"
+            "marketplace": "http://localhost:8002",
+            "agent_registry": "http://localhost:8013"
         }
         self.session = None
     
@@ -328,7 +328,7 @@ class TradingAgent:
             success = await self.bridge.start_agent(self.agent_id, {
                 "type": "trading",
                 "capabilities": ["market_analysis", "trading", "risk_management"],
-                "endpoint": f"http://localhost:8005"
+                "endpoint": f"http://localhost:8012"
             })
             
             if success:
@@ -496,7 +496,7 @@ class ComplianceAgent:
             success = await self.bridge.start_agent(self.agent_id, {
                 "type": "compliance",
                 "capabilities": ["kyc_check", "aml_screening", "regulatory_reporting"],
-                "endpoint": f"http://localhost:8006"
+                "endpoint": f"http://localhost:8014"
             })
             
             if success:
@@ -794,7 +794,7 @@ class TestAgentMessageClient(unittest.TestCase):
     """Test agent message client"""
     
     def setUp(self):
-        self.client = AgentMessageClient("agent-001", "http://localhost:8003")
+        self.client = AgentMessageClient("agent-001", "http://localhost:8013")
     
     def test_task_assignment_message(self):
         """Test task assignment message creation"""
@@ -899,8 +899,8 @@ systemctl status aitbc-agent-coordinator --no-pager
 
 # Test services
 echo "Testing services..."
-curl -s http://localhost:8003/api/health || echo "Agent Registry not responding"
-curl -s http://localhost:8004/api/health || echo "Agent Coordinator not responding"
+curl -s http://localhost:8013/api/health || echo "Agent Registry not responding"
+curl -s http://localhost:8012/api/health || echo "Agent Coordinator not responding"
 
 echo "✅ Agent Protocols deployment complete!"
 EOF
