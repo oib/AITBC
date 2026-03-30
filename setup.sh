@@ -167,8 +167,8 @@ install_services() {
         "aitbc-multimodal-gpu.service"
         "aitbc-marketplace.service"
         "aitbc-openclaw.service"
-        "aitbc-advanced-ai.service"
-        "aitbc-adaptive-learning.service"
+        "aitbc-ai.service"
+        "aitbc-learning.service"
     )
     
     for service in "${services[@]}"; do
@@ -244,12 +244,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu aitbc-marketplace aitbc-openclaw aitbc-advanced-ai aitbc-adaptive-learning 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
         
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu aitbc-marketplace aitbc-openclaw aitbc-advanced-ai aitbc-adaptive-learning; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-multimodal-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"
@@ -280,8 +280,8 @@ setup_autostart() {
     systemctl enable aitbc-multimodal-gpu.service
     systemctl enable aitbc-marketplace.service
     systemctl enable aitbc-openclaw.service
-    systemctl enable aitbc-advanced-ai.service
-    systemctl enable aitbc-adaptive-learning.service
+    systemctl enable aitbc-ai.service
+    systemctl enable aitbc-learning.service
     
     success "Auto-start configured"
 }
