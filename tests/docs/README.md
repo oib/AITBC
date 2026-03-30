@@ -160,6 +160,7 @@ TEST_LOG_LEVEL=DEBUG
 TEST_LOG_FILE=/var/log/aitbc/test.log
 
 # Test API endpoints
+# Note: Port 8011 = Learning Service (updated port allocation)
 TEST_API_BASE_URL=http://localhost:8011
 ```
 
