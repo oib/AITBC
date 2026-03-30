@@ -13,6 +13,11 @@ from pathlib import Path
 REPO_ROOT = Path("/opt/aitbc")
 LOGS_DIR = REPO_ROOT / "logs"
 
+# AITBC blockchain config
+LOCAL_RPC = "http://localhost:8006"
+GENESIS_RPC = "http://10.1.223.93:8006"
+MAX_HEIGHT_DIFF = 10  # acceptable block height difference between nodes
+
 def sh(cmd, cwd=REPO_ROOT):
     """Run shell command, return (returncode, stdout)."""
     result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
@@ -86,18 +91,32 @@ def check_vulnerabilities():
     """Run security audits for Python and Node dependencies."""
     issues = []
     # Python: pip-audit (if available)
-    rc, out = sh("pip-audit --requirement <(poetry export --without-hashes) 2>&1")
-    if rc == 0:
-        # No vulnerabilities
-        pass
+    # Export requirements to temp file first to avoid shell process substitution issues
+    rc_export, req_content = sh("poetry export --without-hashes")
+    if rc_export == 0 and req_content:
+        import tempfile
+        import os
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+            f.write(req_content)
+            temp_req_file = f.name
+        try:
+            rc, out = sh(f"pip-audit --requirement {temp_req_file} 2>&1")
+            if rc == 0:
+                # No vulnerabilities
+                pass
+            else:
+                # pip-audit returns non-zero when vulns found; parse output for count
+                # Usually output contains lines with "Found X vulnerabilities"
+                if "vulnerabilities" in out.lower():
+                    issues.append(f"Python dependencies: vulnerabilities detected\n```\n{out[:2000]}\n```")
+                else:
+                    # Command failed for another reason (maybe not installed)
+                    pass
+        finally:
+            os.unlink(temp_req_file)
     else:
-        # pip-audit returns non-zero when vulns found; parse output for count
-        # Usually output contains lines with "Found X vulnerabilities"
-        if "vulnerabilities" in out.lower():
-            issues.append(f"Python dependencies: vulnerabilities detected\n```\n{out[:2000]}\n```")
-        else:
-            # Command failed for another reason (maybe not installed)
-            pass
+        # Failed to export requirements
+        pass
     # Node: npm audit (if package.json exists)
     if (REPO_ROOT / "package.json").exists():
         rc, out = sh("npm audit --json")
@@ -111,9 +130,78 @@ def check_vulnerabilities():
                 issues.append("Node dependencies: npm audit failed to parse")
     return issues
 
+def check_blockchain_health():
+    """Check AITBC blockchain node health on this follower node."""
+    result = {"local_ok": False, "local_height": None, "genesis_ok": False,
+              "genesis_height": None, "sync_diff": None, "services": {},
+              "issues": []}
+
+    # Local RPC health
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"{LOCAL_RPC}/rpc/head", timeout=5) as resp:
+            data = json.loads(resp.read())
+            result["local_ok"] = True
+            result["local_height"] = data.get("height")
+    except Exception as e:
+        result["issues"].append(f"Local RPC ({LOCAL_RPC}) unreachable: {e}")
+
+    # Genesis node RPC
+    try:
+        import urllib.request
+        with urllib.request.urlopen(f"{GENESIS_RPC}/rpc/head", timeout=5) as resp:
+            data = json.loads(resp.read())
+            result["genesis_ok"] = True
+            result["genesis_height"] = data.get("height")
+    except Exception:
+        result["issues"].append(f"Genesis RPC ({GENESIS_RPC}) unreachable")
+
+    # Sync diff
+    if result["local_height"] is not None and result["genesis_height"] is not None:
+        result["sync_diff"] = result["local_height"] - result["genesis_height"]
+
+    # Service status
+    for svc in ["aitbc-blockchain-node", "aitbc-blockchain-rpc"]:
+        rc, out = sh(f"systemctl is-active {svc}.service")
+        result["services"][svc] = out.strip() if rc == 0 else "unknown"
+
+    return result
+
+
 def main():
     report = []
     issues = 0
+
+    # AITBC Blockchain (always reported)
+    bc = check_blockchain_health()
+    bc_lines = []
+    bc_issue = False
+    if bc["local_ok"]:
+        bc_lines.append(f"- **Follower height**: {bc['local_height']}")
+    else:
+        bc_lines.append("- **Follower RPC**: DOWN")
+        bc_issue = True
+    if bc["genesis_ok"]:
+        bc_lines.append(f"- **Genesis height**: {bc['genesis_height']}")
+    else:
+        bc_lines.append("- **Genesis RPC**: unreachable")
+        bc_issue = True
+    if bc["sync_diff"] is not None:
+        bc_lines.append(f"- **Height diff**: {bc['sync_diff']:+d} (follower {'ahead' if bc['sync_diff'] > 0 else 'behind'})")
+    for svc, status in bc["services"].items():
+        bc_lines.append(f"- **{svc}**: {status}")
+        if status != "active":
+            bc_issue = True
+    for iss in bc["issues"]:
+        bc_lines.append(f"- {iss}")
+        bc_issue = True
+    if bc_issue:
+        issues += 1
+        report.append("### Blockchain: issues detected\n")
+    else:
+        report.append("### Blockchain: healthy\n")
+    report.extend(bc_lines)
+    report.append("")
 
     # Git
     git = check_git_status()
