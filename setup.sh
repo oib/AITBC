@@ -76,10 +76,7 @@ clone_repo() {
     
     # Clone repository
     cd /opt
-    git clone https://github.com/aitbc/aitbc.git aitbc || {
-        # Try alternative GitHub URL
-        git clone git@github.com:aitbc/aitbc.git aitbc || error "Failed to clone repository"
-    }
+    git clone https://github.com/aitbc/aitbc.git aitbc || error "Failed to clone repository"
     
     cd /opt/aitbc
     success "Repository cloned successfully"
