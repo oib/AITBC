@@ -57,8 +57,8 @@ check_prerequisites() {
     
     # Check Node.js version
     node_version=$(node -v | sed 's/v//')
-    if [ "$(printf '%s\n' "18.0.0" "$node_version" | sort -V | head -n1)" != "18.0.0" ]; then
-        error "Node.js 18.0.0+ is required, found $node_version"
+    if [ "$(printf '%s\n' "24.14.0" "$node_version" | sort -V | head -n1)" != "24.14.0" ]; then
+        error "Node.js 24.14.0+ is required, found $node_version"
     fi
     
     success "Prerequisites check passed"
