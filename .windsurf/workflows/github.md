@@ -1,13 +1,13 @@
 ---
-description: Comprehensive GitHub operations including git push to GitHub
+description: Comprehensive GitHub operations including git push to GitHub with multi-node synchronization
 title: AITBC GitHub Operations Workflow
-version: 2.0
+version: 2.1
 auto_execution_mode: 3
 ---
 
 # AITBC GitHub Operations Workflow
 
-This workflow handles all GitHub operations including staging, committing, and pushing changes to GitHub repository.
+This workflow handles all GitHub operations including staging, committing, and pushing changes to GitHub repository with multi-node synchronization capabilities. It ensures both genesis and follower nodes maintain consistent git status after GitHub operations.
 
 ## Prerequisites
 
@@ -95,7 +95,56 @@ git push --force-with-lease origin main
 git push --all origin
 ```
 
-### 5. Verify Push
+### 5. Multi-Node Git Status Check
+```bash
+# Check git status on both nodes
+echo "=== Genesis Node Git Status ==="
+cd /opt/aitbc
+git status
+git log --oneline -3
+
+echo ""
+echo "=== Follower Node Git Status ==="
+ssh aitbc1 'cd /opt/aitbc && git status'
+ssh aitbc1 'cd /opt/aitbc && git log --oneline -3'
+
+echo ""
+echo "=== Comparison Check ==="
+# Get latest commit hashes
+GENESIS_HASH=$(git rev-parse HEAD)
+FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+
+echo "Genesis latest: $GENESIS_HASH"
+echo "Follower latest: $FOLLOWER_HASH"
+
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ]; then
+    echo "✅ Both nodes are in sync"
+else
+    echo "⚠️ Nodes are out of sync"
+    echo "Genesis ahead by: $(git rev-list --count $FOLLOWER_HASH..HEAD 2>/dev/null || echo "N/A") commits"
+    echo "Follower ahead by: $(ssh aitbc1 'cd /opt/aitbc && git rev-list --count $GENESIS_HASH..HEAD 2>/dev/null || echo "N/A"') commits"
+fi
+```
+
+### 6. Sync Follower Node (if needed)
+```bash
+# Sync follower node with genesis
+if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
+    echo "=== Syncing Follower Node ==="
+    
+    # Option 1: Push from genesis to follower
+    ssh aitbc1 'cd /opt/aitbc && git fetch origin'
+    ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+    
+    # Option 2: Copy changes directly (if remote sync fails)
+    rsync -av --exclude='.git' /opt/aitbc/ aitbc1:/opt/aitbc/
+    ssh aitbc1 'cd /opt/aitbc && git add . && git commit -m "sync from genesis node" || true'
+    
+    echo "✅ Follower node synced"
+fi
+```
+
+### 7. Verify Push
 ```bash
 # Check if push was successful
 git status
@@ -105,9 +154,61 @@ git log --oneline -5 origin/main
 
 # Verify on GitHub (if GitHub CLI is available)
 gh repo view --web
+
+# Verify both nodes are updated
+echo "=== Final Status Check ==="
+echo "Genesis: $(git rev-parse --short HEAD)"
+echo "Follower: $(ssh aitbc1 'cd /opt/aitbc && git rev-parse --short HEAD')"
 ```
 
 ## Quick GitHub Commands
+
+### Multi-Node Standard Workflow
+```bash
+# Complete multi-node workflow - check, stage, commit, push, sync
+cd /opt/aitbc
+
+# 1. Check both nodes status
+echo "=== Checking Both Nodes ==="
+git status
+ssh aitbc1 'cd /opt/aitbc && git status'
+
+# 2. Stage and commit
+git add .
+git commit -m "feat: add new feature implementation"
+
+# 3. Push to GitHub
+git push origin main
+
+# 4. Sync follower node
+ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+
+# 5. Verify both nodes
+echo "=== Verification ==="
+git rev-parse --short HEAD
+ssh aitbc1 'cd /opt/aitbc && git rev-parse --short HEAD'
+```
+
+### Quick Multi-Node Push
+```bash
+# Quick push for minor changes with node sync
+cd /opt/aitbc
+git add . && git commit -m "docs: update documentation" && git push origin main
+ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+```
+
+### Multi-Node Sync Check
+```bash
+# Quick sync status check
+cd /opt/aitbc
+GENESIS_HASH=$(git rev-parse HEAD)
+FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ]; then
+    echo "✅ Both nodes in sync"
+else
+    echo "⚠️ Nodes out of sync - sync needed"
+fi
+```
 
 ### Standard Workflow
 ```bash
@@ -179,6 +280,36 @@ git push origin main
 ```
 
 ## Troubleshooting
+
+### Multi-Node Sync Issues
+```bash
+# Check if nodes are in sync
+cd /opt/aitbc
+GENESIS_HASH=$(git rev-parse HEAD)
+FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+
+if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
+    echo "⚠️ Nodes out of sync - fixing..."
+    
+    # Check connectivity to follower
+    ssh aitbc1 'echo "Follower node reachable"' || {
+        echo "❌ Cannot reach follower node"
+        exit 1
+    }
+    
+    # Sync follower node
+    ssh aitbc1 'cd /opt/aitbc && git fetch origin'
+    ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+    
+    # Verify sync
+    NEW_FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+    if [ "$GENESIS_HASH" = "$NEW_FOLLOWER_HASH" ]; then
+        echo "✅ Nodes synced successfully"
+    else
+        echo "❌ Sync failed - manual intervention required"
+    fi
+fi
+```
 
 ### Push Failures
 ```bash
@@ -268,7 +399,32 @@ xdg-open https://github.com/oib/AITBC/commit/$(git rev-parse HEAD)
 - Include documentation with code changes
 - Tag releases appropriately
 
-## Recent Updates (v2.0)
+## Recent Updates (v2.1)
+
+### Enhanced Multi-Node Workflow
+- **Multi-Node Git Status**: Check git status on both genesis and follower nodes
+- **Automatic Sync**: Sync follower node with genesis after GitHub push
+- **Comparison Check**: Verify both nodes have the same commit hash
+- **Sync Verification**: Confirm successful synchronization across nodes
+
+### Multi-Node Operations
+- **Status Comparison**: Compare git status between nodes
+- **Hash Verification**: Check commit hashes for consistency
+- **Automatic Sync**: Pull changes on follower node after genesis push
+- **Error Handling**: Detect and fix sync issues automatically
+
+### Enhanced Troubleshooting
+- **Multi-Node Sync Issues**: Detect and resolve node synchronization problems
+- **Connectivity Checks**: Verify SSH connectivity to follower node
+- **Sync Validation**: Confirm successful node synchronization
+- **Manual Recovery**: Alternative sync methods if automatic sync fails
+
+### Quick Commands
+- **Multi-Node Workflow**: Complete workflow with node synchronization
+- **Quick Sync Check**: Fast verification of node status
+- **Automatic Sync**: One-command synchronization across nodes
+
+## Previous Updates (v2.0)
 
 ### Enhanced Workflow
 - **Comprehensive Operations**: Added complete GitHub workflow
