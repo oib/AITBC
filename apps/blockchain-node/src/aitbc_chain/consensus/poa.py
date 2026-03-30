@@ -140,7 +140,7 @@ class PoAProposer:
             # Pull transactions from mempool
             max_txs = self._config.max_txs_per_block
             max_bytes = self._config.max_block_size_bytes
-            pending_txs = mempool.drain(max_txs, max_bytes, 'ait-mainnet')
+            pending_txs = mempool.drain(max_txs, max_bytes, self._config.chain_id)
             self._logger.info(f"[PROPOSE] drained {len(pending_txs)} txs from mempool, chain={self._config.chain_id}")
 
             # Process transactions and update balances
@@ -149,9 +149,9 @@ class PoAProposer:
                 try:
                     # Parse transaction data
                     tx_data = tx.content
-                    sender = tx_data.get("sender")
-                    recipient = tx_data.get("payload", {}).get("to")
-                    value = tx_data.get("payload", {}).get("amount", 0)  # Fixed: use "amount" instead of "value"
+                    sender = tx_data.get("from")
+                    recipient = tx_data.get("to")
+                    value = tx_data.get("amount", 0)
                     fee = tx_data.get("fee", 0)
                     
                     if not sender or not recipient:
@@ -296,11 +296,21 @@ class PoAProposer:
 
     async def _initialize_genesis_allocations(self, session: Session) -> None:
         """Create Account entries from the genesis allocations file."""
-        # Look for genesis file relative to project root: data/{chain_id}/genesis.json
-        # Alternatively, use a path from config (future improvement)
-        genesis_path = Path(f"./data/{self._config.chain_id}/genesis.json")
-        if not genesis_path.exists():
-            self._logger.warning("Genesis allocations file not found; skipping account initialization", extra={"path": str(genesis_path)})
+        # Use standardized data directory from configuration
+        from ..config import settings
+        
+        genesis_paths = [
+            Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
+        ]
+        
+        genesis_path = None
+        for path in genesis_paths:
+            if path.exists():
+                genesis_path = path
+                break
+        
+        if not genesis_path:
+            self._logger.warning("Genesis allocations file not found; skipping account initialization", extra={"paths": str(genesis_paths)})
             return
 
         with open(genesis_path) as f:
@@ -319,7 +329,7 @@ class PoAProposer:
                 session.add(acct)
                 created += 1
         session.commit()
-        self._logger.info("Initialized genesis accounts", extra={"count": created, "total": len(allocations)})
+        self._logger.info("Initialized genesis accounts", extra={"count": created, "total": len(allocations), "path": str(genesis_path)})
 
     def _fetch_chain_head(self) -> Optional[Block]:
         with self._session_factory() as session:

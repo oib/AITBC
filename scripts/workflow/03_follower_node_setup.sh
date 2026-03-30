@@ -23,7 +23,7 @@ mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 ls -la /var/lib/aitbc/ || echo "Creating /var/lib/aitbc/ structure..."
 
 # Copy and adapt central .env for aitbc (follower node)
-cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup 2>/dev/null || true
+cp /etc/aitbc/.env /etc/aitbc/.env.aitbc.backup 2>/dev/null || true
 
 # Update .env for aitbc follower node configuration
 echo "4. Updating environment configuration..."
