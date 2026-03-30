@@ -1,19 +1,20 @@
-[tool.poetry]
+[project]
 name = "aitbc-core"
 version = "0.1.0"
 description = "AITBC Core Utilities"
-authors = ["AITBC Team <team@aitbc.dev>"]
+authors = [
+    {name = "AITBC Team", email = "team@aitbc.dev"}
+]
 readme = "README.md"
-packages = [{include = "aitbc", from = "src"}]
-
-[tool.poetry.dependencies]
-python = "^3.13"
-pydantic = "^2.7.0"
-python-json-logger = "^2.0.7"
-
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
-mypy = "^1.19.1"
+requires-python = "^3.13"
+dependencies = [
+    "cryptography>=41.0.0",
+    "sqlmodel>=0.0.14",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "redis>=5.0.0",
+    "pydantic>=2.5.0"
+]
 
 [build-system]
 requires = ["poetry-core"]
