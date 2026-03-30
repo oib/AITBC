@@ -46,11 +46,19 @@ check_prerequisites() {
     command -v pip3 >/dev/null 2>&1 || error "pip3 is not installed"
     command -v git >/dev/null 2>&1 || error "git is not installed"
     command -v systemctl >/dev/null 2>&1 || error "systemctl is not available"
+    command -v node >/dev/null 2>&1 || error "Node.js is not installed"
+    command -v npm >/dev/null 2>&1 || error "npm is not installed"
     
     # Check Python version
     python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
     if [ "$(printf '%s\n' "3.13.5" "$python_version" | sort -V | head -n1)" != "3.13.5" ]; then
         error "Python 3.13.5+ is required, found $python_version"
+    fi
+    
+    # Check Node.js version
+    node_version=$(node -v | sed 's/v//')
+    if [ "$(printf '%s\n' "18.0.0" "$node_version" | sort -V | head -n1)" != "18.0.0" ]; then
+        error "Node.js 18.0.0+ is required, found $node_version"
     fi
     
     success "Prerequisites check passed"
