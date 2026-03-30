@@ -119,7 +119,7 @@ cd /opt/aitbc/apps/coordinator-api
 
 # Check individual service logs
 ./manage_services.sh logs aitbc-multimodal
-./manage_services.sh logs aitbc-gpu-multimodal
+./manage_services.sh logs aitbc-multimodal-gpu
 ```
 
 ## 📊 Service Details
@@ -197,7 +197,7 @@ curl -X POST http://localhost:8011/process \
 ./manage_services.sh status
 
 # View service logs
-./manage_services.sh logs aitbc-gpu-multimodal
+./manage_services.sh logs aitbc-multimodal-gpu
 
 # Enable auto-start
 ./manage_services.sh enable
@@ -234,10 +234,10 @@ df -h
 systemctl status aitbc-multimodal.service
 
 # Audit service logs
-sudo journalctl -u aitbc-multimodal.service --since "1 hour ago"
+sudo journalctl -u aitbc-multimodal-gpu.service --since "1 hour ago"
 
 # Monitor resource usage
-systemctl status aitbc-gpu-multimodal.service --no-pager
+systemctl status aitbc-multimodal-gpu.service --no-pager
 ```
 
 ## 🐛 Troubleshooting
