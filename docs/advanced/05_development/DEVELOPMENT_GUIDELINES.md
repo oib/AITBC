@@ -12,6 +12,7 @@
 - `poetry.lock` - Dependency lock file
 - `pytest.ini` - Test configuration
 - `scripts/testing/run_all_tests.sh` - Main test runner
+- `setup.sh` - Main project setup script
 
 ### Development Scripts → `dev/scripts/`
 ```bash
