@@ -1,2 +1,0 @@
-#!/bin/bash
-/opt/aitbc/aitbc-env aitbc "$@"
