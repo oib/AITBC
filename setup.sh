@@ -135,44 +135,19 @@ setup_venvs() {
         python3 -m venv venv
         source venv/bin/activate
         pip install --upgrade pip
-        
-        # Install main requirements
-        if [ -f "requirements.txt" ]; then
-            pip install -r requirements.txt
-        fi
     else
         log "Central virtual environment already exists, activating..."
         source /opt/aitbc/venv/bin/activate
     fi
     
-    # Install service dependencies in central venv
-    log "Installing service dependencies..."
+    # Install all dependencies from central requirements.txt
+    log "Installing all dependencies from central requirements.txt..."
     
-    # Wallet service dependencies
-    log "Installing wallet service dependencies..."
-    cd /opt/aitbc/apps/wallet
-    if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt
+    # Install main requirements (contains all service dependencies)
+    if [ -f "/opt/aitbc/requirements.txt" ]; then
+        pip install -r /opt/aitbc/requirements.txt
     else
-        pip install fastapi uvicorn pydantic httpx python-dotenv websockets
-    fi
-    
-    # Coordinator API dependencies
-    log "Installing coordinator API dependencies..."
-    cd /opt/aitbc/apps/coordinator-api
-    if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt
-    else
-        pip install fastapi uvicorn pydantic httpx python-dotenv
-    fi
-    
-    # Exchange API dependencies
-    log "Installing exchange API dependencies..."
-    cd /opt/aitbc/apps/exchange
-    if [ -f "requirements.txt" ]; then
-        pip install -r requirements.txt
-    else
-        pip install fastapi uvicorn pydantic python-multipart
+        error "Main requirements.txt not found"
     fi
     
     success "Virtual environments setup completed"
