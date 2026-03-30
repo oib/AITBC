@@ -44,10 +44,10 @@ echo "/opt/aitbc/venv/bin/python /opt/aitbc/cli/enterprise_cli.py ai submit --wa
 # 5. Cross-Node Operations
 echo -e "\n5. Cross-Node Operations"
 echo "Checking network status on aitbc1..."
-/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py network
+/opt/aitbc/venv/bin/python /opt/aitbc/cli/aitbc_cli.py network
 
 echo "Checking network status on aitbc..."
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py network'
+ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/aitbc_cli.py network'
 
 echo "Running batch operations on aitbc..."
 ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/enterprise_cli.py sample'
