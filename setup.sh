@@ -231,8 +231,6 @@ check_service "Exchange API" "http://localhost:8001/api/health"
 check_service "Wallet API" "http://localhost:8003/health"
 check_service "Modality Optimization" "http://localhost:8004/health"
 check_service "Explorer" "http://localhost:8005/health"
-check_service "Agent Registry" "http://localhost:8008/health"
-check_service "AI Service" "http://localhost:8009/health"
 
 # AI/Agent/GPU Services (8010-8019)
 echo ""
@@ -240,6 +238,8 @@ echo "🚀 AI/Agent/GPU Services (8010-8019):"
 check_service "GPU Service" "http://localhost:8010/health"
 check_service "Learning Service" "http://localhost:8010/health"
 check_service "Agent Coordinator" "http://localhost:8011/health"
+check_service "Agent Registry" "http://localhost:8012/health"
+check_service "AI Service" "http://localhost:8009/health"
 check_service "Web UI" "http://localhost:8016/health"
 
 # Other Services (8020-8029)
