@@ -1,5 +1,0 @@
-#!/bin/bash
-# AITBC CLI - Proper wrapper script
-cd /opt/aitbc/cli
-source /opt/aitbc/venv/bin/activate
-python core/main.py "$@"
