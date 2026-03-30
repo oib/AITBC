@@ -1,0 +1,2 @@
+[console_scripts]
+aitbc = core.main:main

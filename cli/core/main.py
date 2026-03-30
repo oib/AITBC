@@ -94,6 +94,12 @@ try:
 except ImportError:
     pass
 
+try:
+    from commands.simulate import simulate
+    commands.append(simulate)
+except ImportError:
+    pass
+
 # Config command should be basic
 try:
     from commands.config import config
