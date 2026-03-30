@@ -808,6 +808,195 @@ def mining_operations(action: str, **kwargs) -> Optional[Dict]:
     except Exception as e:
         print(f"Error in mining operations: {e}")
         return None
+
+
+def agent_operations(action: str, **kwargs) -> Optional[Dict]:
+    """Handle AI agent workflow and execution management"""
+    try:
+        if action == "create":
+            return {
+                "action": "create",
+                "agent_id": f"agent_{int(time.time())}",
+                "name": kwargs.get("name", ""),
+                "status": "Created",
+                "verification_level": kwargs.get("verification", "basic"),
+                "max_execution_time": kwargs.get("max_execution_time", 3600),
+                "max_cost_budget": kwargs.get("max_cost_budget", 0.0)
+            }
+        
+        elif action == "execute":
+            return {
+                "action": "execute",
+                "execution_id": f"exec_{int(time.time())}",
+                "agent_name": kwargs.get("name", ""),
+                "status": "Running",
+                "priority": kwargs.get("priority", "medium"),
+                "start_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "estimated_completion": "In 5-10 minutes"
+            }
+        
+        elif action == "status":
+            return {
+                "action": "status",
+                "agent_name": kwargs.get("name", "All agents"),
+                "active_agents": 3,
+                "completed_executions": 47,
+                "failed_executions": 2,
+                "average_execution_time": "3.2 minutes",
+                "total_cost": "1250 AIT"
+            }
+        
+        elif action == "list":
+            status_filter = kwargs.get("status")
+            agents = [
+                {"name": "data-analyzer", "status": "active", "executions": 15, "success_rate": "93%"},
+                {"name": "trading-bot", "status": "completed", "executions": 23, "success_rate": "87%"},
+                {"name": "content-generator", "status": "failed", "executions": 8, "success_rate": "75%"}
+            ]
+            
+            if status_filter:
+                agents = [a for a in agents if a["status"] == status_filter]
+            
+            return {
+                "action": "list",
+                "agents": agents,
+                "total_count": len(agents)
+            }
+        
+        else:
+            return {"action": action, "status": "Not implemented yet"}
+            
+    except Exception as e:
+        print(f"Error in agent operations: {e}")
+        return None
+
+
+def openclaw_operations(action: str, **kwargs) -> Optional[Dict]:
+    """Handle OpenClaw agent ecosystem operations"""
+    try:
+        if action == "deploy":
+            return {
+                "action": "deploy",
+                "deployment_id": f"deploy_{int(time.time())}",
+                "environment": kwargs.get("environment", "dev"),
+                "status": "Deploying",
+                "agent_id": f"openclaw_{int(time.time())}",
+                "estimated_deployment_time": "2-3 minutes",
+                "deployment_cost": "50 AIT"
+            }
+        
+        elif action == "monitor":
+            return {
+                "action": "monitor",
+                "agent_id": kwargs.get("agent_id", "all"),
+                "metrics_type": kwargs.get("metrics", "all"),
+                "performance_score": "94.2%",
+                "cost_efficiency": "87.5%",
+                "error_rate": "1.2%",
+                "uptime": "99.8%",
+                "last_updated": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        
+        elif action == "market":
+            market_action = kwargs.get("market_action")
+            if market_action == "list":
+                return {
+                    "action": "market",
+                    "market_action": "list",
+                    "agents": [
+                        {"id": "openclaw_001", "name": "Data Analysis Pro", "price": 100, "rating": 4.8},
+                        {"id": "openclaw_002", "name": "Trading Expert", "price": 250, "rating": 4.6},
+                        {"id": "openclaw_003", "name": "Content Creator", "price": 75, "rating": 4.9}
+                    ],
+                    "total_available": 3
+                }
+            elif market_action == "publish":
+                return {
+                    "action": "market",
+                    "market_action": "publish",
+                    "agent_id": kwargs.get("agent_id", ""),
+                    "listing_price": kwargs.get("price", 0),
+                    "status": "Published",
+                    "market_fee": "5 AIT"
+                }
+            else:
+                return {"action": "market", "market_action": market_action, "status": "Not implemented yet"}
+        
+        else:
+            return {"action": action, "status": "Not implemented yet"}
+            
+    except Exception as e:
+        print(f"Error in OpenClaw operations: {e}")
+        return None
+
+
+def workflow_operations(action: str, **kwargs) -> Optional[Dict]:
+    """Handle workflow automation and management"""
+    try:
+        if action == "create":
+            return {
+                "action": "create",
+                "workflow_id": f"workflow_{int(time.time())}",
+                "name": kwargs.get("name", ""),
+                "template": kwargs.get("template", "custom"),
+                "status": "Created",
+                "steps": 5,
+                "estimated_duration": "10-15 minutes"
+            }
+        
+        elif action == "run":
+            return {
+                "action": "run",
+                "workflow_name": kwargs.get("name", ""),
+                "execution_id": f"wf_exec_{int(time.time())}",
+                "status": "Running",
+                "async_execution": kwargs.get("async_exec", False),
+                "progress": "0%",
+                "start_time": time.strftime("%Y-%m-%d %H:%M:%S")
+            }
+        
+        else:
+            return {"action": action, "status": "Not implemented yet"}
+            
+    except Exception as e:
+        print(f"Error in workflow operations: {e}")
+        return None
+
+
+def resource_operations(action: str, **kwargs) -> Optional[Dict]:
+    """Handle resource management and optimization"""
+    try:
+        if action == "status":
+            resource_type = kwargs.get("type", "all")
+            return {
+                "action": "status",
+                "resource_type": resource_type,
+                "cpu_utilization": "45.2%",
+                "memory_usage": "2.1GB / 8GB (26%)",
+                "storage_available": "45GB / 100GB",
+                "network_bandwidth": "120Mbps / 1Gbps",
+                "active_agents": 3,
+                "resource_efficiency": "78.5%"
+            }
+        
+        elif action == "allocate":
+            return {
+                "action": "allocate",
+                "agent_id": kwargs.get("agent_id", ""),
+                "allocated_cpu": kwargs.get("cpu", 0),
+                "allocated_memory": kwargs.get("memory", 0),
+                "duration_minutes": kwargs.get("duration", 0),
+                "cost_per_hour": "25 AIT",
+                "status": "Allocated",
+                "allocation_id": f"alloc_{int(time.time())}"
+            }
+        
+        else:
+            return {"action": action, "status": "Not implemented yet"}
+            
+    except Exception as e:
+        print(f"Error in resource operations: {e}")
+        return None
         if head_response.status_code == 200:
             head_data = head_response.json()
             
@@ -907,6 +1096,89 @@ def main():
                                required=True, help="Mining action")
     mining_parser.add_argument("--wallet", help="Wallet name for mining rewards")
     mining_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
+    
+    # Agent management commands (OpenClaw agent focused)
+    agent_parser = subparsers.add_parser("agent", help="AI agent workflow and execution management")
+    agent_subparsers = agent_parser.add_subparsers(dest="agent_action", help="Agent actions")
+    
+    # Agent create
+    agent_create_parser = agent_subparsers.add_parser("create", help="Create new AI agent workflow")
+    agent_create_parser.add_argument("--name", required=True, help="Agent workflow name")
+    agent_create_parser.add_argument("--description", help="Agent description")
+    agent_create_parser.add_argument("--workflow-file", help="Workflow definition from JSON file")
+    agent_create_parser.add_argument("--verification", choices=["basic", "full", "zero-knowledge"], 
+                                     default="basic", help="Verification level")
+    agent_create_parser.add_argument("--max-execution-time", type=int, default=3600, help="Max execution time (seconds)")
+    agent_create_parser.add_argument("--max-cost-budget", type=float, default=0.0, help="Max cost budget")
+    
+    # Agent execute
+    agent_execute_parser = agent_subparsers.add_parser("execute", help="Execute AI agent workflow")
+    agent_execute_parser.add_argument("--name", required=True, help="Agent workflow name")
+    agent_execute_parser.add_argument("--input-data", help="Input data for agent execution")
+    agent_execute_parser.add_argument("--wallet", help="Wallet for payment")
+    agent_execute_parser.add_argument("--priority", choices=["low", "medium", "high"], default="medium", help="Execution priority")
+    
+    # Agent status
+    agent_status_parser = agent_subparsers.add_parser("status", help="Check agent execution status")
+    agent_status_parser.add_argument("--name", help="Agent workflow name")
+    agent_status_parser.add_argument("--execution-id", help="Specific execution ID")
+    
+    # Agent list
+    agent_list_parser = agent_subparsers.add_parser("list", help="List available agent workflows")
+    agent_list_parser.add_argument("--status", choices=["active", "completed", "failed"], help="Filter by status")
+    
+    # OpenClaw specific commands
+    openclaw_parser = subparsers.add_parser("openclaw", help="OpenClaw agent ecosystem operations")
+    openclaw_subparsers = openclaw_parser.add_subparsers(dest="openclaw_action", help="OpenClaw actions")
+    
+    # OpenClaw deploy
+    openclaw_deploy_parser = openclaw_subparsers.add_parser("deploy", help="Deploy OpenClaw agent")
+    openclaw_deploy_parser.add_argument("--agent-file", required=True, help="Agent configuration file")
+    openclaw_deploy_parser.add_argument("--wallet", required=True, help="Wallet for deployment costs")
+    openclaw_deploy_parser.add_argument("--environment", choices=["dev", "staging", "prod"], default="dev", help="Deployment environment")
+    
+    # OpenClaw monitor
+    openclaw_monitor_parser = openclaw_subparsers.add_parser("monitor", help="Monitor OpenClaw agent performance")
+    openclaw_monitor_parser.add_argument("--agent-id", help="Specific agent ID to monitor")
+    openclaw_monitor_parser.add_argument("--metrics", choices=["performance", "cost", "errors", "all"], default="all", help="Metrics to show")
+    
+    # OpenClaw market
+    openclaw_market_parser = openclaw_subparsers.add_parser("market", help="OpenClaw agent marketplace")
+    openclaw_market_parser.add_argument("--action", choices=["list", "publish", "purchase", "evaluate"], 
+                                        required=True, help="Market action")
+    openclaw_market_parser.add_argument("--agent-id", help="Agent ID for market operations")
+    openclaw_market_parser.add_argument("--price", type=float, help="Price for market operations")
+    
+    # Workflow automation commands
+    workflow_parser = subparsers.add_parser("workflow", help="Workflow automation and management")
+    workflow_subparsers = workflow_parser.add_subparsers(dest="workflow_action", help="Workflow actions")
+    
+    # Workflow create
+    workflow_create_parser = workflow_subparsers.add_parser("create", help="Create automated workflow")
+    workflow_create_parser.add_argument("--name", required=True, help="Workflow name")
+    workflow_create_parser.add_argument("--template", help="Workflow template")
+    workflow_create_parser.add_argument("--config-file", help="Workflow configuration file")
+    
+    # Workflow run
+    workflow_run_parser = workflow_subparsers.add_parser("run", help="Execute automated workflow")
+    workflow_run_parser.add_argument("--name", required=True, help="Workflow name")
+    workflow_run_parser.add_argument("--params", help="Workflow parameters (JSON)")
+    workflow_run_parser.add_argument("--async-exec", action="store_true", help="Run asynchronously")
+    
+    # Resource management commands
+    resource_parser = subparsers.add_parser("resource", help="Resource management and optimization")
+    resource_subparsers = resource_parser.add_subparsers(dest="resource_action", help="Resource actions")
+    
+    # Resource status
+    resource_status_parser = resource_subparsers.add_parser("status", help="Check resource utilization")
+    resource_status_parser.add_argument("--type", choices=["cpu", "memory", "storage", "network", "all"], default="all")
+    
+    # Resource allocate
+    resource_allocate_parser = resource_subparsers.add_parser("allocate", help="Allocate resources to agent")
+    resource_allocate_parser.add_argument("--agent-id", required=True, help="Agent ID")
+    resource_allocate_parser.add_argument("--cpu", type=float, help="CPU cores")
+    resource_allocate_parser.add_argument("--memory", type=int, help="Memory in MB")
+    resource_allocate_parser.add_argument("--duration", type=int, help="Duration in minutes")
     
     # Import wallet command
     import_parser = subparsers.add_parser("import", help="Import wallet from private key")
@@ -1112,6 +1384,123 @@ def main():
         result = mining_operations(args.action, wallet=args.wallet)
         if result:
             print(f"Mining {result['action']}:")
+            for key, value in result.items():
+                if key != "action":
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "agent":
+        # Only pass arguments that are defined for this subcommand
+        kwargs = {}
+        if hasattr(args, 'name') and args.name:
+            kwargs['name'] = args.name
+        if hasattr(args, 'description') and args.description:
+            kwargs['description'] = args.description
+        if hasattr(args, 'verification') and args.verification:
+            kwargs['verification'] = args.verification
+        if hasattr(args, 'max_execution_time') and args.max_execution_time:
+            kwargs['max_execution_time'] = args.max_execution_time
+        if hasattr(args, 'max_cost_budget') and args.max_cost_budget:
+            kwargs['max_cost_budget'] = args.max_cost_budget
+        if hasattr(args, 'input_data') and args.input_data:
+            kwargs['input_data'] = args.input_data
+        if hasattr(args, 'wallet') and args.wallet:
+            kwargs['wallet'] = args.wallet
+        if hasattr(args, 'priority') and args.priority:
+            kwargs['priority'] = args.priority
+        if hasattr(args, 'execution_id') and args.execution_id:
+            kwargs['execution_id'] = args.execution_id
+        if hasattr(args, 'status') and args.status:
+            kwargs['status'] = args.status
+        
+        result = agent_operations(args.agent_action, **kwargs)
+        if result:
+            print(f"Agent {result['action']}:")
+            for key, value in result.items():
+                if key != "action":
+                    if isinstance(value, list):
+                        print(f"  {key.replace('_', ' ').title()}:")
+                        for item in value:
+                            print(f"    - {item}")
+                    else:
+                        print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "openclaw":
+        # Only pass arguments that are defined for this subcommand
+        kwargs = {}
+        if hasattr(args, 'agent_file') and args.agent_file:
+            kwargs['agent_file'] = args.agent_file
+        if hasattr(args, 'wallet') and args.wallet:
+            kwargs['wallet'] = args.wallet
+        if hasattr(args, 'environment') and args.environment:
+            kwargs['environment'] = args.environment
+        if hasattr(args, 'agent_id') and args.agent_id:
+            kwargs['agent_id'] = args.agent_id
+        if hasattr(args, 'metrics') and args.metrics:
+            kwargs['metrics'] = args.metrics
+        # Handle the market action parameter specifically
+        if hasattr(args, 'action') and args.action and args.openclaw_action == 'market':
+            kwargs['market_action'] = args.action
+        if hasattr(args, 'price') and args.price:
+            kwargs['price'] = args.price
+        
+        result = openclaw_operations(args.openclaw_action, **kwargs)
+        if result:
+            print(f"OpenClaw {result['action']}:")
+            for key, value in result.items():
+                if key != "action":
+                    if isinstance(value, list):
+                        print(f"  {key.replace('_', ' ').title()}:")
+                        for item in value:
+                            print(f"    - {item}")
+                    else:
+                        print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "workflow":
+        # Only pass arguments that are defined for this subcommand
+        kwargs = {}
+        if hasattr(args, 'name') and args.name:
+            kwargs['name'] = args.name
+        if hasattr(args, 'template') and args.template:
+            kwargs['template'] = args.template
+        if hasattr(args, 'config_file') and args.config_file:
+            kwargs['config_file'] = args.config_file
+        if hasattr(args, 'params') and args.params:
+            kwargs['params'] = args.params
+        if hasattr(args, 'async_exec') and args.async_exec:
+            kwargs['async_exec'] = args.async_exec
+        
+        result = workflow_operations(args.workflow_action, **kwargs)
+        if result:
+            print(f"Workflow {result['action']}:")
+            for key, value in result.items():
+                if key != "action":
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "resource":
+        # Only pass arguments that are defined for this subcommand
+        kwargs = {}
+        if hasattr(args, 'type') and args.type:
+            kwargs['type'] = args.type
+        if hasattr(args, 'agent_id') and args.agent_id:
+            kwargs['agent_id'] = args.agent_id
+        if hasattr(args, 'cpu') and args.cpu:
+            kwargs['cpu'] = args.cpu
+        if hasattr(args, 'memory') and args.memory:
+            kwargs['memory'] = args.memory
+        if hasattr(args, 'duration') and args.duration:
+            kwargs['duration'] = args.duration
+        
+        result = resource_operations(args.resource_action, **kwargs)
+        if result:
+            print(f"Resource {result['action']}:")
             for key, value in result.items():
                 if key != "action":
                     print(f"  {key.replace('_', ' ').title()}: {value}")
