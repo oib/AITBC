@@ -1,0 +1,10 @@
+[
+  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_cli_help_output",
+  "tests/test_cli_basic.py::TestCLIBasicFunctionality::test_cli_list_command",
+  "tests/test_cli_basic.py::TestCLIConfiguration::test_cli_file_executable",
+  "tests/test_cli_basic.py::TestCLIConfiguration::test_cli_file_exists",
+  "tests/test_cli_basic.py::TestCLIErrorHandling::test_cli_invalid_command",
+  "tests/test_cli_basic.py::TestCLIImports::test_cli_commands_import",
+  "tests/test_cli_basic.py::TestCLIImports::test_cli_main_import",
+  "tests/test_cli_comprehensive.py::TestSimulateCommand::test_simulate_help"
+]
