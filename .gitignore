@@ -315,3 +315,7 @@ guardian_contracts/
 # Agent protocol data
 .agent_data/
 .agent_data/*
+
+# Operational and setup files
+results/
+tools/
