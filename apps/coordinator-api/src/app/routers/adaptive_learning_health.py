@@ -25,7 +25,7 @@ router = APIRouter()
 @router.get("/health", tags=["health"], summary="Adaptive Learning Service Health")
 async def adaptive_learning_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
-    Health check for Adaptive Learning Service (Port 8005)
+    Health check for Adaptive Learning Service (Port 8011)
     """
     try:
         # Initialize service
@@ -39,7 +39,7 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
         service_status = {
             "status": "healthy",
             "service": "adaptive-learning",
-            "port": 8005,
+            "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             
@@ -101,7 +101,7 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
         return {
             "status": "unhealthy",
             "service": "adaptive-learning",
-            "port": 8005,
+            "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
@@ -176,7 +176,7 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
         return {
             "status": "healthy",
             "service": "adaptive-learning",
-            "port": 8005,
+            "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
             "algorithm_tests": algorithm_tests,
             "safety_tests": safety_tests,
@@ -188,7 +188,7 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
         return {
             "status": "unhealthy",
             "service": "adaptive-learning",
-            "port": 8005,
+            "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
