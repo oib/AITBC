@@ -1,103 +1,108 @@
 ---
-description: Multi-node blockchain deployment and setup workflow
+description: DEPRECATED - Use modular workflows instead. See MULTI_NODE_MASTER_INDEX.md for navigation.
+title: Multi-Node Blockchain Deployment Workflow (DEPRECATED)
 ---
 
-# Multi-Node Blockchain Deployment Workflow
+# Multi-Node Blockchain Deployment Workflow (DEPRECATED)
 
-This workflow sets up a two-node AITBC blockchain network (aitbc as genesis authority/primary development server, aitbc1 as follower node), creates wallets, and demonstrates cross-node transactions.
+⚠️ **This workflow has been split into focused modules for better maintainability and usability.**
 
-## Prerequisites
+## 🆕 New Modular Structure
 
-- SSH access to both nodes (aitbc1 and aitbc)
-- Both nodes have the AITBC repository cloned
-- Redis available for cross-node gossip
-- Python venv at `/opt/aitbc/venv`
-- AITBC CLI tool available (aliased as `aitbc`)
-- CLI tool configured to use `/etc/aitbc/blockchain.env` by default
+See **[MULTI_NODE_MASTER_INDEX.md](MULTI_NODE_MASTER_INDEX.md)** for complete navigation to the new modular workflows.
 
-## Pre-Flight Setup
+### New Modules Available
 
-Before running the workflow, ensure the following setup is complete:
+1. **[Core Setup Module](multi-node-blockchain-setup-core.md)** - Essential setup steps
+2. **[Operations Module](multi-node-blockchain-operations.md)** - Daily operations and monitoring  
+3. **[Advanced Features Module](multi-node-blockchain-advanced.md)** - Smart contracts and security testing
+4. **[Production Module](multi-node-blockchain-production.md)** - Production deployment and scaling
+5. **[Marketplace Module](multi-node-blockchain-marketplace.md)** - Marketplace testing and AI operations
+6. **[Reference Module](multi-node-blockchain-reference.md)** - Configuration reference and verification
 
-```bash
-# Run the pre-flight setup script
-/opt/aitbc/scripts/workflow/01_preflight_setup.sh
-```
+### Why the Split?
 
-## Directory Structure
+The original 64KB monolithic workflow (2,098 lines) was difficult to:
+- Navigate and find relevant sections
+- Maintain and update specific areas
+- Load and edit efficiently
+- Focus on specific use cases
 
-- `/opt/aitbc/venv` - Central Python virtual environment
-- `/opt/aitbc/requirements.txt` - Python dependencies (includes CLI dependencies)
-- `/etc/aitbc/.env` - Central environment configuration
-- `/var/lib/aitbc/data` - Blockchain database files
-- `/var/lib/aitbc/keystore` - Wallet credentials
-- `/var/log/aitbc/` - Service logs
+### Benefits of Modular Structure
 
-## Steps
+✅ **Improved Maintainability** - Each module focuses on specific functionality  
+✅ **Enhanced Usability** - Users can load only needed modules  
+✅ **Better Documentation** - Each module has focused troubleshooting guides  
+✅ **Clear Dependencies** - Explicit module relationships  
+✅ **Better Searchability** - Find relevant information faster  
 
-### Environment Configuration
+### Migration Guide
 
-The workflow uses the single central `/etc/aitbc/.env` file as the configuration for both nodes:
+**For New Users**: Start with [MULTI_NODE_MASTER_INDEX.md](MULTI_NODE_MASTER_INDEX.md)
 
-- **Base Configuration**: The central config contains all default settings
-- **Node-Specific Adaptation**: Each node adapts the config for its role (genesis vs follower)
-- **Path Updates**: Paths are updated to use the standardized directory structure
-- **Backup Strategy**: Original config is backed up before modifications
-- **Standard Location**: Config moved to `/etc/aitbc/` following system standards
-- **CLI Integration**: AITBC CLI tool uses this config file by default
+**For Existing Users**: 
+- Basic setup → [Core Setup Module](multi-node-blockchain-setup-core.md)
+- Daily operations → [Operations Module](multi-node-blockchain-operations.md)
+- Advanced features → [Advanced Features Module](multi-node-blockchain-advanced.md)
+- Production deployment → [Production Module](multi-node-blockchain-production.md)
+- AI operations → [Marketplace Module](multi-node-blockchain-marketplace.md)
+- Reference material → [Reference Module](multi-node-blockchain-reference.md)
 
-### 🚨 Important: Genesis Block Architecture
-
-**CRITICAL**: Only the genesis authority node (aitbc) should have the genesis block!
-
-```bash
-# ❌ WRONG - Do NOT copy genesis block to follower nodes
-# scp aitbc:/var/lib/aitbc/data/ait-mainnet/genesis.json aitbc1:/var/lib/aitbc/data/ait-mainnet/
-
-# ✅ CORRECT - Follower nodes sync genesis via blockchain protocol
-# aitbc1 will automatically receive genesis block from aitbc during sync
-```
-
-**Architecture Overview:**
-1. **aitbc (Genesis Authority/Primary Development Server)**: Creates genesis block with initial wallets
-2. **aitbc1 (Follower Node)**: Syncs from aitbc, receives genesis block automatically
-3. **Wallet Creation**: New wallets attach to existing blockchain using genesis keys
-4. **Access AIT Coins**: Genesis wallets control initial supply, new wallets receive via transactions
-
-**Key Principles:**
-- **Single Genesis Source**: Only aitbc creates and holds the original genesis block
-- **Blockchain Sync**: Followers receive blockchain data through sync protocol, not file copying
-- **Wallet Attachment**: New wallets attach to existing chain, don't create new genesis
-- **Coin Access**: AIT coins are accessed through transactions from genesis wallets
-
-### 1. Prepare aitbc (Genesis Authority/Primary Development Server)
+### Quick Start with New Structure
 
 ```bash
-# Run the genesis authority setup script
-/opt/aitbc/scripts/workflow/02_genesis_authority_setup.sh
+# Core setup (replaces first 50 sections of old workflow)
+/opt/aitbc/.windsurf/workflows/multi-node-blockchain-setup-core.md
+
+# Daily operations (replaces operations sections)
+/opt/aitbc/.windsurf/workflows/multi-node-blockchain-operations.md
+
+# Advanced features (replaces advanced sections)
+/opt/aitbc/.windsurf/workflows/multi-node-blockchain-advanced.md
 ```
 
-### 2. Verify aitbc Genesis State
+---
 
-```bash
-# Check blockchain state
-curl -s http://localhost:8006/rpc/head | jq .
-curl -s http://localhost:8006/rpc/info | jq .
-curl -s http://localhost:8006/rpc/supply | jq .
+## Legacy Content (Preserved for Reference)
 
-# Check genesis wallet balance
-GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
-curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
-```
+The following content is preserved for reference but should be accessed through the new modular workflows.
 
-### 3. Prepare aitbc1 (Follower Node)
+### Quick Links to New Modules
 
-```bash
-# Run the follower node setup script (executed on aitbc1)
-ssh aitbc1 '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
-```
+| Task | Old Section | New Module |
+|---|---|---|
+| Basic Setup | Sections 1-50 | [Core Setup](multi-node-blockchain-setup-core.md) |
+| Environment Config | Sections 51-100 | [Core Setup](multi-node-blockchain-setup-core.md) |
+| Daily Operations | Sections 101-300 | [Operations](multi-node-blockchain-operations.md) |
+| Advanced Features | Sections 301-600 | [Advanced Features](multi-node-blockchain-advanced.md) |
+| Production | Sections 601-800 | [Production](multi-node-blockchain-production.md) |
+| Marketplace | Sections 801-1000 | [Marketplace](multi-node-blockchain-marketplace.md) |
+| Reference | Sections 1001-164 | [Reference](multi-node-blockchain-reference.md) |
 
-### 4. Watch Blockchain Sync
+### Legacy Content Summary
+
+This workflow previously covered:
+- Prerequisites and pre-flight setup (now in Core Setup)
+- Environment configuration (now in Core Setup)
+- Genesis block architecture (now in Core Setup)
+- Basic node setup (now in Core Setup)
+- Daily operations (now in Operations)
+- Service management (now in Operations)
+- Monitoring and troubleshooting (now in Operations)
+- Advanced features (now in Advanced Features)
+- Smart contracts (now in Advanced Features)
+- Security testing (now in Advanced Features)
+- Production deployment (now in Production)
+- Scaling strategies (now in Production)
+- Marketplace operations (now in Marketplace)
+- AI operations (now in Marketplace)
+- Reference material (now in Reference)
+
+---
+
+**Recommendation**: Use the new modular workflows for all new development. This legacy workflow is maintained for backward compatibility but will be deprecated in future versions.
+
+For the most up-to-date information and best organization, see **[MULTI_NODE_MASTER_INDEX.md](MULTI_NODE_MASTER_INDEX.md)**.
 
 ```bash
 # On aitbc, monitor sync progress
