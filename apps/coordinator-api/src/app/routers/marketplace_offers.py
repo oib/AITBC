@@ -7,11 +7,14 @@ Router to create marketplace offers from registered miners
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
+import logging
 
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer, Miner
 from ..schemas import MarketplaceOfferView
 from ..storage import get_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["marketplace-offers"])
 
@@ -102,3 +105,39 @@ async def list_miner_offers(session: Annotated[Session, Depends(get_session)]) -
         result.append(offer_view)
     
     return result
+
+
+@router.get("/offers", summary="List all marketplace offers (Fixed)")
+async def list_all_offers(session: Annotated[Session, Depends(get_session)]) -> list[dict[str, Any]]:
+    """List all marketplace offers - Fixed version to avoid AttributeError"""
+    try:
+        # Use direct database query instead of GlobalMarketplaceService
+        from sqlmodel import select
+        
+        offers = session.execute(select(MarketplaceOffer)).scalars().all()
+        
+        result = []
+        for offer in offers:
+            # Extract attributes safely
+            attrs = offer.attributes or {}
+            
+            offer_data = {
+                "id": offer.id,
+                "provider": offer.provider,
+                "capacity": offer.capacity,
+                "price": offer.price,
+                "status": offer.status,
+                "created_at": offer.created_at.isoformat(),
+                "gpu_model": attrs.get("gpu_model", "Unknown"),
+                "gpu_memory_gb": attrs.get("gpu_memory_gb", 0),
+                "cuda_version": attrs.get("cuda_version", "Unknown"),
+                "supported_models": attrs.get("supported_models", []),
+                "region": attrs.get("region", "unknown")
+            }
+            result.append(offer_data)
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error listing offers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
