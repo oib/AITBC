@@ -1,10 +1,43 @@
 #!/bin/bash
 # OpenClaw Complete Multi-Node Blockchain Workflow
+# Updated 2026-03-30: Complete AI operations, advanced coordination, genesis reset
 # This script orchestrates all OpenClaw agents for complete multi-node blockchain deployment
 
 set -e  # Exit on any error
 
-echo "=== OpenClaw Complete Multi-Node Blockchain Workflow ==="
+echo "=== OpenClaw Complete Multi-Node Blockchain Workflow v4.0 ==="
+
+# Configuration
+GENESIS_NODE="aitbc"
+FOLLOWER_NODE="aitbc1"
+LOCAL_RPC="http://localhost:8006"
+GENESIS_RPC="http://10.1.223.93:8006"
+FOLLOWER_RPC="http://10.1.223.40:8006"
+WALLET_PASSWORD="123"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')] $1${NC}"
+}
+
+success() {
+    echo -e "${GREEN}✓ $1${NC}"
+}
+
+warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
+error() {
+    echo -e "${RED}✗ $1${NC}"
+    exit 1
+}
 
 # 1. Initialize OpenClaw CoordinatorAgent
 echo "1. Initializing OpenClaw CoordinatorAgent..."
@@ -90,6 +123,49 @@ openclaw execute --agent CoordinatorAgent --task comprehensive_verification || {
     source venv/bin/activate
     echo "Total wallets created:"
     ./aitbc-cli wallet list | wc -l
+    
+    # Check OpenClaw agent status
+    openclaw status --agent all
+    
+    # Check blockchain height
+    echo "Blockchain Height:"
+    curl -s http://localhost:8006/rpc/head | jq .height
+    
+    # Check proposer
+    echo "Proposer:"
+    curl -s http://localhost:8006/health | jq .proposer_id
+    
+    # Check services
+    echo "Services:"
+    systemctl is-active aitbc-blockchain-node.service aitbc-blockchain-rpc.service
+    
+    # Check node connectivity
+    echo "Node Connectivity:"
+    ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
+    
+    # Check cross-node transactions
+    echo "Cross-Node Transactions:"
+    ./aitbc-cli transaction list --limit 3
+    
+    # Check AI operations
+    echo "AI Operations:"
+    ./aitbc-cli ai-submit --wallet wallet --type inference --prompt "Generate image" --payment 100
+    
+    # Check resource allocation
+    echo "Resource Allocation:"
+    ./aitbc-cli resource allocate --agent-id agent-name --gpu 1 --memory 8192 --duration 3600
+    
+    # Check marketplace participation
+    echo "Marketplace Participation:"
+    ./aitbc-cli marketplace --action create --name "Service" --price 50 --wallet wallet
+    
+    # Check governance
+    echo "Governance:"
+    ./aitbc-cli smart-contract --action create --name "Contract" --code "Code" --wallet wallet
+    
+    # Check monitoring
+    echo "Monitoring:"
+    python3 /tmp/aitbc1_heartbeat.py
 }
 
 # 7. Performance Testing via OpenClaw
