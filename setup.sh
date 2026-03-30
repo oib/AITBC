@@ -194,7 +194,7 @@ install_services() {
     for service in "${services[@]}"; do
         if [ -f "/opt/aitbc/systemd/$service" ]; then
             log "Installing $service..."
-            cp "/opt/aitbc/systemd/$service" /etc/systemd/system/
+            ln -sf "/opt/aitbc/systemd/$service" /etc/systemd/system/
         else
             warning "Service file not found: $service"
         fi
