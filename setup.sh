@@ -228,10 +228,25 @@ echo ""
 echo "🔧 Core Services (8000-8009):"
 check_service "Coordinator API" "http://localhost:8000/health"
 check_service "Exchange API" "http://localhost:8001/api/health"
+check_service "Marketplace API" "http://localhost:8002/health"
 check_service "Wallet API" "http://localhost:8003/health"
-check_service "Marketplace API" "http://localhost:8006/health"
-check_service "Explorer" "http://localhost:8004/health"
 check_service "Multimodal Service" "http://localhost:8005/health"
+check_service "Explorer" "http://localhost:8007/health"
+
+# Check blockchain node and RPC
+echo ""
+echo "⛓️ Blockchain Services:"
+if systemctl is-active --quiet aitbc-blockchain-node.service; then
+    echo -e "${GREEN}✓${NC} Blockchain Node is running"
+else
+    echo -e "${RED}✗${NC} Blockchain Node is not running"
+fi
+
+if systemctl is-active --quiet aitbc-blockchain-rpc.service; then
+    echo -e "${GREEN}✓${NC} Blockchain RPC (port 8006) is running"
+else
+    echo -e "${RED}✗${NC} Blockchain RPC (port 8006) is not running"
+fi
 
 # AI/Agent/GPU Services (8010-8019)
 echo ""
@@ -248,21 +263,6 @@ check_service "Web UI" "http://localhost:8016/health"
 echo ""
 echo "📊 Other Services (8020-8029):"
 check_service "Modality Optimization" "http://localhost:8023/health"
-
-# Check blockchain node and RPC
-echo ""
-echo "Blockchain Services:"
-if systemctl is-active --quiet aitbc-blockchain-node.service; then
-    echo -e "${GREEN}✓${NC} Blockchain Node is running"
-else
-    echo -e "${RED}✗${NC} Blockchain Node is not running"
-fi
-
-if systemctl is-active --quiet aitbc-blockchain-rpc.service; then
-    echo -e "${GREEN}✓${NC} Blockchain RPC is running"
-else
-    echo -e "${RED}✗${NC} Blockchain RPC is not running"
-fi
 
 # Check process status
 echo ""
