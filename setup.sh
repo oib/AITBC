@@ -219,30 +219,29 @@ log() {
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
 }
 
-log "Starting AITBC services..."
+log "Starting AITBC services using systemd..."
 
-# Start wallet service
+# Start services using systemd
 log "Starting wallet service..."
-cd /opt/aitbc/apps/wallet
-source .venv/bin/activate
-nohup python simple_daemon.py > /var/log/aitbc-wallet.log 2>&1 &
-echo $! > /var/run/aitbc-wallet.pid
+systemctl start aitbc-wallet.service || log "Warning: Failed to start wallet service"
 
-# Start coordinator API
-log "Starting coordinator API..."
-cd /opt/aitbc/apps/coordinator-api/src
-source ../.venv/bin/activate
-nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /var/log/aitbc-coordinator.log 2>&1 &
-echo $! > /var/run/aitbc-coordinator.pid
+log "Starting coordinator API service..."
+systemctl start aitbc-coordinator-api.service || log "Warning: Failed to start coordinator API service"
 
-# Start exchange API
-log "Starting exchange API..."
-cd /opt/aitbc/apps/exchange
-source .venv/bin/activate
-nohup python simple_exchange_api.py > /var/log/aitbc-exchange.log 2>&1 &
-echo $! > /var/run/aitbc-exchange.pid
+log "Starting exchange API service..."
+systemctl start aitbc-exchange-api.service || log "Warning: Failed to start exchange API service"
 
-log "All services started"
+log "Starting blockchain RPC service..."
+systemctl start aitbc-blockchain-rpc.service || log "Warning: Failed to start blockchain RPC service"
+
+# Enable services for auto-start
+log "Enabling services for auto-start..."
+systemctl enable aitbc-wallet.service
+systemctl enable aitbc-coordinator-api.service
+systemctl enable aitbc-exchange-api.service
+systemctl enable aitbc-blockchain-rpc.service
+
+log "All services started and enabled"
 EOF
 
     chmod +x /opt/aitbc/start-services.sh
