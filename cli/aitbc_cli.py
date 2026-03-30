@@ -638,13 +638,24 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Di
 def get_chain_info(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get blockchain information"""
     try:
-        # Use the head endpoint to get chain info
-        response = requests.get(f"{rpc_url}/rpc/head")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error getting chain info: {response.text}")
-            return None
+        result = {}
+        # Get chain metadata from health endpoint
+        health_response = requests.get(f"{rpc_url}/health")
+        if health_response.status_code == 200:
+            health = health_response.json()
+            chains = health.get('supported_chains', [])
+            result['chain_id'] = chains[0] if chains else 'ait-mainnet'
+            result['supported_chains'] = ', '.join(chains) if chains else 'ait-mainnet'
+            result['proposer_id'] = health.get('proposer_id', '')
+        # Get head block for height
+        head_response = requests.get(f"{rpc_url}/rpc/head")
+        if head_response.status_code == 200:
+            head = head_response.json()
+            result['height'] = head.get('height', 0)
+            result['hash'] = head.get('hash', 'N/A')
+            result['timestamp'] = head.get('timestamp', 'N/A')
+            result['tx_count'] = head.get('tx_count', 0)
+        return result if result else None
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -1331,8 +1342,9 @@ def main():
             print("Blockchain Information:")
             print(f"  Chain ID: {chain_info.get('chain_id', 'N/A')}")
             print(f"  Supported Chains: {chain_info.get('supported_chains', 'N/A')}")
-            print(f"  RPC Version: {chain_info.get('rpc_version', 'N/A')}")
             print(f"  Height: {chain_info.get('height', 'N/A')}")
+            print(f"  Latest Block: {str(chain_info.get('hash', 'N/A'))[:16]}...")
+            print(f"  Proposer: {chain_info.get('proposer_id', 'N/A') or 'none'}")
         else:
             sys.exit(1)
     
