@@ -230,10 +230,10 @@ check_service "Coordinator API" "http://localhost:8000/health"
 
 # Check AI and processing services
 check_service "GPU Service" "http://localhost:8010/health"
-check_service "Marketplace API" "http://localhost:8014/health"
+check_service "Marketplace API" "http://localhost:8021/health"
 check_service "OpenClaw Service" "http://localhost:8007/health"
 check_service "AI Service" "http://localhost:8009/health"
-check_service "Learning Service" "http://localhost:8013/health"
+check_service "Learning Service" "http://localhost:8010/health"
 
 # Check additional services
 check_service "Explorer" "http://localhost:8005/health"
