@@ -16,6 +16,7 @@ import sys
 import os
 import time
 import argparse
+import random
 from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -1030,6 +1031,324 @@ def resource_operations(action: str, **kwargs) -> Optional[Dict]:
         return None
 
 
+# Simulation Functions
+def simulate_blockchain(blocks: int, transactions: int, delay: float) -> Dict:
+    """Simulate blockchain block production and transactions"""
+    print(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
+    
+    results = []
+    for block_num in range(blocks):
+        # Simulate block production
+        block_data = {
+            'block_number': block_num + 1,
+            'timestamp': time.time(),
+            'transactions': []
+        }
+        
+        # Generate transactions
+        for tx_num in range(transactions):
+            tx = {
+                'tx_id': f"0x{random.getrandbits(256):064x}",
+                'from_address': f"ait{random.getrandbits(160):040x}",
+                'to_address': f"ait{random.getrandbits(160):040x}",
+                'amount': random.uniform(0.1, 1000.0),
+                'fee': random.uniform(0.01, 1.0)
+            }
+            block_data['transactions'].append(tx)
+        
+        block_data['tx_count'] = len(block_data['transactions'])
+        block_data['total_amount'] = sum(tx['amount'] for tx in block_data['transactions'])
+        block_data['total_fees'] = sum(tx['fee'] for tx in block_data['transactions'])
+        
+        results.append(block_data)
+        
+        # Output block info
+        print(f"Block {block_data['block_number']}: {block_data['tx_count']} txs, "
+              f"{block_data['total_amount']:.2f} AIT, {block_data['total_fees']:.2f} fees")
+        
+        if delay > 0 and block_num < blocks - 1:
+            time.sleep(delay)
+    
+    # Summary
+    total_txs = sum(block['tx_count'] for block in results)
+    total_amount = sum(block['total_amount'] for block in results)
+    total_fees = sum(block['total_fees'] for block in results)
+    
+    print(f"\nSimulation Summary:")
+    print(f"  Total Blocks: {blocks}")
+    print(f"  Total Transactions: {total_txs}")
+    print(f"  Total Amount: {total_amount:.2f} AIT")
+    print(f"  Total Fees: {total_fees:.2f} AIT")
+    print(f"  Average TPS: {total_txs / (blocks * max(delay, 0.1)):.2f}")
+    
+    return {
+        'action': 'simulate_blockchain',
+        'blocks': blocks,
+        'total_transactions': total_txs,
+        'total_amount': total_amount,
+        'total_fees': total_fees
+    }
+
+
+def simulate_wallets(wallets: int, balance: float, transactions: int, amount_range: str) -> Dict:
+    """Simulate wallet creation and transactions"""
+    print(f"Simulating {wallets} wallets with {balance:.2f} AIT initial balance")
+    
+    # Parse amount range
+    try:
+        min_amount, max_amount = map(float, amount_range.split('-'))
+    except ValueError:
+        min_amount, max_amount = 1.0, 100.0
+    
+    # Create wallets
+    created_wallets = []
+    for i in range(wallets):
+        wallet = {
+            'name': f'sim_wallet_{i+1}',
+            'address': f"ait{random.getrandbits(160):040x}",
+            'balance': balance
+        }
+        created_wallets.append(wallet)
+        print(f"Created wallet {wallet['name']}: {wallet['address']} with {balance:.2f} AIT")
+    
+    # Simulate transactions
+    print(f"\nSimulating {transactions} transactions...")
+    for i in range(transactions):
+        # Random sender and receiver
+        sender = random.choice(created_wallets)
+        receiver = random.choice([w for w in created_wallets if w != sender])
+        
+        # Random amount
+        amount = random.uniform(min_amount, max_amount)
+        
+        # Check if sender has enough balance
+        if sender['balance'] >= amount:
+            sender['balance'] -= amount
+            receiver['balance'] += amount
+            
+            print(f"Tx {i+1}: {sender['name']} -> {receiver['name']}: {amount:.2f} AIT")
+        else:
+            print(f"Tx {i+1}: {sender['name']} -> {receiver['name']}: FAILED (insufficient balance)")
+    
+    # Final balances
+    print(f"\nFinal Wallet Balances:")
+    for wallet in created_wallets:
+        print(f"  {wallet['name']}: {wallet['balance']:.2f} AIT")
+    
+    return {
+        'action': 'simulate_wallets',
+        'wallets': wallets,
+        'initial_balance': balance,
+        'transactions': transactions
+    }
+
+
+def simulate_price(price: float, volatility: float, timesteps: int, delay: float) -> Dict:
+    """Simulate AIT price movements"""
+    print(f"Simulating AIT price from {price:.2f} with {volatility:.2f} volatility")
+    
+    current_price = price
+    prices = [current_price]
+    
+    for step in range(timesteps):
+        # Random price change
+        change_percent = random.uniform(-volatility, volatility)
+        current_price = current_price * (1 + change_percent)
+        
+        # Ensure price doesn't go negative
+        current_price = max(current_price, 0.01)
+        
+        prices.append(current_price)
+        
+        print(f"Step {step+1}: {current_price:.4f} AIT ({change_percent:+.2%})")
+        
+        if delay > 0 and step < timesteps - 1:
+            time.sleep(delay)
+    
+    # Statistics
+    min_price = min(prices)
+    max_price = max(prices)
+    avg_price = sum(prices) / len(prices)
+    
+    print(f"\nPrice Statistics:")
+    print(f"  Starting Price: {price:.4f} AIT")
+    print(f"  Ending Price: {current_price:.4f} AIT")
+    print(f"  Minimum Price: {min_price:.4f} AIT")
+    print(f"  Maximum Price: {max_price:.4f} AIT")
+    print(f"  Average Price: {avg_price:.4f} AIT")
+    print(f"  Total Change: {((current_price - price) / price * 100):+.2f}%")
+    
+    return {
+        'action': 'simulate_price',
+        'starting_price': price,
+        'ending_price': current_price,
+        'min_price': min_price,
+        'max_price': max_price,
+        'avg_price': avg_price
+    }
+
+
+def simulate_network(nodes: int, network_delay: float, failure_rate: float) -> Dict:
+    """Simulate network topology and node failures"""
+    print(f"Simulating network with {nodes} nodes, {network_delay}s delay, {failure_rate:.2f} failure rate")
+    
+    # Create nodes
+    network_nodes = []
+    for i in range(nodes):
+        node = {
+            'id': f'node_{i+1}',
+            'address': f"10.1.223.{90+i}",
+            'status': 'active',
+            'height': 0,
+            'connected_to': []
+        }
+        network_nodes.append(node)
+    
+    # Create network topology (ring + mesh)
+    for i, node in enumerate(network_nodes):
+        # Connect to next node (ring)
+        next_node = network_nodes[(i + 1) % len(network_nodes)]
+        node['connected_to'].append(next_node['id'])
+        
+        # Connect to random nodes (mesh)
+        if len(network_nodes) > 2:
+            mesh_connections = random.sample([n['id'] for n in network_nodes if n['id'] != node['id']], 
+                                           min(2, len(network_nodes) - 1))
+            for conn in mesh_connections:
+                if conn not in node['connected_to']:
+                    node['connected_to'].append(conn)
+    
+    # Display network topology
+    print(f"\nNetwork Topology:")
+    for node in network_nodes:
+        print(f"  {node['id']} ({node['address']}): connected to {', '.join(node['connected_to'])}")
+    
+    # Simulate network operations
+    print(f"\nSimulating network operations...")
+    active_nodes = network_nodes.copy()
+    
+    for step in range(10):
+        # Simulate failures
+        for node in active_nodes:
+            if random.random() < failure_rate:
+                node['status'] = 'failed'
+                print(f"Step {step+1}: {node['id']} failed")
+        
+        # Remove failed nodes
+        active_nodes = [n for n in active_nodes if n['status'] == 'active']
+        
+        # Simulate block propagation
+        if active_nodes:
+            # Random node produces block
+            producer = random.choice(active_nodes)
+            producer['height'] += 1
+            
+            # Propagate to connected nodes
+            for node in active_nodes:
+                if node['id'] != producer['id'] and node['id'] in producer['connected_to']:
+                    node['height'] = max(node['height'], producer['height'] - 1)
+            
+            print(f"Step {step+1}: {producer['id']} produced block {producer['height']}, "
+                  f"{len(active_nodes)} nodes active")
+        
+        time.sleep(network_delay)
+    
+    # Final network status
+    print(f"\nFinal Network Status:")
+    for node in network_nodes:
+        status_icon = "✅" if node['status'] == 'active' else "❌"
+        print(f"  {status_icon} {node['id']}: height {node['height']}, "
+              f"connections: {len(node['connected_to'])}")
+    
+    return {
+        'action': 'simulate_network',
+        'nodes': nodes,
+        'active_nodes': len(active_nodes),
+        'failure_rate': failure_rate
+    }
+
+
+def simulate_ai_jobs(jobs: int, models: str, duration_range: str) -> Dict:
+    """Simulate AI job submission and processing"""
+    print(f"Simulating {jobs} AI jobs with models: {models}")
+    
+    # Parse models
+    model_list = [m.strip() for m in models.split(',')]
+    
+    # Parse duration range
+    try:
+        min_duration, max_duration = map(int, duration_range.split('-'))
+    except ValueError:
+        min_duration, max_duration = 30, 300
+    
+    # Simulate job submission
+    submitted_jobs = []
+    for i in range(jobs):
+        job = {
+            'job_id': f"job_{i+1:03d}",
+            'model': random.choice(model_list),
+            'status': 'queued',
+            'submit_time': time.time(),
+            'duration': random.randint(min_duration, max_duration),
+            'wallet': f"wallet_{random.randint(1, 5):03d}"
+        }
+        submitted_jobs.append(job)
+        
+        print(f"Submitted job {job['job_id']}: {job['model']} (est. {job['duration']}s)")
+    
+    # Simulate job processing
+    print(f"\nSimulating job processing...")
+    processing_jobs = submitted_jobs.copy()
+    completed_jobs = []
+    
+    current_time = time.time()
+    while processing_jobs and current_time < time.time() + 600:  # Max 10 minutes
+        current_time = time.time()
+        
+        for job in processing_jobs[:]:
+            if job['status'] == 'queued' and current_time - job['submit_time'] > 5:
+                job['status'] = 'running'
+                job['start_time'] = current_time
+                print(f"Started {job['job_id']}")
+            
+            elif job['status'] == 'running':
+                if current_time - job['start_time'] >= job['duration']:
+                    job['status'] = 'completed'
+                    job['end_time'] = current_time
+                    job['actual_duration'] = job['end_time'] - job['start_time']
+                    processing_jobs.remove(job)
+                    completed_jobs.append(job)
+                    print(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
+        
+        time.sleep(1)  # Check every second
+    
+    # Job statistics
+    print(f"\nJob Statistics:")
+    print(f"  Total Jobs: {jobs}")
+    print(f"  Completed Jobs: {len(completed_jobs)}")
+    print(f"  Failed Jobs: {len(processing_jobs)}")
+    
+    if completed_jobs:
+        avg_duration = sum(job['actual_duration'] for job in completed_jobs) / len(completed_jobs)
+        print(f"  Average Duration: {avg_duration:.1f}s")
+        
+        # Model statistics
+        model_stats = {}
+        for job in completed_jobs:
+            model_stats[job['model']] = model_stats.get(job['model'], 0) + 1
+        
+        print(f"  Model Usage:")
+        for model, count in model_stats.items():
+            print(f"    {model}: {count} jobs")
+    
+    return {
+        'action': 'simulate_ai_jobs',
+        'total_jobs': jobs,
+        'completed_jobs': len(completed_jobs),
+        'failed_jobs': len(processing_jobs)
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description="AITBC CLI - Comprehensive Blockchain Management Tool")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -1250,6 +1569,42 @@ def main():
     ai_submit_parser.add_argument("--payment", type=float, required=True, help="Payment in AIT")
     ai_submit_parser.add_argument("--password", help="Wallet password")
     ai_submit_parser.add_argument("--password-file", help="File containing wallet password")
+    
+    # Simulation commands
+    simulate_parser = subparsers.add_parser("simulate", help="Simulate blockchain scenarios and test environments")
+    simulate_subparsers = simulate_parser.add_subparsers(dest="simulate_command", help="Simulation commands")
+    
+    # Blockchain simulation
+    blockchain_sim_parser = simulate_subparsers.add_parser("blockchain", help="Simulate blockchain block production and transactions")
+    blockchain_sim_parser.add_argument("--blocks", type=int, default=10, help="Number of blocks to simulate")
+    blockchain_sim_parser.add_argument("--transactions", type=int, default=50, help="Number of transactions per block")
+    blockchain_sim_parser.add_argument("--delay", type=float, default=1.0, help="Delay between blocks (seconds)")
+    
+    # Wallet simulation
+    wallets_sim_parser = simulate_subparsers.add_parser("wallets", help="Simulate wallet creation and transactions")
+    wallets_sim_parser.add_argument("--wallets", type=int, default=5, help="Number of wallets to create")
+    wallets_sim_parser.add_argument("--balance", type=float, default=1000.0, help="Initial balance for each wallet")
+    wallets_sim_parser.add_argument("--transactions", type=int, default=20, help="Number of transactions to simulate")
+    wallets_sim_parser.add_argument("--amount-range", default="1.0-100.0", help="Transaction amount range (min-max)")
+    
+    # Price simulation
+    price_sim_parser = simulate_subparsers.add_parser("price", help="Simulate AIT price movements")
+    price_sim_parser.add_argument("--price", type=float, default=100.0, help="Starting AIT price")
+    price_sim_parser.add_argument("--volatility", type=float, default=0.05, help="Price volatility (0.0-1.0)")
+    price_sim_parser.add_argument("--timesteps", type=int, default=100, help="Number of timesteps to simulate")
+    price_sim_parser.add_argument("--delay", type=float, default=0.1, help="Delay between timesteps (seconds)")
+    
+    # Network simulation
+    network_sim_parser = simulate_subparsers.add_parser("network", help="Simulate network topology and node failures")
+    network_sim_parser.add_argument("--nodes", type=int, default=3, help="Number of nodes to simulate")
+    network_sim_parser.add_argument("--network-delay", type=float, default=0.1, help="Network delay in seconds")
+    network_sim_parser.add_argument("--failure-rate", type=float, default=0.05, help="Node failure rate (0.0-1.0)")
+    
+    # AI jobs simulation
+    ai_jobs_sim_parser = simulate_subparsers.add_parser("ai-jobs", help="Simulate AI job submission and processing")
+    ai_jobs_sim_parser.add_argument("--jobs", type=int, default=10, help="Number of AI jobs to simulate")
+    ai_jobs_sim_parser.add_argument("--models", default="text-generation", help="Available models (comma-separated)")
+    ai_jobs_sim_parser.add_argument("--duration-range", default="30-300", help="Job duration range in seconds (min-max)")
     
     args = parser.parse_args()
     
@@ -1585,6 +1940,26 @@ def main():
                 if key != 'action':
                     print(f"  {key.replace('_', ' ').title()}: {value}")
         else:
+            sys.exit(1)
+    
+    elif args.command == "simulate":
+        if hasattr(args, 'simulate_command'):
+            if args.simulate_command == "blockchain":
+                simulate_blockchain(args.blocks, args.transactions, args.delay)
+            elif args.simulate_command == "wallets":
+                simulate_wallets(args.wallets, args.balance, args.transactions, args.amount_range)
+            elif args.simulate_command == "price":
+                simulate_price(args.price, args.volatility, args.timesteps, args.delay)
+            elif args.simulate_command == "network":
+                simulate_network(args.nodes, args.network_delay, args.failure_rate)
+            elif args.simulate_command == "ai-jobs":
+                simulate_ai_jobs(args.jobs, args.models, args.duration_range)
+            else:
+                print(f"Unknown simulate command: {args.simulate_command}")
+                sys.exit(1)
+        else:
+            print("Error: simulate command requires a subcommand")
+            print("Available subcommands: blockchain, wallets, price, network, ai-jobs")
             sys.exit(1)
     
     else:
