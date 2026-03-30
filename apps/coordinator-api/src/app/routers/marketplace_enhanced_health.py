@@ -13,7 +13,7 @@ from typing import Dict, Any
 
 from ..storage import get_session
 from ..services.marketplace_enhanced import EnhancedMarketplaceService
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 router = APIRouter()

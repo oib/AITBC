@@ -14,7 +14,7 @@ from ..domain.bounty import (
     SubmissionStatus, BountyStats, BountyIntegration
 )
 from ..storage import get_session
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 
