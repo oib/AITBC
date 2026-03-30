@@ -91,7 +91,7 @@ setup_runtime_directories() {
         "/var/lib/aitbc"
         "/var/lib/aitbc/keystore"
         "/var/lib/aitbc/data"
-        "/var/lib/aitbc/logs"
+        "/var/log/aitbc"
         "/etc/aitbc"
     )
     
@@ -104,25 +104,22 @@ setup_runtime_directories() {
     chmod 755 /var/lib/aitbc
     chmod 700 /var/lib/aitbc/keystore  # Secure keystore
     chmod 755 /var/lib/aitbc/data
-    chmod 755 /var/lib/aitbc/logs
+    chmod 755 /var/log/aitbc
     chmod 755 /etc/aitbc
     
     # Set ownership
     chown root:root /var/lib/aitbc
     chown root:root /var/lib/aitbc/keystore
     chown root:root /var/lib/aitbc/data
-    chown root:root /var/lib/aitbc/logs
+    chown root:root /var/log/aitbc
     chown root:root /etc/aitbc
     
     # Create README files
     echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
     echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
     echo "# Application databases" > /var/lib/aitbc/data/README.md
-    echo "# Application logs" > /var/lib/aitbc/logs/README.md
+    echo "# Application logs" > /var/log/aitbc/README.md
     echo "# AITBC Configuration Files" > /etc/aitbc/README.md
-    
-    # Create symlink for standard logging
-    ln -sf /var/lib/aitbc/logs /var/log/aitbc
     
     success "Runtime directories setup completed"
 }

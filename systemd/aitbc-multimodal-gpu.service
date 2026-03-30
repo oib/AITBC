@@ -28,7 +28,7 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/logs /var/lib/aitbc/data /dev/nvidia*
+ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data /dev/nvidia*
 LimitNOFILE=65536
 
 # GPU access
