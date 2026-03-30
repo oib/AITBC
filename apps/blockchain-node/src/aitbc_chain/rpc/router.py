@@ -17,10 +17,23 @@ from ..mempool import get_mempool
 from ..metrics import metrics_registry
 from ..models import Account, Block, Receipt, Transaction
 from ..logger import get_logger
+from ..contracts.agent_messaging_contract import messaging_contract
 
 _logger = get_logger(__name__)
 
 router = APIRouter()
+
+# Global variable to store the PoA proposer
+_poa_proposer = None
+
+def set_poa_proposer(proposer):
+    """Set the global PoA proposer instance"""
+    global _poa_proposer
+    _poa_proposer = proposer
+
+def get_poa_proposer():
+    """Get the global PoA proposer instance"""
+    return _poa_proposer
 
 def get_chain_id(chain_id: str = None) -> str:
     """Get chain_id from parameter or use default from settings"""
@@ -130,6 +143,87 @@ async def get_block(height: int) -> Dict[str, Any]:
     }
 
 
+@router.post("/transaction", summary="Submit transaction")
+async def submit_transaction(tx_data: dict) -> Dict[str, Any]:
+    """Submit a new transaction to the mempool"""
+    from ..mempool import get_mempool
+    from ..models import Transaction
+    
+    try:
+        mempool = get_mempool()
+        
+        # Create transaction data as dictionary
+        tx_data_dict = {
+            "chain_id": tx_data.get("chain_id", "ait-mainnet"),
+            "from": tx_data["from"],
+            "to": tx_data["to"],
+            "amount": tx_data["amount"],
+            "fee": tx_data.get("fee", 10),
+            "nonce": tx_data.get("nonce", 0),
+            "payload": tx_data.get("payload", "0x"),
+            "signature": tx_data.get("signature")
+        }
+        
+        # Add to mempool
+        tx_hash = mempool.add(tx_data_dict)
+        
+        return {
+            "success": True,
+            "transaction_hash": tx_hash,
+            "message": "Transaction submitted to mempool"
+        }
+    except Exception as e:
+        _logger.error("Failed to submit transaction", extra={"error": str(e)})
+        raise HTTPException(status_code=400, detail=f"Failed to submit transaction: {str(e)}")
+
+
+@router.get("/mempool", summary="Get pending transactions")
+async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
+    """Get pending transactions from mempool"""
+    from ..mempool import get_mempool
+    
+    try:
+        mempool = get_mempool()
+        pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
+        
+        return {
+            "success": True,
+            "transactions": pending_txs,
+            "count": len(pending_txs)
+        }
+    except Exception as e:
+        _logger.error("Failed to get mempool", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Failed to get mempool: {str(e)}")
+
+
+@router.get("/accounts/{address}", summary="Get account information")
+async def get_account(address: str) -> Dict[str, Any]:
+    """Get account information including balance"""
+    from ..models import Account
+    
+    try:
+        with session_scope() as session:
+            account = session.exec(select(Account).where(Account.address == address)).first()
+            
+            if account is None:
+                return {
+                    "address": address,
+                    "balance": 0,
+                    "nonce": 0,
+                    "exists": False
+                }
+            
+            return {
+                "address": account.address,
+                "balance": account.balance,
+                "nonce": account.nonce,
+                "exists": True
+            }
+    except Exception as e:
+        _logger.error("Failed to get account", extra={"error": str(e), "address": address})
+        raise HTTPException(status_code=500, detail=f"Failed to get account: {str(e)}")
+
+
 @router.get("/blocks-range", summary="Get blocks in height range")
 # Working contract endpoints
 async def get_messaging_contract_state() -> Dict[str, Any]:
@@ -213,8 +307,7 @@ async def moderate_message(message_id: str, moderation_data: dict) -> Dict[str, 
         moderation_data.get("action"),
         moderation_data.get("reason", "")
     )
-EOF && echo "✅ Messaging contract endpoints added" && echo -e "\n2. Restarting blockchain node to load new endpoints:" && systemctl restart aitbc-blockchain-node && sleep 5 && echo "✅ Blockchain node restarted" && echo -e "\n3. Testing messaging endpoints:" && echo "   Testing forum topics endpoint:" && curl -s http://localhost:8006/rpc/messaging/topics | jq .total_topics && echo -e "\n   Testing message search endpoint:" && curl -s "http://localhost:8006/rpc/messaging/messages/search?query=test" | jq .total_matches
-from .contracts.agent_messaging_contract import messaging_contract
+
 @router.get("/rpc/messaging/topics", summary="Get forum topics")
 async def get_forum_topics(limit: int = 50, offset: int = 0, sort_by: str = "last_activity") -> Dict[str, Any]:
     """Get list of forum topics"""
@@ -270,9 +363,6 @@ async def post_message(message_data: dict) -> Dict[str, Any]:
         message_data.get("message_type", "post"),
         message_data.get("parent_message_id")
     )
-EOF && echo "✅ Added working endpoints" && echo -e "\n6. Restarting node with fixed configuration:" && systemctl restart aitbc-blockchain-node && sleep 5 && echo "✅ Node restarted" && echo -e "\n7. Testing fixed endpoints:" && curl -s http://localhost:8006/rpc/messaging/topics | jq .success && echo -e "\n8. Creating test topic:" && curl -s -X POST http://localhost:8006/rpc/messaging/topics/create \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "test_agent", "agent_address": "ait1test_agent", "title": "Fixed Test Topic", "description": "Testing after fixes", "tags": ["test"]}' | jq .topic_id
 
 # Agent messaging contract endpoints
 @router.get("/rpc/messaging/topics", summary="Get forum topics")
@@ -302,6 +392,3 @@ async def post_message(message_data: dict) -> Dict[str, Any]:
         message_data.get("message_type", "post"),
         message_data.get("parent_message_id")
     )
-EOF && echo "✅ Added clean endpoints" && echo -e "\n5. Restarting node:" && systemctl restart aitbc-blockchain-node && sleep 5 && echo "✅ Node restarted" && echo -e "\n6. Testing messaging contract:" && curl -s http://localhost:8006/rpc/messaging/topics | jq .success && echo -e "\n7. Creating test topic:" && curl -s -X POST http://localhost:8006/rpc/messaging/topics/create \
-  -H "Content-Type: application/json" \
-  -d '{"agent_id": "test_agent", "agent_address": "ait1test_agent", "title": "Working Test Topic", "description": "Testing after syntax fix", "tags": ["test"]}' | jq .topic_id
