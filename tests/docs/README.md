@@ -1,6 +1,14 @@
-# AITBC Test Suite
+# AITBC Test Suite - Updated Structure
 
 This directory contains the comprehensive test suite for the AITBC platform, including unit tests, integration tests, end-to-end tests, security tests, and load tests.
+
+## Recent Updates (March 30, 2026)
+
+### ✅ Structure Improvements Completed
+- **Scripts Organization**: Test scripts moved to `scripts/testing/` and `scripts/utils/`
+- **Logs Consolidation**: All test logs now in `/var/log/aitbc/`
+- **Virtual Environment**: Using central `/opt/aitbc/venv`
+- **Development Environment**: Using `/etc/aitbc/.env` for configuration
 
 ## Table of Contents
 
@@ -17,558 +25,215 @@ This directory contains the comprehensive test suite for the AITBC platform, inc
 ```
 tests/
 ├── conftest.py              # Shared fixtures and configuration
-├── conftest_fixtures.py     # Comprehensive test fixtures
-├── pytest.ini              # Pytest configuration
-├── README.md               # This file
-├── run_test_suite.py       # Test suite runner script
-├── unit/                   # Unit tests
-│   ├── test_coordinator_api.py
-│   ├── test_wallet_daemon.py
-│   └── test_blockchain_node.py
-├── integration/            # Integration tests
-│   ├── test_blockchain_node.py
-│   └── test_full_workflow.py
+├── test_runner.py          # Test suite runner script
+├── load_test.py            # Load testing utilities
+├── integration_test.sh     # Integration test shell script
+├── docs/                   # Test documentation
+│   ├── README.md
+│   ├── USAGE_GUIDE.md
+│   ├── TEST_REFACTORING_COMPLETED.md
+│   └── test-integration-completed.md
 ├── e2e/                    # End-to-end tests
-│   ├── test_wallet_daemon.py
-│   └── test_user_scenarios.py
-├── security/               # Security tests
-│   ├── test_confidential_transactions.py
-│   └── test_security_comprehensive.py
-├── load/                   # Load tests
-│   └── locustfile.py
-└── fixtures/               # Test data and fixtures
-    ├── sample_receipts.json
-    └── test_transactions.json
+├── fixtures/               # Test fixtures and data
+├── openclaw_marketplace/   # OpenClaw marketplace tests
+├── .pytest_cache/          # Pytest cache (auto-generated)
+└── __pycache__/            # Python cache (auto-generated)
+```
+
+### Related Test Scripts
+```
+scripts/testing/           # Main testing scripts
+├── comprehensive_e2e_test_fixed.py  # Comprehensive E2E testing
+├── test_workflow.sh               # Workflow testing
+├── run_all_tests.sh               # All tests runner
+└── test-all-services.sh           # Service testing
+
+scripts/utils/             # Testing utilities
+├── setup.sh                       # System setup (includes testing)
+└── requirements_migrator.py       # Dependency management
 ```
 
 ## Prerequisites
 
-### Required Dependencies
-
-```bash
-# Core testing framework
-pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist
-
-# Security testing
-pip install bandit safety
-
-# Load testing
-pip install locust
-
-# Additional testing tools
-pip install requests-mock websockets psutil
-```
-
-### System Dependencies
-
-```bash
-# Ubuntu/Debian
-sudo apt-get update
-sudo apt-get install -y postgresql redis-server
-
-# macOS
-brew install postgresql redis
-
-# Docker (for isolated testing)
-docker --version
-```
-
 ### Environment Setup
-
-1. Clone the repository:
 ```bash
-git clone https://github.com/aitbc/aitbc.git
-cd aitbc
+# Activate central virtual environment
+source /opt/aitbc/venv/bin/activate
+
+# Ensure test dependencies are installed
+pip install pytest pytest-cov pytest-asyncio
+
+# Set environment configuration
+source /etc/aitbc/.env  # Central environment configuration
 ```
 
-2. Create virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-pip install -r requirements-test.txt
-```
-
-4. Set up test databases:
-```bash
-# PostgreSQL
-createdb aitbc_test
-
-# Redis (use test database 1)
-redis-cli -n 1 FLUSHDB
-```
-
-5. Environment variables:
-```bash
-export DATABASE_URL="postgresql://localhost/aitbc_test"
-export REDIS_URL="redis://localhost:6379/1"
-export TEST_MODE="true"
-```
+### Service Requirements
+- AITBC blockchain node running
+- Coordinator API service active
+- Database accessible (SQLite/PostgreSQL)
+- GPU services (if running AI tests)
 
 ## Running Tests
 
-### Basic Commands
-
+### Quick Start
 ```bash
-# Run all tests
-pytest
+# Run all fast tests
+python tests/test_runner.py
 
-# Run using the test suite script (recommended)
-python run_test_suite.py
+# Run comprehensive test suite
+python tests/test_runner.py --all
 
 # Run with coverage
-python run_test_suite.py --coverage
-
-# Run specific suite
-python run_test_suite.py --suite unit
-python run_test_suite.py --suite integration
-python run_test_suite.py --suite e2e
-python run_test_suite.py --suite security
-
-# Run specific test file
-pytest tests/unit/test_coordinator_api.py
-
-# Run specific test class
-pytest tests/unit/test_coordinator_api.py::TestJobEndpoints
-
-# Run specific test method
-pytest tests/unit/test_coordinator_api.py::TestJobEndpoints::test_create_job_success
+python tests/test_runner.py --coverage
 ```
 
-### Running by Test Type
-
+### Specific Test Types
 ```bash
-# Unit tests only (fast)
-pytest -m unit
+# Unit tests only
+python tests/test_runner.py --unit
 
-# Integration tests (require services)
-pytest -m integration
+# Integration tests only
+python tests/test_runner.py --integration
 
-# End-to-end tests (full system)
-pytest -m e2e
-
-# Security tests
-pytest -m security
-
-# Load tests (requires Locust)
-locust -f tests/load/locustfile.py
+# CLI tests only
+python tests/test_runner.py --cli
 
 # Performance tests
-pytest -m performance
-
-# GPU tests (requires GPU)
-pytest -m gpu
+python tests/test_runner.py --performance
 ```
 
-### Parallel Execution
-
+### Advanced Testing
 ```bash
-# Run with multiple workers
-pytest -n auto
+# Comprehensive E2E testing
+python scripts/testing/comprehensive_e2e_test_fixed.py
 
-# Specify number of workers
-pytest -n 4
+# Workflow testing
+bash scripts/testing/test_workflow.sh
 
-# Distribute by test file
-pytest --dist=loadfile
-```
-
-### Filtering Tests
-
-```bash
-# Run tests matching pattern
-pytest -k "test_create_job"
-
-# Run tests not matching pattern
-pytest -k "not slow"
-
-# Run tests with multiple markers
-pytest -m "unit and not slow"
-
-# Run tests with any of multiple markers
-pytest -m "unit or integration"
+# All services testing
+bash scripts/testing/test-all-services.sh
 ```
 
 ## Test Types
 
-### Unit Tests (`tests/unit/`)
+### Unit Tests
+- **Location**: `tests/unit/` (if exists)
+- **Purpose**: Test individual components in isolation
+- **Speed**: Fast (< 1 second per test)
+- **Coverage**: Core business logic
 
-Fast, isolated tests that test individual components:
-
-- **Purpose**: Test individual functions and classes
-- **Speed**: < 1 second per test
-- **Dependencies**: Mocked external services
-- **Database**: In-memory SQLite
-- **Examples**:
-  ```bash
-  pytest tests/unit/ -v
-  ```
-
-### Integration Tests (`tests/integration/`)
-
-Tests that verify multiple components work together:
-
+### Integration Tests
+- **Location**: `tests/integration/` and `tests/e2e/`
 - **Purpose**: Test component interactions
-- **Speed**: 1-10 seconds per test
-- **Dependencies**: Real services required
-- **Database**: Test PostgreSQL instance
-- **Examples**:
-  ```bash
-  # Start required services first
-  docker-compose up -d postgres redis
-  
-  # Run integration tests
-  pytest tests/integration/ -v
-  ```
+- **Speed**: Medium (1-10 seconds per test)
+- **Coverage**: API endpoints, database operations
 
-### End-to-End Tests (`tests/e2e/`)
+### End-to-End Tests
+- **Location**: `tests/e2e/` and `scripts/testing/`
+- **Purpose**: Test complete workflows
+- **Speed**: Slow (10-60 seconds per test)
+- **Coverage**: Full user scenarios
 
-Full system tests that simulate real user workflows:
-
-- **Purpose**: Test complete user journeys
-- **Speed**: 10-60 seconds per test
-- **Dependencies**: Full system running
-- **Database**: Production-like setup
-- **Examples**:
-  ```bash
-  # Start full system
-  docker-compose up -d
-  
-  # Run E2E tests
-  pytest tests/e2e/ -v -s
-  ```
-
-### Security Tests (`tests/security/`)
-
-Tests that verify security properties and vulnerability resistance:
-
-- **Purpose**: Test security controls
-- **Speed**: Variable (some are slow)
-- **Dependencies**: May require special setup
-- **Tools**: Bandit, Safety, Custom security tests
-- **Examples**:
-  ```bash
-  # Run security scanner
-  bandit -r apps/ -f json -o bandit-report.json
-  
-  # Run security tests
-  pytest tests/security/ -v
-  ```
-
-### Load Tests (`tests/load/`)
-
-Performance and scalability tests:
-
-- **Purpose**: Test system under load
-- **Speed**: Long-running (minutes)
-- **Dependencies**: Locust, staging environment
-- **Examples**:
-  ```bash
-  # Run Locust web UI
-  locust -f tests/load/locustfile.py --web-host 127.0.0.1
-  
-  # Run headless
-  locust -f tests/load/locustfile.py --headless -u 100 -r 10 -t 5m
-  ```
+### Performance Tests
+- **Location**: `tests/load_test.py`
+- **Purpose**: Test system performance under load
+- **Speed**: Variable (depends on test parameters)
+- **Coverage**: API response times, throughput
 
 ## Configuration
 
-### Pytest Configuration (`pytest.ini`)
-
-Key configuration options:
-
-```ini
-[tool:pytest]
-# Test paths
-testpaths = tests
-python_files = test_*.py
-
-# Coverage settings
-addopts = --cov=apps --cov=packages --cov-report=html
-
-# Markers
-markers =
-    unit: Unit tests
-    integration: Integration tests
-    e2e: End-to-end tests
-    security: Security tests
-    slow: Slow tests
-```
+### Test Configuration Files
+- **pytest.ini**: Pytest configuration (in root)
+- **conftest.py**: Shared fixtures and configuration
+- **pyproject.toml**: Project-wide test configuration
 
 ### Environment Variables
-
 ```bash
-# Test configuration
-export TEST_MODE=true
-export TEST_DATABASE_URL="postgresql://localhost/aitbc_test"
-export TEST_REDIS_URL="redis://localhost:6379/1"
+# Test database (different from production)
+TEST_DATABASE_URL=sqlite:///test_aitbc.db
 
-# Service URLs for integration tests
-export COORDINATOR_URL="http://localhost:8001"
-export WALLET_URL="http://localhost:8002"
-export BLOCKCHAIN_URL="http://localhost:8545"
+# Test logging
+TEST_LOG_LEVEL=DEBUG
+TEST_LOG_FILE=/var/log/aitbc/test.log
 
-# Security test configuration
-export TEST_HSM_ENDPOINT="http://localhost:9999"
-export TEST_ZK_CIRCUITS_PATH="./apps/zk-circuits"
-```
-
-### Test Data Management
-
-```python
-# Using fixtures in conftest.py
-@pytest.fixture
-def test_data():
-    return {
-        "sample_job": {...},
-        "sample_receipt": {...},
-    }
-
-# Custom test configuration
-@pytest.fixture(scope="session")
-def test_config():
-    return TestConfig(
-        database_url="sqlite:///:memory:",
-        redis_url="redis://localhost:6379/1",
-    )
+# Test API endpoints
+TEST_API_BASE_URL=http://localhost:8011
 ```
 
 ## CI/CD Integration
 
-### GitHub Actions Example
+### GitHub Actions
+Test suite is integrated with CI/CD pipeline:
+- **Unit Tests**: Run on every push
+- **Integration Tests**: Run on pull requests
+- **E2E Tests**: Run on main branch
+- **Performance Tests**: Run nightly
 
-```yaml
-name: Tests
+### Local CI Simulation
+```bash
+# Simulate CI pipeline locally
+python tests/test_runner.py --all --coverage
 
-on: [push, pull_request]
-
-jobs:
-  unit-tests:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python: "3.11"
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-      
-      - name: Run unit tests
-        run: |
-          pytest tests/unit/ -v --cov=apps --cov-report=xml
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage.xml
-
-  integration-tests:
-    runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      
-      redis:
-        image: redis:7
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-        with:
-          python: "3.11"
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -r requirements-test.txt
-      
-      - name: Run integration tests
-        run: |
-          pytest tests/integration/ -v
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
-          REDIS_URL: redis://localhost:6379/0
-```
-
-### Docker Compose for Testing
-
-```yaml
-# docker-compose.test.yml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: aitbc_test
-      POSTGRES_USER: test
-      POSTGRES_PASSWORD: test
-    ports:
-      - "5433:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U test"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-  
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6380:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-  
-  coordinator:
-    build: ./apps/coordinator-api
-    environment:
-      DATABASE_URL: postgresql://test:test@postgres:5432/aitbc_test
-      REDIS_URL: redis://redis:6379/0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "8001:8000"
+# Generate coverage report
+coverage html -o coverage_html/
 ```
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Import Errors**
-   ```bash
-   # Ensure PYTHONPATH is set
-   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
-   
-   # Or install in development mode
-   pip install -e .
-   ```
-
-2. **Database Connection Errors**
-   ```bash
-   # Check if PostgreSQL is running
-   pg_isready -h localhost -p 5432
-   
-   # Create test database
-   createdb -h localhost -p 5432 aitbc_test
-   ```
-
-3. **Redis Connection Errors**
-   ```bash
-   # Check if Redis is running
-   redis-cli ping
-   
-   # Use correct database
-   redis-cli -n 1 FLUSHDB
-   ```
-
-4. **Test Timeouts**
-   ```bash
-   # Increase timeout for slow tests
-   pytest --timeout=600
-   
-   # Run tests sequentially
-   pytest -n 0
-   ```
-
-5. **Port Conflicts**
-   ```bash
-   # Kill processes using ports
-   lsof -ti:8001 | xargs kill -9
-   lsof -ti:8002 | xargs kill -9
-   ```
-
-### Debugging Tests
-
+#### Test Failures Due to Services
 ```bash
-# Run with verbose output
-pytest -v -s
+# Check service status
+systemctl status aitbc-blockchain-node
+systemctl status aitbc-coordinator
 
-# Stop on first failure
-pytest -x
-
-# Run with pdb on failure
-pytest --pdb
-
-# Print local variables on failure
-pytest --tb=long
-
-# Run specific test with debugging
-pytest tests/unit/test_coordinator_api.py::TestJobEndpoints::test_create_job_success -v -s --pdb
+# Restart services if needed
+sudo systemctl restart aitbc-blockchain-node
+sudo systemctl restart aitbc-coordinator
 ```
 
-### Performance Issues
-
+#### Environment Issues
 ```bash
-# Profile test execution
-pytest --profile
+# Check virtual environment
+which python
+python --version
 
-# Find slowest tests
-pytest --durations=10
+# Check dependencies
+pip list | grep pytest
 
-# Run with memory profiling
-pytest --memprof
+# Reinstall if needed
+pip install -e .
 ```
 
-### Test Data Issues
-
+#### Database Issues
 ```bash
-# Clean test database
-psql -h localhost -U test -d aitbc_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+# Reset test database
+rm test_aitbc.db
+python -m alembic upgrade head
 
-# Reset Redis
-redis-cli -n 1 FLUSHALL
-
-# Regenerate test fixtures
-python tests/generate_fixtures.py
+# Check database connectivity
+python -c "from aitbc_core.db import engine; print(engine.url)"
 ```
 
-## Best Practices
+### Test Logs
+All test logs are now centralized in `/var/log/aitbc/`:
+- **test.log**: General test output
+- **test_results.txt**: Test results summary
+- **performance_test.log**: Performance test results
 
-1. **Write Isolated Tests**: Each test should be independent
-2. **Use Descriptive Names**: Test names should describe what they test
-3. **Mock External Dependencies**: Use mocks for external services
-4. **Clean Up Resources**: Use fixtures for setup/teardown
-5. **Test Edge Cases**: Don't just test happy paths
-6. **Use Type Hints**: Makes tests more maintainable
-7. **Document Complex Tests**: Add comments for complex logic
+### Getting Help
+1. Check test logs in `/var/log/aitbc/`
+2. Review test documentation in `tests/docs/`
+3. Run tests with verbose output: `pytest -v`
+4. Check service status and configuration
 
-## Contributing
+---
 
-When adding new tests:
+*Last updated: March 30, 2026*  
+*For questions or suggestions, please open an issue or contact the development team.*
 
-1. Follow the existing structure and naming conventions
-2. Add appropriate markers (`@pytest.mark.unit`, etc.)
-3. Update this README if adding new test types
-4. Ensure tests pass on CI before submitting PR
-5. Add coverage for new features
+---
 
-## Resources
-
-- [Pytest Documentation](https://docs.pytest.org/)
-- [Locust Documentation](https://docs.locust.io/)
-- [Security Testing Guide](https://owasp.org/www-project-security-testing-guide/)
-- [Load Testing Best Practices](https://docs.locust.io/en/stable/writing-a-locustfile.html)
+*Last updated: March 30, 2026*
+*For questions or suggestions, please open an issue or contact the development team.*
