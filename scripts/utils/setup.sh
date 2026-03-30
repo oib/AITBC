@@ -1,342 +1,380 @@
 #!/bin/bash
-# OpenClaw AITBC Integration Setup & Health Check
-# Field-tested setup and management for OpenClaw + AITBC integration
-# Version: 5.0 — Updated 2026-03-30 with AI operations and advanced coordination
+
+# AITBC Local Setup Script
+# Sets up AITBC services on a new host with systemd
 
 set -e
 
-AITBC_DIR="/opt/aitbc"
-AITBC_CLI="$AITBC_DIR/aitbc-cli"
-DATA_DIR="/var/lib/aitbc/data"
-ENV_FILE="/etc/aitbc/.env"
-GENESIS_RPC="http://localhost:8006"
-FOLLOWER_RPC="http://10.1.223.40:8006"
-WALLET_PASSWORD="123"
-
+# Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Logging function
+log() {
+    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+    exit 1
+}
+
+success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+# Check if running as root
+check_root() {
+    if [ "$EUID" -ne 0 ]; then
+        error "This script must be run as root (use sudo)"
+    fi
+}
+
+# Check prerequisites
+check_prerequisites() {
+    log "Checking prerequisites..."
+    
+    # Check if required tools are installed
+    command -v python3 >/dev/null 2>&1 || error "Python 3 is not installed"
+    command -v pip3 >/dev/null 2>&1 || error "pip3 is not installed"
+    command -v git >/dev/null 2>&1 || error "git is not installed"
+    command -v systemctl >/dev/null 2>&1 || error "systemctl is not available"
+    
+    # Check Python version
+    python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+    if [ "$(printf '%s\n' "3.13.5" "$python_version" | sort -V | head -n1)" != "3.13.5" ]; then
+        error "Python 3.13.5+ is required, found $python_version"
+    fi
+    
+    success "Prerequisites check passed"
+}
+
+# Clone repository
+clone_repo() {
+    log "Cloning AITBC repository..."
+    
+    # Remove existing installation if present
+    if [ -d "/opt/aitbc" ]; then
+        warning "Removing existing /opt/aitbc"
+        rm -rf /opt/aitbc
+    fi
+    
+    # Clone repository
+    cd /opt
+    git clone https://gitea.bubuit.net/oib/aitbc.git aitbc || {
+        # Try alternative URL
+        git clone http://10.0.3.107:3000/oib/aitbc.git aitbc || error "Failed to clone repository"
+    }
+    
+    cd /opt/aitbc
+    success "Repository cloned successfully"
+}
+
+# Setup runtime directories
+setup_runtime_directories() {
+    log "Setting up runtime directories..."
+    
+    # Create standard Linux directories
+    directories=(
+        "/var/lib/aitbc"
+        "/var/lib/aitbc/keystore"
+        "/var/lib/aitbc/data"
+        "/var/lib/aitbc/logs"
+        "/etc/aitbc"
+        "/var/log/aitbc"
+    )
+    
+    for dir in "${directories[@]}"; do
+        mkdir -p "$dir"
+        log "Created directory: $dir"
+    done
+    
+    # Set permissions
+    chmod 755 /var/lib/aitbc
+    chmod 700 /var/lib/aitbc/keystore  # Secure keystore
+    chmod 755 /var/lib/aitbc/data
+    chmod 755 /var/lib/aitbc/logs
+    chmod 755 /etc/aitbc
+    chmod 755 /var/log/aitbc
+    
+    # Set ownership
+    chown root:root /var/lib/aitbc
+    chown root:root /var/lib/aitbc/keystore
+    chown root:root /var/lib/aitbc/data
+    chown root:root /var/lib/aitbc/logs
+    chown root:root /etc/aitbc
+    chown root:root /var/log/aitbc
+    
+    # Create README files
+    echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
+    echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
+    echo "# Application databases" > /var/lib/aitbc/data/README.md
+    echo "# Application logs" > /var/lib/aitbc/logs/README.md
+    echo "# AITBC Configuration Files" > /etc/aitbc/README.md
+    
+    # Create symlink for standard logging
+    ln -sf /var/lib/aitbc/logs /var/log/aitbc
+    
+    success "Runtime directories setup completed"
+}
+
+# Setup Python virtual environments
+setup_venvs() {
+    log "Setting up Python virtual environments..."
+    
+    # Wallet service
+    log "Setting up wallet service..."
+    cd /opt/aitbc/apps/wallet
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --upgrade pip
+    pip install fastapi uvicorn pydantic httpx python-dotenv websockets
+    
+    # Coordinator API
+    log "Setting up coordinator API..."
+    cd /opt/aitbc/apps/coordinator-api
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --upgrade pip
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt
+    else
+        pip install fastapi uvicorn pydantic httpx python-dotenv
+    fi
+    
+    # Exchange API
+    log "Setting up exchange API..."
+    cd /opt/aitbc/apps/exchange
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --upgrade pip
+    if [ -f "requirements.txt" ]; then
+        pip install -r requirements.txt
+    else
+        pip install fastapi uvicorn pydantic python-multipart
+    fi
+    
+    success "Virtual environments setup completed"
+}
+
+# Install systemd services
+install_services() {
+    log "Installing systemd services..."
+    
+    # Install core services
+    services=(
+        "aitbc-wallet.service"
+        "aitbc-coordinator-api.service"
+        "aitbc-exchange-api.service"
+        "aitbc-blockchain-rpc.service"
+    )
+    
+    for service in "${services[@]}"; do
+        if [ -f "/opt/aitbc/systemd/$service" ]; then
+            log "Installing $service..."
+            cp "/opt/aitbc/systemd/$service" /etc/systemd/system/
+        else
+            warning "Service file not found: $service"
+        fi
+    done
+    
+    # Reload systemd
+    systemctl daemon-reload
+    
+    success "Systemd services installed"
+}
+
+# Create startup script
+create_startup_script() {
+    log "Creating startup script..."
+    
+    cat > /opt/aitbc/start-services.sh << 'EOF'
+#!/bin/bash
+
+# AITBC Services Startup Script
+
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
+}
+
+log "Starting AITBC services..."
+
+# Start wallet service
+log "Starting wallet service..."
+cd /opt/aitbc/apps/wallet
+source .venv/bin/activate
+nohup python simple_daemon.py > /var/log/aitbc-wallet.log 2>&1 &
+echo $! > /var/run/aitbc-wallet.pid
+
+# Start coordinator API
+log "Starting coordinator API..."
+cd /opt/aitbc/apps/coordinator-api/src
+source ../.venv/bin/activate
+nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 > /var/log/aitbc-coordinator.log 2>&1 &
+echo $! > /var/run/aitbc-coordinator.pid
+
+# Start exchange API
+log "Starting exchange API..."
+cd /opt/aitbc/apps/exchange
+source .venv/bin/activate
+nohup python simple_exchange_api.py > /var/log/aitbc-exchange.log 2>&1 &
+echo $! > /var/run/aitbc-exchange.pid
+
+log "All services started"
+EOF
+
+    chmod +x /opt/aitbc/start-services.sh
+    
+    success "Startup script created"
+}
+
+# Create health check script
+create_health_check() {
+    log "Creating health check script..."
+    
+    cat > /opt/aitbc/health-check.sh << 'EOF'
+#!/bin/bash
+
+# AITBC Health Check Script
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
 
-log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
-log_warning() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
-
-# ── Prerequisites ──────────────────────────────────────────────
-check_prerequisites() {
-    log_info "Checking prerequisites..."
-    local fail=0
-
-    command -v openclaw &>/dev/null  && log_success "OpenClaw CLI found"   || { log_error "OpenClaw not found"; fail=1; }
-    [ -x "$AITBC_CLI" ]             && log_success "AITBC CLI found"       || { log_error "AITBC CLI not found at $AITBC_CLI"; fail=1; }
-
-    if curl -sf http://localhost:8006/health &>/dev/null; then
-        log_success "Genesis RPC (localhost:8006) healthy"
+check_service() {
+    local name=$1
+    local url=$2
+    local expected=${3:-200}
+    
+    if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected"; then
+        echo -e "${GREEN}✓${NC} $name is healthy"
+        return 0
     else
-        log_warning "Genesis RPC not responding — try: sudo systemctl start aitbc-blockchain-rpc.service"
+        echo -e "${RED}✗${NC} $name is unhealthy"
+        return 1
     fi
+}
 
-    if ssh aitbc1 'curl -sf http://localhost:8006/health' &>/dev/null; then
-        log_success "Follower RPC (aitbc1:8006) healthy"
+echo "AITBC Service Health Check"
+echo "========================"
+
+# Check wallet service
+check_service "Wallet API" "http://localhost:8003/health"
+
+# Check exchange API
+check_service "Exchange API" "http://localhost:8001/api/health"
+
+# Check coordinator API
+check_service "Coordinator API" "http://localhost:8000/health"
+
+# Check process status
+echo ""
+echo "Process Status:"
+ps aux | grep -E "simple_daemon|uvicorn|simple_exchange_api" | grep -v grep | while read line; do
+    echo -e "${GREEN}✓${NC} $line"
+done
+EOF
+
+    chmod +x /opt/aitbc/health-check.sh
+    
+    success "Health check script created"
+}
+
+# Start services
+start_services() {
+    log "Starting AITBC services..."
+    
+    # Try systemd first
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api 2>/dev/null; then
+        log "Services started via systemd"
+        sleep 5
+        
+        # Check if services are running
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api; then
+            success "Services started successfully via systemd"
+        else
+            warning "Some systemd services failed, falling back to manual startup"
+            /opt/aitbc/start-services.sh
+        fi
     else
-        log_warning "Follower RPC not responding — check aitbc1 services"
+        log "Systemd services not available, using manual startup"
+        /opt/aitbc/start-services.sh
     fi
-
-    [ -d "$DATA_DIR/ait-mainnet" ] && log_success "Data dir $DATA_DIR/ait-mainnet exists" || log_warning "Data dir missing"
-    [ -f "$ENV_FILE" ]             && log_success "Env file $ENV_FILE exists"              || log_warning "Env file missing"
-
-    [ $fail -eq 0 ] && log_success "Prerequisites satisfied" || { log_error "Prerequisites check failed"; exit 1; }
+    
+    # Wait for services to initialize
+    sleep 10
+    
+    # Run health check
+    /opt/aitbc/health-check.sh
 }
 
-# ── OpenClaw Agent Test ────────────────────────────────────────
-test_agent_communication() {
-    log_info "Testing OpenClaw agent communication..."
-    # IMPORTANT: use --message (long form), not -m
-    local SESSION_ID="health-$(date +%s)"
-    local GENESIS_HEIGHT
-    GENESIS_HEIGHT=$(curl -sf http://localhost:8006/rpc/head | jq -r '.height // "unknown"')
+# Setup auto-start
+setup_autostart() {
+    log "Setting up auto-start..."
+    
+    # Create systemd service for startup script
+    cat > /etc/systemd/system/aitbc-startup.service << EOF
+[Unit]
+Description=AITBC Services Startup
+After=network.target
 
-    openclaw agent --agent main --session-id "$SESSION_ID" \
-        --message "AITBC integration health check. Genesis height: $GENESIS_HEIGHT. Report status." \
-        --thinking low \
-    && log_success "Agent communication working" \
-    || log_warning "Agent communication failed (non-fatal)"
+[Service]
+Type=oneshot
+ExecStart=/opt/aitbc/start-services.sh
+RemainAfterExit=yes
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+    systemctl enable aitbc-startup.service
+    
+    success "Auto-start configured"
 }
 
-# ── Blockchain Status ──────────────────────────────────────────
-show_status() {
-    log_info "=== OpenClaw AITBC Integration Status ==="
-
-    echo ""
-    echo "OpenClaw:"
-    openclaw --version 2>/dev/null || echo "  (not available)"
-
-    echo ""
-    echo "Genesis Node (aitbc):"
-    curl -sf http://localhost:8006/rpc/head | jq '{height, hash: .hash[0:18], timestamp}' 2>/dev/null \
-        || echo "  RPC not responding"
-
-    echo ""
-    echo "Follower Node (aitbc1):"
-    ssh aitbc1 'curl -sf http://localhost:8006/rpc/head' 2>/dev/null | jq '{height, hash: .hash[0:18], timestamp}' \
-        || echo "  RPC not responding"
-
-    echo ""
-    echo "Wallets (aitbc):"
-    cd "$AITBC_DIR" && source venv/bin/activate && ./aitbc-cli list 2>/dev/null || echo "  CLI error"
-
-    echo ""
-    echo "Wallets (aitbc1):"
-    ssh aitbc1 "cd $AITBC_DIR && source venv/bin/activate && ./aitbc-cli list" 2>/dev/null || echo "  CLI error"
-
-    echo ""
-    echo "Services (aitbc):"
-    systemctl is-active aitbc-blockchain-node.service 2>/dev/null | sed 's/^/  node: /'
-    systemctl is-active aitbc-blockchain-rpc.service  2>/dev/null | sed 's/^/  rpc:  /'
-
-    echo ""
-    echo "Services (aitbc1):"
-    ssh aitbc1 'systemctl is-active aitbc-blockchain-node.service' 2>/dev/null | sed 's/^/  node: /'
-    ssh aitbc1 'systemctl is-active aitbc-blockchain-rpc.service'  2>/dev/null | sed 's/^/  rpc:  /'
-
-    echo ""
-    echo "Data Directory:"
-    ls -lh "$DATA_DIR/ait-mainnet/" 2>/dev/null | head -5 || echo "  not found"
-}
-
-# ── Run Integration Test ───────────────────────────────────────
-run_integration_test() {
-    log_info "Running integration test..."
-
-    local pass=0 total=0
-
-    # Test 1: RPC health
-    total=$((total+1))
-    curl -sf http://localhost:8006/health &>/dev/null && { log_success "RPC health OK"; pass=$((pass+1)); } || log_error "RPC health FAIL"
-
-    # Test 2: CLI works
-    total=$((total+1))
-    cd "$AITBC_DIR" && source venv/bin/activate && ./aitbc-cli list &>/dev/null && { log_success "CLI OK"; pass=$((pass+1)); } || log_error "CLI FAIL"
-
-    # Test 3: Cross-node SSH
-    total=$((total+1))
-    ssh aitbc1 'echo ok' &>/dev/null && { log_success "SSH to aitbc1 OK"; pass=$((pass+1)); } || log_error "SSH FAIL"
-
-    # Test 4: Agent communication
-    total=$((total+1))
-    openclaw agent --agent main --message "ping" --thinking minimal &>/dev/null && { log_success "Agent OK"; pass=$((pass+1)); } || log_warning "Agent FAIL (non-fatal)"
-
-    echo ""
-    log_info "Results: $pass/$total passed"
-}
-
-# ── Main ───────────────────────────────────────────────────────
+# Main function
 main() {
-    case "${1:-status}" in
-        setup)
-            check_prerequisites
-            test_agent_communication
-            show_status
-            log_success "Setup verification complete"
-            ;;
-        test)
-            run_integration_test
-            ;;
-        status)
-            show_status
-            ;;
-        ai-setup)
-            setup_ai_operations
-            ;;
-        ai-test)
-            test_ai_operations
-            ;;
-        comprehensive)
-            show_comprehensive_status
-            ;;
-        help)
-            echo "Usage: $0 {setup|test|status|ai-setup|ai-test|comprehensive|help}"
-            echo "  setup        — Verify prerequisites and test agent communication"
-            echo "  test         — Run integration tests"
-            echo "  status       — Show current multi-node status"
-            echo "  ai-setup     — Setup AI operations and agents"
-            echo "  ai-test      — Test AI operations functionality"
-            echo "  comprehensive — Show comprehensive status including AI operations"
-            echo "  help         — Show this help"
-            ;;
-        *)
-            log_error "Unknown command: $1"
-            main help
-            exit 1
-            ;;
-    esac
-}
-
-# ── AI Operations Setup ───────────────────────────────────────────
-setup_ai_operations() {
-    log_info "Setting up AI operations..."
+    log "Starting AITBC setup..."
     
-    cd "$AITBC_DIR"
-    source venv/bin/activate
+    check_root
+    check_prerequisites
+    clone_repo
+    setup_runtime_directories
+    setup_venvs
+    install_services
+    create_startup_script
+    create_health_check
+    start_services
+    setup_autostart
     
-    # Create AI inference agent
-    log_info "Creating AI inference agent..."
-    if ./aitbc-cli agent create --name "ai-inference-worker" \
-        --description "Specialized agent for AI inference tasks" \
-        --verification full; then
-        log_success "AI inference agent created"
-    else
-        log_warning "AI inference agent creation failed"
-    fi
-    
-    # Allocate GPU resources
-    log_info "Allocating GPU resources..."
-    if ./aitbc-cli resource allocate --agent-id "ai-inference-worker" \
-        --gpu 1 --memory 8192 --duration 3600; then
-        log_success "GPU resources allocated"
-    else
-        log_warning "GPU resource allocation failed"
-    fi
-    
-    # Create AI service marketplace listing
-    log_info "Creating AI marketplace listing..."
-    if ./aitbc-cli marketplace --action create \
-        --name "AI Image Generation" \
-        --type ai-inference \
-        --price 50 \
-        --wallet genesis-ops \
-        --description "Generate high-quality images from text prompts"; then
-        log_success "AI marketplace listing created"
-    else
-        log_warning "AI marketplace listing creation failed"
-    fi
-    
-    # Setup follower AI operations
-    log_info "Setting up follower AI operations..."
-    if ssh aitbc1 "cd $AITBC_DIR && source venv/bin/activate && \
-        ./aitbc-cli agent create --name 'ai-training-agent' \
-        --description 'Specialized agent for AI model training' \
-        --verification full && \
-        ./aitbc-cli resource allocate --agent-id 'ai-training-agent' \
-        --cpu 4 --memory 16384 --duration 7200"; then
-        log_success "Follower AI operations setup completed"
-    else
-        log_warning "Follower AI operations setup failed"
-    fi
-    
-    log_success "AI operations setup completed"
-}
-
-# ── AI Operations Test ──────────────────────────────────────────────
-test_ai_operations() {
-    log_info "Testing AI operations..."
-    
-    cd "$AITBC_DIR"
-    source venv/bin/activate
-    
-    # Test AI job submission
-    log_info "Testing AI job submission..."
-    if ./aitbc-cli ai-submit --wallet genesis-ops \
-        --type inference \
-        --prompt "Test image generation" \
-        --payment 10; then
-        log_success "AI job submission test passed"
-    else
-        log_warning "AI job submission test failed"
-    fi
-    
-    # Test smart contract messaging
-    log_info "Testing smart contract messaging..."
-    TOPIC_ID=$(curl -s -X POST "$GENESIS_RPC/rpc/messaging/topics/create" \
-        -H "Content-Type: application/json" \
-        -d '{"agent_id": "test-agent", "agent_address": "ait158ec7a0713f30ccfb1aac6bfbab71f36271c5871", "title": "Test Topic", "description": "Test coordination"}' | \
-        jq -r '.topic_id // "error"')
-    
-    if [ "$TOPIC_ID" != "error" ] && [ -n "$TOPIC_ID" ]; then
-        log_success "Smart contract messaging test passed - Topic: $TOPIC_ID"
-    else
-        log_warning "Smart contract messaging test failed"
-    fi
-    
-    log_success "AI operations testing completed"
-}
-
-# ── Comprehensive Status ───────────────────────────────────────────
-show_comprehensive_status() {
-    log_info "Comprehensive AITBC + OpenClaw + AI Operations Status"
+    success "AITBC setup completed!"
     echo ""
-    
-    # Basic status
-    show_multi_node_status
+    echo "Service Information:"
+    echo "  Wallet API: http://localhost:8003/health"
+    echo "  Exchange API: http://localhost:8001/api/health"
+    echo "  Coordinator API: http://localhost:8000/health"
     echo ""
-    
-    # AI operations status
-    log_info "AI Operations Status:"
-    cd "$AITBC_DIR"
-    source venv/bin/activate
-    
-    # Check AI agents
-    AI_AGENTS=$(./aitbc-cli agent list 2>/dev/null | grep -c "agent_" || echo "0")
-    echo "  AI Agents Created: $AI_AGENTS"
-    
-    # Check resource allocation
-    if ./aitbc-cli resource status &>/dev/null; then
-        echo "  Resource Management: Operational"
-    else
-        echo "  Resource Management: Not operational"
-    fi
-    
-    # Check marketplace
-    if ./aitbc-cli marketplace --action list &>/dev/null; then
-        echo "  AI Marketplace: Operational"
-    else
-        echo "  AI Marketplace: Not operational"
-    fi
-    
-    # Check smart contract messaging
-    if curl -s "$GENESIS_RPC/rpc/messaging/topics" &>/dev/null; then
-        TOPICS_COUNT=$(curl -s "$GENESIS_RPC/rpc/messaging/topics" | jq '.total_topics // 0' 2>/dev/null || echo "0")
-        echo "  Smart Contract Messaging: Operational ($TOPICS_COUNT topics)"
-    else
-        echo "  Smart Contract Messaging: Not operational"
-    fi
-    
+    echo "Runtime Directories:"
+    echo "  Keystore: /var/lib/aitbc/keystore/"
+    echo "  Data: /var/lib/aitbc/data/"
+    echo "  Logs: /var/lib/aitbc/logs/"
+    echo "  Config: /etc/aitbc/"
     echo ""
-    log_info "Health Check:"
-    if [ -f /tmp/aitbc1_heartbeat.py ]; then
-        python3 /tmp/aitbc1_heartbeat.py
-    else
-        log_warning "Heartbeat script not found"
-    fi
+    echo "Management Commands:"
+    echo "  Health check: /opt/aitbc/health-check.sh"
+    echo "  Restart services: /opt/aitbc/start-services.sh"
+    echo "  View logs: tail -f /var/lib/aitbc/logs/aitbc-*.log"
 }
 
-        ai-setup)
-            setup_ai_operations
-            ;;
-        ai-test)
-            test_ai_operations
-            ;;
-        comprehensive)
-            show_comprehensive_status
-            ;;
-        help)
-            echo "Usage: $0 {setup|test|status|ai-setup|ai-test|comprehensive|help}"
-            echo "  setup        — Verify prerequisites and test agent communication"
-            echo "  test         — Run integration tests"
-            echo "  status       — Show current multi-node status"
-            echo "  ai-setup     — Setup AI operations and agents"
-            echo "  ai-test      — Test AI operations functionality"
-            echo "  comprehensive — Show comprehensive status including AI operations"
-            echo "  help         — Show this help"
-            ;;
-        *)
-            log_error "Unknown command: $1"
-            main help
-            exit 1
-            ;;
-    esac
-}
-
+# Run main function
 main "$@"
