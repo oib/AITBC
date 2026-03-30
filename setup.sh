@@ -223,14 +223,40 @@ check_service() {
 echo "AITBC Service Health Check"
 echo "========================"
 
-# Check wallet service
+# Check core blockchain services
 check_service "Wallet API" "http://localhost:8003/health"
-
-# Check exchange API
 check_service "Exchange API" "http://localhost:8001/api/health"
-
-# Check coordinator API
 check_service "Coordinator API" "http://localhost:8000/health"
+
+# Check AI and processing services
+check_service "GPU Service" "http://localhost:8010/health"
+check_service "Marketplace API" "http://localhost:8014/health"
+check_service "OpenClaw Service" "http://localhost:8007/health"
+check_service "AI Service" "http://localhost:8009/health"
+check_service "Learning Service" "http://localhost:8013/health"
+
+# Check additional services
+check_service "Explorer" "http://localhost:8005/health"
+check_service "Web UI" "http://localhost:8016/health"
+check_service "Agent Coordinator" "http://localhost:8006/health"
+check_service "Agent Registry" "http://localhost:8008/health"
+check_service "Multimodal Service" "http://localhost:8002/health"
+check_service "Modality Optimization" "http://localhost:8004/health"
+
+# Check blockchain node and RPC
+echo ""
+echo "Blockchain Services:"
+if systemctl is-active --quiet aitbc-blockchain-node.service; then
+    echo -e "${GREEN}✓${NC} Blockchain Node is running"
+else
+    echo -e "${RED}✗${NC} Blockchain Node is not running"
+fi
+
+if systemctl is-active --quiet aitbc-blockchain-rpc.service; then
+    echo -e "${GREEN}✓${NC} Blockchain RPC is running"
+else
+    echo -e "${RED}✗${NC} Blockchain RPC is not running"
+fi
 
 # Check process status
 echo ""
