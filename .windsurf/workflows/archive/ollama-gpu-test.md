@@ -63,7 +63,7 @@ aitbc marketplace receipts list --limit 3
 
 # Or via API
 curl -H "X-Api-Key: client_dev_key_1" \
-  http://127.0.0.1:18000/v1/explorer/receipts?limit=3
+  http://127.0.0.1:8000/v1/explorer/receipts?limit=3
 
 # Verify blockchain transaction
 curl -s http://aitbc.keisanki.net/rpc/transactions | \
