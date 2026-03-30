@@ -75,6 +75,28 @@ jobs:
           systemctl daemon-reload
           echo "✅ Systemd daemon reloaded"
 
+          # Enable services
+          echo "=== Enabling services ==="
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-node aitbc-blockchain-rpc aitbc-adaptive-learning; do
+            if systemctl list-unit-files | grep -q "$svc.service"; then
+              systemctl enable "$svc" 2>/dev/null || echo "  ⚠️ $svc enable failed"
+              echo "  ✅ $svc enabled"
+            else
+              echo "  ⚠️ $svc service file not found"
+            fi
+          done
+
+          # Start core services that should be running
+          echo "=== Starting core services ==="
+          for svc in aitbc-blockchain-node aitbc-blockchain-rpc aitbc-exchange-api; do
+            if systemctl list-unit-files | grep -q "$svc.service"; then
+              systemctl start "$svc" 2>/dev/null || echo "  ⚠️ $svc start failed"
+              echo "  ✅ $svc start attempted"
+            else
+              echo "  ⚠️ $svc service file not found"
+            fi
+          done
+
       - name: Service status check
         run: |
           echo "=== AITBC Service Status ==="
