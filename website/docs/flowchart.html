@@ -54,7 +54,7 @@
                         <div style="background: #06b6d4; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Ollama</div>
                     </div>
                     <div style="font-size: 0.85rem; color: #64748b; text-align: center; margin-top: 1rem;">
-                        <div>(aitbc-cli.sh) → (client.py) → (port 18000) → (RPC:26657) → (port 18001) → (port 11434)</div>
+                        <div>(aitbc-cli.sh) → (client.py) → (port 8000) → (RPC:8006) → (port 8010) → (port 11434)</div>
                     </div>
                 </div>
                 
@@ -92,7 +92,7 @@
                     <li>Bash script (<span class="inline-code">aitbc-cli.sh</span>) parses arguments</li>
                     <li>Sets environment variables:
                         <ul>
-                            <li><span class="inline-code">AITBC_URL=http://127.0.0.1:18000</span></li>
+                            <li><span class="inline-code">AITBC_URL=http://127.0.0.1:8000</span></li>
                             <li><span class="inline-code">CLIENT_KEY=${CLIENT_API_KEY}</span></li>
                         </ul>
                     </li>
@@ -120,7 +120,7 @@
                 <div class="http-request">
                     <h4>HTTP Request:</h4>
                     <pre><code>POST /v1/jobs
-Host: 127.0.0.1:18000
+Host: 127.0.0.1:8000
 Content-Type: application/json
 X-Api-Key: ${CLIENT_API_KEY}
 
@@ -131,7 +131,7 @@ X-Api-Key: ${CLIENT_API_KEY}
 }</code></pre>
                 </div>
 
-                <p><strong>Coordinator Service (Port 18000):</strong></p>
+                <p><strong>Coordinator Service (Port 8000):</strong></p>
                 <ol>
                     <li>Receives HTTP request</li>
                     <li>Validates API key and job parameters</li>
@@ -185,9 +185,9 @@ X-Api-Key: ${CLIENT_API_KEY}
                 </ol>
 
                 <div class="http-request">
-                    <h4>Coordinator → Miner Daemon (Port 18001):</h4>
+                    <h4>Coordinator → Miner (Port 8010):</h4>
                     <pre><code>POST /v1/jobs/assign
-Host: 127.0.0.1:18001
+Host: 127.0.0.1:8010
 Content-Type: application/json
 X-Api-Key: ${ADMIN_API_KEY}
 
@@ -250,9 +250,9 @@ Content-Type: application/json
 
                 <h3>8. Result Submission to Coordinator</h3>
                 <div class="http-request">
-                    <h4>Miner → Coordinator (Port 18000):</h4>
+                    <h4>Miner → Coordinator (Port 8000):</h4>
                     <pre><code>POST /v1/jobs/job_123456/complete
-Host: 127.0.0.1:18000
+Host: 127.0.0.1:8000
 Content-Type: application/json
 X-Miner-Key: ${MINER_API_KEY}
 
@@ -308,7 +308,7 @@ X-Miner-Key: ${MINER_API_KEY}
                 <div class="http-request">
                     <h4>HTTP Request:</h4>
                     <pre><code>GET /v1/jobs/job_123456
-Host: 127.0.0.1:18000
+Host: 127.0.0.1:8000
 X-Api-Key: ${CLIENT_API_KEY}</code></pre>
 
                     <h4>Response:</h4>
@@ -358,19 +358,19 @@ Cost: 0.25 AITBC</code></pre>
                         </tr>
                         <tr>
                             <td>Coordinator</td>
-                            <td>18000</td>
+                            <td>8000</td>
                             <td>HTTP/REST</td>
                             <td>Job management, API gateway</td>
                         </tr>
                         <tr>
                             <td>Blockchain Node</td>
-                            <td>26657</td>
+                            <td>8006</td>
                             <td>JSON-RPC</td>
                             <td>Transaction processing, consensus</td>
                         </tr>
                         <tr>
                             <td>Miner Daemon</td>
-                            <td>18001</td>
+                            <td>8010</td>
                             <td>HTTP/REST</td>
                             <td>Job execution, GPU management</td>
                         </tr>
@@ -389,12 +389,12 @@ Cost: 0.25 AITBC</code></pre>
                 <h2>Message Flow Timeline</h2>
                 <div class="timeline">0s: User submits CLI command
 └─> 0.1s: Python client called
-   └─> 0.2s: HTTP POST to Coordinator (port 18000)
+   └─> 0.2s: HTTP POST to Coordinator (port 8000)
       └─> 0.3s: Coordinator validates and creates job
-         └─> 0.4s: RPC to Blockchain (port 26657)
+         └─> 0.4s: RPC to Blockchain (port 8006)
             └─> 0.5s: Transaction in mempool
                └─> 1.0s: Job queued for miner
-                  └─> 2.0s: Miner assigned (port 18001)
+                  └─> 2.0s: Miner assigned (port 8010)
                      └─> 2.1s: Miner accepts job
                         └─> 2.2s: Ollama request (port 11434)
                            └─> 14.7s: Inference complete (12.5s processing)
