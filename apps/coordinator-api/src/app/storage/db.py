@@ -62,7 +62,13 @@ def get_engine() -> Engine:
     return _engine
 
 
-from app.domain import *
+# Import only essential models for database initialization
+# This avoids loading all domain models which causes 2+ minute startup delays
+from app.domain import (
+    Job, Miner, MarketplaceOffer, MarketplaceBid, 
+    User, Wallet, Transaction, UserSession,
+    JobPayment, PaymentEscrow, JobReceipt
+)
 
 def init_db() -> Engine:
     """Initialize database tables and ensure data directory exists."""
