@@ -93,7 +93,6 @@ setup_runtime_directories() {
         "/var/lib/aitbc/data"
         "/var/lib/aitbc/logs"
         "/etc/aitbc"
-        "/var/log/aitbc"
     )
     
     for dir in "${directories[@]}"; do
@@ -107,7 +106,6 @@ setup_runtime_directories() {
     chmod 755 /var/lib/aitbc/data
     chmod 755 /var/lib/aitbc/logs
     chmod 755 /etc/aitbc
-    chmod 755 /var/log/aitbc
     
     # Set ownership
     chown root:root /var/lib/aitbc
@@ -115,7 +113,6 @@ setup_runtime_directories() {
     chown root:root /var/lib/aitbc/data
     chown root:root /var/lib/aitbc/logs
     chown root:root /etc/aitbc
-    chown root:root /var/log/aitbc
     
     # Create README files
     echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
