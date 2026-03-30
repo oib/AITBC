@@ -1,0 +1,24 @@
+{
+    "agents": {
+        "CoordinatorAgent": {
+            "node": "aitbc",
+            "capabilities": ["orchestration", "monitoring", "coordination"],
+            "access": ["agent_communication", "task_distribution"]
+        },
+        "GenesisAgent": {
+            "node": "aitbc", 
+            "capabilities": ["system_admin", "blockchain_genesis", "service_management"],
+            "access": ["ssh", "systemctl", "file_system"]
+        },
+        "FollowerAgent": {
+            "node": "aitbc1",
+            "capabilities": ["system_admin", "blockchain_sync", "service_management"],
+            "access": ["ssh", "systemctl", "file_system"]
+        },
+        "WalletAgent": {
+            "node": "both",
+            "capabilities": ["wallet_management", "transaction_processing"],
+            "access": ["cli_commands", "blockchain_rpc"]
+        }
+    }
+}

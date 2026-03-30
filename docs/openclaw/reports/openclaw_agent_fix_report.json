@@ -1,0 +1,12 @@
+{
+    "fix_status": "completed",
+    "issue": "Agent communication failed due to missing session context",
+    "solution": "Added --session-id parameter to agent commands",
+    "session_id": "blockchain-workflow-1774868955",
+    "agent_id": "main",
+    "working_commands": [
+        "openclaw agent --agent main --session-id $SESSION_ID --message 'task'",
+        "openclaw agent --agent main --session-id $SESSION_ID --message 'task' --thinking medium"
+    ],
+    "timestamp": "2026-03-30T13:09:34+02:00"
+}
