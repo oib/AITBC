@@ -15,6 +15,7 @@ System logs are now properly organized in /var/log/aitbc/:
 - monitoring_report_20260329_193125.txt
 - network_monitor.log
 - qa_cycle.log
+- qa-cycle.log
 - security_summary.txt
 - sync_detector.log
 - testing_completion_report.txt
@@ -23,6 +24,7 @@ System logs are now properly organized in /var/log/aitbc/:
 - **audit/**: Audit logs
 - **network_monitor.log**: Network monitoring logs
 - **qa_cycle.log**: QA cycle logs
+- **qa-cycle.log**: QA cycle testing logs (from temp directory)
 - **host_gpu_miner.log**: GPU miner client logs (2.4MB)
 - **contract_endpoints_final_status.txt**: Contract endpoint status
 - **final_production_ai_results.txt**: Production AI results
@@ -32,3 +34,4 @@ System logs are now properly organized in /var/log/aitbc/:
 ## Change History
 - **2026-03-30**: Moved from /opt/aitbc/results/ to /var/log/aitbc/ for proper organization
 - **2026-03-30**: Consolidated /opt/aitbc/logs/host_gpu_miner.log to /var/log/aitbc/ for unified logging
+- **2026-03-30**: Cleaned up /opt/aitbc/temp/ directory and moved qa-cycle.log to proper logs location
