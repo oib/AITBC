@@ -312,9 +312,11 @@ def create_app() -> FastAPI:
     app.include_router(marketplace_offers, prefix="/v1")
     
     # Add blockchain router for CLI compatibility
-    print(f"Adding blockchain router: {blockchain}")
-    app.include_router(blockchain, prefix="/v1")
-    print("Blockchain router added successfully")
+    # print(f"Adding blockchain router: {blockchain}")
+    # app.include_router(blockchain, prefix="/v1")
+    # BLOCKCHAIN ROUTER DISABLED - preventing monitoring calls
+    # Blockchain router disabled - preventing monitoring calls
+    print("Blockchain router disabled")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
