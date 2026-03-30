@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from ..schemas import KeyPair, KeyRotationLog, AuditAuthorization
 from ..config import settings
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 

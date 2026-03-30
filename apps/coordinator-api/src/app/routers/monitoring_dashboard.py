@@ -13,7 +13,7 @@ import httpx
 from typing import Dict, Any, List
 
 from ..storage import get_session
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 router = APIRouter()

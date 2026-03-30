@@ -10,7 +10,7 @@ import re
 
 from ..schemas import ConfidentialAccessRequest, ConfidentialAccessLog
 from ..config import settings
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 

@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.serialization import (
 
 from ..schemas import ConfidentialTransaction, ConfidentialAccessLog
 from ..config import settings
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 

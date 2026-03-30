@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, validator
 
 from ..storage import get_session
-from ..logging import get_logger
+from ..app_logging import get_logger
 from ..domain.bounty import (
     AgentStake, AgentMetrics, StakingPool, StakeStatus, 
     PerformanceTier, EcosystemMetrics

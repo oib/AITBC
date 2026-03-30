@@ -14,7 +14,7 @@ from dataclasses import dataclass, asdict
 
 from ..schemas import ConfidentialAccessLog
 from ..config import settings
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 

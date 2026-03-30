@@ -13,7 +13,7 @@ import logging
 
 from ..schemas import Receipt, JobResult
 from ..config import settings
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 logger = get_logger(__name__)
 

@@ -16,7 +16,7 @@ from ..storage import get_session
 from ..services.adaptive_learning import AdaptiveLearningService
 
 logger = logging.getLogger(__name__)
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 router = APIRouter()
