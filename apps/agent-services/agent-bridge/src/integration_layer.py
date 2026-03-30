@@ -18,8 +18,8 @@ class AITBCServiceIntegration:
             "coordinator_api": "http://localhost:8000",
             "blockchain_rpc": "http://localhost:8006",
             "exchange_service": "http://localhost:8001",
-            "marketplace": "http://localhost:8014",
-            "agent_registry": "http://localhost:8003"
+            "marketplace": "http://localhost:8002",
+            "agent_registry": "http://localhost:8013"
         }
         self.session = None
     

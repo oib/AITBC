@@ -23,7 +23,7 @@ router = APIRouter()
 @router.get("/health", tags=["health"], summary="GPU Multi-Modal Service Health")
 async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
-    Health check for GPU Multi-Modal Service (Port 8003)
+    Health check for GPU Multi-Modal Service (Port 8010)
     """
     try:
         # Check GPU availability
@@ -37,7 +37,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
         service_status = {
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
-            "port": 8003,
+            "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             
@@ -91,7 +91,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
         return {
             "status": "unhealthy",
             "service": "gpu-multimodal",
-            "port": 8003,
+            "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
@@ -150,7 +150,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
         return {
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
-            "port": 8003,
+            "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
             "gpu_info": gpu_info,
             "cuda_tests": cuda_tests,
@@ -162,7 +162,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
         return {
             "status": "unhealthy",
             "service": "gpu-multimodal",
-            "port": 8003,
+            "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }

@@ -22,7 +22,7 @@ router = APIRouter()
 @router.get("/health", tags=["health"], summary="Enhanced Marketplace Service Health")
 async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
     """
-    Health check for Enhanced Marketplace Service (Port 8006)
+    Health check for Enhanced Marketplace Service (Port 8002)
     """
     try:
         # Initialize service
@@ -36,7 +36,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
         service_status = {
             "status": "healthy",
             "service": "marketplace-enhanced",
-            "port": 8006,
+            "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             
@@ -98,7 +98,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
         return {
             "status": "unhealthy",
             "service": "marketplace-enhanced",
-            "port": 8006,
+            "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
@@ -173,7 +173,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
         return {
             "status": "healthy",
             "service": "marketplace-enhanced",
-            "port": 8006,
+            "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
             "feature_tests": feature_tests,
             "overall_health": "pass" if all(test.get("status") == "pass" for test in feature_tests.values()) else "degraded"
@@ -184,7 +184,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
         return {
             "status": "unhealthy",
             "service": "marketplace-enhanced",
-            "port": 8006,
+            "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
             "error": str(e)
         }
