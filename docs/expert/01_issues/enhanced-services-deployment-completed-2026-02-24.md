@@ -86,7 +86,7 @@ Successfully deployed the complete enhanced services suite for advanced AI agent
 - `aitbc-modality-optimization.service` - Modality optimization service
 - `aitbc-adaptive-learning.service` - Adaptive learning service
 - `aitbc-marketplace-enhanced.service` - Enhanced marketplace service
-- `aitbc-openclaw-enhanced.service` - OpenClaw enhanced service
+- `aitbc-openclaw.service` - OpenClaw service
 
 ### Test Files
 - `test_multimodal_agent.py` - Comprehensive multi-modal tests (26KB)
