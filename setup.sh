@@ -68,15 +68,15 @@ check_prerequisites() {
 clone_repo() {
     log "Cloning AITBC repository..."
     
-    # Remove existing installation if present
-    if [ -d "/opt/aitbc" ]; then
-        warning "Removing existing /opt/aitbc"
-        rm -rf /opt/aitbc
+    # Check if repository already exists
+    if [ -d "/opt/aitbc/.git" ]; then
+        success "AITBC repository already exists, skipping clone"
+        return 0
     fi
     
     # Clone repository
     cd /opt
-    git clone https://github.com/aitbc/aitbc.git aitbc || error "Failed to clone repository"
+    git clone http://gitea.bubuit.net:3000/oib/aitbc.git aitbc || error "Failed to clone repository"
     
     cd /opt/aitbc
     success "Repository cloned successfully"
