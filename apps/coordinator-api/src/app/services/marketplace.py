@@ -36,11 +36,11 @@ class MarketplaceService:
             stmt = stmt.where(MarketplaceOffer.status == normalised)
 
         stmt = stmt.offset(offset).limit(limit)
-        offers = self.session.execute(stmt).all()
+        offers = self.session.execute(stmt).scalars().all()
         return [self._to_offer_view(o) for o in offers]
 
     def get_stats(self) -> MarketplaceStatsView:
-        offers = self.session.execute(select(MarketplaceOffer)).all()
+        offers = self.session.execute(select(MarketplaceOffer)).scalars().all()
         open_offers = [offer for offer in offers if offer.status == "open"]
 
         total_offers = len(offers)
