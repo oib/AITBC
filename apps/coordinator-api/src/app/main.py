@@ -288,7 +288,6 @@ def create_app() -> FastAPI:
     app.include_router(services, prefix="/v1")
     app.include_router(users, prefix="/v1")
     app.include_router(exchange, prefix="/v1")
-    app.include_router(marketplace_offers, prefix="/v1")
     app.include_router(payments, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
     app.include_router(edge_gpu)
@@ -308,6 +307,9 @@ def create_app() -> FastAPI:
     app.include_router(global_marketplace_integration, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(governance_enhanced, prefix="/v1")
+    
+    # Include marketplace_offers AFTER global_marketplace to override the /offers endpoint
+    app.include_router(marketplace_offers, prefix="/v1")
     
     # Add blockchain router for CLI compatibility
     print(f"Adding blockchain router: {blockchain}")
