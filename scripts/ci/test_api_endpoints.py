@@ -12,7 +12,7 @@ SERVICES = {
     "coordinator": {"url": "http://localhost:8000", "endpoints": ["/", "/health", "/info"]},
     "exchange": {"url": "http://localhost:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": "http://localhost:8003", "endpoints": ["/", "/health", "/wallets"]},
-    "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": ["/health", "/rpc/head", "/rpc/info", "/rpc/supply"]},
+    "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": ["/health", "/rpc/head", "/rpc/mempool"]},
 }
 
 
