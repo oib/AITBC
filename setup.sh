@@ -238,6 +238,7 @@ check_service "GPU Service" "http://localhost:8010/health"
 check_service "Learning Service" "http://localhost:8010/health"
 check_service "Agent Coordinator" "http://localhost:8011/health"
 check_service "Agent Registry" "http://localhost:8012/health"
+check_service "OpenClaw Service" "http://localhost:8013/health"
 check_service "AI Service" "http://localhost:8009/health"
 check_service "Web UI" "http://localhost:8016/health"
 
@@ -247,7 +248,6 @@ echo "📊 Other Services (8020-8029):"
 check_service "Modality Optimization" "http://localhost:8023/health"
 check_service "Explorer" "http://localhost:8022/health"
 check_service "Multimodal Service" "http://localhost:8020/health"
-check_service "OpenClaw Service" "http://localhost:8007/health"
 
 # Check blockchain node and RPC
 echo ""
