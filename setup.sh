@@ -169,6 +169,12 @@ install_services() {
         "aitbc-openclaw.service"
         "aitbc-ai.service"
         "aitbc-learning.service"
+        "aitbc-explorer.service"
+        "aitbc-web-ui.service"
+        "aitbc-agent-coordinator.service"
+        "aitbc-agent-registry.service"
+        "aitbc-multimodal.service"
+        "aitbc-modality-optimization.service"
     )
     
     for service in "${services[@]}"; do
@@ -244,12 +250,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-web-ui aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
         
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-web-ui aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"
@@ -282,6 +288,12 @@ setup_autostart() {
     systemctl enable aitbc-openclaw.service
     systemctl enable aitbc-ai.service
     systemctl enable aitbc-learning.service
+    systemctl enable aitbc-explorer.service
+    systemctl enable aitbc-web-ui.service
+    systemctl enable aitbc-agent-coordinator.service
+    systemctl enable aitbc-agent-registry.service
+    systemctl enable aitbc-multimodal.service
+    systemctl enable aitbc-modality-optimization.service
     
     success "Auto-start configured"
 }
