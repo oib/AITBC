@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
 Environment=PATH=/usr/bin
-ExecStart=/usr/bin/python3 -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8021
+ExecStart=/usr/bin/python3 -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8006
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
