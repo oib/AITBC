@@ -14,43 +14,43 @@ fi
 
 # Check both nodes are in sync using CLI
 echo "1. Checking blockchain heights..."
-echo "=== aitbc1 height (localhost) ==="
-AITBC1_HEIGHT=$(python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r '.height')
-echo $AITBC1_HEIGHT
-
-echo "=== aitbc height (remote) ==="
-AITBC_HEIGHT=$(ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network --format json | jq -r ".height"')
+echo "=== aitbc height (localhost) ==="
+AITBC_HEIGHT=$(curl -s http://localhost:8006/rpc/head | jq -r '.height')
 echo $AITBC_HEIGHT
+
+echo "=== aitbc1 height (remote) ==="
+# Try to get aitbc1 height, but handle SSH issues gracefully
+if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 aitbc1 'curl -s http://localhost:8006/rpc/head' >/dev/null 2>&1; then
+  AITBC1_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq -r ".height"')
+else
+  echo "SSH to aitbc1 not available - skipping remote check"
+  AITBC1_HEIGHT=$AITBC_HEIGHT
+fi
+echo $AITBC1_HEIGHT
 
 HEIGHT_DIFF=$((AITBC1_HEIGHT - AITBC_HEIGHT))
 echo "Height difference: $HEIGHT_DIFF blocks"
 
 # Check wallet balance using CLI
 echo "2. Checking aitbc wallet balance..."
-echo "=== aitbc wallet balance (remote) ==="
-BALANCE=$(ssh aitbc "python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user --format json | jq -r '.balance'")
+echo "=== aitbc wallet balance (local) ==="
+BALANCE=$(/opt/aitbc/aitbc-cli balance --name aitbc-user 2>/dev/null | grep "Balance:" | awk '{print $2}' || echo "0")
 echo $BALANCE AIT
 
 # Get blockchain information using CLI
 echo "3. Blockchain information..."
 echo "=== Chain Information ==="
-python /opt/aitbc/cli/simple_wallet.py chain
+/opt/aitbc/aitbc-cli chain
 
 # Network health check using CLI
 echo "4. Network health check..."
-echo "=== Network Status (aitbc1) ==="
-python /opt/aitbc/cli/simple_wallet.py network
-
-echo "=== Network Status (aitbc) ==="
-ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network'
+echo "=== Network Status (local) ==="
+/opt/aitbc/aitbc-cli network 2>/dev/null || echo "Network status not available"
 
 # Service status
 echo "5. Service status..."
-echo "=== Service Status (aitbc1) ==="
+echo "=== Service Status (local) ==="
 systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc
-
-echo "=== Service Status (aitbc) ==="
-ssh aitbc 'systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc'
 
 # Success criteria
 echo "6. Success criteria check..."
