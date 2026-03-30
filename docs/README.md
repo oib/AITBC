@@ -276,3 +276,6 @@ Files are now organized with systematic prefixes based on reading level:
 **Status**: PRODUCTION READY with perfect documentation structure  
 
 **🎉 Achievement: Perfect 10/10 Documentation Quality Score Attained!**
+# OpenClaw Integration
+
+See [OpenClaw Documentation](openclaw/) for comprehensive OpenClaw agent integration with AITBC blockchain.
