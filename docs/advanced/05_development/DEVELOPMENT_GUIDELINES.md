@@ -113,8 +113,8 @@ touch dev/tests/test_new_feature.py
 touch dev/scripts/fix_bug.py
 
 # Right way to handle dependencies
-npm install  # Will go to dev/env/node_modules/
-python -m venv dev/env/.venv
+npm install  # Use in contracts/ directory for smart contracts development
+source /opt/aitbc/venv/bin/activate  # Use central Python virtual environment
 ```
 
 ## 🔧 IDE Configuration
