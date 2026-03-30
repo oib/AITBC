@@ -1,3 +1,3 @@
 #!/bin/bash
-source /opt/aitbc/cli/venv/bin/activate
+source /opt/aitbc/venv/bin/activate
 python /opt/aitbc/cli/aitbc_cli.py "$@"
