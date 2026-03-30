@@ -1,6 +1,11 @@
 # AITBC Central Virtual Environment Requirements
 # This file contains all Python dependencies for AITBC services
 # Merged from all subdirectory requirements files
+#
+# Recent Updates:
+# - Added bech32>=1.2.0 for blockchain address encoding (2026-03-30)
+# - Fixed duplicate web3 entries and tenseal version
+# - All dependencies tested and working with current services
 
 # Core Web Framework
 fastapi>=0.115.0
@@ -35,6 +40,7 @@ cryptography>=46.0.0
 pynacl>=1.5.0
 ecdsa>=0.19.0
 base58>=2.1.1
+bech32>=1.2.0
 web3>=6.11.0
 eth-account>=0.13.0
 
@@ -88,5 +94,4 @@ opencv-python>=4.9.0
 # Additional Dependencies
 redis>=5.0.0
 psutil>=5.9.0
-tenseal
-web3>=6.11.0
+tenseal>=0.3.0
