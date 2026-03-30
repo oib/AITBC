@@ -1340,11 +1340,11 @@ def main():
         network_info = get_network_status(rpc_url=args.rpc_url)
         if network_info:
             print("Network Status:")
-            print(f"  Height: {network_info['height']}")
-            print(f"  Latest Block: {network_info['hash'][:16]}...")
-            print(f"  Chain ID: {network_info['chain_id']}")
-            print(f"  RPC Version: {network_info['rpc_version']}")
-            print(f"  Timestamp: {network_info['timestamp']}")
+            print(f"  Height: {network_info.get('height', 'N/A')}")
+            print(f"  Latest Block: {str(network_info.get('hash', 'N/A'))[:16]}...")
+            print(f"  Chain ID: {network_info.get('chain_id', 'ait-mainnet')}")
+            print(f"  Tx Count: {network_info.get('tx_count', 0)}")
+            print(f"  Timestamp: {network_info.get('timestamp', 'N/A')}")
         else:
             sys.exit(1)
     
@@ -1503,6 +1503,74 @@ def main():
             print(f"Resource {result['action']}:")
             for key, value in result.items():
                 if key != "action":
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "mine-start":
+        result = mining_operations('start', wallet=args.wallet)
+        if result:
+            print(f"Mining start:")
+            for key, value in result.items():
+                if key != 'action':
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "mine-stop":
+        result = mining_operations('stop')
+        if result:
+            print(f"Mining stop:")
+            for key, value in result.items():
+                if key != 'action':
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "mine-status":
+        result = mining_operations('status')
+        if result:
+            print(f"Mining status:")
+            for key, value in result.items():
+                if key != 'action':
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "market-list":
+        result = marketplace_operations('list', rpc_url=getattr(args, 'rpc_url', DEFAULT_RPC_URL))
+        if result:
+            print(f"Marketplace listings:")
+            for key, value in result.items():
+                if key != 'action':
+                    if isinstance(value, list):
+                        print(f"  {key.replace('_', ' ').title()}:")
+                        for item in value:
+                            print(f"    - {item}")
+                    else:
+                        print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            print("No marketplace listings found.")
+    
+    elif args.command == "market-create":
+        result = marketplace_operations('create', name=getattr(args, 'type', ''),
+                                       price=args.price, description=args.description,
+                                       wallet=args.wallet)
+        if result:
+            print(f"Marketplace listing created:")
+            for key, value in result.items():
+                if key != 'action':
+                    print(f"  {key.replace('_', ' ').title()}: {value}")
+        else:
+            sys.exit(1)
+    
+    elif args.command == "ai-submit":
+        result = ai_operations('submit', model=getattr(args, 'type', ''),
+                               prompt=args.prompt, wallet=args.wallet)
+        if result:
+            print(f"AI job submitted:")
+            for key, value in result.items():
+                if key != 'action':
                     print(f"  {key.replace('_', ' ').title()}: {value}")
         else:
             sys.exit(1)
