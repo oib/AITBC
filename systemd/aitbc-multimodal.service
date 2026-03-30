@@ -9,7 +9,7 @@ User=debian
 Group=debian
 WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
 Environment=PATH=/usr/bin
-ExecStart=/usr/bin/python3 -m uvicorn src.app.services.multimodal_app:app --host 127.0.0.1 --port 8002
+ExecStart=/usr/bin/python3 -m uvicorn src.app.services.multimodal_app:app --host 127.0.0.1 --port 8020
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
