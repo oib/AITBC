@@ -23,6 +23,7 @@ System logs are now properly organized in /var/log/aitbc/:
 - **audit/**: Audit logs
 - **network_monitor.log**: Network monitoring logs
 - **qa_cycle.log**: QA cycle logs
+- **host_gpu_miner.log**: GPU miner client logs (2.4MB)
 - **contract_endpoints_final_status.txt**: Contract endpoint status
 - **final_production_ai_results.txt**: Production AI results
 - **monitoring_report_*.txt**: System monitoring reports
@@ -30,3 +31,4 @@ System logs are now properly organized in /var/log/aitbc/:
 
 ## Change History
 - **2026-03-30**: Moved from /opt/aitbc/results/ to /var/log/aitbc/ for proper organization
+- **2026-03-30**: Consolidated /opt/aitbc/logs/host_gpu_miner.log to /var/log/aitbc/ for unified logging
