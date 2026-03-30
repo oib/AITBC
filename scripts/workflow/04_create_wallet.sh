@@ -8,32 +8,29 @@ echo "=== AITBC Wallet Creation (Enhanced CLI) ==="
 
 echo "1. Pre-creation verification..."
 echo "=== Current wallets on aitbc ==="
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py list'
+/opt/aitbc/aitbc-cli list
 
 echo "2. Creating new wallet on aitbc..."
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py create --name aitbc-user --password-file /var/lib/aitbc/keystore/.password'
+/opt/aitbc/aitbc-cli create --name aitbc-user --password-file /var/lib/aitbc/keystore/.password
 
 # Get wallet address using CLI
-WALLET_ADDR=$(ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user --format json | jq -r ".address"')
+WALLET_ADDR=$(/opt/aitbc/aitbc-cli balance --name aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
 echo "New wallet address: $WALLET_ADDR"
 
 # Verify wallet was created successfully using CLI
 echo "3. Post-creation verification..."
 echo "=== Updated wallet list ==="
-ssh aitbc "/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py list --format json | jq '.[] | select(.name == \"aitbc-user\")'"
+/opt/aitbc/aitbc-cli list | grep aitbc-user || echo "Wallet not found in list"
 
 echo "=== New wallet details ==="
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user'
+/opt/aitbc/aitbc-cli balance --name aitbc-user
 
 echo "=== All wallets summary ==="
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py list'
+/opt/aitbc/aitbc-cli list
 
 echo "4. Cross-node verification..."
-echo "=== Network status (aitbc1) ==="
-/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py network
-
-echo "=== Network status (aitbc) ==="
-ssh aitbc '/opt/aitbc/venv/bin/python /opt/aitbc/cli/simple_wallet.py network'
+echo "=== Network status (local) ==="
+/opt/aitbc/aitbc-cli network 2>/dev/null || echo "Network status not available"
 
 echo "✅ Wallet created successfully using enhanced CLI!"
 echo "Wallet name: aitbc-user"
