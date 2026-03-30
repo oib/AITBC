@@ -49,14 +49,17 @@ scripts/testing/           # Main testing scripts
 └── test-all-services.sh           # Service testing
 
 scripts/utils/             # Testing utilities
-├── setup.sh                       # System setup (includes testing)
-└── requirements_migrator.py       # Dependency management
+├── requirements_migrator.py       # Dependency management
+└── other utility scripts          # Various helper scripts
 ```
 
 ## Prerequisites
 
 ### Environment Setup
 ```bash
+# Run main project setup (if not already done)
+./setup.sh
+
 # Activate central virtual environment
 source /opt/aitbc/venv/bin/activate
 
