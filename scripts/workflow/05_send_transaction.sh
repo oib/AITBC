@@ -14,14 +14,14 @@ fi
 
 echo "1. Pre-transaction verification..."
 echo "=== Genesis wallet balance (before) ==="
-python /opt/aitbc/cli/simple_wallet.py balance --name aitbc1genesis
+python /opt/aitbc/cli/aitbc_cli.py balance --name aitbc1genesis
 
 echo "=== Target wallet address ==="
 echo $WALLET_ADDR
 
 echo "2. Sending 1000 AIT from genesis to aitbc wallet..."
 # Send transaction using CLI
-python /opt/aitbc/cli/simple_wallet.py send \
+python /opt/aitbc/cli/aitbc_cli.py send \
   --from aitbc1genesis \
   --to $WALLET_ADDR \
   --amount 1000 \
@@ -31,7 +31,7 @@ python /opt/aitbc/cli/simple_wallet.py send \
 
 # Get transaction hash from CLI
 echo "3. Transaction details..."
-TX_HASH=$(python /opt/aitbc/cli/simple_wallet.py transactions --from aitbc1genesis --limit 1 --format json 2>/dev/null | jq -r '.[0].hash' || echo "Transaction hash retrieval failed")
+TX_HASH=$(python /opt/aitbc/cli/aitbc_cli.py transactions --from aitbc1genesis --limit 1 --format json 2>/dev/null | jq -r '.[0].hash' || echo "Transaction hash retrieval failed")
 echo "Transaction hash: $TX_HASH"
 
 # Wait for transaction to be mined with enhanced monitoring
@@ -40,7 +40,7 @@ for i in {1..10}; do
   sleep 2
   
   # Check balance using CLI
-  BALANCE=$(ssh aitbc "python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user --format json | jq -r '.balance'")
+  BALANCE=$(ssh aitbc "python /opt/aitbc/cli/aitbc_cli.py balance --name aitbc-user --format json | jq -r '.balance'")
   
   if [ "$BALANCE" -gt "0" ]; then
     echo "✅ Transaction mined! Balance: $BALANCE AIT"
@@ -52,13 +52,13 @@ done
 # Final verification using CLI
 echo "5. Post-transaction verification..."
 echo "=== Genesis wallet balance (after) ==="
-python /opt/aitbc/cli/simple_wallet.py balance --name aitbc1genesis
+python /opt/aitbc/cli/aitbc_cli.py balance --name aitbc1genesis
 
 echo "=== Target wallet balance (final) ==="
-ssh aitbc "python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user"
+ssh aitbc "python /opt/aitbc/cli/aitbc_cli.py balance --name aitbc-user"
 
 echo "=== Recent transactions ==="
-python /opt/aitbc/cli/simple_wallet.py transactions --from aitbc1genesis --limit 3
+python /opt/aitbc/cli/aitbc_cli.py transactions --from aitbc1genesis --limit 3
 
 echo "✅ Transaction sent successfully using enhanced CLI!"
 echo "From: aitbc1genesis"
