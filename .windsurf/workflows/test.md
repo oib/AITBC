@@ -1,32 +1,149 @@
 ---
-description: Test and debug workflow for AITBC platform including OpenClaw agents and AI operations
-title: AITBC Testing and Debugging Workflow
-version: 3.0
+description: DEPRECATED - Use modular test workflows instead. See TEST_MASTER_INDEX.md for navigation.
+title: AITBC Testing and Debugging Workflow (DEPRECATED)
+version: 3.0 (DEPRECATED)
 auto_execution_mode: 3
 ---
 
-# AITBC Testing and Debugging Workflow
+# AITBC Testing and Debugging Workflow (DEPRECATED)
 
-This workflow helps you run tests and debug issues in the AITBC platform using the current consolidated project structure, including OpenClaw agents, AI operations, and modular workflows.
+⚠️ **This workflow has been split into focused modules for better maintainability and usability.**
 
-## Prerequisites
+## 🆕 New Modular Test Structure
 
-### Required Setup
-- Working directory: `/opt/aitbc`
-- Virtual environment: `/opt/aitbc/venv`
-- CLI wrapper: `/opt/aitbc/aitbc-cli`
-- Services running on correct ports (8000, 8001, 8006)
-- OpenClaw 2026.3.24+ installed and gateway running
+See **[TEST_MASTER_INDEX.md](TEST_MASTER_INDEX.md)** for complete navigation to the new modular test workflows.
 
-### Environment Setup
+### New Test Modules Available
+
+1. **[Basic Testing Module](test-basic.md)** - CLI and core operations testing
+2. **[OpenClaw Agent Testing](test-openclaw-agents.md)** - Agent functionality and coordination
+3. **[AI Operations Testing](test-ai-operations.md)** - AI job submission and processing
+4. **[Advanced AI Testing](test-advanced-ai.md)** - Complex AI workflows and multi-model pipelines
+5. **[Cross-Node Testing](test-cross-node.md)** - Multi-node coordination and distributed operations
+6. **[Performance Testing](test-performance.md)** - System performance and load testing
+7. **[Integration Testing](test-integration.md)** - End-to-end integration testing
+
+### Benefits of Modular Structure
+
+#### ✅ **Improved Maintainability**
+- Each test module focuses on specific functionality
+- Easier to update individual test sections
+- Reduced file complexity
+- Better version control
+
+#### ✅ **Enhanced Usability**
+- Users can run only needed test modules
+- Faster test execution and navigation
+- Clear separation of concerns
+- Better test organization
+
+#### ✅ **Better Testing Strategy**
+- Focused test scenarios for each component
+- Clear test dependencies and prerequisites
+- Specific performance benchmarks
+- Comprehensive troubleshooting guides
+
+## 🚀 Quick Start with New Modular Structure
+
+### Run Basic Tests
 ```bash
+# Navigate to basic testing module
 cd /opt/aitbc
 source venv/bin/activate
+
+# Reference: test-basic.md
 ./aitbc-cli --version
-openclaw --version
+./aitbc-cli chain
+./aitbc-cli resource status
 ```
 
-## Testing Workflow
+### Run OpenClaw Agent Tests
+```bash
+# Reference: test-openclaw-agents.md
+openclaw agent --agent GenesisAgent --session-id test --message "Test message" --thinking low
+openclaw agent --agent FollowerAgent --session-id test --message "Test response" --thinking low
+```
+
+### Run AI Operations Tests
+```bash
+# Reference: test-ai-operations.md
+./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Test AI job" --payment 100
+./aitbc-cli ai-ops --action status --job-id latest
+```
+
+### Run Cross-Node Tests
+```bash
+# Reference: test-cross-node.md
+./aitbc-cli resource status
+ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'
+```
+
+## 📚 Complete Test Workflow
+
+### Phase 1: Basic Validation
+1. **[Basic Testing Module](test-basic.md)** - Verify core functionality
+2. **[OpenClaw Agent Testing](test-openclaw-agents.md)** - Validate agent operations
+3. **[AI Operations Testing](test-ai-operations.md)** - Confirm AI job processing
+
+### Phase 2: Advanced Validation
+4. **[Advanced AI Testing](test-advanced-ai.md)** - Test complex AI workflows
+5. **[Cross-Node Testing](test-cross-node.md)** - Validate distributed operations
+6. **[Performance Testing](test-performance.md)** - Benchmark system performance
+
+### Phase 3: Production Readiness
+7. **[Integration Testing](test-integration.md)** - End-to-end validation
+
+## 🔗 Quick Module Links
+
+| Module | Focus | Prerequisites | Quick Command |
+|--------|-------|---------------|---------------|
+| **[Basic](test-basic.md)** | CLI & Core Ops | None | `./aitbc-cli --version` |
+| **[OpenClaw](test-openclaw-agents.md)** | Agent Testing | Basic | `openclaw agent --agent GenesisAgent --session-id test --message "test"` |
+| **[AI Ops](test-ai-operations.md)** | AI Jobs | Basic | `./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "test" --payment 100` |
+| **[Advanced AI](test-advanced-ai.md)** | Complex AI | AI Ops | `./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "complex test" --payment 500` |
+| **[Cross-Node](test-cross-node.md)** | Multi-Node | AI Ops | `ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'` |
+| **[Performance](test-performance.md)** | Performance | All | `./aitbc-cli simulate blockchain --blocks 100 --transactions 1000` |
+| **[Integration](test-integration.md)** | End-to-End | All | `./scripts/workflow-openclaw/06_advanced_ai_workflow_openclaw.sh` |
+
+## 🎯 Migration Guide
+
+### From Monolithic to Modular
+
+#### **Before** (Monolithic)
+```bash
+# Run all tests from single large file
+# Difficult to navigate and maintain
+# Mixed test scenarios
+```
+
+#### **After** (Modular)
+```bash
+# Run focused test modules
+# Easy to navigate and maintain
+# Clear test separation
+# Better performance
+```
+
+### Recommended Test Sequence
+
+#### **For New Deployments**
+1. Start with **[Basic Testing Module](test-basic.md)**
+2. Add **[OpenClaw Agent Testing](test-openclaw-agents.md)**
+3. Include **[AI Operations Testing](test-ai-operations.md)**
+4. Add advanced modules as needed
+
+#### **For Existing Systems**
+1. Run **[Basic Testing Module](test-basic.md)** for baseline
+2. Use **[Integration Testing](test-integration.md)** for validation
+3. Add specific modules for targeted testing
+
+## 📋 Legacy Content Archive
+
+The original monolithic test content is preserved below for reference during migration:
+
+---
+
+*Original content continues here for archival purposes...*
 
 ### 1. Run CLI Tests
 ```bash
