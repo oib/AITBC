@@ -8,7 +8,7 @@ import re
 
 from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 
-from ..types import JobState, Constraints
+from ..custom_types import JobState, Constraints
 
 
 # Payment schemas
