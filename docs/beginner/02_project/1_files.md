@@ -64,7 +64,7 @@ Last updated: 2026-03-25
 | `systemd/aitbc-coordinator-api.service` | ✅ Active | Standardized coordinator API |
 | `systemd/aitbc-wallet.service` | ✅ Active | Fixed and standardized (Mar 2026) |
 | `systemd/aitbc-loadbalancer-geo.service` | ✅ Active | Fixed and standardized (Mar 2026) |
-| `systemd/aitbc-marketplace-enhanced.service` | ✅ Active | Fixed and standardized (Mar 2026) |
+| `systemd/aitbc-marketplace.service` | ✅ Active | Renamed from enhanced (Mar 2026) |
 
 ### Website (`website/`)
 
