@@ -47,7 +47,7 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 /etc/systemd/system/aitbc-multimodal-gpu.service      # Port 8010
 /etc/systemd/system/aitbc-multimodal.service           # Port 8011
 /etc/systemd/system/aitbc-modality-optimization.service # Port 8012
-/etc/systemd/system/aitbc-adaptive-learning.service     # Port 8013
+/etc/systemd/system/aitbc-learning.service     # Port 8013
 /etc/systemd/system/aitbc-marketplace.service      # Port 8014
 /etc/systemd/system/aitbc-openclaw.service     # Port 8015
 /etc/systemd/system/aitbc-web-ui.service               # Port 8016
@@ -62,7 +62,7 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 curl -s http://localhost:8010/health  ✅ {"status":"ok","service":"gpu-multimodal","port":8010}
 curl -s http://localhost:8011/health  ✅ {"status":"ok","service":"gpu-multimodal","port":8011}
 curl -s http://localhost:8012/health  ✅ {"status":"ok","service":"modality-optimization","port":8012}
-curl -s http://localhost:8013/health  ✅ {"status":"ok","service":"adaptive-learning","port":8013}
+curl -s http://localhost:8013/health  ✅ {"status":"ok","service":"learning","port":8013}
 curl -s http://localhost:8016/health  ✅ {"status":"ok","service":"web-ui","port":8016}
 ```
 
@@ -156,7 +156,7 @@ sudo netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
 ```json
 {
   "status": "ok",
-  "service": "adaptive-learning",
+  "service": "learning",
   "port": 8013,
   "learning_active": true,
   "learning_mode": "online",

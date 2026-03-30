@@ -283,10 +283,10 @@ sudo fuser -k 8010/tcp
 free -h
 
 # Monitor service memory
-systemctl status aitbc-adaptive-learning.service --no-pager
+systemctl status aitbc-learning.service --no-pager
 
 # Adjust memory limits
-systemctl edit aitbc-adaptive-learning.service
+systemctl edit aitbc-learning.service
 ```
 
 ### Performance Optimization
