@@ -1,20 +1,12 @@
-[project]
+[tool.poetry]
 name = "aitbc"
 version = "0.1.0"
-description = "AITBC Blockchain Platform"
-authors = [
-    {name = "AITBC Team", email = "team@aitbc.dev"}
-]
-requires-python = "^3.13"
-dependencies = [
-    "cryptography>=41.0.0",
-    "sqlmodel>=0.0.14", 
-    "fastapi>=0.104.0",
-    "uvicorn>=0.24.0",
-    "redis>=5.0.0",
-    "pydantic>=2.5.0"
-]
+description = "AI Agent Compute Network - Main Project"
+authors = ["AITBC Team"]
+
+[tool.poetry.dependencies]
+python = "^3.13"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
