@@ -25,7 +25,7 @@ from ..services.encryption import EncryptionService, EncryptedData
 from ..services.key_management import KeyManager, KeyManagementError
 from ..services.access_control import AccessController
 from ..auth import get_api_key
-from ..logging import get_logger
+from ..app_logging import get_logger
 
 
 

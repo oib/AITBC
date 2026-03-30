@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from pydantic import BaseModel, Field
 
 from ..storage import get_session
-from ..logging import get_logger
+from ..app_logging import get_logger
 from ..domain.bounty import EcosystemMetrics, BountyStats, AgentMetrics
 from ..services.ecosystem_service import EcosystemService
 from ..auth import get_current_user
