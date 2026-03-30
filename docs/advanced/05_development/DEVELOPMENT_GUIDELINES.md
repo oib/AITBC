@@ -50,11 +50,10 @@ config/.nvmrc
 config/.lycheeignore
 ```
 
-### Development Environment → `dev/env/`
+### Development Environment → `/etc/aitbc/.env`
 ```bash
-# Environment directories
-dev/env/node_modules/
-dev/env/.venv/
+# Central environment configuration
+/etc/aitbc/.env
 ```
 
 ### Cache and Temporary → `dev/cache/`
