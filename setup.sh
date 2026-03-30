@@ -229,7 +229,7 @@ echo "🔧 Core Services (8000-8009):"
 check_service "Coordinator API" "http://localhost:8000/health"
 check_service "Exchange API" "http://localhost:8001/api/health"
 check_service "Wallet API" "http://localhost:8003/health"
-check_service "Marketplace API" "http://localhost:8021/health"
+check_service "Marketplace API" "http://localhost:8006/health"
 
 # AI/Agent/GPU Services (8010-8019)
 echo ""
