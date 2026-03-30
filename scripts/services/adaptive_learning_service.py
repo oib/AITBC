@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Simple FastAPI service for AITBC Adaptive Learning (Port 8013)
+Simple FastAPI service for AITBC Adaptive Learning (Port 8011)
 """
 
 import sys
@@ -17,7 +17,7 @@ def health():
     return {
         'status': 'ok', 
         'service': 'adaptive-learning', 
-        'port': 8013,
+        'port': 8011,
         'python_version': sys.version.split()[0]
     }
 
@@ -35,11 +35,11 @@ def learning_status():
 def root():
     return {
         'service': 'AITBC Adaptive Learning Service',
-        'port': 8013,
+        'port': 8011,
         'status': 'running',
         'endpoints': ['/health', '/learning/status']
     }
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8013))
+    port = int(os.environ.get('PORT', 8011))
     uvicorn.run(app, host='0.0.0.0', port=port)
