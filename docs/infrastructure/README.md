@@ -90,7 +90,7 @@ sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/aitbc/main/setup.sh)
 ### Manual Setup
 ```bash
 # Clone and setup manually
-sudo git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
+sudo git clone https://github.com/aitbc/aitbc.git /opt/aitbc
 cd /opt/aitbc
 sudo ./setup.sh
 ```
