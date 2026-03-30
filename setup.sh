@@ -206,49 +206,6 @@ install_services() {
     success "Systemd services installed"
 }
 
-# Create startup script
-create_startup_script() {
-    log "Creating startup script..."
-    
-    cat > /opt/aitbc/start-services.sh << 'EOF'
-#!/bin/bash
-
-# AITBC Services Startup Script
-
-log() {
-    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $1"
-}
-
-log "Starting AITBC services using systemd..."
-
-# Start services using systemd
-log "Starting wallet service..."
-systemctl start aitbc-wallet.service || log "Warning: Failed to start wallet service"
-
-log "Starting coordinator API service..."
-systemctl start aitbc-coordinator-api.service || log "Warning: Failed to start coordinator API service"
-
-log "Starting exchange API service..."
-systemctl start aitbc-exchange-api.service || log "Warning: Failed to start exchange API service"
-
-log "Starting blockchain RPC service..."
-systemctl start aitbc-blockchain-rpc.service || log "Warning: Failed to start blockchain RPC service"
-
-# Enable services for auto-start
-log "Enabling services for auto-start..."
-systemctl enable aitbc-wallet.service
-systemctl enable aitbc-coordinator-api.service
-systemctl enable aitbc-exchange-api.service
-systemctl enable aitbc-blockchain-rpc.service
-
-log "All services started and enabled"
-EOF
-
-    chmod +x /opt/aitbc/start-services.sh
-    
-    success "Startup script created"
-}
-
 # Create health check script
 create_health_check() {
     log "Creating health check script..."
@@ -334,24 +291,11 @@ start_services() {
 setup_autostart() {
     log "Setting up auto-start..."
     
-    # Create systemd service for startup script
-    cat > /etc/systemd/system/aitbc-startup.service << EOF
-[Unit]
-Description=AITBC Services Startup
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart=/opt/aitbc/start-services.sh
-RemainAfterExit=yes
-User=root
-Group=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-    systemctl enable aitbc-startup.service
+    # Enable services for auto-start on boot
+    systemctl enable aitbc-wallet.service
+    systemctl enable aitbc-coordinator-api.service
+    systemctl enable aitbc-exchange-api.service
+    systemctl enable aitbc-blockchain-rpc.service
     
     success "Auto-start configured"
 }
@@ -366,7 +310,6 @@ main() {
     setup_runtime_directories
     setup_venvs
     install_services
-    create_startup_script
     create_health_check
     start_services
     setup_autostart
@@ -386,8 +329,8 @@ main() {
     echo ""
     echo "Management Commands:"
     echo "  Health check: /opt/aitbc/health-check.sh"
-    echo "  Restart services: /opt/aitbc/start-services.sh"
-    echo "  View logs: tail -f /var/lib/aitbc/logs/aitbc-*.log"
+    echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange-api"
+    echo "  View logs: journalctl -u aitbc-wallet -f"
 }
 
 # Run main function
