@@ -55,7 +55,8 @@ async def heartbeat(
 async def poll(
     req: PollRequest,
     session: Annotated[Session, Depends(get_session)],
-    miner_id: str = Depends(require_miner_key()),
+    api_key: str = Depends(require_miner_key()),
+    miner_id: str = Depends(get_miner_id()),
 ) -> AssignedJob | Response:  # type: ignore[arg-type]
     job = MinerService(session).poll(miner_id, req.max_wait_seconds)
     if job is None:
