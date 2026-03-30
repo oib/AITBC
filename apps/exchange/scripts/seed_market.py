@@ -7,7 +7,9 @@ from datetime import datetime
 def seed_initial_price():
     """Create initial trades to establish market price"""
     
-    conn = sqlite3.connect('exchange.db')
+    import os
+    db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
     # Create some initial trades at different price points
