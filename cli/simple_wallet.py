@@ -115,13 +115,13 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
     
     # Create transaction
     transaction = {
-        "sender": sender_address,
-        "recipient": to_address,
-        "value": int(amount),
+        "from": sender_address,
+        "to": to_address,
+        "amount": int(amount),
         "fee": int(fee),
         "nonce": 0,  # In real implementation, get current nonce
-        "type": "transfer",
-        "payload": {}
+        "payload": "0x",
+        "chain_id": "ait-mainnet"
     }
     
     # Sign transaction (simplified)
@@ -131,7 +131,7 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
     
     # Submit transaction
     try:
-        response = requests.post(f"{rpc_url}/sendTx", json=transaction)
+        response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction)
         if response.status_code == 200:
             result = response.json()
             print(f"Transaction submitted successfully")
@@ -596,10 +596,42 @@ def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR
         return []
 
 
+def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+    """Get wallet balance"""
+    try:
+        # Get wallet address
+        wallet_path = DEFAULT_KEYSTORE_DIR / f"{wallet_name}.json"
+        if not wallet_path.exists():
+            print(f"Wallet {wallet_name} not found")
+            return None
+        
+        with open(wallet_path) as f:
+            wallet_data = json.load(f)
+        address = wallet_data["address"]
+        
+        # Get account info from RPC
+        response = requests.get(f"{rpc_url}/rpc/accounts/{address}")
+        if response.status_code == 200:
+            account_info = response.json()
+            return {
+                "wallet_name": wallet_name,
+                "address": address,
+                "balance": account_info["balance"],
+                "nonce": account_info["nonce"]
+            }
+        else:
+            print(f"Error getting balance: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+
 def get_chain_info(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get blockchain information"""
     try:
-        response = requests.get(f"{rpc_url}/rpc/info")
+        # Use the head endpoint to get chain info
+        response = requests.get(f"{rpc_url}/rpc/head")
         if response.status_code == 200:
             return response.json()
         else:

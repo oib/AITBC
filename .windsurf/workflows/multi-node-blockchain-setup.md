@@ -4,7 +4,7 @@ description: Multi-node blockchain deployment and setup workflow
 
 # Multi-Node Blockchain Deployment Workflow
 
-This workflow sets up a two-node AITBC blockchain network (aitbc1 as genesis authority, aitbc as follower node), creates wallets, and demonstrates cross-node transactions.
+This workflow sets up a two-node AITBC blockchain network (aitbc as genesis authority/primary development server, aitbc1 as follower node), creates wallets, and demonstrates cross-node transactions.
 
 ## Prerequisites
 
@@ -48,36 +48,36 @@ The workflow uses the single central `/etc/aitbc/.env` file as the configuration
 
 ### 🚨 Important: Genesis Block Architecture
 
-**CRITICAL**: Only the genesis authority node (aitbc1) should have the genesis block!
+**CRITICAL**: Only the genesis authority node (aitbc) should have the genesis block!
 
 ```bash
 # ❌ WRONG - Do NOT copy genesis block to follower nodes
-# scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json aitbc:/var/lib/aitbc/data/ait-mainnet/
+# scp aitbc:/var/lib/aitbc/data/ait-mainnet/genesis.json aitbc1:/var/lib/aitbc/data/ait-mainnet/
 
 # ✅ CORRECT - Follower nodes sync genesis via blockchain protocol
-# aitbc will automatically receive genesis block from aitbc1 during sync
+# aitbc1 will automatically receive genesis block from aitbc during sync
 ```
 
 **Architecture Overview:**
-1. **aitbc1 (Genesis Authority)**: Creates genesis block with initial wallets
-2. **aitbc (Follower Node)**: Syncs from aitbc1, receives genesis block automatically
+1. **aitbc (Genesis Authority/Primary Development Server)**: Creates genesis block with initial wallets
+2. **aitbc1 (Follower Node)**: Syncs from aitbc, receives genesis block automatically
 3. **Wallet Creation**: New wallets attach to existing blockchain using genesis keys
 4. **Access AIT Coins**: Genesis wallets control initial supply, new wallets receive via transactions
 
 **Key Principles:**
-- **Single Genesis Source**: Only aitbc1 creates and holds the original genesis block
+- **Single Genesis Source**: Only aitbc creates and holds the original genesis block
 - **Blockchain Sync**: Followers receive blockchain data through sync protocol, not file copying
 - **Wallet Attachment**: New wallets attach to existing chain, don't create new genesis
 - **Coin Access**: AIT coins are accessed through transactions from genesis wallets
 
-### 1. Prepare aitbc1 (Genesis Authority Node)
+### 1. Prepare aitbc (Genesis Authority/Primary Development Server)
 
 ```bash
 # Run the genesis authority setup script
 /opt/aitbc/scripts/workflow/02_genesis_authority_setup.sh
 ```
 
-### 2. Verify aitbc1 Genesis State
+### 2. Verify aitbc Genesis State
 
 ```bash
 # Check blockchain state
@@ -86,15 +86,15 @@ curl -s http://localhost:8006/rpc/info | jq .
 curl -s http://localhost:8006/rpc/supply | jq .
 
 # Check genesis wallet balance
-GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')
+GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbcgenesis.json | jq -r '.address')
 curl -s "http://localhost:8006/rpc/getBalance/$GENESIS_ADDR" | jq .
 ```
 
-### 3. Prepare aitbc (Follower Node)
+### 3. Prepare aitbc1 (Follower Node)
 
 ```bash
-# Run the follower node setup script (executed on aitbc)
-ssh aitbc '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
+# Run the follower node setup script (executed on aitbc1)
+ssh aitbc1 '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
 ```
 
 ### 4. Watch Blockchain Sync
@@ -108,13 +108,14 @@ ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
 
 # Alternative: Batch sync for faster initial setup
 if [ $(curl -s http://localhost:8006/rpc/head | jq .height) -lt 10 ]; then
-  echo "Importing first 10 blocks from aitbc1..."
+  echo "Importing first 10 blocks from aitbc to aitbc1..."
   for height in {2..10}; do
-    curl -s "http://10.1.223.40:8006/rpc/blocks-range?start=$height&end=$height" | \
+    curl -s "http://localhost:8006/rpc/blocks-range?start=$height&end=$height" | \
       jq '.blocks[0]' > /tmp/block$height.json
-    curl -X POST http://localhost:8006/rpc/importBlock \
-      -H "Content-Type: application/json" -d @/tmp/block$height.json
-    echo "Imported block $height"
+    scp /tmp/block$height.json aitbc1:/tmp/
+    ssh aitbc1 "curl -X POST http://localhost:8006/rpc/importBlock \
+      -H \"Content-Type: application/json\" -d @/tmp/block$height.json"
+    echo "Imported block $height to aitbc1"
   done
 fi
 ```
@@ -129,7 +130,7 @@ fi
 **🔑 Wallet Attachment & Coin Access:**
 
 The newly created wallet on aitbc will:
-1. **Attach to Existing Blockchain**: Connect to the blockchain created by aitbc1
+1. **Attach to Existing Blockchain**: Connect to the blockchain created by aitbc (genesis authority)
 2. **Use Genesis Keys**: Access the blockchain using the genesis block's cryptographic keys
 3. **Receive AIT Coins**: Get coins through transactions from genesis wallets
 4. **No New Genesis**: Does NOT create a new genesis block or chain
@@ -138,7 +139,7 @@ The newly created wallet on aitbc will:
 - The wallet attaches to the existing blockchain network
 - AIT coins are transferred from genesis wallets, not created
 - The wallet can only transact after receiving coins from genesis
-- All wallets share the same blockchain, created by aitbc1
+- All wallets share the same blockchain, created by aitbc (primary development server)
 
 ### 6. Blockchain Sync Fix (Enhanced)
 
