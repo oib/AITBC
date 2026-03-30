@@ -1,0 +1,124 @@
+2026-02-24 01:18:03,341 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:18:03,358 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:18:03,400 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:18:03,400 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:18:03,401 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:18:03,409 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:18:03,409 - INFO - Coordinator is available!
+2026-02-24 01:18:03,478 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=${MINER_API_KEY} "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:18:03,478 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:18:03,478 - ERROR - Failed to register, exiting
+2026-02-24 01:26:21,106 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:26:21,122 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:26:21,166 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:26:21,166 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:26:21,166 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:26:21,183 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:26:21,183 - INFO - Coordinator is available!
+2026-02-24 01:26:21,225 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=${MINER_API_KEY} "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:26:21,226 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:26:21,226 - ERROR - Failed to register, exiting
+2026-02-24 01:30:07,020 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:30:07,039 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:30:07,099 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:30:07,100 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:30:07,100 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:30:07,109 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:30:07,110 - INFO - Coordinator is available!
+2026-02-24 01:30:07,157 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=${MINER_API_KEY} "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:30:07,157 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:30:07,157 - ERROR - Failed to register, exiting
+2026-02-24 01:30:56,038 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:30:56,055 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:30:56,098 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:30:56,098 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:30:56,098 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:30:56,107 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:30:56,107 - INFO - Coordinator is available!
+2026-02-24 01:30:56,151 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=${MINER_API_KEY} "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:30:56,151 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:30:56,151 - ERROR - Failed to register, exiting
+2026-02-24 01:31:11,594 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:31:11,613 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:31:11,657 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:31:11,657 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:31:11,657 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:31:11,665 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:31:11,665 - INFO - Coordinator is available!
+2026-02-24 01:31:11,709 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=miner_test_abc123 "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:31:11,710 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:31:11,710 - ERROR - Failed to register, exiting
+2026-02-24 01:34:47,687 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:34:47,705 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:34:47,749 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:34:47,750 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:34:47,750 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:34:47,758 - INFO - HTTP Request: GET http://127.0.0.1:18000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:34:47,758 - INFO - Coordinator is available!
+2026-02-24 01:34:47,800 - INFO - HTTP Request: POST http://127.0.0.1:18000/v1/miners/register?miner_id=miner_test_abc123 "HTTP/1.1 401 Unauthorized"
+2026-02-24 01:34:47,801 - ERROR - Registration failed: 401 - {"detail":"invalid api key"}
+2026-02-24 01:34:47,801 - ERROR - Failed to register, exiting
+2026-02-24 01:38:15,668 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:38:15,685 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:38:15,697 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:38:15,698 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:38:15,698 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:38:15,707 - INFO - Waiting for coordinator... (1/10)
+2026-02-24 01:38:45,715 - INFO - Waiting for coordinator... (2/10)
+2026-02-24 01:39:15,723 - INFO - Waiting for coordinator... (3/10)
+2026-02-24 01:39:45,732 - INFO - Waiting for coordinator... (4/10)
+2026-02-24 01:39:48,945 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:39:48,963 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:39:49,006 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:39:49,006 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:39:49,006 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:39:49,013 - INFO - Waiting for coordinator... (1/10)
+2026-02-24 01:40:19,020 - INFO - Waiting for coordinator... (2/10)
+2026-02-24 01:40:49,027 - INFO - Waiting for coordinator... (3/10)
+2026-02-24 01:49:22,772 - INFO - Starting Real GPU Miner Client on Host...
+2026-02-24 01:49:22,790 - INFO - GPU detected: NVIDIA GeForce RTX 4060 Ti (16380MB)
+2026-02-24 01:49:22,802 - INFO - HTTP Request: GET http://localhost:11434/api/tags "HTTP/1.1 200 OK"
+2026-02-24 01:49:22,803 - INFO - Ollama running with models: ['lauchacarro/qwen2.5-translator:latest', 'gemma3:1b']
+2026-02-24 01:49:22,803 - INFO - Ollama models available: lauchacarro/qwen2.5-translator:latest, gemma3:1b
+2026-02-24 01:49:22,812 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:49:22,812 - INFO - Coordinator is available!
+2026-02-24 01:49:22,942 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/register?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:49:22,943 - INFO - Successfully registered miner: {'status': 'ok', 'session_token': '679f256001e04bdd842beb18f6d83ac8'}
+2026-02-24 01:49:22,943 - INFO - Miner registered successfully, starting main loop...
+2026-02-24 01:49:22,972 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:49:23,173 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/heartbeat?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:49:23,173 - INFO - Heartbeat sent (GPU: 34%)
+2026-02-24 01:49:23,185 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:26,197 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:29,213 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:32,223 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:35,234 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:38,260 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:49:38,320 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/heartbeat?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:49:38,320 - INFO - Heartbeat sent (GPU: 38%)
+2026-02-24 01:49:38,330 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:41,340 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:44,351 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:47,361 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:50,372 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:53,409 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:49:53,508 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/heartbeat?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:49:53,514 - INFO - Heartbeat sent (GPU: 28%)
+2026-02-24 01:49:53,526 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:56,537 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:49:59,548 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:02,558 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:05,568 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:08,599 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:50:08,656 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/heartbeat?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:50:08,657 - INFO - Heartbeat sent (GPU: 32%)
+2026-02-24 01:50:08,666 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:11,676 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:14,686 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:17,697 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:20,708 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:23,746 - INFO - HTTP Request: GET http://127.0.0.1:8000/v1/health "HTTP/1.1 200 OK"
+2026-02-24 01:50:23,802 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/heartbeat?miner_id=miner_test_abc123 "HTTP/1.1 200 OK"
+2026-02-24 01:50:23,803 - INFO - Heartbeat sent (GPU: 28%)
+2026-02-24 01:50:23,812 - INFO - HTTP Request: POST http://127.0.0.1:8000/v1/miners/poll "HTTP/1.1 204 No Content"
+2026-02-24 01:50:24,194 - INFO - Shutting down miner...
