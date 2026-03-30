@@ -6,7 +6,7 @@ edge_node_config:
   
   services:
     - name: "marketplace-api"
-      port: 8000
+      port: 8002
       health_check: "/health/live"
       enabled: true
     - name: "cache-layer"
