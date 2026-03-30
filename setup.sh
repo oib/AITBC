@@ -230,6 +230,8 @@ check_service "Coordinator API" "http://localhost:8000/health"
 check_service "Exchange API" "http://localhost:8001/api/health"
 check_service "Marketplace API" "http://localhost:8002/health"
 check_service "Wallet API" "http://localhost:8003/health"
+check_service "Explorer" "http://localhost:8004/health"
+check_service "Web UI" "http://localhost:8007/health"
 
 # Check blockchain node and RPC
 echo ""
@@ -250,19 +252,17 @@ fi
 echo ""
 echo "🚀 AI/Agent/GPU Services (8010-8019):"
 check_service "GPU Service" "http://localhost:8010/health"
-check_service "Learning Service" "http://localhost:8010/health"
-check_service "Agent Coordinator" "http://localhost:8011/health"
-check_service "Agent Registry" "http://localhost:8012/health"
-check_service "OpenClaw Service" "http://localhost:8013/health"
-check_service "AI Service" "http://localhost:8009/health"
-check_service "Web UI" "http://localhost:8016/health"
+check_service "Learning Service" "http://localhost:8011/health"
+check_service "Agent Coordinator" "http://localhost:8012/health"
+check_service "Agent Registry" "http://localhost:8013/health"
+check_service "OpenClaw Service" "http://localhost:8014/health"
+check_service "AI Service" "http://localhost:8015/health"
 
 # Other Services (8020-8029)
 echo ""
 echo "📊 Other Services (8020-8029):"
 check_service "Multimodal Service" "http://localhost:8020/health"
-check_service "Explorer" "http://localhost:8022/health"
-check_service "Modality Optimization" "http://localhost:8023/health"
+check_service "Modality Optimization" "http://localhost:8021/health"
 
 # Check process status
 echo ""

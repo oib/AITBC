@@ -11,10 +11,10 @@ Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/explorer-web/dist
 Environment=PATH=/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/explorer-web/dist
-Environment=PORT=8016
+Environment=PORT=8007
 Environment=SERVICE_TYPE=web-ui
 Environment=LOG_LEVEL=INFO
-ExecStart=/usr/bin/python3 -m http.server 8016 --bind 127.0.0.1
+ExecStart=/usr/bin/python3 -m http.server 8007 --bind 127.0.0.1
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
