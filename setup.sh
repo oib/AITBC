@@ -162,6 +162,7 @@ install_services() {
         "aitbc-wallet.service"
         "aitbc-coordinator-api.service"
         "aitbc-exchange-api.service"
+        "aitbc-blockchain-node.service"
         "aitbc-blockchain-rpc.service"
     )
     
@@ -238,12 +239,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
         
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"
@@ -269,6 +270,7 @@ setup_autostart() {
     systemctl enable aitbc-wallet.service
     systemctl enable aitbc-coordinator-api.service
     systemctl enable aitbc-exchange-api.service
+    systemctl enable aitbc-blockchain-node.service
     systemctl enable aitbc-blockchain-rpc.service
     
     success "Auto-start configured"
