@@ -12,10 +12,10 @@ def ai_group():
     pass
 
 @ai_group.command()
-@click.option('--port', default=8008, show_default=True, help='AI provider port')
+@click.option('--port', default=8015, show_default=True, help='AI provider port')
 @click.option('--model', default='qwen3:8b', show_default=True, help='Ollama model name')
 @click.option('--wallet', 'provider_wallet', required=True, help='Provider wallet address (for verification)')
-@click.option('--marketplace-url', default='http://127.0.0.1:8014', help='Marketplace API base URL')
+@click.option('--marketplace-url', default='http://127.0.0.1:8002', help='Marketplace API base URL')
 def status(port, model, provider_wallet, marketplace_url):
     """Check AI provider service status."""
     try:
@@ -33,10 +33,10 @@ def status(port, model, provider_wallet, marketplace_url):
         click.echo(f"❌ Error checking AI Provider: {e}")
 
 @ai_group.command()
-@click.option('--port', default=8008, show_default=True, help='AI provider port')
+@click.option('--port', default=8015, show_default=True, help='AI provider port')
 @click.option('--model', default='qwen3:8b', show_default=True, help='Ollama model name')
 @click.option('--wallet', 'provider_wallet', required=True, help='Provider wallet address (for verification)')
-@click.option('--marketplace-url', default='http://127.0.0.1:8014', help='Marketplace API base URL')
+@click.option('--marketplace-url', default='http://127.0.0.1:8002', help='Marketplace API base URL')
 def start(port, model, provider_wallet, marketplace_url):
     """Start AI provider service - provides setup instructions"""
     click.echo(f"AI Provider Service Setup:")
@@ -62,7 +62,7 @@ def stop():
 
 @ai_group.command()
 @click.option('--to', required=True, help='Provider host (IP)')
-@click.option('--port', default=8008, help='Provider port')
+@click.option('--port', default=8015, help='Provider port')
 @click.option('--prompt', required=True, help='Prompt to send')
 @click.option('--buyer-wallet', 'buyer_wallet', required=True, help='Buyer wallet name (in local wallet store)')
 @click.option('--provider-wallet', 'provider_wallet', required=True, help='Provider wallet address (recipient)')

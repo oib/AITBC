@@ -81,8 +81,8 @@ def status(service):
     checks = [
         "Coordinator API: http://localhost:8000/health",
         "Blockchain Node: http://localhost:8006/status", 
-        "Marketplace: http://localhost:8014/health",
-        "Wallet Service: http://localhost:8002/status"
+        "Marketplace: http://localhost:8002/health",
+        "Wallet Service: http://localhost:8003/status"
     ]
     
     for check in checks:
