@@ -1,18 +1,31 @@
 [Unit]
-Description=AITBC Agent-First GPU Marketplace
-After=network.target
+Description=AITBC Enhanced Marketplace Service
+After=network.target aitbc-coordinator-api.service
+Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
 User=root
-Group=root
-WorkingDirectory=/opt/aitbc/apps/marketplace
-Environment=PYTHONPATH=/opt/aitbc/apps/marketplace:/opt/aitbc/packages/py/aitbc-sdk/src
-ExecStart=/usr/bin/python3 /opt/aitbc/apps/marketplace/agent_marketplace.py
-Restart=always
+WorkingDirectory=/opt/aitbc/apps/coordinator-api
+Environment=PATH=/usr/bin
+ExecStart=/usr/bin/python3 -m uvicorn src.app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8021
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
 RestartSec=10
+
+# Logging
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=aitbc-marketplace-enhanced
+
+# Security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/apps/coordinator-api
 
 [Install]
 WantedBy=multi-user.target

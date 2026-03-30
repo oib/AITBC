@@ -348,7 +348,7 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 | GPU Multimodal | 8011 | python | 3.13.5 | /api/gpu-multimodal/* | ✅ (CPU-only) |
 | Modality Optimization | 8012 | python | 3.13.5 | /api/optimization/* | ✅ |
 | Adaptive Learning | 8013 | python | 3.13.5 | /api/learning/* | ✅ |
-| Marketplace Enhanced | 8014 | python | 3.13.5 | /api/marketplace-enhanced/* | ✅ |
+| Marketplace | 8014 | python | 3.13.5 | /api/marketplace/* | ✅ |
 | OpenClaw Enhanced | 8015 | python | 3.13.5 | /api/openclaw/* | ✅ |
 | Web UI | 8016 | python | 3.13.5 | /app/ | ✅ |
 | Geographic Load Balancer | 8017 | python | 3.13.5 | /api/loadbalancer/* | ✅ |
