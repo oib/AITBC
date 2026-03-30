@@ -11,10 +11,10 @@ def _get_explorer_endpoint(ctx):
     """Get explorer endpoint from config or default"""
     try:
         config = ctx.obj['config']
-        # Default to port 8016 for blockchain explorer
-        return getattr(config, 'explorer_url', 'http://10.1.223.1:8016')
+        # Default to port 8004 for blockchain explorer
+        return getattr(config, 'explorer_url', 'http://10.1.223.1:8004')
     except:
-        return "http://10.1.223.1:8016"
+        return "http://10.1.223.1:8004"
 
 
 def _curl_request(url: str, params: dict = None):
