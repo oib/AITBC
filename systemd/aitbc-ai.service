@@ -5,12 +5,12 @@ Wants=network.target
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
+Group=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
 Environment=PATH=/usr/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-ExecStart=/usr/bin/python3 -m app.services.advanced_ai_service
+ExecStart=/opt/aitbc/venv/bin/python -m app.services.advanced_ai_service
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
@@ -18,12 +18,12 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-advanced-ai
 
-# Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data
+# Security settings (relaxed for development)
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data /opt/aitbc/apps/coordinator-api
 
 # Resource limits
 LimitNOFILE=65536

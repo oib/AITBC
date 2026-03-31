@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
+Group=root
 WorkingDirectory=/opt/aitbc/apps/agent-services/agent-registry/src
 Environment=PYTHONPATH=/opt/aitbc
-ExecStart=/usr/bin/python3 app.py
+ExecStart=/opt/aitbc/venv/bin/python app.py
 Restart=always
 RestartSec=10
 

@@ -12,6 +12,15 @@ from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
 
+# Import settings for configuration
+try:
+    from .config import settings
+except ImportError:
+    # Fallback if settings not available
+    class Settings:
+        blockchain_monitoring_interval_seconds = 10
+    settings = Settings()
+
 class ChainSyncService:
     def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006, leader_host: str = None,
                  source_host: str = "127.0.0.1", source_port: int = None,
@@ -70,7 +79,7 @@ class ChainSyncService:
         last_broadcast_height = 0
         retry_count = 0
         max_retries = 5
-        base_delay = 2
+        base_delay = settings.blockchain_monitoring_interval_seconds  # Use config setting instead of hardcoded value
         
         while not self._stop_event.is_set():
             try:
