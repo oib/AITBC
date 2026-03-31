@@ -256,8 +256,9 @@ git branch -d feature/new-feature
 # Add GitHub remote
 git remote add github https://github.com/oib/AITBC.git
 
-# Set up GitHub with token
-git remote set-url github https://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@github.com/oib/AITBC.git
+# Set up GitHub with token from secure file
+GITHUB_TOKEN=$(cat /root/github_token)
+git remote set-url github https://${GITHUB_TOKEN}@github.com/oib/AITBC.git
 
 # Push to GitHub specifically
 git push github main
@@ -320,7 +321,8 @@ git remote get-url origin
 git config --get remote.origin.url
 
 # Fix authentication issues
-git remote set-url origin https://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@github.com/oib/AITBC.git
+GITHUB_TOKEN=$(cat /root/github_token)
+git remote set-url origin https://${GITHUB_TOKEN}@github.com/oib/AITBC.git
 
 # Force push if needed
 git push --force-with-lease origin main
