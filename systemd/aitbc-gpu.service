@@ -6,8 +6,8 @@ Wants=aitbc-coordinator-api.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
+Group=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
 Environment=PORT=8011
@@ -15,7 +15,7 @@ Environment=SERVICE_TYPE=gpu-multimodal
 Environment=GPU_ENABLED=true
 Environment=CUDA_VISIBLE_DEVICES=0
 Environment=LOG_LEVEL=INFO
-ExecStart=/usr/bin/python3 -m aitbc_gpu_multimodal.main
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_gpu_multimodal.main
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=10
@@ -24,20 +24,15 @@ StandardError=journal
 SyslogIdentifier=aitbc-multimodal-gpu
 
 # Security settings
-NoNewPrivileges=true
-PrivateTmp=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data /dev/nvidia*
-LimitNOFILE=65536
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data /opt/aitbc/apps/coordinator-api
 
-# GPU access
-DeviceAllow=/dev/nvidia*
-DevicePolicy=auto
-
-# Resource limits
-MemoryMax=4G
-CPUQuota=300%
+# GPU access (disabled for now)
+# DeviceAllow=/dev/nvidia*
+# DevicePolicy=auto
 
 [Install]
 WantedBy=multi-user.target

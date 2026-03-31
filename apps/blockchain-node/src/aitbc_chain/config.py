@@ -42,6 +42,9 @@ class ChainSettings(BaseSettings):
     # Block production limits
     max_block_size_bytes: int = 1_000_000  # 1 MB
     max_txs_per_block: int = 500
+
+    # Monitoring interval (in seconds)
+    blockchain_monitoring_interval_seconds: int = 10
     min_fee: int = 0  # Minimum fee to accept into mempool
 
     # Mempool settings
