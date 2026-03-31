@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc-pool-hub"
-version = "0.1.0"
+version = "v0.2.3"
 description = "AITBC Pool Hub Service"
 authors = ["AITBC Team <team@aitbc.dev>"]
 readme = "README.md"
