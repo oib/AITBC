@@ -1,41 +1,41 @@
 """Coordinator API configuration with PostgreSQL support"""
 
+
 from pydantic_settings import BaseSettings
-from typing import Optional
 
 
 class Settings(BaseSettings):
     """Application settings"""
-    
+
     # API Configuration
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_prefix: str = "/v1"
     debug: bool = False
-    
+
     # Database Configuration
     database_url: str = "postgresql://localhost:5432/aitbc_coordinator"
-    
+
     # JWT Configuration
     jwt_secret: str = ""  # Must be provided via environment
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
-    
+
     # Job Configuration
     default_job_ttl_seconds: int = 3600  # 1 hour
     max_job_ttl_seconds: int = 86400  # 24 hours
     job_cleanup_interval_seconds: int = 300  # 5 minutes
-    
+
     # Miner Configuration
     miner_heartbeat_timeout_seconds: int = 120  # 2 minutes
     miner_max_inflight: int = 10
-    
+
     # Marketplace Configuration
     marketplace_offer_ttl_seconds: int = 3600  # 1 hour
-    
+
     # Wallet Configuration
     wallet_rpc_url: str = "http://localhost:8003"  # Updated to new port logic
-    
+
     # CORS Configuration
     cors_origins: list[str] = [
         "http://localhost:8000",  # Coordinator API
@@ -53,17 +53,17 @@ class Settings(BaseSettings):
         "https://aitbc.bubuit.net:8000",
         "https://aitbc.bubuit.net:8001",
         "https://aitbc.bubuit.net:8003",
-        "https://aitbc.bubuit.net:8016"
+        "https://aitbc.bubuit.net:8016",
     ]
-    
+
     # Logging Configuration
     log_level: str = "INFO"
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-    
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
-    
+
     def validate_secrets(self) -> None:
         """Validate that all required secrets are provided"""
         if not self.jwt_secret:

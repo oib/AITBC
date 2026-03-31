@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from typing import Optional
 
 from sqlmodel import Session, select
 
-from ..domain import Job, Miner, JobReceipt
+from ..domain import Job, JobReceipt, Miner
 from ..schemas import AssignedJob, Constraints, JobCreate, JobResult, JobState, JobView
 from .payments import PaymentService
 
@@ -29,15 +28,15 @@ class JobService:
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
-        
+
         # Create payment if amount is specified
         if req.payment_amount and req.payment_amount > 0:
             # Note: Payment creation is handled in the router
             pass
-        
+
         return job
 
-    def get_job(self, job_id: str, client_id: Optional[str] = None) -> Job:
+    def get_job(self, job_id: str, client_id: str | None = None) -> Job:
         query = select(Job).where(Job.id == job_id)
         if client_id:
             query = query.where(Job.client_id == client_id)
@@ -46,30 +45,28 @@ class JobService:
             raise KeyError("job not found")
         return self._ensure_not_expired(job)
 
-    def list_receipts(self, job_id: str, client_id: Optional[str] = None) -> list[JobReceipt]:
-        job = self.get_job(job_id, client_id=client_id)
-        return self.session.execute(
-            select(JobReceipt).where(JobReceipt.job_id == job_id)
-        ).scalars().all()
+    def list_receipts(self, job_id: str, client_id: str | None = None) -> list[JobReceipt]:
+        self.get_job(job_id, client_id=client_id)
+        return self.session.execute(select(JobReceipt).where(JobReceipt.job_id == job_id)).scalars().all()
 
-    def list_jobs(self, client_id: Optional[str] = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:
+    def list_jobs(self, client_id: str | None = None, limit: int = 20, offset: int = 0, **filters) -> list[Job]:
         """List jobs with optional filtering"""
         query = select(Job).order_by(Job.requested_at.desc())
-        
+
         if client_id:
             query = query.where(Job.client_id == client_id)
-        
+
         # Apply filters
         if "state" in filters:
             query = query.where(Job.state == filters["state"])
-        
+
         if "job_type" in filters:
             # Filter by job type in payload
             query = query.where(Job.payload["type"].as_string() == filters["job_type"])
-        
+
         # Apply pagination
         query = query.offset(offset).limit(limit)
-        
+
         return self.session.execute(query).scalars().all()
 
     def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:
@@ -113,14 +110,10 @@ class JobService:
         constraints = Constraints(**job.constraints) if isinstance(job.constraints, dict) else Constraints()
         return AssignedJob(job_id=job.id, payload=job.payload, constraints=constraints)
 
-    def acquire_next_job(self, miner: Miner) -> Optional[Job]:
+    def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
             now = datetime.utcnow()
-            statement = (
-                select(Job)
-                .where(Job.state == JobState.queued)
-                .order_by(Job.requested_at.asc())
-            )
+            statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())
 
             jobs = self.session.scalars(statement).all()
             for job in jobs:
@@ -132,7 +125,7 @@ class JobService:
                         continue
                     if not self._satisfies_constraints(job, miner):
                         continue
-                    
+
                     # Update job state
                     job.state = JobState.running
                     job.assigned_miner_id = miner.id
@@ -145,7 +138,7 @@ class JobService:
                     logger.warning(f"Error checking job {job.id}: {e}")
                     self.session.rollback()  # Rollback on individual job failure
                     continue
-                    
+
             return None
         except Exception as e:
             logger = logging.getLogger(__name__)

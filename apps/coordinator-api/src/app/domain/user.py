@@ -2,25 +2,26 @@
 User domain models for AITBC
 """
 
-from sqlmodel import SQLModel, Field, Relationship, Column
-from sqlalchemy import JSON
 from datetime import datetime
-from typing import Optional, List
+
+from sqlalchemy import JSON
+from sqlmodel import Column, Field, SQLModel
 
 
 class User(SQLModel, table=True):
     """User model"""
+
     __tablename__ = "users"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(primary_key=True)
     email: str = Field(unique=True, index=True)
     username: str = Field(unique=True, index=True)
     status: str = Field(default="active", max_length=20)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_login: Optional[datetime] = None
-    
+    last_login: datetime | None = None
+
     # Relationships
     # DISABLED:     wallets: List["Wallet"] = Relationship(back_populates="user")
     # DISABLED:     transactions: List["Transaction"] = Relationship(back_populates="user")
@@ -28,16 +29,17 @@ class User(SQLModel, table=True):
 
 class Wallet(SQLModel, table=True):
     """Wallet model for storing user balances"""
+
     __tablename__ = "wallets"
     __table_args__ = {"extend_existing": True}
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
     balance: float = Field(default=0.0)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships
     # DISABLED:     user: User = Relationship(back_populates="wallets")
     # DISABLED:     transactions: List["Transaction"] = Relationship(back_populates="wallet")
@@ -45,21 +47,22 @@ class Wallet(SQLModel, table=True):
 
 class Transaction(SQLModel, table=True):
     """Transaction model"""
+
     __tablename__ = "transactions"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(primary_key=True)
     user_id: str = Field(foreign_key="users.id")
-    wallet_id: Optional[int] = Field(foreign_key="wallets.id")
+    wallet_id: int | None = Field(foreign_key="wallets.id")
     type: str = Field(max_length=20)
     status: str = Field(default="pending", max_length=20)
     amount: float
     fee: float = Field(default=0.0)
-    description: Optional[str] = None
-    tx_metadata: Optional[str] = Field(default=None, sa_column=Column(JSON))
+    description: str | None = None
+    tx_metadata: str | None = Field(default=None, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    confirmed_at: Optional[datetime] = None
-    
+    confirmed_at: datetime | None = None
+
     # Relationships
     # DISABLED:     user: User = Relationship(back_populates="transactions")
     # DISABLED:     wallet: Optional[Wallet] = Relationship(back_populates="transactions")
@@ -67,10 +70,11 @@ class Transaction(SQLModel, table=True):
 
 class UserSession(SQLModel, table=True):
     """User session model"""
+
     __tablename__ = "user_sessions"
     __table_args__ = {"extend_existing": True}
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     user_id: str = Field(foreign_key="users.id")
     token: str = Field(unique=True, index=True)
     expires_at: datetime

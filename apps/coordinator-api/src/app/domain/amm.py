@@ -7,29 +7,27 @@ Domain models for automated market making, liquidity pools, and swap transaction
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from enum import Enum
-from typing import Dict, List, Optional
-from uuid import uuid4
+from enum import StrEnum
 
-from sqlalchemy import Column, JSON
-from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, SQLModel
 
 
-class PoolStatus(str, Enum):
+class PoolStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     PAUSED = "paused"
     MAINTENANCE = "maintenance"
 
 
-class SwapStatus(str, Enum):
+class SwapStatus(StrEnum):
     PENDING = "pending"
     EXECUTED = "executed"
     FAILED = "failed"
     CANCELLED = "cancelled"
 
 
-class LiquidityPositionStatus(str, Enum):
+class LiquidityPositionStatus(StrEnum):
     ACTIVE = "active"
     WITHDRAWN = "withdrawn"
     PENDING = "pending"
@@ -37,9 +35,10 @@ class LiquidityPositionStatus(str, Enum):
 
 class LiquidityPool(SQLModel, table=True):
     """Liquidity pool for automated market making"""
+
     __tablename__ = "liquidity_pool"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     contract_pool_id: str = Field(index=True)  # Contract pool ID
     token_a: str = Field(index=True)  # Token A address
     token_b: str = Field(index=True)  # Token B address
@@ -62,8 +61,8 @@ class LiquidityPool(SQLModel, table=True):
     created_by: str = Field(index=True)  # Creator address
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_trade_time: Optional[datetime] = Field(default=None)
-    
+    last_trade_time: datetime | None = Field(default=None)
+
     # Relationships
     # DISABLED:     positions: List["LiquidityPosition"] = Relationship(back_populates="pool")
     # DISABLED:     swaps: List["SwapTransaction"] = Relationship(back_populates="pool")
@@ -73,9 +72,10 @@ class LiquidityPool(SQLModel, table=True):
 
 class LiquidityPosition(SQLModel, table=True):
     """Liquidity provider position in a pool"""
+
     __tablename__ = "liquidity_position"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     provider_address: str = Field(index=True)
     liquidity_amount: float = Field(default=0.0)  # Amount of liquidity tokens
@@ -90,9 +90,9 @@ class LiquidityPosition(SQLModel, table=True):
     status: LiquidityPositionStatus = Field(default=LiquidityPositionStatus.ACTIVE, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_deposit: Optional[datetime] = Field(default=None)
-    last_withdrawal: Optional[datetime] = Field(default=None)
-    
+    last_deposit: datetime | None = Field(default=None)
+    last_withdrawal: datetime | None = Field(default=None)
+
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="positions")
     # DISABLED:     fee_claims: List["FeeClaim"] = Relationship(back_populates="position")
@@ -100,9 +100,10 @@ class LiquidityPosition(SQLModel, table=True):
 
 class SwapTransaction(SQLModel, table=True):
     """Swap transaction executed in a pool"""
+
     __tablename__ = "swap_transaction"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     user_address: str = Field(index=True)
     token_in: str = Field(index=True)
@@ -115,23 +116,24 @@ class SwapTransaction(SQLModel, table=True):
     fee_amount: float = Field(default=0.0)  # Fee amount
     fee_percentage: float = Field(default=0.0)  # Applied fee percentage
     status: SwapStatus = Field(default=SwapStatus.PENDING, index=True)
-    transaction_hash: Optional[str] = Field(default=None, index=True)
-    block_number: Optional[int] = Field(default=None)
-    gas_used: Optional[int] = Field(default=None)
-    gas_price: Optional[float] = Field(default=None)
-    executed_at: Optional[datetime] = Field(default=None, index=True)
+    transaction_hash: str | None = Field(default=None, index=True)
+    block_number: int | None = Field(default=None)
+    gas_used: int | None = Field(default=None)
+    gas_price: float | None = Field(default=None)
+    executed_at: datetime | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     deadline: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=20))
-    
+
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="swaps")
 
 
 class PoolMetrics(SQLModel, table=True):
     """Historical metrics for liquidity pools"""
+
     __tablename__ = "pool_metrics"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     timestamp: datetime = Field(index=True)
     total_volume_24h: float = Field(default=0.0)
@@ -146,18 +148,19 @@ class PoolMetrics(SQLModel, table=True):
     average_trade_size: float = Field(default=0.0)  # Average trade size
     impermanent_loss_24h: float = Field(default=0.0)  # 24h impermanent loss
     liquidity_provider_count: int = Field(default=0)  # Number of liquidity providers
-    top_lps: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # Top LPs by share
+    top_lps: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # Top LPs by share
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="metrics")
 
 
 class FeeStructure(SQLModel, table=True):
     """Fee structure for liquidity pools"""
+
     __tablename__ = "fee_structure"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     base_fee_percentage: float = Field(default=0.3)  # Base fee percentage
     current_fee_percentage: float = Field(default=0.3)  # Current fee percentage
@@ -173,9 +176,10 @@ class FeeStructure(SQLModel, table=True):
 
 class IncentiveProgram(SQLModel, table=True):
     """Incentive program for liquidity providers"""
+
     __tablename__ = "incentive_program"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     program_name: str = Field(index=True)
     reward_token: str = Field(index=True)  # Reward token address
@@ -192,7 +196,7 @@ class IncentiveProgram(SQLModel, table=True):
     end_time: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(days=30))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="incentives")
     # DISABLED:     rewards: List["LiquidityReward"] = Relationship(back_populates="program")
@@ -200,9 +204,10 @@ class IncentiveProgram(SQLModel, table=True):
 
 class LiquidityReward(SQLModel, table=True):
     """Reward earned by liquidity providers"""
+
     __tablename__ = "liquidity_reward"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     program_id: int = Field(foreign_key="incentive_program.id", index=True)
     position_id: int = Field(foreign_key="liquidity_position.id", index=True)
     provider_address: str = Field(index=True)
@@ -211,12 +216,12 @@ class LiquidityReward(SQLModel, table=True):
     liquidity_share: float = Field(default=0.0)  # Share of pool liquidity
     time_weighted_share: float = Field(default=0.0)  # Time-weighted share
     is_claimed: bool = Field(default=False, index=True)
-    claimed_at: Optional[datetime] = Field(default=None)
-    claim_transaction_hash: Optional[str] = Field(default=None)
-    vesting_start: Optional[datetime] = Field(default=None)
-    vesting_end: Optional[datetime] = Field(default=None)
+    claimed_at: datetime | None = Field(default=None)
+    claim_transaction_hash: str | None = Field(default=None)
+    vesting_start: datetime | None = Field(default=None)
+    vesting_end: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    
+
     # Relationships
     # DISABLED:     program: IncentiveProgram = Relationship(back_populates="rewards")
     # DISABLED:     position: LiquidityPosition = Relationship(back_populates="fee_claims")
@@ -224,9 +229,10 @@ class LiquidityReward(SQLModel, table=True):
 
 class FeeClaim(SQLModel, table=True):
     """Fee claim by liquidity providers"""
+
     __tablename__ = "fee_claim"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     position_id: int = Field(foreign_key="liquidity_position.id", index=True)
     provider_address: str = Field(index=True)
     fee_amount: float = Field(default=0.0)
@@ -235,19 +241,20 @@ class FeeClaim(SQLModel, table=True):
     claim_period_end: datetime = Field(index=True)
     liquidity_share: float = Field(default=0.0)  # Share of pool liquidity
     is_claimed: bool = Field(default=False, index=True)
-    claimed_at: Optional[datetime] = Field(default=None)
-    claim_transaction_hash: Optional[str] = Field(default=None)
+    claimed_at: datetime | None = Field(default=None)
+    claim_transaction_hash: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    
+
     # Relationships
     # DISABLED:     position: LiquidityPosition = Relationship(back_populates="fee_claims")
 
 
 class PoolConfiguration(SQLModel, table=True):
     """Configuration settings for liquidity pools"""
+
     __tablename__ = "pool_configuration"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     config_key: str = Field(index=True)
     config_value: str = Field(default="")
@@ -259,31 +266,33 @@ class PoolConfiguration(SQLModel, table=True):
 
 class PoolAlert(SQLModel, table=True):
     """Alerts for pool events and conditions"""
+
     __tablename__ = "pool_alert"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     alert_type: str = Field(index=True)  # LOW_LIQUIDITY, HIGH_VOLATILITY, etc.
     severity: str = Field(index=True)  # LOW, MEDIUM, HIGH, CRITICAL
     title: str = Field(default="")
     message: str = Field(default="")
-    meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     threshold_value: float = Field(default=0.0)  # Threshold that triggered alert
     current_value: float = Field(default=0.0)  # Current value
     is_acknowledged: bool = Field(default=False, index=True)
-    acknowledged_by: Optional[str] = Field(default=None)
-    acknowledged_at: Optional[datetime] = Field(default=None)
+    acknowledged_by: str | None = Field(default=None)
+    acknowledged_at: datetime | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
-    resolved_at: Optional[datetime] = Field(default=None)
+    resolved_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
 
 
 class PoolSnapshot(SQLModel, table=True):
     """Daily snapshot of pool state"""
+
     __tablename__ = "pool_snapshot"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     pool_id: int = Field(foreign_key="liquidity_pool.id", index=True)
     snapshot_date: datetime = Field(index=True)
     reserve_a: float = Field(default=0.0)
@@ -306,9 +315,10 @@ class PoolSnapshot(SQLModel, table=True):
 
 class ArbitrageOpportunity(SQLModel, table=True):
     """Arbitrage opportunities across pools"""
+
     __tablename__ = "arbitrage_opportunity"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     token_a: str = Field(index=True)
     token_b: str = Field(index=True)
     pool_1_id: int = Field(foreign_key="liquidity_pool.id", index=True)
@@ -322,8 +332,8 @@ class ArbitrageOpportunity(SQLModel, table=True):
     required_amount: float = Field(default=0.0)  # Amount needed for arbitrage
     confidence: float = Field(default=0.0)  # Confidence in opportunity
     is_executed: bool = Field(default=False, index=True)
-    executed_at: Optional[datetime] = Field(default=None)
-    execution_tx_hash: Optional[str] = Field(default=None)
-    actual_profit: Optional[float] = Field(default=None)
+    executed_at: datetime | None = Field(default=None)
+    execution_tx_hash: str | None = Field(default=None)
+    actual_profit: float | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=5))

@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional, Dict, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class JobPaymentCreate(BaseModel):
     """Request to create a payment for a job"""
+
     job_id: str
     amount: float
     currency: str = "AITBC"  # Jobs paid with AITBC tokens
@@ -19,51 +19,56 @@ class JobPaymentCreate(BaseModel):
 
 class JobPaymentView(BaseModel):
     """Payment information for a job"""
+
     job_id: str
     payment_id: str
     amount: float
     currency: str
     status: str
     payment_method: str
-    escrow_address: Optional[str] = None
-    refund_address: Optional[str] = None
+    escrow_address: str | None = None
+    refund_address: str | None = None
     created_at: datetime
     updated_at: datetime
-    released_at: Optional[datetime] = None
-    refunded_at: Optional[datetime] = None
-    transaction_hash: Optional[str] = None
-    refund_transaction_hash: Optional[str] = None
+    released_at: datetime | None = None
+    refunded_at: datetime | None = None
+    transaction_hash: str | None = None
+    refund_transaction_hash: str | None = None
 
 
 class PaymentRequest(BaseModel):
     """Request to pay for a job"""
+
     job_id: str
     amount: float
     currency: str = "BTC"
-    refund_address: Optional[str] = None
+    refund_address: str | None = None
 
 
 class PaymentReceipt(BaseModel):
     """Receipt for a payment"""
+
     payment_id: str
     job_id: str
     amount: float
     currency: str
     status: str
-    transaction_hash: Optional[str] = None
+    transaction_hash: str | None = None
     created_at: datetime
-    verified_at: Optional[datetime] = None
+    verified_at: datetime | None = None
 
 
 class EscrowRelease(BaseModel):
     """Request to release escrow payment"""
+
     job_id: str
     payment_id: str
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class RefundRequest(BaseModel):
     """Request to refund a payment"""
+
     job_id: str
     payment_id: str
     reason: str

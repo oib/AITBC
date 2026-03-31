@@ -1,21 +1,22 @@
 """Router modules for the coordinator API."""
 
-from .client import router as client
-from .miner import router as miner
 from .admin import router as admin
-from .marketplace import router as marketplace
-from .marketplace_gpu import router as marketplace_gpu
-from .explorer import router as explorer
-from .services import router as services
-from .users import router as users
-from .exchange import router as exchange
-from .marketplace_offers import router as marketplace_offers
-from .payments import router as payments
-from .web_vitals import router as web_vitals
-from .edge_gpu import router as edge_gpu
-from .cache_management import router as cache_management
 from .agent_identity import router as agent_identity
 from .blockchain import router as blockchain
+from .cache_management import router as cache_management
+from .client import router as client
+from .edge_gpu import router as edge_gpu
+from .exchange import router as exchange
+from .explorer import router as explorer
+from .marketplace import router as marketplace
+from .marketplace_gpu import router as marketplace_gpu
+from .marketplace_offers import router as marketplace_offers
+from .miner import router as miner
+from .payments import router as payments
+from .services import router as services
+from .users import router as users
+from .web_vitals import router as web_vitals
+
 # from .registry import router as registry
 
 __all__ = [
@@ -42,8 +43,8 @@ __all__ = [
     "governance_enhanced",
     "registry",
 ]
-from .global_marketplace import router as global_marketplace
 from .cross_chain_integration import router as cross_chain_integration
-from .global_marketplace_integration import router as global_marketplace_integration
 from .developer_platform import router as developer_platform
+from .global_marketplace import router as global_marketplace
+from .global_marketplace_integration import router as global_marketplace_integration
 from .governance_enhanced import router as governance_enhanced

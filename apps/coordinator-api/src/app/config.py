@@ -5,19 +5,16 @@ Provides environment-based adapter selection and consolidated settings.
 """
 
 import os
+
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import List, Optional
-from pathlib import Path
-import secrets
-import string
 
 
 class DatabaseConfig(BaseSettings):
     """Database configuration with adapter selection."""
 
     adapter: str = "sqlite"  # sqlite, postgresql
-    url: Optional[str] = None
+    url: str | None = None
     pool_size: int = 10
     max_overflow: int = 20
     pool_pre_ping: bool = True
@@ -35,17 +32,13 @@ class DatabaseConfig(BaseSettings):
         # Default PostgreSQL connection string
         return f"{self.adapter}://localhost:5432/coordinator"
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
 class Settings(BaseSettings):
     """Unified application settings with environment-based configuration."""
 
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
     # Environment
     app_env: str = "dev"
@@ -55,7 +48,7 @@ class Settings(BaseSettings):
 
     # Database
     database: DatabaseConfig = DatabaseConfig()
-    
+
     # Database Connection Pooling
     db_pool_size: int = Field(default=20, description="Database connection pool size")
     db_max_overflow: int = Field(default=40, description="Maximum overflow connections")
@@ -64,60 +57,63 @@ class Settings(BaseSettings):
     db_echo: bool = Field(default=False, description="Enable SQL query logging")
 
     # API Keys
-    client_api_keys: List[str] = []
-    miner_api_keys: List[str] = []
-    admin_api_keys: List[str] = []
+    client_api_keys: list[str] = []
+    miner_api_keys: list[str] = []
+    admin_api_keys: list[str] = []
 
-    @field_validator('client_api_keys', 'miner_api_keys', 'admin_api_keys')
+    @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys")
     @classmethod
-    def validate_api_keys(cls, v: List[str]) -> List[str]:
+    def validate_api_keys(cls, v: list[str]) -> list[str]:
         # Allow empty API keys in development/test environments
         import os
-        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+
+        if os.getenv("APP_ENV", "dev") != "production" and not v:
             return v
         if not v:
-            raise ValueError('API keys cannot be empty in production')
+            raise ValueError("API keys cannot be empty in production")
         for key in v:
-            if not key or key.startswith('$') or key == 'your_api_key_here':
-                raise ValueError('API keys must be set to valid values')
+            if not key or key.startswith("$") or key == "your_api_key_here":
+                raise ValueError("API keys must be set to valid values")
             if len(key) < 16:
-                raise ValueError('API keys must be at least 16 characters long')
+                raise ValueError("API keys must be at least 16 characters long")
         return v
 
     # Security
-    hmac_secret: Optional[str] = None
-    jwt_secret: Optional[str] = None
+    hmac_secret: str | None = None
+    jwt_secret: str | None = None
     jwt_algorithm: str = "HS256"
     jwt_expiration_hours: int = 24
 
-    @field_validator('hmac_secret')
+    @field_validator("hmac_secret")
     @classmethod
-    def validate_hmac_secret(cls, v: Optional[str]) -> Optional[str]:
+    def validate_hmac_secret(cls, v: str | None) -> str | None:
         # Allow None in development/test environments
         import os
-        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+
+        if os.getenv("APP_ENV", "dev") != "production" and not v:
             return v
-        if not v or v.startswith('$') or v == 'your_secret_here':
-            raise ValueError('HMAC_SECRET must be set to a secure value')
+        if not v or v.startswith("$") or v == "your_secret_here":
+            raise ValueError("HMAC_SECRET must be set to a secure value")
         if len(v) < 32:
-            raise ValueError('HMAC_SECRET must be at least 32 characters long')
+            raise ValueError("HMAC_SECRET must be at least 32 characters long")
         return v
 
-    @field_validator('jwt_secret')
+    @field_validator("jwt_secret")
     @classmethod
-    def validate_jwt_secret(cls, v: Optional[str]) -> Optional[str]:
+    def validate_jwt_secret(cls, v: str | None) -> str | None:
         # Allow None in development/test environments
         import os
-        if os.getenv('APP_ENV', 'dev') != 'production' and not v:
+
+        if os.getenv("APP_ENV", "dev") != "production" and not v:
             return v
-        if not v or v.startswith('$') or v == 'your_secret_here':
-            raise ValueError('JWT_SECRET must be set to a secure value')
+        if not v or v.startswith("$") or v == "your_secret_here":
+            raise ValueError("JWT_SECRET must be set to a secure value")
         if len(v) < 32:
-            raise ValueError('JWT_SECRET must be at least 32 characters long')
+            raise ValueError("JWT_SECRET must be at least 32 characters long")
         return v
 
     # CORS
-    allow_origins: List[str] = [
+    allow_origins: list[str] = [
         "http://localhost:8000",  # Coordinator API
         "http://localhost:8001",  # Exchange API
         "http://localhost:8002",  # Blockchain Node
@@ -151,8 +147,8 @@ class Settings(BaseSettings):
     rate_limit_exchange_payment: str = "20/minute"
 
     # Receipt Signing
-    receipt_signing_key_hex: Optional[str] = None
-    receipt_attestation_key_hex: Optional[str] = None
+    receipt_signing_key_hex: str | None = None
+    receipt_attestation_key_hex: str | None = None
 
     # Logging
     log_level: str = "INFO"
@@ -166,15 +162,13 @@ class Settings(BaseSettings):
 
     # Test Configuration
     test_mode: bool = False
-    test_database_url: Optional[str] = None
+    test_database_url: str | None = None
 
     def validate_secrets(self) -> None:
         """Validate that all required secrets are provided."""
         if self.app_env == "production":
             if not self.jwt_secret:
-                raise ValueError(
-                    "JWT_SECRET environment variable is required in production"
-                )
+                raise ValueError("JWT_SECRET environment variable is required in production")
             if self.jwt_secret == "change-me-in-production":
                 raise ValueError("JWT_SECRET must be changed from default value")
 

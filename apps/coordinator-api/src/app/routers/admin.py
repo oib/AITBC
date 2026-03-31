@@ -1,17 +1,19 @@
-from sqlalchemy.orm import Session
+import logging
+from datetime import datetime
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Header
-from sqlmodel import select
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlmodel import select
 
+from ..config import settings
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
-from ..config import settings
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,23 +27,23 @@ async def debug_settings() -> dict:  # type: ignore[arg-type]
         "admin_api_keys": settings.admin_api_keys,
         "client_api_keys": settings.client_api_keys,
         "miner_api_keys": settings.miner_api_keys,
-        "app_env": settings.app_env
+        "app_env": settings.app_env,
     }
 
 
 @router.post("/debug/create-test-miner", summary="Create a test miner for debugging")
 async def create_test_miner(
-    session: Annotated[Session, Depends(get_session)],
-    admin_key: str = Depends(require_admin_key())
+    session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Create a test miner for debugging marketplace sync"""
     try:
-        from ..domain import Miner
         from uuid import uuid4
-        
+
+        from ..domain import Miner
+
         miner_id = "debug-test-miner"
         session_token = uuid4().hex
-        
+
         # Check if miner already exists
         existing_miner = session.get(Miner, miner_id)
         if existing_miner:
@@ -52,7 +54,7 @@ async def create_test_miner(
             session.add(existing_miner)
             session.commit()
             return {"status": "updated", "miner_id": miner_id, "message": "Existing miner updated to ONLINE"}
-        
+
         # Create new test miner
         miner = Miner(
             id=miner_id,
@@ -64,45 +66,43 @@ async def create_test_miner(
                 "gpu_memory_gb": 8192,
                 "gpu_count": 1,
                 "cuda_version": "12.0",
-                "supported_models": ["qwen3:8b"]
+                "supported_models": ["qwen3:8b"],
             },
             concurrency=1,
             region="test-region",
             session_token=session_token,
             status="ONLINE",
             inflight=0,
-            last_heartbeat=datetime.utcnow()
+            last_heartbeat=datetime.utcnow(),
         )
-        
+
         session.add(miner)
         session.commit()
         session.refresh(miner)
-        
+
         logger.info(f"Created test miner: {miner_id}")
         return {
-            "status": "created", 
-            "miner_id": miner_id, 
+            "status": "created",
+            "miner_id": miner_id,
             "session_token": session_token,
-            "message": "Test miner created successfully"
+            "message": "Test miner created successfully",
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to create test miner: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/test-key", summary="Test API key validation")
-async def test_key(
-    api_key: str = Header(default=None, alias="X-Api-Key")
-) -> dict[str, str]:  # type: ignore[arg-type]
+async def test_key(api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:  # type: ignore[arg-type]
     print(f"DEBUG: Received API key: {api_key}")
     print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
-    
+
     if not api_key or api_key not in settings.admin_api_keys:
-        print(f"DEBUG: API key validation failed!")
+        print("DEBUG: API key validation failed!")
         raise HTTPException(status_code=401, detail="invalid api key")
-    
-    print(f"DEBUG: API key validation successful!")
+
+    print("DEBUG: API key validation successful!")
     return {"message": "API key is valid", "key": api_key}
 
 
@@ -110,21 +110,20 @@ async def test_key(
 @limiter.limit(lambda: settings.rate_limit_admin_stats)
 @cached(**get_cache_config("job_list"))  # Cache admin stats for 1 minute
 async def get_stats(
-    request: Request,
-    session: Annotated[Session, Depends(get_session)], 
-    api_key: str = Header(default=None, alias="X-Api-Key")
+    request: Request, session: Annotated[Session, Depends(get_session)], api_key: str = Header(default=None, alias="X-Api-Key")
 ) -> dict[str, int]:  # type: ignore[arg-type]
     # Temporary debug: bypass dependency and validate directly
     print(f"DEBUG: Received API key: {api_key}")
     print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
-    
+
     if not api_key or api_key not in settings.admin_api_keys:
         raise HTTPException(status_code=401, detail="invalid api key")
-    
-    print(f"DEBUG: API key validation successful!")
-    
-    service = JobService(session)
+
+    print("DEBUG: API key validation successful!")
+
+    JobService(session)
     from sqlmodel import func, select
+
     from ..domain import Job
 
     total_jobs = session.execute(select(func.count()).select_from(Job)).one()
@@ -132,8 +131,8 @@ async def get_stats(
 
     miner_service = MinerService(session)
     miners = miner_service.list_records()
-    avg_job_duration = (
-        sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(len(miners), 1)
+    avg_job_duration = sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(
+        len(miners), 1
     )
     return {
         "total_jobs": int(total_jobs or 0),
@@ -165,8 +164,9 @@ async def list_jobs(session: Annotated[Session, Depends(get_session)], admin_key
 @router.get("/miners", summary="List miners")
 async def list_miners(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     from sqlmodel import select
+
     from ..domain import Miner
-    
+
     miners = session.execute(select(Miner)).scalars().all()
     miner_list = [
         {
@@ -188,15 +188,14 @@ async def list_miners(session: Annotated[Session, Depends(get_session)], admin_k
 
 @router.get("/status", summary="Get system status", response_model=None)
 async def get_system_status(
-    request: Request,
-    session: Annotated[Session, Depends(get_session)], 
-    admin_key: str = Depends(require_admin_key())
+    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
 ) -> dict[str, any]:  # type: ignore[arg-type]
     """Get comprehensive system status for admin dashboard"""
     try:
         # Get job statistics
-        service = JobService(session)
+        JobService(session)
         from sqlmodel import func, select
+
         from ..domain import Job
 
         total_jobs = session.execute(select(func.count()).select_from(Job)).one()
@@ -208,42 +207,43 @@ async def get_system_status(
         miner_service = MinerService(session)
         miners = miner_service.list_records()
         online_miners = miner_service.online_count()
-        
+
         # Calculate job statistics
-        avg_job_duration = (
-            sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(len(miners), 1)
+        avg_job_duration = sum(miner.average_job_duration_ms for miner in miners if miner.average_job_duration_ms) / max(
+            len(miners), 1
         )
-        
+
         # Get system info
-        import psutil
         import sys
         from datetime import datetime
-        
+
+        import psutil
+
         system_info = {
             "cpu_percent": psutil.cpu_percent(interval=1),
             "memory_percent": psutil.virtual_memory().percent,
-            "disk_percent": psutil.disk_usage('/').percent,
+            "disk_percent": psutil.disk_usage("/").percent,
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.utcnow().isoformat(),
         }
-        
+
         return {
             "jobs": {
                 "total": int(total_jobs or 0),
                 "active": int(active_jobs or 0),
                 "completed": int(completed_jobs or 0),
-                "failed": int(failed_jobs or 0)
+                "failed": int(failed_jobs or 0),
             },
             "miners": {
                 "total": len(miners),
                 "online": online_miners,
                 "offline": len(miners) - online_miners,
-                "avg_job_duration_ms": avg_job_duration
+                "avg_job_duration_ms": avg_job_duration,
             },
             "system": system_info,
-            "status": "healthy" if online_miners > 0 else "degraded"
+            "status": "healthy" if online_miners > 0 else "degraded",
         }
-        
+
     except Exception as e:
         logger.error(f"Failed to get system status: {e}")
         return {
@@ -256,18 +256,18 @@ async def get_system_status(
 @router.post("/agents/networks", response_model=dict, status_code=201)
 async def create_agent_network(network_data: dict):
     """Create a new agent network for collaborative processing"""
-    
+
     try:
         # Validate required fields
         if not network_data.get("name"):
             raise HTTPException(status_code=400, detail="Network name is required")
-        
+
         if not network_data.get("agents"):
             raise HTTPException(status_code=400, detail="Agent list is required")
-        
+
         # Create network record (simplified for now)
         network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-        
+
         network_response = {
             "id": network_id,
             "name": network_data["name"],
@@ -276,12 +276,12 @@ async def create_agent_network(network_data: dict):
             "coordination_strategy": network_data.get("coordination", "centralized"),
             "status": "active",
             "created_at": datetime.utcnow().isoformat(),
-            "owner_id": "temp_user"
+            "owner_id": "temp_user",
         }
-        
+
         logger.info(f"Created agent network: {network_id}")
         return network_response
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -292,7 +292,7 @@ async def create_agent_network(network_data: dict):
 @router.get("/agents/executions/{execution_id}/receipt")
 async def get_execution_receipt(execution_id: str):
     """Get verifiable receipt for completed execution"""
-    
+
     try:
         # For now, return a mock receipt since the full execution system isn't implemented
         receipt_data = {
@@ -305,19 +305,19 @@ async def get_execution_receipt(execution_id: str):
                 {
                     "coordinator_id": "coordinator_1",
                     "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.utcnow().isoformat(),
                 }
             ],
             "minted_amount": 1000,
             "recorded_at": datetime.utcnow().isoformat(),
             "verified": True,
             "block_hash": "0xmock_block_hash",
-            "transaction_hash": "0xmock_tx_hash"
+            "transaction_hash": "0xmock_tx_hash",
         }
-        
+
         logger.info(f"Generated receipt for execution: {execution_id}")
         return receipt_data
-        
+
     except Exception as e:
         logger.error(f"Failed to get execution receipt: {e}")
         raise HTTPException(status_code=500, detail=str(e))

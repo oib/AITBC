@@ -1,25 +1,33 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
+from sqlalchemy.orm import Session
+
 """
 Marketplace Analytics API Endpoints
 REST API for analytics, insights, reporting, and dashboards
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
-from ..services.analytics_service import MarketplaceAnalytics
 from ..domain.analytics import (
-    MarketMetric, MarketInsight, AnalyticsReport, DashboardConfig,
-    AnalyticsPeriod, MetricType, InsightType, ReportType
+    AnalyticsPeriod,
+    AnalyticsReport,
+    DashboardConfig,
+    InsightType,
+    MarketInsight,
+    MarketMetric,
+    MetricType,
+    ReportType,
 )
-
-
+from ..services.analytics_service import MarketplaceAnalytics
+from ..storage import get_session
 
 router = APIRouter(prefix="/v1/analytics", tags=["analytics"])
 

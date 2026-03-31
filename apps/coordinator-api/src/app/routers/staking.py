@@ -1,25 +1,23 @@
 from typing import Annotated
+
 """
 Staking Management API
 REST API for AI agent staking system with reputation-based yield farming
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, validator
+from sqlalchemy.orm import Session
 
-from ..storage import get_session
 from ..app_logging import get_logger
-from ..domain.bounty import (
-    AgentStake, AgentMetrics, StakingPool, StakeStatus, 
-    PerformanceTier, EcosystemMetrics
-)
-from ..services.staking_service import StakingService
-from ..services.blockchain_service import BlockchainService
 from ..auth import get_current_user
-
+from ..domain.bounty import AgentMetrics, AgentStake, EcosystemMetrics, PerformanceTier, StakeStatus, StakingPool
+from ..services.blockchain_service import BlockchainService
+from ..services.staking_service import StakingService
+from ..storage import get_session
 
 router = APIRouter()
 

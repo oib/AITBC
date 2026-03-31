@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 from statistics import mean
-from typing import Iterable, Optional
 
 from sqlmodel import Session, select
 
-from ..domain import MarketplaceOffer, MarketplaceBid
+from ..domain import MarketplaceBid, MarketplaceOffer
 from ..schemas import (
     MarketplaceBidRequest,
+    MarketplaceBidView,
     MarketplaceOfferView,
     MarketplaceStatsView,
-    MarketplaceBidView,
 )
 
 
@@ -23,7 +22,7 @@ class MarketplaceService:
     def list_offers(
         self,
         *,
-        status: Optional[str] = None,
+        status: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[MarketplaceOfferView]:
@@ -46,9 +45,7 @@ class MarketplaceService:
         total_offers = len(offers)
         open_capacity = sum(offer.capacity for offer in open_offers)
         average_price = mean([offer.price for offer in open_offers]) if open_offers else 0.0
-        active_bids = self.session.execute(
-            select(MarketplaceBid).where(MarketplaceBid.status == "pending")
-        ).all()
+        active_bids = self.session.execute(select(MarketplaceBid).where(MarketplaceBid.status == "pending")).all()
 
         return MarketplaceStatsView(
             totalOffers=total_offers,
@@ -72,8 +69,8 @@ class MarketplaceService:
     def list_bids(
         self,
         *,
-        status: Optional[str] = None,
-        provider: Optional[str] = None,
+        status: str | None = None,
+        provider: str | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> list[MarketplaceBidView]:
@@ -92,7 +89,7 @@ class MarketplaceService:
         bids = self.session.execute(stmt).all()
         return [self._to_bid_view(bid) for bid in bids]
 
-    def get_bid(self, bid_id: str) -> Optional[MarketplaceBidView]:
+    def get_bid(self, bid_id: str) -> MarketplaceBidView | None:
         bid = self.session.get(MarketplaceBid, bid_id)
         if bid:
             return self._to_bid_view(bid)
