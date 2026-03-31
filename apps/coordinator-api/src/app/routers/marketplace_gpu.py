@@ -1,23 +1,24 @@
 from typing import Annotated
+
 """
 GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
-from typing import Any, Dict, List, Optional
-from datetime import datetime, timedelta
-from uuid import uuid4
 import statistics
+from datetime import datetime, timedelta
+from typing import Any
+from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field
-from sqlmodel import select, func, col
 from sqlalchemy.orm import Session
+from sqlmodel import col, func, select
 
-from ..storage import get_session
-from ..domain.gpu_marketplace import GPURegistry, GPUBooking, GPUReview
+from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..services.market_data_collector import MarketDataCollector
+from ..storage import get_session
 
 router = APIRouter(tags=["marketplace-gpu"])
 
@@ -30,12 +31,9 @@ async def get_pricing_engine() -> DynamicPricingEngine:
     """Get pricing engine instance"""
     global pricing_engine
     if pricing_engine is None:
-        pricing_engine = DynamicPricingEngine({
-            "min_price": 0.001,
-            "max_price": 1000.0,
-            "update_interval": 300,
-            "forecast_horizon": 72
-        })
+        pricing_engine = DynamicPricingEngine(
+            {"min_price": 0.001, "max_price": 1000.0, "update_interval": 300, "forecast_horizon": 72}
+        )
         await pricing_engine.initialize()
     return pricing_engine
 
@@ -44,9 +42,7 @@ async def get_market_collector() -> MarketDataCollector:
     """Get market data collector instance"""
     global market_collector
     if market_collector is None:
-        market_collector = MarketDataCollector({
-            "websocket_port": 8765
-        })
+        market_collector = MarketDataCollector({"websocket_port": 8765})
         await market_collector.initialize()
     return market_collector
 
@@ -55,6 +51,7 @@ async def get_market_collector() -> MarketDataCollector:
 # Request schemas
 # ---------------------------------------------------------------------------
 
+
 class GPURegisterRequest(BaseModel):
     miner_id: str
     model: str
@@ -62,31 +59,31 @@ class GPURegisterRequest(BaseModel):
     cuda_version: str
     region: str
     price_per_hour: float
-    capabilities: List[str] = []
+    capabilities: list[str] = []
 
 
 class GPUBookRequest(BaseModel):
     duration_hours: float
-    job_id: Optional[str] = None
+    job_id: str | None = None
 
 
 class GPUConfirmRequest(BaseModel):
-    client_id: Optional[str] = None
+    client_id: str | None = None
 
 
 class OllamaTaskRequest(BaseModel):
     gpu_id: str
     model: str = "llama2"
     prompt: str
-    parameters: Dict[str, Any] = {}
+    parameters: dict[str, Any] = {}
 
 
 class PaymentRequest(BaseModel):
     from_wallet: str
     to_wallet: str
     amount: float
-    booking_id: Optional[str] = None
-    task_id: Optional[str] = None
+    booking_id: str | None = None
+    task_id: str | None = None
 
 
 class GPUReviewRequest(BaseModel):
@@ -98,7 +95,8 @@ class GPUReviewRequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _gpu_to_dict(gpu: GPURegistry) -> Dict[str, Any]:
+
+def _gpu_to_dict(gpu: GPURegistry) -> dict[str, Any]:
     return {
         "id": gpu.id,
         "miner_id": gpu.miner_id,
@@ -129,35 +127,34 @@ def _get_gpu_or_404(session, gpu_id: str) -> GPURegistry:
 # Endpoints
 # ---------------------------------------------------------------------------
 
+
 @router.post("/marketplace/gpu/register")
-async def register_gpu(
-    request: Dict[str, Any],
-    session: Annotated[Session, Depends(get_session)]
-) -> Dict[str, Any]:
+async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Register a GPU in the marketplace."""
     gpu_specs = request.get("gpu", {})
 
     # Simple implementation - return success
     import uuid
+
     gpu_id = str(uuid.uuid4())
-    
+
     return {
         "gpu_id": gpu_id,
         "status": "registered",
         "message": f"GPU {gpu_specs.get('name', 'Unknown GPU')} registered successfully",
-        "price_per_hour": gpu_specs.get("price_per_hour", 0.05)
+        "price_per_hour": gpu_specs.get("price_per_hour", 0.05),
     }
 
 
 @router.get("/marketplace/gpu/list")
 async def list_gpus(
     session: Annotated[Session, Depends(get_session)],
-    available: Optional[bool] = Query(default=None),
-    price_max: Optional[float] = Query(default=None),
-    region: Optional[str] = Query(default=None),
-    model: Optional[str] = Query(default=None),
+    available: bool | None = Query(default=None),
+    price_max: float | None = Query(default=None),
+    region: str | None = Query(default=None),
+    model: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List GPUs with optional filters."""
     stmt = select(GPURegistry)
 
@@ -177,16 +174,14 @@ async def list_gpus(
 
 
 @router.get("/marketplace/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
+async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get GPU details."""
     gpu = _get_gpu_or_404(session, gpu_id)
     result = _gpu_to_dict(gpu)
 
     if gpu.status == "booked":
         booking = session.execute(
-            select(GPUBooking)
-            .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
-            .limit(1)
+            select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1)
         ).first()
         if booking:
             result["current_booking"] = {
@@ -201,11 +196,11 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
 
 @router.post("/marketplace/gpu/{gpu_id}/book", status_code=http_status.HTTP_201_CREATED)
 async def book_gpu(
-    gpu_id: str, 
-    request: GPUBookRequest, 
+    gpu_id: str,
+    request: GPUBookRequest,
     session: Annotated[Session, Depends(get_session)],
-    engine: DynamicPricingEngine = Depends(get_pricing_engine)
-) -> Dict[str, Any]:
+    engine: DynamicPricingEngine = Depends(get_pricing_engine),
+) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
@@ -218,26 +213,21 @@ async def book_gpu(
     # Input validation for booking duration
     if request.duration_hours <= 0:
         raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail="Booking duration must be greater than 0 hours"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Booking duration must be greater than 0 hours"
         )
-    
+
     if request.duration_hours > 8760:  # 1 year maximum
         raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail="Booking duration cannot exceed 8760 hours (1 year)"
+            status_code=http_status.HTTP_400_BAD_REQUEST, detail="Booking duration cannot exceed 8760 hours (1 year)"
         )
 
     start_time = datetime.utcnow()
     end_time = start_time + timedelta(hours=request.duration_hours)
-    
+
     # Validate booking end time is in the future
     if end_time <= start_time:
-        raise HTTPException(
-            status_code=http_status.HTTP_400_BAD_REQUEST,
-            detail="Booking end time must be in the future"
-        )
-    
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Booking end time must be in the future")
+
     # Calculate dynamic price at booking time
     try:
         dynamic_result = await engine.calculate_dynamic_price(
@@ -245,14 +235,14 @@ async def book_gpu(
             resource_type=ResourceType.GPU,
             base_price=gpu.price_per_hour,
             strategy=PricingStrategy.MARKET_BALANCE,
-            region=gpu.region
+            region=gpu.region,
         )
         # Use dynamic price for this booking
         current_price = dynamic_result.recommended_price
     except Exception:
         # Fallback to stored price if dynamic pricing fails
         current_price = gpu.price_per_hour
-    
+
     total_cost = request.duration_hours * current_price
 
     booking = GPUBooking(
@@ -262,7 +252,7 @@ async def book_gpu(
         total_cost=total_cost,
         start_time=start_time,
         end_time=end_time,
-        status="active"
+        status="active",
     )
     gpu.status = "booked"
     session.add(booking)
@@ -279,13 +269,13 @@ async def book_gpu(
         "price_per_hour": current_price,
         "start_time": booking.start_time.isoformat() + "Z",
         "end_time": booking.end_time.isoformat() + "Z",
-        "pricing_factors": dynamic_result.factors_exposed if 'dynamic_result' in locals() else {},
-        "confidence_score": dynamic_result.confidence_score if 'dynamic_result' in locals() else 0.8
+        "pricing_factors": dynamic_result.factors_exposed if "dynamic_result" in locals() else {},
+        "confidence_score": dynamic_result.confidence_score if "dynamic_result" in locals() else 0.8,
     }
 
 
 @router.post("/marketplace/gpu/{gpu_id}/release")
-async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
+async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Release a booked GPU."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
@@ -299,9 +289,7 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
         }
 
     booking = session.execute(
-        select(GPUBooking)
-        .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
-        .limit(1)
+        select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1)
     ).first()
 
     refund = 0.0
@@ -334,7 +322,7 @@ async def confirm_gpu_booking(
     gpu_id: str,
     request: GPUConfirmRequest,
     session: Session = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Confirm a booking (client ACK)."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
@@ -345,9 +333,7 @@ async def confirm_gpu_booking(
         )
 
     booking = session.execute(
-        select(GPUBooking)
-        .where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active")
-        .limit(1)
+        select(GPUBooking).where(GPUBooking.gpu_id == gpu_id, GPUBooking.status == "active").limit(1)
     ).scalar_one_or_none()
 
     if not booking:
@@ -375,7 +361,7 @@ async def confirm_gpu_booking(
 async def submit_ollama_task(
     request: OllamaTaskRequest,
     session: Session = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Stub Ollama task submission endpoint."""
     # Ensure GPU exists and is booked
     gpu = _get_gpu_or_404(session, request.gpu_id)
@@ -403,7 +389,7 @@ async def submit_ollama_task(
 async def send_payment(
     request: PaymentRequest,
     session: Session = Depends(get_session),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Stub payment endpoint (hook for blockchain processor)."""
     if request.amount <= 0:
         raise HTTPException(
@@ -430,17 +416,17 @@ async def send_payment(
 async def delete_gpu(
     gpu_id: str,
     session: Annotated[Session, Depends(get_session)],
-    force: bool = Query(default=False, description="Force delete even if GPU is booked")
-) -> Dict[str, Any]:
+    force: bool = Query(default=False, description="Force delete even if GPU is booked"),
+) -> dict[str, Any]:
     """Delete (unregister) a GPU from the marketplace."""
     gpu = _get_gpu_or_404(session, gpu_id)
-    
+
     if gpu.status == "booked" and not force:
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
-            detail=f"GPU {gpu_id} is currently booked. Use force=true to delete anyway."
+            detail=f"GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
         )
-    
+
     session.delete(gpu)
     session.commit()
     return {"status": "deleted", "gpu_id": gpu_id}
@@ -451,15 +437,15 @@ async def get_gpu_reviews(
     gpu_id: str,
     session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=10, ge=1, le=100),
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Get GPU reviews."""
     gpu = _get_gpu_or_404(session, gpu_id)
 
-    reviews = session.execute(
-        select(GPUReview)
-        .where(GPUReview.gpu_id == gpu_id)
-        .order_by(GPUReview.created_at.desc())
-    ).scalars().all()
+    reviews = (
+        session.execute(select(GPUReview).where(GPUReview.gpu_id == gpu_id).order_by(GPUReview.created_at.desc()))
+        .scalars()
+        .all()
+    )
 
     return {
         "gpu_id": gpu_id,
@@ -480,18 +466,15 @@ async def get_gpu_reviews(
 @router.post("/marketplace/gpu/{gpu_id}/reviews", status_code=http_status.HTTP_201_CREATED)
 async def add_gpu_review(
     gpu_id: str, request: GPUReviewRequest, session: Annotated[Session, Depends(get_session)]
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Add a review for a GPU."""
     try:
         gpu = _get_gpu_or_404(session, gpu_id)
-        
+
         # Validate request data
         if not (1 <= request.rating <= 5):
-            raise HTTPException(
-                status_code=http_status.HTTP_400_BAD_REQUEST,
-                detail="Rating must be between 1 and 5"
-            )
-        
+            raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="Rating must be between 1 and 5")
+
         # Create review object
         review = GPUReview(
             gpu_id=gpu_id,
@@ -499,85 +482,79 @@ async def add_gpu_review(
             rating=request.rating,
             comment=request.comment,
         )
-        
+
         # Log transaction start
-        logger.info(f"Starting review transaction for GPU {gpu_id}", extra={
-            "gpu_id": gpu_id,
-            "rating": request.rating,
-            "user_id": "current_user"
-        })
-        
+        logger.info(
+            f"Starting review transaction for GPU {gpu_id}",
+            extra={"gpu_id": gpu_id, "rating": request.rating, "user_id": "current_user"},
+        )
+
         # Add review to session
         session.add(review)
         session.flush()  # ensure the new review is visible to aggregate queries
-        
+
         # Recalculate average from DB (new review already included after flush)
-        total_count_result = session.execute(
-            select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)
-        ).one()
-        total_count = total_count_result[0] if hasattr(total_count_result, '__getitem__') else total_count_result
-        
-        avg_rating_result = session.execute(
-            select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)
-        ).one()
-        avg_rating = avg_rating_result[0] if hasattr(avg_rating_result, '__getitem__') else avg_rating_result
+        total_count_result = session.execute(select(func.count(GPUReview.id)).where(GPUReview.gpu_id == gpu_id)).one()
+        total_count = total_count_result[0] if hasattr(total_count_result, "__getitem__") else total_count_result
+
+        avg_rating_result = session.execute(select(func.avg(GPUReview.rating)).where(GPUReview.gpu_id == gpu_id)).one()
+        avg_rating = avg_rating_result[0] if hasattr(avg_rating_result, "__getitem__") else avg_rating_result
         avg_rating = avg_rating or 0.0
 
         # Update GPU stats
         gpu.average_rating = round(float(avg_rating), 2)
         gpu.total_reviews = total_count
-        
+
         # Commit transaction
         session.commit()
-        
+
         # Refresh review object
         session.refresh(review)
-        
+
         # Log success
-        logger.info(f"Review transaction completed successfully for GPU {gpu_id}", extra={
-            "gpu_id": gpu_id,
-            "review_id": review.id,
-            "total_reviews": total_count,
-            "average_rating": gpu.average_rating
-        })
-        
+        logger.info(
+            f"Review transaction completed successfully for GPU {gpu_id}",
+            extra={
+                "gpu_id": gpu_id,
+                "review_id": review.id,
+                "total_reviews": total_count,
+                "average_rating": gpu.average_rating,
+            },
+        )
+
         return {
             "status": "review_added",
             "gpu_id": gpu_id,
             "review_id": review.id,
             "average_rating": gpu.average_rating,
         }
-        
+
     except HTTPException:
         # Re-raise HTTP exceptions as-is
         raise
     except Exception as e:
         # Log error and rollback transaction
-        logger.error(f"Failed to add review for GPU {gpu_id}: {str(e)}", extra={
-            "gpu_id": gpu_id,
-            "error": str(e),
-            "error_type": type(e).__name__
-        })
-        
+        logger.error(
+            f"Failed to add review for GPU {gpu_id}: {str(e)}",
+            extra={"gpu_id": gpu_id, "error": str(e), "error_type": type(e).__name__},
+        )
+
         # Rollback on error
         try:
             session.rollback()
         except Exception as rollback_error:
             logger.error(f"Failed to rollback transaction: {str(rollback_error)}")
-        
+
         # Return generic error
-        raise HTTPException(
-            status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to add review"
-        )
+        raise HTTPException(status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add review")
 
 
 @router.get("/marketplace/orders")
 async def list_orders(
     session: Annotated[Session, Depends(get_session)],
-    status: Optional[str] = Query(default=None),
+    status: str | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=500),
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """List orders (bookings)."""
     stmt = select(GPUBooking)
     if status:
@@ -588,34 +565,33 @@ async def list_orders(
     orders = []
     for b in bookings:
         gpu = session.get(GPURegistry, b.gpu_id)
-        orders.append({
-            "order_id": b.id,
-            "gpu_id": b.gpu_id,
-            "gpu_model": gpu.model if gpu else "unknown",
-            "miner_id": gpu.miner_id if gpu else "",
-            "duration_hours": b.duration_hours,
-            "total_cost": b.total_cost,
-            "status": b.status,
-            "created_at": b.start_time.isoformat() + "Z",
-            "job_id": b.job_id,
-        })
+        orders.append(
+            {
+                "order_id": b.id,
+                "gpu_id": b.gpu_id,
+                "gpu_model": gpu.model if gpu else "unknown",
+                "miner_id": gpu.miner_id if gpu else "",
+                "duration_hours": b.duration_hours,
+                "total_cost": b.total_cost,
+                "status": b.status,
+                "created_at": b.start_time.isoformat() + "Z",
+                "job_id": b.job_id,
+            }
+        )
     return orders
 
 
 @router.get("/marketplace/pricing/{model}")
 async def get_pricing(
-    model: str, 
+    model: str,
     session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
-    collector: MarketDataCollector = Depends(get_market_collector)
-) -> Dict[str, Any]:
+    collector: MarketDataCollector = Depends(get_market_collector),
+) -> dict[str, Any]:
     """Get enhanced pricing information for a model with dynamic pricing."""
     # SQLite JSON doesn't support array contains, so fetch all and filter in Python
     all_gpus = session.execute(select(GPURegistry)).scalars().all()
-    compatible = [
-        g for g in all_gpus
-        if model.lower() in g.model.lower()
-    ]
+    compatible = [g for g in all_gpus if model.lower() in g.model.lower()]
 
     if not compatible:
         raise HTTPException(
@@ -626,7 +602,7 @@ async def get_pricing(
     # Get static pricing information
     static_prices = [g.price_per_hour for g in compatible]
     cheapest = min(compatible, key=lambda g: g.price_per_hour)
-    
+
     # Calculate dynamic prices for compatible GPUs
     dynamic_prices = []
     for gpu in compatible:
@@ -636,45 +612,50 @@ async def get_pricing(
                 resource_type=ResourceType.GPU,
                 base_price=gpu.price_per_hour,
                 strategy=PricingStrategy.MARKET_BALANCE,
-                region=gpu.region
+                region=gpu.region,
             )
-            dynamic_prices.append({
-                "gpu_id": gpu.id,
-                "static_price": gpu.price_per_hour,
-                "dynamic_price": dynamic_result.recommended_price,
-                "price_change": dynamic_result.recommended_price - gpu.price_per_hour,
-                "price_change_percent": ((dynamic_result.recommended_price - gpu.price_per_hour) / gpu.price_per_hour) * 100,
-                "confidence": dynamic_result.confidence_score,
-                "trend": dynamic_result.price_trend.value,
-                "reasoning": dynamic_result.reasoning
-            })
-        except Exception as e:
+            dynamic_prices.append(
+                {
+                    "gpu_id": gpu.id,
+                    "static_price": gpu.price_per_hour,
+                    "dynamic_price": dynamic_result.recommended_price,
+                    "price_change": dynamic_result.recommended_price - gpu.price_per_hour,
+                    "price_change_percent": ((dynamic_result.recommended_price - gpu.price_per_hour) / gpu.price_per_hour)
+                    * 100,
+                    "confidence": dynamic_result.confidence_score,
+                    "trend": dynamic_result.price_trend.value,
+                    "reasoning": dynamic_result.reasoning,
+                }
+            )
+        except Exception:
             # Fallback to static price if dynamic pricing fails
-            dynamic_prices.append({
-                "gpu_id": gpu.id,
-                "static_price": gpu.price_per_hour,
-                "dynamic_price": gpu.price_per_hour,
-                "price_change": 0.0,
-                "price_change_percent": 0.0,
-                "confidence": 0.5,
-                "trend": "unknown",
-                "reasoning": ["Dynamic pricing unavailable"]
-            })
-    
+            dynamic_prices.append(
+                {
+                    "gpu_id": gpu.id,
+                    "static_price": gpu.price_per_hour,
+                    "dynamic_price": gpu.price_per_hour,
+                    "price_change": 0.0,
+                    "price_change_percent": 0.0,
+                    "confidence": 0.5,
+                    "trend": "unknown",
+                    "reasoning": ["Dynamic pricing unavailable"],
+                }
+            )
+
     # Calculate aggregate dynamic pricing metrics
     dynamic_price_values = [dp["dynamic_price"] for dp in dynamic_prices]
     avg_dynamic_price = sum(dynamic_price_values) / len(dynamic_price_values)
-    
+
     # Find best value GPU (considering price and confidence)
     best_value_gpu = min(dynamic_prices, key=lambda x: x["dynamic_price"] / x["confidence"])
-    
+
     # Get market analysis
     market_analysis = None
     try:
         # Get market data for the most common region
         regions = [gpu.region for gpu in compatible]
         most_common_region = max(set(regions), key=regions.count) if regions else "global"
-        
+
         market_data = await collector.get_aggregated_data("gpu", most_common_region)
         if market_data:
             market_analysis = {
@@ -683,7 +664,7 @@ async def get_pricing(
                 "market_volatility": market_data.price_volatility,
                 "utilization_rate": market_data.utilization_rate,
                 "market_sentiment": market_data.market_sentiment,
-                "confidence_score": market_data.confidence_score
+                "confidence_score": market_data.confidence_score,
             }
     except Exception:
         market_analysis = None
@@ -709,18 +690,21 @@ async def get_pricing(
         },
         "price_comparison": {
             "avg_price_change": avg_dynamic_price - (sum(static_prices) / len(static_prices)),
-            "avg_price_change_percent": ((avg_dynamic_price - (sum(static_prices) / len(static_prices))) / (sum(static_prices) / len(static_prices))) * 100,
+            "avg_price_change_percent": (
+                (avg_dynamic_price - (sum(static_prices) / len(static_prices))) / (sum(static_prices) / len(static_prices))
+            )
+            * 100,
             "gpus_with_price_increase": len([dp for dp in dynamic_prices if dp["price_change"] > 0]),
             "gpus_with_price_decrease": len([dp for dp in dynamic_prices if dp["price_change"] < 0]),
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,
-        "pricing_timestamp": datetime.utcnow().isoformat() + "Z"
+        "pricing_timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
 
 @router.post("/marketplace/gpu/bid")
-async def bid_gpu(request: Dict[str, Any], session: Session = Depends(get_session)) -> Dict[str, Any]:
+async def bid_gpu(request: dict[str, Any], session: Session = Depends(get_session)) -> dict[str, Any]:
     """Place a bid on a GPU"""
     # Simple implementation
     bid_id = str(uuid4())
@@ -730,12 +714,12 @@ async def bid_gpu(request: Dict[str, Any], session: Session = Depends(get_sessio
         "gpu_id": request.get("gpu_id"),
         "bid_amount": request.get("bid_amount"),
         "duration_hours": request.get("duration_hours"),
-        "timestamp": datetime.utcnow().isoformat() + "Z"
+        "timestamp": datetime.utcnow().isoformat() + "Z",
     }
 
 
 @router.get("/marketplace/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str, session: Session = Depends(get_session)) -> Dict[str, Any]:
+async def get_gpu_details(gpu_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Get GPU details"""
     # Simple implementation
     return {
@@ -748,5 +732,5 @@ async def get_gpu_details(gpu_id: str, session: Session = Depends(get_session)) 
         "status": "available",
         "miner_id": "test-miner",
         "region": "us-east",
-        "created_at": datetime.utcnow().isoformat() + "Z"
+        "created_at": datetime.utcnow().isoformat() + "Z",
     }

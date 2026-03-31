@@ -1,125 +1,131 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, Optional, List
-from base64 import b64encode, b64decode
-from enum import Enum
 import re
+from base64 import b64decode, b64encode
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from ..custom_types import JobState, Constraints
+from ..custom_types import Constraints, JobState
 
 
 # Payment schemas
 class JobPaymentCreate(BaseModel):
     """Request to create a payment for a job"""
+
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
     amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount in AITBC")
     currency: str = Field(default="AITBC", description="Payment currency")
     payment_method: str = Field(default="aitbc_token", description="Payment method")
     escrow_timeout_seconds: int = Field(default=3600, ge=300, le=86400, description="Escrow timeout in seconds")
-    
-    @field_validator('job_id')
+
+    @field_validator("job_id")
     @classmethod
     def validate_job_id(cls, v: str) -> str:
         """Validate job ID format to prevent injection attacks"""
-        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
-            raise ValueError('Job ID contains invalid characters')
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", v):
+            raise ValueError("Job ID contains invalid characters")
         return v
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: float) -> float:
         """Validate and round payment amount"""
         if v < 0.01:
-            raise ValueError('Minimum payment amount is 0.01 AITBC')
+            raise ValueError("Minimum payment amount is 0.01 AITBC")
         return round(v, 8)  # Prevent floating point precision issues
-    
-    @field_validator('currency')
+
+    @field_validator("currency")
     @classmethod
     def validate_currency(cls, v: str) -> str:
         """Validate currency code"""
-        allowed_currencies = ['AITBC', 'BTC', 'ETH', 'USDT']
+        allowed_currencies = ["AITBC", "BTC", "ETH", "USDT"]
         if v.upper() not in allowed_currencies:
-            raise ValueError(f'Currency must be one of: {allowed_currencies}')
+            raise ValueError(f"Currency must be one of: {allowed_currencies}")
         return v.upper()
 
 
 class JobPaymentView(BaseModel):
     """Payment information for a job"""
+
     job_id: str
     payment_id: str
     amount: float
     currency: str
     status: str
     payment_method: str
-    escrow_address: Optional[str] = None
-    refund_address: Optional[str] = None
+    escrow_address: str | None = None
+    refund_address: str | None = None
     created_at: datetime
     updated_at: datetime
-    released_at: Optional[datetime] = None
-    refunded_at: Optional[datetime] = None
-    transaction_hash: Optional[str] = None
-    refund_transaction_hash: Optional[str] = None
+    released_at: datetime | None = None
+    refunded_at: datetime | None = None
+    transaction_hash: str | None = None
+    refund_transaction_hash: str | None = None
 
 
 class PaymentRequest(BaseModel):
     """Request to pay for a job"""
+
     job_id: str = Field(..., min_length=1, max_length=128, description="Job identifier")
     amount: float = Field(..., gt=0, le=1_000_000, description="Payment amount")
     currency: str = Field(default="BTC", description="Payment currency")
-    refund_address: Optional[str] = Field(None, min_length=1, max_length=255, description="Refund address")
-    
-    @field_validator('job_id')
+    refund_address: str | None = Field(None, min_length=1, max_length=255, description="Refund address")
+
+    @field_validator("job_id")
     @classmethod
     def validate_job_id(cls, v: str) -> str:
         """Validate job ID format"""
-        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
-            raise ValueError('Job ID contains invalid characters')
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", v):
+            raise ValueError("Job ID contains invalid characters")
         return v
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v: float) -> float:
         """Validate payment amount"""
         if v < 0.0001:  # Minimum BTC amount
-            raise ValueError('Minimum payment amount is 0.0001')
+            raise ValueError("Minimum payment amount is 0.0001")
         return round(v, 8)
-    
-    @field_validator('refund_address')
+
+    @field_validator("refund_address")
     @classmethod
-    def validate_refund_address(cls, v: Optional[str]) -> Optional[str]:
+    def validate_refund_address(cls, v: str | None) -> str | None:
         """Validate refund address format"""
         if v is None:
             return v
         # Basic Bitcoin address validation
-        if not re.match(r'^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{8,87}$', v):
-            raise ValueError('Invalid Bitcoin address format')
+        if not re.match(r"^[13][a-km-zA-HJ-NP-Z1-9]{25,34}$|^bc1[a-z0-9]{8,87}$", v):
+            raise ValueError("Invalid Bitcoin address format")
         return v
 
 
 class PaymentReceipt(BaseModel):
     """Receipt for a payment"""
+
     payment_id: str
     job_id: str
     amount: float
     currency: str
     status: str
-    transaction_hash: Optional[str] = None
+    transaction_hash: str | None = None
     created_at: datetime
-    verified_at: Optional[datetime] = None
+    verified_at: datetime | None = None
 
 
 class EscrowRelease(BaseModel):
     """Request to release escrow payment"""
+
     job_id: str
     payment_id: str
-    reason: Optional[str] = None
+    reason: str | None = None
 
 
 class RefundRequest(BaseModel):
     """Request to refund a payment"""
+
     job_id: str
     payment_id: str
     reason: str
@@ -129,24 +135,28 @@ class RefundRequest(BaseModel):
 class UserCreate(BaseModel):
     email: str
     username: str
-    password: Optional[str] = None
+    password: str | None = None
+
 
 class UserLogin(BaseModel):
     wallet_address: str
-    signature: Optional[str] = None
+    signature: str | None = None
+
 
 class UserProfile(BaseModel):
     user_id: str
     email: str
     username: str
     created_at: str
-    session_token: Optional[str] = None
+    session_token: str | None = None
+
 
 class UserBalance(BaseModel):
     user_id: str
     address: str
     balance: float
-    updated_at: Optional[str] = None
+    updated_at: str | None = None
+
 
 class Transaction(BaseModel):
     id: str
@@ -154,54 +164,58 @@ class Transaction(BaseModel):
     status: str
     amount: float
     fee: float
-    description: Optional[str]
+    description: str | None
     created_at: str
-    confirmed_at: Optional[str] = None
+    confirmed_at: str | None = None
+
 
 class TransactionHistory(BaseModel):
     user_id: str
-    transactions: List[Transaction]
+    transactions: list[Transaction]
     total: int
+
 
 class ExchangePaymentRequest(BaseModel):
     """Request for Bitcoin exchange payment"""
+
     user_id: str = Field(..., min_length=1, max_length=128, description="User identifier")
     aitbc_amount: float = Field(..., gt=0, le=1_000_000, description="AITBC amount to exchange")
     btc_amount: float = Field(..., gt=0, le=100, description="BTC amount to receive")
-    
-    @field_validator('user_id')
+
+    @field_validator("user_id")
     @classmethod
     def validate_user_id(cls, v: str) -> str:
         """Validate user ID format"""
-        if not re.match(r'^[a-zA-Z0-9\-_]+$', v):
-            raise ValueError('User ID contains invalid characters')
+        if not re.match(r"^[a-zA-Z0-9\-_]+$", v):
+            raise ValueError("User ID contains invalid characters")
         return v
-    
-    @field_validator('aitbc_amount')
+
+    @field_validator("aitbc_amount")
     @classmethod
     def validate_aitbc_amount(cls, v: float) -> float:
         """Validate AITBC amount"""
         if v < 0.01:
-            raise ValueError('Minimum AITBC amount is 0.01')
+            raise ValueError("Minimum AITBC amount is 0.01")
         return round(v, 8)
-    
-    @field_validator('btc_amount')
+
+    @field_validator("btc_amount")
     @classmethod
     def validate_btc_amount(cls, v: float) -> float:
         """Validate BTC amount"""
         if v < 0.0001:
-            raise ValueError('Minimum BTC amount is 0.0001')
+            raise ValueError("Minimum BTC amount is 0.0001")
         return round(v, 8)
-    
-    @model_validator(mode='after')
-    def validate_exchange_ratio(self) -> 'ExchangePaymentRequest':
+
+    @model_validator(mode="after")
+    def validate_exchange_ratio(self) -> ExchangePaymentRequest:
         """Validate that the exchange ratio is reasonable"""
         if self.aitbc_amount > 0 and self.btc_amount > 0:
             ratio = self.aitbc_amount / self.btc_amount
             # AITBC/BTC ratio should be reasonable (e.g., 100,000 AITBC = 1 BTC)
             if ratio < 1000 or ratio > 1000000:
-                raise ValueError('Exchange ratio is outside reasonable bounds')
+                raise ValueError("Exchange ratio is outside reasonable bounds")
         return self
+
 
 class ExchangePaymentResponse(BaseModel):
     payment_id: str
@@ -213,10 +227,12 @@ class ExchangePaymentResponse(BaseModel):
     created_at: int
     expires_at: int
 
+
 class ExchangeRatesResponse(BaseModel):
     btc_to_aitbc: float
     aitbc_to_btc: float
     fee_percent: float
+
 
 class PaymentStatusResponse(BaseModel):
     payment_id: str
@@ -228,8 +244,9 @@ class PaymentStatusResponse(BaseModel):
     created_at: int
     expires_at: int
     confirmations: int = 0
-    tx_hash: Optional[str] = None
-    confirmed_at: Optional[int] = None
+    tx_hash: str | None = None
+    confirmed_at: int | None = None
+
 
 class MarketStatsResponse(BaseModel):
     price: float
@@ -239,12 +256,14 @@ class MarketStatsResponse(BaseModel):
     total_payments: int
     pending_payments: int
 
+
 class WalletBalanceResponse(BaseModel):
     address: str
     balance: float
     unconfirmed_balance: float
     total_received: float
     total_sent: float
+
 
 class WalletInfoResponse(BaseModel):
     address: str
@@ -256,43 +275,44 @@ class WalletInfoResponse(BaseModel):
     network: str
     block_height: int
 
+
 class JobCreate(BaseModel):
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     constraints: Constraints = Field(default_factory=Constraints)
     ttl_seconds: int = 900
-    payment_amount: Optional[float] = None  # Amount to pay for the job
+    payment_amount: float | None = None  # Amount to pay for the job
     payment_currency: str = "AITBC"  # Jobs paid with AITBC tokens
 
 
 class JobView(BaseModel):
     job_id: str
     state: JobState
-    assigned_miner_id: Optional[str] = None
+    assigned_miner_id: str | None = None
     requested_at: datetime
     expires_at: datetime
-    error: Optional[str] = None
-    payment_id: Optional[str] = None
-    payment_status: Optional[str] = None
+    error: str | None = None
+    payment_id: str | None = None
+    payment_status: str | None = None
 
 
 class JobResult(BaseModel):
-    result: Optional[Dict[str, Any]] = None
-    receipt: Optional[Dict[str, Any]] = None
+    result: dict[str, Any] | None = None
+    receipt: dict[str, Any] | None = None
 
 
 class MinerRegister(BaseModel):
-    capabilities: Dict[str, Any]
+    capabilities: dict[str, Any]
     concurrency: int = 1
-    region: Optional[str] = None
+    region: str | None = None
 
 
 class MinerHeartbeat(BaseModel):
     inflight: int = 0
     status: str = "ONLINE"
-    metadata: Dict[str, Any] = Field(default_factory=dict)
-    architecture: Optional[str] = None
-    edge_optimized: Optional[bool] = None
-    network_latency_ms: Optional[float] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    architecture: str | None = None
+    edge_optimized: bool | None = None
+    network_latency_ms: float | None = None
 
 
 class PollRequest(BaseModel):
@@ -301,19 +321,19 @@ class PollRequest(BaseModel):
 
 class AssignedJob(BaseModel):
     job_id: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     constraints: Constraints
 
 
 class JobResultSubmit(BaseModel):
-    result: Dict[str, Any]
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    result: dict[str, Any]
+    metrics: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobFailSubmit(BaseModel):
     error_code: str
     error_message: str
-    metrics: Dict[str, Any] = Field(default_factory=dict)
+    metrics: dict[str, Any] = Field(default_factory=dict)
 
 
 class MarketplaceOfferView(BaseModel):
@@ -324,13 +344,13 @@ class MarketplaceOfferView(BaseModel):
     sla: str
     status: str
     created_at: datetime
-    gpu_model: Optional[str] = None
-    gpu_memory_gb: Optional[int] = None
-    gpu_count: Optional[int] = 1
-    cuda_version: Optional[str] = None
-    price_per_hour: Optional[float] = None
-    region: Optional[str] = None
-    attributes: Optional[dict] = None
+    gpu_model: str | None = None
+    gpu_memory_gb: int | None = None
+    gpu_count: int | None = 1
+    cuda_version: str | None = None
+    price_per_hour: float | None = None
+    region: str | None = None
+    attributes: dict | None = None
 
 
 class MarketplaceStatsView(BaseModel):
@@ -344,7 +364,7 @@ class MarketplaceBidRequest(BaseModel):
     provider: str = Field(..., min_length=1)
     capacity: int = Field(..., gt=0)
     price: float = Field(..., gt=0)
-    notes: Optional[str] = Field(default=None, max_length=1024)
+    notes: str | None = Field(default=None, max_length=1024)
 
 
 class MarketplaceBidView(BaseModel):
@@ -352,7 +372,7 @@ class MarketplaceBidView(BaseModel):
     provider: str
     capacity: int
     price: float
-    notes: Optional[str] = None
+    notes: str | None = None
     status: str
     submitted_at: datetime
 
@@ -371,7 +391,7 @@ class BlockListResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     items: list[BlockSummary]
-    next_offset: Optional[str | int] = None
+    next_offset: str | int | None = None
 
 
 class TransactionSummary(BaseModel):
@@ -380,7 +400,7 @@ class TransactionSummary(BaseModel):
     hash: str
     block: str | int
     from_address: str = Field(alias="from")
-    to_address: Optional[str] = Field(default=None, alias="to")
+    to_address: str | None = Field(default=None, alias="to")
     value: str
     status: str
 
@@ -389,7 +409,7 @@ class TransactionListResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     items: list[TransactionSummary]
-    next_offset: Optional[str | int] = None
+    next_offset: str | int | None = None
 
 
 class AddressSummary(BaseModel):
@@ -399,26 +419,26 @@ class AddressSummary(BaseModel):
     balance: str
     txCount: int
     lastActive: datetime
-    recentTransactions: Optional[list[str]] = Field(default=None)
+    recentTransactions: list[str] | None = Field(default=None)
 
 
 class AddressListResponse(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     items: list[AddressSummary]
-    next_offset: Optional[str | int] = None
+    next_offset: str | int | None = None
 
 
 class ReceiptSummary(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     receiptId: str
-    jobId: Optional[str] = None
+    jobId: str | None = None
     miner: str
     coordinator: str
     issuedAt: datetime
     status: str
-    payload: Optional[Dict[str, Any]] = None
+    payload: dict[str, Any] | None = None
 
 
 class ReceiptListResponse(BaseModel):
@@ -430,114 +450,117 @@ class ReceiptListResponse(BaseModel):
 
 class Receipt(BaseModel):
     """Receipt model for zk-proof generation"""
+
     receiptId: str
     miner: str
     coordinator: str
     issuedAt: datetime
     status: str
-    payload: Optional[Dict[str, Any]] = None
+    payload: dict[str, Any] | None = None
 
 
 # Confidential Transaction Models
 
+
 class ConfidentialTransaction(BaseModel):
     """Transaction with optional confidential fields"""
-    
+
     # Public fields (always visible)
     transaction_id: str
     job_id: str
     timestamp: datetime
     status: str
-    
+
     # Confidential fields (encrypted when opt-in)
-    amount: Optional[str] = None
-    pricing: Optional[Dict[str, Any]] = None
-    settlement_details: Optional[Dict[str, Any]] = None
-    
+    amount: str | None = None
+    pricing: dict[str, Any] | None = None
+    settlement_details: dict[str, Any] | None = None
+
     # Encryption metadata
     confidential: bool = False
-    encrypted_data: Optional[str] = None  # Base64 encoded
-    encrypted_keys: Optional[Dict[str, str]] = None  # Base64 encoded
-    algorithm: Optional[str] = None
-    
+    encrypted_data: str | None = None  # Base64 encoded
+    encrypted_keys: dict[str, str] | None = None  # Base64 encoded
+    algorithm: str | None = None
+
     # Access control
-    participants: List[str] = []
-    access_policies: Dict[str, Any] = {}
-    
+    participants: list[str] = []
+    access_policies: dict[str, Any] = {}
+
     model_config = ConfigDict(populate_by_name=True)
 
 
 class ConfidentialTransactionCreate(BaseModel):
     """Request to create confidential transaction"""
-    
+
     job_id: str
-    amount: Optional[str] = None
-    pricing: Optional[Dict[str, Any]] = None
-    settlement_details: Optional[Dict[str, Any]] = None
-    
+    amount: str | None = None
+    pricing: dict[str, Any] | None = None
+    settlement_details: dict[str, Any] | None = None
+
     # Privacy options
     confidential: bool = False
-    participants: List[str] = []
-    
+    participants: list[str] = []
+
     # Access policies
-    access_policies: Dict[str, Any] = {}
+    access_policies: dict[str, Any] = {}
 
 
 class ConfidentialTransactionView(BaseModel):
     """Response for confidential transaction view"""
-    
+
     transaction_id: str
     job_id: str
     timestamp: datetime
     status: str
-    
+
     # Decrypted fields (only if authorized)
-    amount: Optional[str] = None
-    pricing: Optional[Dict[str, Any]] = None
-    settlement_details: Optional[Dict[str, Any]] = None
-    
+    amount: str | None = None
+    pricing: dict[str, Any] | None = None
+    settlement_details: dict[str, Any] | None = None
+
     # Metadata
     confidential: bool
-    participants: List[str]
+    participants: list[str]
     has_encrypted_data: bool
 
 
 class ConfidentialAccessRequest(BaseModel):
     """Request to access confidential transaction data"""
-    
+
     transaction_id: str
     requester: str
     purpose: str
-    justification: Optional[str] = None
+    justification: str | None = None
 
 
 class ConfidentialAccessResponse(BaseModel):
     """Response for confidential data access"""
-    
+
     success: bool
-    data: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    access_id: Optional[str] = None
+    data: dict[str, Any] | None = None
+    error: str | None = None
+    access_id: str | None = None
 
 
 # Key Management Models
 
+
 class KeyPair(BaseModel):
     """Encryption key pair for participant"""
-    
+
     participant_id: str
     private_key: bytes
     public_key: bytes
     algorithm: str = "X25519"
     created_at: datetime
     version: int = 1
-    
+
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
 
 class KeyRotationLog(BaseModel):
     """Log of key rotation events"""
-    
+
     participant_id: str
     old_version: int
     new_version: int
@@ -547,7 +570,7 @@ class KeyRotationLog(BaseModel):
 
 class AuditAuthorization(BaseModel):
     """Authorization for audit access"""
-    
+
     issuer: str
     subject: str
     purpose: str
@@ -558,7 +581,7 @@ class AuditAuthorization(BaseModel):
 
 class KeyRegistrationRequest(BaseModel):
     """Request to register encryption keys"""
-    
+
     participant_id: str
     public_key: str  # Base64 encoded
     algorithm: str = "X25519"
@@ -566,46 +589,47 @@ class KeyRegistrationRequest(BaseModel):
 
 class KeyRegistrationResponse(BaseModel):
     """Response for key registration"""
-    
+
     success: bool
     participant_id: str
     key_version: int
     registered_at: datetime
-    error: Optional[str] = None
+    error: str | None = None
 
 
 # Access Log Models
 
+
 class ConfidentialAccessLog(BaseModel):
     """Audit log for confidential data access"""
-    
-    transaction_id: Optional[str]
+
+    transaction_id: str | None
     participant_id: str
     purpose: str
     timestamp: datetime
     authorized_by: str
-    data_accessed: List[str]
+    data_accessed: list[str]
     success: bool
-    error: Optional[str] = None
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
+    error: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
 
 
 class AccessLogQuery(BaseModel):
     """Query for access logs"""
-    
-    transaction_id: Optional[str] = None
-    participant_id: Optional[str] = None
-    purpose: Optional[str] = None
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+
+    transaction_id: str | None = None
+    participant_id: str | None = None
+    purpose: str | None = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
     limit: int = 100
     offset: int = 0
 
 
 class AccessLogResponse(BaseModel):
     """Response for access log query"""
-    
-    logs: List[ConfidentialAccessLog]
+
+    logs: list[ConfidentialAccessLog]
     total_count: int
     has_more: bool

@@ -1,24 +1,24 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
+from sqlalchemy.orm import Session
+
 """
 Reward System API Endpoints
 REST API for agent rewards, incentives, and performance-based earnings
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
+from ..domain.rewards import AgentRewardProfile, RewardStatus, RewardTier, RewardType
 from ..services.reward_service import RewardEngine
-from ..domain.rewards import (
-    AgentRewardProfile, RewardTier, RewardType, RewardStatus
-)
-
-
+from ..storage import get_session
 
 router = APIRouter(prefix="/v1/rewards", tags=["rewards"])
 

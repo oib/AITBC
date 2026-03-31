@@ -2,32 +2,24 @@
 Encryption service for confidential transactions
 """
 
-import os
-import json
 import base64
-import asyncio
-from typing import Dict, List, Optional, Tuple, Any
-from datetime import datetime, timedelta
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives import hashes
+import json
+import os
+from datetime import datetime
+from typing import Any
+
 from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import (
     X25519PrivateKey,
     X25519PublicKey,
 )
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     PublicFormat,
-    PrivateFormat,
-    NoEncryption,
 )
-
-from ..schemas import ConfidentialTransaction, ConfidentialAccessLog
-from ..config import settings
-from ..app_logging import get_logger
-
-
 
 
 class EncryptedData:
@@ -36,10 +28,10 @@ class EncryptedData:
     def __init__(
         self,
         ciphertext: bytes,
-        encrypted_keys: Dict[str, bytes],
+        encrypted_keys: dict[str, bytes],
         algorithm: str = "AES-256-GCM+X25519",
-        nonce: Optional[bytes] = None,
-        tag: Optional[bytes] = None,
+        nonce: bytes | None = None,
+        tag: bytes | None = None,
     ):
         self.ciphertext = ciphertext
         self.encrypted_keys = encrypted_keys
@@ -47,13 +39,12 @@ class EncryptedData:
         self.nonce = nonce
         self.tag = tag
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for storage"""
         return {
             "ciphertext": base64.b64encode(self.ciphertext).decode(),
             "encrypted_keys": {
-                participant: base64.b64encode(key).decode()
-                for participant, key in self.encrypted_keys.items()
+                participant: base64.b64encode(key).decode() for participant, key in self.encrypted_keys.items()
             },
             "algorithm": self.algorithm,
             "nonce": base64.b64encode(self.nonce).decode() if self.nonce else None,
@@ -61,14 +52,11 @@ class EncryptedData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "EncryptedData":
+    def from_dict(cls, data: dict[str, Any]) -> "EncryptedData":
         """Create from dictionary"""
         return cls(
             ciphertext=base64.b64decode(data["ciphertext"]),
-            encrypted_keys={
-                participant: base64.b64decode(key)
-                for participant, key in data["encrypted_keys"].items()
-            },
+            encrypted_keys={participant: base64.b64decode(key) for participant, key in data["encrypted_keys"].items()},
             algorithm=data["algorithm"],
             nonce=base64.b64decode(data["nonce"]) if data.get("nonce") else None,
             tag=base64.b64decode(data["tag"]) if data.get("tag") else None,
@@ -83,9 +71,7 @@ class EncryptionService:
         self.backend = default_backend()
         self.algorithm = "AES-256-GCM+X25519"
 
-    def encrypt(
-        self, data: Dict[str, Any], participants: List[str], include_audit: bool = True
-    ) -> EncryptedData:
+    def encrypt(self, data: dict[str, Any], participants: list[str], include_audit: bool = True) -> EncryptedData:
         """Encrypt data for multiple participants
 
         Args:
@@ -121,9 +107,7 @@ class EncryptionService:
                     encrypted_dek = self._encrypt_dek(dek, public_key)
                     encrypted_keys[participant] = encrypted_dek
                 except Exception as e:
-                    logger.error(
-                        f"Failed to encrypt DEK for participant {participant}: {e}"
-                    )
+                    logger.error(f"Failed to encrypt DEK for participant {participant}: {e}")
                     continue
 
             # Add audit escrow if requested
@@ -152,7 +136,7 @@ class EncryptionService:
         encrypted_data: EncryptedData,
         participant_id: str,
         purpose: str = "access",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Decrypt data for a specific participant
 
         Args:
@@ -211,7 +195,7 @@ class EncryptionService:
         encrypted_data: EncryptedData,
         audit_authorization: str,
         purpose: str = "audit",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Decrypt data for audit purposes
 
         Args:
@@ -224,16 +208,12 @@ class EncryptionService:
         """
         try:
             # Verify audit authorization (sync helper only)
-            auth_ok = self.key_manager.verify_audit_authorization_sync(
-                audit_authorization
-            )
+            auth_ok = self.key_manager.verify_audit_authorization_sync(audit_authorization)
             if not auth_ok:
                 raise AccessDeniedError("Invalid audit authorization")
 
             # Get audit private key (sync helper only)
-            audit_private_key = self.key_manager.get_audit_private_key_sync(
-                audit_authorization
-            )
+            audit_private_key = self.key_manager.get_audit_private_key_sync(audit_authorization)
 
             # Decrypt using audit key
             if "audit" not in encrypted_data.encrypted_keys:
@@ -288,15 +268,9 @@ class EncryptionService:
         encrypted_dek = aesgcm.encrypt(nonce, dek, None)
 
         # Return ephemeral public key + nonce + encrypted DEK
-        return (
-            ephemeral_public.public_bytes(Encoding.Raw, PublicFormat.Raw)
-            + nonce
-            + encrypted_dek
-        )
+        return ephemeral_public.public_bytes(Encoding.Raw, PublicFormat.Raw) + nonce + encrypted_dek
 
-    def _decrypt_dek(
-        self, encrypted_dek: bytes, private_key: X25519PrivateKey
-    ) -> bytes:
+    def _decrypt_dek(self, encrypted_dek: bytes, private_key: X25519PrivateKey) -> bytes:
         """Decrypt DEK using ECIES with X25519"""
         # Extract components
         ephemeral_public_bytes = encrypted_dek[:32]
@@ -326,12 +300,12 @@ class EncryptionService:
 
     def _log_access(
         self,
-        transaction_id: Optional[str],
+        transaction_id: str | None,
         participant_id: str,
         purpose: str,
         success: bool,
-        error: Optional[str] = None,
-        authorization: Optional[str] = None,
+        error: str | None = None,
+        authorization: str | None = None,
     ):
         """Log access to confidential data"""
         try:

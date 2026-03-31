@@ -2,40 +2,37 @@
 Enhanced Main Application - Adds new enhanced routers to existing AITBC Coordinator API
 """
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import make_asgi_app
 
 from .config import settings
-from .storage import init_db
 from .routers import (
-    client,
-    miner,
     admin,
-    marketplace,
+    client,
+    edge_gpu,
     exchange,
-    users,
-    services,
-    marketplace_offers,
-    zk_applications,
     explorer,
+    marketplace,
+    marketplace_offers,
+    miner,
     payments,
+    services,
+    users,
     web_vitals,
-    edge_gpu
+    zk_applications,
 )
-from .routers.ml_zk_proofs import router as ml_zk_proofs
 from .routers.governance import router as governance
-from .routers.partners import router as partners
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
+from .routers.ml_zk_proofs import router as ml_zk_proofs
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
-from .storage.models_governance import GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter
-from .exceptions import AITBCError, ErrorResponse
-import logging
+from .routers.partners import router as partners
+from .storage import init_db
+
 logger = logging.getLogger(__name__)
-from .config import settings
 from .storage.db import init_db
-
-
 
 
 def create_app() -> FastAPI:
@@ -44,7 +41,7 @@ def create_app() -> FastAPI:
         version="0.1.0",
         description="Stage 1 coordinator service handling job orchestration between clients and miners.",
     )
-    
+
     init_db()
 
     app.add_middleware(
@@ -52,7 +49,7 @@ def create_app() -> FastAPI:
         allow_origins=settings.allow_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allow_headers=["*"]  # Allow all headers for API keys and content types
+        allow_headers=["*"],  # Allow all headers for API keys and content types
     )
 
     # Include existing routers
@@ -72,7 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(web_vitals, prefix="/v1")
     app.include_router(edge_gpu)
     app.include_router(ml_zk_proofs)
-    
+
     # Include enhanced routers
     app.include_router(marketplace_enhanced, prefix="/v1")
     app.include_router(openclaw_enhanced, prefix="/v1")

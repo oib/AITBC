@@ -7,9 +7,10 @@ Wants=aitbc-coordinator-api.service
 Type=simple
 User=debian
 Group=debian
-WorkingDirectory=/home/oib/aitbc/apps/coordinator-api
-Environment=PATH=/usr/bin
-ExecStart=/usr/bin/python3 -m uvicorn src.app.routers.openclaw_enhanced_app:app --host 127.0.0.1 --port 8014
+WorkingDirectory=/opt/aitbc/apps/coordinator-api
+Environment=PATH=/opt/aitbc/venv/bin:/usr/bin
+Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app.routers.openclaw_enhanced_app:app --host 127.0.0.1 --port 8014
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
@@ -26,7 +27,7 @@ SyslogIdentifier=aitbc-openclaw-enhanced
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
+ReadWritePaths=/opt/aitbc/apps/coordinator-api /opt/aitbc/venv
 
 [Install]
 WantedBy=multi-user.target

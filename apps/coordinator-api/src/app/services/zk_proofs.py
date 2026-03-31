@@ -4,20 +4,16 @@ ZK Proof generation service for privacy-preserving receipt attestation
 
 import asyncio
 import json
-import subprocess
-from pathlib import Path
-from typing import Dict, Any, Optional, List
-import tempfile
 import os
-import logging
+import subprocess
+import tempfile
+from pathlib import Path
+from typing import Any
 
-from ..schemas import Receipt, JobResult
-from ..config import settings
 from ..app_logging import get_logger
+from ..schemas import JobResult, Receipt
 
 logger = get_logger(__name__)
-
-
 
 
 class ZKProofService:
@@ -31,23 +27,23 @@ class ZKProofService:
             "receipt_simple": {
                 "zkey_path": self.circuits_dir / "receipt_simple_0001.zkey",
                 "wasm_path": self.circuits_dir / "receipt_simple_js" / "receipt_simple.wasm",
-                "vkey_path": self.circuits_dir / "receipt_simple_js" / "verification_key.json"
+                "vkey_path": self.circuits_dir / "receipt_simple_js" / "verification_key.json",
             },
             "ml_inference_verification": {
                 "zkey_path": self.circuits_dir / "ml_inference_verification_0000.zkey",
                 "wasm_path": self.circuits_dir / "ml_inference_verification_js" / "ml_inference_verification.wasm",
-                "vkey_path": self.circuits_dir / "ml_inference_verification_js" / "verification_key.json"
+                "vkey_path": self.circuits_dir / "ml_inference_verification_js" / "verification_key.json",
             },
             "ml_training_verification": {
                 "zkey_path": self.circuits_dir / "ml_training_verification_0000.zkey",
                 "wasm_path": self.circuits_dir / "ml_training_verification_js" / "ml_training_verification.wasm",
-                "vkey_path": self.circuits_dir / "ml_training_verification_js" / "verification_key.json"
+                "vkey_path": self.circuits_dir / "ml_training_verification_js" / "verification_key.json",
             },
             "modular_ml_components": {
                 "zkey_path": self.circuits_dir / "modular_ml_components_0001.zkey",
                 "wasm_path": self.circuits_dir / "modular_ml_components_js" / "modular_ml_components.wasm",
-                "vkey_path": self.circuits_dir / "verification_key.json"
-            }
+                "vkey_path": self.circuits_dir / "verification_key.json",
+            },
         }
 
         # Check which circuits are available
@@ -63,42 +59,36 @@ class ZKProofService:
         self.enabled = len(self.available_circuits) > 0
 
     async def generate_receipt_proof(
-        self, 
-        receipt: Receipt, 
-        job_result: JobResult,
-        privacy_level: str = "basic"
-    ) -> Optional[Dict[str, Any]]:
+        self, receipt: Receipt, job_result: JobResult, privacy_level: str = "basic"
+    ) -> dict[str, Any] | None:
         """Generate a ZK proof for a receipt"""
-        
+
         if not self.enabled:
             logger.warning("ZK proof generation not available")
             return None
-        
+
         try:
             # Prepare circuit inputs based on privacy level
             inputs = await self._prepare_inputs(receipt, job_result, privacy_level)
-            
+
             # Generate proof using snarkjs
             proof_data = await self._generate_proof(inputs)
-            
+
             # Return proof with verification data
             return {
                 "proof": proof_data["proof"],
                 "public_signals": proof_data["publicSignals"],
                 "privacy_level": privacy_level,
-                "circuit_hash": await self._get_circuit_hash()
+                "circuit_hash": await self._get_circuit_hash(),
             }
-            
+
         except Exception as e:
             logger.error(f"Failed to generate ZK proof: {e}")
             return None
 
     async def generate_proof(
-        self,
-        circuit_name: str,
-        inputs: Dict[str, Any],
-        private_inputs: Optional[Dict[str, Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+        self, circuit_name: str, inputs: dict[str, Any], private_inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """Generate a ZK proof for any supported circuit type"""
 
         if not self.enabled:
@@ -115,11 +105,7 @@ class ZKProofService:
 
             # Generate proof using snarkjs with circuit-specific paths
             proof_data = await self._generate_proof_generic(
-                inputs,
-                private_inputs,
-                circuit_paths["wasm_path"],
-                circuit_paths["zkey_path"],
-                circuit_paths["vkey_path"]
+                inputs, private_inputs, circuit_paths["wasm_path"], circuit_paths["zkey_path"], circuit_paths["vkey_path"]
             )
 
             # Return proof with verification data
@@ -129,7 +115,7 @@ class ZKProofService:
                 "public_signals": proof_data["publicSignals"],
                 "verification_key": proof_data.get("verificationKey"),
                 "circuit_type": circuit_name,
-                "optimization_level": "phase3_optimized" if "modular" in circuit_name else "baseline"
+                "optimization_level": "phase3_optimized" if "modular" in circuit_name else "baseline",
             }
 
         except Exception as e:
@@ -137,46 +123,26 @@ class ZKProofService:
             return None
 
     async def verify_proof(
-        self,
-        proof: Dict[str, Any],
-        public_signals: List[str],
-        verification_key: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any]
+    ) -> dict[str, Any]:
         """Verify a ZK proof"""
         try:
             # For now, return mock verification - in production, implement actual verification
-            return {
-                "verified": True,
-                "computation_correct": True,
-                "privacy_preserved": True
-            }
+            return {"verified": True, "computation_correct": True, "privacy_preserved": True}
         except Exception as e:
             logger.error(f"Failed to verify proof: {e}")
-            return {
-                "verified": False,
-                "error": str(e)
-            }
-    
-    async def _prepare_inputs(
-        self, 
-        receipt: Receipt, 
-        job_result: JobResult,
-        privacy_level: str
-    ) -> Dict[str, Any]:
+            return {"verified": False, "error": str(e)}
+
+    async def _prepare_inputs(self, receipt: Receipt, job_result: JobResult, privacy_level: str) -> dict[str, Any]:
         """Prepare circuit inputs based on privacy level"""
-        
+
         if privacy_level == "basic":
             # Hide computation details, reveal settlement amount
             return {
-                "data": [
-                    str(receipt.job_id),
-                    str(receipt.miner_id),
-                    str(job_result.result_hash),
-                    str(receipt.pricing.rate)
-                ],
-                "hash": await self._hash_receipt(receipt)
+                "data": [str(receipt.job_id), str(receipt.miner_id), str(job_result.result_hash), str(receipt.pricing.rate)],
+                "hash": await self._hash_receipt(receipt),
             }
-        
+
         elif privacy_level == "enhanced":
             # Hide all amounts, prove correctness
             return {
@@ -186,28 +152,28 @@ class ZKProofService:
                 "computationResult": job_result.result_hash,
                 "pricingRate": receipt.pricing.rate,
                 "minerReward": receipt.miner_reward,
-                "coordinatorFee": receipt.coordinator_fee
+                "coordinatorFee": receipt.coordinator_fee,
             }
-        
+
         else:
             raise ValueError(f"Unknown privacy level: {privacy_level}")
-    
+
     async def _hash_receipt(self, receipt: Receipt) -> str:
         """Hash receipt for public verification"""
         # In a real implementation, use Poseidon or the same hash as circuit
         import hashlib
-        
+
         receipt_data = {
             "job_id": receipt.job_id,
             "miner_id": receipt.miner_id,
             "timestamp": receipt.timestamp,
-            "pricing": receipt.pricing.dict()
+            "pricing": receipt.pricing.dict(),
         }
-        
+
         receipt_str = json.dumps(receipt_data, sort_keys=True)
         return hashlib.sha256(receipt_str.encode()).hexdigest()
-    
-    def _serialize_receipt(self, receipt: Receipt) -> List[str]:
+
+    def _serialize_receipt(self, receipt: Receipt) -> list[str]:
         """Serialize receipt for circuit input"""
         # Convert receipt to field elements for circuit
         return [
@@ -217,17 +183,18 @@ class ZKProofService:
             str(receipt.settlement_amount)[:32],
             str(receipt.miner_reward)[:32],
             str(receipt.coordinator_fee)[:32],
-            "0", "0"  # Padding
+            "0",
+            "0",  # Padding
         ]
-    
-    async def _generate_proof(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+
+    async def _generate_proof(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Generate proof using snarkjs"""
-        
+
         # Write inputs to temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(inputs, f)
             inputs_file = f.name
-        
+
         try:
             # Create Node.js script for proof generation
             script = f"""
@@ -238,17 +205,17 @@ async function main() {{
     try {{
         // Load inputs
         const inputs = JSON.parse(fs.readFileSync('{inputs_file}', 'utf8'));
-        
+
         // Load circuit
         const wasm = fs.readFileSync('{self.wasm_path}');
         const zkey = fs.readFileSync('{self.zkey_path}');
-        
+
         // Calculate witness
         const {{ witness }} = await snarkjs.wtns.calculate(inputs, wasm, wasm);
-        
+
         // Generate proof
         const {{ proof, publicSignals }} = await snarkjs.groth16.prove(zkey, witness);
-        
+
         // Output result
         console.log(JSON.stringify({{ proof, publicSignals }}));
     }} catch (error) {{
@@ -259,41 +226,36 @@ async function main() {{
 
 main();
 """
-            
+
             # Write script to temporary file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
-            
+
             try:
                 # Run script
-                result = subprocess.run(
-                    ["node", script_file],
-                    capture_output=True,
-                    text=True,
-                    cwd=str(self.circuits_dir)
-                )
-                
+                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
+
                 if result.returncode != 0:
                     raise Exception(f"Proof generation failed: {result.stderr}")
-                
+
                 # Parse result
                 return json.loads(result.stdout)
-                
+
             finally:
                 os.unlink(script_file)
-                
+
         finally:
             os.unlink(inputs_file)
-    
+
     async def _generate_proof_generic(
         self,
-        public_inputs: Dict[str, Any],
-        private_inputs: Optional[Dict[str, Any]],
+        public_inputs: dict[str, Any],
+        private_inputs: dict[str, Any] | None,
         wasm_path: Path,
         zkey_path: Path,
-        vkey_path: Path
-    ) -> Dict[str, Any]:
+        vkey_path: Path,
+    ) -> dict[str, Any]:
         """Generate proof using snarkjs with generic circuit paths"""
 
         # Combine public and private inputs
@@ -302,7 +264,7 @@ main();
             inputs.update(private_inputs)
 
         # Write inputs to temporary file
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(inputs, f)
             inputs_file = f.name
 
@@ -342,16 +304,14 @@ main();
 """
 
             # Write script to temporary file
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
 
             try:
                 # Execute the Node.js script
                 result = await asyncio.create_subprocess_exec(
-                    'node', script_file,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE
+                    "node", script_file, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
 
                 stdout, stderr = await result.communicate()
@@ -376,21 +336,17 @@ main();
         # In a real implementation, compute hash of circuit files
         return "placeholder_hash"
 
-    async def verify_proof(
-        self, 
-        proof: Dict[str, Any], 
-        public_signals: List[str]
-    ) -> bool:
+    async def verify_proof(self, proof: dict[str, Any], public_signals: list[str]) -> bool:
         """Verify a ZK proof"""
-        
+
         if not self.enabled:
             return False
-        
+
         try:
             # Load verification key
             with open(self.vkey_path) as f:
                 vkey = json.load(f)
-            
+
             # Create verification script
             script = f"""
 const snarkjs = require('snarkjs');
@@ -400,7 +356,7 @@ async function main() {{
         const vKey = {json.dumps(vkey)};
         const proof = {json.dumps(proof)};
         const publicSignals = {json.dumps(public_signals)};
-        
+
         const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);
         console.log(verified);
     }} catch (error) {{
@@ -411,32 +367,27 @@ async function main() {{
 
 main();
 """
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as f:
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
                 f.write(script)
                 script_file = f.name
-            
+
             try:
-                result = subprocess.run(
-                    ["node", script_file],
-                    capture_output=True,
-                    text=True,
-                    cwd=str(self.circuits_dir)
-                )
-                
+                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
+
                 if result.returncode != 0:
                     logger.error(f"Proof verification failed: {result.stderr}")
                     return False
-                
+
                 return result.stdout.strip() == "true"
-                
+
             finally:
                 os.unlink(script_file)
-                
+
         except Exception as e:
             logger.error(f"Failed to verify proof: {e}")
             return False
-    
+
     def is_enabled(self) -> bool:
         """Check if ZK proof generation is available"""
         return self.enabled

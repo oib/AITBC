@@ -1,29 +1,42 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
+from sqlalchemy.orm import Session
+
 """
 Certification and Partnership API Endpoints
 REST API for agent certification, partnership programs, and badge system
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
-from ..services.certification_service import (
-    CertificationAndPartnershipService, CertificationSystem, PartnershipManager, BadgeSystem
-)
 from ..domain.certification import (
-    AgentCertification, CertificationRequirement, VerificationRecord,
-    PartnershipProgram, AgentPartnership, AchievementBadge, AgentBadge,
-    CertificationLevel, CertificationStatus, VerificationType,
-    PartnershipType, BadgeType
+    AchievementBadge,
+    AgentBadge,
+    AgentCertification,
+    AgentPartnership,
+    BadgeType,
+    CertificationLevel,
+    CertificationRequirement,
+    CertificationStatus,
+    PartnershipProgram,
+    PartnershipType,
+    VerificationRecord,
+    VerificationType,
 )
-
-
+from ..services.certification_service import (
+    BadgeSystem,
+    CertificationAndPartnershipService,
+    CertificationSystem,
+    PartnershipManager,
+)
+from ..storage import get_session
 
 router = APIRouter(prefix="/v1/certification", tags=["certification"])
 

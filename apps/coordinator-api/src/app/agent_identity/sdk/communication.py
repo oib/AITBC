@@ -6,12 +6,12 @@ for forum-like agent interactions using the blockchain messaging contract.
 """
 
 import asyncio
-import json
-from datetime import datetime
-from typing import Dict, List, Optional, Any, Union
-from dataclasses import dataclass
 import hashlib
+import json
 import logging
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Union
 
 from .client import AgentIdentityClient
 from .models import AgentIdentity, AgentWallet

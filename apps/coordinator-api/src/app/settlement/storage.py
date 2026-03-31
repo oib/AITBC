@@ -2,13 +2,12 @@
 Storage layer for cross-chain settlements
 """
 
-from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
-import json
 import asyncio
-from dataclasses import asdict
+import json
+from datetime import datetime, timedelta
+from typing import Any
 
-from .bridges.base import SettlementMessage, SettlementResult, BridgeStatus
+from .bridges.base import BridgeStatus, SettlementMessage
 
 
 class SettlementStorage:
@@ -57,10 +56,10 @@ class SettlementStorage:
     async def update_settlement(
         self,
         message_id: str,
-        status: Optional[BridgeStatus] = None,
-        transaction_hash: Optional[str] = None,
-        error_message: Optional[str] = None,
-        completed_at: Optional[datetime] = None,
+        status: BridgeStatus | None = None,
+        transaction_hash: str | None = None,
+        error_message: str | None = None,
+        completed_at: datetime | None = None,
     ) -> None:
         """Update settlement record"""
         updates = []
@@ -97,14 +96,14 @@ class SettlementStorage:
         params.append(message_id)
 
         query = f"""
-        UPDATE settlements 
+        UPDATE settlements
         SET {", ".join(updates)}
         WHERE message_id = ${param_count}
         """
 
         await self.db.execute(query, params)
 
-    async def get_settlement(self, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_settlement(self, message_id: str) -> dict[str, Any] | None:
         """Get settlement by message ID"""
         query = """
         SELECT * FROM settlements WHERE message_id = $1
@@ -124,11 +123,11 @@ class SettlementStorage:
 
         return settlement
 
-    async def get_settlements_by_job(self, job_id: str) -> List[Dict[str, Any]]:
+    async def get_settlements_by_job(self, job_id: str) -> list[dict[str, Any]]:
         """Get all settlements for a job"""
         query = """
-        SELECT * FROM settlements 
-        WHERE job_id = $1 
+        SELECT * FROM settlements
+        WHERE job_id = $1
         ORDER BY created_at DESC
         """
 
@@ -143,12 +142,10 @@ class SettlementStorage:
 
         return settlements
 
-    async def get_pending_settlements(
-        self, bridge_name: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    async def get_pending_settlements(self, bridge_name: str | None = None) -> list[dict[str, Any]]:
         """Get all pending settlements"""
         query = """
-        SELECT * FROM settlements 
+        SELECT * FROM settlements
         WHERE status = 'pending' OR status = 'in_progress'
         """
         params = []
@@ -172,9 +169,9 @@ class SettlementStorage:
 
     async def get_settlement_stats(
         self,
-        bridge_name: Optional[str] = None,
-        time_range: Optional[int] = None,  # hours
-    ) -> Dict[str, Any]:
+        bridge_name: str | None = None,
+        time_range: int | None = None,  # hours
+    ) -> dict[str, Any]:
         """Get settlement statistics"""
         conditions = []
         params = []
@@ -193,13 +190,13 @@ class SettlementStorage:
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
         query = f"""
-        SELECT 
+        SELECT
             bridge_name,
             status,
             COUNT(*) as count,
             AVG(payment_amount) as avg_amount,
             SUM(payment_amount) as total_amount
-        FROM settlements 
+        FROM settlements
         {where_clause}
         GROUP BY bridge_name, status
         """
@@ -214,12 +211,8 @@ class SettlementStorage:
 
             stats[bridge][result["status"]] = {
                 "count": result["count"],
-                "avg_amount": float(result["avg_amount"])
-                if result["avg_amount"]
-                else 0,
-                "total_amount": float(result["total_amount"])
-                if result["total_amount"]
-                else 0,
+                "avg_amount": float(result["avg_amount"]) if result["avg_amount"] else 0,
+                "total_amount": float(result["total_amount"]) if result["total_amount"] else 0,
             }
 
         return stats
@@ -227,8 +220,8 @@ class SettlementStorage:
     async def cleanup_old_settlements(self, days: int = 30) -> int:
         """Clean up old completed settlements"""
         query = """
-        DELETE FROM settlements 
-        WHERE status IN ('completed', 'failed') 
+        DELETE FROM settlements
+        WHERE status IN ('completed', 'failed')
         AND created_at < NOW() - INTERVAL $1 days
         """
 
@@ -241,7 +234,7 @@ class InMemorySettlementStorage(SettlementStorage):
     """In-memory storage implementation for testing"""
 
     def __init__(self):
-        self.settlements: Dict[str, Dict[str, Any]] = {}
+        self.settlements: dict[str, dict[str, Any]] = {}
         self._lock = asyncio.Lock()
 
     async def store_settlement(
@@ -272,10 +265,10 @@ class InMemorySettlementStorage(SettlementStorage):
     async def update_settlement(
         self,
         message_id: str,
-        status: Optional[BridgeStatus] = None,
-        transaction_hash: Optional[str] = None,
-        error_message: Optional[str] = None,
-        completed_at: Optional[datetime] = None,
+        status: BridgeStatus | None = None,
+        transaction_hash: str | None = None,
+        error_message: str | None = None,
+        completed_at: datetime | None = None,
     ) -> None:
         async with self._lock:
             if message_id not in self.settlements:
@@ -294,23 +287,17 @@ class InMemorySettlementStorage(SettlementStorage):
 
             settlement["updated_at"] = datetime.utcnow()
 
-    async def get_settlement(self, message_id: str) -> Optional[Dict[str, Any]]:
+    async def get_settlement(self, message_id: str) -> dict[str, Any] | None:
         async with self._lock:
             return self.settlements.get(message_id)
 
-    async def get_settlements_by_job(self, job_id: str) -> List[Dict[str, Any]]:
+    async def get_settlements_by_job(self, job_id: str) -> list[dict[str, Any]]:
         async with self._lock:
             return [s for s in self.settlements.values() if s["job_id"] == job_id]
 
-    async def get_pending_settlements(
-        self, bridge_name: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    async def get_pending_settlements(self, bridge_name: str | None = None) -> list[dict[str, Any]]:
         async with self._lock:
-            pending = [
-                s
-                for s in self.settlements.values()
-                if s["status"] in ["pending", "in_progress"]
-            ]
+            pending = [s for s in self.settlements.values() if s["status"] in ["pending", "in_progress"]]
 
             if bridge_name:
                 pending = [s for s in pending if s["bridge_name"] == bridge_name]
@@ -318,8 +305,8 @@ class InMemorySettlementStorage(SettlementStorage):
             return pending
 
     async def get_settlement_stats(
-        self, bridge_name: Optional[str] = None, time_range: Optional[int] = None
-    ) -> Dict[str, Any]:
+        self, bridge_name: str | None = None, time_range: int | None = None
+    ) -> dict[str, Any]:
         async with self._lock:
             stats = {}
 
@@ -352,9 +339,7 @@ class InMemorySettlementStorage(SettlementStorage):
             for bridge_data in stats.values():
                 for status_data in bridge_data.values():
                     if status_data["count"] > 0:
-                        status_data["avg_amount"] = (
-                            status_data["total_amount"] / status_data["count"]
-                        )
+                        status_data["avg_amount"] = status_data["total_amount"] / status_data["count"]
 
             return stats
 
@@ -365,10 +350,7 @@ class InMemorySettlementStorage(SettlementStorage):
             to_delete = [
                 msg_id
                 for msg_id, settlement in self.settlements.items()
-                if (
-                    settlement["status"] in ["completed", "failed"]
-                    and settlement["created_at"] < cutoff
-                )
+                if (settlement["status"] in ["completed", "failed"] and settlement["created_at"] < cutoff)
             ]
 
             for msg_id in to_delete:

@@ -1,24 +1,23 @@
 from __future__ import annotations
 
-import httpx
 from collections import defaultdict, deque
 from datetime import datetime
-from typing import Optional
 
+import httpx
 from sqlmodel import Session, select
 
 from ..config import settings
 from ..domain import Job, JobReceipt
 from ..schemas import (
-    BlockListResponse,
-    BlockSummary,
-    TransactionListResponse,
-    TransactionSummary,
     AddressListResponse,
     AddressSummary,
+    BlockListResponse,
+    BlockSummary,
+    JobState,
     ReceiptListResponse,
     ReceiptSummary,
-    JobState,
+    TransactionListResponse,
+    TransactionSummary,
 )
 
 _STATUS_LABELS = {
@@ -99,16 +98,11 @@ class ExplorerService:
                     )
                 )
 
-            next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
+            next_offset: int | None = offset + len(items) if len(items) == limit else None
             return BlockListResponse(items=items, next_offset=next_offset)
 
     def list_transactions(self, *, limit: int = 50, offset: int = 0) -> TransactionListResponse:
-        statement = (
-            select(Job)
-            .order_by(Job.requested_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        statement = select(Job).order_by(Job.requested_at.desc()).offset(offset).limit(limit)
         jobs = self.session.execute(statement).all()
 
         items: list[TransactionSummary] = []
@@ -116,14 +110,14 @@ class ExplorerService:
             height = _DEFAULT_HEIGHT_BASE + offset + index
             state_val = job.state.value if hasattr(job.state, "value") else job.state
             status_label = _STATUS_LABELS.get(job.state) or state_val.title()
-            
+
             # Try to get payment amount from receipt
             value_str = "0"
             if job.receipt and isinstance(job.receipt, dict):
                 price = job.receipt.get("price")
                 if price is not None:
                     value_str = f"{price}"
-            
+
             # Fallback to payload value if no receipt
             if value_str == "0":
                 value = job.payload.get("value") if isinstance(job.payload, dict) else None
@@ -144,7 +138,7 @@ class ExplorerService:
                 )
             )
 
-        next_offset: Optional[int] = offset + len(items) if len(items) == limit else None
+        next_offset: int | None = offset + len(items) if len(items) == limit else None
         return TransactionListResponse(items=items, next_offset=next_offset)
 
     def list_addresses(self, *, limit: int = 50, offset: int = 0) -> AddressListResponse:
@@ -174,7 +168,7 @@ class ExplorerService:
                     return datetime.min
             return datetime.min
 
-        def touch(address: Optional[str], tx_id: str, when: object, earned: float = 0.0, spent: float = 0.0) -> None:
+        def touch(address: str | None, tx_id: str, when: object, earned: float = 0.0, spent: float = 0.0) -> None:
             if not address:
                 return
             entry = address_map[address]
@@ -200,7 +194,7 @@ class ExplorerService:
                         price = float(receipt_price)
                     except (TypeError, ValueError):
                         pass
-            
+
             # Miner earns, client spends
             touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
             touch(job.client_id, job.id, job.requested_at, spent=price)
@@ -223,13 +217,13 @@ class ExplorerService:
             for entry in sliced
         ]
 
-        next_offset: Optional[int] = offset + len(sliced) if len(sliced) == limit else None
+        next_offset: int | None = offset + len(sliced) if len(sliced) == limit else None
         return AddressListResponse(items=items, next_offset=next_offset)
 
     def list_receipts(
         self,
         *,
-        job_id: Optional[str] = None,
+        job_id: str | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> ReceiptListResponse:
@@ -273,7 +267,7 @@ class ExplorerService:
                     return {"error": "Transaction not found", "hash": tx_hash}
                 resp.raise_for_status()
                 tx_data = resp.json()
-                
+
                 # Map RPC schema to UI-compatible format
                 return {
                     "hash": tx_data.get("tx_hash", tx_hash),
@@ -284,7 +278,7 @@ class ExplorerService:
                     "timestamp": tx_data.get("created_at"),
                     "block": tx_data.get("block_height", "pending"),
                     "status": "confirmed",
-                    "raw": tx_data  # Include raw data for debugging
+                    "raw": tx_data,  # Include raw data for debugging
                 }
         except Exception as e:
             print(f"Warning: Failed to fetch transaction {tx_hash} from RPC: {e}")
