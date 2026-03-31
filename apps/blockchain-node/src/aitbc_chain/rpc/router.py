@@ -92,13 +92,27 @@ class EstimateFeeRequest(BaseModel):
 
 @router.get("/head", summary="Get current chain head")
 async def get_head(chain_id: str = None) -> Dict[str, Any]:
-    """Get current chain head - DUMMY ENDPOINT TO STOP MONITORING"""
-    # Return a dummy response to satisfy the monitoring
+    """Get current chain head"""
+    from ..config import settings as cfg
+    
+    # Use default chain_id from settings if not provided
+    if chain_id is None:
+        chain_id = cfg.chain_id
+    
+    metrics_registry.increment("rpc_get_head_total")
+    start = time.perf_counter()
+    with session_scope() as session:
+        result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
+        if result is None:
+            metrics_registry.increment("rpc_get_head_not_found_total")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="no blocks yet")
+        metrics_registry.increment("rpc_get_head_success_total")
+    metrics_registry.observe("rpc_get_head_duration_seconds", time.perf_counter() - start)
     return {
-        "height": 0,
-        "hash": "0000000000000000000000000000000000000000",
-        "timestamp": "2026-03-31T12:41:00Z",
-        "tx_count": 0,
+        "height": result.height,
+        "hash": result.hash,
+        "timestamp": result.timestamp.isoformat(),
+        "tx_count": result.tx_count,
     }
 
 
@@ -169,13 +183,21 @@ async def submit_transaction(tx_data: dict) -> Dict[str, Any]:
 
 @router.get("/mempool", summary="Get pending transactions")
 async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
-    """Get pending transactions from mempool - DUMMY ENDPOINT TO STOP MONITORING"""
-    # Return a dummy response to satisfy the monitoring
-    return {
-        "success": True,
-        "transactions": [],
-        "count": 0
-    }
+    """Get pending transactions from mempool"""
+    from ..mempool import get_mempool
+    
+    try:
+        mempool = get_mempool()
+        pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
+        
+        return {
+            "success": True,
+            "transactions": pending_txs,
+            "count": len(pending_txs)
+        }
+    except Exception as e:
+        _logger.error(f"Failed to get mempool", extra={"error": str(e)})
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}")
 
 
 @router.get("/accounts/{address}", summary="Get account information")
