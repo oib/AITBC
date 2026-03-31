@@ -162,7 +162,6 @@ temp/
 # ===================
 # Windsurf IDE
 # ===================
-.windsurf/
 .snapshots/
 
 # ===================
@@ -231,11 +230,6 @@ website/aitbc-proxy.conf
 # ===================
 .aitbc.yaml
 apps/coordinator-api/.env
-
-# ===================
-# Windsurf IDE (personal dev tooling)
-# ===================
-.windsurf/
 
 # ===================
 # Deploy Scripts (hardcoded local paths & IPs)
