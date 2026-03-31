@@ -1,10 +1,11 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
 from fastapi import Depends
-from typing import List, Optional
+from sqlalchemy.orm import Session
 from sqlmodel import select
-from ..domain.gpu_marketplace import ConsumerGPUProfile, GPUArchitecture, EdgeGPUMetrics
+
 from ..data.consumer_gpu_profiles import CONSUMER_GPU_PROFILES
+from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
 from ..storage import get_session
 
 
@@ -14,10 +15,10 @@ class EdgeGPUService:
 
     def list_profiles(
         self,
-        architecture: Optional[GPUArchitecture] = None,
-        edge_optimized: Optional[bool] = None,
-        min_memory_gb: Optional[int] = None,
-    ) -> List[ConsumerGPUProfile]:
+        architecture: GPUArchitecture | None = None,
+        edge_optimized: bool | None = None,
+        min_memory_gb: int | None = None,
+    ) -> list[ConsumerGPUProfile]:
         self.seed_profiles()
         stmt = select(ConsumerGPUProfile)
         if architecture:
@@ -28,7 +29,7 @@ class EdgeGPUService:
             stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)
         return list(self.session.execute(stmt).all())
 
-    def list_metrics(self, gpu_id: str, limit: int = 100) -> List[EdgeGPUMetrics]:
+    def list_metrics(self, gpu_id: str, limit: int = 100) -> list[EdgeGPUMetrics]:
         stmt = (
             select(EdgeGPUMetrics)
             .where(EdgeGPUMetrics.gpu_id == gpu_id)

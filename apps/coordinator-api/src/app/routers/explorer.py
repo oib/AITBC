@@ -1,14 +1,15 @@
 from __future__ import annotations
-from sqlalchemy.orm import Session
+
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
 
 from ..schemas import (
-    BlockListResponse,
-    TransactionListResponse,
     AddressListResponse,
+    BlockListResponse,
     ReceiptListResponse,
+    TransactionListResponse,
 )
 from ..services import ExplorerService
 from ..storage import get_session

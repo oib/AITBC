@@ -1,25 +1,31 @@
 from typing import Annotated
+
 """
 Bounty Management API
 REST API for AI agent bounty system with ZK-proof verification
 """
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, validator
+from sqlalchemy.orm import Session
 
-from ..storage import get_session
 from ..app_logging import get_logger
-from ..domain.bounty import (
-    Bounty, BountySubmission, BountyStatus, BountyTier, 
-    SubmissionStatus, BountyStats, BountyIntegration
-)
-from ..services.bounty_service import BountyService
-from ..services.blockchain_service import BlockchainService
 from ..auth import get_current_user
-
+from ..domain.bounty import (
+    Bounty,
+    BountyIntegration,
+    BountyStats,
+    BountyStatus,
+    BountySubmission,
+    BountyTier,
+    SubmissionStatus,
+)
+from ..services.blockchain_service import BlockchainService
+from ..services.bounty_service import BountyService
+from ..storage import get_session
 
 router = APIRouter()
 
@@ -206,8 +212,8 @@ async def create_bounty(
 
 @router.get("/bounties", response_model=List[BountyResponse])
 async def get_bounties(
-    filters: BountyFilterRequest = Depends(),
     session: Annotated[Session, Depends(get_session)],
+    filters: BountyFilterRequest = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
 ):
     """Get filtered list of bounties"""

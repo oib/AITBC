@@ -1,26 +1,26 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
+from sqlalchemy.orm import Session
+
 """
 Reputation Management API Endpoints
 REST API for agent reputation, trust scores, and economic profiles
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
+from sqlmodel import Field, func, select
+
+from ..domain.reputation import AgentReputation, CommunityFeedback, ReputationLevel, TrustScoreCategory
 from ..services.reputation_service import ReputationService
-from ..domain.reputation import (
-    AgentReputation, CommunityFeedback, ReputationLevel,
-    TrustScoreCategory
-)
-from sqlmodel import select, func, Field
-
-
+from ..storage import get_session
 
 router = APIRouter(prefix="/v1/reputation", tags=["reputation"])
 

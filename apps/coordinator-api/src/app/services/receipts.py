@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import logging
+
 logger = logging.getLogger(__name__)
-from typing import Any, Dict, Optional
-from secrets import token_hex
 from datetime import datetime
+from secrets import token_hex
+from typing import Any
 
-
-
-import sys
 from aitbc_crypto.signing import ReceiptSigner
-
-import sys
-
 from sqlmodel import Session
 
 from ..config import settings
@@ -23,8 +18,8 @@ from .zk_proofs import zk_proof_service
 class ReceiptService:
     def __init__(self, session: Session) -> None:
         self.session = session
-        self._signer: Optional[ReceiptSigner] = None
-        self._attestation_signer: Optional[ReceiptSigner] = None
+        self._signer: ReceiptSigner | None = None
+        self._attestation_signer: ReceiptSigner | None = None
         if settings.receipt_signing_key_hex:
             key_bytes = bytes.fromhex(settings.receipt_signing_key_hex)
             self._signer = ReceiptSigner(key_bytes)
@@ -36,53 +31,72 @@ class ReceiptService:
         self,
         job: Job,
         miner_id: str,
-        job_result: Dict[str, Any] | None,
-        result_metrics: Dict[str, Any] | None,
-        privacy_level: Optional[str] = None,
-    ) -> Dict[str, Any] | None:
+        job_result: dict[str, Any] | None,
+        result_metrics: dict[str, Any] | None,
+        privacy_level: str | None = None,
+    ) -> dict[str, Any] | None:
         if self._signer is None:
             return None
         metrics = result_metrics or {}
         result_payload = job_result or {}
-        unit_type = _first_present([
-            metrics.get("unit_type"),
-            result_payload.get("unit_type"),
-        ], default="gpu_seconds")
+        unit_type = _first_present(
+            [
+                metrics.get("unit_type"),
+                result_payload.get("unit_type"),
+            ],
+            default="gpu_seconds",
+        )
 
-        units = _coerce_float(_first_present([
-            metrics.get("units"),
-            result_payload.get("units"),
-        ]))
+        units = _coerce_float(
+            _first_present(
+                [
+                    metrics.get("units"),
+                    result_payload.get("units"),
+                ]
+            )
+        )
         if units is None:
             duration_ms = _coerce_float(metrics.get("duration_ms"))
             if duration_ms is not None:
                 units = duration_ms / 1000.0
             else:
-                duration_seconds = _coerce_float(_first_present([
-                    metrics.get("duration_seconds"),
-                    metrics.get("compute_time"),
-                    result_payload.get("execution_time"),
-                    result_payload.get("duration"),
-                ]))
+                duration_seconds = _coerce_float(
+                    _first_present(
+                        [
+                            metrics.get("duration_seconds"),
+                            metrics.get("compute_time"),
+                            result_payload.get("execution_time"),
+                            result_payload.get("duration"),
+                        ]
+                    )
+                )
                 units = duration_seconds
         if units is None:
             units = 0.0
 
-        unit_price = _coerce_float(_first_present([
-            metrics.get("unit_price"),
-            result_payload.get("unit_price"),
-        ]))
+        unit_price = _coerce_float(
+            _first_present(
+                [
+                    metrics.get("unit_price"),
+                    result_payload.get("unit_price"),
+                ]
+            )
+        )
         if unit_price is None:
             unit_price = 0.02
 
-        price = _coerce_float(_first_present([
-            metrics.get("price"),
-            result_payload.get("price"),
-            metrics.get("aitbc_earned"),
-            result_payload.get("aitbc_earned"),
-            metrics.get("cost"),
-            result_payload.get("cost"),
-        ]))
+        price = _coerce_float(
+            _first_present(
+                [
+                    metrics.get("price"),
+                    result_payload.get("price"),
+                    metrics.get("aitbc_earned"),
+                    result_payload.get("aitbc_earned"),
+                    metrics.get("cost"),
+                    result_payload.get("cost"),
+                ]
+            )
+        )
         if price is None:
             price = round(units * unit_price, 6)
         status_value = job.state.value if hasattr(job.state, "value") else job.state
@@ -117,20 +131,20 @@ class ReceiptService:
         # Skip async ZK proof generation in synchronous context; log intent
         if privacy_level and zk_proof_service.is_enabled():
             logger.warning("ZK proof generation skipped in synchronous receipt creation")
-        
+
         receipt_row = JobReceipt(job_id=job.id, receipt_id=payload["receipt_id"], payload=payload)
         self.session.add(receipt_row)
         return payload
 
 
-def _first_present(values: list[Optional[Any]], default: Optional[Any] = None) -> Optional[Any]:
+def _first_present(values: list[Any | None], default: Any | None = None) -> Any | None:
     for value in values:
         if value is not None:
             return value
     return default
 
 
-def _coerce_float(value: Any) -> Optional[float]:
+def _coerce_float(value: Any) -> float | None:
     """Coerce a value to float, returning None if not possible"""
     if value is None:
         return None

@@ -2,21 +2,17 @@
 Audit logging service for privacy compliance
 """
 
-import os
-import json
-import hashlib
-import gzip
 import asyncio
-from typing import Dict, List, Optional, Any
+import gzip
+import hashlib
+import json
+import os
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
-from dataclasses import dataclass, asdict
+from typing import Any
 
-from ..schemas import ConfidentialAccessLog
 from ..config import settings
-from ..app_logging import get_logger
-
-
 
 
 @dataclass
@@ -27,15 +23,15 @@ class AuditEvent:
     timestamp: datetime
     event_type: str
     participant_id: str
-    transaction_id: Optional[str]
+    transaction_id: str | None
     action: str
     resource: str
     outcome: str
-    details: Dict[str, Any]
-    ip_address: Optional[str]
-    user_agent: Optional[str]
-    authorization: Optional[str]
-    signature: Optional[str]
+    details: dict[str, Any]
+    ip_address: str | None
+    user_agent: str | None
+    authorization: str | None
+    signature: str | None
 
 
 class AuditLogger:
@@ -52,7 +48,7 @@ class AuditLogger:
             log_path = log_dir or str(test_log_dir)
         else:
             log_path = log_dir or settings.audit_log_dir
-        
+
         self.log_dir = Path(log_path)
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -61,7 +57,7 @@ class AuditLogger:
         self.current_hash = None
 
         # In-memory events for tests
-        self._in_memory_events: List[AuditEvent] = []
+        self._in_memory_events: list[AuditEvent] = []
 
         # Async writer task (unused in tests when sync write is used)
         self.write_queue = asyncio.Queue(maxsize=10000)
@@ -88,13 +84,13 @@ class AuditLogger:
     def log_access(
         self,
         participant_id: str,
-        transaction_id: Optional[str],
+        transaction_id: str | None,
         action: str,
         outcome: str,
-        details: Optional[Dict[str, Any]] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None,
-        authorization: Optional[str] = None,
+        details: dict[str, Any] | None = None,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        authorization: str | None = None,
     ):
         """Log access to confidential data (synchronous for tests)."""
         event = AuditEvent(
@@ -126,7 +122,7 @@ class AuditLogger:
         operation: str,
         key_version: int,
         outcome: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """Log key management operations (synchronous for tests)."""
         event = AuditEvent(
@@ -164,7 +160,7 @@ class AuditLogger:
         policy_id: str,
         change_type: str,
         outcome: str,
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """Log access policy changes"""
         event = AuditEvent(
@@ -188,13 +184,13 @@ class AuditLogger:
 
     def query_logs(
         self,
-        participant_id: Optional[str] = None,
-        transaction_id: Optional[str] = None,
-        event_type: Optional[str] = None,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
+        participant_id: str | None = None,
+        transaction_id: str | None = None,
+        event_type: str | None = None,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
         limit: int = 100,
-    ) -> List[AuditEvent]:
+    ) -> list[AuditEvent]:
         """Query audit logs"""
         results = []
 
@@ -240,7 +236,7 @@ class AuditLogger:
                                 if len(results) >= limit:
                                     return results
                 else:
-                    with open(log_file, "r") as f:
+                    with open(log_file) as f:
                         for line in f:
                             event = self._parse_log_line(line.strip())
                             if self._matches_query(
@@ -263,7 +259,7 @@ class AuditLogger:
 
         return results[:limit]
 
-    def verify_integrity(self, start_date: Optional[datetime] = None) -> Dict[str, Any]:
+    def verify_integrity(self, start_date: datetime | None = None) -> dict[str, Any]:
         """Verify integrity of audit logs"""
         if start_date is None:
             start_date = datetime.utcnow() - timedelta(days=30)
@@ -299,9 +295,7 @@ class AuditLogger:
 
             except Exception as e:
                 logger.error(f"Failed to verify {log_file}: {e}")
-                results["integrity_violations"].append(
-                    {"file": str(log_file), "error": str(e)}
-                )
+                results["integrity_violations"].append({"file": str(log_file), "error": str(e)})
                 results["chain_valid"] = False
 
         return results
@@ -395,11 +389,9 @@ class AuditLogger:
                 while len(events) < 100:
                     try:
                         # Use asyncio.wait_for for timeout
-                        event = await asyncio.wait_for(
-                            self.write_queue.get(), timeout=1.0
-                        )
+                        event = await asyncio.wait_for(self.write_queue.get(), timeout=1.0)
                         events.append(event)
-                    except asyncio.TimeoutError:
+                    except TimeoutError:
                         if events:
                             break
                         continue
@@ -413,7 +405,7 @@ class AuditLogger:
                 # Brief pause to avoid error loops
                 await asyncio.sleep(1)
 
-    def _write_events(self, events: List[AuditEvent]):
+    def _write_events(self, events: list[AuditEvent]):
         """Write events to current log file"""
         try:
             self._rotate_if_needed()
@@ -444,9 +436,7 @@ class AuditLogger:
         if self.current_file is None:
             self._new_log_file(today)
         else:
-            file_date = datetime.fromisoformat(
-                self.current_file.stem.split("_")[1]
-            ).date()
+            file_date = datetime.fromisoformat(self.current_file.stem.split("_")[1]).date()
 
             if file_date != today:
                 self._new_log_file(today)
@@ -502,13 +492,11 @@ class AuditLogger:
         """Load previous chain hash"""
         chain_file = self.log_dir / "chain.hash"
         if chain_file.exists():
-            with open(chain_file, "r") as f:
+            with open(chain_file) as f:
                 return f.read().strip()
         return "0" * 64  # Initial hash
 
-    def _get_log_files(
-        self, start_time: Optional[datetime], end_time: Optional[datetime]
-    ) -> List[Path]:
+    def _get_log_files(self, start_time: datetime | None, end_time: datetime | None) -> list[Path]:
         """Get list of log files to search"""
         files = []
 
@@ -522,9 +510,7 @@ class AuditLogger:
                 file_start = datetime.combine(file_date, datetime.min.time())
                 file_end = file_start + timedelta(days=1)
 
-                if (not start_time or file_end >= start_time) and (
-                    not end_time or file_start <= end_time
-                ):
+                if (not start_time or file_end >= start_time) and (not end_time or file_start <= end_time):
                     files.append(file)
 
             except Exception:
@@ -532,7 +518,7 @@ class AuditLogger:
 
         return sorted(files)
 
-    def _parse_log_line(self, line: str) -> Optional[AuditEvent]:
+    def _parse_log_line(self, line: str) -> AuditEvent | None:
         """Parse log line into event"""
         if line.startswith("#"):
             return None  # Skip header
@@ -547,12 +533,12 @@ class AuditLogger:
 
     def _matches_query(
         self,
-        event: Optional[AuditEvent],
-        participant_id: Optional[str],
-        transaction_id: Optional[str],
-        event_type: Optional[str],
-        start_time: Optional[datetime],
-        end_time: Optional[datetime],
+        event: AuditEvent | None,
+        participant_id: str | None,
+        transaction_id: str | None,
+        event_type: str | None,
+        start_time: datetime | None,
+        end_time: datetime | None,
     ) -> bool:
         """Check if event matches query criteria"""
         if not event:
@@ -589,7 +575,7 @@ class AuditLogger:
         """Get stored hash for file"""
         hash_file = file_path.with_suffix(".hash")
         if hash_file.exists():
-            with open(hash_file, "r") as f:
+            with open(hash_file) as f:
                 return f.read().strip()
         return ""
 

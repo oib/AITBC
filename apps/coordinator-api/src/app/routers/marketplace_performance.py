@@ -1,29 +1,31 @@
-from sqlalchemy.orm import Session
-from typing import Annotated
+
+
 """
 Marketplace Performance Optimization API Endpoints
 REST API for managing distributed processing, GPU optimization, caching, and scaling
 """
 
-import asyncio
-from datetime import datetime
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
-from pydantic import BaseModel, Field
 import logging
+from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
-import sys
 import os
+import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../gpu_acceleration"))
 from marketplace_gpu_optimizer import MarketplaceGPUOptimizer
-from aitbc.gpu_acceleration.parallel_processing.distributed_framework import DistributedProcessingCoordinator, DistributedTask, WorkerStatus
+
+from aitbc.gpu_acceleration.parallel_processing.distributed_framework import (
+    DistributedProcessingCoordinator,
+    DistributedTask,
+)
 from aitbc.gpu_acceleration.parallel_processing.marketplace_cache_optimizer import MarketplaceDataOptimizer
 from aitbc.gpu_acceleration.parallel_processing.marketplace_monitor import monitor as marketplace_monitor
-from aitbc.gpu_acceleration.parallel_processing.marketplace_scaler import ResourceScaler, ScalingPolicy
-
-
+from aitbc.gpu_acceleration.parallel_processing.marketplace_scaler import ResourceScaler
 
 router = APIRouter(prefix="/v1/marketplace/performance", tags=["marketplace-performance"])
 
@@ -33,6 +35,7 @@ distributed_coordinator = DistributedProcessingCoordinator()
 cache_optimizer = MarketplaceDataOptimizer()
 resource_scaler = ResourceScaler()
 
+
 # Startup event handler for background tasks
 @router.on_event("startup")
 async def startup_event():
@@ -41,6 +44,7 @@ async def startup_event():
     await resource_scaler.start()
     await cache_optimizer.connect()
 
+
 @router.on_event("shutdown")
 async def shutdown_event():
     await marketplace_monitor.stop()
@@ -48,36 +52,42 @@ async def shutdown_event():
     await resource_scaler.stop()
     await cache_optimizer.disconnect()
 
+
 # Models
 class GPUAllocationRequest(BaseModel):
-    job_id: Optional[str] = None
+    job_id: str | None = None
     memory_bytes: int = Field(1024 * 1024 * 1024, description="Memory needed in bytes")
     compute_units: float = Field(1.0, description="Relative compute requirement")
     max_latency_ms: int = Field(1000, description="Max acceptable latency")
     priority: int = Field(1, ge=1, le=10, description="Job priority 1-10")
 
+
 class GPUReleaseRequest(BaseModel):
     job_id: str
 
+
 class DistributedTaskRequest(BaseModel):
     agent_id: str
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
     priority: int = Field(1, ge=1, le=100)
     requires_gpu: bool = Field(False)
     timeout_ms: int = Field(30000)
 
+
 class WorkerRegistrationRequest(BaseModel):
     worker_id: str
-    capabilities: List[str]
+    capabilities: list[str]
     has_gpu: bool = Field(False)
     max_concurrent_tasks: int = Field(4)
 
+
 class ScalingPolicyUpdate(BaseModel):
-    min_nodes: Optional[int] = None
-    max_nodes: Optional[int] = None
-    target_utilization: Optional[float] = None
-    scale_up_threshold: Optional[float] = None
-    predictive_scaling: Optional[bool] = None
+    min_nodes: int | None = None
+    max_nodes: int | None = None
+    target_utilization: float | None = None
+    scale_up_threshold: float | None = None
+    predictive_scaling: bool | None = None
+
 
 # Endpoints: GPU Optimization
 @router.post("/gpu/allocate")
@@ -87,10 +97,10 @@ async def allocate_gpu_resources(request: GPUAllocationRequest):
         start_time = time.time()
         result = await gpu_optimizer.optimize_resource_allocation(request.dict())
         marketplace_monitor.record_api_call((time.time() - start_time) * 1000)
-        
+
         if not result.get("success"):
             raise HTTPException(status_code=503, detail=result.get("reason", "Resources unavailable"))
-            
+
         return result
     except HTTPException:
         raise
@@ -98,6 +108,7 @@ async def allocate_gpu_resources(request: GPUAllocationRequest):
         marketplace_monitor.record_api_call(0, is_error=True)
         logger.error(f"Error in GPU allocation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/gpu/release")
 async def release_gpu_resources(request: GPUReleaseRequest):
@@ -107,10 +118,12 @@ async def release_gpu_resources(request: GPUReleaseRequest):
         raise HTTPException(status_code=404, detail="Job ID not found")
     return {"success": True, "message": f"Resources for {request.job_id} released"}
 
+
 @router.get("/gpu/status")
 async def get_gpu_status():
     """Get overall GPU fleet status and optimization metrics"""
     return gpu_optimizer.get_system_status()
+
 
 # Endpoints: Distributed Processing
 @router.post("/distributed/task")
@@ -122,11 +135,12 @@ async def submit_distributed_task(request: DistributedTaskRequest):
         payload=request.payload,
         priority=request.priority,
         requires_gpu=request.requires_gpu,
-        timeout_ms=request.timeout_ms
+        timeout_ms=request.timeout_ms,
     )
-    
+
     task_id = await distributed_coordinator.submit_task(task)
     return {"task_id": task_id, "status": "submitted"}
+
 
 @router.get("/distributed/task/{task_id}")
 async def get_distributed_task_status(task_id: str):
@@ -136,6 +150,7 @@ async def get_distributed_task_status(task_id: str):
         raise HTTPException(status_code=404, detail="Task not found")
     return status
 
+
 @router.post("/distributed/worker/register")
 async def register_worker(request: WorkerRegistrationRequest):
     """Register a new worker node in the cluster"""
@@ -143,14 +158,16 @@ async def register_worker(request: WorkerRegistrationRequest):
         worker_id=request.worker_id,
         capabilities=request.capabilities,
         has_gpu=request.has_gpu,
-        max_tasks=request.max_concurrent_tasks
+        max_tasks=request.max_concurrent_tasks,
     )
     return {"success": True, "message": f"Worker {request.worker_id} registered"}
+
 
 @router.get("/distributed/status")
 async def get_cluster_status():
     """Get overall distributed cluster health and load"""
     return distributed_coordinator.get_cluster_status()
+
 
 # Endpoints: Caching
 @router.get("/cache/stats")
@@ -159,8 +176,9 @@ async def get_cache_stats():
     return {
         "status": "connected" if cache_optimizer.is_connected else "local_only",
         "l1_cache_size": len(cache_optimizer.l1_cache.cache),
-        "namespaces_tracked": list(cache_optimizer.ttls.keys())
+        "namespaces_tracked": list(cache_optimizer.ttls.keys()),
     }
+
 
 @router.post("/cache/invalidate/{namespace}")
 async def invalidate_cache_namespace(namespace: str, background_tasks: BackgroundTasks):
@@ -168,11 +186,13 @@ async def invalidate_cache_namespace(namespace: str, background_tasks: Backgroun
     background_tasks.add_task(cache_optimizer.invalidate_namespace, namespace)
     return {"success": True, "message": f"Invalidation for {namespace} queued"}
 
+
 # Endpoints: Monitoring
 @router.get("/monitor/dashboard")
 async def get_monitoring_dashboard():
     """Get real-time performance dashboard data"""
     return marketplace_monitor.get_realtime_dashboard_data()
+
 
 # Endpoints: Auto-scaling
 @router.get("/scaler/status")
@@ -180,11 +200,12 @@ async def get_scaler_status():
     """Get current auto-scaler status and active rules"""
     return resource_scaler.get_status()
 
+
 @router.post("/scaler/policy")
 async def update_scaling_policy(policy_update: ScalingPolicyUpdate):
     """Update auto-scaling thresholds and parameters dynamically"""
     current_policy = resource_scaler.policy
-    
+
     if policy_update.min_nodes is not None:
         current_policy.min_nodes = policy_update.min_nodes
     if policy_update.max_nodes is not None:
@@ -195,5 +216,5 @@ async def update_scaling_policy(policy_update: ScalingPolicyUpdate):
         current_policy.scale_up_threshold = policy_update.scale_up_threshold
     if policy_update.predictive_scaling is not None:
         current_policy.predictive_scaling = policy_update.predictive_scaling
-        
+
     return {"success": True, "message": "Scaling policy updated successfully"}

@@ -2,19 +2,19 @@
 Translation cache service with optional HMAC integrity protection.
 """
 
-import json
-import hmac
 import hashlib
-import os
-from datetime import datetime, timezone
+import hmac
+import json
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
+
 
 class TranslationCache:
-    def __init__(self, cache_file: str = "translation_cache.json", hmac_key: Optional[str] = None):
+    def __init__(self, cache_file: str = "translation_cache.json", hmac_key: str | None = None):
         self.cache_file = Path(cache_file)
-        self.cache: Dict[str, Dict[str, Any]] = {}
-        self.last_updated: Optional[datetime] = None
+        self.cache: dict[str, dict[str, Any]] = {}
+        self.last_updated: datetime | None = None
         self.hmac_key = hmac_key.encode() if hmac_key else None
         self._load()
 
@@ -36,17 +36,14 @@ class TranslationCache:
         self.last_updated = datetime.fromisoformat(last_iso) if last_iso else None
 
     def _save(self) -> None:
-        payload = {
-            "cache": self.cache,
-            "last_updated": (self.last_updated or datetime.now(timezone.utc)).isoformat()
-        }
+        payload = {"cache": self.cache, "last_updated": (self.last_updated or datetime.now(UTC)).isoformat()}
         if self.hmac_key:
             raw = json.dumps(payload, separators=(",", ":")).encode()
             mac = hmac.new(self.hmac_key, raw, hashlib.sha256).digest()
             payload["mac"] = mac.hex()
         self.cache_file.write_text(json.dumps(payload, indent=2))
 
-    def get(self, source_text: str, source_lang: str, target_lang: str) -> Optional[str]:
+    def get(self, source_text: str, source_lang: str, target_lang: str) -> str | None:
         key = f"{source_lang}:{target_lang}:{source_text}"
         entry = self.cache.get(key)
         if not entry:
@@ -55,10 +52,7 @@ class TranslationCache:
 
     def set(self, source_text: str, source_lang: str, target_lang: str, translation: str) -> None:
         key = f"{source_lang}:{target_lang}:{source_text}"
-        self.cache[key] = {
-            "translation": translation,
-            "timestamp": datetime.now(timezone.utc).isoformat()
-        }
+        self.cache[key] = {"translation": translation, "timestamp": datetime.now(UTC).isoformat()}
         self._save()
 
     def clear(self) -> None:

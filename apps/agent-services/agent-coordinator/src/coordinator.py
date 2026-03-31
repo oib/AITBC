@@ -12,8 +12,17 @@ import uuid
 from datetime import datetime
 import sqlite3
 from contextlib import contextmanager
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="AITBC Agent Coordinator API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    init_db()
+    yield
+    # Shutdown (cleanup if needed)
+    pass
+
+app = FastAPI(title="AITBC Agent Coordinator API", version="1.0.0", lifespan=lifespan)
 
 # Database setup
 def get_db():
@@ -63,9 +72,6 @@ class TaskCreation(BaseModel):
     priority: str = "normal"
 
 # API Endpoints
-@app.on_event("startup")
-async def startup_event():
-    init_db()
 
 @app.post("/api/tasks", response_model=Task)
 async def create_task(task: TaskCreation):

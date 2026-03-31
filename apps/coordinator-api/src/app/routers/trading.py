@@ -1,25 +1,34 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
+from sqlalchemy.orm import Session
+
 """
 P2P Trading Protocol API Endpoints
 REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any
-from fastapi import APIRouter, HTTPException, Depends, Query
-from pydantic import BaseModel, Field
 import logging
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
 
-from ..storage import get_session
-from ..services.trading_service import P2PTradingProtocol
 from ..domain.trading import (
-    TradeRequest, TradeMatch, TradeNegotiation, TradeAgreement, TradeSettlement,
-    TradeStatus, TradeType, NegotiationStatus, SettlementType
+    NegotiationStatus,
+    SettlementType,
+    TradeAgreement,
+    TradeMatch,
+    TradeNegotiation,
+    TradeRequest,
+    TradeSettlement,
+    TradeStatus,
+    TradeType,
 )
-
-
+from ..services.trading_service import P2PTradingProtocol
+from ..storage import get_session
 
 router = APIRouter(prefix="/v1/trading", tags=["trading"])
 

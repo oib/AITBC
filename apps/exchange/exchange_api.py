@@ -13,12 +13,21 @@ from sqlalchemy.orm import Session
 import hashlib
 import time
 from typing import Annotated
+from contextlib import asynccontextmanager
 
 from database import init_db, get_db_session
 from models import User, Order, Trade, Balance
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    init_db()
+    yield
+    # Shutdown (cleanup if needed)
+    pass
+
 # Initialize FastAPI app
-app = FastAPI(title="AITBC Trade Exchange API", version="1.0.0")
+app = FastAPI(title="AITBC Trade Exchange API", version="1.0.0", lifespan=lifespan)
 
 # In-memory session storage (use Redis in production)
 user_sessions = {}
@@ -109,10 +118,6 @@ class OrderBookResponse(BaseModel):
     buys: List[OrderResponse]
     sells: List[OrderResponse]
 
-# Initialize database on startup
-@app.on_event("startup")
-async def startup_event():
-    init_db()
     
     # Create mock data if database is empty
     db = get_db_session()
@@ -212,9 +217,9 @@ def get_orderbook(db: Session = Depends(get_db_session)):
 
 @app.post("/api/orders", response_model=OrderResponse)
 def create_order(
-    order: OrderCreate, 
-    db: Session = Depends(get_db_session),
-    user_id: UserDep
+    order: OrderCreate,
+    user_id: UserDep,
+    db: Session = Depends(get_db_session)
 ):
     """Create a new order"""
     

@@ -12,15 +12,27 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting AITBC Trading Engine")
+    # Start background market simulation
+    asyncio.create_task(simulate_market_activity())
+    yield
+    # Shutdown
+    logger.info("Shutting down AITBC Trading Engine")
+
 app = FastAPI(
     title="AITBC Trading Engine",
     description="High-performance order matching and trade execution",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Data models
@@ -566,15 +578,6 @@ async def simulate_market_activity():
                     orders[order_id] = order_data
                     await process_order(order_data)
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting AITBC Trading Engine")
-    # Start background market simulation
-    asyncio.create_task(simulate_market_activity())
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down AITBC Trading Engine")
 
 if __name__ == "__main__":
     import uvicorn

@@ -9,32 +9,15 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.13"
-fastapi = "^0.111.0"
-uvicorn = { extras = ["standard"], version = "^0.30.0" }
-sqlmodel = "^0.0.16"
-sqlalchemy = {extras = ["asyncio"], version = "^2.0.47"}
-alembic = "^1.13.1"
-aiosqlite = "^0.20.0"
-websockets = "^12.0"
-pydantic = "^2.7.0"
-pydantic-settings = "^2.2.1"
-orjson = "^3.11.6"
-python-dotenv = "^1.0.1"
-httpx = "^0.27.0"
-uvloop = ">=0.22.0"
-rich = "^13.7.1"
-cryptography = "^46.0.6"
-asyncpg = ">=0.29.0"
-requests = "^2.33.0"
-# Pin starlette to a version with Broadcast (removed in 0.38)
-starlette = ">=0.37.2,<0.38.0"
+# All dependencies managed centrally in /opt/aitbc/requirements-consolidated.txt
+# Use: ./scripts/install-profiles.sh web database blockchain
 
 [tool.poetry.extras]
 uvloop = ["uvloop"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
-pytest-asyncio = "^0.23.0"
+pytest = ">=8.2.0"
+pytest-asyncio = ">=0.23.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
