@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc-coordinator-api"
-version = "0.1.0"
+version = "v0.2.3"
 description = "AITBC Coordinator API service"
 authors = ["AITBC Team"]
 packages = [
