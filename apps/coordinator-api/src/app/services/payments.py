@@ -1,21 +1,18 @@
-from sqlalchemy.orm import Session
 from typing import Annotated
+
 from fastapi import Depends
+from sqlalchemy.orm import Session
+
 """Payment service for job payments"""
 
+import logging
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+
 import httpx
 from sqlmodel import select
-import logging
 
 from ..domain.payment import JobPayment, PaymentEscrow
-from ..schemas import (
-    JobPaymentCreate, 
-    JobPaymentView, 
-    EscrowRelease,
-    RefundRequest
-)
+from ..schemas import JobPaymentCreate, JobPaymentView
 from ..storage import get_session
 
 logger = logging.getLogger(__name__)
@@ -23,12 +20,12 @@ logger = logging.getLogger(__name__)
 
 class PaymentService:
     """Service for handling job payments"""
-    
+
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.wallet_base_url = "http://127.0.0.1:20000"  # Wallet daemon URL
         self.exchange_base_url = "http://127.0.0.1:23000"  # Exchange API URL
-    
+
     async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
         try:
@@ -38,11 +35,11 @@ class PaymentService:
                 amount=payment_data.amount,
                 currency=payment_data.currency,
                 payment_method=payment_data.payment_method,
-                expires_at=datetime.utcnow() + timedelta(seconds=payment_data.escrow_timeout_seconds)
+                expires_at=datetime.utcnow() + timedelta(seconds=payment_data.escrow_timeout_seconds),
             )
-            
+
             self.session.add(payment)
-            
+
             # For AITBC token payments, use token escrow
             if payment_data.payment_method == "aitbc_token":
                 escrow = await self._create_token_escrow(payment)
@@ -53,20 +50,20 @@ class PaymentService:
                 escrow = await self._create_bitcoin_escrow(payment)
                 if escrow is not None:
                     self.session.add(escrow)
-            
+
             # Single atomic commit - all or nothing
             self.session.commit()
             self.session.refresh(payment)
-            
+
             logger.info(f"Payment created successfully: {payment.id}")
             return payment
-            
+
         except Exception as e:
             # Rollback all changes on any error
             self.session.rollback()
             logger.error(f"Failed to create payment: {e}")
             raise
-    
+
     async def _create_token_escrow(self, payment: JobPayment) -> None:
         """Create an escrow for AITBC token payments"""
         try:
@@ -79,39 +76,39 @@ class PaymentService:
                         "amount": float(payment.amount),
                         "currency": payment.currency,
                         "job_id": payment.job_id,
-                        "timeout_seconds": 3600  # 1 hour
-                    }
+                        "timeout_seconds": 3600,  # 1 hour
+                    },
                 )
-                
+
                 if response.status_code == 200:
                     escrow_data = response.json()
                     payment.escrow_address = escrow_data.get("escrow_id")
                     payment.status = "escrowed"
                     payment.escrowed_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
-                    
+
                     # Create escrow record
                     escrow = PaymentEscrow(
                         payment_id=payment.id,
                         amount=payment.amount,
                         currency=payment.currency,
                         address=escrow_data.get("escrow_id"),
-                        expires_at=datetime.utcnow() + timedelta(hours=1)
+                        expires_at=datetime.utcnow() + timedelta(hours=1),
                     )
                     if escrow is not None:
                         self.session.add(escrow)
-                    
+
                     self.session.commit()
                     logger.info(f"Created AITBC token escrow for payment {payment.id}")
                 else:
                     logger.error(f"Failed to create token escrow: {response.text}")
-                    
+
         except Exception as e:
             logger.error(f"Error creating token escrow: {e}")
             payment.status = "failed"
             payment.updated_at = datetime.utcnow()
             self.session.commit()
-    
+
     async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
         """Create an escrow for Bitcoin payments (exchange only)"""
         try:
@@ -119,102 +116,95 @@ class PaymentService:
                 # Call wallet daemon to create escrow
                 response = await client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/create",
-                    json={
-                        "amount": float(payment.amount),
-                        "currency": payment.currency,
-                        "timeout_seconds": 3600  # 1 hour
-                    }
+                    json={"amount": float(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},  # 1 hour
                 )
-                
+
                 if response.status_code == 200:
                     escrow_data = response.json()
                     payment.escrow_address = escrow_data["address"]
                     payment.status = "escrowed"
                     payment.escrowed_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
-                    
+
                     # Create escrow record
                     escrow = PaymentEscrow(
                         payment_id=payment.id,
                         amount=payment.amount,
                         currency=payment.currency,
                         address=escrow_data["address"],
-                        expires_at=datetime.utcnow() + timedelta(hours=1)
+                        expires_at=datetime.utcnow() + timedelta(hours=1),
                     )
                     if escrow is not None:
                         self.session.add(escrow)
-                    
+
                     self.session.commit()
                     logger.info(f"Created Bitcoin escrow for payment {payment.id}")
                 else:
                     logger.error(f"Failed to create Bitcoin escrow: {response.text}")
-                    
+
         except Exception as e:
             logger.error(f"Error creating Bitcoin escrow: {e}")
             payment.status = "failed"
             payment.updated_at = datetime.utcnow()
             self.session.commit()
-    
-    async def release_payment(self, job_id: str, payment_id: str, reason: Optional[str] = None) -> bool:
+
+    async def release_payment(self, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner"""
-        
+
         payment = self.session.get(JobPayment, payment_id)
         if not payment or payment.job_id != job_id:
             return False
-        
+
         if payment.status != "escrowed":
             return False
-        
+
         try:
             async with httpx.AsyncClient() as client:
                 # Call wallet daemon to release escrow
                 response = await client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/release",
-                    json={
-                        "address": payment.escrow_address,
-                        "reason": reason or "Job completed successfully"
-                    }
+                    json={"address": payment.escrow_address, "reason": reason or "Job completed successfully"},
                 )
-                
+
                 if response.status_code == 200:
                     release_data = response.json()
                     payment.status = "released"
                     payment.released_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     payment.transaction_hash = release_data.get("transaction_hash")
-                    
+
                     # Update escrow record
-                    escrow = self.session.execute(
-                        select(PaymentEscrow).where(
-                            PaymentEscrow.payment_id == payment_id
-                        )
-                    ).scalars().first()
-                    
+                    escrow = (
+                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
+                        .scalars()
+                        .first()
+                    )
+
                     if escrow:
                         escrow.is_released = True
                         escrow.released_at = datetime.utcnow()
-                    
+
                     self.session.commit()
                     logger.info(f"Released payment {payment_id} for job {job_id}")
                     return True
                 else:
                     logger.error(f"Failed to release payment: {response.text}")
                     return False
-                    
+
         except Exception as e:
             logger.error(f"Error releasing payment: {e}")
             return False
-    
+
     async def refund_payment(self, job_id: str, payment_id: str, reason: str) -> bool:
         """Refund payment to client"""
-        
+
         payment = self.session.get(JobPayment, payment_id)
         if not payment or payment.job_id != job_id:
             return False
-        
+
         if payment.status not in ["escrowed", "pending"]:
             return False
-        
+
         try:
             async with httpx.AsyncClient() as client:
                 # Call wallet daemon to refund
@@ -224,49 +214,47 @@ class PaymentService:
                         "payment_id": payment_id,
                         "address": payment.refund_address,
                         "amount": float(payment.amount),
-                        "reason": reason
-                    }
+                        "reason": reason,
+                    },
                 )
-                
+
                 if response.status_code == 200:
                     refund_data = response.json()
                     payment.status = "refunded"
                     payment.refunded_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     payment.refund_transaction_hash = refund_data.get("transaction_hash")
-                    
+
                     # Update escrow record
-                    escrow = self.session.execute(
-                        select(PaymentEscrow).where(
-                            PaymentEscrow.payment_id == payment_id
-                        )
-                    ).scalars().first()
-                    
+                    escrow = (
+                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
+                        .scalars()
+                        .first()
+                    )
+
                     if escrow:
                         escrow.is_refunded = True
                         escrow.refunded_at = datetime.utcnow()
-                    
+
                     self.session.commit()
                     logger.info(f"Refunded payment {payment_id} for job {job_id}")
                     return True
                 else:
                     logger.error(f"Failed to refund payment: {response.text}")
                     return False
-                    
+
         except Exception as e:
             logger.error(f"Error refunding payment: {e}")
             return False
-    
-    def get_payment(self, payment_id: str) -> Optional[JobPayment]:
+
+    def get_payment(self, payment_id: str) -> JobPayment | None:
         """Get payment by ID"""
         return self.session.get(JobPayment, payment_id)
-    
-    def get_job_payment(self, job_id: str) -> Optional[JobPayment]:
+
+    def get_job_payment(self, job_id: str) -> JobPayment | None:
         """Get payment for a specific job"""
-        return self.session.execute(
-            select(JobPayment).where(JobPayment.job_id == job_id)
-        ).scalars().first()
-    
+        return self.session.execute(select(JobPayment).where(JobPayment.job_id == job_id)).scalars().first()
+
     def to_view(self, payment: JobPayment) -> JobPaymentView:
         """Convert payment to view model"""
         return JobPaymentView(
@@ -283,5 +271,5 @@ class PaymentService:
             released_at=payment.released_at,
             refunded_at=payment.refunded_at,
             transaction_hash=payment.transaction_hash,
-            refund_transaction_hash=payment.refund_transaction_hash
+            refund_transaction_hash=payment.refund_transaction_hash,
         )

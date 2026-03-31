@@ -6,7 +6,7 @@ version: 1.0
 
 # Multi-Node Blockchain Setup - Master Index
 
-This master index provides navigation to all modules in the multi-node AITBC blockchain setup documentation. Each module focuses on specific aspects of the deployment and operation.
+This master index provides navigation to all modules in the multi-node AITBC blockchain setup documentation and workflows. Each module focuses on specific aspects of the deployment, operation, and code quality.
 
 ## 📚 Module Overview
 
@@ -29,6 +29,62 @@ This master index provides navigation to all modules in the multi-node AITBC blo
 # Run core setup
 /opt/aitbc/scripts/workflow/02_genesis_authority_setup.sh
 ssh aitbc1 '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
+```
+
+---
+
+### 🔧 Code Quality Module
+**File**: `code-quality.md`
+**Purpose**: Comprehensive code quality assurance workflow
+**Audience**: Developers, DevOps engineers
+**Prerequisites**: Development environment setup
+
+**Key Topics**:
+- Pre-commit hooks configuration
+- Code formatting (Black, isort)
+- Linting and type checking (Flake8, MyPy)
+- Security scanning (Bandit, Safety)
+- Automated testing integration
+- Quality metrics and reporting
+
+**Quick Start**:
+```bash
+# Install pre-commit hooks
+./venv/bin/pre-commit install
+
+# Run all quality checks
+./venv/bin/pre-commit run --all-files
+
+# Check type coverage
+./scripts/type-checking/check-coverage.sh
+```
+
+---
+
+### 🔧 Type Checking CI/CD Module
+**File**: `type-checking-ci-cd.md`
+**Purpose**: Comprehensive type checking workflow with CI/CD integration
+**Audience**: Developers, DevOps engineers, QA engineers
+**Prerequisites**: Development environment setup, basic Git knowledge
+
+**Key Topics**:
+- Local development type checking workflow
+- Pre-commit hooks integration
+- GitHub Actions CI/CD pipeline
+- Coverage reporting and analysis
+- Quality gates and enforcement
+- Progressive type safety implementation
+
+**Quick Start**:
+```bash
+# Local type checking
+./venv/bin/mypy --ignore-missing-imports apps/coordinator-api/src/app/domain/
+
+# Coverage analysis
+./scripts/type-checking/check-coverage.sh
+
+# Pre-commit hooks
+./venv/bin/pre-commit run mypy-domain-core
 ```
 
 ---

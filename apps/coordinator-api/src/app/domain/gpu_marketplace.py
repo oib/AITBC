@@ -3,28 +3,28 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 from uuid import uuid4
 
-from sqlalchemy import Column, JSON
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
 
-class GPUArchitecture(str, Enum):
-    TURING = "turing"      # RTX 20 series
-    AMPERE = "ampere"      # RTX 30 series
+class GPUArchitecture(StrEnum):
+    TURING = "turing"  # RTX 20 series
+    AMPERE = "ampere"  # RTX 30 series
     ADA_LOVELACE = "ada_lovelace"  # RTX 40 series
-    PASCAL = "pascal"      # GTX 10 series
-    VOLTA = "volta"        # Titan V, Tesla V100
+    PASCAL = "pascal"  # GTX 10 series
+    VOLTA = "volta"  # Titan V, Tesla V100
     UNKNOWN = "unknown"
 
 
 class GPURegistry(SQLModel, table=True):
     """Registered GPUs available in the marketplace."""
+
     __tablename__ = "gpu_registry"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"gpu_{uuid4().hex[:8]}", primary_key=True)
     miner_id: str = Field(index=True)
     model: str = Field(index=True)
@@ -41,9 +41,10 @@ class GPURegistry(SQLModel, table=True):
 
 class ConsumerGPUProfile(SQLModel, table=True):
     """Consumer GPU optimization profiles for edge computing"""
+
     __tablename__ = "consumer_gpu_profiles"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"cgp_{uuid4().hex[:8]}", primary_key=True)
     gpu_model: str = Field(index=True)
     architecture: GPUArchitecture = Field(default=GPUArchitecture.UNKNOWN)
@@ -51,27 +52,27 @@ class ConsumerGPUProfile(SQLModel, table=True):
     edge_optimized: bool = Field(default=False)
 
     # Hardware specifications
-    cuda_cores: Optional[int] = Field(default=None)
-    memory_gb: Optional[int] = Field(default=None)
-    memory_bandwidth_gbps: Optional[float] = Field(default=None)
-    tensor_cores: Optional[int] = Field(default=None)
-    base_clock_mhz: Optional[int] = Field(default=None)
-    boost_clock_mhz: Optional[int] = Field(default=None)
+    cuda_cores: int | None = Field(default=None)
+    memory_gb: int | None = Field(default=None)
+    memory_bandwidth_gbps: float | None = Field(default=None)
+    tensor_cores: int | None = Field(default=None)
+    base_clock_mhz: int | None = Field(default=None)
+    boost_clock_mhz: int | None = Field(default=None)
 
     # Edge optimization metrics
-    power_consumption_w: Optional[float] = Field(default=None)
-    thermal_design_power_w: Optional[float] = Field(default=None)
-    noise_level_db: Optional[float] = Field(default=None)
+    power_consumption_w: float | None = Field(default=None)
+    thermal_design_power_w: float | None = Field(default=None)
+    noise_level_db: float | None = Field(default=None)
 
     # Performance characteristics
-    fp32_tflops: Optional[float] = Field(default=None)
-    fp16_tflops: Optional[float] = Field(default=None)
-    int8_tops: Optional[float] = Field(default=None)
+    fp32_tflops: float | None = Field(default=None)
+    fp16_tflops: float | None = Field(default=None)
+    int8_tops: float | None = Field(default=None)
 
     # Edge-specific optimizations
     low_latency_mode: bool = Field(default=False)
     mobile_optimized: bool = Field(default=False)
-    thermal_throttling_resistance: Optional[float] = Field(default=None)
+    thermal_throttling_resistance: float | None = Field(default=None)
 
     # Compatibility flags
     supported_cuda_versions: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
@@ -79,7 +80,7 @@ class ConsumerGPUProfile(SQLModel, table=True):
     supported_ollama_models: list = Field(default_factory=list, sa_column=Column(JSON, nullable=True))
 
     # Pricing and availability
-    market_price_usd: Optional[float] = Field(default=None)
+    market_price_usd: float | None = Field(default=None)
     edge_premium_multiplier: float = Field(default=1.0)
     availability_score: float = Field(default=1.0)
 
@@ -89,9 +90,10 @@ class ConsumerGPUProfile(SQLModel, table=True):
 
 class EdgeGPUMetrics(SQLModel, table=True):
     """Real-time edge GPU performance metrics"""
+
     __tablename__ = "edge_gpu_metrics"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"egm_{uuid4().hex[:8]}", primary_key=True)
     gpu_id: str = Field(foreign_key="gpu_registry.id")
 
@@ -113,35 +115,37 @@ class EdgeGPUMetrics(SQLModel, table=True):
 
     # Geographic and network info
     region: str = Field()
-    city: Optional[str] = Field(default=None)
-    isp: Optional[str] = Field(default=None)
-    connection_type: Optional[str] = Field(default=None)
+    city: str | None = Field(default=None)
+    isp: str | None = Field(default=None)
+    connection_type: str | None = Field(default=None)
 
     timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
 class GPUBooking(SQLModel, table=True):
     """Active and historical GPU bookings."""
+
     __tablename__ = "gpu_bookings"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"bk_{uuid4().hex[:10]}", primary_key=True)
     gpu_id: str = Field(index=True)
     client_id: str = Field(default="", index=True)
-    job_id: Optional[str] = Field(default=None, index=True)
+    job_id: str | None = Field(default=None, index=True)
     duration_hours: float = Field(default=0.0)
     total_cost: float = Field(default=0.0)
     status: str = Field(default="active", index=True)  # active, completed, cancelled
     start_time: datetime = Field(default_factory=datetime.utcnow)
-    end_time: Optional[datetime] = Field(default=None)
+    end_time: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
 
 
 class GPUReview(SQLModel, table=True):
     """Reviews for GPUs."""
+
     __tablename__ = "gpu_reviews"
     __table_args__ = {"extend_existing": True}
-    
+
     id: str = Field(default_factory=lambda: f"rv_{uuid4().hex[:10]}", primary_key=True)
     gpu_id: str = Field(index=True)
     user_id: str = Field(default="")

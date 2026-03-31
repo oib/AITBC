@@ -1,19 +1,20 @@
 from __future__ import annotations
-from sqlalchemy.orm import Session
-from typing import Annotated
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.orm import Session
 
-from ..schemas import MarketplaceBidRequest, MarketplaceOfferView, MarketplaceStatsView, MarketplaceBidView
+from ..config import settings
+from ..metrics import marketplace_errors_total, marketplace_requests_total
+from ..schemas import MarketplaceBidRequest, MarketplaceBidView, MarketplaceOfferView, MarketplaceStatsView
 from ..services import MarketplaceService
 from ..storage import get_session
-from ..metrics import marketplace_requests_total, marketplace_errors_total
 from ..utils.cache import cached, get_cache_config
-from ..config import settings
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -58,11 +59,7 @@ async def list_marketplace_offers(
 )
 @limiter.limit(lambda: settings.rate_limit_marketplace_stats)
 @cached(**get_cache_config("marketplace_stats"))
-async def get_marketplace_stats(
-    request: Request,
-    *, 
-    session: Session = Depends(get_session)
-) -> MarketplaceStatsView:
+async def get_marketplace_stats(request: Request, *, session: Session = Depends(get_session)) -> MarketplaceStatsView:
     marketplace_requests_total.labels(endpoint="/marketplace/stats", method="GET").inc()
     service = _get_service(session)
     try:

@@ -2,12 +2,12 @@
 Shared types and enums for the AITBC Coordinator API
 """
 
-from enum import Enum
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
+from enum import StrEnum
+
+from pydantic import BaseModel
 
 
-class JobState(str, Enum):
+class JobState(StrEnum):
     queued = "QUEUED"
     running = "RUNNING"
     completed = "COMPLETED"
@@ -17,9 +17,9 @@ class JobState(str, Enum):
 
 
 class Constraints(BaseModel):
-    gpu: Optional[str] = None
-    cuda: Optional[str] = None
-    min_vram_gb: Optional[int] = None
-    models: Optional[list[str]] = None
-    region: Optional[str] = None
-    max_price: Optional[float] = None
+    gpu: str | None = None
+    cuda: str | None = None
+    min_vram_gb: int | None = None
+    models: list[str] | None = None
+    region: str | None = None
+    max_price: float | None = None

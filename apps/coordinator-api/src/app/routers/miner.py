@@ -1,19 +1,19 @@
-from sqlalchemy.orm import Session
-from typing import Annotated
+import logging
 from datetime import datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy.orm import Session
 
-from ..deps import require_miner_key, get_miner_id
+from ..config import settings
+from ..deps import get_miner_id, require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
 from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
-from ..config import settings
 from ..storage import get_session
-import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -33,6 +33,7 @@ async def register(
     service = MinerService(session)
     record = service.register(miner_id, req)
     return {"status": "ok", "session_token": record.session_token}
+
 
 @router.post("/miners/heartbeat", summary="Send miner heartbeat")
 @limiter.limit(lambda: settings.rate_limit_miner_heartbeat)
@@ -94,23 +95,20 @@ async def submit_result(
     job.receipt_id = receipt["receipt_id"] if receipt else None
     session.add(job)
     session.commit()
-    
+
     # Auto-release payment if job has payment
     if job.payment_id and job.payment_status == "escrowed":
         from ..services.payments import PaymentService
+
         payment_service = PaymentService(session)
-        success = await payment_service.release_payment(
-            job.id,
-            job.payment_id,
-            reason="Job completed successfully"
-        )
+        success = await payment_service.release_payment(job.id, job.payment_id, reason="Job completed successfully")
         if success:
             job.payment_status = "released"
             session.commit()
             logger.info(f"Auto-released payment {job.payment_id} for completed job {job.id}")
         else:
             logger.error(f"Failed to auto-release payment {job.payment_id} for job {job.id}")
-    
+
     miner_service.release(
         miner_id,
         success=True,
@@ -149,7 +147,7 @@ async def list_miner_jobs(
     """List jobs assigned to a specific miner"""
     try:
         service = JobService(session)
-        
+
         # Build filters
         filters = {}
         if job_type:
@@ -159,32 +157,22 @@ async def list_miner_jobs(
                 filters["state"] = JobState(job_status.upper())
             except ValueError:
                 pass  # Invalid status, ignore
-        
+
         # Get jobs for this miner
         jobs = service.list_jobs(
-            client_id=miner_id,  # Using client_id as miner_id for now
-            limit=limit,
-            offset=offset,
-            **filters
+            client_id=miner_id, limit=limit, offset=offset, **filters  # Using client_id as miner_id for now
         )
-        
+
         return {
             "jobs": [service.to_view(job) for job in jobs],
             "total": len(jobs),
             "limit": limit,
             "offset": offset,
-            "miner_id": miner_id
+            "miner_id": miner_id,
         }
     except Exception as e:
         logger.error(f"Error listing miner jobs: {e}")
-        return {
-            "jobs": [],
-            "total": 0,
-            "limit": limit,
-            "offset": offset,
-            "miner_id": miner_id,
-            "error": str(e)
-        }
+        return {"jobs": [], "total": 0, "limit": limit, "offset": offset, "miner_id": miner_id, "error": str(e)}
 
 
 @router.post("/miners/{miner_id}/earnings", summary="Get miner earnings")
@@ -207,9 +195,9 @@ async def get_miner_earnings(
             "currency": "AITBC",
             "from_time": from_time,
             "to_time": to_time,
-            "earnings_history": []
+            "earnings_history": [],
         }
-        
+
         return earnings_data
     except Exception as e:
         logger.error(f"Error getting miner earnings: {e}")
@@ -219,7 +207,7 @@ async def get_miner_earnings(
             "pending_earnings": 0.0,
             "completed_jobs": 0,
             "currency": "AITBC",
-            "error": str(e)
+            "error": str(e),
         }
 
 
@@ -238,7 +226,7 @@ async def update_miner_capabilities(
             "miner_id": miner_id,
             "status": "updated",
             "capabilities": req.capabilities,
-            "session_token": record.session_token
+            "session_token": record.session_token,
         }
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
@@ -257,10 +245,7 @@ async def deregister_miner(
     try:
         service = MinerService(session)
         service.deregister(miner_id)
-        return {
-            "miner_id": miner_id,
-            "status": "deregistered"
-        }
+        return {"miner_id": miner_id, "status": "deregistered"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found")
     except Exception as e:

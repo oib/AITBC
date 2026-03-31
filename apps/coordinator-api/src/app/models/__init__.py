@@ -4,74 +4,75 @@ Models package for the AITBC Coordinator API
 
 # Import basic types from types.py to avoid circular imports
 from ..custom_types import (
-    JobState,
     Constraints,
-)
-
-# Import schemas from schemas.py
-from ..schemas import (
-    JobCreate,
-    JobView,
-    JobResult,
-    AssignedJob,
-    MinerHeartbeat,
-    MinerRegister,
-    MarketplaceBidRequest,
-    MarketplaceOfferView,
-    MarketplaceStatsView,
-    BlockSummary,
-    BlockListResponse,
-    TransactionSummary,
-    TransactionListResponse,
-    AddressSummary,
-    AddressListResponse,
-    ReceiptSummary,
-    ReceiptListResponse,
-    ExchangePaymentRequest,
-    ExchangePaymentResponse,
-    ConfidentialTransaction,
-    ConfidentialTransactionCreate,
-    ConfidentialTransactionView,
-    ConfidentialAccessRequest,
-    ConfidentialAccessResponse,
-    KeyPair,
-    KeyRotationLog,
-    AuditAuthorization,
-    KeyRegistrationRequest,
-    KeyRegistrationResponse,
-    ConfidentialAccessLog,
-    AccessLogQuery,
-    AccessLogResponse,
-    Receipt,
-    JobFailSubmit,
-    JobResultSubmit,
-    PollRequest,
+    JobState,
 )
 
 # Import domain models
 from ..domain import (
     Job,
-    Miner,
+    JobPayment,
     JobReceipt,
-    MarketplaceOffer,
     MarketplaceBid,
+    MarketplaceOffer,
+    Miner,
+    PaymentEscrow,
     User,
     Wallet,
-    JobPayment,
-    PaymentEscrow,
+)
+
+# Import schemas from schemas.py
+from ..schemas import (
+    AccessLogQuery,
+    AccessLogResponse,
+    AddressListResponse,
+    AddressSummary,
+    AssignedJob,
+    AuditAuthorization,
+    BlockListResponse,
+    BlockSummary,
+    ConfidentialAccessLog,
+    ConfidentialAccessRequest,
+    ConfidentialAccessResponse,
+    ConfidentialTransaction,
+    ConfidentialTransactionCreate,
+    ConfidentialTransactionView,
+    ExchangePaymentRequest,
+    ExchangePaymentResponse,
+    JobCreate,
+    JobFailSubmit,
+    JobResult,
+    JobResultSubmit,
+    JobView,
+    KeyPair,
+    KeyRegistrationRequest,
+    KeyRegistrationResponse,
+    KeyRotationLog,
+    MarketplaceBidRequest,
+    MarketplaceOfferView,
+    MarketplaceStatsView,
+    MinerHeartbeat,
+    MinerRegister,
+    PollRequest,
+    Receipt,
+    ReceiptListResponse,
+    ReceiptSummary,
+    TransactionListResponse,
+    TransactionSummary,
 )
 
 # Service-specific models
 from .services import (
-    ServiceType,
+    BlenderRequest,
+    FFmpegRequest,
+    LLMRequest,
     ServiceRequest,
     ServiceResponse,
-    WhisperRequest,
+    ServiceType,
     StableDiffusionRequest,
-    LLMRequest,
-    FFmpegRequest,
-    BlenderRequest,
+    WhisperRequest,
 )
+
 # from .confidential import ConfidentialReceipt, ConfidentialAttestation
 # from .multitenant import Tenant, TenantConfig, TenantUser
 # from .registry import (

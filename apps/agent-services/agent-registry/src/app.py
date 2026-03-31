@@ -13,8 +13,17 @@ import uuid
 from datetime import datetime, timedelta
 import sqlite3
 from contextlib import contextmanager
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="AITBC Agent Registry API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    init_db()
+    yield
+    # Shutdown (cleanup if needed)
+    pass
+
+app = FastAPI(title="AITBC Agent Registry API", version="1.0.0", lifespan=lifespan)
 
 # Database setup
 def get_db():
@@ -67,9 +76,6 @@ class AgentRegistration(BaseModel):
     metadata: Optional[Dict[str, Any]] = {}
 
 # API Endpoints
-@app.on_event("startup")
-async def startup_event():
-    init_db()
 
 @app.post("/api/agents/register", response_model=Agent)
 async def register_agent(agent: AgentRegistration):

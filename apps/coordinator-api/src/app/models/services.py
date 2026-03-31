@@ -2,14 +2,15 @@
 Service schemas for common GPU workloads
 """
 
-from typing import Any, Dict, List, Optional, Union
-from enum import Enum
+from enum import StrEnum
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
-import re
 
 
-class ServiceType(str, Enum):
+class ServiceType(StrEnum):
     """Supported service types"""
+
     WHISPER = "whisper"
     STABLE_DIFFUSION = "stable_diffusion"
     LLM_INFERENCE = "llm_inference"
@@ -18,8 +19,9 @@ class ServiceType(str, Enum):
 
 
 # Whisper Service Schemas
-class WhisperModel(str, Enum):
+class WhisperModel(StrEnum):
     """Supported Whisper models"""
+
     TINY = "tiny"
     BASE = "base"
     SMALL = "small"
@@ -29,8 +31,9 @@ class WhisperModel(str, Enum):
     LARGE_V3 = "large-v3"
 
 
-class WhisperLanguage(str, Enum):
+class WhisperLanguage(StrEnum):
     """Supported languages"""
+
     AUTO = "auto"
     EN = "en"
     ES = "es"
@@ -44,14 +47,16 @@ class WhisperLanguage(str, Enum):
     ZH = "zh"
 
 
-class WhisperTask(str, Enum):
+class WhisperTask(StrEnum):
     """Whisper task types"""
+
     TRANSCRIBE = "transcribe"
     TRANSLATE = "translate"
 
 
 class WhisperRequest(BaseModel):
     """Whisper transcription request"""
+
     audio_url: str = Field(..., description="URL of audio file to transcribe")
     model: WhisperModel = Field(WhisperModel.BASE, description="Whisper model to use")
     language: WhisperLanguage = Field(WhisperLanguage.AUTO, description="Source language")
@@ -60,13 +65,13 @@ class WhisperRequest(BaseModel):
     best_of: int = Field(5, ge=1, le=10, description="Number of candidates")
     beam_size: int = Field(5, ge=1, le=10, description="Beam size for decoding")
     patience: float = Field(1.0, ge=0.0, le=2.0, description="Beam search patience")
-    suppress_tokens: Optional[List[int]] = Field(None, description="Tokens to suppress")
-    initial_prompt: Optional[str] = Field(None, description="Initial prompt for context")
+    suppress_tokens: list[int] | None = Field(None, description="Tokens to suppress")
+    initial_prompt: str | None = Field(None, description="Initial prompt for context")
     condition_on_previous_text: bool = Field(True, description="Condition on previous text")
     fp16: bool = Field(True, description="Use FP16 for faster inference")
     verbose: bool = Field(False, description="Include verbose output")
-    
-    def get_constraints(self) -> Dict[str, Any]:
+
+    def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
         vram_requirements = {
             WhisperModel.TINY: 1,
@@ -77,7 +82,7 @@ class WhisperRequest(BaseModel):
             WhisperModel.LARGE_V2: 10,
             WhisperModel.LARGE_V3: 10,
         }
-        
+
         return {
             "models": ["whisper"],
             "min_vram_gb": vram_requirements[self.model],
@@ -86,8 +91,9 @@ class WhisperRequest(BaseModel):
 
 
 # Stable Diffusion Service Schemas
-class SDModel(str, Enum):
+class SDModel(StrEnum):
     """Supported Stable Diffusion models"""
+
     SD_1_5 = "stable-diffusion-1.5"
     SD_2_1 = "stable-diffusion-2.1"
     SDXL = "stable-diffusion-xl"
@@ -95,8 +101,9 @@ class SDModel(str, Enum):
     SDXL_REFINER = "sdxl-refiner"
 
 
-class SDSize(str, Enum):
+class SDSize(StrEnum):
     """Standard image sizes"""
+
     SQUARE_512 = "512x512"
     PORTRAIT_512 = "512x768"
     LANDSCAPE_512 = "768x512"
@@ -110,28 +117,29 @@ class SDSize(str, Enum):
 
 class StableDiffusionRequest(BaseModel):
     """Stable Diffusion image generation request"""
+
     prompt: str = Field(..., min_length=1, max_length=1000, description="Text prompt")
-    negative_prompt: Optional[str] = Field(None, max_length=1000, description="Negative prompt")
+    negative_prompt: str | None = Field(None, max_length=1000, description="Negative prompt")
     model: SDModel = Field(SDModel.SD_1_5, description="Model to use")
     size: SDSize = Field(SDSize.SQUARE_512, description="Image size")
     num_images: int = Field(1, ge=1, le=4, description="Number of images to generate")
     num_inference_steps: int = Field(20, ge=1, le=100, description="Number of inference steps")
     guidance_scale: float = Field(7.5, ge=1.0, le=20.0, description="Guidance scale")
-    seed: Optional[Union[int, List[int]]] = Field(None, description="Random seed(s)")
+    seed: int | list[int] | None = Field(None, description="Random seed(s)")
     scheduler: str = Field("DPMSolverMultistepScheduler", description="Scheduler to use")
     enable_safety_checker: bool = Field(True, description="Enable safety checker")
-    lora: Optional[str] = Field(None, description="LoRA model to use")
+    lora: str | None = Field(None, description="LoRA model to use")
     lora_scale: float = Field(1.0, ge=0.0, le=2.0, description="LoRA strength")
-    
-    @field_validator('seed')
+
+    @field_validator("seed")
     @classmethod
     def validate_seed(cls, v):
         if v is not None and isinstance(v, list):
             if len(v) > 4:
                 raise ValueError("Maximum 4 seeds allowed")
         return v
-    
-    def get_constraints(self) -> Dict[str, Any]:
+
+    def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
         vram_requirements = {
             SDModel.SD_1_5: 4,
@@ -140,17 +148,17 @@ class StableDiffusionRequest(BaseModel):
             SDModel.SDXL_TURBO: 8,
             SDModel.SDXL_REFINER: 8,
         }
-        
+
         size_map = {
             "512": 512,
             "768": 768,
             "1024": 1024,
             "1536": 1536,
         }
-        
+
         # Extract max dimension from size
-        max_dim = max(size_map[s.split('x')[0]] for s in SDSize)
-        
+        max(size_map[s.split("x")[0]] for s in SDSize)
+
         return {
             "models": ["stable-diffusion"],
             "min_vram_gb": vram_requirements[self.model],
@@ -160,8 +168,9 @@ class StableDiffusionRequest(BaseModel):
 
 
 # LLM Inference Service Schemas
-class LLMModel(str, Enum):
+class LLMModel(StrEnum):
     """Supported LLM models"""
+
     LLAMA_7B = "llama-7b"
     LLAMA_13B = "llama-13b"
     LLAMA_70B = "llama-70b"
@@ -174,6 +183,7 @@ class LLMModel(str, Enum):
 
 class LLMRequest(BaseModel):
     """LLM inference request"""
+
     model: LLMModel = Field(..., description="Model to use")
     prompt: str = Field(..., min_length=1, max_length=10000, description="Input prompt")
     max_tokens: int = Field(256, ge=1, le=4096, description="Maximum tokens to generate")
@@ -181,10 +191,10 @@ class LLMRequest(BaseModel):
     top_p: float = Field(0.9, ge=0.0, le=1.0, description="Top-p sampling")
     top_k: int = Field(40, ge=0, le=100, description="Top-k sampling")
     repetition_penalty: float = Field(1.1, ge=0.0, le=2.0, description="Repetition penalty")
-    stop_sequences: Optional[List[str]] = Field(None, description="Stop sequences")
+    stop_sequences: list[str] | None = Field(None, description="Stop sequences")
     stream: bool = Field(False, description="Stream response")
-    
-    def get_constraints(self) -> Dict[str, Any]:
+
+    def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
         vram_requirements = {
             LLMModel.LLAMA_7B: 8,
@@ -196,7 +206,7 @@ class LLMRequest(BaseModel):
             LLMModel.CODELLAMA_13B: 16,
             LLMModel.CODELLAMA_34B: 32,
         }
-        
+
         return {
             "models": ["llm"],
             "min_vram_gb": vram_requirements[self.model],
@@ -206,16 +216,18 @@ class LLMRequest(BaseModel):
 
 
 # FFmpeg Service Schemas
-class FFmpegCodec(str, Enum):
+class FFmpegCodec(StrEnum):
     """Supported video codecs"""
+
     H264 = "h264"
     H265 = "h265"
     VP9 = "vp9"
     AV1 = "av1"
 
 
-class FFmpegPreset(str, Enum):
+class FFmpegPreset(StrEnum):
     """Encoding presets"""
+
     ULTRAFAST = "ultrafast"
     SUPERFAST = "superfast"
     VERYFAST = "veryfast"
@@ -229,19 +241,20 @@ class FFmpegPreset(str, Enum):
 
 class FFmpegRequest(BaseModel):
     """FFmpeg video processing request"""
+
     input_url: str = Field(..., description="URL of input video")
     output_format: str = Field("mp4", description="Output format")
     codec: FFmpegCodec = Field(FFmpegCodec.H264, description="Video codec")
     preset: FFmpegPreset = Field(FFmpegPreset.MEDIUM, description="Encoding preset")
     crf: int = Field(23, ge=0, le=51, description="Constant rate factor")
-    resolution: Optional[str] = Field(None, pattern=r"^\d+x\d+$", description="Output resolution (e.g., 1920x1080)")
-    bitrate: Optional[str] = Field(None, pattern=r"^\d+[kM]?$", description="Target bitrate")
-    fps: Optional[int] = Field(None, ge=1, le=120, description="Output frame rate")
+    resolution: str | None = Field(None, pattern=r"^\d+x\d+$", description="Output resolution (e.g., 1920x1080)")
+    bitrate: str | None = Field(None, pattern=r"^\d+[kM]?$", description="Target bitrate")
+    fps: int | None = Field(None, ge=1, le=120, description="Output frame rate")
     audio_codec: str = Field("aac", description="Audio codec")
     audio_bitrate: str = Field("128k", description="Audio bitrate")
-    custom_args: Optional[List[str]] = Field(None, description="Custom FFmpeg arguments")
-    
-    def get_constraints(self) -> Dict[str, Any]:
+    custom_args: list[str] | None = Field(None, description="Custom FFmpeg arguments")
+
+    def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
         # NVENC support for H.264/H.265
         if self.codec in [FFmpegCodec.H264, FFmpegCodec.H265]:
@@ -258,15 +271,17 @@ class FFmpegRequest(BaseModel):
 
 
 # Blender Service Schemas
-class BlenderEngine(str, Enum):
+class BlenderEngine(StrEnum):
     """Blender render engines"""
+
     CYCLES = "cycles"
     EEVEE = "eevee"
     EEVEE_NEXT = "eevee-next"
 
 
-class BlenderFormat(str, Enum):
+class BlenderFormat(StrEnum):
     """Output formats"""
+
     PNG = "png"
     JPG = "jpg"
     EXR = "exr"
@@ -276,6 +291,7 @@ class BlenderFormat(str, Enum):
 
 class BlenderRequest(BaseModel):
     """Blender rendering request"""
+
     blend_file_url: str = Field(..., description="URL of .blend file")
     engine: BlenderEngine = Field(BlenderEngine.CYCLES, description="Render engine")
     format: BlenderFormat = Field(BlenderFormat.PNG, description="Output format")
@@ -288,23 +304,23 @@ class BlenderRequest(BaseModel):
     frame_step: int = Field(1, ge=1, description="Frame step")
     denoise: bool = Field(True, description="Enable denoising")
     transparent: bool = Field(False, description="Transparent background")
-    custom_args: Optional[List[str]] = Field(None, description="Custom Blender arguments")
-    
-    @field_validator('frame_end')
+    custom_args: list[str] | None = Field(None, description="Custom Blender arguments")
+
+    @field_validator("frame_end")
     @classmethod
     def validate_frame_range(cls, v, info):
-        if info and info.data and 'frame_start' in info.data and v < info.data['frame_start']:
+        if info and info.data and "frame_start" in info.data and v < info.data["frame_start"]:
             raise ValueError("frame_end must be >= frame_start")
         return v
-    
-    def get_constraints(self) -> Dict[str, Any]:
+
+    def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
         # Calculate VRAM based on resolution and samples
         pixel_count = self.resolution_x * self.resolution_y
         samples_multiplier = 1 if self.engine == BlenderEngine.EEVEE else self.samples / 100
-        
+
         estimated_vram = int((pixel_count * samples_multiplier) / (1024 * 1024))
-        
+
         return {
             "models": ["blender"],
             "min_vram_gb": max(4, estimated_vram),
@@ -315,16 +331,11 @@ class BlenderRequest(BaseModel):
 # Unified Service Request
 class ServiceRequest(BaseModel):
     """Unified service request wrapper"""
+
     service_type: ServiceType = Field(..., description="Type of service")
-    request_data: Dict[str, Any] = Field(..., description="Service-specific request data")
-    
-    def get_service_request(self) -> Union[
-        WhisperRequest,
-        StableDiffusionRequest,
-        LLMRequest,
-        FFmpegRequest,
-        BlenderRequest
-    ]:
+    request_data: dict[str, Any] = Field(..., description="Service-specific request data")
+
+    def get_service_request(self) -> WhisperRequest | StableDiffusionRequest | LLMRequest | FFmpegRequest | BlenderRequest:
         """Parse and return typed service request"""
         service_classes = {
             ServiceType.WHISPER: WhisperRequest,
@@ -333,7 +344,7 @@ class ServiceRequest(BaseModel):
             ServiceType.FFMPEG: FFmpegRequest,
             ServiceType.BLENDER: BlenderRequest,
         }
-        
+
         service_class = service_classes[self.service_type]
         return service_class(**self.request_data)
 
@@ -341,28 +352,32 @@ class ServiceRequest(BaseModel):
 # Service Response Schemas
 class ServiceResponse(BaseModel):
     """Base service response"""
+
     job_id: str = Field(..., description="Job ID")
     service_type: ServiceType = Field(..., description="Service type")
     status: str = Field(..., description="Job status")
-    estimated_completion: Optional[str] = Field(None, description="Estimated completion time")
+    estimated_completion: str | None = Field(None, description="Estimated completion time")
 
 
 class WhisperResponse(BaseModel):
     """Whisper transcription response"""
+
     text: str = Field(..., description="Transcribed text")
     language: str = Field(..., description="Detected language")
-    segments: Optional[List[Dict[str, Any]]] = Field(None, description="Transcription segments")
+    segments: list[dict[str, Any]] | None = Field(None, description="Transcription segments")
 
 
 class StableDiffusionResponse(BaseModel):
     """Stable Diffusion image generation response"""
-    images: List[str] = Field(..., description="Generated image URLs")
-    parameters: Dict[str, Any] = Field(..., description="Generation parameters")
-    nsfw_content_detected: List[bool] = Field(..., description="NSFW detection results")
+
+    images: list[str] = Field(..., description="Generated image URLs")
+    parameters: dict[str, Any] = Field(..., description="Generation parameters")
+    nsfw_content_detected: list[bool] = Field(..., description="NSFW detection results")
 
 
 class LLMResponse(BaseModel):
     """LLM inference response"""
+
     text: str = Field(..., description="Generated text")
     finish_reason: str = Field(..., description="Reason for generation stop")
     tokens_used: int = Field(..., description="Number of tokens used")
@@ -370,13 +385,15 @@ class LLMResponse(BaseModel):
 
 class FFmpegResponse(BaseModel):
     """FFmpeg processing response"""
+
     output_url: str = Field(..., description="URL of processed video")
-    metadata: Dict[str, Any] = Field(..., description="Video metadata")
+    metadata: dict[str, Any] = Field(..., description="Video metadata")
     duration: float = Field(..., description="Video duration")
 
 
 class BlenderResponse(BaseModel):
     """Blender rendering response"""
-    images: List[str] = Field(..., description="Rendered image URLs")
-    metadata: Dict[str, Any] = Field(..., description="Render metadata")
+
+    images: list[str] = Field(..., description="Rendered image URLs")
+    metadata: dict[str, Any] = Field(..., description="Render metadata")
     render_time: float = Field(..., description="Render time in seconds")

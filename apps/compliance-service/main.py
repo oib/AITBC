@@ -11,15 +11,27 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    logger.info("Starting AITBC Compliance Service")
+    # Start background compliance checks
+    asyncio.create_task(periodic_compliance_checks())
+    yield
+    # Shutdown
+    logger.info("Shutting down AITBC Compliance Service")
+
 app = FastAPI(
     title="AITBC Compliance Service",
     description="Regulatory compliance and monitoring for AITBC operations",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # Data models
@@ -416,15 +428,6 @@ async def periodic_compliance_checks():
                     kyc_record["status"] = "reverification_required"
                     logger.info(f"KYC re-verification required for user: {user_id}")
 
-@app.on_event("startup")
-async def startup_event():
-    logger.info("Starting AITBC Compliance Service")
-    # Start background compliance checks
-    asyncio.create_task(periodic_compliance_checks())
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("Shutting down AITBC Compliance Service")
 
 if __name__ == "__main__":
     import uvicorn

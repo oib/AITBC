@@ -1,21 +1,22 @@
 from typing import Annotated
+
 """
 Ecosystem Metrics Dashboard API
 REST API for developer ecosystem metrics and analytics
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
-from ..storage import get_session
 from ..app_logging import get_logger
-from ..domain.bounty import EcosystemMetrics, BountyStats, AgentMetrics
-from ..services.ecosystem_service import EcosystemService
 from ..auth import get_current_user
-
+from ..domain.bounty import AgentMetrics, BountyStats, EcosystemMetrics
+from ..services.ecosystem_service import EcosystemService
+from ..storage import get_session
 
 router = APIRouter()
 

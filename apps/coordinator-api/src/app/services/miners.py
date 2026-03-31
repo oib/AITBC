@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 from uuid import uuid4
 
 from sqlmodel import Session, select
@@ -61,7 +60,7 @@ class MinerService:
         self.session.refresh(miner)
         return miner
 
-    def poll(self, miner_id: str, max_wait_seconds: int) -> Optional[AssignedJob]:
+    def poll(self, miner_id: str, max_wait_seconds: int) -> AssignedJob | None:
         miner = self.session.get(Miner, miner_id)
         if miner is None:
             raise KeyError("miner not registered")
@@ -94,9 +93,7 @@ class MinerService:
                 miner.jobs_completed += 1
                 if duration_ms is not None:
                     miner.total_job_duration_ms += duration_ms
-                    miner.average_job_duration_ms = (
-                        miner.total_job_duration_ms / max(miner.jobs_completed, 1)
-                    )
+                    miner.average_job_duration_ms = miner.total_job_duration_ms / max(miner.jobs_completed, 1)
             elif success is False:
                 miner.jobs_failed += 1
             if receipt_id:
@@ -122,7 +119,7 @@ class MinerService:
         miner = self.session.get(Miner, miner_id)
         if miner is None:
             raise KeyError("miner not registered")
-        
+
         # Set status to OFFLINE instead of deleting to maintain history
         miner.status = "OFFLINE"
         miner.session_token = None

@@ -1,13 +1,21 @@
 """Domain models for the coordinator API."""
 
+from .agent import (
+    AgentExecution,
+    AgentMarketplace,
+    AgentStatus,
+    AgentStep,
+    AgentStepExecution,
+    AIAgentWorkflow,
+    VerificationLevel,
+)
+from .gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPURegistry, GPUReview
 from .job import Job
-from .miner import Miner
 from .job_receipt import JobReceipt
-from .marketplace import MarketplaceOffer, MarketplaceBid
-from .user import User, Wallet, Transaction, UserSession
+from .marketplace import MarketplaceBid, MarketplaceOffer
+from .miner import Miner
 from .payment import JobPayment, PaymentEscrow
-from .gpu_marketplace import GPURegistry, ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPUReview
-from .agent import AIAgentWorkflow, AgentStep, AgentExecution, AgentStepExecution, AgentMarketplace, AgentStatus
+from .user import Transaction, User, UserSession, Wallet
 
 __all__ = [
     "Job",
@@ -32,4 +40,5 @@ __all__ = [
     "AgentStepExecution",
     "AgentMarketplace",
     "AgentStatus",
+    "VerificationLevel",
 ]

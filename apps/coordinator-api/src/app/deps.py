@@ -1,13 +1,14 @@
-from sqlalchemy.orm import Session
-from typing import Annotated
+
+
 """
 Dependency injection module for AITBC Coordinator API
 
 Provides unified dependency injection using storage.Annotated[Session, Depends(get_session)].
 """
 
-from typing import Callable
-from fastapi import Depends, Header, HTTPException
+from collections.abc import Callable
+
+from fastapi import Header, HTTPException
 
 from .config import settings
 
@@ -15,10 +16,11 @@ from .config import settings
 def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
     # In development mode, allow any API key for testing
     import os
-    if os.getenv('APP_ENV', 'dev') == 'dev':
+
+    if os.getenv("APP_ENV", "dev") == "dev":
         print(f"DEBUG: Development mode - allowing API key '{api_key}'")
         return api_key or "dev_key"
-    
+
     allowed = {key.strip() for key in allowed_keys if key}
     if not api_key or api_key not in allowed:
         raise HTTPException(status_code=401, detail="invalid api key")
@@ -71,4 +73,5 @@ def require_admin_key() -> Callable[[str | None], str]:
 def get_session():
     """Legacy alias - use Annotated[Session, Depends(get_session)] instead."""
     from .storage import get_session
+
     return get_session()

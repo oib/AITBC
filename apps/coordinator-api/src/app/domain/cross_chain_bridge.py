@@ -7,15 +7,13 @@ Domain models for cross-chain asset transfers, bridge requests, and validator ma
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from enum import Enum
-from typing import Dict, List, Optional
-from uuid import uuid4
+from enum import StrEnum
 
-from sqlalchemy import Column, JSON
-from sqlmodel import Field, SQLModel, Relationship
+from sqlalchemy import JSON, Column
+from sqlmodel import Field, SQLModel
 
 
-class BridgeRequestStatus(str, Enum):
+class BridgeRequestStatus(StrEnum):
     PENDING = "pending"
     CONFIRMED = "confirmed"
     COMPLETED = "completed"
@@ -25,7 +23,7 @@ class BridgeRequestStatus(str, Enum):
     RESOLVED = "resolved"
 
 
-class ChainType(str, Enum):
+class ChainType(StrEnum):
     ETHEREUM = "ethereum"
     POLYGON = "polygon"
     BSC = "bsc"
@@ -36,7 +34,7 @@ class ChainType(str, Enum):
     HARMONY = "harmony"
 
 
-class TransactionType(str, Enum):
+class TransactionType(StrEnum):
     INITIATION = "initiation"
     CONFIRMATION = "confirmation"
     COMPLETION = "completion"
@@ -44,7 +42,7 @@ class TransactionType(str, Enum):
     DISPUTE = "dispute"
 
 
-class ValidatorStatus(str, Enum):
+class ValidatorStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
     SUSPENDED = "suspended"
@@ -53,9 +51,10 @@ class ValidatorStatus(str, Enum):
 
 class BridgeRequest(SQLModel, table=True):
     """Cross-chain bridge transfer request"""
+
     __tablename__ = "bridge_request"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     contract_request_id: str = Field(index=True)  # Contract request ID
     sender_address: str = Field(index=True)
     recipient_address: str = Field(index=True)
@@ -68,21 +67,21 @@ class BridgeRequest(SQLModel, table=True):
     total_amount: float = Field(default=0.0)  # Amount including fee
     exchange_rate: float = Field(default=1.0)  # Exchange rate between tokens
     status: BridgeRequestStatus = Field(default=BridgeRequestStatus.PENDING, index=True)
-    zk_proof: Optional[str] = Field(default=None)  # Zero-knowledge proof
-    merkle_proof: Optional[str] = Field(default=None)  # Merkle proof for completion
-    lock_tx_hash: Optional[str] = Field(default=None, index=True)  # Lock transaction hash
-    unlock_tx_hash: Optional[str] = Field(default=None, index=True)  # Unlock transaction hash
+    zk_proof: str | None = Field(default=None)  # Zero-knowledge proof
+    merkle_proof: str | None = Field(default=None)  # Merkle proof for completion
+    lock_tx_hash: str | None = Field(default=None, index=True)  # Lock transaction hash
+    unlock_tx_hash: str | None = Field(default=None, index=True)  # Unlock transaction hash
     confirmations: int = Field(default=0)  # Number of confirmations received
     required_confirmations: int = Field(default=3)  # Required confirmations
-    dispute_reason: Optional[str] = Field(default=None)
-    resolution_action: Optional[str] = Field(default=None)
+    dispute_reason: str | None = Field(default=None)
+    resolution_action: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    confirmed_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
-    resolved_at: Optional[datetime] = Field(default=None)
+    confirmed_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    resolved_at: datetime | None = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
-    
+
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
     # disputes: List["BridgeDispute"] = Relationship(back_populates="bridge_request")
@@ -90,9 +89,10 @@ class BridgeRequest(SQLModel, table=True):
 
 class SupportedToken(SQLModel, table=True):
     """Supported tokens for cross-chain bridging"""
+
     __tablename__ = "supported_token"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     token_address: str = Field(index=True)
     token_symbol: str = Field(index=True)
     token_name: str = Field(default="")
@@ -104,18 +104,19 @@ class SupportedToken(SQLModel, table=True):
     requires_whitelist: bool = Field(default=False)
     is_active: bool = Field(default=True, index=True)
     is_wrapped: bool = Field(default=False)  # Whether it's a wrapped token
-    original_token: Optional[str] = Field(default=None)  # Original token address for wrapped tokens
-    supported_chains: List[int] = Field(default_factory=list, sa_column=Column(JSON))
-    bridge_contracts: Dict[int, str] = Field(default_factory=dict, sa_column=Column(JSON))  # Chain ID -> Contract address
+    original_token: str | None = Field(default=None)  # Original token address for wrapped tokens
+    supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
+    bridge_contracts: dict[int, str] = Field(default_factory=dict, sa_column=Column(JSON))  # Chain ID -> Contract address
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ChainConfig(SQLModel, table=True):
     """Configuration for supported blockchain networks"""
+
     __tablename__ = "chain_config"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: int = Field(index=True)
     chain_name: str = Field(index=True)
     chain_type: ChainType = Field(index=True)
@@ -140,9 +141,10 @@ class ChainConfig(SQLModel, table=True):
 
 class Validator(SQLModel, table=True):
     """Bridge validator for cross-chain confirmations"""
+
     __tablename__ = "validator"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     validator_address: str = Field(index=True)
     validator_name: str = Field(default="")
     weight: int = Field(default=1)  # Validator weight
@@ -154,43 +156,44 @@ class Validator(SQLModel, table=True):
     earned_fees: float = Field(default=0.0)  # Total fees earned
     reputation_score: float = Field(default=100.0)  # Reputation score (0-100)
     uptime_percentage: float = Field(default=100.0)  # Uptime percentage
-    last_validation: Optional[datetime] = Field(default=None)
-    last_seen: Optional[datetime] = Field(default=None)
+    last_validation: datetime | None = Field(default=None)
+    last_seen: datetime | None = Field(default=None)
     status: ValidatorStatus = Field(default=ValidatorStatus.ACTIVE, index=True)
     is_active: bool = Field(default=True, index=True)
-    supported_chains: List[int] = Field(default_factory=list, sa_column=Column(JSON))
-    val_meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
+    val_meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
+
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="validator")
 
 
 class BridgeTransaction(SQLModel, table=True):
     """Transactions related to bridge requests"""
+
     __tablename__ = "bridge_transaction"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     bridge_request_id: int = Field(foreign_key="bridge_request.id", index=True)
-    validator_address: Optional[str] = Field(default=None, index=True)
+    validator_address: str | None = Field(default=None, index=True)
     transaction_type: TransactionType = Field(index=True)
-    transaction_hash: Optional[str] = Field(default=None, index=True)
-    block_number: Optional[int] = Field(default=None)
-    block_hash: Optional[str] = Field(default=None)
-    gas_used: Optional[int] = Field(default=None)
-    gas_price: Optional[float] = Field(default=None)
-    transaction_cost: Optional[float] = Field(default=None)
-    signature: Optional[str] = Field(default=None)  # Validator signature
-    merkle_proof: Optional[List[str]] = Field(default_factory=list, sa_column=Column(JSON))
+    transaction_hash: str | None = Field(default=None, index=True)
+    block_number: int | None = Field(default=None)
+    block_hash: str | None = Field(default=None)
+    gas_used: int | None = Field(default=None)
+    gas_price: float | None = Field(default=None)
+    transaction_cost: float | None = Field(default=None)
+    signature: str | None = Field(default=None)  # Validator signature
+    merkle_proof: list[str] | None = Field(default_factory=list, sa_column=Column(JSON))
     confirmations: int = Field(default=0)  # Number of confirmations
     is_successful: bool = Field(default=False)
-    error_message: Optional[str] = Field(default=None)
+    error_message: str | None = Field(default=None)
     retry_count: int = Field(default=0)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    confirmed_at: Optional[datetime] = Field(default=None)
-    completed_at: Optional[datetime] = Field(default=None)
-    
+    confirmed_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+
     # Relationships
     # bridge_request: BridgeRequest = Relationship(back_populates="transactions")
     # validator: Optional[Validator] = Relationship(back_populates="transactions")
@@ -198,53 +201,56 @@ class BridgeTransaction(SQLModel, table=True):
 
 class BridgeDispute(SQLModel, table=True):
     """Dispute records for failed bridge transfers"""
+
     __tablename__ = "bridge_dispute"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     bridge_request_id: int = Field(foreign_key="bridge_request.id", index=True)
     dispute_type: str = Field(index=True)  # TIMEOUT, INSUFFICIENT_FUNDS, VALIDATOR_MISBEHAVIOR, etc.
     dispute_reason: str = Field(default="")
     dispute_status: str = Field(default="open")  # open, investigating, resolved, rejected
     reporter_address: str = Field(index=True)
-    evidence: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
-    resolution_action: Optional[str] = Field(default=None)
-    resolution_details: Optional[str] = Field(default=None)
-    refund_amount: Optional[float] = Field(default=None)
-    compensation_amount: Optional[float] = Field(default=None)
-    penalty_amount: Optional[float] = Field(default=None)
-    investigator_address: Optional[str] = Field(default=None)
-    investigation_notes: Optional[str] = Field(default=None)
+    evidence: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    resolution_action: str | None = Field(default=None)
+    resolution_details: str | None = Field(default=None)
+    refund_amount: float | None = Field(default=None)
+    compensation_amount: float | None = Field(default=None)
+    penalty_amount: float | None = Field(default=None)
+    investigator_address: str | None = Field(default=None)
+    investigation_notes: str | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    resolved_at: Optional[datetime] = Field(default=None)
-    
+    resolved_at: datetime | None = Field(default=None)
+
     # Relationships
     # bridge_request: BridgeRequest = Relationship(back_populates="disputes")
 
 
 class MerkleProof(SQLModel, table=True):
     """Merkle proofs for bridge transaction verification"""
+
     __tablename__ = "merkle_proof"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     bridge_request_id: int = Field(foreign_key="bridge_request.id", index=True)
     proof_hash: str = Field(index=True)  # Merkle proof hash
     merkle_root: str = Field(index=True)  # Merkle root
-    proof_data: List[str] = Field(default_factory=list, sa_column=Column(JSON))  # Proof data
+    proof_data: list[str] = Field(default_factory=list, sa_column=Column(JSON))  # Proof data
     leaf_index: int = Field(default=0)  # Leaf index in tree
     tree_depth: int = Field(default=0)  # Tree depth
     is_valid: bool = Field(default=False)
-    verified_at: Optional[datetime] = Field(default=None)
+    verified_at: datetime | None = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class BridgeStatistics(SQLModel, table=True):
     """Statistics for bridge operations"""
+
     __tablename__ = "bridge_statistics"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: int = Field(index=True)
     token_address: str = Field(index=True)
     date: datetime = Field(index=True)
@@ -263,35 +269,37 @@ class BridgeStatistics(SQLModel, table=True):
 
 class BridgeAlert(SQLModel, table=True):
     """Alerts for bridge operations and issues"""
+
     __tablename__ = "bridge_alert"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     alert_type: str = Field(index=True)  # HIGH_FAILURE_RATE, LOW_LIQUIDITY, VALIDATOR_OFFLINE, etc.
     severity: str = Field(index=True)  # LOW, MEDIUM, HIGH, CRITICAL
-    chain_id: Optional[int] = Field(default=None, index=True)
-    token_address: Optional[str] = Field(default=None, index=True)
-    validator_address: Optional[str] = Field(default=None, index=True)
-    bridge_request_id: Optional[int] = Field(default=None, index=True)
+    chain_id: int | None = Field(default=None, index=True)
+    token_address: str | None = Field(default=None, index=True)
+    validator_address: str | None = Field(default=None, index=True)
+    bridge_request_id: int | None = Field(default=None, index=True)
     title: str = Field(default="")
     message: str = Field(default="")
-    val_meta_data: Dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
+    val_meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     threshold_value: float = Field(default=0.0)  # Threshold that triggered alert
     current_value: float = Field(default=0.0)  # Current value
     is_acknowledged: bool = Field(default=False, index=True)
-    acknowledged_by: Optional[str] = Field(default=None)
-    acknowledged_at: Optional[datetime] = Field(default=None)
+    acknowledged_by: str | None = Field(default=None)
+    acknowledged_at: datetime | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
-    resolved_at: Optional[datetime] = Field(default=None)
-    resolution_notes: Optional[str] = Field(default=None)
+    resolved_at: datetime | None = Field(default=None)
+    resolution_notes: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
 
 
 class BridgeConfiguration(SQLModel, table=True):
     """Configuration settings for bridge operations"""
+
     __tablename__ = "bridge_configuration"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     config_key: str = Field(index=True)
     config_value: str = Field(default="")
     config_type: str = Field(default="string")  # string, number, boolean, json
@@ -303,9 +311,10 @@ class BridgeConfiguration(SQLModel, table=True):
 
 class LiquidityPool(SQLModel, table=True):
     """Liquidity pools for bridge operations"""
+
     __tablename__ = "bridge_liquidity_pool"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     chain_id: int = Field(index=True)
     token_address: str = Field(index=True)
     pool_address: str = Field(index=True)
@@ -321,9 +330,10 @@ class LiquidityPool(SQLModel, table=True):
 
 class BridgeSnapshot(SQLModel, table=True):
     """Daily snapshot of bridge operations"""
+
     __tablename__ = "bridge_snapshot"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     snapshot_date: datetime = Field(index=True)
     total_volume_24h: float = Field(default=0.0)
     total_transactions_24h: int = Field(default=0)
@@ -335,16 +345,17 @@ class BridgeSnapshot(SQLModel, table=True):
     active_validators: int = Field(default=0)
     total_liquidity: float = Field(default=0.0)
     bridge_utilization: float = Field(default=0.0)
-    top_tokens: Dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    top_chains: Dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
+    top_tokens: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
+    top_chains: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class ValidatorReward(SQLModel, table=True):
     """Rewards earned by validators"""
+
     __tablename__ = "validator_reward"
-    
-    id: Optional[int] = Field(default=None, primary_key=True)
+
+    id: int | None = Field(default=None, primary_key=True)
     validator_address: str = Field(index=True)
     bridge_request_id: int = Field(foreign_key="bridge_request.id", index=True)
     reward_amount: float = Field(default=0.0)
@@ -352,6 +363,6 @@ class ValidatorReward(SQLModel, table=True):
     reward_type: str = Field(index=True)  # VALIDATION_FEE, PERFORMANCE_BONUS, etc.
     reward_period: str = Field(index=True)  # Daily, weekly, monthly
     is_claimed: bool = Field(default=False, index=True)
-    claimed_at: Optional[datetime] = Field(default=None)
-    claim_transaction_hash: Optional[str] = Field(default=None)
+    claimed_at: datetime | None = Field(default=None)
+    claim_transaction_hash: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
