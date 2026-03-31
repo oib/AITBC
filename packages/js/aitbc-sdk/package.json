@@ -1,6 +1,6 @@
 {
   "name": "@aitbc/aitbc-sdk",
-  "version": "0.2.0",
+  "version": "0.2.3",
   "description": "AITBC JavaScript/TypeScript SDK for coordinator services, blockchain, and marketplace",
   "type": "module",
   "main": "dist/index.js",
