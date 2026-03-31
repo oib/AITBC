@@ -9,7 +9,8 @@ Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
-ExecStart=/usr/bin/python3 -m aitbc_chain.p2p_network --host ${p2p_bind_host} --port ${p2p_bind_port} --redis ${gossip_broadcast_url} --node-id ${proposer_id}
+EnvironmentFile=/etc/aitbc/blockchain.env
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.p2p_network --host ${p2p_bind_host} --port ${p2p_bind_port} --redis ${gossip_broadcast_url} --node-id ${proposer_id}
 Restart=always
 RestartSec=5
 StandardOutput=journal
