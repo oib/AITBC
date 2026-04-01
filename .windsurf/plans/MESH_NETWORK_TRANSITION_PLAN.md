@@ -611,6 +611,53 @@ aitbc env switch <environment>   # Switch environment (dev/staging/prod)
 
 ---
 
+## �️ **DEPLOYMENT & TROUBLESHOOTING CODE MAP**
+
+**Trace ID: 9 - Deployment Flow (localhost → aitbc1)**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 9a | Navigate to project directory | `AITBC1_UPDATED_COMMANDS.md:21` |
+| 9b | Pull latest changes from Gitea | `AITBC1_UPDATED_COMMANDS.md:22` |
+| 9c | Stage all changes for commit | `scripts/utils/sync.sh:20` |
+| 9d | Commit changes with environment tag | `scripts/utils/sync.sh:21` |
+| 9e | Push changes to remote repository | `scripts/utils/sync.sh:22` |
+| 9f | Restart coordinator service | `scripts/utils/sync.sh:39` |
+
+**Trace ID: 10 - Network Partition Recovery**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 10a | Create partitioned network scenario | `tests/cross_phase/test_critical_failures.py:33` |
+| 10b | Add validators to partitions | `tests/cross_phase/test_critical_failures.py:39` |
+| 10c | Trigger network partition state | `tests/cross_phase/test_critical_failures.py:95` |
+| 10d | Heal network partition | `tests/cross_phase/test_critical_failures.py:105` |
+| 10e | Set recovery timeout | `scripts/plan/02_network_infrastructure.sh:1575` |
+
+**Trace ID: 11 - Validator Failure Recovery**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 11a | Detect validator misbehavior | `tests/test_security_validation.py:23` |
+| 11b | Execute detection algorithm | `tests/test_security_validation.py:38` |
+| 11c | Apply slashing penalty | `tests/test_security_validation.py:47` |
+| 11d | Rotate to new proposer | `tests/cross_phase/test_critical_failures.py:180` |
+
+**Trace ID: 12 - Agent Failure During Job**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 12a | Start job execution | `tests/cross_phase/test_critical_failures.py:155` |
+| 12b | Report agent failure | `tests/cross_phase/test_critical_failures.py:159` |
+| 12c | Reassign job to new agent | `tests/cross_phase/test_critical_failures.py:165` |
+| 12d | Process client refund | `tests/cross_phase/test_critical_failures.py:195` |
+
+**Trace ID: 13 - Economic Attack Response**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 13a | Identify suspicious validator | `tests/test_security_validation.py:32` |
+| 13b | Detect conflicting signatures | `tests/test_security_validation.py:35` |
+| 13c | Verify attack evidence | `tests/test_security_validation.py:42` |
+| 13d | Apply economic penalty | `tests/test_security_validation.py:47` |
+
+---
+
 ## �🚀 **Deployment Strategy - READY FOR EXECUTION**
 
 ### **🎉 IMMEDIATE ACTIONS AVAILABLE**
@@ -618,6 +665,7 @@ aitbc env switch <environment>   # Switch environment (dev/staging/prod)
 - ✅ **Comprehensive test suite ready** in `/opt/aitbc/tests/`
 - ✅ **Complete documentation** with setup guides
 - ✅ **Performance benchmarks** and security validation
+- ✅ **CI/CD ready** with automated testing
 
 ### **Phase 1: Test Network Deployment (IMMEDIATE)**
 
