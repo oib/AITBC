@@ -535,7 +535,83 @@ aitbc env switch <environment>   # Switch environment (dev/staging/prod)
 - ✅ **CI/CD Ready**: Automated testing and deployment scripts
 - ✅ **Performance Benchmarks**: All performance targets met and validated
 
-## 🚀 **Deployment Strategy - READY FOR EXECUTION**
+## �️ **ARCHITECTURAL CODE MAP - IMPLEMENTATION REFERENCES**
+
+**Trace ID: 1 - Consensus Layer Setup**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 1a | Utility Loading (common.sh, env_config.sh) | `scripts/plan/01_consensus_setup.sh:25` |
+| 1b | Configuration Creation | `scripts/plan/01_consensus_setup.sh:35` |
+| 1c | PoA Instantiation | `scripts/plan/01_consensus_setup.sh:85` |
+| 1d | Validator Addition | `scripts/plan/01_consensus_setup.sh:95` |
+| 1e | Proposer Selection | `scripts/plan/01_consensus_setup.sh:105` |
+
+**Trace ID: 2 - Network Infrastructure**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 2a | Discovery Service Start | `scripts/plan/02_network_infrastructure.sh:45` |
+| 2b | Bootstrap Configuration | `scripts/plan/02_network_infrastructure.sh:55` |
+| 2c | Health Monitor Start | `scripts/plan/02_network_infrastructure.sh:65` |
+| 2d | Peer Discovery | `scripts/plan/02_network_infrastructure.sh:75` |
+| 2e | Health Status Check | `scripts/plan/02_network_infrastructure.sh:85` |
+
+**Trace ID: 3 - Economic Layer**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 3a | Staking Manager Setup | `scripts/plan/03_economic_layer.sh:40` |
+| 3b | Validator Registration | `scripts/plan/03_economic_layer.sh:50` |
+| 3c | Delegation Staking | `scripts/plan/03_economic_layer.sh:60` |
+| 3d | Reward Event Creation | `scripts/plan/03_economic_layer.sh:70` |
+| 3e | Reward Calculation | `scripts/plan/03_economic_layer.sh:80` |
+
+**Trace ID: 4 - Agent Network**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 4a | Agent Registry Start | `scripts/plan/04_agent_network_scaling.sh:483` |
+| 4b | Agent Registration | `scripts/plan/04_agent_network_scaling.sh:55` |
+| 4c | Capability Matching | `scripts/plan/04_agent_network_scaling.sh:65` |
+| 4d | Reputation Update | `scripts/plan/04_agent_network_scaling.sh:75` |
+| 4e | Reputation Retrieval | `scripts/plan/04_agent_network_scaling.sh:85` |
+
+**Trace ID: 5 - Smart Contracts**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 5a | Escrow Manager Setup | `scripts/plan/05_smart_contracts.sh:40` |
+| 5b | Contract Creation | `scripts/plan/05_smart_contracts.sh:50` |
+| 5c | Contract Funding | `scripts/plan/05_smart_contracts.sh:60` |
+| 5d | Milestone Completion | `scripts/plan/05_smart_contracts.sh:70` |
+| 5e | Payment Release | `scripts/plan/05_smart_contracts.sh:80` |
+
+**Trace ID: 6 - End-to-End Job Execution**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 6a | Job Contract Creation | `tests/test_phase_integration.py:399` |
+| 6b | Agent Discovery | `tests/test_phase_integration.py:416` |
+| 6c | Job Offer Communication | `tests/test_phase_integration.py:428` |
+| 6d | Consensus Validation | `tests/test_phase_integration.py:445` |
+| 6e | Payment Release | `tests/test_phase_integration.py:465` |
+
+**Trace ID: 7 - Environment & Service Management**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 7a | Environment Detection | `scripts/utils/env_config.sh:441` |
+| 7b | Configuration Loading | `scripts/utils/env_config.sh:445` |
+| 7c | Environment Validation | `scripts/utils/env_config.sh:448` |
+| 7d | Service Startup | `scripts/utils/common.sh:212` |
+| 7e | Phase Completion | `scripts/utils/common.sh:278` |
+
+**Trace ID: 8 - Testing Infrastructure**
+| Location | Description | File Path |
+|----------|-------------|-----------|
+| 8a | Test Fixture Setup | `tests/test_mesh_network_transition.py:86` |
+| 8b | Validator Addition Test | `tests/test_mesh_network_transition.py:116` |
+| 8c | PBFT Consensus Test | `tests/test_mesh_network_transition.py:171` |
+| 8d | Agent Registration Test | `tests/test_mesh_network_transition.py:565` |
+| 8e | Escrow Contract Test | `tests/test_mesh_network_transition.py:720` |
+
+---
+
+## �🚀 **Deployment Strategy - READY FOR EXECUTION**
 
 ### **🎉 IMMEDIATE ACTIONS AVAILABLE**
 - ✅ **All implementation scripts ready** in `/opt/aitbc/scripts/plan/`
