@@ -544,6 +544,69 @@ aitbc env switch <environment>   # Switch environment (dev/staging/prod)
 - ✅ **Performance benchmarks** and security validation
 
 ### **Phase 1: Test Network Deployment (IMMEDIATE)**
+
+#### **Deployment Architecture: Two-Node Setup**
+
+**Node Configuration:**
+- **localhost**: AITBC server (development/primary node)
+- **aitbc1**: AITBC server (secondary node, accessed via SSH)
+
+**Code Synchronization Strategy (Git-Based)**
+
+⚠️ **IMPORTANT**: aitbc1 node must update codebase via Gitea Git operations (push/pull), NOT via SCP
+
+```bash
+# === LOCALHOST NODE (Development/Primary) ===
+# 1. Make changes on localhost
+
+# 2. Commit and push to Gitea
+git add .
+git commit -m "feat: implement mesh network phase X"
+git push origin main
+
+# 3. SSH to aitbc1 node to trigger update
+ssh aitbc1
+
+# === AITBC1 NODE (Secondary) ===
+# 4. Pull latest code from Gitea (DO NOT USE SCP)
+cd /opt/aitbc
+git pull origin main
+
+# 5. Restart services
+./scripts/plan/01_consensus_setup.sh
+# ... other phase scripts
+```
+
+**Git-Based Workflow Benefits:**
+- ✅ Version control and history tracking
+- ✅ Rollback capability via git reset
+- ✅ Conflict resolution through git merge
+- ✅ Audit trail of all changes
+- ✅ No manual file copying (SCP) which can cause inconsistencies
+
+**SSH Access Setup:**
+```bash
+# From localhost to aitbc1
+ssh-copy-id user@aitbc1  # Setup key-based auth
+
+# Test connection
+ssh aitbc1 "cd /opt/aitbc && git status"
+```
+
+**Automated Sync Script (Optional):**
+```bash
+#!/bin/bash
+# /opt/aitbc/scripts/sync-aitbc1.sh
+
+# Push changes from localhost
+git push origin main
+
+# SSH to aitbc1 and pull
+ssh aitbc1 "cd /opt/aitbc && git pull origin main && ./scripts/restart-services.sh"
+```
+
+#### **Phase 1 Implementation**
+
 ```bash
 # Execute complete implementation
 cd /opt/aitbc/scripts/plan
