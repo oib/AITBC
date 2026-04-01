@@ -391,6 +391,109 @@ python -m pytest -v
 
 ## �� **Resource Allocation**
 
+### **Phase X: AITBC CLI Tool Enhancement**
+
+**Goal**: Update the AITBC CLI tool to support all mesh network operations
+
+**CLI Features Needed**:
+
+##### **1. Node Management Commands**
+```bash
+aitbc node list                    # List all nodes
+aitbc node status <node_id>        # Check node status
+aitbc node start <node_id>       # Start a node
+aitbc node stop <node_id>          # Stop a node
+aitbc node restart <node_id>       # Restart a node
+aitbc node logs <node_id>          # View node logs
+aitbc node metrics <node_id>       # View node metrics
+```
+
+##### **2. Validator Management Commands**
+```bash
+aitbc validator list               # List all validators
+aitbc validator add <address>      # Add a new validator
+aitbc validator remove <address>   # Remove a validator
+aitbc validator rotate             # Trigger validator rotation
+aitbc validator slash <address>    # Slash a validator
+aitbc validator stake <amount>     # Stake tokens
+aitbc validator unstake <amount>   # Unstake tokens
+aitbc validator rewards            # View validator rewards
+```
+
+##### **3. Network Management Commands**
+```bash
+aitbc network status               # View network status
+aitbc network peers                # List connected peers
+aitbc network topology             # View network topology
+aitbc network discover             # Run peer discovery
+aitbc network health               # Check network health
+aitbc network partition            # Check for partitions
+aitbc network recover              # Trigger network recovery
+```
+
+##### **4. Agent Management Commands**
+```bash
+aitbc agent list                   # List all agents
+aitbc agent register               # Register a new agent
+aitbc agent info <agent_id>        # View agent details
+aitbc agent reputation <agent_id>  # Check agent reputation
+aitbc agent capabilities           # List agent capabilities
+aitbc agent match <job_id>         # Find matching agents for job
+aitbc agent monitor <agent_id>     # Monitor agent activity
+```
+
+##### **5. Economic Commands**
+```bash
+aitbc economics stake <validator> <amount>   # Stake to validator
+aitbc economics unstake <validator> <amount> # Unstake from validator
+aitbc economics rewards                      # View pending rewards
+aitbc economics claim                        # Claim rewards
+aitbc economics gas-price                    # View current gas price
+aitbc economics stats                        # View economic statistics
+```
+
+##### **6. Job & Contract Commands**
+```bash
+aitbc job create <spec>            # Create a new job
+aitbc job list                   # List all jobs
+aitbc job status <job_id>        # Check job status
+aitbc job assign <job_id> <agent> # Assign job to agent
+aitbc job complete <job_id>      # Mark job as complete
+aitbc contract create <params>   # Create escrow contract
+aitbc contract fund <contract_id> <amount>  # Fund contract
+aitbc contract release <contract_id>        # Release payment
+aitbc dispute create <contract_id> <reason> # Create dispute
+aitbc dispute resolve <dispute_id> <resolution> # Resolve dispute
+```
+
+##### **7. Monitoring & Diagnostics Commands**
+```bash
+aitbc monitor network              # Real-time network monitoring
+aitbc monitor consensus          # Monitor consensus activity
+aitbc monitor agents             # Monitor agent activity
+aitbc monitor economics          # Monitor economic metrics
+aitbc benchmark performance      # Run performance benchmarks
+aitbc benchmark throughput       # Test transaction throughput
+aitbc diagnose network           # Network diagnostics
+aitbc diagnose consensus         # Consensus diagnostics
+aitbc diagnose agents            # Agent diagnostics
+```
+
+##### **8. Configuration Commands**
+```bash
+aitbc config get <key>           # Get configuration value
+aitbc config set <key> <value>   # Set configuration value
+aitbc config view                # View all configuration
+aitbc config export              # Export configuration
+aitbc config import <file>       # Import configuration
+aitbc env switch <environment>   # Switch environment (dev/staging/prod)
+```
+
+**Implementation Timeline**: 2-3 weeks
+**Priority**: High (needed for all mesh network operations)
+
+## 📊 **Resource Allocation**
+
 ### **Development Team Structure**
 - **Consensus Team**: 2 developers (Weeks 1-3, 17-19)
 - **Network Team**: 2 developers (Weeks 4-7)
