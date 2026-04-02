@@ -468,28 +468,39 @@ class TestMonitoringIntegration:
     
     def test_metrics_consistency(self):
         """Test that metrics are consistent across endpoints"""
+        # Get admin token for authenticated endpoints
+        response = requests.post(
+            f"{self.BASE_URL}/auth/login",
+            json={"username": "admin", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        token = response.json()["access_token"]
+        
         # Get metrics from different endpoints
         summary_response = requests.get(f"{self.BASE_URL}/metrics/summary")
-        health_response = requests.get(f"{self.BASE_URL}/metrics/health")
+        system_response = requests.get(
+            f"{self.BASE_URL}/system/status",
+            headers={"Authorization": f"Bearer {token}"}
+        )
         metrics_response = requests.get(f"{self.BASE_URL}/metrics")
         
         assert summary_response.status_code == 200
-        assert health_response.status_code == 200
+        assert system_response.status_code == 200
         assert metrics_response.status_code == 200
         
         summary = summary_response.json()
-        health = health_response.json()
+        system = system_response.json()
         
         # Check that uptime is consistent
-        assert summary["performance"]["uptime_seconds"] == health["health"]["uptime"]
+        assert summary["performance"]["uptime_seconds"] == system["system"]["uptime"]
         
         # Check timestamps are recent
         summary_time = datetime.fromisoformat(summary["timestamp"].replace('Z', '+00:00'))
-        health_time = datetime.fromisoformat(health["health"]["timestamp"].replace('Z', '+00:00'))
+        system_time = datetime.fromisoformat(system["timestamp"].replace('Z', '+00:00'))
         
         now = datetime.utcnow()
         assert (now - summary_time).total_seconds() < 60  # Within last minute
-        assert (now - health_time).total_seconds() < 60  # Within last minute
+        assert (now - system_time).total_seconds() < 60  # Within last minute
 
 class TestAlertingIntegration:
     """Test alerting system integration with metrics"""
