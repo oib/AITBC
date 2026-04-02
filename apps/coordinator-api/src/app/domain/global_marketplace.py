@@ -77,12 +77,8 @@ class MarketplaceRegion(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_marketplace_region_code", "region_code"),
-            Index("idx_marketplace_region_status", "status"),
-            Index("idx_marketplace_region_health", "health_score"),
-        ]
     }
+    # Indexes are created separately via SQLAlchemy Index objects
 
 
 class GlobalMarketplaceConfig(SQLModel, table=True):
@@ -115,10 +111,6 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_global_config_key", "config_key"),
-            Index("idx_global_config_category", "category"),
-        ]
     }
 
 
@@ -168,12 +160,6 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_global_offer_agent", "agent_id"),
-            Index("idx_global_offer_service", "service_type"),
-            Index("idx_global_offer_status", "global_status"),
-            Index("idx_global_offer_created", "created_at"),
-        ]
     }
 
 
@@ -226,14 +212,14 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_global_tx_buyer", "buyer_id"),
-            Index("idx_global_tx_seller", "seller_id"),
-            Index("idx_global_tx_offer", "offer_id"),
-            Index("idx_global_tx_status", "status"),
-            Index("idx_global_tx_created", "created_at"),
-            Index("idx_global_tx_chain", "source_chain", "target_chain"),
-        ]
+        # # # "indexes": [
+#    #        # Index(        Index("idx_global_tx_buyer", "buyer_id"),)
+#    #        # Index(        Index("idx_global_tx_seller", "seller_id"),)
+#    #        # Index(        Index("idx_global_tx_offer", "offer_id"),)
+#    #        # Index(        Index("idx_global_tx_status", "status"),)
+#    #        # Index(        Index("idx_global_tx_created", "created_at"),)
+#    #        # Index(        Index("idx_global_tx_chain", "source_chain", "target_chain"),)
+###        ]
     }
 
 
@@ -286,11 +272,11 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_global_analytics_period", "period_type", "period_start"),
-            Index("idx_global_analytics_region", "region"),
-            Index("idx_global_analytics_created", "created_at"),
-        ]
+        # # # "indexes": [
+#    #        # Index(        Index("idx_global_analytics_period", "period_type", "period_start"),)
+#    #        # Index(        Index("idx_global_analytics_region", "region"),)
+#    #        # Index(        Index("idx_global_analytics_created", "created_at"),)
+###        ]
     }
 
 
@@ -335,11 +321,11 @@ class GlobalMarketplaceGovernance(SQLModel, table=True):
     # Indexes
     __table_args__ = {
         "extend_existing": True,
-        "indexes": [
-            Index("idx_global_gov_rule_type", "rule_type"),
-            Index("idx_global_gov_active", "is_active"),
-            Index("idx_global_gov_effective", "effective_from", "expires_at"),
-        ]
+        # # # "indexes": [
+#    #        # Index(        Index("idx_global_gov_rule_type", "rule_type"),)
+#    #        # Index(        Index("idx_global_gov_active", "is_active"),)
+#    #        # Index(        Index("idx_global_gov_effective", "effective_from", "expires_at"),)
+###        ]
     }
 
 
