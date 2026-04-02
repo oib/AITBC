@@ -1,0 +1,30 @@
+chain_id: "aitbc-enhanced-devnet"
+chain_type: "topic"
+purpose: "development-with-new-features"
+name: "AITBC Enhanced Devnet"
+description: "Enhanced development network with AI trading, surveillance, analytics, and multi-chain features"
+consensus:
+  algorithm: "poa"
+  authorities:
+    - "ait1devproposer000000000000000000000000000000"
+    - "ait1aivalidator00000000000000000000000000000"
+    - "ait1surveillance0000000000000000000000000000"
+  block_time: 3
+  max_validators: 100
+parameters:
+  block_reward: "2000000000000000000"
+  max_block_size: 2097152
+  max_gas_per_block: 15000000
+  min_gas_price: 1000000000
+  min_stake: 1000
+features:
+  ai_trading_engine: true
+  ai_surveillance: true
+  advanced_analytics: true
+  enterprise_integration: true
+  multi_modal_ai: true
+  zk_proofs: true
+  cross_chain_bridge: true
+  global_marketplace: true
+  adaptive_learning: true
+  performance_monitoring: true
