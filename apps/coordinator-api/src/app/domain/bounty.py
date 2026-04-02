@@ -99,11 +99,11 @@ class Bounty(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_bounty_status_deadline", "columns": ["status", "deadline"]},
-            {"name": "ix_bounty_creator_status", "columns": ["creator_id", "status"]},
-            {"name": "ix_bounty_tier_reward", "columns": ["tier", "reward_amount"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -148,11 +148,11 @@ class BountySubmission(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_submission_bounty_status", "columns": ["bounty_id", "status"]},
-            {"name": "ix_submission_submitter_time", "columns": ["submitter_address", "submission_time"]},
-            {"name": "ix_submission_accuracy", "columns": ["accuracy"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -194,11 +194,11 @@ class AgentStake(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_stake_agent_status", "columns": ["agent_wallet", "status"]},
-            {"name": "ix_stake_staker_status", "columns": ["staker_address", "status"]},
-            {"name": "ix_stake_amount_apy", "columns": ["amount", "current_apy"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -246,11 +246,11 @@ class AgentMetrics(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_metrics_tier_score", "columns": ["current_tier", "tier_score"]},
-            {"name": "ix_metrics_staked", "columns": ["total_staked"]},
-            {"name": "ix_metrics_accuracy", "columns": ["average_accuracy"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -288,10 +288,10 @@ class StakingPool(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_pool_apy_staked", "columns": ["pool_apy", "total_staked"]},
-            {"name": "ix_pool_performance", "columns": ["pool_performance_score"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -327,11 +327,11 @@ class BountyIntegration(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_integration_hash_status", "columns": ["performance_hash", "status"]},
-            {"name": "ix_integration_bounty", "columns": ["bounty_id"]},
-            {"name": "ix_integration_created", "columns": ["created_at"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -378,10 +378,10 @@ class BountyStats(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_stats_period", "columns": ["period_start", "period_end", "period_type"]},
-            {"name": "ix_stats_created", "columns": ["period_start"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
@@ -436,11 +436,11 @@ class EcosystemMetrics(SQLModel, table=True):
 
     # Indexes
     __table_args__ = {
-        "indexes": [
-            {"name": "ix_ecosystem_timestamp", "columns": ["timestamp", "period_type"]},
-            {"name": "ix_ecosystem_developers", "columns": ["active_developers"]},
-            {"name": "ix_ecosystem_staked", "columns": ["total_staked"]},
-        ]
+        # # # "indexes": [
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+#            # {"name": "...", "columns": [...]},
+###        ]
     }
 
 
