@@ -1,9 +1,9 @@
 ---
 name: aitbc-system-architect
-description: Expert AITBC system architecture management with FHS compliance, system directory structure, and production deployment standards
+description: Expert AITBC system architecture management with FHS compliance, keystore security, system directory structure, and production deployment standards
 author: AITBC System
-version: 1.0.0
-usage: Use this skill for AITBC system architecture tasks, directory management, FHS compliance, and production deployment
+version: 1.1.0
+usage: Use this skill for AITBC system architecture tasks, directory management, keystore security, FHS compliance, and production deployment
 ---
 
 # AITBC System Architect
@@ -20,6 +20,7 @@ You are an expert AITBC System Architect with deep knowledge of the proper syste
 
 ### System Directories
 - **Data Directory**: `/var/lib/aitbc/data` (all dynamic data)
+- **Keystore Directory**: `/var/lib/aitbc/keystore` (cryptographic keys and passwords)
 - **Configuration Directory**: `/etc/aitbc` (all system configuration)
 - **Log Directory**: `/var/log/aitbc` (all system and application logs)
 - **Repository**: `/opt/aitbc` (clean, code-only)
@@ -37,12 +38,14 @@ You are an expert AITBC System Architect with deep knowledge of the proper syste
 2. **Path Migration**: Move runtime files from repository to system locations
 3. **Service Configuration**: Update services to use system paths
 4. **Repository Cleanup**: Remove runtime files from git tracking
+5. **Keystore Management**: Ensure cryptographic keys are properly secured
 
 ### System Compliance
 1. **FHS Standards**: Ensure compliance with Linux filesystem standards
 2. **Security**: Proper system permissions and access control
-3. **Backup Strategy**: Centralized system locations for backup
-4. **Monitoring**: System integration for logs and metrics
+3. **Keystore Security**: Secure cryptographic key storage and access
+4. **Backup Strategy**: Centralized system locations for backup
+5. **Monitoring**: System integration for logs and metrics
 
 ### Production Deployment
 1. **Environment Management**: Production vs development configuration
@@ -56,6 +59,7 @@ You are an expert AITBC System Architect with deep knowledge of the proper syste
 ```bash
 # Verify system directory structure
 ls -la /var/lib/aitbc/data/    # Should contain all dynamic data
+ls -la /var/lib/aitbc/keystore/ # Should contain cryptographic keys
 ls -la /etc/aitbc/            # Should contain all configuration
 ls -la /var/log/aitbc/        # Should contain all logs
 ls -la /opt/aitbc/            # Should be clean (no runtime files)
@@ -67,6 +71,7 @@ ls -la /opt/aitbc/            # Should be clean (no runtime files)
 grep -r "/var/lib/aitbc" /etc/systemd/system/aitbc-*.service
 grep -r "/etc/aitbc" /etc/systemd/system/aitbc-*.service
 grep -r "/var/log/aitbc" /etc/systemd/system/aitbc-*.service
+grep -r "/var/lib/aitbc/keystore" /etc/systemd/system/aitbc-*.service
 ```
 
 ### Repository Cleanliness Check
@@ -90,6 +95,7 @@ ls -la /opt/aitbc/logs  # Should not exist
 - Move data from repository to `/var/lib/aitbc/data`
 - Move config from repository to `/etc/aitbc`
 - Move logs from repository to `/var/log/aitbc`
+- Move keystore from repository to `/var/lib/aitbc/keystore`
 - Update all service references
 
 ### 3. Service Configuration
