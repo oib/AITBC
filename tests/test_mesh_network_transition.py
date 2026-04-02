@@ -987,7 +987,7 @@ class TestMeshNetworkTransition:
     
     def test_configuration_files(self):
         """Test that all configuration files are created"""
-        config_dir = '/opt/aitbc/config'
+        config_dir = '/etc/aitbc'
         configs = [
             'consensus_test.json',
             'network_test.json',

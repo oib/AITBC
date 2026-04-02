@@ -603,7 +603,7 @@ class TestConfigurationIntegration:
         """Test that configuration files are consistent across phases"""
         import os
         
-        config_dir = "/opt/aitbc/config"
+        config_dir = "/etc/aitbc"
         configs = {
             "consensus_test.json": {"min_validators": 3, "block_time": 30},
             "network_test.json": {"max_peers": 50, "discovery_interval": 30},
