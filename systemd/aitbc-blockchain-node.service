@@ -10,11 +10,11 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=PYTHONPATH=/opt/aitbc/production/services
+Environment=PYTHONPATH=/opt/aitbc/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/blockchain_simple.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/blockchain_simple.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10

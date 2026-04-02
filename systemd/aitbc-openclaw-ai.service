@@ -9,11 +9,11 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=PYTHONPATH=/opt/aitbc/production/services
+Environment=PYTHONPATH=/opt/aitbc/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # OpenClaw AI execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/openclaw_ai.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/openclaw_ai.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
