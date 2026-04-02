@@ -1,0 +1,41 @@
+# Edge Node Configuration - Example (minimal template)
+edge_node_config:
+  node_id: "edge-node-example"
+  region: "us-east"
+  location: "example-datacenter"
+
+  services:
+    - name: "marketplace-api"
+      port: 8002
+      enabled: true
+      health_check: "/health/live"
+
+  network:
+    bandwidth_mbps: 500
+    ipv6_support: true
+    latency_optimization: true
+
+  resources:
+    cpu_cores: 4
+    memory_gb: 16
+    storage_gb: 200
+    gpu_access: false  # set true if GPU available
+
+  security:
+    firewall_enabled: true
+    rate_limiting: true
+    ssl_termination: true
+
+  monitoring:
+    metrics_enabled: true
+    health_check_interval: 30
+    log_level: "info"
+
+  load_balancing:
+    algorithm: "round_robin"
+    weight: 1
+
+  performance_targets:
+    response_time_ms: 100
+    throughput_rps: 200
+    error_rate: 0.01
