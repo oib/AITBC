@@ -13,7 +13,7 @@ Environment=NODE_ID=aitbc
 Environment=MARKETPLACE_PORT=8002
 Environment=WORKERS=1
 Environment=PYTHONPATH=/opt/aitbc/services
-EnvironmentFile=/etc/aitbc/production.env
+EnvironmentFile=/etc/aitbc/.env
 
 # Production execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/marketplace.py
