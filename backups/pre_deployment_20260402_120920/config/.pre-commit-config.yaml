@@ -1,0 +1,75 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-docstring-first
+
+  - repo: https://github.com/psf/black
+    rev: 24.3.0
+    hooks:
+      - id: black
+        language_version: python3.13
+        args: [--line-length=88]
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.1.15
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        additional_dependencies:
+          - ruff==0.1.15
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.8.0
+    hooks:
+      - id: mypy
+        additional_dependencies:
+          - types-requests
+          - types-setuptools
+          - types-PyYAML
+          - sqlalchemy[mypy]
+        args: [--ignore-missing-imports, --strict-optional]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: [--profile=black, --line-length=88]
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        args: [-c, bandit.toml]
+        additional_dependencies:
+          - bandit==1.7.5
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+
+  - repo: local
+    hooks:
+      - id: dotenv-linter
+        name: dotenv-linter
+        entry: python scripts/focused_dotenv_linter.py
+        language: system
+        pass_filenames: false
+        args: [--check]
+        files: \.env\.example$|.*\.py$|.*\.yml$|.*\.yaml$|.*\.toml$|.*\.sh$
+
+      - id: file-organization
+        name: file-organization
+        entry: scripts/check-file-organization.sh
+        language: script
+        pass_filenames: false
