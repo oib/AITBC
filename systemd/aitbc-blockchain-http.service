@@ -1,6 +1,6 @@
 [Unit]
-Description=AITBC Real Marketplace with AI Services
-After=network.target aitbc-mining-blockchain.service aitbc-openclaw-ai.service
+Description=AITBC Blockchain HTTP API (Port 8005)
+After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
@@ -9,38 +9,38 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=REAL_MARKETPLACE_PORT=8009
+Environment=BLOCKCHAIN_HTTP_PORT=8005
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
-# Real marketplace execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/real_marketplace.py
+# Blockchain HTTP execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/blockchain_http_launcher.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
-# Marketplace reliability
+# Production reliability
 Restart=always
 RestartSec=5
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
-# Marketplace logging
+# Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-real-marketplace
+SyslogIdentifier=aitbc-blockchain-http
 
-# Marketplace security
+# Production security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+ReadWritePaths=/opt/aitbc/production/data/blockchain /opt/aitbc/production/logs/blockchain
 
-# Marketplace performance
+# Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
 MemoryMax=1G
-CPUQuota=40%
+CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target
