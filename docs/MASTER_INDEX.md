@@ -276,6 +276,19 @@ All external documentation accessible from main docs directory:
 | [📝 Implementation](implementation/) | Implementation details and guides | Active |
 | [🔧 Maintenance](maintenance/) | Maintenance procedures and guides | Active |
 | [👥 Project](project/) | Project information and coordination | Active |
+
+#### **📋 [Project Documentation](project/)**
+**Core project documentation and implementation guides:**
+
+| Category | Files | Content |
+|----------|-------|---------|
+| [🧠 AI Economics](project/ai-economics/) | 1 file | Advanced AI economics intelligence |
+| [💻 CLI](project/cli/) | 1 file | Command-line interface documentation |
+| [🏗️ Infrastructure](project/infrastructure/) | 4 files | System infrastructure and deployment |
+| [📋 Requirements](project/requirements/) | 2 files | Project requirements and migration |
+| [✅ Completion](project/completion/) | 1 file | 100% project completion summary |
+| [🔧 Workspace](project/workspace/) | 1 file | Workspace strategy and organization |
+
 | [📈 Summaries](summaries/) | Project summaries and reports | Active |
 | [🔄 Workflows](workflows/) | Development and operational workflows | Active |
 
