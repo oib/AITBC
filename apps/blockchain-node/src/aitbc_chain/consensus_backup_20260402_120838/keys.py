@@ -6,6 +6,7 @@ Handles cryptographic key operations for validators
 import os
 import json
 import time
+from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
