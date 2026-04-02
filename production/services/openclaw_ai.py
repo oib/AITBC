@@ -19,7 +19,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/openclaw/openclaw.log'),
+        logging.FileHandler('/var/lib/aitbc/data/logs/openclaw/openclaw.log'),
         logging.StreamHandler()
     ]
 )
