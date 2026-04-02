@@ -198,6 +198,129 @@ async def get_stats():
     """Get marketplace statistics"""
     return marketplace.get_marketplace_stats()
 
+@app.get("/ai/services")
+@app.post("/ai/execute")
+
+
+# AI Marketplace Endpoints
+@app.get("/ai/services")
+async def get_ai_services():
+    """Get AI services including OpenClaw"""
+    default_services = [
+        {
+            'id': 'ollama-llama2-7b',
+            'name': 'Ollama Llama2 7B',
+            'type': 'ollama_inference',
+            'capabilities': ['text_generation', 'chat', 'completion'],
+            'price_per_task': 3.0,
+            'provider': 'Ollama',
+            'status': 'available'
+        },
+        {
+            'id': 'ollama-llama2-13b',
+            'name': 'Ollama Llama2 13B',
+            'type': 'ollama_inference',
+            'capabilities': ['text_generation', 'chat', 'completion', 'analysis'],
+            'price_per_task': 5.0,
+            'provider': 'Ollama',
+            'status': 'available'
+        }
+    ]
+    
+    # Add OpenClaw services if available
+    try:
+        from openclaw_ai import OpenClawAIService
+        openclaw_service = OpenClawAIService()
+        agents = openclaw_service.get_agents_info()
+        
+        for agent in agents['agents']:
+            default_services.append({
+                'id': f"openclaw-{agent['id']}",
+                'name': agent['name'],
+                'type': 'openclaw_ai',
+                'capabilities': agent['capabilities'],
+                'price_per_task': agent['price_per_task'],
+                'provider': 'OpenClaw AI',
+                'status': 'available'
+            })
+    except Exception as e:
+        print(f"OpenClaw integration failed: {e}")
+    
+    return {
+        'total_services': len(default_services),
+        'services': default_services
+    }
+
+@app.post("/ai/execute")
+async def execute_ai_task(request: dict):
+    """Execute AI task"""
+    service_id = request.get('service_id')
+    task_data = request.get('task_data', {})
+    
+    try:
+        # Handle OpenClaw services
+        if service_id.startswith('openclaw-'):
+            from openclaw_ai import OpenClawAIService
+            openclaw_service = OpenClawAIService()
+            agent_id = service_id.replace('openclaw-', '')
+            result = openclaw_service.execute_task(agent_id, task_data)
+            
+            return {
+                'task_id': result.get('task_id'),
+                'status': result.get('status'),
+                'result': result.get('result'),
+                'service_id': service_id,
+                'execution_time': result.get('execution_time')
+            }
+        
+        # Handle Ollama services
+        elif service_id.startswith('ollama-'):
+            import time
+            import asyncio
+            await asyncio.sleep(1)  # Simulate processing
+            
+            model = service_id.replace('ollama-', '').replace('-', ' ')
+            prompt = task_data.get('prompt', 'No prompt')
+            
+            result = f"Ollama {model} Response: {prompt}"
+            
+            return {
+                'task_id': f"task_{int(time.time())}",
+                'status': 'completed',
+                'result': result,
+                'service_id': service_id,
+                'model': model
+            }
+        
+        else:
+            return {
+                'task_id': f"task_{int(time.time())}",
+                'status': 'failed',
+                'error': f"Unknown service: {service_id}"
+            }
+            
+    except Exception as e:
+        return {
+            'task_id': f"task_{int(time.time())}",
+            'status': 'failed',
+            'error': str(e)
+        }
+
+@app.get("/unified/stats")
+async def get_unified_stats():
+    """Get unified marketplace stats"""
+    gpu_stats = marketplace.get_marketplace_stats()
+    ai_services = await get_ai_services()
+    
+    return {
+        'gpu_marketplace': gpu_stats,
+        'ai_marketplace': {
+            'total_services': ai_services['total_services'],
+            'available_services': len([s for s in ai_services['services'] if s['status'] == 'available'])
+        },
+        'total_listings': gpu_stats['total_gpus'] + ai_services['total_services']
+    }
+
 if __name__ == '__main__':
     uvicorn.run(
         app,
@@ -216,7 +339,6 @@ except ImportError:
     OPENCLAW_AVAILABLE = False
 
 # Add AI services to marketplace
-@app.get("/ai/services")
 async def get_ai_services():
     """Get AI services (simplified for merger)"""
     default_services = [
@@ -262,7 +384,6 @@ async def get_ai_services():
         'services': default_services
     }
 
-@app.post("/ai/execute")
 async def execute_ai_task(request: dict):
     """Execute AI task (simplified)"""
     service_id = request.get('service_id')
