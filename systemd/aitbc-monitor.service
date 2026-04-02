@@ -1,7 +1,6 @@
 [Unit]
-Description=AITBC Marketplace Service
-After=network.target postgresql.service redis.service
-Wants=postgresql.service redis.service
+Description=AITBC Monitor Service
+After=network.target
 
 [Service]
 Type=simple
@@ -9,15 +8,10 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
-Environment=PYTHONPATH=/opt/aitbc/services
 EnvironmentFile=/etc/aitbc/production.env
 
-# Marketplace execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/gpu_marketplace_launcher.py
-ExecReload=/bin/kill -HUP $MAINPID
-KillMode=mixed
-TimeoutStopSec=10
+# Monitor execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/monitor.py
 
 # Production reliability
 Restart=always
@@ -28,19 +22,19 @@ StartLimitIntervalSec=60
 # Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-marketplace
+SyslogIdentifier=aitbc-monitor
 
 # Production security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data/marketplace /var/log/aitbc/marketplace
+ReadWritePaths=/var/lib/aitbc/data /var/log/aitbc
 
 # Production performance
 LimitNOFILE=65536
 LimitNPROC=4096
-MemoryMax=2G
-CPUQuota=50%
+MemoryMax=512M
+CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target
