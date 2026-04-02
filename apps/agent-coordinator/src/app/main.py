@@ -11,9 +11,10 @@ import uuid
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field
 import uvicorn
+import time
 
 from .protocols.communication import CommunicationManager, create_protocol, MessageType
 from .protocols.message_types import MessageProcessor, create_task_message, create_status_message
@@ -22,6 +23,11 @@ from .routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority, 
 from .ai.realtime_learning import learning_system
 from .ai.advanced_ai import ai_integration
 from .consensus.distributed_consensus import distributed_consensus
+from .auth.jwt_handler import jwt_handler, password_manager, api_key_manager
+from .auth.middleware import get_current_user, require_permissions, require_role, security_headers
+from .auth.permissions import permission_manager, Permission, Role
+from .monitoring.prometheus_metrics import metrics_registry, performance_monitor
+from .monitoring.alerting import alert_manager, SLAMonitor
 
 # Configure logging
 logging.basicConfig(
@@ -710,6 +716,692 @@ async def get_advanced_features_status():
     except Exception as e:
         logger.error(f"Error getting advanced features status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Authentication endpoints
+@app.post("/auth/login")
+async def login(username: str, password: str):
+    """User login with username and password"""
+    try:
+        # In a real implementation, verify credentials against database
+        # For demo, we'll create a simple user
+        if username == "admin" and password == "admin123":
+            user_id = "admin_001"
+            role = Role.ADMIN
+        elif username == "operator" and password == "operator123":
+            user_id = "operator_001"
+            role = Role.OPERATOR
+        elif username == "user" and password == "user123":
+            user_id = "user_001"
+            role = Role.USER
+        else:
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        # Assign role to user
+        permission_manager.assign_role(user_id, role)
+        
+        # Generate JWT token
+        token_result = jwt_handler.generate_token({
+            "user_id": user_id,
+            "username": username,
+            "role": role.value,
+            "permissions": [perm.value for perm in permission_manager.user_permissions.get(user_id, set())]
+        })
+        
+        # Generate refresh token
+        refresh_result = jwt_handler.generate_refresh_token({
+            "user_id": user_id,
+            "username": username,
+            "role": role.value
+        })
+        
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "username": username,
+            "role": role.value,
+            "access_token": token_result["token"],
+            "refresh_token": refresh_result["refresh_token"],
+            "expires_at": token_result["expires_at"],
+            "token_type": token_result["token_type"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during login: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/auth/refresh")
+async def refresh_token(refresh_token: str):
+    """Refresh access token using refresh token"""
+    try:
+        result = jwt_handler.refresh_access_token(refresh_token)
+        
+        if result["status"] == "error":
+            raise HTTPException(status_code=401, detail=result["message"])
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error refreshing token: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/auth/validate")
+async def validate_token(token: str):
+    """Validate JWT token"""
+    try:
+        result = jwt_handler.validate_token(token)
+        
+        if not result["valid"]:
+            raise HTTPException(status_code=401, detail=result["message"])
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating token: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/auth/api-key/generate")
+async def generate_api_key(
+    user_id: str, 
+    permissions: List[str] = None,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Generate API key for user"""
+    try:
+        # Check if user has permission to generate API keys
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = api_key_manager.generate_api_key(user_id, permissions)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error generating API key: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/auth/api-key/validate")
+async def validate_api_key(api_key: str):
+    """Validate API key"""
+    try:
+        result = api_key_manager.validate_api_key(api_key)
+        
+        if not result["valid"]:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating API key: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/auth/api-key/{api_key}")
+async def revoke_api_key(
+    api_key: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Revoke API key"""
+    try:
+        # Check if user has permission to manage API keys
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = api_key_manager.revoke_api_key(api_key)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking API key: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# User management endpoints
+@app.post("/users/{user_id}/role")
+async def assign_user_role(
+    user_id: str,
+    role: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Assign role to user"""
+    try:
+        # Check if user has permission to manage roles
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        try:
+            role_enum = Role(role.lower())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid role: {role}")
+        
+        result = permission_manager.assign_role(user_id, role_enum)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning user role: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users/{user_id}/role")
+async def get_user_role(
+    user_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get user's role"""
+    try:
+        # Check if user has permission to view users
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = permission_manager.get_user_role(user_id)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user role: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/users/{user_id}/permissions")
+async def get_user_permissions(
+    user_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get user's permissions"""
+    try:
+        # Users can view their own permissions, admins can view any
+        if user_id != current_user["user_id"] and not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = permission_manager.get_user_permissions(user_id)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user permissions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/users/{user_id}/permissions/grant")
+async def grant_user_permission(
+    user_id: str,
+    permission: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Grant custom permission to user"""
+    try:
+        # Check if user has permission to manage permissions
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        try:
+            permission_enum = Permission(permission)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid permission: {permission}")
+        
+        result = permission_manager.grant_custom_permission(user_id, permission_enum)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error granting user permission: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/users/{user_id}/permissions/{permission}")
+async def revoke_user_permission(
+    user_id: str,
+    permission: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Revoke custom permission from user"""
+    try:
+        # Check if user has permission to manage permissions
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        try:
+            permission_enum = Permission(permission)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid permission: {permission}")
+        
+        result = permission_manager.revoke_custom_permission(user_id, permission_enum)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking user permission: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Role and permission management endpoints
+@app.get("/roles")
+async def list_all_roles(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """List all available roles and their permissions"""
+    try:
+        # Check if user has permission to view roles
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = permission_manager.list_all_roles()
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error listing roles: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/roles/{role}")
+async def get_role_permissions(
+    role: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get all permissions for a specific role"""
+    try:
+        # Check if user has permission to view roles
+        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        try:
+            role_enum = Role(role.lower())
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid role: {role}")
+        
+        result = permission_manager.get_role_permissions(role_enum)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting role permissions: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/auth/stats")
+async def get_permission_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get statistics about permissions and users"""
+    try:
+        # Check if user has permission to view security stats
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = permission_manager.get_permission_stats()
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting permission stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Protected endpoint example
+@app.get("/protected/admin")
+@require_role([Role.ADMIN])
+async def admin_only_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Admin-only endpoint example"""
+    return {
+        "status": "success",
+        "message": "Welcome admin!",
+        "user": current_user
+    }
+
+@app.get("/protected/operator")
+@require_role([Role.ADMIN, Role.OPERATOR])
+async def operator_endpoint(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Operator and admin endpoint example"""
+    return {
+        "status": "success",
+        "message": "Welcome operator!",
+        "user": current_user
+    }
+
+# Monitoring and metrics endpoints
+@app.get("/metrics")
+async def get_prometheus_metrics():
+    """Get metrics in Prometheus format"""
+    try:
+        metrics = metrics_registry.get_all_metrics()
+        
+        # Convert to Prometheus text format
+        prometheus_output = []
+        
+        for name, metric_data in metrics.items():
+            prometheus_output.append(f"# HELP {name} {metric_data['description']}")
+            prometheus_output.append(f"# TYPE {name} {metric_data['type']}")
+            
+            if metric_data['type'] == 'counter':
+                for labels, value in metric_data['values'].items():
+                    if labels != '_default':
+                        prometheus_output.append(f"{name}{{{labels}}} {value}")
+                    else:
+                        prometheus_output.append(f"{name} {value}")
+            
+            elif metric_data['type'] == 'gauge':
+                for labels, value in metric_data['values'].items():
+                    if labels != '_default':
+                        prometheus_output.append(f"{name}{{{labels}}} {value}")
+                    else:
+                        prometheus_output.append(f"{name} {value}")
+            
+            elif metric_data['type'] == 'histogram':
+                for key, count in metric_data['counts'].items():
+                    prometheus_output.append(f"{name}_count{{{key}}} {count}")
+                for key, sum_val in metric_data['sums'].items():
+                    prometheus_output.append(f"{name}_sum{{{key}}} {sum_val}")
+        
+        return Response(
+            content="\n".join(prometheus_output),
+            media_type="text/plain"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error getting metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/metrics/summary")
+async def get_metrics_summary():
+    """Get metrics summary for dashboard"""
+    try:
+        summary = performance_monitor.get_performance_summary()
+        
+        # Add additional system metrics
+        system_metrics = {
+            "total_agents": len(agent_registry.agents) if agent_registry else 0,
+            "active_agents": len([a for a in agent_registry.agents.values() if a.is_active]) if agent_registry else 0,
+            "total_tasks": len(task_distributor.active_tasks) if task_distributor else 0,
+            "load_balancer_strategy": load_balancer.current_strategy.value if load_balancer else "unknown"
+        }
+        
+        return {
+            "status": "success",
+            "performance": summary,
+            "system": system_metrics,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting metrics summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/metrics/health")
+async def get_health_metrics():
+    """Get health metrics for monitoring"""
+    try:
+        # Get system health metrics
+        import psutil
+        
+        memory = psutil.virtual_memory()
+        cpu = psutil.cpu_percent(interval=1)
+        
+        # Update performance monitor with system metrics
+        performance_monitor.update_system_metrics(memory.used, cpu)
+        
+        health_metrics = {
+            "memory": {
+                "total": memory.total,
+                "available": memory.available,
+                "used": memory.used,
+                "percentage": memory.percent
+            },
+            "cpu": {
+                "percentage": cpu,
+                "count": psutil.cpu_count()
+            },
+            "uptime": performance_monitor.get_performance_summary()["uptime_seconds"],
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return {
+            "status": "success",
+            "health": health_metrics
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting health metrics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Alerting endpoints
+@app.get("/alerts")
+async def get_alerts(
+    status: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get alerts with optional status filter"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        if status == "active":
+            alerts = alert_manager.get_active_alerts()
+        else:
+            alerts = alert_manager.get_alert_history()
+        
+        return {
+            "status": "success",
+            "alerts": alerts,
+            "total": len(alerts)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting alerts: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/alerts/{alert_id}/resolve")
+async def resolve_alert(
+    alert_id: str,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Resolve an alert"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        result = alert_manager.resolve_alert(alert_id)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error resolving alert: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/alerts/stats")
+async def get_alert_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get alert statistics"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        stats = alert_manager.get_alert_stats()
+        
+        return {
+            "status": "success",
+            "stats": stats
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting alert stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/alerts/rules")
+async def get_alert_rules(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get alert rules"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        rules = [rule.to_dict() for rule in alert_manager.rules.values()]
+        
+        return {
+            "status": "success",
+            "rules": rules,
+            "total": len(rules)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting alert rules: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# SLA monitoring endpoints
+@app.get("/sla")
+async def get_sla_status(
+    sla_id: Optional[str] = None,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Get SLA status"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        if sla_id:
+            sla_status = alert_manager.sla_monitor.get_sla_compliance(sla_id)
+        else:
+            sla_status = alert_manager.sla_monitor.get_all_sla_status()
+        
+        return {
+            "status": "success",
+            "sla": sla_status
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting SLA status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/sla/{sla_id}/record")
+async def record_sla_metric(
+    sla_id: str,
+    value: float,
+    current_user: Dict[str, Any] = Depends(get_current_user)
+):
+    """Record SLA metric"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        alert_manager.sla_monitor.record_metric(sla_id, value)
+        
+        return {
+            "status": "success",
+            "message": f"SLA metric recorded for {sla_id}",
+            "value": value,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error recording SLA metric: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# System status endpoint with monitoring
+@app.get("/system/status")
+async def get_system_status(current_user: Dict[str, Any] = Depends(get_current_user)):
+    """Get comprehensive system status"""
+    try:
+        if not permission_manager.has_permission(current_user["user_id"], Permission.SYSTEM_HEALTH):
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        
+        # Get various status information
+        performance = performance_monitor.get_performance_summary()
+        alerts = alert_manager.get_active_alerts()
+        sla_status = alert_manager.sla_monitor.get_all_sla_status()
+        
+        # Get system health
+        import psutil
+        memory = psutil.virtual_memory()
+        cpu = psutil.cpu_percent(interval=1)
+        
+        status = {
+            "overall": "healthy" if len(alerts) == 0 else "degraded",
+            "performance": performance,
+            "alerts": {
+                "active_count": len(alerts),
+                "critical_count": len([a for a in alerts if a.get("severity") == "critical"]),
+                "warning_count": len([a for a in alerts if a.get("severity") == "warning"])
+            },
+            "sla": {
+                "overall_compliance": sla_status.get("overall_compliance", 100.0),
+                "total_slas": sla_status.get("total_slas", 0)
+            },
+            "system": {
+                "memory_usage": memory.percent,
+                "cpu_usage": cpu,
+                "uptime": performance["uptime_seconds"]
+            },
+            "services": {
+                "agent_coordinator": "running",
+                "agent_registry": "running" if agent_registry else "stopped",
+                "load_balancer": "running" if load_balancer else "stopped",
+                "task_distributor": "running" if task_distributor else "stopped"
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        return status
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting system status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Add middleware to record metrics for all requests
+@app.middleware("http")
+async def metrics_middleware(request, call_next):
+    """Middleware to record request metrics"""
+    start_time = time.time()
+    
+    response = await call_next(request)
+    
+    # Record request metrics
+    duration = time.time() - start_time
+    performance_monitor.record_request(
+        method=request.method,
+        endpoint=request.url.path,
+        status_code=response.status_code,
+        duration=duration
+    )
+    
+    return response
+
+# Add security headers middleware
+@app.middleware("http")
+async def security_headers_middleware(request, call_next):
+    """Middleware to add security headers"""
+    response = await call_next(request)
+    
+    headers = security_headers.get_security_headers()
+    for header, value in headers.items():
+        response.headers[header] = value
+    
+    return response
 
 # Error handlers
 @app.exception_handler(404)
