@@ -50,7 +50,7 @@ def create(ctx, address: str, password_file: str, output: str, force: bool):
     pwd_path = Path(password_file)
     with open(pwd_path, "r", encoding="utf-8") as f:
         password = f.read().strip()
-    out_dir = Path(output) if output else Path("/opt/aitbc/data/keystore")
+    out_dir = Path(output) if output else Path("/var/lib/aitbc/data/keystore")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ks_module = _load_keystore_script()
@@ -59,7 +59,7 @@ def create(ctx, address: str, password_file: str, output: str, force: bool):
 
 
 # Helper so other commands (genesis) can reuse the same logic
-def create_keystore_via_script(address: str, password_file: str = "/opt/aitbc/data/keystore/.password", output_dir: str = "/opt/aitbc/data/keystore", force: bool = False):
+def create_keystore_via_script(address: str, password_file: str = "/var/lib/aitbc/data/keystore/.password", output_dir: str = "/var/lib/aitbc/data/keystore", force: bool = False):
     pwd = Path(password_file).read_text(encoding="utf-8").strip()
     out_dir = Path(output_dir)
     out_dir.mkdir(parents=True, exist_ok=True)

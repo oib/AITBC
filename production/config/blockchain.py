@@ -17,14 +17,14 @@ BLOCKCHAIN_CONFIG = {
             'port': 8545,
             'rpc_port': 8545,
             'p2p_port': 30303,
-            'data_dir': '/opt/aitbc/production/data/blockchain/aitbc'
+            'data_dir': '/var/lib/aitbc/data/blockchain/aitbc'
         },
         'aitbc1': {
             'host': 'aitbc1',
             'port': 8545,
             'rpc_port': 8545,
             'p2p_port': 30303,
-            'data_dir': '/opt/aitbc/production/data/blockchain/aitbc1'
+            'data_dir': '/var/lib/aitbc/data/blockchain/aitbc1'
         }
     },
     'security': {
