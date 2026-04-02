@@ -73,7 +73,7 @@ cd /opt/aitbc
 source venv/bin/activate
 
 # Install dependencies
-pip install -r project-config/requirements.txt
+pip install -r requirements.txt
 
 # Run CLI
 ./aitbc-cli --help
@@ -84,7 +84,7 @@ pip install -r project-config/requirements.txt
 
 ## Development
 
-See `documentation/SETUP.md` for detailed setup instructions.
+See `docs/SETUP.md` for detailed setup instructions.
 
 ## Security
 
