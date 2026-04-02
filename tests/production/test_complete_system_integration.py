@@ -538,10 +538,10 @@ class TestEndToEndWorkflow:
         # Register agent with proper types
         agent_data = {
             "agent_id": "e2e_test_agent",
-            "agent_type": "advanced_worker",
+            "agent_type": "worker",
             "capabilities": ["compute", "ai_processing", "consensus"],
             "services": ["task_processing", "learning", "voting"],
-            "endpoints": ["http://localhost:8001"],
+            "endpoints": {"api": "http://localhost:8001", "status": "http://localhost:8001/status"},
             "metadata": {"version": "2.0.0", "test_mode": True}
         }
         
@@ -678,8 +678,8 @@ class TestEndToEndWorkflow:
         
         # Test API key management with security
         response = requests.post(
-            f"{self.BASE_URL}/auth/api-key/generate",
-            json={"user_id": "security_test_user", "permissions": ["system:health"]},
+            f"{self.BASE_URL}/auth/api-key/generate?user_id=security_test_user",
+            json=["system:health"],
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
