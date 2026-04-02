@@ -33,7 +33,7 @@ SyslogIdentifier=aitbc-mining-blockchain
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/blockchain /opt/aitbc/production/logs/blockchain
+ReadWritePaths=/var/lib/aitbc/data/blockchain /opt/aitbc/production/logs/blockchain
 
 # Mining performance
 LimitNOFILE=65536

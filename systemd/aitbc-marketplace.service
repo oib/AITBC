@@ -16,7 +16,7 @@ Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/unified_marketplace_launcher.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
@@ -36,7 +36,7 @@ SyslogIdentifier=aitbc-marketplace-production
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+ReadWritePaths=/var/lib/aitbc/data/marketplace /opt/aitbc/production/logs/marketplace
 
 # Production performance
 LimitNOFILE=65536
