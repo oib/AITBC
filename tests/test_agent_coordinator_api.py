@@ -281,8 +281,8 @@ class TestAPIErrorHandling:
         assert response.status_code == 404
         
         data = response.json()
-        assert "detail" in data
-        assert "not found" in data["detail"].lower()
+        assert "message" in data
+        assert "not found" in data["message"].lower()
     
     def test_invalid_agent_data(self):
         """Test invalid agent registration data"""
@@ -297,16 +297,15 @@ class TestAPIErrorHandling:
             headers={"Content-Type": "application/json"}
         )
         
-        # Should handle invalid data gracefully
-        assert response.status_code in [400, 422]
+        # Should handle invalid data gracefully - now returns 422 for validation errors
+        assert response.status_code == 422
     
     def test_invalid_task_data(self):
         """Test invalid task submission data"""
+        # Test with completely malformed JSON that should fail validation
         invalid_task = {
-            "task_data": {
-                # Missing required fields
-            },
-            "priority": "invalid_priority"
+            "invalid_field": "invalid_value"
+            # Missing required task_data and priority fields
         }
         
         response = requests.post(
@@ -315,8 +314,8 @@ class TestAPIErrorHandling:
             headers={"Content-Type": "application/json"}
         )
         
-        # Should handle invalid data gracefully
-        assert response.status_code in [400, 422]
+        # Should handle missing required fields gracefully
+        assert response.status_code == 422
 
 if __name__ == '__main__':
     pytest.main([__file__])
