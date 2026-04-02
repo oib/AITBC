@@ -163,7 +163,8 @@ class TestPhase1ConsensusLayer:
         success = validator_rotation.rotate_validators(101)
         assert success is True
     
-    def test_pbft_consensus_phases(self, pbft_consensus):
+    @pytest.mark.asyncio
+    async def test_pbft_consensus_phases(self, pbft_consensus):
         """Test PBFT consensus phases"""
         from aitbc_chain.consensus.pbft import PBFTPhase, PBFTMessageType
         
