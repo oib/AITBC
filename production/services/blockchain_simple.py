@@ -81,7 +81,7 @@ class ProductionBlockchain:
     
     def __init__(self, node_id: str):
         self.node_id = node_id
-        self.data_dir = Path(f'/opt/aitbc/production/data/blockchain/{node_id}')
+        self.data_dir = Path(f'/var/lib/aitbc/data/blockchain/{node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize blockchain

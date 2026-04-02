@@ -30,7 +30,7 @@ class OpenClawAIService:
     
     def __init__(self):
         self.node_id = os.getenv('NODE_ID', 'aitbc')
-        self.data_dir = Path(f'/opt/aitbc/production/data/openclaw/{self.node_id}')
+        self.data_dir = Path(f'/var/lib/aitbc/data/openclaw/{self.node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize OpenClaw agents

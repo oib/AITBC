@@ -34,7 +34,7 @@ SyslogIdentifier=aitbc-gpu-marketplace-production
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+ReadWritePaths=/var/lib/aitbc/data/marketplace /opt/aitbc/production/logs/marketplace
 
 # Production performance
 LimitNOFILE=65536
