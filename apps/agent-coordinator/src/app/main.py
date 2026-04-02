@@ -719,9 +719,15 @@ async def get_advanced_features_status():
 
 # Authentication endpoints
 @app.post("/auth/login")
-async def login(username: str, password: str):
+async def login(login_data: Dict[str, str]):
     """User login with username and password"""
     try:
+        username = login_data.get("username")
+        password = login_data.get("password")
+        
+        if not username or not password:
+            raise HTTPException(status_code=422, detail="Username and password are required")
+        
         # In a real implementation, verify credentials against database
         # For demo, we'll create a simple user
         if username == "admin" and password == "admin123":
@@ -772,9 +778,14 @@ async def login(username: str, password: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/auth/refresh")
-async def refresh_token(refresh_token: str):
+async def refresh_token(refresh_data: Dict[str, str]):
     """Refresh access token using refresh token"""
     try:
+        refresh_token = refresh_data.get("refresh_token")
+        
+        if not refresh_token:
+            raise HTTPException(status_code=422, detail="Refresh token is required")
+        
         result = jwt_handler.refresh_access_token(refresh_token)
         
         if result["status"] == "error":
@@ -789,9 +800,14 @@ async def refresh_token(refresh_token: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/auth/validate")
-async def validate_token(token: str):
+async def validate_token(validate_data: Dict[str, str]):
     """Validate JWT token"""
     try:
+        token = validate_data.get("token")
+        
+        if not token:
+            raise HTTPException(status_code=422, detail="Token is required")
+        
         result = jwt_handler.validate_token(token)
         
         if not result["valid"]:
