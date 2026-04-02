@@ -1,38 +1,46 @@
 [Unit]
-Description=AITBC Multimodal GPU Service (Port 8011)
-Documentation=https://docs.aitbc.bubuit.net
-After=network.target aitbc-coordinator-api.service nvidia-persistenced.service
-Wants=aitbc-coordinator-api.service
+Description=AITBC Production GPU Marketplace Service
+After=network.target aitbc-marketplace.service
 
 [Service]
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-Environment=PORT=8011
-Environment=SERVICE_TYPE=gpu-multimodal
-Environment=GPU_ENABLED=true
-Environment=CUDA_VISIBLE_DEVICES=0
-Environment=LOG_LEVEL=INFO
-ExecStart=/opt/aitbc/venv/bin/python -m aitbc_gpu_multimodal.main
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ID=aitbc
+Environment=GPU_MARKETPLACE_PORT=8003
+Environment=PYTHONPATH=/opt/aitbc/production/services
+EnvironmentFile=/opt/aitbc/production/.env
+
+# Production execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
 ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+
+# Production reliability
 Restart=always
-RestartSec=10
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-multimodal-gpu
+SyslogIdentifier=aitbc-gpu-marketplace-production
 
-# Security settings
-# NoNewPrivileges=true
-# PrivateTmp=true
-# ProtectSystem=strict
-# ProtectHome=true
-ReadWritePaths=/var/log/aitbc /var/lib/aitbc/data /opt/aitbc/apps/coordinator-api
+# Production security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
 
-# GPU access (disabled for now)
-# DeviceAllow=/dev/nvidia*
-# DevicePolicy=auto
+# Production performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=2G
+CPUQuota=75%
 
 [Install]
 WantedBy=multi-user.target
