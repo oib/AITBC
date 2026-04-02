@@ -53,50 +53,50 @@ find /opt/aitbc -name "data" -o -name "config" -o -name "logs" 2>/dev/null || ec
 
 #### 1.2 Code Path Analysis
 ```bash
-# Analyze code for incorrect path references
+# Analyze code for incorrect path references using ripgrep
 echo "=== 2. CODE PATH ANALYSIS ==="
 
 # Find repository data references
 echo "Repository Data References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/data" {} \; 2>/dev/null || echo "✅ No repository data references"
+rg -l "/opt/aitbc/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository data references"
 
 # Find repository config references
 echo "Repository Config References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/config" {} \; 2>/dev/null || echo "✅ No repository config references"
+rg -l "/opt/aitbc/config" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository config references"
 
 # Find repository log references
 echo "Repository Log References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/logs" {} \; 2>/dev/null || echo "✅ No repository log references"
+rg -l "/opt/aitbc/logs" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository log references"
 
 # Find production data references
 echo "Production Data References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/production/data" {} \; 2>/dev/null || echo "✅ No production data references"
+rg -l "/opt/aitbc/production/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production data references"
 
 # Find production config references
 echo "Production Config References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/production/.env" {} \; 2>/dev/null || echo "✅ No production config references"
+rg -l "/opt/aitbc/production/.env" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production config references"
 
 # Find production log references
 echo "Production Log References:"
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/production/logs" {} \; 2>/dev/null || echo "✅ No production log references"
+rg -l "/opt/aitbc/production/logs" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production log references"
 ```
 
 #### 1.3 SystemD Service Analysis
 ```bash
-# Analyze SystemD service configurations
+# Analyze SystemD service configurations using ripgrep
 echo "=== 3. SYSTEMD SERVICE ANALYSIS ==="
 
 # Check service file paths
 echo "Service File Analysis:"
-grep -r "EnvironmentFile" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No EnvironmentFile issues"
+rg "EnvironmentFile" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No EnvironmentFile issues"
 
 # Check ReadWritePaths
 echo "ReadWritePaths Analysis:"
-grep -r "ReadWritePaths" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No ReadWritePaths issues"
+rg "ReadWritePaths" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No ReadWritePaths issues"
 
 # Check for incorrect paths in services
 echo "Incorrect Service Paths:"
-grep -r "/opt/aitbc/data\|/opt/aitbc/config\|/opt/aitbc/logs" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No incorrect service paths"
+rg "/opt/aitbc/data|/opt/aitbc/config|/opt/aitbc/logs" /etc/systemd/system/aitbc-*.service 2>/dev/null || echo "✅ No incorrect service paths"
 ```
 
 ### Phase 2: Architecture Compliance Check
@@ -172,20 +172,20 @@ echo "=== 6. PYTHON CODE PATH REWIRE ==="
 
 # Rewire data paths
 echo "Rewiring Data Paths:"
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/data|/var/lib/aitbc/data|g' {} \;
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/production/data|/var/lib/aitbc/data|g' {} \;
+rg -l "/opt/aitbc/data" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/data|/var/lib/aitbc/data|g' 2>/dev/null || echo "No data paths to rewire"
+rg -l "/opt/aitbc/production/data" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/production/data|/var/lib/aitbc/data|g' 2>/dev/null || echo "No production data paths to rewire"
 echo "✅ Data paths rewired"
 
 # Rewire config paths
 echo "Rewiring Config Paths:"
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/config|/etc/aitbc|g' {} \;
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/production/.env|/etc/aitbc/production.env|g' {} \;
+rg -l "/opt/aitbc/config" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/config|/etc/aitbc|g' 2>/dev/null || echo "No config paths to rewire"
+rg -l "/opt/aitbc/production/.env" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/production/.env|/etc/aitbc/production.env|g' 2>/dev/null || echo "No production config paths to rewire"
 echo "✅ Config paths rewired"
 
 # Rewire log paths
 echo "Rewiring Log Paths:"
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/logs|/var/log/aitbc|g' {} \;
-find /opt/aitbc -name "*.py" -exec sed -i 's|/opt/aitbc/production/logs|/var/log/aitbc/production|g' {} \;
+rg -l "/opt/aitbc/logs" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/logs|/var/log/aitbc|g' 2>/dev/null || echo "No log paths to rewire"
+rg -l "/opt/aitbc/production/logs" --type py /opt/aitbc/ | xargs sed -i 's|/opt/aitbc/production/logs|/var/log/aitbc/production|g' 2>/dev/null || echo "No production log paths to rewire"
 echo "✅ Log paths rewired"
 ```
 
@@ -196,14 +196,14 @@ echo "=== 7. SYSTEMD SERVICE PATH REWIRE ==="
 
 # Rewire EnvironmentFile paths
 echo "Rewiring EnvironmentFile Paths:"
-find /etc/systemd/system/aitbc-*.service -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \;
-find /etc/systemd/system/aitbc-*.service -exec sed -i 's|EnvironmentFile=/opt/aitbc/production/.env|EnvironmentFile=/etc/aitbc/production.env|g' {} \;
+rg -l "EnvironmentFile=/opt/aitbc/.env" /etc/systemd/system/aitbc-*.service | xargs sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' 2>/dev/null || echo "No .env paths to rewire"
+rg -l "EnvironmentFile=/opt/aitbc/production/.env" /etc/systemd/system/aitbc-*.service | xargs sed -i 's|EnvironmentFile=/opt/aitbc/production/.env|EnvironmentFile=/etc/aitbc/production.env|g' 2>/dev/null || echo "No production .env paths to rewire"
 echo "✅ EnvironmentFile paths rewired"
 
 # Rewire ReadWritePaths
 echo "Rewiring ReadWritePaths:"
-find /etc/systemd/system/aitbc-*.service -exec sed -i 's|/opt/aitbc/production/data|/var/lib/aitbc/data|g' {} \;
-find /etc/systemd/system/aitbc-*.service -exec sed -i 's|/opt/aitbc/production/logs|/var/log/aitbc/production|g' {} \;
+rg -l "/opt/aitbc/production/data" /etc/systemd/system/aitbc-*.service | xargs sed -i 's|/opt/aitbc/production/data|/var/lib/aitbc/data|g' 2>/dev/null || echo "No production data ReadWritePaths to rewire"
+rg -l "/opt/aitbc/production/logs" /etc/systemd/system/aitbc-*.service | xargs sed -i 's|/opt/aitbc/production/logs|/var/log/aitbc/production|g' 2>/dev/null || echo "No production logs ReadWritePaths to rewire"
 echo "✅ ReadWritePaths rewired"
 ```
 
@@ -213,8 +213,8 @@ echo "✅ ReadWritePaths rewired"
 echo "=== 8. DROP-IN CONFIGURATION REWIRE ==="
 
 # Find and rewire drop-in files
-find /etc/systemd/system/aitbc-*.service.d/ -name "*.conf" -exec sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' {} \;
-find /etc/systemd/system/aitbc-*.service.d/ -name "*.conf" -exec sed -i 's|/opt/aitbc/production/.env|EnvironmentFile=/etc/aitbc/production.env|g' {} \;
+rg -l "EnvironmentFile=/opt/aitbc/.env" /etc/systemd/system/aitbc-*.service.d/*.conf 2>/dev/null | xargs sed -i 's|EnvironmentFile=/opt/aitbc/.env|EnvironmentFile=/etc/aitbc/.env|g' || echo "No drop-in .env paths to rewire"
+rg -l "EnvironmentFile=/opt/aitbc/production/.env" /etc/systemd/system/aitbc-*.service.d/*.conf 2>/dev/null | xargs sed -i 's|EnvironmentFile=/opt/aitbc/production/.env|EnvironmentFile=/etc/aitbc/production.env|g' || echo "No drop-in production .env paths to rewire"
 echo "✅ Drop-in configurations rewired"
 ```
 
@@ -371,9 +371,9 @@ echo "No logs dir: $(test ! -d /opt/aitbc/logs && echo "✅" || echo "❌")"
 
 # Check path references
 echo "Path References:"
-echo "No repo data refs: $(find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/data" {} \; 2>/dev/null | wc -l)"
-echo "No repo config refs: $(find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/config" {} \; 2>/dev/null | wc -l)"
-echo "No repo log refs: $(find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/logs" {} \; 2>/dev/null | wc -l)"
+echo "No repo data refs: $(rg -l "/opt/aitbc/data" --type py /opt/aitbc/ 2>/dev/null | wc -l)"
+echo "No repo config refs: $(rg -l "/opt/aitbc/config" --type py /opt/aitbc/ 2>/dev/null | wc -l)"
+echo "No repo log refs: $(rg -l "/opt/aitbc/logs" --type py /opt/aitbc/ 2>/dev/null | wc -l)"
 ```
 
 #### 7.2 Generate Report
@@ -427,7 +427,7 @@ systemctl daemon-reload
 systemctl restart aitbc-*.service
 
 # Path verification
-find /opt/aitbc -name "*.py" -exec grep -l "/opt/aitbc/data\|/opt/aitbc/config\|/opt/aitbc/logs" {} \;
+rg -l "/opt/aitbc/data|/opt/aitbc/config|/opt/aitbc/logs" --type py /opt/aitbc/ 2>/dev/null
 
 # Directory verification
 ls -la /var/lib/aitbc/ /etc/aitbc/ /var/log/aitbc/
