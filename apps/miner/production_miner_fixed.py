@@ -22,7 +22,7 @@ MAX_RETRIES = 10
 RETRY_DELAY = 30
 
 # Setup logging with explicit configuration
-LOG_PATH = "/opt/aitbc/logs/host_gpu_miner.log"
+LOG_PATH = "/var/log/aitbc/host_gpu_miner.log"
 os.makedirs(os.path.dirname(LOG_PATH), exist_ok=True)
 
 class FlushHandler(logging.StreamHandler):
