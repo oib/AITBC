@@ -76,12 +76,12 @@ class CrossChainReputationAggregation(SQLModel, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Indexes
-    __table_args__ = (
-        Index("idx_cross_chain_agg_agent", "agent_id"),
-        Index("idx_cross_chain_agg_score", "aggregated_score"),
-        Index("idx_cross_chain_agg_updated", "last_updated"),
-        Index("idx_cross_chain_agg_status", "verification_status"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_cross_chain_agg_agent", "agent_id"),)
+#        # Index(        Index("idx_cross_chain_agg_score", "aggregated_score"),)
+#        # Index(        Index("idx_cross_chain_agg_updated", "last_updated"),)
+#        # Index(        Index("idx_cross_chain_agg_status", "verification_status"),)
+    }
 
 
 class CrossChainReputationEvent(SQLModel, table=True):
@@ -115,12 +115,12 @@ class CrossChainReputationEvent(SQLModel, table=True):
     processed_at: datetime | None = None
 
     # Indexes
-    __table_args__ = (
-        Index("idx_cross_chain_event_agent", "agent_id"),
-        Index("idx_cross_chain_event_chains", "source_chain_id", "target_chain_id"),
-        Index("idx_cross_chain_event_type", "event_type"),
-        Index("idx_cross_chain_event_created", "created_at"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_cross_chain_event_agent", "agent_id"),)
+#        # Index(        Index("idx_cross_chain_event_chains", "source_chain_id", "target_chain_id"),)
+#        # Index(        Index("idx_cross_chain_event_type", "event_type"),)
+#        # Index(        Index("idx_cross_chain_event_created", "created_at"),)
+    }
 
 
 class ReputationMetrics(SQLModel, table=True):

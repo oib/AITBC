@@ -156,7 +156,7 @@ class StrategyLibrary:
             performance_penalty_rate=0.02,
             growth_target_rate=0.25,  # 25% growth target
             market_share_target=0.15,  # 15% market share target
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -166,7 +166,7 @@ class StrategyLibrary:
                 condition="competitor_price > 0 and current_price > competitor_price * 0.95",
                 action="set_price = competitor_price * 0.95",
                 priority=StrategyPriority.HIGH,
-            ),
+            },
             StrategyRule(
                 rule_id="growth_volume_discount",
                 name="Volume Discount",
@@ -174,8 +174,8 @@ class StrategyLibrary:
                 condition="customer_volume > threshold and customer_loyalty < 6_months",
                 action="apply_discount = 0.1",
                 priority=StrategyPriority.MEDIUM,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="aggressive_growth_v1",
@@ -186,7 +186,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.AGGRESSIVE,
             priority=StrategyPriority.HIGH,
-        )
+        }
 
     @staticmethod
     def get_profit_maximization_strategy() -> PricingStrategyConfig:
@@ -206,7 +206,7 @@ class StrategyLibrary:
             performance_penalty_rate=0.08,
             profit_target_margin=0.35,  # 35% profit target
             max_price_change_percent=0.2,  # More conservative changes
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -216,7 +216,7 @@ class StrategyLibrary:
                 condition="demand_level > 0.8 and competitor_capacity < 0.7",
                 action="set_price = current_price * 1.3",
                 priority=StrategyPriority.CRITICAL,
-            ),
+            },
             StrategyRule(
                 rule_id="profit_performance_premium",
                 name="Performance Premium",
@@ -224,8 +224,8 @@ class StrategyLibrary:
                 condition="performance_score > 0.9 and customer_satisfaction > 0.85",
                 action="apply_premium = 0.2",
                 priority=StrategyPriority.HIGH,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="profit_maximization_v1",
@@ -236,7 +236,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.MODERATE,
             priority=StrategyPriority.HIGH,
-        )
+        }
 
     @staticmethod
     def get_market_balance_strategy() -> PricingStrategyConfig:
@@ -256,7 +256,7 @@ class StrategyLibrary:
             performance_penalty_rate=0.05,
             volatility_threshold=0.15,  # Lower volatility threshold
             confidence_threshold=0.8,  # Higher confidence requirement
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -266,7 +266,7 @@ class StrategyLibrary:
                 condition="market_trend == increasing and price_position < market_average",
                 action="adjust_price = market_average * 0.98",
                 priority=StrategyPriority.MEDIUM,
-            ),
+            },
             StrategyRule(
                 rule_id="balance_stability_maintain",
                 name="Stability Maintenance",
@@ -274,8 +274,8 @@ class StrategyLibrary:
                 condition="volatility > 0.15 and confidence < 0.7",
                 action="freeze_price = true",
                 priority=StrategyPriority.HIGH,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="market_balance_v1",
@@ -286,7 +286,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.MODERATE,
             priority=StrategyPriority.MEDIUM,
-        )
+        }
 
     @staticmethod
     def get_competitive_response_strategy() -> PricingStrategyConfig:
@@ -304,7 +304,7 @@ class StrategyLibrary:
             weekend_multiplier=1.05,
             performance_bonus_rate=0.08,
             performance_penalty_rate=0.03,
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -314,7 +314,7 @@ class StrategyLibrary:
                 condition="competitor_price < current_price * 0.95",
                 action="set_price = competitor_price * 0.98",
                 priority=StrategyPriority.CRITICAL,
-            ),
+            },
             StrategyRule(
                 rule_id="competitive_promotion_response",
                 name="Promotion Response",
@@ -322,8 +322,8 @@ class StrategyLibrary:
                 condition="competitor_promotion == true and market_share_declining",
                 action="apply_promotion = competitor_promotion_rate * 1.1",
                 priority=StrategyPriority.HIGH,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="competitive_response_v1",
@@ -334,7 +334,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.MODERATE,
             priority=StrategyPriority.HIGH,
-        )
+        }
 
     @staticmethod
     def get_demand_elasticity_strategy() -> PricingStrategyConfig:
@@ -353,7 +353,7 @@ class StrategyLibrary:
             performance_bonus_rate=0.1,
             performance_penalty_rate=0.05,
             max_price_change_percent=0.4,  # Allow larger changes for elasticity
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -363,7 +363,7 @@ class StrategyLibrary:
                 condition="demand_growth_rate > 0.2 and supply_constraint == true",
                 action="set_price = current_price * 1.25",
                 priority=StrategyPriority.HIGH,
-            ),
+            },
             StrategyRule(
                 rule_id="elasticity_demand_stimulation",
                 name="Demand Stimulation",
@@ -371,8 +371,8 @@ class StrategyLibrary:
                 condition="demand_level < 0.4 and inventory_turnover < threshold",
                 action="apply_discount = 0.15",
                 priority=StrategyPriority.MEDIUM,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="demand_elasticity_v1",
@@ -383,7 +383,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.AGGRESSIVE,
             priority=StrategyPriority.MEDIUM,
-        )
+        }
 
     @staticmethod
     def get_penetration_pricing_strategy() -> PricingStrategyConfig:
@@ -401,7 +401,7 @@ class StrategyLibrary:
             weekend_multiplier=0.9,
             growth_target_rate=0.3,  # 30% growth target
             market_share_target=0.2,  # 20% market share target
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -411,7 +411,7 @@ class StrategyLibrary:
                 condition="market_share < 0.05 and time_in_market < 6_months",
                 action="set_price = cost * 1.1",
                 priority=StrategyPriority.CRITICAL,
-            ),
+            },
             StrategyRule(
                 rule_id="penetration_gradual_increase",
                 name="Gradual Price Increase",
@@ -419,8 +419,8 @@ class StrategyLibrary:
                 condition="market_share > 0.1 and customer_loyalty > 12_months",
                 action="increase_price = 0.05",
                 priority=StrategyPriority.MEDIUM,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="penetration_pricing_v1",
@@ -431,7 +431,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.AGGRESSIVE,
             priority=StrategyPriority.HIGH,
-        )
+        }
 
     @staticmethod
     def get_premium_pricing_strategy() -> PricingStrategyConfig:
@@ -450,7 +450,7 @@ class StrategyLibrary:
             performance_bonus_rate=0.2,
             performance_penalty_rate=0.1,
             profit_target_margin=0.4,  # 40% profit target
-        )
+        }
 
         rules = [
             StrategyRule(
@@ -460,7 +460,7 @@ class StrategyLibrary:
                 condition="quality_score > 0.95 and brand_recognition > high",
                 action="maintain_premium = true",
                 priority=StrategyPriority.CRITICAL,
-            ),
+            },
             StrategyRule(
                 rule_id="premium_exclusivity",
                 name="Exclusivity Pricing",
@@ -468,8 +468,8 @@ class StrategyLibrary:
                 condition="exclusive_features == true and customer_segment == premium",
                 action="apply_premium = 0.3",
                 priority=StrategyPriority.HIGH,
-            ),
-        ]
+            },
+##        ]
 
         return PricingStrategyConfig(
             strategy_id="premium_pricing_v1",
@@ -480,7 +480,7 @@ class StrategyLibrary:
             rules=rules,
             risk_tolerance=RiskTolerance.CONSERVATIVE,
             priority=StrategyPriority.MEDIUM,
-        )
+        }
 
     @staticmethod
     def get_all_strategies() -> dict[PricingStrategy, PricingStrategyConfig]:
@@ -506,7 +506,7 @@ class StrategyOptimizer:
 
     def optimize_strategy(
         self, strategy_config: PricingStrategyConfig, performance_data: dict[str, Any]
-    ) -> PricingStrategyConfig:
+    } -> PricingStrategyConfig:
         """Optimize strategy parameters based on performance"""
 
         strategy_id = strategy_config.strategy_id
@@ -559,11 +559,11 @@ class StrategyOptimizer:
                 "action": "increase_demand_sensitivity",
                 "adjustment": 0.15,
             },
-        ]
+##        ]
 
     def _apply_optimization_rules(
         self, strategy_config: PricingStrategyConfig, performance_data: dict[str, Any]
-    ) -> PricingStrategyConfig:
+    } -> PricingStrategyConfig:
         """Apply optimization rules to strategy configuration"""
 
         # Create a copy to avoid modifying the original
@@ -592,7 +592,7 @@ class StrategyOptimizer:
                 market_share_target=strategy_config.parameters.market_share_target,
                 regional_adjustments=strategy_config.parameters.regional_adjustments.copy(),
                 custom_parameters=strategy_config.parameters.custom_parameters.copy(),
-            ),
+            },
             rules=strategy_config.rules.copy(),
             risk_tolerance=strategy_config.risk_tolerance,
             priority=strategy_config.priority,
@@ -602,7 +602,7 @@ class StrategyOptimizer:
             max_price=strategy_config.max_price,
             resource_types=strategy_config.resource_types.copy(),
             regions=strategy_config.regions.copy(),
-        )
+        }
 
         # Apply each optimization rule
         for rule in self.optimization_rules:
