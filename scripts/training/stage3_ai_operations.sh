@@ -10,7 +10,6 @@ set -e
 
 # Training configuration
 TRAINING_STAGE="Stage 3: AI Operations Mastery"
-CLI_PATH="/opt/aitbc/aitbc-cli"
 LOG_FILE="/var/log/aitbc/training_stage3.log"
 WALLET_NAME="openclaw-trainee"
 WALLET_PASSWORD="trainee123"
@@ -50,9 +49,9 @@ print_warning() {
 check_prerequisites() {
     print_status "Checking prerequisites..."
     
-    # Check if CLI exists
-    if [ ! -f "$CLI_PATH" ]; then
-        print_error "AITBC CLI not found at $CLI_PATH"
+    # Check if CLI command works
+    if ! $CLI_PATH --help > /dev/null 2>&1; then
+        print_error "AITBC CLI not working at $CLI_PATH"
         exit 1
     fi
     
