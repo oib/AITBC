@@ -44,7 +44,7 @@ LOGGING_CONFIG = {
     'handlers': {
         'file': {
             'class': 'logging.handlers.RotatingFileHandler',
-            'filename': '/opt/aitbc/production/logs/services/aitbc.log',
+            'filename': '/var/log/aitbc/production/services/aitbc.log',
             'maxBytes': 10485760,  # 10MB
             'backupCount': 5,
             'formatter': 'production'
