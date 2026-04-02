@@ -10,11 +10,11 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
 Environment=BLOCKCHAIN_HTTP_PORT=8005
-Environment=PYTHONPATH=/opt/aitbc/production/services
+Environment=PYTHONPATH=/opt/aitbc/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Blockchain HTTP execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/blockchain_http_launcher.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/blockchain_http_launcher.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
