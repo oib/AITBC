@@ -313,3 +313,8 @@ guardian_contracts/
 # Operational and setup files
 results/
 tools/
+data/
+*.db
+*.log
+production/data/
+production/logs/
