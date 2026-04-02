@@ -41,7 +41,7 @@ backup_requirements() {
     
     # Backup all requirements files
     find . -name "requirements*.txt" -not -path "./venv/*" -exec cp {} "$backup_dir/" \;
-    find . -name "pyproject.toml" -not -path "./venv/*" -exec cp {} "$backup_dir/" \;
+    find . -name "pyproject.toml" -not -path "./venv/*" -not -path "./project-config/*" -exec cp {} "$backup_dir/" \;
     
     log_success "Backup created in $backup_dir"
 }
