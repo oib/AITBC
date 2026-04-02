@@ -33,7 +33,7 @@ SyslogIdentifier=aitbc-openclaw-ai
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/openclaw /opt/aitbc/production/logs/openclaw
+ReadWritePaths=/var/lib/aitbc/data/openclaw /opt/aitbc/production/logs/openclaw
 
 # AI performance
 LimitNOFILE=65536

@@ -61,7 +61,7 @@ class MultiChainManager:
         self.chains = {}
         self.miners = {}
         self.node_id = os.getenv('NODE_ID', 'aitbc')
-        self.data_dir = Path(f'/opt/aitbc/production/data/blockchain/{self.node_id}')
+        self.data_dir = Path(f'/var/lib/aitbc/data/blockchain/{self.node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize multiple chains
