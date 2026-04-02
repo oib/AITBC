@@ -105,7 +105,7 @@ def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depen
                 return {
                     "user_id": user_id,
                     "username": payload.get("username"),
-                    "role": payload.get("role", "default"),
+                    "role": str(payload.get("role", "default")),
                     "permissions": payload.get("permissions", []),
                     "auth_type": "jwt"
                 }
@@ -209,12 +209,26 @@ def require_role(required_roles: List[str]):
             
             user_role = current_user.get("role", "default")
             
-            if user_role not in required_roles:
+            # Convert to string if it's a Role object
+            if hasattr(user_role, 'value'):
+                user_role = user_role.value
+            elif not isinstance(user_role, str):
+                user_role = str(user_role)
+            
+            # Convert required roles to strings for comparison
+            required_role_strings = []
+            for role in required_roles:
+                if hasattr(role, 'value'):
+                    required_role_strings.append(role.value)
+                else:
+                    required_role_strings.append(str(role))
+            
+            if user_role not in required_role_strings:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail={
                         "error": "Insufficient role",
-                        "required_roles": required_roles,
+                        "required_roles": required_role_strings,
                         "current_role": user_role
                     }
                 )
