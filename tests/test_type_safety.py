@@ -22,7 +22,7 @@ class TestTypeValidation:
             "agent_type": "worker",
             "capabilities": ["compute", "storage"],
             "services": ["task_processing"],
-            "endpoints": ["http://localhost:8001"],
+            "endpoints": {"main": "http://localhost:8001"},
             "metadata": {"version": "1.0.0"}
         }
         
