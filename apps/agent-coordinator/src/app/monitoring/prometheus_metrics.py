@@ -24,20 +24,20 @@ class MetricValue:
 class Counter:
     """Prometheus-style counter metric"""
     
-    def __init__(self, name: str, description: str, labels: List[str] = None):
+    def __init__(self, name: str, description: str, labels: Optional[List[str]] = None):
         self.name = name
         self.description = description
         self.labels = labels or []
-        self.values = defaultdict(float)
+        self.values: Dict[str, float] = defaultdict(float)
         self.lock = threading.Lock()
     
-    def inc(self, value: float = 1.0, **label_values):
+    def inc(self, value: float = 1.0, **label_values: str) -> None:
         """Increment counter by value"""
         with self.lock:
             key = self._make_key(label_values)
             self.values[key] += value
     
-    def get_value(self, **label_values) -> float:
+    def get_value(self, **label_values: str) -> float:
         """Get current counter value"""
         with self.lock:
             key = self._make_key(label_values)
@@ -75,14 +75,14 @@ class Counter:
 class Gauge:
     """Prometheus-style gauge metric"""
     
-    def __init__(self, name: str, description: str, labels: List[str] = None):
+    def __init__(self, name: str, description: str, labels: Optional[List[str]] = None):
         self.name = name
         self.description = description
         self.labels = labels or []
-        self.values = defaultdict(float)
+        self.values: Dict[str, float] = defaultdict(float)
         self.lock = threading.Lock()
     
-    def set(self, value: float, **label_values):
+    def set(self, value: float, **label_values: str) -> None:
         """Set gauge value"""
         with self.lock:
             key = self._make_key(label_values)
