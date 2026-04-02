@@ -327,3 +327,9 @@ logs/
 production/logs/
 *.log
 *.log.*
+production/data/
+production/logs/
+dev/cache/logs/
+dev/test-nodes/*/data/
+backups/*/config/
+backups/*/logs/
