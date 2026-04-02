@@ -9,7 +9,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 import uuid
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -455,7 +455,7 @@ async def get_agents_by_capability(capability: str):
 
 # Set load balancing strategy
 @app.put("/load-balancer/strategy")
-async def set_load_balancing_strategy(strategy: str):
+async def set_load_balancing_strategy(strategy: str = Query(..., description="Load balancing strategy")):
     """Set load balancing strategy"""
     try:
         if not load_balancer:
