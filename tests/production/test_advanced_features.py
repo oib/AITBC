@@ -100,8 +100,10 @@ class TestAdvancedFeatures:
         
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/recommend",
-            json=context,
-            params={"available_actions": available_actions},
+            json={
+                "context": context,
+                "available_actions": available_actions
+            },
             headers={"Content-Type": "application/json"}
         )
         
@@ -285,8 +287,10 @@ class TestAdvancedFeaturesIntegration:
         
         response = requests.post(
             f"{self.BASE_URL}/ai/learning/recommend",
-            json=context,
-            params={"available_actions": actions},
+            json={
+                "context": context,
+                "available_actions": actions
+            },
             headers={"Content-Type": "application/json"}
         )
         

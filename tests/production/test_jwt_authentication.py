@@ -488,8 +488,7 @@ class TestUserManagement:
         
         # Grant custom permission
         response = requests.post(
-            f"{self.BASE_URL}/users/test_user_003/permissions/grant",
-            json={"permission": "agent:register"},
+            f"{self.BASE_URL}/users/test_user_003/permissions/grant?permission=agent:register",
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
