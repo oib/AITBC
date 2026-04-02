@@ -318,3 +318,8 @@ data/
 *.log
 production/data/
 production/logs/
+config/
+*.env
+api_keys.txt
+*.yaml
+!*.example
