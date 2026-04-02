@@ -6,13 +6,9 @@ from . import error, output
 def run_subprocess(cmd: List[str], check: bool = True, capture_output: bool = True, shell: bool = False, **kwargs: Any) -> Optional[Union[str, subprocess.CompletedProcess]]:
     """Run a subprocess command safely with logging"""
     try:
-        if shell:
-            # When shell=True, cmd should be a string
-            cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
-            result = subprocess.run(cmd_str, shell=True, check=check, capture_output=capture_output, text=True, **kwargs)
-        else:
-            result = subprocess.run(cmd, check=check, capture_output=capture_output, text=True, **kwargs)
-            
+        # Always use shell=False for security
+        result = subprocess.run(cmd, check=check, capture_output=capture_output, text=True, shell=False, **kwargs)
+        
         if capture_output:
             return result.stdout.strip()
         return result
