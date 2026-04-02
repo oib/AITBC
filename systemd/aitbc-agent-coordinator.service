@@ -32,7 +32,7 @@ SyslogIdentifier=aitbc-agent-coordinator
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data/agent-coordinator /var/log/aitbc/production/agent-coordinator
+ReadWritePaths=/var/lib/aitbc/data/agent-coordinator /var/log/aitbc/agent-coordinator
 
 # Production performance
 LimitNOFILE=65536

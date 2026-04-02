@@ -1,0 +1,45 @@
+#!/usr/bin/env python3
+"""
+AITBC Monitor Service
+"""
+
+import time
+import logging
+import json
+from pathlib import Path
+import psutil
+
+def main():
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger('aitbc-monitor')
+    
+    while True:
+        try:
+            # System stats
+            cpu_percent = psutil.cpu_percent()
+            memory_percent = psutil.virtual_memory().percent
+            logger.info(f'System: CPU {cpu_percent}%, Memory {memory_percent}%')
+            
+            # Blockchain stats
+            blockchain_file = Path('/var/lib/aitbc/data/blockchain/aitbc/blockchain.json')
+            if blockchain_file.exists():
+                with open(blockchain_file, 'r') as f:
+                    data = json.load(f)
+                    logger.info(f'Blockchain: {len(data.get("blocks", []))} blocks')
+            
+            # Marketplace stats
+            marketplace_dir = Path('/var/lib/aitbc/data/marketplace')
+            if marketplace_dir.exists():
+                listings_file = marketplace_dir / 'gpu_listings.json'
+                if listings_file.exists():
+                    with open(listings_file, 'r') as f:
+                        listings = json.load(f)
+                        logger.info(f'Marketplace: {len(listings)} GPU listings')
+            
+            time.sleep(30)
+        except Exception as e:
+            logger.error(f'Monitoring error: {e}')
+            time.sleep(60)
+
+if __name__ == "__main__":
+    main()
