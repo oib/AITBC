@@ -14,7 +14,7 @@ Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/gpu_marketplace_launcher.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
