@@ -11,7 +11,7 @@
 # ============================================================================
 
 # Default configuration (can be overridden)
-export CLI_PATH="${CLI_PATH:-/opt/aitbc/aitbc-cli}"
+export CLI_PATH="${CLI_PATH:-python3 /opt/aitbc/cli/aitbc_cli.py}"
 export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
