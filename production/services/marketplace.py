@@ -25,7 +25,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/marketplace/marketplace.log'),
+        logging.FileHandler('/var/log/aitbc/production/marketplace/marketplace.log'),
         logging.StreamHandler()
     ]
 )
