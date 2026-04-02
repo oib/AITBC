@@ -9,7 +9,7 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=REAL_MARKETPLACE_PORT=8006
+Environment=REAL_MARKETPLACE_PORT=8009
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
