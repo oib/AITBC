@@ -162,15 +162,18 @@ async def register_agent(request: AgentRegistrationRequest):
         if not agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
         
-        # Create agent info
-        agent_info = create_agent_info(
-            agent_id=request.agent_id,
-            agent_type=request.agent_type,
-            capabilities=request.capabilities,
-            services=request.services,
-            endpoints=request.endpoints
-        )
-        agent_info.metadata = request.metadata
+        # Create agent info with validation
+        try:
+            agent_info = create_agent_info(
+                agent_id=request.agent_id,
+                agent_type=request.agent_type,
+                capabilities=request.capabilities,
+                services=request.services,
+                endpoints=request.endpoints
+            )
+            agent_info.metadata = request.metadata
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
         
         # Register agent
         success = await agent_registry.register_agent(agent_info)
@@ -185,6 +188,8 @@ async def register_agent(request: AgentRegistrationRequest):
         else:
             raise HTTPException(status_code=500, detail="Failed to register agent")
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error registering agent: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -296,6 +301,8 @@ async def submit_task(request: TaskSubmission, background_tasks: BackgroundTasks
             "submitted_at": datetime.utcnow().isoformat()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error submitting task: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -475,6 +482,8 @@ async def set_load_balancing_strategy(strategy: str = Query(..., description="Lo
             "updated_at": datetime.utcnow().isoformat()
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error setting load balancing strategy: {e}")
         raise HTTPException(status_code=500, detail=str(e))
