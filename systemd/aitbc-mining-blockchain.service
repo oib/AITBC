@@ -1,0 +1,45 @@
+[Unit]
+Description=AITBC Real Mining Blockchain Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ID=aitbc
+Environment=PYTHONPATH=/opt/aitbc/production/services
+EnvironmentFile=/opt/aitbc/production/.env
+
+# Real mining execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/mining_blockchain.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+
+# Mining reliability
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Mining logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-mining-blockchain
+
+# Mining security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/production/data/blockchain /opt/aitbc/production/logs/blockchain
+
+# Mining performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=4G
+CPUQuota=80%
+
+[Install]
+WantedBy=multi-user.target
