@@ -144,8 +144,8 @@ setup_venvs() {
     log "Installing all dependencies from central requirements.txt..."
     
     # Install main requirements (contains all service dependencies)
-    if [ -f "/opt/aitbc/requirements.txt" ]; then
-        pip install -r /opt/aitbc/requirements.txt
+    if [ -f "/opt/aitbc/project-config/requirements.txt" ]; then
+        pip install -r /opt/aitbc/project-config/requirements.txt
     else
         error "Main requirements.txt not found"
     fi
