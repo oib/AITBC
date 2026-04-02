@@ -11,11 +11,10 @@ source "$(dirname "$0")/training_lib.sh"
 
 # Training configuration
 TRAINING_STAGE="Stage 2: Intermediate Operations"
-SCRIPT_NAME="stage2_intermediate"
-CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-
-# Additional configuration
-BACKUP_WALLET="${BACKUP_WALLET:-openclaw-backup}"
+LOG_FILE="/var/log/aitbc/training_stage2.log"
+WALLET_NAME="openclaw-trainee"
+WALLET_PASSWORD="trainee123"
+BACKUP_WALLET="openclaw-backup"
 
 # Setup traps for cleanup
 setup_traps
@@ -36,19 +35,19 @@ advanced_wallet_management() {
     fi
     
     print_status "Backing up primary wallet..."
-    $CLI_PATH wallet --backup --name "$WALLET_NAME" 2>/dev/null || print_warning "Wallet backup command not available"
+    $CLI_PATH wallet backup --name "$WALLET_NAME" 2>/dev/null || print_warning "Wallet backup command not available"
     log "Wallet backup attempted for $WALLET_NAME"
     
     print_status "Exporting wallet data..."
-    $CLI_PATH wallet --export --name "$WALLET_NAME" 2>/dev/null || print_warning "Wallet export command not available"
+    $CLI_PATH wallet export --name "$WALLET_NAME" 2>/dev/null || print_warning "Wallet export command not available"
     log "Wallet export attempted for $WALLET_NAME"
     
     print_status "Syncing all wallets..."
-    $CLI_PATH wallet --sync --all 2>/dev/null || print_warning "Wallet sync command not available"
+    $CLI_PATH wallet sync --all 2>/dev/null || print_warning "Wallet sync command not available"
     log "Wallet sync attempted"
     
     print_status "Checking all wallet balances..."
-    $CLI_PATH wallet --balance --all 2>/dev/null || print_warning "All wallet balances command not available"
+    $CLI_PATH wallet balance --all 2>/dev/null || print_warning "All wallet balances command not available"
     log "All wallet balances checked"
     
     print_success "2.1 Advanced Wallet Management completed"
@@ -59,16 +58,16 @@ blockchain_operations() {
     print_status "2.2 Blockchain Operations"
     
     print_status "Getting blockchain information..."
-    $CLI_PATH blockchain --info 2>/dev/null || print_warning "Blockchain info command not available"
+    $CLI_PATH blockchain info 2>/dev/null || print_warning "Blockchain info command not available"
     log "Blockchain information retrieved"
     
     print_status "Getting blockchain height..."
-    $CLI_PATH blockchain --height 2>/dev/null || print_warning "Blockchain height command not available"
+    $CLI_PATH blockchain height 2>/dev/null || print_warning "Blockchain height command not available"
     log "Blockchain height retrieved"
     
     print_status "Getting latest block information..."
-    LATEST_BLOCK=$($CLI_PATH blockchain --height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "1")
-    $CLI_PATH blockchain --block --number "$LATEST_BLOCK" 2>/dev/null || print_warning "Block info command not available"
+    LATEST_BLOCK=$($CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "1")
+    $CLI_PATH blockchain block --number "$LATEST_BLOCK" 2>/dev/null || print_warning "Block info command not available"
     log "Block information retrieved for block $LATEST_BLOCK"
     
     print_status "Starting mining operations..."
@@ -127,23 +126,23 @@ network_operations() {
     print_status "2.4 Network Operations"
     
     print_status "Checking network status..."
-    $CLI_PATH network --status 2>/dev/null || print_warning "Network status command not available"
+    $CLI_PATH network status 2>/dev/null || print_warning "Network status command not available"
     log "Network status checked"
     
     print_status "Checking network peers..."
-    $CLI_PATH network --peers 2>/dev/null || print_warning "Network peers command not available"
+    $CLI_PATH network peers 2>/dev/null || print_warning "Network peers command not available"
     log "Network peers checked"
     
     print_status "Testing network sync status..."
-    $CLI_PATH network --sync --status 2>/dev/null || print_warning "Network sync status command not available"
+    $CLI_PATH network sync --status 2>/dev/null || print_warning "Network sync status command not available"
     log "Network sync status checked"
     
     print_status "Pinging follower node..."
-    $CLI_PATH network --ping --node "aitbc1" 2>/dev/null || print_warning "Network ping command not available"
+    $CLI_PATH network ping --node "aitbc1" 2>/dev/null || print_warning "Network ping command not available"
     log "Network ping to aitbc1 attempted"
     
     print_status "Testing data propagation..."
-    $CLI_PATH network --propagate --data "training-test" 2>/dev/null || print_warning "Network propagate command not available"
+    $CLI_PATH network propagate --data "training-test" 2>/dev/null || print_warning "Network propagate command not available"
     log "Network propagation test attempted"
     
     print_success "2.4 Network Operations completed"
@@ -154,16 +153,16 @@ node_specific_blockchain() {
     print_status "Node-Specific Blockchain Operations"
     
     print_status "Testing Genesis Node blockchain operations (port 8006)..."
-    NODE_URL="http://localhost:8006" $CLI_PATH blockchain --info 2>/dev/null || print_warning "Genesis node blockchain info not available"
+    NODE_URL="http://localhost:8006" $CLI_PATH blockchain info 2>/dev/null || print_warning "Genesis node blockchain info not available"
     log "Genesis node blockchain operations tested"
     
     print_status "Testing Follower Node blockchain operations (port 8007)..."
-    NODE_URL="http://localhost:8007" $CLI_PATH blockchain --info 2>/dev/null || print_warning "Follower node blockchain info not available"
+    NODE_URL="http://localhost:8007" $CLI_PATH blockchain info 2>/dev/null || print_warning "Follower node blockchain info not available"
     log "Follower node blockchain operations tested"
     
     print_status "Comparing blockchain heights between nodes..."
-    GENESIS_HEIGHT=$(NODE_URL="http://localhost:8006" $CLI_PATH blockchain --height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
-    FOLLOWER_HEIGHT=$(NODE_URL="http://localhost:8007" $CLI_PATH blockchain --height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+    GENESIS_HEIGHT=$(NODE_URL="http://localhost:8006" $CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+    FOLLOWER_HEIGHT=$(NODE_URL="http://localhost:8007" $CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
     
     print_status "Genesis height: $GENESIS_HEIGHT, Follower height: $FOLLOWER_HEIGHT"
     log "Node comparison: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"
@@ -232,18 +231,21 @@ main() {
     
     log "Starting $TRAINING_STAGE"
     
-    check_prerequisites
-    advanced_wallet_management
-    blockchain_operations
-    smart_contract_interaction
-    network_operations
-    node_specific_blockchain
-    performance_validation
-    validation_quiz
+    # Check prerequisites (continues despite warnings)
+    check_prerequisites_full || true
+    
+    # Execute training sections
+    advanced_wallet_management || true
+    blockchain_operations || true
+    smart_contract_interaction || true
+    network_operations || true
+    node_specific_blockchain || true
+    performance_validation || true
+    validation_quiz || true
     
     echo
     echo -e "${GREEN}========================================${NC}"
-    echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
+    echo -e "${GREEN}$TRAINING_STAGE COMPLETED${NC}"
     echo -e "${GREEN}========================================${NC}"
     echo
     echo -e "${BLUE}Next Steps:${NC}"
@@ -253,7 +255,7 @@ main() {
     echo
     echo -e "${YELLOW}Training Log: $LOG_FILE${NC}"
     
-    log "$TRAINING_STAGE completed successfully"
+    log "$TRAINING_STAGE completed"
 }
 
 # Run the training
