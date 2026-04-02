@@ -21,8 +21,8 @@ def genesis():
 
 @genesis.command()
 @click.option('--address', required=True, help='Wallet address (id) to create')
-@click.option('--password-file', default='/opt/aitbc/data/keystore/.password', show_default=True, type=click.Path(exists=True, dir_okay=False), help='Path to password file')
-@click.option('--output-dir', default='/opt/aitbc/data/keystore', show_default=True, help='Directory to write keystore file')
+@click.option('--password-file', default='/var/lib/aitbc/data/keystore/.password', show_default=True, type=click.Path(exists=True, dir_okay=False), help='Path to password file')
+@click.option('--output-dir', default='/var/lib/aitbc/data/keystore', show_default=True, help='Directory to write keystore file')
 @click.option('--force', is_flag=True, help='Overwrite existing keystore file if present')
 @click.pass_context
 def create_keystore(ctx, address, password_file, output_dir, force):
@@ -38,7 +38,7 @@ def create_keystore(ctx, address, password_file, output_dir, force):
 @genesis.command(name="init-production")
 @click.option('--chain-id', default='ait-mainnet', show_default=True, help='Chain ID to initialize')
 @click.option('--genesis-file', default='data/genesis_prod.yaml', show_default=True, help='Path to genesis YAML (copy to /opt/aitbc/genesis_prod.yaml if needed)')
-@click.option('--db', default='/opt/aitbc/data/ait-mainnet/chain.db', show_default=True, help='SQLite DB path')
+@click.option('--db', default='/var/lib/aitbc/data/ait-mainnet/chain.db', show_default=True, help='SQLite DB path')
 @click.option('--force', is_flag=True, help='Overwrite existing DB (removes file if present)')
 @click.pass_context
 def init_production(ctx, chain_id, genesis_file, db, force):
@@ -355,7 +355,7 @@ def template_info(ctx, template_name, output):
 @click.pass_context
 def init_production(ctx, chain_id, genesis_file, force):
     """Initialize production chain DB using genesis allocations."""
-    db_path = Path("/opt/aitbc/data") / chain_id / "chain.db"
+    db_path = Path("/var/lib/aitbc/data") / chain_id / "chain.db"
     if db_path.exists() and force:
         db_path.unlink()
     python_bin = Path(__file__).resolve().parents[3] / 'apps' / 'blockchain-node' / '.venv' / 'bin' / 'python3'
