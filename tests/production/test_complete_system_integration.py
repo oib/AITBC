@@ -410,10 +410,9 @@ class TestCompleteSystemIntegration:
         assert "sla" in sla
         assert "overall_compliance" in sla["sla"]
         
-        # Test SLA metric recording
+        # Test SLA recording
         response = requests.post(
-            f"{self.BASE_URL}/sla/response_time/record",
-            json={"value": 0.2},
+            f"{self.BASE_URL}/sla/response_time/record?value=0.2",
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
