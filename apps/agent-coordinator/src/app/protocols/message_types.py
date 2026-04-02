@@ -341,18 +341,17 @@ class MessageQueue:
         self.queues: Dict[Priority, asyncio.Queue] = {
             Priority.CRITICAL: asyncio.Queue(maxsize=max_size // 4),
             Priority.HIGH: asyncio.Queue(maxsize=max_size // 4),
-            Priority.NORMAL: asyncio.Queue(maxsize // 2),
-            Priority.LOW: asyncio.Queue(maxsize // 4)
+            Priority.NORMAL: asyncio.Queue(maxsize=max_size // 2),
+            Priority.LOW: asyncio.Queue(maxsize=max_size // 4)
         }
         self.message_store: Dict[str, AgentMessage] = {}
         self.delivery_confirmations: Dict[str, bool] = {}
         
-    async def enqueue(self, message: AgentMessage, delivery_mode: DeliveryMode = DeliveryMode.AT_LEAST_ONCE) -> bool:
+    async def enqueue(self, message: AgentMessage) -> bool:
         """Enqueue message with priority"""
         try:
             # Store message for persistence
-            if delivery_mode in [DeliveryMode.AT_LEAST_ONCE, DeliveryMode.EXACTLY_ONCE, DeliveryMode.PERSISTENT]:
-                self.message_store[message.id] = message
+            self.message_store[message.id] = message
             
             # Add to appropriate priority queue
             queue = self.queues[message.priority]

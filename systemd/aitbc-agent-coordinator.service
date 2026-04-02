@@ -1,16 +1,44 @@
 [Unit]
 Description=AITBC Agent Coordinator Service
-After=network.target aitbc-agent-registry.service
+After=network.target redis.service
 
 [Service]
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/agent-services/agent-coordinator/src
-Environment=PYTHONPATH=/opt/aitbc
-ExecStart=/opt/aitbc/venv/bin/python coordinator.py
+WorkingDirectory=/opt/aitbc/apps/agent-coordinator
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc/apps/agent-coordinator/src
+EnvironmentFile=/etc/aitbc/production.env
+
+# Agent coordinator execution
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app.main:app --host 0.0.0.0 --port 9001
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+
+# Production reliability
 Restart=always
-RestartSec=10
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Production logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-agent-coordinator
+
+# Production security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aitbc/data/agent-coordinator /var/log/aitbc/production/agent-coordinator
+
+# Production performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=2G
+CPUQuota=50%
 
 [Install]
 WantedBy=multi-user.target
