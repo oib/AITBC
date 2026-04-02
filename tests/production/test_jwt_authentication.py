@@ -371,8 +371,8 @@ class TestAPIKeyManagement:
         token = response.json()["access_token"]
         
         response = requests.post(
-            f"{self.BASE_URL}/auth/api-key/generate",
-            json={"user_id": "test_user_002"},
+            f"{self.BASE_URL}/auth/api-key/generate?user_id=test_user_002",
+            json=["agent:view"],
             headers={
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json"
