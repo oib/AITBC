@@ -19,6 +19,9 @@ from .protocols.communication import CommunicationManager, create_protocol, Mess
 from .protocols.message_types import MessageProcessor, create_task_message, create_status_message
 from .routing.agent_discovery import AgentRegistry, AgentDiscoveryService, create_agent_info
 from .routing.load_balancer import LoadBalancer, TaskDistributor, TaskPriority, LoadBalancingStrategy
+from .ai.realtime_learning import learning_system
+from .ai.advanced_ai import ai_integration
+from .consensus.distributed_consensus import distributed_consensus
 
 # Configure logging
 logging.basicConfig(
@@ -486,6 +489,226 @@ async def set_load_balancing_strategy(strategy: str = Query(..., description="Lo
         raise
     except Exception as e:
         logger.error(f"Error setting load balancing strategy: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Advanced AI/ML endpoints
+@app.post("/ai/learning/experience")
+async def record_learning_experience(experience_data: Dict[str, Any]):
+    """Record a learning experience for the AI system"""
+    try:
+        result = await learning_system.record_experience(experience_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error recording learning experience: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ai/learning/statistics")
+async def get_learning_statistics():
+    """Get learning system statistics"""
+    try:
+        result = await learning_system.get_learning_statistics()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting learning statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/learning/predict")
+async def predict_performance(context: Dict[str, Any], action: str = Query(...)):
+    """Predict performance for a given action"""
+    try:
+        result = await learning_system.predict_performance(context, action)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting performance: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/learning/recommend")
+async def recommend_action(context: Dict[str, Any], available_actions: List[str]):
+    """Get AI-recommended action"""
+    try:
+        result = await learning_system.recommend_action(context, available_actions)
+        return result
+    except Exception as e:
+        logger.error(f"Error recommending action: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/neural-network/create")
+async def create_neural_network(config: Dict[str, Any]):
+    """Create a new neural network"""
+    try:
+        result = await ai_integration.create_neural_network(config)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/neural-network/{network_id}/train")
+async def train_neural_network(network_id: str, training_data: List[Dict[str, Any]], epochs: int = 100):
+    """Train a neural network"""
+    try:
+        result = await ai_integration.train_neural_network(network_id, training_data, epochs)
+        return result
+    except Exception as e:
+        logger.error(f"Error training neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/neural-network/{network_id}/predict")
+async def predict_with_neural_network(network_id: str, features: List[float]):
+    """Make prediction with neural network"""
+    try:
+        result = await ai_integration.predict_with_neural_network(network_id, features)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting with neural network: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/ml-model/create")
+async def create_ml_model(config: Dict[str, Any]):
+    """Create a new ML model"""
+    try:
+        result = await ai_integration.create_ml_model(config)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/ml-model/{model_id}/train")
+async def train_ml_model(model_id: str, training_data: List[Dict[str, Any]]):
+    """Train an ML model"""
+    try:
+        result = await ai_integration.train_ml_model(model_id, training_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error training ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ai/ml-model/{model_id}/predict")
+async def predict_with_ml_model(model_id: str, features: List[float]):
+    """Make prediction with ML model"""
+    try:
+        result = await ai_integration.predict_with_ml_model(model_id, features)
+        return result
+    except Exception as e:
+        logger.error(f"Error predicting with ML model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ai/statistics")
+async def get_ai_statistics():
+    """Get comprehensive AI/ML statistics"""
+    try:
+        result = await ai_integration.get_ai_statistics()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting AI statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Distributed consensus endpoints
+@app.post("/consensus/node/register")
+async def register_consensus_node(node_data: Dict[str, Any]):
+    """Register a node in the consensus network"""
+    try:
+        result = await distributed_consensus.register_node(node_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error registering consensus node: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/consensus/proposal/create")
+async def create_consensus_proposal(proposal_data: Dict[str, Any]):
+    """Create a new consensus proposal"""
+    try:
+        result = await distributed_consensus.create_proposal(proposal_data)
+        return result
+    except Exception as e:
+        logger.error(f"Error creating consensus proposal: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/consensus/proposal/{proposal_id}/vote")
+async def cast_consensus_vote(proposal_id: str, node_id: str, vote: bool):
+    """Cast a vote for a proposal"""
+    try:
+        result = await distributed_consensus.cast_vote(proposal_id, node_id, vote)
+        return result
+    except Exception as e:
+        logger.error(f"Error casting consensus vote: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/consensus/proposal/{proposal_id}")
+async def get_proposal_status(proposal_id: str):
+    """Get proposal status"""
+    try:
+        result = await distributed_consensus.get_proposal_status(proposal_id)
+        return result
+    except Exception as e:
+        logger.error(f"Error getting proposal status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/consensus/algorithm")
+async def set_consensus_algorithm(algorithm: str = Query(..., description="Consensus algorithm")):
+    """Set the consensus algorithm"""
+    try:
+        result = await distributed_consensus.set_consensus_algorithm(algorithm)
+        return result
+    except Exception as e:
+        logger.error(f"Error setting consensus algorithm: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/consensus/statistics")
+async def get_consensus_statistics():
+    """Get consensus statistics"""
+    try:
+        result = await distributed_consensus.get_consensus_statistics()
+        return result
+    except Exception as e:
+        logger.error(f"Error getting consensus statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/consensus/node/{node_id}/status")
+async def update_node_status(node_id: str, is_active: bool):
+    """Update node status"""
+    try:
+        result = await distributed_consensus.update_node_status(node_id, is_active)
+        return result
+    except Exception as e:
+        logger.error(f"Error updating node status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Advanced features status endpoint
+@app.get("/advanced-features/status")
+async def get_advanced_features_status():
+    """Get status of all advanced features"""
+    try:
+        learning_stats = await learning_system.get_learning_statistics()
+        ai_stats = await ai_integration.get_ai_statistics()
+        consensus_stats = await distributed_consensus.get_consensus_statistics()
+        
+        return {
+            "status": "success",
+            "timestamp": datetime.utcnow().isoformat(),
+            "features": {
+                "realtime_learning": {
+                    "status": "active",
+                    "experiences": learning_stats.get("total_experiences", 0),
+                    "learning_rate": learning_stats.get("learning_rate", 0.01),
+                    "models": learning_stats.get("models_count", 0)
+                },
+                "advanced_ai": {
+                    "status": "active",
+                    "models": ai_stats.get("total_models", 0),
+                    "neural_networks": ai_stats.get("total_neural_networks", 0),
+                    "predictions": ai_stats.get("total_predictions", 0)
+                },
+                "distributed_consensus": {
+                    "status": "active",
+                    "nodes": consensus_stats.get("active_nodes", 0),
+                    "proposals": consensus_stats.get("total_proposals", 0),
+                    "success_rate": consensus_stats.get("success_rate", 0.0),
+                    "algorithm": consensus_stats.get("current_algorithm", "majority_vote")
+                }
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting advanced features status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Error handlers
