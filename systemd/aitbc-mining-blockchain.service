@@ -10,7 +10,7 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
 Environment=PYTHONPATH=/opt/aitbc/services
-EnvironmentFile=/opt/aitbc/production/.env
+EnvironmentFile=/etc/aitbc/production.env
 
 # Real mining execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/mining_blockchain.py
