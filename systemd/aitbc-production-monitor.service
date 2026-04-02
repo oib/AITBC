@@ -28,7 +28,7 @@ SyslogIdentifier=aitbc-production-monitor
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data /opt/aitbc/production/logs
+ReadWritePaths=/var/lib/aitbc/data /var/log/aitbc/production
 
 [Install]
 WantedBy=multi-user.target
