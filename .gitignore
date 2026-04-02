@@ -323,3 +323,7 @@ config/
 api_keys.txt
 *.yaml
 !*.example
+logs/
+production/logs/
+*.log
+*.log.*

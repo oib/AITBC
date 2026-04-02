@@ -23,7 +23,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/blockchain/blockchain.log'),
+        logging.FileHandler('/var/log/aitbc/production/blockchain/blockchain.log'),
         logging.StreamHandler()
     ]
 )
