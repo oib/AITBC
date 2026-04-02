@@ -84,12 +84,12 @@ class AgentIdentity(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Indexes for performance
-    __table_args__ = (
-        Index("idx_agent_identity_owner", "owner_address"),
-        Index("idx_agent_identity_status", "status"),
-        Index("idx_agent_identity_verified", "is_verified"),
-        Index("idx_agent_identity_reputation", "reputation_score"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_agent_identity_owner", "owner_address"),)
+#        # Index(        Index("idx_agent_identity_status", "status"),)
+#        # Index(        Index("idx_agent_identity_verified", "is_verified"),)
+#        # Index(        Index("idx_agent_identity_reputation", "reputation_score"),)
+    }
 
 
 class CrossChainMapping(SQLModel, table=True):
@@ -126,11 +126,11 @@ class CrossChainMapping(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Unique constraint
-    __table_args__ = (
-        Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),
-        Index("idx_cross_chain_address", "chain_address"),
-        Index("idx_cross_chain_verified", "is_verified"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_cross_chain_agent_chain", "agent_id", "chain_id"),)
+#        # Index(        Index("idx_cross_chain_address", "chain_address"),)
+#        # Index(        Index("idx_cross_chain_verified", "is_verified"),)
+    }
 
 
 class IdentityVerification(SQLModel, table=True):
@@ -166,12 +166,12 @@ class IdentityVerification(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Indexes
-    __table_args__ = (
-        Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),
-        Index("idx_identity_verify_verifier", "verifier_address"),
-        Index("idx_identity_verify_hash", "proof_hash"),
-        Index("idx_identity_verify_result", "verification_result"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_identity_verify_agent_chain", "agent_id", "chain_id"),)
+#        # Index(        Index("idx_identity_verify_verifier", "verifier_address"),)
+#        # Index(        Index("idx_identity_verify_hash", "proof_hash"),)
+#        # Index(        Index("idx_identity_verify_result", "verification_result"),)
+    }
 
 
 class AgentWallet(SQLModel, table=True):
@@ -212,11 +212,11 @@ class AgentWallet(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     # Indexes
-    __table_args__ = (
-        Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),
-        Index("idx_agent_wallet_address", "chain_address"),
-        Index("idx_agent_wallet_active", "is_active"),
-    )
+    __table_args__ = {
+#        # Index(        Index("idx_agent_wallet_agent_chain", "agent_id", "chain_id"),)
+#        # Index(        Index("idx_agent_wallet_address", "chain_address"),)
+#        # Index(        Index("idx_agent_wallet_active", "is_active"),)
+    }
 
 
 # Request/Response Models for API
