@@ -1125,7 +1125,7 @@ async def get_metrics_summary():
         # Add additional system metrics
         system_metrics = {
             "total_agents": len(agent_registry.agents) if agent_registry else 0,
-            "active_agents": len([a for a in agent_registry.agents.values() if a.is_active]) if agent_registry else 0,
+            "active_agents": len([a for a in agent_registry.agents.values() if getattr(a, 'is_active', True)]) if agent_registry else 0,
             "total_tasks": len(task_distributor.active_tasks) if task_distributor else 0,
             "load_balancer_strategy": load_balancer.current_strategy.value if load_balancer else "unknown"
         }
