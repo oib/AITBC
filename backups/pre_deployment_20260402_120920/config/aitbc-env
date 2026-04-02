@@ -1,0 +1,53 @@
+#!/bin/bash
+# AITBC Virtual Environment Wrapper
+# This script activates the central AITBC virtual environment
+
+# Check if venv exists
+if [ ! -d "/opt/aitbc/venv" ]; then
+    echo "❌ AITBC virtual environment not found at /opt/aitbc/venv"
+    echo "Run: sudo python3 -m venv /opt/aitbc/venv && pip install -r /opt/aitbc/requirements.txt"
+    exit 1
+fi
+
+# Activate the virtual environment
+source /opt/aitbc/venv/bin/activate
+
+# Set up environment (avoid aitbc-core logging conflict)
+export PYTHONPATH="/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src:$PYTHONPATH"
+export AITBC_VENV="/opt/aitbc/venv"
+export PATH="/opt/aitbc/venv/bin:$PATH"
+
+# Show status
+echo "✅ AITBC Virtual Environment Activated"
+echo "📍 Python: $(which python)"
+echo "📍 Pip: $(which pip)"
+echo "📦 Packages: $(pip list | wc -l) installed"
+
+# CLI alias function
+aitbc() {
+    if [ -f "/opt/aitbc/cli/core/main.py" ]; then
+        cd /opt/aitbc/cli
+        PYTHONPATH=/opt/aitbc/cli:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src python -m core.main "$@"
+        cd - > /dev/null
+    else
+        echo "❌ AITBC CLI not found at /opt/aitbc/cli/core/main.py"
+        return 1
+    fi
+}
+
+# Execute command or start shell
+if [ $# -eq 0 ]; then
+    echo "🚀 Starting interactive shell..."
+    echo "💡 Use 'aitbc <command>' for CLI operations"
+    exec bash
+else
+    echo "🔧 Executing: $@"
+    if [ "$1" = "aitbc" ]; then
+        shift
+        cd /opt/aitbc/cli
+        PYTHONPATH=/opt/aitbc/cli:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src python -m core.main "$@"
+        cd - > /dev/null
+    else
+        exec "$@"
+    fi
+fi

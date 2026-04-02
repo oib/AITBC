@@ -1,0 +1,8 @@
+genesis:
+  chain_type: topic
+  consensus:
+    algorithm: pos
+  name: Test Chain
+  privacy:
+    visibility: public
+  purpose: test
