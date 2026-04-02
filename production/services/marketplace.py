@@ -54,7 +54,7 @@ class ProductionMarketplace:
     """Production-grade marketplace with persistence"""
     
     def __init__(self):
-        self.data_dir = Path('/opt/aitbc/production/data/marketplace')
+        self.data_dir = Path("/var/lib/aitbc/data/marketplace")
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Load existing data
