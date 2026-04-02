@@ -52,8 +52,8 @@ module = [
 ]
 ignore_missing_imports = true
 
-[tool.mypy.plugins]
-pydantic = true
+[tool.mypy]
+plugins = ["pydantic_pydantic_plugin"]
 
 [tool.black]
 line-length = 88

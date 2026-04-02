@@ -1076,7 +1076,13 @@ async def admin_only_endpoint(current_user: Dict[str, Any] = Depends(get_current
     return {
         "status": "success",
         "message": "Welcome admin!",
-        "user": current_user
+        "user": {
+            "user_id": current_user.get("user_id"),
+            "username": current_user.get("username"),
+            "role": str(current_user.get("role")),
+            "permissions": current_user.get("permissions", []),
+            "auth_type": current_user.get("auth_type")
+        }
     }
 
 @app.get("/protected/operator")
@@ -1086,7 +1092,13 @@ async def operator_endpoint(current_user: Dict[str, Any] = Depends(get_current_u
     return {
         "status": "success",
         "message": "Welcome operator!",
-        "user": current_user
+        "user": {
+            "user_id": current_user.get("user_id"),
+            "username": current_user.get("username"),
+            "role": str(current_user.get("role")),
+            "permissions": current_user.get("permissions", []),
+            "auth_type": current_user.get("auth_type")
+        }
     }
 
 # Monitoring and metrics endpoints
@@ -1142,8 +1154,8 @@ async def get_metrics_summary():
         system_metrics = {
             "total_agents": len(agent_registry.agents) if agent_registry else 0,
             "active_agents": len([a for a in agent_registry.agents.values() if getattr(a, 'is_active', True)]) if agent_registry else 0,
-            "total_tasks": len(task_distributor.active_tasks) if task_distributor else 0,
-            "load_balancer_strategy": load_balancer.current_strategy.value if load_balancer else "unknown"
+            "total_tasks": len(task_distributor.task_queue._queue) if task_distributor and hasattr(task_distributor, 'task_queue') else 0,
+            "load_balancer_strategy": load_balancer.strategy.value if load_balancer else "unknown"
         }
         
         return {

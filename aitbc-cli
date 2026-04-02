@@ -1,0 +1,36 @@
+#!/bin/bash
+# AITBC CLI Wrapper
+# Delegates to the actual Python CLI implementation at /opt/aitbc/cli/aitbc_cli.py
+
+CLI_DIR="/opt/aitbc/cli"
+PYTHON_CLI="$CLI_DIR/aitbc_cli.py"
+
+if [ ! -f "$PYTHON_CLI" ]; then
+    echo "Error: AITBC CLI not found at $PYTHON_CLI"
+    exit 1
+fi
+
+# Handle version request
+if [ "$1" == "--version" ] || [ "$1" == "-v" ]; then
+    echo "aitbc-cli v2.0.0"
+    exit 0
+fi
+
+# Handle help request  
+if [ "$1" == "--help" ] || [ "$1" == "-h" ]; then
+    echo "AITBC CLI - AI Training Blockchain Command Line Interface"
+    echo ""
+    echo "Usage: aitbc-cli [command] [options]"
+    echo ""
+    echo "Available commands: balance, create, delete, export, import, list, send,"
+    echo "                    transactions, mine-start, mine-stop, openclaw, workflow,"
+    echo "                    resource, batch, rename, and more..."
+    echo ""
+    echo "For detailed help: aitbc-cli --help-all"
+    echo ""
+    exit 0
+fi
+
+# Delegate to Python CLI
+cd "$CLI_DIR"
+python3 "$PYTHON_CLI" "$@"

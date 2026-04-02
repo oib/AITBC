@@ -276,6 +276,13 @@ class APIKeyManager:
             return {"status": "error", "message": str(e)}
 
 # Global instances
-jwt_handler = JWTHandler()
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+jwt_secret = os.getenv("JWT_SECRET", "production-jwt-secret-change-me")
+jwt_handler = JWTHandler(jwt_secret)
 password_manager = PasswordManager()
 api_key_manager = APIKeyManager()
