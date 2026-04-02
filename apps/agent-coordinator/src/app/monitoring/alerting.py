@@ -11,8 +11,17 @@ from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import json
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+
+# Try to import email modules, handle gracefully if not available
+try:
+    from email.mime.text import MimeText
+    from email.mime.multipart import MimeMultipart
+    EMAIL_AVAILABLE = True
+except ImportError:
+    EMAIL_AVAILABLE = False
+    MimeText = None
+    MimeMultipart = None
+
 import requests
 
 logger = logging.getLogger(__name__)
@@ -273,6 +282,10 @@ class NotificationManager:
     
     async def _send_email(self, alert: Alert, message: str):
         """Send email notification"""
+        if not EMAIL_AVAILABLE:
+            logger.warning("Email functionality not available")
+            return
+        
         if not self.email_config:
             logger.warning("Email not configured")
             return
