@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # AITBC Nightly Health Check
-# Runs master planning cleanup and reports documentation/planning cleanliness.
+# Runs master planning cleanup and reports docs/planning cleanliness.
 #
 set -e
 
@@ -30,7 +30,7 @@ else
   log_warn "Master workflow script not found or not executable: $MASTER_WORKFLOW"
 fi
 
-log_info "Collecting documentation/planning stats..."
+log_info "Collecting docs/planning stats..."
 planning_files=$(find "$PLANNING_DIR" -name "*.md" | wc -l)
 completed_files=$(find "$DOCS_DIR/completed" -name "*.md" | wc -l)
 archive_files=$(find "$DOCS_DIR/archive" -name "*.md" | wc -l)

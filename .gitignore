@@ -1,11 +1,13 @@
 # AITBC Monorepo ignore rules
-# Updated: 2026-03-18 - Security fixes for hardcoded passwords
-# Development files organized into dev/ subdirectories
+# Updated: 2026-04-02 - Project reorganization and security fixes
+# Development files organized into subdirectories
 
 # ===================
 # Python
 # ===================
 __pycache__/
+*/__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
 *.pyd
@@ -105,14 +107,42 @@ target/
 *.dylib
 
 # ===================
-# Secrets & Credentials (CRITICAL SECURITY)
-# ===================
+# Node.js & npm
 # ===================
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# ===================
+# Project Configuration (moved to project-config/)
+# ===================
+project-config/.deployment_progress
+project-config/.last_backup
+project-config/=*
+# requirements.txt, pyproject.toml, and poetry.lock are now at root level
+
+# ===================
+# Documentation (moved to docs/)
+# ===================
+docs/AITBC1_*.md
+docs/PYTHON_VERSION_STATUS.md
+docs/SETUP.md
+docs/README_DOCUMENTATION.md
+
+# ===================
+# Security Reports (moved to security/)
+# ===================
+security/SECURITY_*.md
+
+# ===================
+# Backup Configuration (moved to backup-config/)
+# ===================
+backup-config/*.backup
+
+# ===================
+# Secrets & Credentials (CRITICAL SECURITY)
+# ===================
 # Password files (NEVER commit these)
 *.password
 *.pass
@@ -129,6 +159,9 @@ private_key.*
 # ===================
 # Backup Files (organized)
 # ===================
+backups/
+backups/*
+backups/**/*
 backup/**/*.tmp
 backup/**/*.temp
 backup/**/.DS_Store
@@ -167,7 +200,8 @@ temp/
 # ===================
 # Wallet Files (contain private keys)
 # ===================
-# Specific wallet and private key JSON files (contain private keys)
+wallet*.json
+
 # ===================
 # Project Specific
 # ===================
@@ -184,6 +218,7 @@ apps/explorer-web/dist/
 packages/solidity/aitbc-token/typechain-types/
 packages/solidity/aitbc-token/artifacts/
 packages/solidity/aitbc-token/cache/
+packages/solidity/aitbc-token/node_modules/
 
 # Local test fixtures and E2E testing
 tests/e2e/fixtures/home/**/.aitbc/cache/
@@ -202,6 +237,7 @@ tests/e2e/fixtures/home/**/.aitbc/*.sock
 
 # Local test data
 tests/fixtures/generated/
+tests/__pycache__/
 
 # GPU miner local configs
 scripts/gpu/*.local.py
@@ -222,8 +258,8 @@ docs/1_project/4_currentissue.md
 # ===================
 # Website (local deployment details)
 # ===================
-website/README.md
-website/aitbc-proxy.conf
+website/README.md.example
+website/aitbc-proxy.conf.example
 
 # ===================
 # Local Config & Secrets
@@ -248,31 +284,14 @@ infra/helm/values/prod/
 infra/helm/values/prod.yaml
 
 # ===================
-# Node.js
-# ===================
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Build artifacts
-build/
-dist/
-target/
-
-# System files
-*.pid
-*.seed
-*.pid.lock
-
 # Coverage reports
+# ===================
 htmlcov/
 .coverage
 .coverage.*
 coverage.xml
 *.cover
 .hypothesis/
-.pytest_cache/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -280,56 +299,31 @@ coverage.xml
 # pyenv
 .python-version
 
-# Environments
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
-
 # ===================
 # AITBC specific (CRITICAL SECURITY)
 # ===================
-data/
-logs/
-*.db
-*.sqlite
-wallet*.json
 certificates/
-
-# Guardian contract databases (contain spending limits)
 guardian_contracts/
 *.guardian.db
-
-# Multi-chain wallet data
 .wallets/
 .wallets/*
-
-# Agent protocol data
 .agent_data/
 .agent_data/*
-
-# Operational and setup files
 results/
 tools/
-data/
-*.db
-*.log
 production/data/
 production/logs/
 config/
-*.env
 api_keys.txt
 *.yaml
 !*.example
-logs/
-production/logs/
-*.log
-*.log.*
-production/data/
-production/logs/
 dev/cache/logs/
 dev/test-nodes/*/data/
 backups/*/config/
 backups/*/logs/
+
+# ===================
+# Monitoring & Systemd
+# ===================
+monitoring/*.pid
+systemd/*.backup

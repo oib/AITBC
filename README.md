@@ -27,12 +27,12 @@ This project has been organized for better maintainability. Here's the directory
 
 ### 📁 Documentation
 - `docs/` - Comprehensive documentation
-- `documentation/` - User guides and manuals
   - `README.md` - Main project documentation
   - `SETUP.md` - Setup instructions
   - `PYTHON_VERSION_STATUS.md` - Python compatibility
   - `AITBC1_TEST_COMMANDS.md` - Testing commands
   - `AITBC1_UPDATED_COMMANDS.md` - Updated commands
+  - `README_DOCUMENTATION.md` - Detailed documentation
 
 ### 📁 Development
 - `dev/` - Development tools and examples
