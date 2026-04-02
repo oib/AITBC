@@ -313,16 +313,23 @@ class PerformanceMonitor:
         self.registry.counter("messages_sent_total", "Total messages sent", ["message_type", "status"])
         self.registry.histogram("message_size_bytes", "Message size in bytes", [100, 1000, 10000, 100000])
         self.registry.gauge("active_connections", "Number of active connections")
+        
+        # Initialize counters and gauges to zero
+        self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(0, status="total")
+        self.registry.gauge("agents_total", "Total number of agents", ["status"]).set(0, status="active")
+        self.registry.gauge("tasks_active", "Number of active tasks").set(0)
+        self.registry.gauge("system_uptime_seconds", "System uptime in seconds").set(0)
+        self.registry.gauge("active_connections", "Number of active connections").set(0)
     
     def record_request(self, method: str, endpoint: str, status_code: int, duration: float):
         """Record HTTP request metrics"""
-        self.registry.counter("http_requests_total").inc(
+        self.registry.counter("http_requests_total", "Total HTTP requests", ["method", "endpoint", "status"]).inc(
             method=method,
             endpoint=endpoint,
             status=str(status_code)
         )
         
-        self.registry.histogram("http_request_duration_seconds").observe(
+        self.registry.histogram("http_request_duration_seconds", "HTTP request duration", [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0], ["method", "endpoint"]).observe(
             duration,
             method=method,
             endpoint=endpoint
