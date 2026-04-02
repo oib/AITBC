@@ -1,32 +1,48 @@
 [Unit]
-Description=AITBC Enhanced Marketplace Service
-After=network.target aitbc-coordinator-api.service
-Wants=aitbc-coordinator-api.service
+Description=AITBC Production Marketplace Service
+After=network.target aitbc-blockchain-node.service postgresql.service redis.service
+Wants=aitbc-blockchain-node.service postgresql.service redis.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/aitbc/apps/coordinator-api
-Environment=PATH=/usr/bin
-Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.routers.marketplace_enhanced_app:app --host 127.0.0.1 --port 8002
+Group=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=NODE_ID=aitbc
+Environment=MARKETPLACE_PORT=8002
+Environment=WORKERS=4
+Environment=PYTHONPATH=/opt/aitbc/production/services
+EnvironmentFile=/opt/aitbc/production/.env
+
+# Production execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
-TimeoutStopSec=5
-PrivateTmp=true
-Restart=on-failure
-RestartSec=10
+TimeoutStopSec=10
 
-# Logging
+# Production reliability
+Restart=always
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-marketplace-enhanced
+SyslogIdentifier=aitbc-marketplace-production
 
-# Security
+# Production security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/apps/coordinator-api
+ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+
+# Production performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=1G
+CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target

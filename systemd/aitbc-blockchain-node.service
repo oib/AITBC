@@ -1,21 +1,46 @@
 [Unit]
-Description=AITBC Blockchain Node (Combined with P2P)
-After=network.target
+Description=AITBC Production Blockchain Node
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
 
 [Service]
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/blockchain-node
-EnvironmentFile=/etc/aitbc/blockchain.env
+WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
-ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main
+Environment=NODE_ID=aitbc
+Environment=PYTHONPATH=/opt/aitbc/production/services
+EnvironmentFile=/opt/aitbc/production/.env
+
+# Production execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/blockchain_simple.py
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=10
+
+# Production reliability
 Restart=always
 RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Production logging
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=aitbc-blockchain-production
+
+# Production security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/aitbc/production/data/blockchain /opt/aitbc/production/logs/blockchain
+
+# Production performance
+LimitNOFILE=65536
+LimitNPROC=4096
+MemoryMax=2G
+CPUQuota=50%
 
 [Install]
 WantedBy=multi-user.target
-
