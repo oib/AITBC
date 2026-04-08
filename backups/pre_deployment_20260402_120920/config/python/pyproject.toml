@@ -118,7 +118,7 @@ dependencies = [
     "pyyaml==6.0.3",
     "rich==14.3.3",
     "keyring==25.7.0",
-    "cryptography==46.0.6",
+    "cryptography==46.0.7",
     "click-completion==0.5.2",
     "tabulate==0.10.0",
     "colorama==0.4.6",
