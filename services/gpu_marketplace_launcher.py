@@ -40,8 +40,16 @@ def main():
             # Fallback to simple service
             fallback_service()
             
+    except subprocess.CalledProcessError as e:
+        logger.error(f"GPU marketplace service failed with exit code {e.returncode}: {e}")
+        logger.info("Starting fallback GPU marketplace service")
+        fallback_service()
+    except (FileNotFoundError, PermissionError) as e:
+        logger.error(f"Cannot launch GPU marketplace service: {type(e).__name__}: {e}")
+        logger.info("Starting fallback GPU marketplace service")
+        fallback_service()
     except Exception as e:
-        logger.error(f"Error launching GPU marketplace: {e}")
+        logger.error(f"Unexpected error launching GPU marketplace: {type(e).__name__}: {e}")
         logger.info("Starting fallback GPU marketplace service")
         fallback_service()
 
@@ -59,8 +67,11 @@ def fallback_service():
             
     except KeyboardInterrupt:
         logger.info("GPU Marketplace service stopped by user")
+    except (OSError, IOError) as e:
+        logger.error(f"System error in fallback service: {type(e).__name__}: {e}")
+        time.sleep(5)
     except Exception as e:
-        logger.error(f"Error in fallback service: {e}")
+        logger.error(f"Unexpected error in fallback service: {type(e).__name__}: {e}")
         time.sleep(5)
 
 if __name__ == "__main__":

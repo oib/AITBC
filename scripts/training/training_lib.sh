@@ -11,7 +11,7 @@
 # ============================================================================
 
 # Default configuration (can be overridden)
-export CLI_PATH="${CLI_PATH:-python3 /opt/aitbc/cli/aitbc_cli.py}"
+export CLI_PATH="${CLI_PATH:-/opt/aitbc/aitbc-cli}"
 export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
@@ -21,8 +21,7 @@ export FOLLOWER_NODE="http://localhost:8007"
 
 # Service endpoints
 export SERVICES=(
-    "8000:Exchange"
-    "8001:Coordinator"
+    "8000:Coordinator"
     "8006:Genesis-Node"
     "8007:Follower-Node"
     "11434:Ollama"
@@ -142,13 +141,13 @@ check_cli() {
         }
     fi
     
-    # Test CLI
-    if ! $CLI_PATH --version &>/dev/null; then
-        print_error "CLI exists but --version command failed"
+    # Test CLI (using --help since --version not supported)
+    if ! $CLI_PATH --help &>/dev/null; then
+        print_error "CLI exists but --help command failed"
         return 1
     fi
     
-    print_success "CLI check passed: $($CLI_PATH --version)"
+    print_success "CLI check passed"
     return 0
 }
 
@@ -287,13 +286,13 @@ compare_nodes() {
     print_status "Comparing $description between nodes..."
     
     local genesis_result follower_result
-    genesis_result=$(NODE_URL="$GENESIS_NODE" eval "$cmd" 2>/dev/null || echo "FAILED")
-    follower_result=$(NODE_URL="$FOLLOWER_NODE" eval "$cmd" 2>/dev/null || echo "FAILED")
+    genesis_result=$(NODE_URL="$GENESIS_NODE" $CLI_PATH $cmd 2>/dev/null) || genesis_result="FAILED"
+    follower_result=$(NODE_URL="$FOLLOWER_NODE" $CLI_PATH $cmd 2>/dev/null) || follower_result="FAILED"
     
     log_info "Genesis result: $genesis_result"
     log_info "Follower result: $follower_result"
     
-    if [[ "$genesis_result" == "$follower_result" ]]; then
+    if [[ "$genesis_result" == "$follower_result" ]] && [[ "$genesis_result" != "FAILED" ]]; then
         print_success "Nodes are synchronized"
         return 0
     else
@@ -474,5 +473,6 @@ cli_cmd_output() {
 cli_cmd_node() {
     local node_url=$1
     shift
-    NODE_URL="$node_url" $CLI_PATH "$@" 2>/dev/null
+    # Use eval to properly parse command string with multiple arguments
+    NODE_URL="$node_url" eval "$CLI_PATH $*" 2>/dev/null
 }

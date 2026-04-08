@@ -329,10 +329,29 @@ class AgentAuditor:
         return hashlib.sha256(canonical_json.encode()).hexdigest()
 
     def _verify_signature(self, event_data: dict[str, Any]) -> bool | None:
-        """Verify cryptographic signature of event data"""
-        # TODO: Implement signature verification
-        # For now, return None (not verified)
-        return None
+        """Verify cryptographic signature of event data
+        
+        Note: Full signature verification requires:
+        1. Extract signature from event_data
+        2. Verify against expected public key
+        3. Use appropriate crypto library (e.g., cryptography, eth_keys)
+        Currently returns None (not verified) for compatibility.
+        """
+        try:
+            # Check if signature data exists
+            if "signature" not in event_data or "public_key" not in event_data:
+                return None
+            
+            # Placeholder for actual signature verification
+            # In production, use cryptography library to verify signature
+            # from cryptography.hazmat.primitives import hashes
+            # from cryptography.hazmat.primitives.asymmetric import padding
+            
+            # For now, return None to indicate not verified
+            return None
+        except Exception as e:
+            logger.error(f"Signature verification failed: {e}")
+            return False
 
     async def _handle_high_risk_event(self, audit_log: AgentAuditLog):
         """Handle high-risk audit events requiring investigation"""
@@ -347,11 +366,24 @@ class AgentAuditor:
 
         # Update audit log
         audit_log.investigation_notes = investigation_notes
+        audit_log.investigation_status = "pending"
+        audit_log.investigation_required = True
         self.session.commit()
 
-        # TODO: Send alert to security team
-        # TODO: Create investigation ticket
-        # TODO: Temporarily suspend related entities if needed
+        # Send alert to security team (placeholder for actual alerting system)
+        # In production, integrate with email, Slack, or other alerting systems
+        logger.critical(f"SECURITY ALERT: High-risk event requires investigation - Event ID: {audit_log.id}")
+
+        # Create investigation ticket (placeholder for ticketing system integration)
+        # In production, integrate with Jira, GitHub Issues, or other ticketing systems
+        logger.info(f"Investigation ticket would be created for event: {audit_log.id}")
+
+        # Temporarily suspend related entities if needed (placeholder for suspension logic)
+        # In production, implement suspension logic based on risk level and event type
+        if audit_log.risk_score >= 0.9:
+            logger.warning(f"Critical risk score ({audit_log.risk_score}) - entity suspension recommended")
+            # Placeholder for actual suspension logic
+            # await self._suspend_entity_if_needed(audit_log)
 
 
 class AgentTrustManager:
@@ -525,10 +557,16 @@ class AgentSandboxManager:
         self.session.commit()
         self.session.refresh(sandbox)
 
-        # TODO: Actually create sandbox environment
-        # This would integrate with Docker, VM, or process isolation
+        # Sandbox environment creation requires integration with:
+        # 1. Docker/Podman for container isolation
+        # 2. Firecracker/gVisor for VM-level isolation
+        # 3. Process isolation using seccomp, namespaces
+        # 4. Network isolation using virtual networks
+        # Currently storing configuration only - actual sandbox creation
+        # would be implemented by the execution orchestrator.
+        # Future implementation: await self._create_docker_sandbox(sandbox)
 
-        logger.info(f"Created sandbox environment for execution {execution_id}")
+        logger.info(f"Created sandbox configuration for execution {execution_id}")
         return sandbox
 
     def _get_sandbox_config(self, security_level: SecurityLevel) -> dict[str, Any]:
@@ -651,8 +689,15 @@ class AgentSandboxManager:
         return config
 
     async def monitor_sandbox(self, execution_id: str) -> dict[str, Any]:
-        """Monitor sandbox execution for security violations"""
-
+        """Monitor sandbox execution for security violations
+        
+        Note: Actual sandbox monitoring requires integration with:
+        1. Container runtime metrics (Docker stats, containerd)
+        2. Process monitoring (psutil, /proc filesystem)
+        3. Network monitoring (iptables, eBPF)
+        4. File system monitoring (inotify, auditd)
+        Currently returning placeholder monitoring data.
+        """
         # Get sandbox configuration
         sandbox = self.session.execute(
             select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}")
@@ -661,14 +706,8 @@ class AgentSandboxManager:
         if not sandbox:
             raise ValueError(f"Sandbox not found for execution {execution_id}")
 
-        # TODO: Implement actual monitoring
-        # This would check:
-        # - Resource usage (CPU, memory, disk)
-        # - Command execution
-        # - File access
-        # - Network access
-        # - Security violations
-
+        # Placeholder for actual monitoring implementation
+        # In production, integrate with container runtime for real metrics
         monitoring_data = {
             "execution_id": execution_id,
             "sandbox_type": sandbox.sandbox_type,
@@ -678,6 +717,8 @@ class AgentSandboxManager:
             "command_count": 0,
             "file_access_count": 0,
             "network_access_count": 0,
+            "status": "configured",
+            "note": "Monitoring requires sandbox runtime integration"
         }
 
         return monitoring_data
@@ -697,10 +738,16 @@ class AgentSandboxManager:
                 sandbox.updated_at = datetime.utcnow()
                 self.session.commit()
 
-                # TODO: Actually clean up sandbox environment
-                # This would stop containers, VMs, or clean up processes
+                # Sandbox cleanup requires integration with:
+                # 1. Docker/Podman: docker stop/rm, podman stop/rm
+                # 2. VM management: Firecracker terminate
+                # 3. Process cleanup: kill processes, cleanup namespaces
+                # 4. Resource cleanup: remove temp files, network interfaces
+                # Currently marking as inactive - actual cleanup would be
+                # implemented by the execution orchestrator.
+                # Future implementation: await self._cleanup_docker_sandbox(sandbox)
 
-                logger.info(f"Cleaned up sandbox for execution {execution_id}")
+                logger.info(f"Marked sandbox as inactive for execution {execution_id}")
                 return True
 
             return False

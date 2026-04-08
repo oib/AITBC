@@ -76,13 +76,13 @@ economics_log "Submitting distributed AI job economics optimization work"
 cd /opt/aitbc
 source venv/bin/activate
 
-./aitbc-cli ai-submit --wallet genesis-ops --type economic-modeling \
+./aitbc-cli ai submit --wallet genesis-ops --type economic-modeling \
     --prompt "Design comprehensive distributed AI job economics system with: 1) Cross-node cost optimization targeting <$0.01 per inference, 2) Load balancing economics with dynamic pricing, 3) Revenue sharing mechanisms based on resource contribution, 4) Economic efficiency targets >25% improvement over baseline, 5) Real-time cost monitoring and optimization" \
     --payment 1500
 
 economics_log "Monitoring economic modeling job progress"
 sleep 5
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai status --job-id latest
 
 success "Session 4.1: Distributed AI Job Economics completed"
 
@@ -106,13 +106,13 @@ openclaw agent --agent main --session-id $SESSION_ID \
 
 # Submit AI marketplace strategy work
 marketplace_log "Submitting AI marketplace strategy optimization work"
-./aitbc-cli ai-submit --wallet genesis-ops --type marketplace-strategy \
+./aitbc-cli ai submit --wallet genesis-ops --type marketplace-strategy \
     --prompt "Develop comprehensive AI marketplace strategy with: 1) Dynamic pricing based on demand, supply, and quality metrics, 2) Competitive positioning analysis and strategic market placement, 3) Resource monetization strategies for maximum revenue, 4) Customer acquisition cost optimization, 5) Long-term market expansion and growth strategies" \
     --payment 2000
 
 marketplace_log "Monitoring marketplace strategy job progress"
 sleep 5
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai status --job-id latest
 
 success "Session 4.2: AI Marketplace Strategy completed"
 
@@ -136,13 +136,13 @@ openclaw agent --agent main --session-id $SESSION_ID \
 
 # Submit advanced economic modeling work
 economics_log "Submitting advanced economic modeling work"
-./aitbc-cli ai-submit --wallet genesis-ops --type investment-strategy \
+./aitbc-cli ai submit --wallet genesis-ops --type investment-strategy \
     --prompt "Create comprehensive AI investment strategy with: 1) Predictive economics for market trend forecasting, 2) Advanced market dynamics analysis and prediction, 3) Long-term economic forecasting for AI services, 4) Risk management strategies with economic hedging, 5) Investment portfolio optimization for maximum returns" \
     --payment 3000
 
 economics_log "Monitoring advanced economic modeling job progress"
 sleep 5
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai status --job-id latest
 
 success "Session 4.3: Advanced Economic Modeling completed"
 
@@ -177,15 +177,15 @@ economics_log "Monitoring economic performance metrics"
 ./aitbc-cli resource status
 
 # Monitor AI job economic performance
-for job_id in $(./aitbc-cli ai-ops --action status --job-id "latest" 2>/dev/null | grep "Job Id:" | awk '{print $3}' | head -3); do
+for job_id in $(./aitbc-cli ai status --job-id "latest" 2>/dev/null | grep "Job Id:" | awk '{print $3}' | head -3); do
     economics_log "Checking economic performance for job: $job_id"
-    ./aitbc-cli ai-ops --action status --job-id "$job_id"
+    ./aitbc-cli ai status --job-id "$job_id"
     sleep 2
 done
 
 # Check marketplace performance
 economics_log "Checking marketplace performance"
-./aitbc-cli marketplace --action list 2>/dev/null || echo "Marketplace status: Not available"
+./aitbc-cli market list 2>/dev/null || echo "Marketplace status: Not available"
 
 success "Economic performance monitoring completed"
 
@@ -209,13 +209,13 @@ openclaw agent --agent main --session-id $SESSION_ID \
 
 # Submit advanced economic workflow
 economics_log "Submitting advanced economic optimization workflow"
-./aitbc-cli ai-submit --wallet genesis-ops --type distributed-economics \
+./aitbc-cli ai submit --wallet genesis-ops --type distributed-economics \
     --prompt "Execute comprehensive distributed economic optimization workflow with: 1) Real-time cost modeling and optimization across nodes, 2) Dynamic revenue sharing based on resource contribution, 3) Load balancing economics with pricing optimization, 4) Performance tracking and economic efficiency measurement, 5) Automated economic decision making and adjustment" \
     --payment 4000
 
 economics_log "Monitoring advanced workflow execution"
 sleep 5
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai status --job-id latest
 
 success "Advanced economic workflows completed"
 

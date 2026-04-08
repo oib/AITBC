@@ -90,8 +90,16 @@ def register_miner(
                 "status_code": response.status_code
             }
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "register", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "register", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "register", "status": f"❌ HTTP error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        return {"action": "register", "status": f"❌ JSON decode error: {str(e)}"}
     except Exception as e:
-        return {"action": "register", "status": f"❌ Error: {str(e)}"}
+        return {"action": "register", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def get_miner_status(
@@ -140,8 +148,16 @@ def get_miner_status(
         else:
             return {"action": "status", "status": "❌ Failed to get status", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "status", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "status", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "status", "status": f"❌ HTTP error: {str(e)}"}
+    except (KeyError, StopIteration) as e:
+        return {"action": "status", "status": f"❌ Data processing error: {str(e)}"}
     except Exception as e:
-        return {"action": "status", "status": f"❌ Error: {str(e)}"}
+        return {"action": "status", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def send_heartbeat(
@@ -186,8 +202,14 @@ def send_heartbeat(
         else:
             return {"action": "heartbeat", "status": "❌ Heartbeat failed", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "heartbeat", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "heartbeat", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "heartbeat", "status": f"❌ HTTP error: {str(e)}"}
     except Exception as e:
-        return {"action": "heartbeat", "status": f"❌ Error: {str(e)}"}
+        return {"action": "heartbeat", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def poll_jobs(
@@ -240,8 +262,16 @@ def poll_jobs(
         else:
             return {"action": "poll", "status": "❌ Poll failed", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "poll", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "poll", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "poll", "status": f"❌ HTTP error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        return {"action": "poll", "status": f"❌ JSON decode error: {str(e)}"}
     except Exception as e:
-        return {"action": "poll", "status": f"❌ Error: {str(e)}"}
+        return {"action": "poll", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def submit_job_result(
@@ -294,8 +324,16 @@ def submit_job_result(
         else:
             return {"action": "result", "status": "❌ Result submission failed", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "result", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "result", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "result", "status": f"❌ HTTP error: {str(e)}"}
+    except (FileNotFoundError, PermissionError, IOError) as e:
+        return {"action": "result", "status": f"❌ File error: {type(e).__name__}: {str(e)}"}
     except Exception as e:
-        return {"action": "result", "status": f"❌ Error: {str(e)}"}
+        return {"action": "result", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def update_capabilities(
@@ -359,8 +397,16 @@ def update_capabilities(
         else:
             return {"action": "update", "status": "❌ Update failed", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "update", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "update", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "update", "status": f"❌ HTTP error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        return {"action": "update", "status": f"❌ JSON decode error: {str(e)}"}
     except Exception as e:
-        return {"action": "update", "status": f"❌ Error: {str(e)}"}
+        return {"action": "update", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def check_earnings(
@@ -384,7 +430,7 @@ def check_earnings(
         }
         
     except Exception as e:
-        return {"action": "earnings", "status": f"❌ Error: {str(e)}"}
+        return {"action": "earnings", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def list_marketplace_offers(
@@ -425,8 +471,14 @@ def list_marketplace_offers(
         else:
             return {"action": "marketplace_list", "status": "❌ Failed to get offers", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "marketplace_list", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "marketplace_list", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "marketplace_list", "status": f"❌ HTTP error: {str(e)}"}
     except Exception as e:
-        return {"action": "marketplace_list", "status": f"❌ Error: {str(e)}"}
+        return {"action": "marketplace_list", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 def create_marketplace_offer(
@@ -466,8 +518,14 @@ def create_marketplace_offer(
         else:
             return {"action": "marketplace_create", "status": "❌ Offer creation failed", "error": response.text}
             
+    except requests.exceptions.ConnectionError as e:
+        return {"action": "marketplace_create", "status": f"❌ Connection error: {str(e)}"}
+    except requests.exceptions.Timeout as e:
+        return {"action": "marketplace_create", "status": f"❌ Timeout error: {str(e)}"}
+    except requests.exceptions.HTTPError as e:
+        return {"action": "marketplace_create", "status": f"❌ HTTP error: {str(e)}"}
     except Exception as e:
-        return {"action": "marketplace_create", "status": f"❌ Error: {str(e)}"}
+        return {"action": "marketplace_create", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 # Main function for CLI integration

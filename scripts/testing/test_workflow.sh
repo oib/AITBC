@@ -7,7 +7,7 @@ echo "1. Testing wallet creation script..."
 
 echo ""
 echo "2. Testing final verification script..."
-export WALLET_ADDR=$(/opt/aitbc/aitbc-cli balance --name aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
+export WALLET_ADDR=$(/opt/aitbc/aitbc-cli wallet balance aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
 /opt/aitbc/scripts/workflow/06_final_verification.sh
 
 echo ""

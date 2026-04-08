@@ -49,9 +49,22 @@ Production configurations are stored in `/etc/aitbc/production/`:
 ### 📊 Monitoring and Logs
 
 Production logs are centralized in `/var/log/aitbc/production/`:
-- Each service has its own log directory
-- Logs rotate automatically
-- Real-time monitoring available
+ - Each service has its own log directory
+ - Logs rotate automatically
+ - Real-time monitoring available
+
+Coordinator observability endpoints:
+ - JSON metrics endpoint: `http://localhost:8000/v1/metrics`
+ - Prometheus metrics endpoint: `http://localhost:8000/metrics`
+ - Health endpoint: `http://localhost:8000/v1/health`
+ - Web dashboard source: `/opt/aitbc/website/dashboards/metrics.html`
+
+Current monitoring flow:
+ - FastAPI request middleware records request counts, error counts, response time, and cache stats
+ - `metrics.py` calculates live metric summaries and alert thresholds
+ - `/v1/metrics` returns JSON for dashboard consumption
+ - `/metrics` remains available for Prometheus-style scraping
+ - Alert delivery uses webhook dispatch when `AITBC_ALERT_WEBHOOK_URL` is configured, otherwise alerts are logged locally
 
 ### 🔧 Maintenance
 

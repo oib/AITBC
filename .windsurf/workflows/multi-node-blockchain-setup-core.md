@@ -103,7 +103,7 @@ ssh aitbc1 '/opt/aitbc/scripts/workflow/03_follower_node_setup.sh'
 
 ```bash
 # Monitor sync progress on both nodes
-watch -n 5 'echo "=== Genesis Node ===" && curl -s http://localhost:8006/rpc/head | jq .height && echo "=== Follower Node ===" && ssh aitbc1 "curl -s http://localhost:8006/rpc/head | jq .height"'
+watch -n 5 'echo "=== Genesis Node ===" && curl -s http://localhost:8006/rpc/head | jq .height && echo "=== Follower Node ===" && ssh aitbc1 "curl -s http://localhost:8007/rpc/head | jq .height"'
 ```
 
 ### 5. Basic Wallet Operations
@@ -113,30 +113,30 @@ watch -n 5 'echo "=== Genesis Node ===" && curl -s http://localhost:8006/rpc/hea
 cd /opt/aitbc && source venv/bin/activate
 
 # Create genesis operations wallet
-./aitbc-cli create --name genesis-ops --password 123
+./aitbc-cli wallet create genesis-ops 123
 
 # Create user wallet
-./aitbc-cli create --name user-wallet --password 123
+./aitbc-cli wallet create user-wallet 123
 
 # List wallets
-./aitbc-cli list
+./aitbc-cli wallet list
 
 # Check balances
-./aitbc-cli balance --name genesis-ops
-./aitbc-cli balance --name user-wallet
+./aitbc-cli wallet balance genesis-ops
+./aitbc-cli wallet balance user-wallet
 ```
 
 ### 6. Cross-Node Transaction Test
 
 ```bash
 # Get follower node wallet address
-FOLLOWER_WALLET_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli create --name follower-ops --password 123 | grep "Address:" | cut -d" " -f2')
+FOLLOWER_WALLET_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet create follower-ops 123 | grep "Address:" | cut -d" " -f2')
 
 # Send transaction from genesis to follower
-./aitbc-cli send --from genesis-ops --to $FOLLOWER_WALLET_ADDR --amount 1000 --password 123
+./aitbc-cli wallet send genesis-ops $FOLLOWER_WALLET_ADDR 1000 123
 
 # Verify transaction on follower node
-ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli balance --name follower-ops'
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet balance follower-ops'
 ```
 
 ## Verification Commands
@@ -148,15 +148,15 @@ ssh aitbc1 'systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.
 
 # Check blockchain heights match
 curl -s http://localhost:8006/rpc/head | jq .height
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+ssh aitbc1 'curl -s http://localhost:8007/rpc/head | jq .height'
 
 # Check network connectivity
 ping -c 3 aitbc1
 ssh aitbc1 'ping -c 3 localhost'
 
 # Verify wallet creation
-./aitbc-cli list
-ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli list'
+./aitbc-cli wallet list
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
 ```
 
 ## Troubleshooting Core Setup

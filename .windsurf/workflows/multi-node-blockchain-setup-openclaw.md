@@ -33,25 +33,25 @@ openclaw agent --agent main --session-id $SESSION_ID --message "Report progress"
 
 # AITBC CLI — always from /opt/aitbc with venv
 cd /opt/aitbc && source venv/bin/activate
-./aitbc-cli create --name wallet-name
-./aitbc-cli list
-./aitbc-cli balance --name wallet-name
-./aitbc-cli send --from wallet1 --to address --amount 100 --password pass
-./aitbc-cli chain
-./aitbc-cli network
+./aitbc-cli wallet create wallet-name
+./aitbc-cli wallet list
+./aitbc-cli wallet balance wallet-name
+./aitbc-cli wallet send wallet1 address 100 pass
+./aitbc-cli blockchain info
+./aitbc-cli network status
 
 # AI Operations (NEW)
-./aitbc-cli ai-submit --wallet wallet --type inference --prompt "Generate image" --payment 100
+./aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
 ./aitbc-cli agent create --name ai-agent --description "AI agent"
-./aitbc-cli resource allocate --agent-id ai-agent --gpu 1 --memory 8192 --duration 3600
-./aitbc-cli marketplace --action create --name "AI Service" --price 50 --wallet wallet
+./aitbc-cli resource allocate --agent-id ai-agent --memory 8192 --duration 3600
+./aitbc-cli market create --type ai-inference --price 50 --description "AI Service" --wallet wallet
 
 # Cross-node — always activate venv on remote
-ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli list'
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
 
 # RPC checks
 curl -s http://localhost:8006/rpc/head | jq '.height'
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+ssh aitbc1 'curl -s http://localhost:8007/rpc/head | jq .height'
 
 # Smart Contract Messaging (NEW)
 curl -X POST http://localhost:8006/rpc/messaging/topics/create \
@@ -219,11 +219,11 @@ openclaw agent --agent main --message "Teach me AITBC Agent Messaging Contract f
 ```bash
 # Blockchain height (both nodes)
 curl -s http://localhost:8006/rpc/head | jq '.height'
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+ssh aitbc1 'curl -s http://localhost:8007/rpc/head | jq .height'
 
 # Wallets
-cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli list
-ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli list'
+cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list
+ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list'
 
 # Services
 systemctl is-active aitbc-blockchain-{node,rpc}.service

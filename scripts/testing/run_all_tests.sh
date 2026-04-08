@@ -54,17 +54,17 @@ check_prerequisites() {
     echo "🌐 Checking service connectivity..."
     
     # Check aitbc connectivity
-    if curl -s http://127.0.0.1:18000/v1/health &> /dev/null; then
-        echo "✅ aitbc marketplace accessible (port 18000)"
+    if curl -s http://127.0.0.1:8000/v1/health &> /dev/null; then
+        echo "✅ aitbc marketplace accessible (port 8000)"
     else
-        echo "❌ aitbc marketplace not accessible (port 18000)"
+        echo "❌ aitbc marketplace not accessible (port 8000)"
     fi
     
     # Check aitbc1 connectivity
-    if curl -s http://127.0.0.1:18001/v1/health &> /dev/null; then
-        echo "✅ aitbc1 marketplace accessible (port 18001)"
+    if curl -s http://127.0.0.1:8015/v1/health &> /dev/null; then
+        echo "✅ aitbc1 marketplace accessible (port 8015)"
     else
-        echo "❌ aitbc1 marketplace not accessible (port 18001)"
+        echo "❌ aitbc1 marketplace not accessible (port 8015)"
     fi
     
     # Check Ollama

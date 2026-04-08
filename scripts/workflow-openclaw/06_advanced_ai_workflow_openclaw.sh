@@ -83,12 +83,12 @@ cd /opt/aitbc
 source venv/bin/activate
 
 # Job 1: Complex pipeline
-./aitbc-cli ai-submit --wallet genesis-ops --type parallel \
+./aitbc-cli ai submit --wallet genesis-ops --type parallel \
     --prompt "Complex AI pipeline for medical image analysis with ensemble validation" \
     --payment 500
 
 # Job 2: Parallel processing
-./aitbc-cli ai-submit --wallet genesis-ops --type ensemble \
+./aitbc-cli ai submit --wallet genesis-ops --type ensemble \
     --prompt "Parallel AI processing with ResNet50, VGG16, InceptionV3 ensemble" \
     --payment 600
 
@@ -108,7 +108,7 @@ openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
 
 # Submit multi-modal AI jobs
 ai_log "Submitting multi-modal AI jobs..."
-./aitbc-cli ai-submit --wallet genesis-ops --type multimodal \
+./aitbc-cli ai submit --wallet genesis-ops --type multimodal \
     --prompt "Multi-modal customer feedback analysis with cross-modal attention and joint reasoning" \
     --payment 1000
 
@@ -148,11 +148,11 @@ openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
 
 # Submit resource optimization jobs
 ai_log "Submitting resource optimization jobs..."
-./aitbc-cli ai-submit --wallet genesis-ops --type resource-allocation \
+./aitbc-cli ai submit --wallet genesis-ops --type resource-allocation \
     --prompt "Design dynamic resource allocation system with GPU pools (RTX 4090, A100, H100), demand forecasting, cost optimization, and auto-scaling" \
     --payment 800
 
-./aitbc-cli ai-submit --wallet genesis-ops --type performance-tuning \
+./aitbc-cli ai submit --wallet genesis-ops --type performance-tuning \
     --prompt "Design AI performance optimization system with profiling tools, model optimization, inference acceleration, and system tuning for sub-100ms inference" \
     --payment 1000
 
@@ -191,9 +191,9 @@ echo "8. AI Job Monitoring..."
 ai_log "Monitoring submitted AI jobs..."
 
 # Monitor job status
-for job_id in $(./aitbc-cli ai-ops --action status --job-id "latest" 2>/dev/null | grep "Job Id:" | awk '{print $3}' | head -3); do
+for job_id in $(./aitbc-cli ai status --job-id "latest" 2>/dev/null | grep "Job Id:" | awk '{print $3}' | head -3); do
     ai_log "Checking job: $job_id"
-    ./aitbc-cli ai-ops --action status --job-id "$job_id"
+    ./aitbc-cli ai status --job-id "$job_id"
     sleep 2
 done
 
@@ -205,10 +205,10 @@ ai_log "Validating AI operations performance..."
 time ./aitbc-cli --help > /dev/null
 
 # Test blockchain performance
-time ./aitbc-cli chain > /dev/null
+time ./aitbc-cli blockchain info > /dev/null
 
 # Test marketplace performance  
-time ./aitbc-cli marketplace --action list > /dev/null
+time ./aitbc-cli market list > /dev/null
 
 # 10. Advanced AI Capabilities Summary
 echo "10. Advanced AI Capabilities Summary..."

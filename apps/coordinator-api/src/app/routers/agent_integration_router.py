@@ -1,7 +1,5 @@
 from typing import Annotated
 
-from sqlalchemy.orm import Session
-
 """
 Agent Integration and Deployment API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for production deployment and integration management
@@ -12,8 +10,6 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
-
-from datetime import datetime
 
 from sqlmodel import Session, select
 
@@ -29,6 +25,7 @@ from ..services.agent_integration import (
     DeploymentStatus,
 )
 from ..storage import get_session
+from ..utils.alerting import alert_dispatcher
 
 router = APIRouter(prefix="/agents/integration", tags=["Agent Integration"])
 
@@ -555,46 +552,18 @@ async def get_production_health(
 async def get_production_alerts(
     severity: str | None = None,
     limit: int = 50,
-    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ):
     """Get production alerts and notifications"""
 
     try:
-        # TODO: Implement actual alert collection
-        # This would involve:
-        # 1. Querying alert database
-        # 2. Filtering by severity and time
-        # 3. Paginating results
-
-        # For now, return mock alerts
-        alerts = [
-            {
-                "id": "alert_1",
-                "deployment_id": "deploy_123",
-                "severity": "warning",
-                "message": "High CPU usage detected",
-                "timestamp": datetime.utcnow().isoformat(),
-                "resolved": False,
-            },
-            {
-                "id": "alert_2",
-                "deployment_id": "deploy_456",
-                "severity": "critical",
-                "message": "Instance health check failed",
-                "timestamp": datetime.utcnow().isoformat(),
-                "resolved": True,
-            },
-        ]
-
-        # Filter by severity if specified
-        if severity:
-            alerts = [alert for alert in alerts if alert["severity"] == severity]
-
-        # Apply limit
-        alerts = alerts[:limit]
-
-        return {"alerts": alerts, "total_count": len(alerts), "severity": severity}
+        alerts = alert_dispatcher.get_recent_alerts(severity=severity, limit=limit)
+        return {
+            "alerts": alerts,
+            "total_count": len(alerts),
+            "severity": severity,
+            "source": "coordinator_metrics",
+        }
 
     except Exception as e:
         logger.error(f"Failed to get production alerts: {e}")
