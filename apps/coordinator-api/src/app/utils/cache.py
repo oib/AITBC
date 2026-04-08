@@ -12,11 +12,13 @@ logger = logging.getLogger(__name__)
 
 
 class CacheManager:
-    """Simple in-memory cache with TTL support"""
+    """Simple in-memory cache with TTL support and memory management"""
 
-    def __init__(self):
+    def __init__(self, max_size: int = 1000, max_memory_mb: int = 100):
         self._cache: dict[str, dict[str, Any]] = {}
         self._stats = {"hits": 0, "misses": 0, "sets": 0, "evictions": 0}
+        self.max_size = max_size
+        self.max_memory_mb = max_memory_mb
 
     def get(self, key: str) -> Any | None:
         """Get value from cache"""
@@ -38,13 +40,21 @@ class CacheManager:
         return cache_entry["value"]
 
     def set(self, key: str, value: Any, ttl_seconds: int = 300) -> None:
-        """Set value in cache with TTL"""
+        """Set value in cache with TTL and enforce size/memory limits"""
+        # Check size limit
+        if len(self._cache) >= self.max_size:
+            self._evict_oldest()
+        
         expires_at = datetime.now() + timedelta(seconds=ttl_seconds)
 
         self._cache[key] = {"value": value, "expires_at": expires_at, "created_at": datetime.now(), "ttl": ttl_seconds}
 
         self._stats["sets"] += 1
         logger.debug(f"Cache set for key: {key}, TTL: {ttl_seconds}s")
+        
+        # Check memory limit periodically
+        if self._stats["sets"] % 100 == 0:
+            self._check_memory_limit()
 
     def delete(self, key: str) -> bool:
         """Delete key from cache"""
@@ -83,11 +93,42 @@ class CacheManager:
             "total_entries": len(self._cache),
             "hit_rate_percent": round(hit_rate, 2),
             "total_requests": total_requests,
+            "max_size": self.max_size,
+            "max_memory_mb": self.max_memory_mb,
         }
+    
+    def _evict_oldest(self) -> None:
+        """Evict the oldest cache entry"""
+        if not self._cache:
+            return
+        
+        # Find oldest entry by created_at timestamp
+        oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k]["created_at"])
+        del self._cache[oldest_key]
+        self._stats["evictions"] += 1
+        logger.debug(f"Evicted oldest cache entry: {oldest_key}")
+    
+    def _check_memory_limit(self) -> None:
+        """Check if cache exceeds memory limit and evict if needed"""
+        import sys
+        import gc
+        
+        # Estimate cache memory usage (rough approximation)
+        cache_size_mb = sys.getsizeof(self._cache) / (1024 * 1024)
+        
+        if cache_size_mb > self.max_memory_mb:
+            logger.warning(f"Cache memory limit exceeded ({cache_size_mb:.2f}MB > {self.max_memory_mb}MB), evicting entries")
+            # Evict 20% of entries to reduce memory
+            evict_count = max(1, int(len(self._cache) * 0.2))
+            for _ in range(evict_count):
+                self._evict_oldest()
+            
+            # Force garbage collection
+            gc.collect()
 
 
-# Global cache manager instance
-cache_manager = CacheManager()
+# Global cache manager instance with optimized settings
+cache_manager = CacheManager(max_size=1000, max_memory_mb=100)
 
 
 def cache_key_generator(*args, **kwargs) -> str:

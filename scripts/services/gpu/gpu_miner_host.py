@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 
 # Configuration
-COORDINATOR_URL = "http://127.0.0.1:18000"
+COORDINATOR_URL = "http://127.0.0.1:8000"
 MINER_ID = "${MINER_API_KEY}"
 AUTH_TOKEN = "${MINER_API_KEY}"
 HEARTBEAT_INTERVAL = 15

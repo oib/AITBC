@@ -21,7 +21,7 @@ fi
 echo ""
 echo "📋 Step 2: Verify aitbc1 marketplace connectivity"
 echo "=========================================="
-curl -s http://127.0.0.1:18001/v1/health | jq .
+curl -s http://127.0.0.1:8015/v1/health | jq .
 
 echo ""
 echo "📋 Step 3: Wait for marketplace synchronization"
@@ -32,7 +32,7 @@ sleep 30
 echo ""
 echo "📋 Step 4: Discover available services on aitbc1"
 echo "=========================================="
-curl -s http://127.0.0.1:18001/v1/marketplace/offers | jq '.[] | select(.miner_id == "miner1")'
+curl -s http://127.0.0.1:8015/v1/marketplace/offers | jq '.[] | select(.miner_id == "miner1")'
 
 echo ""
 echo "📋 Step 5: Client1 discovers GPU services"
@@ -40,7 +40,7 @@ echo "=========================================="
 aitbc marketplace gpu discover \
   --client-id $CLIENT_ID \
   --region $CLIENT_REGION \
-  --marketplace-url "http://127.0.0.1:18001"
+  --marketplace-url "http://127.0.0.1:8015"
 
 echo ""
 echo "📋 Step 6: Client1 requests service from miner1 via aitbc1"
@@ -50,20 +50,20 @@ aitbc marketplace gpu request \
   --miner-id "miner1" \
   --model "gemma3:1b" \
   --prompt "What is artificial intelligence?" \
-  --marketplace-url "http://127.0.0.1:18001"
+  --marketplace-url "http://127.0.0.1:8015"
 
 echo ""
 echo "📋 Step 7: Verify transaction on aitbc1"
 echo "=========================================="
 sleep 5
 aitbc marketplace transactions $CLIENT_ID \
-  --marketplace-url "http://127.0.0.1:18001"
+  --marketplace-url "http://127.0.0.1:8015"
 
 echo ""
 echo "📋 Step 8: Test cross-container service routing"
 echo "=========================================="
 # This should route from client1 (localhost) → aitbc1 → aitbc → localhost miner1
-curl -X POST http://127.0.0.1:18001/v1/gpu/inference \
+curl -X POST http://127.0.0.1:8015/v1/gpu/inference \
   -H "Content-Type: application/json" \
   -d '{"miner_id": "miner1", "model": "gemma3:1b", "prompt": "Cross-container routing test"}' | jq .
 
@@ -71,11 +71,11 @@ echo ""
 echo "📋 Step 9: Verify marketplace stats on both sites"
 echo "=========================================="
 echo "aitbc marketplace stats:"
-curl -s http://127.0.0.1:18000/v1/marketplace/stats | jq '.total_offers, .active_miners'
+curl -s http://127.0.0.1:8000/v1/marketplace/stats | jq '.total_offers, .active_miners'
 
 echo ""
 echo "aitbc1 marketplace stats:"
-curl -s http://127.0.0.1:18001/v1/marketplace/stats | jq '.total_offers, .active_miners'
+curl -s http://127.0.0.1:8015/v1/marketplace/stats | jq '.total_offers, .active_miners'
 
 echo ""
 echo "🎉 Scenario B Complete!"

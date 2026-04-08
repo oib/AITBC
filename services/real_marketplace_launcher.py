@@ -23,12 +23,26 @@ def main():
             '/opt/aitbc/venv/bin/python',
             '/opt/aitbc/services/marketplace.py'
         ], check=True)
-    except Exception as e:
-        logger.error(f"Error launching real marketplace: {e}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Marketplace service failed with exit code {e.returncode}: {e}")
         # Fallback
         import time
         while True:
-            logger.info("Real Marketplace service heartbeat")
+            logger.info("Real Marketplace service heartbeat (fallback mode)")
+            time.sleep(30)
+    except (FileNotFoundError, PermissionError) as e:
+        logger.error(f"Cannot launch marketplace service: {type(e).__name__}: {e}")
+        # Fallback
+        import time
+        while True:
+            logger.info("Real Marketplace service heartbeat (fallback mode)")
+            time.sleep(30)
+    except Exception as e:
+        logger.error(f"Unexpected error launching marketplace: {type(e).__name__}: {e}")
+        # Fallback
+        import time
+        while True:
+            logger.info("Real Marketplace service heartbeat (fallback mode)")
             time.sleep(30)
 
 if __name__ == "__main__":

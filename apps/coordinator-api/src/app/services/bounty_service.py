@@ -466,6 +466,22 @@ class BountyService:
             tier_result = self.session.execute(tier_stmt).all()
             tier_distribution = {row.tier.value: row.count for row in tier_result}
 
+            # Expired bounties counting
+            expired_stmt = select(func.count(Bounty.bounty_id)).where(
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.EXPIRED)
+            )
+            expired_bounties = self.session.execute(expired_stmt).scalar() or 0
+
+            # Disputed bounties counting
+            disputed_stmt = select(func.count(Bounty.bounty_id)).where(
+                and_(Bounty.creation_time >= start_date, Bounty.status == BountyStatus.DISPUTED)
+            )
+            disputed_bounties = self.session.execute(disputed_stmt).scalar() or 0
+
+            # Calculate fees collected
+            fees_stmt = select(func.sum(Bounty.platform_fee + Bounty.creation_fee)).where(Bounty.creation_time >= start_date)
+            total_fees_collected = self.session.execute(fees_stmt).scalar() or 0.0
+
             stats = BountyStats(
                 period_start=start_date,
                 period_end=datetime.utcnow(),
@@ -473,11 +489,11 @@ class BountyService:
                 total_bounties=total_bounties,
                 active_bounties=active_bounties,
                 completed_bounties=completed_bounties,
-                expired_bounties=0,  # TODO: Implement expired counting
-                disputed_bounties=0,  # TODO: Implement disputed counting
+                expired_bounties=expired_bounties,
+                disputed_bounties=disputed_bounties,
                 total_value_locked=total_value_locked,
                 total_rewards_paid=total_rewards_paid,
-                total_fees_collected=0,  # TODO: Calculate fees
+                total_fees_collected=total_fees_collected,
                 average_reward=avg_reward,
                 success_rate=success_rate,
                 tier_distribution=tier_distribution,

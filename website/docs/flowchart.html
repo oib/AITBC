@@ -54,10 +54,7 @@
                         <div style="background: #06b6d4; color: white; padding: 0.5rem 1rem; border-radius: 4px; white-space: nowrap;">Ollama</div>
                     </div>
                     <div style="font-size: 0.85rem; color: #64748b; text-align: center; margin-top: 1rem;">
-                        <div>(aitbc-cli.sh) → (client.py) → (port 8000) → (RPC:8006) → (port 8010) → (port 11434)</div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.25rem;">
-                            Note: Legacy ports 18000/18001 have been replaced with 8000/8010
-                        </div>
+                        <div>(aitbc-cli.sh) → (client.py) → (port 8000) → (RPC:8006) → (port 8015) → (port 11434)</div>
                     </div>
                 </div>
                 
@@ -206,7 +203,7 @@ X-Api-Key: ${ADMIN_API_KEY}
                 </div>
 
                 <h3>6. Miner Processing</h3>
-                <p><strong>Miner Daemon (Port 18001):</strong></p>
+                <p><strong>Miner Daemon (Port 8015):</strong></p>
                 <ol>
                     <li>Receives job assignment</li>
                     <li>Updates job status to <span class="inline-code">running</span></li>

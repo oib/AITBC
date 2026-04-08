@@ -299,10 +299,46 @@ class SecureWalletService:
         self.session.commit()
         self.session.refresh(transaction)
 
-        # TODO: Implement actual blockchain transaction signing and submission
-        # This would use the private_key to sign the transaction
+        # Implement blockchain transaction signing and submission
+        try:
+            # Get wallet keys for signing
+            wallet_keys = await self.get_wallet_with_private_key(wallet_id, encryption_password)
+            private_key = wallet_keys["private_key"]
 
-        logger.info(f"Created transaction {transaction.id} for wallet {wallet_id}")
+            # Sign transaction using contract service
+            signed_tx = await self.contract_service.sign_transaction(
+                private_key=private_key,
+                to_address=request.to_address,
+                amount=request.amount,
+                token_address=request.token_address,
+                chain_id=request.chain_id,
+                data=request.data or ""
+            )
+
+            # Update transaction with signed data
+            transaction.signed_data = signed_tx
+            transaction.status = TransactionStatus.SIGNED
+            transaction.updated_at = datetime.utcnow()
+            self.session.commit()
+
+            # Submit transaction to blockchain
+            tx_hash = await self.contract_service.submit_transaction(signed_tx)
+
+            # Update transaction with submission result
+            transaction.tx_hash = tx_hash
+            transaction.status = TransactionStatus.SUBMITTED
+            transaction.updated_at = datetime.utcnow()
+            self.session.commit()
+
+            logger.info(f"Created and submitted transaction {transaction.id} with hash {tx_hash}")
+        except Exception as e:
+            logger.error(f"Failed to sign/submit transaction {transaction.id}: {e}")
+            transaction.status = TransactionStatus.FAILED
+            transaction.error_message = str(e)
+            transaction.updated_at = datetime.utcnow()
+            self.session.commit()
+            raise
+
         return transaction
 
     async def deactivate_wallet(self, wallet_id: int, reason: str = "User request") -> bool:

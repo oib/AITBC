@@ -12,13 +12,13 @@ def run_cli_test():
     
     # Set up environment
     cli_dir = Path(__file__).parent.parent
-    venv_python = "/opt/aitbc/venv/bin/python"
+    cli_bin = "/opt/aitbc/aitbc-cli"
     
     # Test 1: CLI help command
     print("\n1. Testing CLI help command...")
     try:
         result = subprocess.run(
-            [venv_python, "aitbc_cli.py", "--help"],
+            [cli_bin, "--help"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -38,7 +38,7 @@ def run_cli_test():
     print("\n2. Testing CLI list command...")
     try:
         result = subprocess.run(
-            [venv_python, "aitbc_cli.py", "list"],
+            [cli_bin, "wallet", "list"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -58,7 +58,7 @@ def run_cli_test():
     print("\n3. Testing CLI blockchain command...")
     try:
         result = subprocess.run(
-            [venv_python, "aitbc_cli.py", "chain"],
+            [cli_bin, "blockchain", "info"],
             capture_output=True,
             text=True,
             timeout=10,
@@ -78,7 +78,7 @@ def run_cli_test():
     print("\n4. Testing CLI invalid command handling...")
     try:
         result = subprocess.run(
-            [venv_python, "aitbc_cli.py", "invalid-command"],
+            [cli_bin, "invalid-command"],
             capture_output=True,
             text=True,
             timeout=10,

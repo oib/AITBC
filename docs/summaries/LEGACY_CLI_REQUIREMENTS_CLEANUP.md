@@ -97,7 +97,7 @@ psutil>=5.9.0             # System monitoring
 # New CLI requirements installed
 ✅ CLI-specific dependencies installed
 ✅ All CLI operations working
-/opt/aitbc/aitbc-cli list
+/opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury, aitbc-user
 ```
 
@@ -106,7 +106,7 @@ psutil>=5.9.0             # System monitoring
 # Updated with new requirements
 ✅ CLI-specific dependencies installed
 ✅ All CLI operations working
-/opt/aitbc/aitbc-cli list
+/opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury
 ```
 

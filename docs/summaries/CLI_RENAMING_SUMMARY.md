@@ -61,11 +61,11 @@ python /opt/aitbc/cli/aitbc_cli.py "$@"  # ✅ Updated filename
 "AITBC CLI - Comprehensive Blockchain Management Tool"
 
 # All commands working
-/opt/aitbc/aitbc-cli list
+/opt/aitbc/aitbc-cli wallet list
 /opt/aitbc/aitbc-cli analytics --type supply
-/opt/aitbc/aitbc-cli marketplace --action list
-/opt/aitbc/aitbc-cli ai-ops --action submit
-/opt/aitbc/aitbc-cli mining --action status
+/opt/aitbc/aitbc-cli market list
+/opt/aitbc/aitbc-cli ai submit
+/opt/aitbc/aitbc-cli mining status
 ```
 
 ### 🚀 Benefits

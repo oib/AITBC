@@ -149,15 +149,15 @@ openclaw execute --agent CoordinatorAgent --task comprehensive_verification || {
     
     # Check AI operations
     echo "AI Operations:"
-    ./aitbc-cli ai-submit --wallet wallet --type inference --prompt "Generate image" --payment 100
+    ./aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
     
     # Check resource allocation
     echo "Resource Allocation:"
-    ./aitbc-cli resource allocate --agent-id agent-name --gpu 1 --memory 8192 --duration 3600
+    ./aitbc-cli resource allocate --agent-id agent-name --memory 8192 --duration 3600
     
     # Check marketplace participation
     echo "Marketplace Participation:"
-    ./aitbc-cli marketplace --action create --name "Service" --price 50 --wallet wallet
+    ./aitbc-cli market create --type ai-inference --price 50 --description "Service" --wallet wallet
     
     # Check governance
     echo "Governance:"
