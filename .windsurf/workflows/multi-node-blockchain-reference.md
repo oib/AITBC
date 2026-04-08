@@ -111,17 +111,17 @@ echo "Height difference: $((FOLLOWER_HEIGHT - GENESIS_HEIGHT))"
 ```bash
 # List all wallets
 cd /opt/aitbc && source venv/bin/activate
-./aitbc-cli list
+./aitbc-cli wallet list
 
 # Check specific wallet balance
-./aitbc-cli balance --name genesis-ops
-./aitbc-cli balance --name follower-ops
+./aitbc-cli wallet balance genesis-ops
+./aitbc-cli wallet balance follower-ops
 
 # Verify wallet addresses
-./aitbc-cli list | grep -E "(genesis-ops|follower-ops)"
+./aitbc-cli wallet list | grep -E "(genesis-ops|follower-ops)"
 
 # Test wallet operations
-./aitbc-cli send --from genesis-ops --to follower-ops --amount 10 --password 123
+./aitbc-cli wallet send genesis-ops follower-ops 10 123
 ```
 
 ### Network Verification
@@ -133,7 +133,7 @@ ssh aitbc1 'ping -c 3 localhost'
 
 # Test RPC endpoints
 curl -s http://localhost:8006/rpc/head > /dev/null && echo "Local RPC OK"
-ssh aitbc1 'curl -s http://localhost:8006/rpc/head > /dev/null && echo "Remote RPC OK"'
+ssh aitbc1 'curl -s http://localhost:8007/rpc/head > /dev/null && echo "Remote RPC OK"'
 
 # Test P2P connectivity
 telnet aitbc1 7070
@@ -146,16 +146,16 @@ ping -c 5 aitbc1 | tail -1
 
 ```bash
 # Check AI services
-./aitbc-cli marketplace --action list
+./aitbc-cli market list
 
 # Test AI job submission
-./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "test" --payment 10
+./aitbc-cli ai submit --wallet genesis-ops --type inference --prompt "test" --payment 10
 
 # Verify resource allocation
 ./aitbc-cli resource status
 
 # Check AI job status
-./aitbc-cli ai-status --job-id "latest"
+./aitbc-cli ai status --job-id "latest"
 ```
 
 ### Smart Contract Verification
@@ -263,16 +263,16 @@ Redis Service (for gossip)
 
 ```bash
 # Quick health check
-./aitbc-cli chain && ./aitbc-cli network
+./aitbc-cli blockchain info && ./aitbc-cli network status
 
 # Service status
 systemctl status aitbc-blockchain-node.service aitbc-blockchain-rpc.service
 
 # Cross-node sync check
-curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 'curl -s http://localhost:8006/rpc/head | jq .height'
+curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 'curl -s http://localhost:8007/rpc/head | jq .height'
 
 # Wallet balance check
-./aitbc-cli balance --name genesis-ops
+./aitbc-cli wallet balance genesis-ops
 ```
 
 ### Troubleshooting
@@ -347,20 +347,20 @@ SESSION_ID="task-$(date +%s)"
 openclaw agent --agent main --session-id $SESSION_ID --message "Task description"
 
 # Always verify transactions
-./aitbc-cli transactions --name wallet-name --limit 5
+./aitbc-cli wallet transactions wallet-name --limit 5
 
 # Monitor cross-node synchronization
-watch -n 10 'curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 "curl -s http://localhost:8006/rpc/head | jq .height"'
+watch -n 10 'curl -s http://localhost:8006/rpc/head | jq .height && ssh aitbc1 "curl -s http://localhost:8007/rpc/head | jq .height"'
 ```
 
 ### Development Best Practices
 
 ```bash
 # Test in development environment first
-./aitbc-cli send --from test-wallet --to test-wallet --amount 1 --password test
+./aitbc-cli wallet send test-wallet test-wallet 1 test
 
 # Use meaningful wallet names
-./aitbc-cli create --name "genesis-operations" --password "strong_password"
+./aitbc-cli wallet create "genesis-operations" "strong_password"
 
 # Document all configuration changes
 git add /etc/aitbc/.env
@@ -424,14 +424,14 @@ sudo systemctl restart aitbc-blockchain-node.service
 **Problem**: Wallet balance incorrect
 ```bash
 # Check correct node
-./aitbc-cli balance --name wallet-name
-ssh aitbc1 './aitbc-cli balance --name wallet-name'
+./aitbc-cli wallet balance wallet-name
+ssh aitbc1 './aitbc-cli wallet balance wallet-name'
 
 # Verify wallet address
-./aitbc-cli list | grep "wallet-name"
+./aitbc-cli wallet list | grep "wallet-name"
 
 # Check transaction history
-./aitbc-cli transactions --name wallet-name --limit 10
+./aitbc-cli wallet transactions wallet-name --limit 10
 ```
 
 #### AI Operations Issues
@@ -439,16 +439,16 @@ ssh aitbc1 './aitbc-cli balance --name wallet-name'
 **Problem**: AI jobs not processing
 ```bash
 # Check AI services
-./aitbc-cli marketplace --action list
+./aitbc-cli market list
 
 # Check resource allocation
 ./aitbc-cli resource status
 
-# Check job status
-./aitbc-cli ai-status --job-id "job_id"
+# Check AI job status
+./aitbc-cli ai status --job-id "job_id"
 
 # Verify wallet balance
-./aitbc-cli balance --name wallet-name
+./aitbc-cli wallet balance wallet-name
 ```
 
 ### Emergency Procedures

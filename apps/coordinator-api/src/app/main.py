@@ -34,6 +34,9 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from .config import settings
+from .utils.alerting import alert_dispatcher
+from .utils.cache import cache_manager
+from .utils.metrics import build_live_metrics_payload, metrics_collector
 from .routers import (
     admin,
     agent_identity,
@@ -56,8 +59,7 @@ from .routers import (
     users,
     web_vitals,
 )
-from .storage import init_db
-
+ 
 # Skip optional routers with missing dependencies
 try:
     from .routers.ml_zk_proofs import router as ml_zk_proofs
@@ -268,7 +270,23 @@ def create_app() -> FastAPI:
         allow_headers=["*"],  # Allow all headers for API keys and content types
     )
 
-    # Enable all routers with OpenAPI disabled
+    @app.middleware("http")
+    async def request_metrics_middleware(request: Request, call_next):
+        start_time = __import__("time").perf_counter()
+        metrics_collector.increment_api_requests()
+        try:
+            response = await call_next(request)
+            if response.status_code >= 400:
+                metrics_collector.increment_api_errors()
+            return response
+        except Exception:
+            metrics_collector.increment_api_errors()
+            raise
+        finally:
+            duration = __import__("time").perf_counter() - start_time
+            metrics_collector.record_api_response_time(duration)
+            metrics_collector.update_cache_stats(cache_manager.get_stats())
+
     app.include_router(client, prefix="/v1")
     app.include_router(miner, prefix="/v1")
     app.include_router(admin, prefix="/v1")
@@ -371,6 +389,14 @@ def create_app() -> FastAPI:
     async def rate_limit_metrics():
         """Rate limiting metrics endpoint."""
         return Response(content=generate_latest(rate_limit_registry), media_type=CONTENT_TYPE_LATEST)
+
+    @app.get("/v1/metrics", tags=["health"], summary="Live JSON metrics for dashboard consumption")
+    async def live_metrics() -> dict:
+        return build_live_metrics_payload(
+            cache_stats=cache_manager.get_stats(),
+            dispatcher=alert_dispatcher,
+            collector=metrics_collector,
+        )
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:

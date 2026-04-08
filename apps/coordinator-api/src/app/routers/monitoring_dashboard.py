@@ -1,5 +1,3 @@
-from typing import Annotated
-
 """
 Enhanced Services Monitoring Dashboard
 Provides a unified dashboard for all 6 enhanced services
@@ -10,16 +8,12 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from fastapi import APIRouter, Depends, Request
-from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
+from fastapi import APIRouter
+import logging
 
-from ..storage import get_session
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-# Templates would be stored in a templates directory in production
-templates = Jinja2Templates(directory="templates")
 
 # Service endpoints configuration
 SERVICES = {
@@ -69,7 +63,7 @@ SERVICES = {
 
 
 @router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
-async def monitoring_dashboard(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+async def monitoring_dashboard() -> dict[str, Any]:
     """
     Unified monitoring dashboard for all enhanced services
     """

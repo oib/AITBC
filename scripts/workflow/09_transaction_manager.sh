@@ -21,7 +21,7 @@ fi
 # Get wallet addresses
 echo "2. Getting wallet addresses..."
 GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')
-TARGET_ADDR=$(/opt/aitbc/aitbc-cli balance --name aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
+TARGET_ADDR=$(/opt/aitbc/aitbc-cli wallet balance aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
 
 echo "Genesis address: $GENESIS_ADDR"
 echo "Target address: $TARGET_ADDR"
@@ -91,12 +91,8 @@ else
   
   # Try alternative method using CLI
   echo "7. Trying alternative CLI method..."
-  /opt/aitbc/aitbc-cli send \
-    --from $GENESIS_WALLET \
-    --to $TARGET_ADDR \
-    --amount $AMOUNT \
-    --fee $FEE \
-    --password-file $PASSWORD_FILE
+  PASSWORD=$(cat $PASSWORD_FILE)
+  /opt/aitbc/aitbc-cli wallet send $GENESIS_WALLET $TARGET_ADDR $AMOUNT $PASSWORD
 fi
 
 # Final verification

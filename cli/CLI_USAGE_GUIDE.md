@@ -1,157 +1,87 @@
-# AITBC Enhanced CLI - Complete Usage Guide
+# AITBC CLI - Complete Usage Guide
 
 ## Overview
 
-The AITBC Enhanced CLI provides comprehensive wallet and blockchain management capabilities with professional-grade features and user-friendly interfaces.
+The AITBC CLI provides comprehensive blockchain and wallet management capabilities with professional-grade features and user-friendly interfaces.
 
 ## Installation
 
-The CLI tool is located at `/opt/aitbc/cli/simple_wallet.py` and is deployed on both aitbc1 and aitbc nodes.
+The CLI tool is located at `/opt/aitbc/aitbc-cli` and is deployed on both aitbc and aitbc1 nodes. The tool is accessible via the `aitbc` alias after sourcing your shell configuration.
 
 ## Commands
 
-### 1. Create Wallet
-Create a new encrypted wallet with automatic key generation.
+The AITBC CLI provides 27 commands for comprehensive blockchain management:
 
-```bash
-python /opt/aitbc/cli/simple_wallet.py create --name <wallet-name> --password-file <path-to-password-file>
-```
+### Available Commands
+- `create` - Create a new wallet
+- `send` - Send AIT
+- `list` - List wallets
+- `balance` - Get wallet balance
+- `transactions` - Get wallet transactions
+- `chain` - Get blockchain information
+- `network` - Get network status
+- `analytics` - Blockchain analytics and statistics
+- `marketplace` - Marketplace operations
+- `ai-ops` - AI compute operations
+- `mining` - Mining operations and status
+- `agent` - AI agent workflow and execution management
+- `openclaw` - OpenClaw agent ecosystem operations
+- `workflow` - Workflow automation and management
+- `resource` - Resource management and optimization
+- `system` - System status and information
+- `blockchain` - Blockchain operations
+- `wallet` - Wallet operations
+- `all-balances` - Show all wallet balances
+- `import` - Import wallet from private key
+- `export` - Export private key from wallet
+- `delete` - Delete wallet
+- `rename` - Rename wallet
+- `batch` - Send multiple transactions
+- `market-list` - List marketplace items
+- `market-create` - Create marketplace listing
+- `ai-submit` - Submit AI compute job
+- `simulate` - Simulate blockchain scenarios and test environments
 
-**Examples:**
-```bash
-# Create wallet with password file
-python /opt/aitbc/cli/simple_wallet.py create --name my-wallet --password-file /var/lib/aitbc/keystore/.password
-
-# Create wallet with interactive password
-python /opt/aitbc/cli/simple_wallet.py create --name my-wallet
-```
-
-**Output:**
-```
-Wallet created: my-wallet
-Address: ait1abc123def456...
-Keystore: /var/lib/aitbc/keystore/my-wallet.json
-Wallet address: ait1abc123def456...
-```
-
-### 2. Send Transaction
-Send AIT coins from one wallet to another with automatic signing.
-
-```bash
-python /opt/aitbc/cli/simple_wallet.py send --from <sender-wallet> --to <recipient-address> --amount <amount> --password-file <path-to-password-file>
-```
-
-**Examples:**
-```bash
-# Send 1000 AIT with default fee
-python /opt/aitbc/cli/simple_wallet.py send --from genesis --to ait1abc123... --amount 1000 --password-file /var/lib/aitbc/keystore/.password
-
-# Send with custom fee and RPC URL
-python /opt/aitbc/cli/simple_wallet.py send --from my-wallet --to ait1def456... --amount 500 --fee 5 --password-file /var/lib/aitbc/keystore/.password --rpc-url http://localhost:8006
-```
-
-**Output:**
-```
-Transaction submitted successfully
-From: ait1abc123def456...
-To: ait1def456abc789...
-Amount: 1000 AIT
-Fee: 10 AIT
-Transaction hash: 0x123abc456def...
-```
-
-### 3. List Wallets
+### 1. List Wallets
 Display all available wallets with their addresses.
 
 ```bash
-python /opt/aitbc/cli/simple_wallet.py list [--format table|json]
-```
-
-**Examples:**
-```bash
-# Table format (default)
-python /opt/aitbc/cli/simple_wallet.py list
-
-# JSON format
-python /opt/aitbc/cli/simple_wallet.py list --format json
+aitbc list
 ```
 
 **Output:**
 ```
 Wallets:
-  genesis: ait1abc123def456...
-  treasury: ait1def456abc789...
-  my-wallet: ait1ghi789jkl012...
+  openclaw-backup: ait1cebd266469be5f85b5f0052f1556b5d708b42de9
+  openclaw-trainee: ait10a252a31c79939c689bf392e960afc7861df5ee9
 ```
 
-### 4. Get Balance
+### 2. Get Balance
 Retrieve wallet balance, nonce, and address information.
 
 ```bash
-python /opt/aitbc/cli/simple_wallet.py balance --name <wallet-name> [--rpc-url <url>]
+aitbc balance --name <wallet-name>
 ```
 
 **Examples:**
 ```bash
 # Get balance for specific wallet
-python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet
-
-# Get balance with custom RPC URL
-python /opt/aitbc/cli/simple_wallet.py balance --name genesis --rpc-url http://10.1.223.40:8006
+aitbc balance --name openclaw-backup
 ```
 
 **Output:**
 ```
-Wallet: my-wallet
-Address: ait1ghi789jkl012...
-Balance: 1500 AIT
-Nonce: 5
+Wallet: openclaw-backup
+Address: ait1cebd266469be5f85b5f0052f1556b5d708b42de9
+Balance: 0 AIT
+Nonce: 0
 ```
 
-### 5. Get Transactions
-Retrieve wallet transaction history with detailed information.
-
-```bash
-python /opt/aitbc/cli/simple_wallet.py transactions --name <wallet-name> [--limit <number>] [--format table|json]
-```
-
-**Examples:**
-```bash
-# Get last 10 transactions
-python /opt/aitbc/cli/simple_wallet.py transactions --name my-wallet
-
-# Get last 5 transactions in JSON format
-python /opt/aitbc/cli/simple_wallet.py transactions --name my-wallet --limit 5 --format json
-```
-
-**Output:**
-```
-Transactions for my-wallet:
-  1. Hash: 0x123abc456def...
-     Amount: 1000 AIT
-     Fee: 10 AIT
-     Type: transfer
-
-  2. Hash: 0x789ghi012jkl...
-     Amount: 500 AIT
-     Fee: 5 AIT
-     Type: transfer
-```
-
-### 6. Get Chain Information
+### 3. Get Chain Information
 Display blockchain network information and configuration.
 
 ```bash
-python /opt/aitbc/cli/simple_wallet.py chain [--rpc-url <url>]
-```
-
-**Examples:**
-```bash
-# Get chain information
-python /opt/aitbc/cli/simple_wallet.py chain
-
-# Get chain information from remote node
-python /opt/aitbc/cli/simple_wallet.py chain --rpc-url http://10.1.223.40:8006
+aitbc chain
 ```
 
 **Output:**
@@ -159,34 +89,84 @@ python /opt/aitbc/cli/simple_wallet.py chain --rpc-url http://10.1.223.40:8006
 Blockchain Information:
   Chain ID: ait-mainnet
   Supported Chains: ait-mainnet
-  RPC Version: v0.2.2
-  Height: 1234
+  Height: 22502
+  Latest Block: 0x4d6cfbf2c3e758...
+  Proposer: none
 ```
 
-### 7. Get Network Status
+### 4. Get Network Status
 Display current network status and health information.
 
 ```bash
-python /opt/aitbc/cli/simple_wallet.py network [--rpc-url <url>]
-```
-
-**Examples:**
-```bash
-# Get network status
-python /opt/aitbc/cli/simple_wallet.py network
-
-# Get network status in JSON format
-python /opt/aitbc/cli/simple_wallet.py network --format json
+aitbc network
 ```
 
 **Output:**
 ```
 Network Status:
-  Height: 1234
-  Latest Block: 0xabc123def456...
+  Height: 22502
+  Latest Block: 0x4d6cfbf2c3e758...
   Chain ID: ait-mainnet
-  RPC Version: v0.2.2
-  Timestamp: 1711706400
+  Tx Count: 0
+  Timestamp: 2026-03-31T13:24:55.238626
+```
+
+### 5. System Status
+Get comprehensive system status and information.
+
+```bash
+aitbc system
+```
+
+**Output:**
+```
+System operation completed
+```
+
+### 6. Analytics
+Get blockchain analytics and statistics.
+
+```bash
+aitbc analytics
+```
+
+**Output:**
+```
+Blockchain Analytics (blocks):
+  Current Height: 22502
+  Latest Block: 0x4d6cfbf2c3e75831e93a6f400ac3c8ccef86c17b5b3a1e0cf88013e6173f9cf2
+  Timestamp: 2026-03-31T13:24:55.238626
+  Tx Count: 0
+  Status: Active
+```
+
+### 7. Marketplace Operations
+List marketplace items and create listings.
+
+```bash
+# List marketplace items
+aitbc marketplace --action list
+
+# Create marketplace listing
+aitbc marketplace --action create --name <name> --price <price> --description <description>
+```
+
+**Output:**
+```
+Marketplace list:
+  Items: [{'name': 'AI Compute Hour', 'price': 100, 'provider': 'GPU-Miner-1'}, ...]
+  Total Items: 3
+```
+
+### 8. Wallet Operations
+Comprehensive wallet management.
+
+```bash
+# Wallet operations
+aitbc wallet
+
+# All balances
+aitbc all-balances
 ```
 
 ## Advanced Features
@@ -197,10 +177,10 @@ Most commands support both table and JSON output formats:
 
 ```bash
 # Table format (human-readable)
-python /opt/aitbc/cli/simple_wallet.py list --format table
+/opt/aitbc/aitbc-cli wallet list --format table
 
 # JSON format (machine-readable)
-python /opt/aitbc/cli/simple_wallet.py list --format json
+/opt/aitbc/aitbc-cli wallet list --format json
 ```
 
 ### Remote Node Operations
@@ -209,10 +189,10 @@ Connect to different RPC endpoints:
 
 ```bash
 # Local node
-python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet --rpc-url http://localhost:8006
+/opt/aitbc/aitbc-cli wallet balance my-wallet --rpc-url http://localhost:8006
 
 # Remote node
-python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet --rpc-url http://10.1.223.40:8006
+/opt/aitbc/aitbc-cli wallet balance my-wallet --rpc-url http://10.1.223.40:8006
 ```
 
 ### Password Management
@@ -221,13 +201,13 @@ Multiple password input methods:
 
 ```bash
 # Password file
-python /opt/aitbc/cli/simple_wallet.py send --from wallet --to address --amount 100 --password-file /path/to/password
+/opt/aitbc/aitbc-cli wallet send wallet --to address --amount 100 --password-file /path/to/password
 
 # Interactive password
-python /opt/aitbc/cli/simple_wallet.py send --from wallet --to address --amount 100
+/opt/aitbc/aitbc-cli wallet send wallet --to address --amount 100
 
 # Direct password (not recommended for production)
-python /opt/aitbc/cli/simple_wallet.py send --from wallet --to address --amount 100 --password mypassword
+/opt/aitbc/aitbc-cli wallet send wallet --to address --amount 100 --password mypassword
 ```
 
 ## Common Workflows
@@ -235,45 +215,45 @@ python /opt/aitbc/cli/simple_wallet.py send --from wallet --to address --amount 
 ### 1. Complete Wallet Setup
 ```bash
 # Create wallet
-python /opt/aitbc/cli/simple_wallet.py create --name my-wallet --password-file /var/lib/aitbc/keystore/.password
+/opt/aitbc/aitbc-cli wallet create my-wallet --password-file /var/lib/aitbc/keystore/.password
 
 # Get wallet address
-WALLET_ADDR=$(python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet --format json | jq -r '.address')
+WALLET_ADDR=$(/opt/aitbc/aitbc-cli wallet balance my-wallet --format json | jq -r '.address')
 
 # Check balance
-python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet
+/opt/aitbc/aitbc-cli wallet balance my-wallet
 ```
 
 ### 2. Transaction Workflow
 ```bash
 # Check sender balance
-python /opt/aitbc/cli/simple_wallet.py balance --name sender-wallet
+/opt/aitbc/aitbc-cli wallet balance sender-wallet
 
 # Send transaction
-python /opt/aitbc/cli/simple_wallet.py send --from sender-wallet --to $WALLET_ADDR --amount 1000 --password-file /var/lib/aitbc/keystore/.password
+/opt/aitbc/aitbc-cli wallet send sender-wallet --to $WALLET_ADDR --amount 1000 --password-file /var/lib/aitbc/keystore/.password
 
 # Monitor transaction
-python /opt/aitbc/cli/simple_wallet.py transactions --name sender-wallet --limit 3
+/opt/aitbc/aitbc-cli wallet transactions sender-wallet --limit 3
 
 # Check recipient balance
-python /opt/aitbc/cli/simple_wallet.py balance --name recipient-wallet
+/opt/aitbc/aitbc-cli wallet balance recipient-wallet
 ```
 
 ### 3. Network Monitoring
 ```bash
 # Check network status
-python /opt/aitbc/cli/simple_wallet.py network
+/opt/aitbc/aitbc-cli network status
 
 # Check chain information
-python /opt/aitbc/cli/simple_wallet.py chain
+/opt/aitbc/aitbc-cli blockchain info
 
 # List all wallets
-python /opt/aitbc/cli/simple_wallet.py list
+/opt/aitbc/aitbc-cli wallet list
 
 # Check all wallet balances
-for wallet in $(python /opt/aitbc/cli/simple_wallet.py list --format json | jq -r '.[].name'); do
+for wallet in $(/opt/aitbc/aitbc-cli wallet list --format json | jq -r '.[].name'); do
   echo "Wallet: $wallet"
-  python /opt/aitbc/cli/simple_wallet.py balance --name $wallet
+  /opt/aitbc/aitbc-cli wallet balance $wallet
   echo "---"
 done
 ```
@@ -283,27 +263,48 @@ done
 ### aitbc1 to aitbc Operations
 ```bash
 # On aitbc1 - check network status
-python /opt/aitbc/cli/simple_wallet.py network
+/opt/aitbc/aitbc-cli network status
 
 # On aitbc - check network status
-ssh aitbc 'python /opt/aitbc/cli/simple_wallet.py network'
+ssh aitbc '/opt/aitbc/aitbc-cli network status'
 
 # Send from aitbc1 to aitbc wallet
-python /opt/aitbc/cli/simple_wallet.py send --from genesis --to $AITBC_WALLET_ADDR --amount 1000 --password-file /var/lib/aitbc/keystore/.password
+/opt/aitbc/aitbc-cli wallet send genesis --to $AITBC_WALLET_ADDR --amount 1000 --password-file /var/lib/aitbc/keystore/.password
 
 # Check balance on aitbc
-ssh aitbc "python /opt/aitbc/cli/simple_wallet.py balance --name aitbc-user"
+ssh aitbc "/opt/aitbc/aitbc-cli wallet balance aitbc-user"
 ```
 
 ## Error Handling
 
-The CLI provides comprehensive error handling:
+The CLI provides comprehensive error handling with specific exception types:
+
+### Improved Error Handling (April 2026)
+Recent improvements to error handling across all services:
+
+- **Specific Exception Types**: Replaced generic `except Exception` with specific exception types
+- **Network Errors**: `ConnectionError`, `Timeout`, `HTTPError` for network operations
+- **File Operations**: `FileNotFoundError`, `PermissionError`, `IOError` for file access
+- **Data Processing**: `JSONDecodeError`, `KeyError`, `StopIteration` for data operations
+- **System Errors**: `OSError`, `psutil.Error` for system operations
+
+### Service Error Handling
+All services now have improved error handling:
+
+- **monitor.py**: Handles JSON decode errors, file not found, permission errors
+- **real_marketplace_launcher.py**: Handles subprocess errors, file access errors
+- **blockchain_http_launcher.py**: Handles subprocess errors, connection issues
+- **gpu_marketplace_launcher.py**: Handles subprocess errors, system errors
+- **miner_management.py**: Handles network errors, JSON decode errors, data processing errors
+
+### CLI Error Messages
+The CLI provides clear, actionable error messages:
 
 - **Wallet Not Found**: Clear error message when wallet doesn't exist
-- **Password Errors**: Proper password validation and error messages
+- **Invalid Parameters**: Detailed parameter validation errors
 - **Network Errors**: RPC connectivity issues with helpful messages
 - **Transaction Errors**: Detailed transaction failure information
-- **JSON Parsing**: Graceful handling of malformed responses
+- **System Errors**: System-level error information with context
 
 ## Security Best Practices
 
@@ -313,6 +314,39 @@ The CLI provides comprehensive error handling:
 4. **Backup**: Regularly backup keystore files
 5. **Validation**: Always verify transaction details before sending
 
+## Performance Optimizations
+
+### Database Connection Pooling (April 2026)
+Recent performance improvements to database operations:
+
+- **Connection Pooling**: Configured for PostgreSQL/MySQL (pool_size=10, max_overflow=20)
+- **Connection Validation**: pool_pre_ping=True to verify connections before use
+- **Connection Recycling**: pool_recycle=3600 to recycle connections after 1 hour
+- **SQLite Optimization**: StaticPool for SQLite with timeout configuration
+
+### Cache Management (April 2026)
+Enhanced cache system with memory management:
+
+- **Memory Limits**: Configured max_size=1000, max_memory_mb=100
+- **Automatic Eviction**: Oldest entries evicted when size limit reached
+- **Memory Monitoring**: Periodic memory limit checking and garbage collection
+- **Performance Tracking**: Cache hit rate and statistics monitoring
+
+### Performance Metrics
+The system now tracks comprehensive performance metrics:
+
+- **Cache Hit Rate**: Monitors cache effectiveness
+- **Operation Timing**: Tracks execution time for all operations
+- **Error Rates**: Monitors error frequency and types
+- **Resource Usage**: Tracks memory and CPU usage patterns
+
+### Optimization Recommendations
+
+1. **Use Cache**: Leverage caching for frequently accessed data
+2. **Connection Pooling**: Database connections are pooled for efficiency
+3. **Batch Operations**: Use batch commands when possible
+4. **Monitor Performance**: Use analytics command to check system performance
+
 ## Integration with Scripts
 
 The CLI is designed for easy integration with shell scripts:
@@ -320,11 +354,11 @@ The CLI is designed for easy integration with shell scripts:
 ```bash
 #!/bin/bash
 # Get wallet balance in script
-BALANCE=$(python /opt/aitbc/cli/simple_wallet.py balance --name my-wallet --format json | jq -r '.balance')
+BALANCE=$(/opt/aitbc/aitbc-cli wallet balance my-wallet --format json | jq -r '.balance')
 
 if [ "$BALANCE" -gt "1000" ]; then
   echo "Sufficient balance for transaction"
-  python /opt/aitbc/cli/simple_wallet.py send --from my-wallet --to $RECIPIENT --amount 1000 --password-file /var/lib/aitbc/keystore/.password
+  /opt/aitbc/aitbc-cli wallet send my-wallet --to $RECIPIENT --amount 1000 --password-file /var/lib/aitbc/keystore/.password
 else
   echo "Insufficient balance: $BALANCE AIT"
 fi
@@ -345,7 +379,7 @@ Add verbose output for debugging:
 
 ```bash
 # Enable debug output (if implemented)
-python /opt/aitbc/cli/simple_wallet.py --debug balance --name my-wallet
+/opt/aitbc/aitbc-cli --debug balance --name my-wallet
 ```
 
 ## Future Enhancements

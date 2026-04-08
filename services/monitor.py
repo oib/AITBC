@@ -37,8 +37,11 @@ def main():
                         logger.info(f'Marketplace: {len(listings)} GPU listings')
             
             time.sleep(30)
-        except Exception as e:
-            logger.error(f'Monitoring error: {e}')
+        except (json.JSONDecodeError, FileNotFoundError, PermissionError, IOError) as e:
+            logger.error(f'Monitoring error: {type(e).__name__}: {e}')
+            time.sleep(60)
+        except psutil.Error as e:
+            logger.error(f'System monitoring error: {type(e).__name__}: {e}')
             time.sleep(60)
 
 if __name__ == "__main__":

@@ -223,14 +223,14 @@ def automated_marketplace_monitoring():
     logger.info("Starting marketplace monitoring...")
     
     # Check marketplace status
-    success, output, error = run_command("/opt/aitbc/aitbc-cli marketplace --list")
+    success, output, error = run_command("/opt/aitbc/aitbc-cli market list")
     
     if success:
         logger.info(f"Marketplace status: {output}")
         
         # Simple trading logic - place buy order for low-priced items
         if "test-item" in output:
-            success, output, error = run_command("/opt/aitbc/aitbc-cli marketplace --buy --item test-item --price 25")
+            success, output, error = run_command("/opt/aitbc/aitbc-cli market buy --item test-item --price 25")
             logger.info(f"Buy order placed: {output}")
     else:
         logger.error(f"Marketplace monitoring failed: {error}")

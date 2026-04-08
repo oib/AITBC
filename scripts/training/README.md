@@ -100,10 +100,10 @@ All scripts are designed to work with both AITBC nodes:
 Each stage includes node-specific testing using the training library:
 ```bash
 # Genesis node operations
-NODE_URL="http://localhost:8006" ./aitbc-cli balance --name wallet
+NODE_URL="http://localhost:8006" ./aitbc-cli wallet balance wallet
 
 # Follower node operations  
-NODE_URL="http://localhost:8007" ./aitbc-cli balance --name wallet
+NODE_URL="http://localhost:8007" ./aitbc-cli wallet balance wallet
 
 # Using training library functions
 cli_cmd_node "$GENESIS_NODE" "balance --name $WALLET_NAME"

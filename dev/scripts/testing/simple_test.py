@@ -35,8 +35,8 @@ def test_connectivity():
     print("=" * 40)
     
     tests = [
-        ("curl -s http://127.0.0.1:18000/v1/health", "aitbc health check"),
-        ("curl -s http://127.0.0.1:18001/v1/health", "aitbc1 health check"),
+        ("curl -s http://127.0.0.1:8000/v1/health", "aitbc health check"),
+        ("curl -s http://127.0.0.1:8015/v1/health", "aitbc1 health check"),
         ("ollama list", "Ollama GPU service"),
         ("ssh aitbc-cascade 'echo SSH_OK'", "SSH to aitbc container"),
         ("ssh aitbc1-cascade 'echo SSH_OK'", "SSH to aitbc1 container"),
@@ -55,10 +55,10 @@ def test_marketplace_functionality():
     print("=" * 40)
     
     tests = [
-        ("curl -s http://127.0.0.1:18000/v1/marketplace/offers", "aitbc marketplace offers"),
-        ("curl -s http://127.0.0.1:18001/v1/marketplace/offers", "aitbc1 marketplace offers"),
-        ("curl -s http://127.0.0.1:18000/v1/marketplace/stats", "aitbc marketplace stats"),
-        ("curl -s http://127.0.0.1:18001/v1/marketplace/stats", "aitbc1 marketplace stats"),
+        ("curl -s http://127.0.0.1:8000/v1/marketplace/offers", "aitbc marketplace offers"),
+        ("curl -s http://127.0.0.1:8015/v1/marketplace/offers", "aitbc1 marketplace offers"),
+        ("curl -s http://127.0.0.1:8000/v1/marketplace/stats", "aitbc marketplace stats"),
+        ("curl -s http://127.0.0.1:8015/v1/marketplace/stats", "aitbc1 marketplace stats"),
     ]
     
     results = []

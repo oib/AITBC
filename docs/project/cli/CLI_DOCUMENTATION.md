@@ -66,28 +66,28 @@ source venv/bin/activate
 #### Wallet Management
 ```bash
 # Create new wallet
-./aitbc-cli create --name wallet-name --password your-password
+./aitbc-cli wallet create wallet-name your-password
 
 # List all wallets
-./aitbc-cli list
+./aitbc-cli wallet list
 
 # Get wallet balance
-./aitbc-cli balance --name wallet-name
+./aitbc-cli wallet balance wallet-name
 
 # Send AIT
-./aitbc-cli send --from from-wallet --to to-wallet --amount 100 --password your-password
+./aitbc-cli wallet send from-wallet to-wallet 100 your-password
 
 # Get wallet transactions
-./aitbc-cli transactions --name wallet-name --limit 10
+./aitbc-cli wallet transactions wallet-name --limit 10
 ```
 
 #### Blockchain Operations
 ```bash
 # Get blockchain information
-./aitbc-cli chain [--rpc-url http://localhost:8006]
+./aitbc-cli blockchain info [--rpc-url http://localhost:8006]
 
 # Get network status
-./aitbc-cli network
+./aitbc-cli network status
 
 # Get blockchain analytics
 ./aitbc-cli analytics
@@ -96,40 +96,40 @@ source venv/bin/activate
 #### AI Operations
 ```bash
 # Submit AI job
-./aitbc-cli ai-submit --wallet wallet-name --type inference --prompt "Generate image" --payment 100
+./aitbc-cli ai submit --wallet wallet-name --type inference --prompt "Generate image" --payment 100
 
 # Check AI job status
-./aitbc-cli ai-ops --action status --job-id job-id
+./aitbc-cli ai status --job-id job-id
 
 # Get AI job results
-./aitbc-cli ai-ops --action results --job-id job-id
+./aitbc-cli ai results --job-id job-id
 
 # Advanced AI Operations - Phase 1 Completed
-./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "Complex AI pipeline for medical diagnosis" --payment 500
-./aitbc-cli ai-submit --wallet genesis-ops --type ensemble --prompt "Parallel AI processing with ensemble validation" --payment 600
+./aitbc-cli ai submit --wallet genesis-ops --type parallel --prompt "Complex AI pipeline for medical diagnosis" --payment 500
+./aitbc-cli ai submit --wallet genesis-ops --type ensemble --prompt "Parallel AI processing with ensemble validation" --payment 600
 
 # Advanced AI Operations - Phase 2 Completed
-./aitbc-cli ai-submit --wallet genesis-ops --type multimodal --prompt "Multi-modal customer feedback analysis with cross-modal attention" --payment 1000
-./aitbc-cli ai-submit --wallet genesis-ops --type fusion --prompt "Cross-modal fusion with joint reasoning and consensus validation" --payment 1200
+./aitbc-cli ai submit --wallet genesis-ops --type multimodal --prompt "Multi-modal customer feedback analysis with cross-modal attention" --payment 1000
+./aitbc-cli ai submit --wallet genesis-ops --type fusion --prompt "Cross-modal fusion with joint reasoning and consensus validation" --payment 1200
 
 # Advanced AI Operations - Phase 3 Completed
-./aitbc-cli ai-submit --wallet genesis-ops --type resource-allocation --prompt "Dynamic resource allocation system with GPU pools and demand forecasting" --payment 800
-./aitbc-cli ai-submit --wallet genesis-ops --type performance-tuning --prompt "AI performance optimization for sub-100ms inference latency" --payment 1000
+./aitbc-cli ai submit --wallet genesis-ops --type resource-allocation --prompt "Dynamic resource allocation system with GPU pools and demand forecasting" --payment 800
+./aitbc-cli ai submit --wallet genesis-ops --type performance-tuning --prompt "AI performance optimization for sub-100ms inference latency" --payment 1000
 ```
 
 #### Marketplace Operations
 ```bash
 # List marketplace items
-./aitbc-cli marketplace --action list
+./aitbc-cli market list
 
 # Create marketplace listing
-./aitbc-cli marketplace --action create --name "Service Name" --price 100 --description "Description" --wallet wallet-name
+./aitbc-cli market create --type ai-inference --price 100 --description "Description" --wallet wallet-name
 
 # Search marketplace
-./aitbc-cli marketplace --action search --query "search term"
+./aitbc-cli market search --query "search term"
 
 # View my listings
-./aitbc-cli marketplace --action my-listings --wallet wallet-name
+./aitbc-cli market my-listings --wallet wallet-name
 ```
 
 #### Resource Management
@@ -246,34 +246,34 @@ curl -s http://localhost:11434/api/tags
 ### Basic Workflow
 ```bash
 # 1. Create wallet
-./aitbc-cli create --name my-wallet --password my-password
+./aitbc-cli wallet create my-wallet my-password
 
 # 2. Fund wallet (from existing wallet)
-./aitbc-cli send --from genesis-ops --to my-wallet --amount 1000 --password 123
+./aitbc-cli wallet send genesis-ops my-wallet 1000 123
 
 # 3. Submit AI job
-./aitbc-cli ai-submit --wallet my-wallet --type inference --prompt "Generate a landscape image" --payment 50
+./aitbc-cli ai submit --wallet my-wallet --type inference --prompt "Generate a landscape image" --payment 50
 
 # 4. Check job status
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai status --job-id latest
 
 # 5. Get results
-./aitbc-cli ai-ops --action results --job-id latest
+./aitbc-cli ai results --job-id latest
 ```
 
 ### Marketplace Operations
 ```bash
 # 1. Create service listing
-./aitbc-cli marketplace --action create --name "AI Image Generation" --price 100 --description "High-quality image generation service" --wallet provider-wallet
+./aitbc-cli market create --type ai-inference --price 100 --description "High-quality image generation service" --wallet provider-wallet
 
 # 2. List available services
-./aitbc-cli marketplace --action list
+./aitbc-cli market list
 
 # 3. Bid on service
-./aitbc-cli marketplace --action bid --service-id service-id --amount 120 --wallet customer-wallet
+./aitbc-cli market bid --service-id service-id --amount 120 --wallet customer-wallet
 
 # 4. Accept bid
-./aitbc-cli marketplace --action accept-bid --service-id service-id --bid-id bid-id --wallet provider-wallet
+./aitbc-cli market accept-bid --service-id service-id --bid-id bid-id --wallet provider-wallet
 ```
 
 ### Simulation Examples
