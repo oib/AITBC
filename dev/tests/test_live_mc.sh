@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the proxy ports and internal container ports
-# Coordinator proxies: localhost:18000 -> aitbc:8000, localhost:18001 -> aitbc1:8000
+# Coordinator proxies: localhost:8000 -> aitbc:8000, localhost:8015 -> aitbc1:8015
 # However, the node RPC is on port 8082 in the container and proxied differently.
 # For direct access, we'll ssh into the containers to test the RPC directly on 8082.
 

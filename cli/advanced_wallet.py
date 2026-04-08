@@ -15,17 +15,8 @@ import requests
 DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
 DEFAULT_RPC_URL = "http://localhost:8006"
 
-# Import existing functions from simple_wallet.py
-sys.path.append('/opt/aitbc/cli')
-try:
-    from simple_wallet import (
-        create_wallet, send_transaction, list_wallets, get_balance,
-        get_transactions, get_chain_info, get_network_status,
-        import_wallet, export_wallet, delete_wallet, rename_wallet
-    )
-except ImportError:
-    print("Error: Could not import base wallet functions")
-    sys.exit(1)
+# Note: Legacy simple_wallet.py module has been replaced by unified CLI
+# This file should use the new nested CLI structure via subprocess calls
 
 def batch_transactions(transactions_file: str, password: str, rpc_url: str = DEFAULT_RPC_URL):
     """Process batch transactions from JSON file"""

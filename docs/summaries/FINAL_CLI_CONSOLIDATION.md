@@ -42,7 +42,7 @@ full_command = ["/opt/aitbc/aitbc-cli"] + command
 
 #### **✅ Primary Node (aitbc)**
 ```bash
-/opt/aitbc/aitbc-cli list
+/opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury, aitbc-user
 
 OpenClaw skill working:
@@ -54,7 +54,7 @@ OpenClaw skill working:
 
 #### **✅ Follower Node (aitbc1)**
 ```bash
-/opt/aitbc/aitbc-cli list
+/opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury
 
 OpenClaw skill working:

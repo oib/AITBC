@@ -95,8 +95,8 @@ openclaw agent --agent FollowerAgent --session-id test --message "Test response"
 **Quick Start**:
 ```bash
 # Test AI operations
-./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Test AI job" --payment 100
-./aitbc-cli ai-ops --action status --job-id latest
+./aitbc-cli ai submit --wallet genesis-ops --type inference --prompt "Test AI job" --payment 100
+./aitbc-cli ai status --job-id latest
 ```
 
 ---
@@ -117,8 +117,8 @@ openclaw agent --agent FollowerAgent --session-id test --message "Test response"
 **Quick Start**:
 ```bash
 # Test advanced AI operations
-./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "Complex pipeline test" --payment 500
-./aitbc-cli ai-submit --wallet genesis-ops --type multimodal --prompt "Multi-modal test" --payment 1000
+./aitbc-cli ai submit --wallet genesis-ops --type parallel --prompt "Complex pipeline test" --payment 500
+./aitbc-cli ai submit --wallet genesis-ops --type multimodal --prompt "Multi-modal test" --payment 1000
 ```
 
 ---
@@ -139,7 +139,7 @@ openclaw agent --agent FollowerAgent --session-id test --message "Test response"
 **Quick Start**:
 ```bash
 # Test cross-node operations
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli blockchain info'
 ./aitbc-cli resource status
 ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'
 ```
@@ -223,16 +223,16 @@ test-basic.md (foundation)
 ### 🚀 Quick Test Commands
 ```bash
 # Basic functionality test
-./aitbc-cli --version && ./aitbc-cli chain
+./aitbc-cli --version && ./aitbc-cli blockchain info
 
 # OpenClaw agent test
 openclaw agent --agent GenesisAgent --session-id quick-test --message "Quick test" --thinking low
 
 # AI operations test
-./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Quick test" --payment 50
+./aitbc-cli ai submit --wallet genesis-ops --type inference --prompt "Quick test" --payment 50
 
 # Cross-node test
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli blockchain info'
 
 # Performance test
 ./aitbc-cli simulate blockchain --blocks 10 --transactions 50 --delay 0

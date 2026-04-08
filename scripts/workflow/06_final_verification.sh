@@ -34,18 +34,18 @@ echo "Height difference: $HEIGHT_DIFF blocks"
 # Check wallet balance using CLI
 echo "2. Checking aitbc wallet balance..."
 echo "=== aitbc wallet balance (local) ==="
-BALANCE=$(/opt/aitbc/aitbc-cli balance --name aitbc-user 2>/dev/null | grep "Balance:" | awk '{print $2}' || echo "0")
+BALANCE=$(/opt/aitbc/aitbc-cli wallet balance aitbc-user 2>/dev/null | grep "Balance:" | awk '{print $2}' || echo "0")
 echo $BALANCE AIT
 
 # Get blockchain information using CLI
 echo "3. Blockchain information..."
 echo "=== Chain Information ==="
-/opt/aitbc/aitbc-cli chain
+/opt/aitbc/aitbc-cli blockchain info
 
 # Network health check using CLI
 echo "4. Network health check..."
 echo "=== Network Status (local) ==="
-/opt/aitbc/aitbc-cli network 2>/dev/null || echo "Network status not available"
+/opt/aitbc/aitbc-cli network status 2>/dev/null || echo "Network status not available"
 
 # Service status
 echo "5. Service status..."

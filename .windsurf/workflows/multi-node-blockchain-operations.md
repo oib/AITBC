@@ -53,18 +53,18 @@ watch -n 10 'curl -s http://localhost:8006/rpc/head | jq "{height: .height, time
 ```bash
 # Check wallet balances
 cd /opt/aitbc && source venv/bin/activate
-./aitbc-cli balance --name genesis-ops
-./aitbc-cli balance --name user-wallet
+./aitbc-cli wallet balance genesis-ops
+./aitbc-cli wallet balance user-wallet
 
 # Send transactions
-./aitbc-cli send --from genesis-ops --to user-wallet --amount 100 --password 123
+./aitbc-cli wallet send genesis-ops user-wallet 100 123
 
 # Check transaction history
-./aitbc-cli transactions --name genesis-ops --limit 10
+./aitbc-cli wallet transactions genesis-ops --limit 10
 
 # Cross-node transaction
-FOLLOWER_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli list | grep "follower-ops:" | cut -d" " -f2')
-./aitbc-cli send --from genesis-ops --to $FOLLOWER_ADDR --amount 50 --password 123
+FOLLOWER_ADDR=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list | grep "follower-ops:" | cut -d" " -f2')
+./aitbc-cli wallet send genesis-ops $FOLLOWER_ADDR 50 123
 ```
 
 ## Health Monitoring
@@ -216,7 +216,7 @@ curl -s http://localhost:8006/rpc/head | jq .height
 sudo grep "Failed password" /var/log/auth.log | tail -10
 
 # Monitor blockchain for suspicious activity
-./aitbc-cli transactions --name genesis-ops --limit 20 | grep -E "(large|unusual)"
+./aitbc-cli wallet transactions genesis-ops --limit 20 | grep -E "(large|unusual)"
 
 # Check file permissions
 ls -la /var/lib/aitbc/

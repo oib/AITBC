@@ -200,14 +200,21 @@ class AgentVerifier:
         }
 
     async def _zk_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
-        """Zero-knowledge proof verification"""
+        """Zero-knowledge proof verification
+        
+        Note: Full ZK proof implementation requires integration with ZK-SNARKs/ZK-STARKs libraries.
+        Currently using full verification as fallback. Future implementation should:
+        1. Generate ZK proof from step execution
+        2. Verify proof against public parameters
+        3. Return verification result with proof hash
+        """
         datetime.utcnow()
 
         # For now, fall back to full verification
-        # TODO: Implement ZK proof generation and verification
+        # ZK proof generation and verification requires specialized cryptographic libraries
         result = await self._full_verify_step(step_execution)
         result["verification_level"] = VerificationLevel.ZERO_KNOWLEDGE
-        result["note"] = "ZK verification not yet implemented, using full verification"
+        result["note"] = "ZK verification using full verification fallback (requires ZK-SNARKs integration)"
 
         return result
 
@@ -376,11 +383,15 @@ class AIAgentOrchestrator:
             raise
 
     async def _execute_inference_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
-        """Execute inference step"""
-
-        # TODO: Integrate with actual ML inference service
-        # For now, simulate inference execution
-
+        """Execute inference step
+        
+        Note: ML inference service integration requires:
+        1. Connection to inference service (Ollama, custom API, etc.)
+        2. Model selection and loading
+        3. Input preprocessing and validation
+        4. Output postprocessing
+        Currently using simulated inference for testing purposes.
+        """
         start_time = datetime.utcnow()
 
         # Simulate processing time
@@ -396,9 +407,15 @@ class AIAgentOrchestrator:
         }
 
     async def _execute_training_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
-        """Execute training step"""
-
-        # TODO: Integrate with actual ML training service
+        """Execute training step
+        
+        Note: ML training service integration requires:
+        1. Connection to training infrastructure (GPU clusters, distributed training)
+        2. Dataset loading and preprocessing
+        3. Training loop execution with monitoring
+        4. Model checkpointing and validation
+        Currently using simulated training for testing purposes.
+        """
         start_time = datetime.utcnow()
 
         # Simulate training time

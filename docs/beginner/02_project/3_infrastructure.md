@@ -268,7 +268,7 @@ ssh aitbc                          # Direct SSH to aitbc server
 **Miner Service**: Not needed - aitbc server operates in CPU-only mode.
 
 **Host Proxies (for localhost GPU clients)**
-- `127.0.0.1:18000` → container `127.0.0.1:8000` (coordinator/marketplace API)
+- `127.0.0.1:8000` → container `127.0.0.1:8000` (coordinator/marketplace API)
 - Use this to submit offers/bids/contracts/mining requests from localhost GPU miners/dev clients.
 
 **Container Services (Updated March 5, 2026 - Port Logic 8000+)**
@@ -309,30 +309,30 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 - OS: Debian 13 Trixie (development environment)
 - Node.js: 24+ (current tested: v24.14.x)
 - Python: 3.13.5+ (minimum requirement, strictly enforced)
-- Proxy device: incus proxy on host maps 127.0.0.1:18001 → 127.0.0.1:8000 inside container
+- Proxy device: incus proxy on host maps 127.0.0.1:8015 → 127.0.0.1:8015 inside container
 - AppArmor profile: unconfined (incus raw.lxc)
 - Use same deployment patterns as `aitbc` (nginx + services) once provisioned
 - **GPU Access**: None. Run GPU-dependent tasks on **at1** (Windsurf development host) only.
 
 **Host Proxies (for localhost GPU clients)**
-- `127.0.0.1:18001` → container `127.0.0.1:8000` (coordinator/marketplace API)
+- `127.0.0.1:8015` → container `127.0.0.1:8015` (coordinator/marketplace API)
 - Use this to hit the second marketplace/coordinator from localhost GPU miners/dev clients.
 - (Optional) Expose marketplace frontend for aitbc1 via an additional proxy/port if needed for UI tests.
-- Health check suggestion: `curl -s http://127.0.0.1:18001/v1/health`
+- Health check suggestion: `curl -s http://127.0.0.1:8015/v1/health`
 
 **at1 dual-miner/dual-client test (shared GPU)**
 - Run two miners on **at1** (GPU shared), targeting each marketplace:
-  - Miner A → `http://127.0.0.1:18000`
-  - Miner B → `http://127.0.0.1:18001`
+  - Miner A → `http://127.0.0.1:8000`
+  - Miner B → `http://127.0.0.1:8015`
 - Run two clients on **at1** for bids/contracts/Ollama answers:
-  - Client 1 → `http://127.0.0.1:18000`
-  - Client 2 → `http://127.0.0.1:18001`
+  - Client 1 → `http://127.0.0.1:8000`
+  - Client 2 → `http://127.0.0.1:8015`
 - Use a shared dev chain so both marketplaces see the same on-chain events.
 - Example commands (adjust to your scripts/flags):
-  - `miner --id miner-A --gpu 0 --api http://127.0.0.1:18000`
-  - `miner --id miner-B --gpu 0 --api http://127.0.0.1:18001`
-  - `client --id client-1 --api http://127.0.0.1:18000 --ollama-model <model>`
-  - `client --id client-2 --api http://127.0.0.1:18001 --ollama-model <model>`
+  - `miner --id miner-A --gpu 0 --api http://127.0.0.1:8000`
+  - `miner --id miner-B --gpu 0 --api http://127.0.0.1:8015`
+  - `client --id client-1 --api http://127.0.0.1:8000 --ollama-model <model>`
+  - `client --id client-2 --api http://127.0.0.1:8015 --ollama-model <model>`
 
 
 ### Services (Port Logic 8000+)

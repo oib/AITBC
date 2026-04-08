@@ -5,6 +5,7 @@ Enhanced conftest for pytest with AITBC CLI support and comprehensive test cover
 import pytest
 import sys
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import Mock
 from click.testing import CliRunner
@@ -149,9 +150,19 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture
 def aitbc_cli_runner():
     """Create AITBC CLI runner with test configuration"""
-    from aitbc_cli.main import cli
-    
-    runner = CliRunner()
+    cli_path = project_root / "aitbc-cli"
+
+    def runner(*args, env=None, cwd=None):
+        merged_env = os.environ.copy()
+        if env:
+            merged_env.update(env)
+        return subprocess.run(
+            [str(cli_path), *args],
+            capture_output=True,
+            text=True,
+            cwd=str(cwd or project_root),
+            env=merged_env,
+        )
     
     # Default test configuration
     default_config = {

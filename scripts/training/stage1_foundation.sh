@@ -36,7 +36,7 @@ basic_system_orientation() {
     log_info "CLI help displayed"
     
     print_status "Checking system status..."
-    cli_cmd "system --status" || print_warning "System status command not available"
+    cli_cmd "system" || print_warning "System status command not available"
     
     update_progress "Basic System Orientation"
 }
@@ -71,19 +71,19 @@ basic_transaction_operations() {
     print_status "1.3 Basic Transaction Operations"
     log_info "Starting basic transaction operations"
     
-    # Get a recipient address
-    local genesis_wallet
-    genesis_wallet=$(cli_cmd_output "list" | grep "genesis" | head -1 | awk '{print $1}')
+    # Get wallet address for self-transfer test
+    local wallet_address
+    wallet_address=$(cli_cmd_output "balance --name $WALLET_NAME" | grep "Address:" | awk '{print $2}')
     
-    if [[ -n "$genesis_wallet" ]]; then
-        print_status "Sending test transaction to $genesis_wallet..."
-        if cli_cmd "send --from $WALLET_NAME --to $genesis_wallet --amount 1 --password $WALLET_PASSWORD"; then
+    if [[ -n "$wallet_address" ]]; then
+        print_status "Sending test transaction (self-transfer)..."
+        if cli_cmd "send --from $WALLET_NAME --to $wallet_address --amount 0 --password $WALLET_PASSWORD"; then
             print_success "Test transaction sent successfully"
         else
             print_warning "Transaction may have failed (insufficient balance or other issue)"
         fi
     else
-        print_warning "No genesis wallet found for transaction test"
+        print_warning "Could not get wallet address for transaction test"
     fi
     
     print_status "Checking transaction history..."
@@ -135,13 +135,13 @@ validation_quiz() {
     echo "   Answer: ./aitbc-cli --version"
     echo
     echo "2. How do you create a new wallet?"
-    echo "   Answer: ./aitbc-cli create --name <wallet> --password <password>"
+    echo "   Answer: ./aitbc-cli wallet create <wallet> <password>"
     echo
     echo "3. How do you check a wallet's balance?"
-    echo "   Answer: ./aitbc-cli balance --name <wallet>"
+    echo "   Answer: ./aitbc-cli wallet balance <wallet>"
     echo
     echo "4. How do you send a transaction?"
-    echo "   Answer: ./aitbc-cli send --from <from> --to <to> --amount <amt> --password <pwd>"
+    echo "   Answer: ./aitbc-cli wallet send <from> <to> <amount> <password>"
     echo
     echo "5. How do you check service health?"
     echo "   Answer: ./aitbc-cli service --status or ./aitbc-cli service --health"

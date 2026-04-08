@@ -189,7 +189,7 @@ sudo systemctl start aitbc-blockchain-node-production.service
 **Quick Start**:
 ```bash
 # Create marketplace service
-./aitbc-cli marketplace --action create --name "AI Service" --price 100 --wallet provider
+./aitbc-cli market create --type ai-inference --price 100 --description "AI Service" --wallet provider
 ```
 
 ---
@@ -297,10 +297,10 @@ curl -s http://localhost:8006/health | jq .
 curl -s http://localhost:8006/rpc/head | jq .height
 
 # List wallets
-./aitbc-cli list
+./aitbc-cli wallet list
 
 # Send transaction
-./aitbc-cli send --from wallet1 --to wallet2 --amount 100 --password 123
+./aitbc-cli wallet send wallet1 wallet2 100 123
 ```
 
 ### Operations Commands (From Operations Module)
@@ -342,10 +342,10 @@ curl -s http://localhost:9090/metrics
 ### Marketplace Commands (From Marketplace Module)
 ```bash
 # Create service
-./aitbc-cli marketplace --action create --name "Service" --price 100 --wallet provider
+./aitbc-cli market create --type ai-inference --price 100 --description "Service" --wallet provider
 
 # Submit AI job
-./aitbc-cli ai-submit --wallet wallet --type inference --prompt "Generate image" --payment 100
+./aitbc-cli ai submit --wallet wallet --type inference --prompt "Generate image" --payment 100
 
 # Check resource status
 ./aitbc-cli resource status
