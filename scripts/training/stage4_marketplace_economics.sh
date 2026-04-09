@@ -55,7 +55,7 @@ check_prerequisites() {
     fi
     
     # Check if training wallet exists
-    if ! $CLI_PATH list | grep -q "$WALLET_NAME"; then
+    if ! $CLI_PATH wallet list | grep -q "$WALLET_NAME"; then
         print_error "Training wallet $WALLET_NAME not found. Run Stage 1 first."
         exit 1
     fi
@@ -72,7 +72,7 @@ marketplace_operations() {
     print_status "4.1 Marketplace Operations"
     
     print_status "Listing marketplace items..."
-    $CLI_PATH marketplace --list 2>/dev/null || print_warning "Marketplace list command not available"
+    $CLI_PATH market list 2>/dev/null || print_warning "Marketplace list command not available"
     log "Marketplace items listed"
     
     print_status "Checking marketplace status..."
@@ -224,7 +224,7 @@ economic_performance_testing() {
     
     # Test marketplace operations speed
     START_TIME=$(date +%s.%N)
-    $CLI_PATH marketplace --list > /dev/null 2>&1
+    $CLI_PATH market list > /dev/null 2>&1
     END_TIME=$(date +%s.%N)
     MARKETPLACE_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "1.5")
     

@@ -27,7 +27,7 @@ advanced_wallet_management() {
     print_status "2.1 Advanced Wallet Management"
     
     print_status "Creating backup wallet..."
-    if $CLI_PATH create --name "$BACKUP_WALLET" --password "$WALLET_PASSWORD" 2>/dev/null; then
+    if $CLI_PATH wallet create "$BACKUP_WALLET" "$WALLET_PASSWORD" 2>/dev/null; then
         print_success "Backup wallet $BACKUP_WALLET created"
         log "Backup wallet $BACKUP_WALLET created"
     else
@@ -178,7 +178,7 @@ performance_validation() {
     
     # Test command response times
     START_TIME=$(date +%s.%N)
-    $CLI_PATH balance --name "$WALLET_NAME" > /dev/null
+    $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null
     END_TIME=$(date +%s.%N)
     RESPONSE_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "0.5")
     
@@ -187,7 +187,7 @@ performance_validation() {
     
     # Test transaction speed
     START_TIME=$(date +%s.%N)
-    $CLI_PATH transactions --name "$WALLET_NAME" --limit 1 > /dev/null
+    $CLI_PATH wallet transactions "$WALLET_NAME" --limit 1 > /dev/null
     END_TIME=$(date +%s.%N)
     TX_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "0.3")
     
