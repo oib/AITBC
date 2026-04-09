@@ -84,7 +84,7 @@ To connect nodes in a production network:
 ### 2. Gossip Backend
 - Use Redis for distributed gossip:
   ```env
-  GOSSIP_BACKEND=redis
+  GOSSIP_BACKEND=memory
   GOSSIP_BROADCAST_URL=redis://redis-server:6379/0
   ```
 

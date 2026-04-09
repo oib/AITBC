@@ -43,7 +43,7 @@ genesis_block_initialization() {
     NODE_URL="http://localhost:8006" cli_cmd "blockchain genesis" || print_warning "Genesis block inspection failed"
     
     print_status "Initializing blockchain on Follower Node..."
-    if NODE_URL="http://localhost:8007" cli_cmd "blockchain init --force"; then
+    if NODE_URL="http://aitbc1:8006" cli_cmd "blockchain init --force"; then
         print_success "Blockchain initialized on Follower Node"
     else
         print_warning "Blockchain may already be initialized on Follower Node"
@@ -56,11 +56,11 @@ genesis_block_initialization() {
         print_warning "Genesis Node RPC (port 8006) is not accessible"
     fi
     
-    print_status "Verifying RPC connectivity to Follower Node (port 8007)..."
-    if curl -s http://localhost:8007/rpc/info > /dev/null 2>&1; then
-        print_success "Follower Node RPC (port 8007) is accessible"
+    print_status "Verifying RPC connectivity to Follower Node (port 8006 on aitbc1)..."
+    if curl -s http://aitbc1:8006/rpc/info > /dev/null 2>&1; then
+        print_success "Follower Node RPC (port 8006 on aitbc1) is accessible"
     else
-        print_warning "Follower Node RPC (port 8007) is not accessible"
+        print_warning "Follower Node RPC (port 8006 on aitbc1) is not accessible"
     fi
     
     print_status "Verifying Follower Node RPC also runs on port 8006..."
