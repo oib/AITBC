@@ -217,13 +217,13 @@ node_specific_ai() {
     NODE_URL="http://localhost:8006" $CLI_PATH ai --job --submit --type inference --prompt "Genesis node test" 2>/dev/null || print_warning "Genesis node AI job submission failed"
     log "Genesis node AI operations tested"
     
-    print_status "Testing AI operations on Follower Node (port 8007)..."
-    NODE_URL="http://localhost:8007" $CLI_PATH ai --job --submit --type parallel --prompt "Follower node test" 2>/dev/null || print_warning "Follower node AI job submission failed"
+    print_status "Testing AI operations on Follower Node (port 8006 on aitbc1)..."
+    NODE_URL="http://aitbc1:8006" $CLI_PATH ai --job --submit --type parallel --prompt "Follower node test" 2>/dev/null || print_warning "Follower node AI job submission failed"
     log "Follower node AI operations tested"
     
     print_status "Comparing AI service availability between nodes..."
     GENESIS_STATUS=$(NODE_URL="http://localhost:8006" $CLI_PATH ai --service --status --name coordinator 2>/dev/null || echo "unavailable")
-    FOLLOWER_STATUS=$(NODE_URL="http://localhost:8007" $CLI_PATH ai --service --status --name coordinator 2>/dev/null || echo "unavailable")
+    FOLLOWER_STATUS=$(NODE_URL="http://aitbc1:8006" $CLI_PATH ai --service --status --name coordinator 2>/dev/null || echo "unavailable")
     
     print_status "Genesis AI services: $GENESIS_STATUS"
     print_status "Follower AI services: $FOLLOWER_STATUS"

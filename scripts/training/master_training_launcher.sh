@@ -115,13 +115,13 @@ check_system_readiness() {
     # Check CLI availability
     if [ ! -f "$CLI_PATH" ]; then
         print_error "AITBC CLI not found at $CLI_PATH"
-        ((issues++))
+        (( issues += 1 )) || true
     else
         print_success "AITBC CLI found"
     fi
     
     # Check service availability
-    local services=("8000:Exchange" "8001:Coordinator" "8006:Genesis-Node" "8007:Follower-Node")
+    local services=("8001:Exchange" "8000:Coordinator" "8006:Genesis-Node" "8006:Follower-Node")
     for service in "${services[@]}"; do
         local port=$(echo "$service" | cut -d: -f1)
         local name=$(echo "$service" | cut -d: -f2)
@@ -131,7 +131,7 @@ check_system_readiness() {
             print_success "$name service (port $port) is accessible"
         else
             print_warning "$name service (port $port) may not be running"
-            ((issues++))
+            (( issues += 1 )) || true
         fi
     done
     
@@ -140,7 +140,7 @@ check_system_readiness() {
         print_success "Ollama service is running"
     else
         print_warning "Ollama service may not be running (needed for Stage 3)"
-        ((issues++))
+        (( issues += 1 )) || true
     fi
     
     # Check log directory
@@ -152,7 +152,7 @@ check_system_readiness() {
     # Check training scripts
     if [ ! -d "$SCRIPT_DIR" ]; then
         print_error "Training scripts directory not found: $SCRIPT_DIR"
-        ((issues++))
+        (( issues += 1 )) || true
     fi
     
     if [ $issues -eq 0 ]; then
@@ -250,7 +250,7 @@ run_complete_training() {
         print_progress $stage "Starting"
         
         if run_stage $stage; then
-            ((completed_stages++))
+            ((completed_stages+=1))
             print_success "Stage $stage completed successfully"
             
             # Ask if user wants to continue
@@ -310,7 +310,7 @@ review_progress() {
     for stage in {1..5}; do
         local log_file="$LOG_DIR/training_stage${stage}.log"
         if [ -f "$log_file" ] && grep -q "completed successfully" "$log_file"; then
-            ((completed++))
+            (( completed += 1 )) || true
             echo "✅ Stage $stage: Completed"
         else
             echo "❌ Stage $stage: Not completed"
