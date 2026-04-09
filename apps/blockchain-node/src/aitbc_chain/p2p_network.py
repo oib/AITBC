@@ -125,7 +125,7 @@ class P2PNetworkService:
                                 txs_to_broadcast.append(json.loads(row[1]))
 
                 logger.debug(f"Mempool sync loop iteration. txs_to_broadcast: {len(txs_to_broadcast)}")
-                                for tx in txs_to_broadcast:
+                for tx in txs_to_broadcast:
                     msg = {'type': 'new_transaction', 'tx': tx}
                     writers = list(self.active_connections.values())
                     for writer in writers:
