@@ -60,6 +60,10 @@ class P2PNetworkService:
         # Start background task to broadcast pings to active peers
         ping_task = asyncio.create_task(self._ping_peers_loop())
         self._background_tasks.append(ping_task)
+        
+        # Start background task to sync mempool
+        mempool_task = asyncio.create_task(self._mempool_sync_loop())
+        self._background_tasks.append(mempool_task)
 
         try:
             await self._stop_event.wait()
