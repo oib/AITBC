@@ -95,7 +95,7 @@ multi_node_coordination() {
     print_status "5.2 Multi-Node Coordination"
     
     print_status "Checking cluster status across all nodes..."
-    $CLI_PATH cluster --status --nodes aitbc,aitbc1 2>/dev/null || print_warning "Cluster status command not available"
+    $CLI_PATH cluster status 2>/dev/null || print_warning "Cluster status command not available"
     log "Cluster status across nodes checked"
     
     print_status "Syncing all nodes..."
@@ -111,7 +111,7 @@ multi_node_coordination() {
     log "Failover coordination on Genesis node tested"
     
     print_status "Testing recovery coordination on Follower Node..."
-    NODE_URL="http://localhost:8007" $CLI_PATH cluster --coordinate --action recovery 2>/dev/null || print_warning "Recovery coordination failed"
+    NODE_URL="http://aitbc1:8006" $CLI_PATH cluster --coordinate --action recovery 2>/dev/null || print_warning "Recovery coordination failed"
     log "Recovery coordination on Follower node tested"
     
     print_success "5.2 Multi-Node Coordination completed"
@@ -122,7 +122,7 @@ performance_optimization() {
     print_status "5.3 Performance Optimization"
     
     print_status "Running comprehensive performance benchmark..."
-    $CLI_PATH performance --benchmark --suite comprehensive 2>/dev/null || print_warning "Performance benchmark command not available"
+    $CLI_PATH performance benchmark 2>/dev/null || print_warning "Performance benchmark command not available"
     log "Comprehensive performance benchmark executed"
     
     print_status "Optimizing for low latency..."
@@ -323,7 +323,7 @@ final_certification_exam() {
     
     # Test 1: Basic operations
     if $CLI_PATH --version > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 1 (CLI version): PASSED"
     else
         log "Certification test 1 (CLI version): FAILED"
@@ -331,7 +331,7 @@ final_certification_exam() {
     
     # Test 2: Wallet operations
     if $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 2 (Wallet balance): PASSED"
     else
         log "Certification test 2 (Wallet balance): FAILED"
@@ -339,7 +339,7 @@ final_certification_exam() {
     
     # Test 3: Blockchain operations
     if $CLI_PATH blockchain info > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 3 (Blockchain info): PASSED"
     else
         log "Certification test 3 (Blockchain info): FAILED"
@@ -347,7 +347,7 @@ final_certification_exam() {
     
     # Test 4: AI operations
     if $CLI_PATH ai status > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 4 (AI status): PASSED"
     else
         log "Certification test 4 (AI status): FAILED"
@@ -355,47 +355,47 @@ final_certification_exam() {
     
     # Test 5: Marketplace operations
     if $CLI_PATH market list > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 5 (Marketplace list): PASSED"
     else
         log "Certification test 5 (Marketplace list): FAILED"
     fi
     
     # Test 6: Economic operations
-    if $CLI_PATH economics --model --type cost-optimization > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+    if $CLI_PATH simulate price > /dev/null 2>&1; then
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 6 (Economic modeling): PASSED"
     else
         log "Certification test 6 (Economic modeling): FAILED"
     fi
     
     # Test 7: Analytics operations
-    if $CLI_PATH analytics --report --type performance > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+    if $CLI_PATH analytics blocks > /dev/null 2>&1; then
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 7 (Analytics report): PASSED"
     else
         log "Certification test 7 (Analytics report): FAILED"
     fi
     
     # Test 8: Automation operations
-    if $CLI_PATH automate --workflow --name test-workflow > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+    if $CLI_PATH workflow create --name test > /dev/null 2>&1; then
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 8 (Automation workflow): PASSED"
     else
         log "Certification test 8 (Automation workflow): FAILED"
     fi
     
     # Test 9: Cluster operations
-    if $CLI_PATH cluster --status --nodes aitbc,aitbc1 > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+    if $CLI_PATH cluster status > /dev/null 2>&1; then
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 9 (Cluster status): PASSED"
     else
         log "Certification test 9 (Cluster status): FAILED"
     fi
     
     # Test 10: Performance operations
-    if $CLI_PATH performance --benchmark --suite comprehensive > /dev/null 2>&1; then
-        ((TESTS_PASSED++))
+    if $CLI_PATH performance benchmark > /dev/null 2>&1; then
+        (( TESTS_PASSED += 1 )) || true
         log "Certification test 10 (Performance benchmark): PASSED"
     else
         log "Certification test 10 (Performance benchmark): FAILED"
