@@ -55,7 +55,7 @@ check_prerequisites() {
     fi
     
     # Check if training wallet exists
-    if ! $CLI_PATH list | grep -q "$WALLET_NAME"; then
+    if ! $CLI_PATH wallet list | grep -q "$WALLET_NAME"; then
         print_error "Training wallet $WALLET_NAME not found. Run Stage 1 first."
         exit 1
     fi
@@ -76,7 +76,7 @@ advanced_automation() {
     log "AI job pipeline workflow creation attempted"
     
     print_status "Setting up automated job submission schedule..."
-    $CLI_PATH automate --schedule --cron "0 */6 * * *" --command "$CLI_PATH ai --job --submit --type inference" 2>/dev/null || print_warning "Schedule command not available"
+    $CLI_PATH automate --schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" 2>/dev/null || print_warning "Schedule command not available"
     log "Automated job submission schedule attempted"
     
     print_status "Creating marketplace monitoring bot..."
@@ -207,13 +207,13 @@ def automated_job_submission():
     logger.info("Starting automated job submission...")
     
     # Submit inference job
-    success, output, error = run_command("/opt/aitbc/aitbc-cli ai --job --submit --type inference --prompt 'Automated analysis'")
+    success, output, error = run_command("/opt/aitbc/aitbc-cli ai submit --prompt 'Automated analysis'")
     
     if success:
         logger.info(f"Job submitted successfully: {output}")
         # Monitor job completion
         time.sleep(5)
-        success, output, error = run_command("/opt/aitbc/aitbc-cli ai --job --list --status completed")
+        success, output, error = run_command("/opt/aitbc/aitbc-cli ai list --status completed")
         logger.info(f"Job monitoring result: {output}")
     else:
         logger.error(f"Job submission failed: {error}")
@@ -282,10 +282,10 @@ expert_performance_analysis() {
     START_TIME=$(date +%s.%N)
     
     # Test multiple operations concurrently
-    $CLI_PATH balance --name "$WALLET_NAME" > /dev/null 2>&1 &
-    $CLI_PATH blockchain --info > /dev/null 2>&1 &
-    $CLI_PATH marketplace --list > /dev/null 2>&1 &
-    $CLI_PATH ai --service --status --name coordinator > /dev/null 2>&1 &
+    $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1 &
+    $CLI_PATH blockchain info > /dev/null 2>&1 &
+    $CLI_PATH market list > /dev/null 2>&1 &
+    $CLI_PATH ai status --name coordinator > /dev/null 2>&1 &
     
     wait  # Wait for all background jobs
     
@@ -296,7 +296,7 @@ expert_performance_analysis() {
     log "Performance analysis: Concurrent operations ${CONCURRENT_TIME}s"
     
     # Test individual operation performance
-    OPERATIONS=("balance --name $WALLET_NAME" "blockchain --info" "marketplace --list" "ai --service --status")
+    OPERATIONS=("wallet balance $WALLET_NAME" "blockchain info" "market list" "ai status")
     
     for op in "${OPERATIONS[@]}"; do
         START_TIME=$(date +%s.%N)
@@ -330,7 +330,7 @@ final_certification_exam() {
     fi
     
     # Test 2: Wallet operations
-    if $CLI_PATH balance --name "$WALLET_NAME" > /dev/null 2>&1; then
+    if $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1; then
         ((TESTS_PASSED++))
         log "Certification test 2 (Wallet balance): PASSED"
     else
@@ -338,7 +338,7 @@ final_certification_exam() {
     fi
     
     # Test 3: Blockchain operations
-    if $CLI_PATH blockchain --info > /dev/null 2>&1; then
+    if $CLI_PATH blockchain info > /dev/null 2>&1; then
         ((TESTS_PASSED++))
         log "Certification test 3 (Blockchain info): PASSED"
     else
@@ -346,15 +346,15 @@ final_certification_exam() {
     fi
     
     # Test 4: AI operations
-    if $CLI_PATH ai --service --status --name coordinator > /dev/null 2>&1; then
+    if $CLI_PATH ai status > /dev/null 2>&1; then
         ((TESTS_PASSED++))
-        log "Certification test 4 (AI service status): PASSED"
+        log "Certification test 4 (AI status): PASSED"
     else
-        log "Certification test 4 (AI service status): FAILED"
+        log "Certification test 4 (AI status): FAILED"
     fi
     
     # Test 5: Marketplace operations
-    if $CLI_PATH marketplace --list > /dev/null 2>&1; then
+    if $CLI_PATH market list > /dev/null 2>&1; then
         ((TESTS_PASSED++))
         log "Certification test 5 (Marketplace list): PASSED"
     else

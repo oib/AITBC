@@ -56,7 +56,7 @@ check_prerequisites() {
     fi
     
     # Check if training wallet exists
-    if ! $CLI_PATH list | grep -q "$WALLET_NAME"; then
+    if ! $CLI_PATH wallet list | grep -q "$WALLET_NAME"; then
         print_error "Training wallet $WALLET_NAME not found. Run Stage 1 first."
         exit 1
     fi
@@ -77,8 +77,8 @@ check_prerequisites() {
 ai_job_submission() {
     print_status "3.1 AI Job Submission"
     
-    print_status "Submitting inference job..."
-    JOB_ID=$($CLI_PATH ai --job --submit --type inference --prompt "$TEST_PROMPT" --payment $TEST_PAYMENT 2>/dev/null | grep -o 'job_[0-9]*' || echo "")
+    print_status "Submitting AI job..."
+    JOB_ID=$($CLI_PATH ai submit --wallet "$WALLET_NAME" --type inference --prompt "$TEST_PROMPT" --payment $TEST_PAYMENT 2>/dev/null | grep -o 'job_[a-zA-Z0-9_]*' | head -1 || echo "")
     
     if [ -n "$JOB_ID" ]; then
         print_success "AI job submitted with ID: $JOB_ID"
@@ -89,22 +89,22 @@ ai_job_submission() {
     fi
     
     print_status "Checking job status..."
-    $CLI_PATH ai --job --status --id "$JOB_ID" 2>/dev/null || print_warning "Job status command not available"
+    $CLI_PATH ai status --job-id "$JOB_ID" 2>/dev/null || print_warning "Job status command not available"
     log "Job status checked for $JOB_ID"
     
     print_status "Monitoring job processing..."
     for i in {1..5}; do
         print_status "Check $i/5 - Job status..."
-        $CLI_PATH ai --job --status --id "$JOB_ID" 2>/dev/null || print_warning "Job status check failed"
+        $CLI_PATH ai status --job-id "$JOB_ID" 2>/dev/null || print_warning "Job status check failed"
         sleep 2
     done
     
     print_status "Getting job results..."
-    $CLI_PATH ai --job --result --id "$JOB_ID" 2>/dev/null || print_warning "Job result command not available"
+    $CLI_PATH ai results --job-id "$JOB_ID" 2>/dev/null || print_warning "Job result command not available"
     log "Job results retrieved for $JOB_ID"
     
     print_status "Listing all jobs..."
-    $CLI_PATH ai --job --list --status all 2>/dev/null || print_warning "Job list command not available"
+    $CLI_PATH ai list --status all 2>/dev/null || print_warning "Job list command not available"
     log "All jobs listed"
     
     print_success "3.1 AI Job Submission completed"

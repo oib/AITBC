@@ -48,7 +48,7 @@ basic_wallet_operations() {
     
     print_status "Creating training wallet..."
     if ! check_wallet "$WALLET_NAME"; then
-        if cli_cmd "create --name $WALLET_NAME --password $WALLET_PASSWORD"; then
+        if cli_cmd "wallet create $WALLET_NAME $WALLET_PASSWORD"; then
             print_success "Wallet $WALLET_NAME created successfully"
         else
             print_warning "Wallet creation may have failed or wallet already exists"
@@ -58,10 +58,10 @@ basic_wallet_operations() {
     fi
     
     print_status "Listing all wallets..."
-    cli_cmd_output "list" || print_warning "Wallet list command not available"
+    cli_cmd_output "wallet list" || print_warning "Wallet list command not available"
     
     print_status "Checking wallet balance..."
-    cli_cmd "balance --name $WALLET_NAME" || print_warning "Balance check failed"
+    cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
     
     update_progress "Basic Wallet Operations"
 }
@@ -73,11 +73,11 @@ basic_transaction_operations() {
     
     # Get wallet address for self-transfer test
     local wallet_address
-    wallet_address=$(cli_cmd_output "balance --name $WALLET_NAME" | grep "Address:" | awk '{print $2}')
+    wallet_address=$(cli_cmd_output "wallet balance $WALLET_NAME" | grep "Address:" | awk '{print $2}')
     
     if [[ -n "$wallet_address" ]]; then
         print_status "Sending test transaction (self-transfer)..."
-        if cli_cmd "send --from $WALLET_NAME --to $wallet_address --amount 0 --password $WALLET_PASSWORD"; then
+        if cli_cmd "wallet send $WALLET_NAME $wallet_address 0 $WALLET_PASSWORD"; then
             print_success "Test transaction sent successfully"
         else
             print_warning "Transaction may have failed (insufficient balance or other issue)"
@@ -87,7 +87,7 @@ basic_transaction_operations() {
     fi
     
     print_status "Checking transaction history..."
-    cli_cmd "transactions --name $WALLET_NAME --limit 5" || print_warning "Transaction history command failed"
+    cli_cmd "wallet transactions $WALLET_NAME --limit 5" || print_warning "Transaction history command failed"
     
     update_progress "Basic Transaction Operations"
 }
@@ -113,13 +113,13 @@ node_specific_operations() {
     log_info "Testing node-specific operations"
     
     print_status "Testing Genesis Node operations..."
-    cli_cmd_node "$GENESIS_NODE" "balance --name $WALLET_NAME" || print_warning "Genesis node operations failed"
+    cli_cmd_node "$GENESIS_NODE" "wallet balance $WALLET_NAME" || print_warning "Genesis node operations failed"
     
     print_status "Testing Follower Node operations..."
-    cli_cmd_node "$FOLLOWER_NODE" "balance --name $WALLET_NAME" || print_warning "Follower node operations failed"
+    cli_cmd_node "$FOLLOWER_NODE" "wallet balance $WALLET_NAME" || print_warning "Follower node operations failed"
     
     print_status "Comparing nodes..."
-    compare_nodes "balance --name $WALLET_NAME" "wallet balance"
+    compare_nodes "wallet balance $WALLET_NAME" "wallet balance"
     
     update_progress "Node-Specific Operations"
 }

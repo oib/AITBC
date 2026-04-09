@@ -155,7 +155,7 @@ check_cli() {
 check_wallet() {
     local wallet_name=${1:-$WALLET_NAME}
     
-    if $CLI_PATH list 2>/dev/null | grep -q "$wallet_name"; then
+    if $CLI_PATH wallet list 2>/dev/null | grep -q "$wallet_name"; then
         return 0
     else
         return 1
