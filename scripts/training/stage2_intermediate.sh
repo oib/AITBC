@@ -156,13 +156,13 @@ node_specific_blockchain() {
     NODE_URL="http://localhost:8006" $CLI_PATH blockchain info 2>/dev/null || print_warning "Genesis node blockchain info not available"
     log "Genesis node blockchain operations tested"
     
-    print_status "Testing Follower Node blockchain operations (port 8007)..."
-    NODE_URL="http://localhost:8007" $CLI_PATH blockchain info 2>/dev/null || print_warning "Follower node blockchain info not available"
+    print_status "Testing Follower Node blockchain operations (port 8006 on aitbc1)..."
+    NODE_URL="http://aitbc1:8006" $CLI_PATH blockchain info 2>/dev/null || print_warning "Follower node blockchain info not available"
     log "Follower node blockchain operations tested"
     
     print_status "Comparing blockchain heights between nodes..."
     GENESIS_HEIGHT=$(NODE_URL="http://localhost:8006" $CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
-    FOLLOWER_HEIGHT=$(NODE_URL="http://localhost:8007" $CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
+    FOLLOWER_HEIGHT=$(NODE_URL="http://aitbc1:8006" $CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "0")
     
     print_status "Genesis height: $GENESIS_HEIGHT, Follower height: $FOLLOWER_HEIGHT"
     log "Node comparison: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"

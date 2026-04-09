@@ -192,13 +192,13 @@ node_specific_marketplace() {
     NODE_URL="http://localhost:8006" $CLI_PATH marketplace --list 2>/dev/null || print_warning "Genesis node marketplace not available"
     log "Genesis node marketplace operations tested"
     
-    print_status "Testing marketplace on Follower Node (port 8007)..."
-    NODE_URL="http://localhost:8007" $CLI_PATH marketplace --list 2>/dev/null || print_warning "Follower node marketplace not available"
+    print_status "Testing marketplace on Follower Node (port 8006 on aitbc1)..."
+    NODE_URL="http://aitbc1:8006" $CLI_PATH marketplace --list 2>/dev/null || print_warning "Follower node marketplace not available"
     log "Follower node marketplace operations tested"
     
     print_status "Comparing marketplace data between nodes..."
     GENESIS_ITEMS=$(NODE_URL="http://localhost:8006" $CLI_PATH marketplace --list 2>/dev/null | wc -l || echo "0")
-    FOLLOWER_ITEMS=$(NODE_URL="http://localhost:8007" $CLI_PATH marketplace --list 2>/dev/null | wc -l || echo "0")
+    FOLLOWER_ITEMS=$(NODE_URL="http://aitbc1:8006" $CLI_PATH marketplace --list 2>/dev/null | wc -l || echo "0")
     
     print_status "Genesis marketplace items: $GENESIS_ITEMS"
     print_status "Follower marketplace items: $FOLLOWER_ITEMS"
@@ -260,7 +260,7 @@ cross_node_coordination() {
     log "Genesis node economic data generated"
     
     # Generate economic data on follower node
-    NODE_URL="http://localhost:8007" $CLI_PATH economics --market --analyze 2>/dev/null || print_warning "Follower node economic analysis failed"
+    NODE_URL="http://aitbc1:8006" $CLI_PATH economics --market --analyze 2>/dev/null || print_warning "Follower node economic analysis failed"
     log "Follower node economic data generated"
     
     # Test economic coordination
