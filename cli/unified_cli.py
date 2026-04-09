@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import requests
 
 
 def run_cli(argv, core):
@@ -297,6 +298,74 @@ def run_cli(argv, core):
         print(f"  Transactions: {args.number % 100}")
         print(f"  Gas used: {args.number * 1000}")
 
+    def handle_blockchain_init(args):
+        rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
+        print(f"Initializing blockchain on {rpc_url}...")
+        
+        try:
+            response = requests.post(f"{rpc_url}/rpc/init", json={}, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                print("Blockchain initialized successfully")
+                print(f"Genesis block hash: {data.get('genesis_hash', 'N/A')}")
+                print(f"Initial reward: {data.get('initial_reward', 'N/A')} AIT")
+            else:
+                print(f"Initialization failed: {response.status_code}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error initializing blockchain: {e}")
+            print("Note: Blockchain may already be initialized")
+            if args.force:
+                print("Force reinitialization requested - attempting...")
+                try:
+                    response = requests.post(f"{rpc_url}/rpc/init?force=true", json={}, timeout=10)
+                    if response.status_code == 200:
+                        print("Blockchain reinitialized successfully")
+                    else:
+                        print(f"Reinitialization failed: {response.status_code}")
+                        sys.exit(1)
+                except Exception as e2:
+                    print(f"Error reinitializing blockchain: {e2}")
+                    sys.exit(1)
+
+    def handle_blockchain_genesis(args):
+        rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
+        
+        if args.create:
+            print(f"Creating genesis block on {rpc_url}...")
+            try:
+                response = requests.post(f"{rpc_url}/rpc/genesis", json={}, timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    print("Genesis block created successfully")
+                    print(f"Block hash: {data.get('hash', 'N/A')}")
+                    print(f"Block number: {data.get('number', 0)}")
+                    print(f"Timestamp: {data.get('timestamp', 'N/A')}")
+                else:
+                        print(f"Genesis block creation failed: {response.status_code}")
+                        sys.exit(1)
+            except Exception as e:
+                print(f"Error creating genesis block: {e}")
+                sys.exit(1)
+        else:
+            print(f"Inspecting genesis block on {rpc_url}...")
+            try:
+                response = requests.get(f"{rpc_url}/rpc/block/0", timeout=10)
+                if response.status_code == 200:
+                    data = response.json()
+                    print("Genesis block information:")
+                    print(f"  Hash: {data.get('hash', 'N/A')}")
+                    print(f"  Number: {data.get('number', 0)}")
+                    print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
+                    print(f"  Miner: {data.get('miner', 'N/A')}")
+                    print(f"  Reward: {data.get('reward', 'N/A')} AIT")
+                else:
+                    print(f"Failed to get genesis block: {response.status_code}")
+                    sys.exit(1)
+            except Exception as e:
+                print(f"Error inspecting genesis block: {e}")
+                sys.exit(1)
+
     def handle_network_status(args):
         print("Network status:")
         print("  Connected nodes: 2")
@@ -379,7 +448,7 @@ def run_cli(argv, core):
             print(f"Blockchain Analytics ({analytics['type']}):")
             for key, value in analytics.items():
                 if key != "type":
-                    print(f"  {key.replace('_', ' ').title()}: {value}")
+                    print(f"  {key}: {value}")
         else:
             sys.exit(1)
 
@@ -393,57 +462,6 @@ def run_cli(argv, core):
         if not result:
             sys.exit(1)
         render_mapping(f"Agent {result['action']}:", result)
-
-    def handle_openclaw_action(args):
-        kwargs = {}
-        for name in ("agent_file", "wallet", "environment", "agent_id", "metrics", "price"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        market_action = first(getattr(args, "market_action", None), getattr(args, "market_action_opt", None))
-        if market_action:
-            kwargs["market_action"] = market_action
-        result = openclaw_operations(args.openclaw_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"OpenClaw {result['action']}:", result)
-
-    def handle_workflow_action(args):
-        kwargs = {}
-        for name in ("name", "template", "config_file", "params", "async_exec"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        result = workflow_operations(args.workflow_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Workflow {result['action']}:", result)
-
-    def handle_resource_action(args):
-        kwargs = {}
-        for name in ("type", "agent_id", "cpu", "memory", "duration"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        result = resource_operations(args.resource_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Resource {result['action']}:", result)
-
-    def handle_simulate_action(args):
-        if args.simulate_command == "blockchain":
-            simulate_blockchain(args.blocks, args.transactions, args.delay)
-        elif args.simulate_command == "wallets":
-            simulate_wallets(args.wallets, args.balance, args.transactions, args.amount_range)
-        elif args.simulate_command == "price":
-            simulate_price(args.price, args.volatility, args.timesteps, args.delay)
-        elif args.simulate_command == "network":
-            simulate_network(args.nodes, args.network_delay, args.failure_rate)
-        elif args.simulate_command == "ai-jobs":
-            simulate_ai_jobs(args.jobs, args.models, args.duration_range)
-        else:
-            print(f"Unknown simulate command: {args.simulate_command}")
-            sys.exit(1)
 
     parser = argparse.ArgumentParser(
         description="AITBC CLI - Comprehensive Blockchain Management Tool",

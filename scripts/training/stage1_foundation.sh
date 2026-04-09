@@ -18,7 +18,82 @@ CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
 setup_traps
 
 # Total steps for progress tracking
-init_progress 6  # 6 main sections + validation
+init_progress 7  # 7 main sections + validation (added genesis block initialization)
+
+# 1.0 Genesis Block Initialization
+genesis_block_initialization() {
+    print_status "1.0 Genesis Block Initialization"
+    log_info "Starting genesis block initialization"
+    
+    print_status "Initializing blockchain on Genesis Node..."
+    if NODE_URL="http://localhost:8006" cli_cmd "blockchain init --force"; then
+        print_success "Blockchain initialized on Genesis Node"
+    else
+        print_warning "Blockchain may already be initialized on Genesis Node"
+    fi
+    
+    print_status "Creating genesis block on Genesis Node..."
+    if NODE_URL="http://localhost:8006" cli_cmd "blockchain genesis --create"; then
+        print_success "Genesis block created on Genesis Node"
+    else
+        print_warning "Genesis block may already exist on Genesis Node"
+    fi
+    
+    print_status "Inspecting genesis block..."
+    NODE_URL="http://localhost:8006" cli_cmd "blockchain genesis" || print_warning "Genesis block inspection failed"
+    
+    print_status "Initializing blockchain on Follower Node..."
+    if NODE_URL="http://localhost:8007" cli_cmd "blockchain init --force"; then
+        print_success "Blockchain initialized on Follower Node"
+    else
+        print_warning "Blockchain may already be initialized on Follower Node"
+    fi
+    
+    print_status "Verifying RPC connectivity to Genesis Node (port 8006)..."
+    if curl -s http://localhost:8006/rpc/info > /dev/null 2>&1; then
+        print_success "Genesis Node RPC (port 8006) is accessible"
+    else
+        print_warning "Genesis Node RPC (port 8006) is not accessible"
+    fi
+    
+    print_status "Verifying RPC connectivity to Follower Node (port 8007)..."
+    if curl -s http://localhost:8007/rpc/info > /dev/null 2>&1; then
+        print_success "Follower Node RPC (port 8007) is accessible"
+    else
+        print_warning "Follower Node RPC (port 8007) is not accessible"
+    fi
+    
+    print_status "Verifying Follower Node RPC also runs on port 8006..."
+    if ssh aitbc1 "curl -s http://localhost:8006/rpc/info" > /dev/null 2>&1; then
+        print_success "Follower Node RPC also accessible on port 8006"
+    else
+        print_warning "Follower Node RPC not accessible on port 8006 (may only be on 8007)"
+    fi
+    
+    print_status "Funding training wallet from genesis block initial coins..."
+    # The genesis block contains actual AIT coins - mine a block to get the reward
+    print_status "Starting mining to get genesis block reward..."
+    if NODE_URL="http://localhost:8006" cli_cmd "mining start --wallet $WALLET_NAME"; then
+        print_success "Mining started for wallet $WALLET_NAME"
+        sleep 5  # Wait for mining to produce a block
+        
+        print_status "Checking mining status..."
+        NODE_URL="http://localhost:8006" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
+        
+        print_status "Checking mining rewards..."
+        NODE_URL="http://localhost:8006" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
+        
+        print_status "Stopping mining after obtaining genesis reward..."
+        NODE_URL="http://localhost:8006" cli_cmd "mining stop" || print_warning "Mining stop failed"
+    else
+        print_warning "Mining start failed - wallet may not have initial funds"
+    fi
+    
+    print_status "Verifying wallet balance after mining genesis block..."
+    NODE_URL="http://localhost:8006" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
+    
+    update_progress "Genesis Block Initialization"
+}
 
 # 1.1 Basic System Orientation
 basic_system_orientation() {
@@ -159,6 +234,7 @@ main() {
     check_prerequisites_full
     
     # Execute training sections (continue even if individual sections fail)
+    genesis_block_initialization || true
     basic_system_orientation || true
     basic_wallet_operations || true
     basic_transaction_operations || true
