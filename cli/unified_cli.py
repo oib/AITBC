@@ -463,6 +463,57 @@ def run_cli(argv, core):
             sys.exit(1)
         render_mapping(f"Agent {result['action']}:", result)
 
+    def handle_openclaw_action(args):
+        kwargs = {}
+        for name in ("agent_file", "wallet", "environment", "agent_id", "metrics", "price"):
+            value = getattr(args, name, None)
+            if value not in (None, "", False):
+                kwargs[name] = value
+        market_action = first(getattr(args, "market_action", None), getattr(args, "market_action_opt", None))
+        if market_action:
+            kwargs["market_action"] = market_action
+        result = openclaw_operations(args.openclaw_action, **kwargs)
+        if not result:
+            sys.exit(1)
+        render_mapping(f"OpenClaw {result['action']}:", result)
+
+    def handle_workflow_action(args):
+        kwargs = {}
+        for name in ("name", "template", "config_file", "params", "async_exec"):
+            value = getattr(args, name, None)
+            if value not in (None, "", False):
+                kwargs[name] = value
+        result = workflow_operations(args.workflow_action, **kwargs)
+        if not result:
+            sys.exit(1)
+        render_mapping(f"Workflow {result['action']}:", result)
+
+    def handle_resource_action(args):
+        kwargs = {}
+        for name in ("type", "agent_id", "cpu", "memory", "duration"):
+            value = getattr(args, name, None)
+            if value not in (None, "", False):
+                kwargs[name] = value
+        result = resource_operations(args.resource_action, **kwargs)
+        if not result:
+            sys.exit(1)
+        render_mapping(f"Resource {result['action']}:", result)
+
+    def handle_simulate_action(args):
+        if args.simulate_command == "blockchain":
+            simulate_blockchain(args.blocks, args.transactions, args.delay)
+        elif args.simulate_command == "wallets":
+            simulate_wallets(args.wallets, args.balance, args.transactions, args.amount_range)
+        elif args.simulate_command == "price":
+            simulate_price(args.price, args.volatility, args.timesteps, args.delay)
+        elif args.simulate_command == "network":
+            simulate_network(args.nodes, args.network_delay, args.failure_rate)
+        elif args.simulate_command == "ai-jobs":
+            simulate_ai_jobs(args.jobs, args.models, args.duration_range)
+        else:
+            print(f"Unknown simulate command: {args.simulate_command}")
+            sys.exit(1)
+
     parser = argparse.ArgumentParser(
         description="AITBC CLI - Comprehensive Blockchain Management Tool",
         epilog="Examples: aitbc wallet create demo secret | aitbc wallet balance demo | aitbc ai submit --wallet demo --type text-generation --prompt 'hello' --payment 1",
