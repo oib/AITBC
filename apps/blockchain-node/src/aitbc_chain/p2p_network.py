@@ -124,7 +124,8 @@ class P2PNetworkService:
                                 import json
                                 txs_to_broadcast.append(json.loads(row[1]))
 
-                for tx in txs_to_broadcast:
+                logger.debug(f"Mempool sync loop iteration. txs_to_broadcast: {len(txs_to_broadcast)}")
+                                for tx in txs_to_broadcast:
                     msg = {'type': 'new_transaction', 'tx': tx}
                     writers = list(self.active_connections.values())
                     for writer in writers:
@@ -133,7 +134,7 @@ class P2PNetworkService:
             except Exception as e:
                 logger.error(f"Error in mempool sync loop: {e}")
                 
-            await asyncio.sleep(2)
+            await asyncio.sleep(1)
 
     async def _dial_peers_loop(self):
         """Background loop to continually try connecting to disconnected initial peers"""
@@ -387,6 +388,21 @@ def main():
     )
     
     try:
+        from .config import settings
+        from .mempool import init_mempool
+        import pathlib
+        
+        db_path = ""
+        if settings.mempool_backend == "database":
+            db_path = str(settings.db_path.parent / "mempool.db")
+            
+        init_mempool(
+            backend=settings.mempool_backend,
+            db_path=db_path,
+            max_size=settings.mempool_max_size,
+            min_fee=settings.min_fee
+        )
+        
         asyncio.run(run_p2p_service(args.host, args.port, args.node_id, args.peers))
     except KeyboardInterrupt:
         logger.info("P2P service stopped by user")
