@@ -566,6 +566,16 @@ def run_cli(argv, core):
     blockchain_block_parser.add_argument("--rpc-url", default=default_rpc_url)
     blockchain_block_parser.set_defaults(handler=handle_blockchain_block)
 
+    blockchain_init_parser = blockchain_subparsers.add_parser("init", help="Initialize blockchain with genesis block")
+    blockchain_init_parser.add_argument("--force", action="store_true", help="Force reinitialization")
+    blockchain_init_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_init_parser.set_defaults(handler=handle_blockchain_init)
+
+    blockchain_genesis_parser = blockchain_subparsers.add_parser("genesis", help="Create or inspect genesis block")
+    blockchain_genesis_parser.add_argument("--create", action="store_true", help="Create new genesis block")
+    blockchain_genesis_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_genesis_parser.set_defaults(handler=handle_blockchain_genesis)
+
     network_parser = subparsers.add_parser("network", help="Peer connectivity and sync")
     network_parser.set_defaults(handler=handle_network_status)
     network_subparsers = network_parser.add_subparsers(dest="network_action")
@@ -617,6 +627,26 @@ def run_cli(argv, core):
     market_mine_parser.add_argument("--wallet")
     market_mine_parser.add_argument("--rpc-url", default=default_rpc_url)
     market_mine_parser.set_defaults(handler=handle_market_action, market_action="my-listings")
+
+    market_buy_parser = market_subparsers.add_parser("buy", help="Buy from marketplace")
+    market_buy_parser.add_argument("--item", required=True)
+    market_buy_parser.add_argument("--wallet", required=True)
+    market_buy_parser.add_argument("--password")
+    market_buy_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_buy_parser.set_defaults(handler=handle_market_action, market_action="buy")
+
+    market_sell_parser = market_subparsers.add_parser("sell", help="Sell on marketplace")
+    market_sell_parser.add_argument("--item", required=True)
+    market_sell_parser.add_argument("--price", type=float, required=True)
+    market_sell_parser.add_argument("--wallet", required=True)
+    market_sell_parser.add_argument("--password")
+    market_sell_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_sell_parser.set_defaults(handler=handle_market_action, market_action="sell")
+
+    market_orders_parser = market_subparsers.add_parser("orders", help="Show marketplace orders")
+    market_orders_parser.add_argument("--wallet")
+    market_orders_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_orders_parser.set_defaults(handler=handle_market_action, market_action="orders")
 
     ai_parser = subparsers.add_parser("ai", help="AI job submission and inspection")
     ai_parser.set_defaults(handler=lambda parsed, parser=ai_parser: parser.print_help())
@@ -674,10 +704,29 @@ def run_cli(argv, core):
     mining_rewards_parser.set_defaults(handler=handle_mining_action, mining_action="rewards")
 
     analytics_parser = subparsers.add_parser("analytics", help="Blockchain analytics and statistics")
-    analytics_parser.add_argument("--type", choices=["blocks", "transactions", "accounts", "supply"], default="blocks", help="Analytics type")
-    analytics_parser.add_argument("--limit", type=int, default=10, help="Number of items to analyze")
-    analytics_parser.add_argument("--rpc-url", default=default_rpc_url)
-    analytics_parser.set_defaults(handler=handle_analytics)
+    analytics_parser.set_defaults(handler=lambda parsed, parser=analytics_parser: parser.print_help())
+    analytics_subparsers = analytics_parser.add_subparsers(dest="analytics_action")
+
+    analytics_blocks_parser = analytics_subparsers.add_parser("blocks", help="Block analytics")
+    analytics_blocks_parser.add_argument("--limit", type=int, default=10)
+    analytics_blocks_parser.add_argument("--rpc-url", default=default_rpc_url)
+    analytics_blocks_parser.set_defaults(handler=handle_analytics, type="blocks")
+
+    analytics_report_parser = analytics_subparsers.add_parser("report", help="Generate analytics report")
+    analytics_report_parser.add_argument("--type", choices=["performance", "transactions", "all"], default="all")
+    analytics_report_parser.add_argument("--rpc-url", default=default_rpc_url)
+    analytics_report_parser.set_defaults(handler=handle_analytics, type="report")
+
+    analytics_metrics_parser = analytics_subparsers.add_parser("metrics", help="Show performance metrics")
+    analytics_metrics_parser.add_argument("--limit", type=int, default=10)
+    analytics_metrics_parser.add_argument("--rpc-url", default=default_rpc_url)
+    analytics_metrics_parser.set_defaults(handler=handle_analytics, type="metrics")
+
+    analytics_export_parser = analytics_subparsers.add_parser("export", help="Export analytics data")
+    analytics_export_parser.add_argument("--format", choices=["json", "csv"], default="json")
+    analytics_export_parser.add_argument("--output")
+    analytics_export_parser.add_argument("--rpc-url", default=default_rpc_url)
+    analytics_export_parser.set_defaults(handler=handle_analytics, type="export")
 
     system_parser = subparsers.add_parser("system", help="System health and overview")
     system_parser.set_defaults(handler=handle_system_status)
@@ -714,6 +763,17 @@ def run_cli(argv, core):
     agent_list_parser = agent_subparsers.add_parser("list", help="List agents")
     agent_list_parser.add_argument("--status", choices=["active", "completed", "failed"])
     agent_list_parser.set_defaults(handler=handle_agent_action)
+
+    agent_message_parser = agent_subparsers.add_parser("message", help="Send message to agent")
+    agent_message_parser.add_argument("--agent", required=True)
+    agent_message_parser.add_argument("--message", required=True)
+    agent_message_parser.add_argument("--wallet")
+    agent_message_parser.set_defaults(handler=handle_agent_action, agent_action="message")
+
+    agent_messages_parser = agent_subparsers.add_parser("messages", help="List agent messages")
+    agent_messages_parser.add_argument("--agent")
+    agent_messages_parser.add_argument("--wallet")
+    agent_messages_parser.set_defaults(handler=handle_agent_action, agent_action="messages")
 
     openclaw_parser = subparsers.add_parser("openclaw", help="OpenClaw ecosystem operations")
     openclaw_parser.set_defaults(handler=lambda parsed, parser=openclaw_parser: parser.print_help())
@@ -753,6 +813,17 @@ def run_cli(argv, core):
     workflow_run_parser.add_argument("--async-exec", action="store_true")
     workflow_run_parser.set_defaults(handler=handle_workflow_action)
 
+    workflow_schedule_parser = workflow_subparsers.add_parser("schedule", help="Schedule a workflow")
+    workflow_schedule_parser.add_argument("--name", required=True)
+    workflow_schedule_parser.add_argument("--cron", required=True)
+    workflow_schedule_parser.add_argument("--params")
+    workflow_schedule_parser.set_defaults(handler=handle_workflow_action, workflow_action="schedule")
+
+    workflow_monitor_parser = workflow_subparsers.add_parser("monitor", help="Monitor workflow execution")
+    workflow_monitor_parser.add_argument("--name")
+    workflow_monitor_parser.add_argument("--execution-id")
+    workflow_monitor_parser.set_defaults(handler=handle_workflow_action, workflow_action="monitor")
+
     resource_parser = subparsers.add_parser("resource", help="Resource utilization and allocation")
     resource_parser.set_defaults(handler=lambda parsed, parser=resource_parser: parser.print_help())
     resource_subparsers = resource_parser.add_subparsers(dest="resource_action")
@@ -767,6 +838,76 @@ def run_cli(argv, core):
     resource_allocate_parser.add_argument("--memory", type=int)
     resource_allocate_parser.add_argument("--duration", type=int)
     resource_allocate_parser.set_defaults(handler=handle_resource_action)
+
+    resource_optimize_parser = resource_subparsers.add_parser("optimize", help="Optimize resource usage")
+    resource_optimize_parser.add_argument("--agent-id")
+    resource_optimize_parser.add_argument("--target", choices=["cpu", "memory", "all"], default="all")
+    resource_optimize_parser.set_defaults(handler=handle_resource_action, resource_action="optimize")
+
+    resource_benchmark_parser = resource_subparsers.add_parser("benchmark", help="Run resource benchmark")
+    resource_benchmark_parser.add_argument("--type", choices=["cpu", "memory", "io", "all"], default="all")
+    resource_benchmark_parser.set_defaults(handler=handle_resource_action, resource_action="benchmark")
+
+    cluster_parser = subparsers.add_parser("cluster", help="Cluster management")
+    cluster_parser.set_defaults(handler=lambda parsed, parser=cluster_parser: parser.print_help())
+    cluster_subparsers = cluster_parser.add_subparsers(dest="cluster_action")
+
+    cluster_status_parser = cluster_subparsers.add_parser("status", help="Show cluster status")
+    cluster_status_parser.add_argument("--nodes", nargs="*", default=["aitbc", "aitbc1"])
+    cluster_status_parser.set_defaults(handler=handle_network_status)
+
+    cluster_sync_parser = cluster_subparsers.add_parser("sync", help="Sync cluster nodes")
+    cluster_sync_parser.add_argument("--all", action="store_true")
+    cluster_sync_parser.set_defaults(handler=handle_network_sync)
+
+    cluster_balance_parser = cluster_subparsers.add_parser("balance", help="Balance workload across nodes")
+    cluster_balance_parser.add_argument("--workload", action="store_true")
+    cluster_balance_parser.set_defaults(handler=handle_network_peers)
+
+    performance_parser = subparsers.add_parser("performance", help="Performance optimization")
+    performance_parser.set_defaults(handler=lambda parsed, parser=performance_parser: parser.print_help())
+    performance_subparsers = performance_parser.add_subparsers(dest="performance_action")
+
+    performance_benchmark_parser = performance_subparsers.add_parser("benchmark", help="Run performance benchmark")
+    performance_benchmark_parser.add_argument("--suite", choices=["comprehensive", "quick", "custom"], default="comprehensive")
+    performance_benchmark_parser.set_defaults(handler=handle_system_status)
+
+    performance_optimize_parser = performance_subparsers.add_parser("optimize", help="Optimize performance")
+    performance_optimize_parser.add_argument("--target", choices=["latency", "throughput", "all"], default="all")
+    performance_optimize_parser.set_defaults(handler=handle_system_status)
+
+    performance_tune_parser = performance_subparsers.add_parser("tune", help="Tune system parameters")
+    performance_tune_parser.add_argument("--parameters", action="store_true")
+    performance_tune_parser.add_argument("--aggressive", action="store_true")
+    performance_tune_parser.set_defaults(handler=handle_system_status)
+
+    security_parser = subparsers.add_parser("security", help="Security audit and scanning")
+    security_parser.set_defaults(handler=lambda parsed, parser=security_parser: parser.print_help())
+    security_subparsers = security_parser.add_subparsers(dest="security_action")
+
+    security_audit_parser = security_subparsers.add_parser("audit", help="Run security audit")
+    security_audit_parser.add_argument("--comprehensive", action="store_true")
+    security_audit_parser.set_defaults(handler=handle_system_status)
+
+    security_scan_parser = security_subparsers.add_parser("scan", help="Scan for vulnerabilities")
+    security_scan_parser.add_argument("--vulnerabilities", action="store_true")
+    security_scan_parser.set_defaults(handler=handle_system_status)
+
+    security_patch_parser = security_subparsers.add_parser("patch", help="Check for security patches")
+    security_patch_parser.add_argument("--critical", action="store_true")
+    security_patch_parser.set_defaults(handler=handle_system_status)
+
+    compliance_parser = subparsers.add_parser("compliance", help="Compliance checking and reporting")
+    compliance_parser.set_defaults(handler=lambda parsed, parser=compliance_parser: parser.print_help())
+    compliance_subparsers = compliance_parser.add_subparsers(dest="compliance_action")
+
+    compliance_check_parser = compliance_subparsers.add_parser("check", help="Check compliance status")
+    compliance_check_parser.add_argument("--standard", choices=["gdpr", "hipaa", "soc2", "all"], default="gdpr")
+    compliance_check_parser.set_defaults(handler=handle_system_status)
+
+    compliance_report_parser = compliance_subparsers.add_parser("report", help="Generate compliance report")
+    compliance_report_parser.add_argument("--format", choices=["detailed", "summary", "json"], default="detailed")
+    compliance_report_parser.set_defaults(handler=handle_system_status)
 
     simulate_parser = subparsers.add_parser("simulate", help="Simulation utilities")
     simulate_parser.set_defaults(handler=lambda parsed, parser=simulate_parser: parser.print_help())
