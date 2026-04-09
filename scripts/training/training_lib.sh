@@ -17,13 +17,13 @@ export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
 export TRAINING_TIMEOUT="${TRAINING_TIMEOUT:-300}"
 export GENESIS_NODE="http://localhost:8006"
-export FOLLOWER_NODE="http://localhost:8007"
+export FOLLOWER_NODE="http://aitbc1:8006"
 
 # Service endpoints
 export SERVICES=(
     "8000:Coordinator"
     "8006:Genesis-Node"
-    "8007:Follower-Node"
+    "8006:Follower-Node"
     "11434:Ollama"
 )
 
@@ -186,7 +186,7 @@ check_all_services() {
         local name=$(echo "$service" | cut -d: -f2)
         
         if ! check_service "$port" "$name"; then
-            ((failed++))
+            (( failed += 1 )) || true
         fi
     done
     
@@ -230,7 +230,7 @@ benchmark_with_retry() {
     local success=false
     
     while [[ $attempt -lt $max_retries ]] && [[ "$success" == "false" ]]; do
-        ((attempt++))
+        (( attempt += 1 )) || true
         
         if eval "$cmd" &>/dev/null; then
             success=true
@@ -379,12 +379,12 @@ check_prerequisites_full() {
     
     # Check CLI
     if ! check_cli; then
-        ((errors++)) || true
+        (( errors += 1 )) || true || true
     fi
     
     # Check services
     if ! check_all_services; then
-        ((errors++)) || true
+        (( errors += 1 )) || true || true
     fi
     
     # Check log directory
@@ -392,7 +392,7 @@ check_prerequisites_full() {
         print_status "Creating log directory..."
         mkdir -p "$LOG_DIR" || {
             print_error "Cannot create log directory"
-            ((errors++)) || true
+            (( errors += 1 )) || true || true
         }
     fi
     
@@ -427,7 +427,7 @@ init_progress() {
 # Update progress
 update_progress() {
     local step_name="$1"
-    ((CURRENT_STEP++))
+    (( CURRENT_STEP += 1 )) || true
     
     local elapsed=$(( $(date +%s) - STEP_START_TIME ))
     local percent=$((CURRENT_STEP * 100 / TOTAL_STEPS))
@@ -447,7 +447,7 @@ cli_cmd() {
     local attempt=0
     
     while [[ $attempt -lt $max_retries ]]; do
-        ((attempt++))
+        (( attempt += 1 )) || true
         
         if $CLI_PATH $cmd 2>/dev/null; then
             return 0
