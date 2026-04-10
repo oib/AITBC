@@ -1,2 +1,0 @@
-COORDINATOR_API_KEY=aitbc-admin-key-2024-dev
-BLOCKCHAIN_API_KEY=aitbc-blockchain-key-2024-dev
