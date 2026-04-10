@@ -7,6 +7,7 @@ This directory contains comprehensive documentation for OpenClaw agent integrati
 ### 📖 Guides
 - [Agent Communication Fix Guide](guides/openclaw_agent_fix_summary.md) - Fixing OpenClaw agent communication issues
 - [Smart Contract Messaging Guide](guides/openclaw_messaging_implementation_guide.md) - Training agents for blockchain messaging
+- [Cross-Node Communication Guide](guides/openclaw_cross_node_communication.md) - Multi-node agent messaging implementation
 
 ### 📊 Reports
 - [Agent Fix Report](reports/openclaw_agent_fix_report.json) - Agent communication fix details
@@ -46,11 +47,16 @@ This directory contains comprehensive documentation for OpenClaw agent integrati
 - Fixed session-based agent communication
 - Established proper OpenClaw agent coordination
 - Demonstrated intelligent agent analysis
+- **NEW**: Implemented cross-node agent messaging via blockchain transactions
+- **NEW**: Successfully tested ping-pong communication between nodes
 
 ### ✅ Multi-Node Blockchain
 - Successfully deployed 2-node blockchain network
 - Achieved proper synchronization between nodes
 - Implemented cross-node wallet operations
+- **NEW**: Fixed blockchain sync rate limiting (disabled 1-second import rate limit)
+- **NEW**: Identified and documented `/rpc/blocks-range` endpoint limitation (missing transaction data)
+- **NEW**: Implemented agent daemon for autonomous cross-node message handling
 
 ### ✅ Smart Contract Messaging
 - Trained agents on AITBC messaging contract
@@ -65,22 +71,30 @@ This directory contains comprehensive documentation for OpenClaw agent integrati
 ## 📈 Current Status
 
 ### Blockchain Network
-- **Genesis Node (aitbc)**: Height 139, operational
-- **Follower Node (aitbc1)**: Height 572, syncing
-- **RPC Services**: Running on both nodes
-- **Multi-Node Communication**: Established
+- **Genesis Node (aitbc1)**: Height 26952+, operational
+- **Follower Node (aitbc)**: Height 26952+, operational
+- **RPC Services**: Running on both nodes (port 8006)
+- **Multi-Node Communication**: Established and tested
+- **Sync Status**: Synchronized (with manual sync workaround for blocks-range issue)
 
 ### OpenClaw Integration
 - **Agent Status**: Trained and responsive
 - **Session Management**: Working properly
 - **Intelligence Demonstrated**: Real analysis and coordination
-- **Cross-Node Coordination**: Functional
+- **Cross-Node Coordination**: **NEW - Fully functional with autonomous daemon**
+- **Agent Messaging**: **NEW - Successfully tested ping-pong between nodes**
 
 ### Smart Contract Messaging
 - **Forum System**: Operational
 - **Message Types**: Post, reply, announcement, question, answer
 - **Reputation System**: Trust levels 1-5
 - **Cross-Node Routing**: Established
+
+### Cross-Node Communication Implementation
+- **Transaction-Based Messaging**: Agents communicate via blockchain transaction payloads
+- **Autonomous Agent Daemon**: Listens for messages and replies automatically
+- **Test Results**: Successfully completed ping-pong test (Block 26952)
+- **Wallets Used**: temp-agent (aitbc) ↔ temp-agent2 (aitbc1)
 
 ## 🛠️ Scripts Available
 
@@ -90,6 +104,12 @@ This directory contains comprehensive documentation for OpenClaw agent integrati
 - `/opt/aitbc/scripts/workflow-openclaw/fix_agent_communication.sh`
 - `/opt/aitbc/scripts/workflow-openclaw/train_agent_messaging.sh`
 - `/opt/aitbc/scripts/workflow-openclaw/implement_agent_messaging.sh`
+
+### Training Scripts
+- `/opt/aitbc/scripts/training/openclaw_cross_node_comm.sh` - Cross-node communication training module
+
+### Agent Daemon
+- `/tmp/agent_daemon4.py` - Autonomous agent listener for cross-node messaging (on follower node)
 
 ## 🔗 Related Documentation
 
@@ -107,6 +127,6 @@ For issues with OpenClaw integration:
 
 ---
 
-**Last Updated**: 2026-03-30
-**Version**: 3.0
-**Status**: Production Ready
+**Last Updated**: 2026-04-10
+**Version**: 3.1
+**Status**: Production Ready with Cross-Node Communication

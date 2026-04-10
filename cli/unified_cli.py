@@ -637,7 +637,7 @@ def run_cli(argv, core):
 
     def handle_agent_action(args):
         kwargs = {}
-        for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status", "agent", "message", "to", "content"):
+        for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status", "agent", "message", "to", "content", "password", "password_file", "rpc_url"):
             value = getattr(args, name, None)
             if value not in (None, "", False):
                 kwargs[name] = value
@@ -1019,12 +1019,16 @@ def run_cli(argv, core):
     agent_message_parser = agent_subparsers.add_parser("message", help="Send message to agent")
     agent_message_parser.add_argument("--agent", required=True)
     agent_message_parser.add_argument("--message", required=True)
-    agent_message_parser.add_argument("--wallet")
+    agent_message_parser.add_argument("--wallet", required=True)
+    agent_message_parser.add_argument("--password")
+    agent_message_parser.add_argument("--password-file")
+    agent_message_parser.add_argument("--rpc-url", default=default_rpc_url)
     agent_message_parser.set_defaults(handler=handle_agent_action, agent_action="message")
 
     agent_messages_parser = agent_subparsers.add_parser("messages", help="List agent messages")
-    agent_messages_parser.add_argument("--agent")
+    agent_messages_parser.add_argument("--agent", required=True)
     agent_messages_parser.add_argument("--wallet")
+    agent_messages_parser.add_argument("--rpc-url", default=default_rpc_url)
     agent_messages_parser.set_defaults(handler=handle_agent_action, agent_action="messages")
 
     openclaw_parser = subparsers.add_parser("openclaw", help="OpenClaw ecosystem operations")
