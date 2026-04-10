@@ -649,6 +649,70 @@ This document tracks components that have been successfully deployed and are ope
   - 12 command groups: client, miner, wallet, auth, config, blockchain, marketplace, simulate, admin, monitor, governance, plugin
   - CI/CD: `.github/workflows/cli-tests.yml` (Python 3.10/3.11/3.12 matrix)
 
+## Recent Updates (2026-04-10)
+
+### Multi-Node Blockchain Synchronization Fixes ✅
+
+- ✅ **Gossip Backend Configuration** - Fixed both nodes to use broadcast backend with Redis
+  - Updated `/etc/aitbc/.env` on aitbc: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://localhost:6379`
+  - Updated `/etc/aitbc/.env` on aitbc1: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://10.1.223.40:6379`
+  - Both nodes now use Redis for cross-node gossip communication
+
+- ✅ **PoA Busy-Loop Fix** - Fixed busy-loop issue in poa.py when mempool is empty
+  - Modified `_propose_block` to return boolean indicating if a block was proposed
+  - Updated `_run_loop` to wait properly when no block is proposed due to empty mempool
+  - Added `propose_only_if_mempool_not_empty=true` configuration option
+  - File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/consensus/poa.py`
+
+- ✅ **Transaction Sync Issue** - Fixed transaction parsing in sync.py
+  - Updated `_append_block` to use correct field names (from/to instead of sender/recipient)
+  - Fixed transaction data extraction from gossiped blocks
+  - File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/sync.py`
+
+- ✅ **Blocks-Range Endpoint Enhancement** - Added parent_hash and proposer fields
+  - Updated `/rpc/blocks-range` endpoint to include parent_hash, proposer, and state_root
+  - File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/router.py`
+
+- ✅ **Environment File Fixes** - Fixed aitbc1 .env file truncation
+  - Restored complete .env configuration on aitbc1
+  - Set correct proposer_id for each node
+  - Configured Redis URLs for gossip backend
+
+- ✅ **Block Synchronization Verification** - Both nodes in sync at height 27201
+  - Verified blocks are syncing via gossip between aitbc and aitbc1
+  - Both nodes at same height with consistent block hashes
+  - Gossip backend working correctly with Redis
+
+- ✅ **OpenClaw Agent Communication Test** - Successfully sent agent message
+  - Sent message from aitbc1 to aitbc using temp-agent wallet
+  - Used correct password "temp123" (from agent daemon password file)
+  - Transaction hash: 0xdcf365542237eb8e40d0aa1cdb3fec2e77dbcb2475c30457682cf385e974b7b8
+  - Message in mempool waiting to be included in block
+  - Agent daemon running on aitbc configured to reply with "pong" on "ping"
+
+- ✅ **Git Conflict Resolution** - Fixed gitea pull conflicts on aitbc1
+  - Stashed local changes causing conflicts in blockchain files
+  - Successfully pulled latest changes from gitea (fast-forward)
+  - Both nodes now up to date with origin/main
+
+### Documentation Updates ✅
+
+- ✅ **Blockchain Synchronization Documentation** - Created comprehensive documentation
+  - File: `docs/blockchain/blockchain_synchronization_issues_and_fixes.md`
+  - Documents gossip backend configuration, PoA fixes, transaction sync issues
+  - Includes troubleshooting steps and verification procedures
+
+- ✅ **OpenClaw Cross-Node Communication Documentation** - Added agent communication guides
+  - File: `docs/openclaw/guides/openclaw_cross_node_communication.md`
+  - File: `docs/openclaw/training/cross_node_communication_training.md`
+  - Documents agent communication workflow, wallet configuration, testing procedures
+
+- ✅ **Agent Daemon Service** - Deployed autonomous agent listener daemon
+  - File: `services/agent_daemon.py`
+  - Systemd service: `systemd/aitbc-agent-daemon.service`
+  - Configured to listen for messages and auto-reply with configurable responses
+  - Password file: `.agent_daemon_password` (temp123 for temp-agent wallet)
+
 - ✅ **Phase 1: Core Enhancements**
   - Client: retry with exponential backoff, job history/filtering, batch submit from CSV/JSON, job templates
   - Miner: earnings tracking, capability management, deregistration, job filtering, concurrent processing

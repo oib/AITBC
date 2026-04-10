@@ -87,24 +87,37 @@ pip install -r requirements.txt
 
 ## Recent Achievements
 
-### Cross-Node Agent Communication (April 2026)
-- **Successfully implemented** autonomous agent messaging between blockchain nodes
-- **Ping-pong test completed**: Agents on `aitbc` and `aitbc1` successfully exchanged messages
-- **Transaction-based messaging**: Agents communicate via blockchain transaction payloads
-- **Autonomous agent daemon**: Listens for messages and replies automatically
-- **Block confirmed**: Cross-node communication verified in Block 26952
+### Multi-Node Blockchain Synchronization (April 10, 2026)
+- **Gossip Backend Configuration**: Fixed both nodes to use broadcast backend with Redis
+  - aitbc: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://localhost:6379`
+  - aitbc1: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://10.1.223.40:6379`
+- **PoA Consensus Enhancements**: Fixed busy-loop issue in poa.py when mempool is empty
+  - Added `propose_only_if_mempool_not_empty=true` configuration
+  - Modified `_propose_block` to return boolean indicating if a block was proposed
+- **Transaction Synchronization**: Fixed transaction parsing in sync.py
+  - Updated `_append_block` to use correct field names (from/to instead of sender/recipient)
+- **RPC Endpoint Enhancements**: Fixed blocks-range endpoint to include parent_hash and proposer fields
+- **Block Synchronization Verification**: Both nodes in sync at height 27201
+- **Git Conflict Resolution**: Fixed gitea pull conflicts on aitbc1 by stashing local changes
+
+### OpenClaw Agent Communication (April 10, 2026)
+- **Successfully sent agent message** from aitbc1 to aitbc
+- **Wallet used**: temp-agent with password "temp123"
+- **Transaction hash**: 0xdcf365542237eb8e40d0aa1cdb3fec2e77dbcb2475c30457682cf385e974b7b8
+- **Agent daemon**: Running on aitbc configured to reply with "pong" on "ping"
+- **Agent daemon service**: Deployed with systemd integration
 
 ### Multi-Node Blockchain Network
-- **Genesis Node (aitbc1)**: Height 26952+, operational at 10.1.223.40:8006
-- **Follower Node (aitbc)**: Height 26952+, operational at 10.1.223.93:8006
-- **Synchronization**: Nodes synchronized with manual sync workaround
+- **Genesis Node (aitbc1)**: Height 27201+, operational at 10.1.223.40:8006
+- **Follower Node (aitbc)**: Height 27201+, operational at 10.1.223.93:8006
+- **Synchronization**: Nodes synchronized via gossip with Redis backend
 - **RPC Services**: Running on both nodes
 
-### Blockchain Synchronization Fixes
-- **Rate limiting disabled**: Removed 1-second import rate limit on `/rpc/importBlock`
-- **Issue documented**: `/rpc/blocks-range` endpoint missing transaction data
-- **Workaround implemented**: Direct database queries for transaction retrieval
-- **Manual sync procedure**: Database copy method for rapid synchronization
+### Documentation Updates (April 10, 2026)
+- **Blockchain Synchronization**: `docs/blockchain/blockchain_synchronization_issues_and_fixes.md`
+- **OpenClaw Cross-Node Communication**: `docs/openclaw/guides/openclaw_cross_node_communication.md`
+- **Cross-Node Training**: `docs/openclaw/training/cross_node_communication_training.md`
+- **Agent Daemon Service**: `services/agent_daemon.py` with systemd integration
 
 ## Development
 
