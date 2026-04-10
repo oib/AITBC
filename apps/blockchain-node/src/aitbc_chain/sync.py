@@ -288,10 +288,9 @@ class ChainSync:
         # Import transactions if provided and apply state changes
         if transactions:
             for tx_data in transactions:
-                sender_addr = tx_data.get("sender", "")
-                payload = tx_data.get("payload", {}) or {}
-                recipient_addr = payload.get("to") or tx_data.get("recipient", "")
-                value = int(payload.get("value", 0) or 0)
+                sender_addr = tx_data.get("from", "")
+                recipient_addr = tx_data.get("to", "")
+                value = int(tx_data.get("amount", 0) or 0)
                 fee = int(tx_data.get("fee", 0) or 0)
                 tx_hash = tx_data.get("tx_hash", "")
 
