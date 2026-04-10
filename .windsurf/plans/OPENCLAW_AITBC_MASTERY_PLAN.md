@@ -41,12 +41,42 @@ Comprehensive training plan for OpenClaw agents to master AITBC software on both
 ### 🏗️ **Two-Node Architecture**
 ```
 AITBC Multi-Node Setup:
-├── Genesis Node (aitbc) - Port 8006 (Primary)
-├── Follower Node (aitbc1) - Port 8007 (Secondary)
+├── Genesis Node (aitbc) - Port 8006 (Primary, IP: 10.1.223.40)
+├── Follower Node (aitbc1) - Port 8006 (Secondary, different IP)
 ├── CLI Tool: /opt/aitbc/aitbc-cli
-├── Services: Coordinator (8001), Exchange (8000), Blockchain RPC (8006/8007)
-└── AI Operations: Ollama integration, job processing, marketplace
+├── Services: Coordinator (8001), Exchange (8000), Blockchain RPC (8006 on both nodes)
+├── AI Operations: Ollama integration, job processing, marketplace
+└── Node Synchronization: Gitea-based git pull/push (NOT SCP)
 ```
+
+**Important**: Both nodes run services on the **same port (8006)** because they are on **different physical machines** with different IP addresses. This is standard distributed blockchain architecture where each node uses the same port locally but on different IPs.
+
+### 🔄 **Gitea-Based Node Synchronization**
+**Important**: Node synchronization between aitbc and aitbc1 uses **Gitea git repository**, NOT SCP file transfers.
+
+```bash
+# Sync aitbc1 from Gitea (non-interactive)
+ssh aitbc1 'cd /opt/aitbc && git pull origin main --yes --no-confirm'
+
+# Sync both nodes from Gitea (debug mode)
+cd /opt/aitbc && git pull origin main --verbose --debug
+ssh aitbc1 'cd /opt/aitbc && git pull origin main --verbose'
+
+# Push changes to Gitea (non-interactive)
+git push origin main --yes
+git push github main --yes
+
+# Check git sync status (debug mode)
+git status --verbose
+git log --oneline -5 --decorate
+ssh aitbc1 'cd /opt/aitbc && git status --verbose'
+
+# Force sync if needed (use with caution)
+ssh aitbc1 'cd /opt/aitbc && git reset --hard origin/main'
+```
+
+**Gitea Repository**: `http://gitea.bubuit.net:3000/oib/aitbc.git`
+**GitHub Mirror**: `https://github.com/oib/AITBC.git` (push only after milestones)
 
 ### 🚀 **Training Scripts Suite**
 **Location**: `/opt/aitbc/scripts/training/`
@@ -103,55 +133,58 @@ cd /opt/aitbc/scripts/training
 - **Objective**: Understand AITBC architecture and node structure
 - **CLI Commands**:
   ```bash
-  # System overview
-  ./aitbc-cli --version
-  ./aitbc-cli --help
-  ./aitbc-cli system --status
-  
-  # Node identification
-  ./aitbc-cli node --info
-  ./aitbc-cli node --list
+  # System overview (debug mode)
+  ./aitbc-cli --version --verbose
+  ./aitbc-cli --help --debug
+  ./aitbc-cli system --status --verbose
+
+  # Node identification (non-interactive)
+  ./aitbc-cli node --info --output json
+  ./aitbc-cli node --list --format table
+  ./aitbc-cli node --info --debug
   ```
 
 #### **1.2 Basic Wallet Operations**
 - **Objective**: Create and manage wallets on both nodes
 - **CLI Commands**:
   ```bash
-  # Wallet creation
-  ./aitbc-cli create --name openclaw-wallet --password <password>
-  ./aitbc-cli list
-  
-  # Balance checking
-  ./aitbc-cli balance --name openclaw-wallet
-  
-  # Node-specific operations
-  NODE_URL=http://localhost:8006 ./aitbc-cli balance --name openclaw-wallet  # Genesis node
-  NODE_URL=http://localhost:8007 ./aitbc-cli balance --name openclaw-wallet  # Follower node
+  # Wallet creation (non-interactive)
+  ./aitbc-cli wallet create --name openclaw-wallet --password <password> --yes --no-confirm
+  ./aitbc-cli wallet list --output json
+
+  # Balance checking (debug mode)
+  ./aitbc-cli wallet balance --name openclaw-wallet --verbose
+  ./aitbc-cli wallet balance --all --format table
+
+  # Node-specific operations (with debug)
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli wallet balance --name openclaw-wallet --verbose  # Genesis node
+  NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli wallet balance --name openclaw-wallet --debug  # Follower node
   ```
 
 #### **1.3 Basic Transaction Operations**
 - **Objective**: Send transactions between wallets on both nodes
 - **CLI Commands**:
   ```bash
-  # Basic transactions
-  ./aitbc-cli send --from openclaw-wallet --to recipient --amount 100 --password <password>
-  ./aitbc-cli transactions --name openclaw-wallet --limit 10
-  
-  # Cross-node transactions
-  NODE_URL=http://localhost:8006 ./aitbc-cli send --from wallet1 --to wallet2 --amount 50
+  # Basic transactions (non-interactive)
+  ./aitbc-cli wallet send --from openclaw-wallet --to recipient --amount 100 --password <password> --yes --no-confirm
+  ./aitbc-cli wallet transactions --name openclaw-wallet --limit 10 --output json
+
+  # Cross-node transactions (debug mode)
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli wallet send --from wallet1 --to wallet2 --amount 50 --verbose --dry-run
   ```
 
 #### **1.4 Service Health Monitoring**
 - **Objective**: Monitor health of all AITBC services
 - **CLI Commands**:
   ```bash
-  # Service status
-  ./aitbc-cli service --status
-  ./aitbc-cli service --health
-  
-  # Node connectivity
-  ./aitbc-cli network --status
-  ./aitbc-cli network --peers
+  # Service status (debug mode)
+  ./aitbc-cli service status --verbose
+  ./aitbc-cli service health --debug --output json
+
+  # Node connectivity (non-interactive)
+  ./aitbc-cli network status --format table
+  ./aitbc-cli network peers --verbose
+  ./aitbc-cli network ping --node aitbc1 --host <aitbc1-ip> --port 8006 --debug
   ```
 
 **Stage 1 Validation**: Successfully create wallet, check balance, send transaction, verify service health on both nodes
@@ -170,61 +203,61 @@ cd /opt/aitbc/scripts/training
 - **Objective**: Multi-wallet operations and backup strategies
 - **CLI Commands**:
   ```bash
-  # Advanced wallet operations
-  ./aitbc-cli wallet --backup --name openclaw-wallet
-  ./aitbc-cli wallet --restore --name backup-wallet
-  ./aitbc-cli wallet --export --name openclaw-wallet
-  
-  # Multi-wallet coordination
-  ./aitbc-cli wallet --sync --all
-  ./aitbc-cli wallet --balance --all
+  # Advanced wallet operations (non-interactive)
+  ./aitbc-cli wallet backup --name openclaw-wallet --yes --no-confirm
+  ./aitbc-cli wallet restore --name backup-wallet --force --yes
+  ./aitbc-cli wallet export --name openclaw-wallet --output json
+
+  # Multi-wallet coordination (debug mode)
+  ./aitbc-cli wallet sync --all --verbose
+  ./aitbc-cli wallet balance --all --format table --debug
   ```
 
 #### **2.2 Blockchain Operations**
 - **Objective**: Deep blockchain interaction and mining operations
 - **CLI Commands**:
   ```bash
-  # Blockchain information
-  ./aitbc-cli blockchain --info
-  ./aitbc-cli blockchain --height
-  ./aitbc-cli blockchain --block --number <block_number>
-  
-  # Mining operations
-  ./aitbc-cli mining --start
-  ./aitbc-cli mining --status
-  ./aitbc-cli mining --stop
-  
+  # Blockchain information (debug mode)
+  ./aitbc-cli blockchain info --verbose
+  ./aitbc-cli blockchain height --output json
+  ./aitbc-cli blockchain block --number <block_number> --debug
+
+  # Mining operations (non-interactive)
+  ./aitbc-cli blockchain mining start --yes --no-confirm
+  ./aitbc-cli blockchain mining status --verbose
+  ./aitbc-cli blockchain mining stop --yes
+
   # Node-specific blockchain operations
-  NODE_URL=http://localhost:8006 ./aitbc-cli blockchain --info  # Genesis
-  NODE_URL=http://localhost:8007 ./aitbc-cli blockchain --info  # Follower
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli blockchain info --verbose  # Genesis
+  NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli blockchain info --debug  # Follower
   ```
 
 #### **2.3 Smart Contract Interaction**
 - **Objective**: Interact with AITBC smart contracts
 - **CLI Commands**:
   ```bash
-  # Contract operations
-  ./aitbc-cli contract --list
-  ./aitbc-cli contract --deploy --name <contract_name>
-  ./aitbc-cli contract --call --address <address> --method <method>
-  
-  # Agent messaging contracts
-  ./aitbc-cli agent --message --to <agent_id> --content "Hello from OpenClaw"
-  ./aitbc-cli agent --messages --from <agent_id>
+  # Contract operations (non-interactive)
+  ./aitbc-cli blockchain contract list --format table
+  ./aitbc-cli blockchain contract deploy --name <contract_name> --yes --no-confirm
+  ./aitbc-cli blockchain contract call --address <address> --method <method> --verbose
+
+  # Agent messaging contracts (debug mode)
+  ./aitbc-cli agent message --to <agent_id> --content "Hello from OpenClaw" --debug
+  ./aitbc-cli agent messages --from <agent_id> --output json
   ```
 
 #### **2.4 Network Operations**
 - **Objective**: Network management and peer operations
 - **CLI Commands**:
   ```bash
-  # Network management
-  ./aitbc-cli network --connect --peer <peer_address>
-  ./aitbc-cli network --disconnect --peer <peer_address>
-  ./aitbc-cli network --sync --status
-  
-  # Cross-node communication
-  ./aitbc-cli network --ping --node aitbc1
-  ./aitbc-cli network --propagate --data <data>
+  # Network management (non-interactive)
+  ./aitbc-cli network connect --peer <peer_address> --yes --no-confirm
+  ./aitbc-cli network disconnect --peer <peer_address> --yes
+  ./aitbc-cli network sync status --verbose
+
+  # Cross-node communication (debug mode)
+  ./aitbc-cli network ping --node aitbc1 --verbose --debug
+  ./aitbc-cli network propagate --data <data> --dry-run
   ```
 
 **Stage 2 Validation**: Successful multi-wallet management, blockchain mining, contract interaction, and network operations on both nodes
@@ -244,61 +277,61 @@ cd /opt/aitbc/scripts/training
 - **Objective**: Master AI job submission and monitoring
 - **CLI Commands**:
   ```bash
-  # AI job operations
-  ./aitbc-cli ai --job --submit --type inference --prompt "Analyze this data"
-  ./aitbc-cli ai --job --status --id <job_id>
-  ./aitbc-cli ai --job --result --id <job_id>
-  
-  # Job monitoring
-  ./aitbc-cli ai --job --list --status all
-  ./aitbc-cli ai --job --cancel --id <job_id>
-  
+  # AI job operations (non-interactive)
+  ./aitbc-cli ai job submit --type inference --prompt "Analyze this data" --yes --no-confirm
+  ./aitbc-cli ai job status --id <job_id> --output json
+  ./aitbc-cli ai job result --id <job_id> --verbose
+
+  # Job monitoring (debug mode)
+  ./aitbc-cli ai job list --status all --format table --debug
+  ./aitbc-cli ai job cancel --id <job_id> --yes
+
   # Node-specific AI operations
-  NODE_URL=http://localhost:8006 ./aitbc-cli ai --job --submit --type inference
-  NODE_URL=http://localhost:8007 ./aitbc-cli ai --job --submit --type parallel
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli ai job submit --type inference --verbose
+  NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli ai job submit --type parallel --debug
   ```
 
 #### **3.2 Resource Management**
 - **Objective**: Optimize resource allocation and utilization
 - **CLI Commands**:
   ```bash
-  # Resource operations
-  ./aitbc-cli resource --status
-  ./aitbc-cli resource --allocate --type gpu --amount 50%
-  ./aitbc-cli resource --monitor --interval 30
-  
-  # Performance optimization
-  ./aitbc-cli resource --optimize --target cpu
-  ./aitbc-cli resource --benchmark --type inference
+  # Resource operations (debug mode)
+  ./aitbc-cli resource status --verbose --output json
+  ./aitbc-cli resource allocate --type gpu --amount 50% --yes --no-confirm
+  ./aitbc-cli resource monitor --interval 30 --debug
+
+  # Performance optimization (non-interactive)
+  ./aitbc-cli resource optimize --target cpu --yes --dry-run
+  ./aitbc-cli resource benchmark --type inference --verbose
   ```
 
 #### **3.3 Ollama Integration**
 - **Objective**: Master Ollama model management and operations
 - **CLI Commands**:
   ```bash
-  # Ollama operations
-  ./aitbc-cli ollama --models
-  ./aitbc-cli ollama --pull --model llama2
-  ./aitbc-cli ollama --run --model llama2 --prompt "Test prompt"
-  
-  # Model management
-  ./aitbc-cli ollama --status
-  ./aitbc-cli ollama --delete --model <model_name>
-  ./aitbc-cli ollama --benchmark --model <model_name>
+  # Ollama operations (non-interactive)
+  ./aitbc-cli ollama models --format table
+  ./aitbc-cli ollama pull --model llama2 --yes --no-confirm
+  ./aitbc-cli ollama run --model llama2 --prompt "Test prompt" --verbose
+
+  # Model management (debug mode)
+  ./aitbc-cli ollama status --debug
+  ./aitbc-cli ollama delete --model <model_name> --yes --force
+  ./aitbc-cli ollama benchmark --model <model_name> --verbose
   ```
 
 #### **3.4 AI Service Integration**
 - **Objective**: Integrate with multiple AI services and APIs
 - **CLI Commands**:
   ```bash
-  # AI service operations
-  ./aitbc-cli ai --service --list
-  ./aitbc-cli ai --service --status --name ollama
-  ./aitbc-cli ai --service --test --name coordinator
-  
-  # API integration
-  ./aitbc-cli api --test --endpoint /ai/job
-  ./aitbc-cli api --monitor --endpoint /ai/status
+  # AI service operations (debug mode)
+  ./aitbc-cli ai service list --verbose --output json
+  ./aitbc-cli ai service status --name ollama --debug
+  ./aitbc-cli ai service test --name coordinator --verbose
+
+  # API integration (non-interactive)
+  ./aitbc-cli api test --endpoint /ai/job --yes --no-confirm
+  ./aitbc-cli api monitor --endpoint /ai/status --format json
   ```
 
 **Stage 3 Validation**: Successful AI job submission, resource optimization, Ollama integration, and AI service management on both nodes
@@ -319,60 +352,60 @@ cd /opt/aitbc/scripts/training
 - **Objective**: Master marketplace participation and trading
 - **CLI Commands**:
   ```bash
-  # Marketplace operations
-  ./aitbc-cli marketplace --list
-  ./aitbc-cli marketplace --buy --item <item_id> --price <price>
-  ./aitbc-cli marketplace --sell --item <item_id> --price <price>
-  
-  # Order management
-  ./aitbc-cli marketplace --orders --status active
-  ./aitbc-cli marketplace --cancel --order <order_id>
-  
+  # Marketplace operations (debug mode)
+  ./aitbc-cli market list --verbose --format table
+  ./aitbc-cli market buy --item <item_id> --price <price> --yes --no-confirm
+  ./aitbc-cli market sell --item <item_id> --price <price> --yes
+
+  # Order management (non-interactive)
+  ./aitbc-cli market orders --status active --output json
+  ./aitbc-cli market cancel --order <order_id> --yes
+
   # Node-specific marketplace operations
-  NODE_URL=http://localhost:8006 ./aitbc-cli marketplace --list
-  NODE_URL=http://localhost:8007 ./aitbc-cli marketplace --list
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli market list --verbose
+  NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli market list --debug
   ```
 
 #### **4.2 Economic Intelligence**
 - **Objective**: Implement economic modeling and optimization
 - **CLI Commands**:
   ```bash
-  # Economic operations
-  ./aitbc-cli economics --model --type cost-optimization
-  ./aitbc-cli economics --forecast --period 7d
-  ./aitbc-cli economics --optimize --target revenue
-  
-  # Market analysis
-  ./aitbc-cli economics --market --analyze
-  ./aitbc-cli economics --trends --period 30d
+  # Economic operations (non-interactive)
+  ./aitbc-cli economics model --type cost-optimization --yes --no-confirm
+  ./aitbc-cli economics forecast --period 7d --output json
+  ./aitbc-cli economics optimize --target revenue --dry-run
+
+  # Market analysis (debug mode)
+  ./aitbc-cli economics market analyze --verbose
+  ./aitbc-cli economics trends --period 30d --format table
   ```
 
 #### **4.3 Distributed AI Economics**
 - **Objective**: Cross-node economic optimization and revenue sharing
 - **CLI Commands**:
   ```bash
-  # Distributed economics
-  ./aitbc-cli economics --distributed --cost-optimize
-  ./aitbc-cli economics --revenue --share --node aitbc1
-  ./aitbc-cli economics --workload --balance --nodes aitbc,aitbc1
-  
-  # Cross-node coordination
-  ./aitbc-cli economics --sync --nodes aitbc,aitbc1
-  ./aitbc-cli economics --strategy --optimize --global
+  # Distributed economics (debug mode)
+  ./aitbc-cli economics distributed cost-optimize --verbose
+  ./aitbc-cli economics revenue share --node aitbc1 --yes
+  ./aitbc-cli economics workload balance --nodes aitbc,aitbc1 --debug
+
+  # Cross-node coordination (non-interactive)
+  ./aitbc-cli economics sync --nodes aitbc,aitbc1 --yes --no-confirm
+  ./aitbc-cli economics strategy optimize --global --dry-run
   ```
 
 #### **4.4 Advanced Analytics**
 - **Objective**: Comprehensive analytics and reporting
 - **CLI Commands**:
   ```bash
-  # Analytics operations
-  ./aitbc-cli analytics --report --type performance
-  ./aitbc-cli analytics --metrics --period 24h
-  ./aitbc-cli analytics --export --format csv
-  
-  # Predictive analytics
-  ./aitbc-cli analytics --predict --model lstm --target job-completion
-  ./aitbc-cli analytics --optimize --parameters --target efficiency
+  # Analytics operations (non-interactive)
+  ./aitbc-cli analytics report --type performance --output json
+  ./aitbc-cli analytics metrics --period 24h --format table
+  ./aitbc-cli analytics export --format csv --yes
+
+  # Predictive analytics (debug mode)
+  ./aitbc-cli analytics predict --model lstm --target job-completion --verbose
+  ./aitbc-cli analytics optimize parameters --target efficiency --debug
   ```
 
 **Stage 4 Validation**: Successful marketplace operations, economic modeling, distributed optimization, and advanced analytics
@@ -393,56 +426,61 @@ cd /opt/aitbc/scripts/training
 - **Objective**: Automate complex workflows and operations
 - **CLI Commands**:
   ```bash
-  # Automation operations
-  ./aitbc-cli automate --workflow --name ai-job-pipeline
-  ./aitbc-cli automate --schedule --cron "0 */6 * * *" --command "./aitbc-cli ai --job --submit"
-  ./aitbc-cli automate --monitor --workflow --name marketplace-bot
-  
-  # Script execution
-  ./aitbc-cli script --run --file custom_script.py
-  ./aitbc-cli script --schedule --file maintenance_script.sh
+  # Automation operations (non-interactive)
+  ./aitbc-cli workflow create --name ai-job-pipeline --yes --no-confirm
+  ./aitbc-cli workflow schedule --cron "0 */6 * * *" --command "./aitbc-cli ai job submit" --yes
+  ./aitbc-cli workflow monitor --name marketplace-bot --verbose
+
+  # Script execution (debug mode)
+  ./aitbc-cli script run --file custom_script.py --verbose --debug
+  ./aitbc-cli script schedule --file maintenance_script.sh --dry-run
   ```
 
 #### **5.2 Multi-Node Coordination**
-- **Objective**: Advanced coordination across both nodes
+- **Objective**: Advanced coordination across both nodes using Gitea
 - **CLI Commands**:
   ```bash
-  # Multi-node operations
-  ./aitbc-cli cluster --status --nodes aitbc,aitbc1
-  ./aitbc-cli cluster --sync --all
-  ./aitbc-cli cluster --balance --workload
-  
-  # Node-specific coordination
-  NODE_URL=http://localhost:8006 ./aitbc-cli cluster --coordinate --action failover
-  NODE_URL=http://localhost:8007 ./aitbc-cli cluster --coordinate --action recovery
+  # Multi-node operations (debug mode)
+  ./aitbc-cli cluster status --nodes aitbc,aitbc1 --verbose
+  ./aitbc-cli cluster sync --all --yes --no-confirm
+  ./aitbc-cli cluster balance workload --debug
+
+  # Node-specific coordination (non-interactive)
+  NODE_URL=http://10.1.223.40:8006 ./aitbc-cli cluster coordinate --action failover --yes
+  NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli cluster coordinate --action recovery --yes
+
+  # Gitea-based sync (instead of SCP)
+  ssh aitbc1 'cd /opt/aitbc && git pull origin main --yes --no-confirm'
+  git push origin main --yes
+  git status --verbose
   ```
 
 #### **5.3 Performance Optimization**
 - **Objective**: System-wide performance tuning and optimization
 - **CLI Commands**:
   ```bash
-  # Performance operations
-  ./aitbc-cli performance --benchmark --suite comprehensive
-  ./aitbc-cli performance --optimize --target latency
-  ./aitbc-cli performance --tune --parameters --aggressive
-  
-  # Resource optimization
-  ./aitbc-cli performance --resource --optimize --global
-  ./aitbc-cli performance --cache --optimize --strategy lru
+  # Performance operations (non-interactive)
+  ./aitbc-cli performance benchmark --suite comprehensive --yes --no-confirm
+  ./aitbc-cli performance optimize --target latency --dry-run
+  ./aitbc-cli performance tune parameters --aggressive --yes
+
+  # Resource optimization (debug mode)
+  ./aitbc-cli performance resource optimize --global --verbose
+  ./aitbc-cli performance cache optimize --strategy lru --debug
   ```
 
 #### **5.4 Security & Compliance**
 - **Objective**: Advanced security operations and compliance management
 - **CLI Commands**:
   ```bash
-  # Security operations
-  ./aitbc-cli security --audit --comprehensive
-  ./aitbc-cli security --scan --vulnerabilities
-  ./aitbc-cli security --patch --critical
-  
-  # Compliance operations
-  ./aitbc-cli compliance --check --standard gdpr
-  ./aitbc-cli compliance --report --format detailed
+  # Security operations (debug mode)
+  ./aitbc-cli security audit --comprehensive --verbose --output json
+  ./aitbc-cli security scan --vulnerabilities --debug
+  ./aitbc-cli security patch --critical --yes --no-confirm
+
+  # Compliance operations (non-interactive)
+  ./aitbc-cli compliance check --standard gdpr --yes
+  ./aitbc-cli compliance report --format detailed --output json
   ```
 
 **Stage 5 Validation**: Successful automation implementation, multi-node coordination, performance optimization, and security management
@@ -499,8 +537,8 @@ Each stage must achieve:
 ### **Required Environment Variables**
 ```bash
 # Node configuration
-export NODE_URL=http://localhost:8006  # Genesis node
-export NODE_URL=http://localhost:8007  # Follower node
+export NODE_URL=http://10.1.223.40:8006  # Genesis node
+export NODE_URL=http://<aitbc1-ip>:8006  # Follower node
 export CLI_PATH=/opt/aitbc/aitbc-cli
 
 # Service endpoints
@@ -515,7 +553,7 @@ export WALLET_PASSWORD=<secure_password>
 
 ### **Service Dependencies**
 - **AITBC CLI**: `/opt/aitbc/aitbc-cli` accessible
-- **Blockchain Services**: Ports 8006 (genesis), 8007 (follower)
+- **Blockchain Services**: Port 8006 on both nodes (different IPs)
 - **AI Services**: Ollama (11434), Coordinator (8001), Exchange (8000)
 - **Network Connectivity**: Both nodes can communicate
 - **Sufficient Balance**: Test wallet with adequate AIT tokens
@@ -663,14 +701,14 @@ netstat -tlnp | grep -E '800[0167]|11434'
 **Solution**:
 ```bash
 # Test node connectivity
-curl http://localhost:8007/health
-curl http://localhost:8006/health
+curl http://<aitbc1-ip>:8006/health
+curl http://10.1.223.40:8006/health
 
 # Check network configuration
 cat /opt/aitbc/config/edge-node-aitbc1.yaml
 
 # Verify firewall settings
-iptables -L | grep 8007
+iptables -L | grep 8006
 ```
 
 #### **AI Job Submission Failed**
@@ -759,14 +797,23 @@ bash -x /opt/aitbc/scripts/training/stage1_foundation.sh
 
 ### **Cross-Node Issues**
 
-#### **Node Synchronization Problems**
+#### **Node Synchronization Problems (Gitea-Based)**
 ```bash
-# Force node sync
-/opt/aitbc/aitbc-cli cluster --sync --all
+# Force node sync using Gitea (NOT SCP)
+cd /opt/aitbc && git pull origin main --verbose --debug
+ssh aitbc1 'cd /opt/aitbc && git pull origin main --verbose'
+
+# Check git sync status on both nodes
+git status --verbose
+git log --oneline -5 --decorate
+ssh aitbc1 'cd /opt/aitbc && git status --verbose'
+
+# Force sync if needed (use with caution)
+ssh aitbc1 'cd /opt/aitbc && git reset --hard origin/main'
 
 # Check node status on both nodes
-NODE_URL=http://localhost:8006 /opt/aitbc/aitbc-cli node --info
-NODE_URL=http://localhost:8007 /opt/aitbc/aitbc-cli node --info
+NODE_URL=http://10.1.223.40:8006 ./aitbc-cli node info --verbose
+NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli node info --debug
 
 # Restart follower node if needed
 systemctl restart aitbc-blockchain-p2p
@@ -817,10 +864,10 @@ sudo rm /var/log/aitbc/training*.log
 systemctl restart aitbc-*
 
 # Verify system health
-curl http://localhost:8006/health
-curl http://localhost:8007/health
-curl http://localhost:8001/health
-curl http://localhost:8000/health
+curl http://10.1.223.40:8006/health
+curl http://<aitbc1-ip>:8006/health
+curl http://10.1.223.40:8001/health
+curl http://10.1.223.40:8000/health
 ```
 
 ---
