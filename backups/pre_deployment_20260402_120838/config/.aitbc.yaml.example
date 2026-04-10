@@ -1,3 +1,0 @@
-# AITBC CLI Configuration
-# Copy to .aitbc.yaml and adjust for your environment
-coordinator_url: http://127.0.0.1:8000
