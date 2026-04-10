@@ -578,8 +578,74 @@ This roadmap aggregates high-priority tasks derived from the bootstrap specifica
   - ✅ Document final folder structure in done.md
   - ✅ Create `docs/files.md` file audit with whitelist/greylist/blacklist
   - ✅ Remove 35 abandoned/duplicate folders and files
-  - ✅ Reorganize `docs/` folder - root contains only done.md, files.md, roadmap.md
-  - ✅ Move 25 doc files to appropriate subfolders (components, deployment, migration, etc.)
+- ✅ Reorganize `docs/` folder - root contains only done.md, files.md, roadmap.md
+- ✅ Move 25 doc files to appropriate subfolders (components, deployment, migration, etc.)
+
+## Stage 29 — Multi-Node Blockchain Synchronization [COMPLETED: 2026-04-10]
+
+- **Gossip Backend Configuration**
+  - ✅ Fixed both nodes (aitbc and aitbc1) to use broadcast backend with Redis
+  - ✅ Updated `/etc/aitbc/.env` on aitbc: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://localhost:6379`
+  - ✅ Updated `/etc/aitbc/.env` on aitbc1: `gossip_backend=broadcast`, `gossip_broadcast_url=redis://10.1.223.40:6379`
+  - ✅ Both nodes now use Redis for cross-node gossip communication
+
+- **PoA Consensus Enhancements**
+  - ✅ Fixed busy-loop issue in poa.py when mempool is empty
+  - ✅ Modified `_propose_block` to return boolean indicating if a block was proposed
+  - ✅ Updated `_run_loop` to wait properly when no block is proposed due to empty mempool
+  - ✅ Added `propose_only_if_mempool_not_empty=true` configuration option
+  - ✅ File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/consensus/poa.py`
+
+- **Transaction Synchronization**
+  - ✅ Fixed transaction parsing in sync.py
+  - ✅ Updated `_append_block` to use correct field names (from/to instead of sender/recipient)
+  - ✅ Fixed transaction data extraction from gossiped blocks
+  - ✅ File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/sync.py`
+
+- **RPC Endpoint Enhancements**
+  - ✅ Fixed blocks-range endpoint to include parent_hash and proposer fields
+  - ✅ Updated `/rpc/blocks-range` endpoint to include parent_hash, proposer, and state_root
+  - ✅ File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/rpc/router.py`
+
+- **Environment Configuration**
+  - ✅ Fixed aitbc1 .env file truncation
+  - ✅ Restored complete .env configuration on aitbc1
+  - ✅ Set correct proposer_id for each node
+  - ✅ Configured Redis URLs for gossip backend
+
+- **Block Synchronization Verification**
+  - ✅ Verified blocks are syncing via gossip between aitbc and aitbc1
+  - ✅ Both nodes in sync at height 27201
+  - ✅ Both nodes at same height with consistent block hashes
+  - ✅ Gossip backend working correctly with Redis
+
+- **OpenClaw Agent Communication**
+  - ✅ Successfully sent agent message from aitbc1 to aitbc
+  - ✅ Used temp-agent wallet with correct password "temp123"
+  - ✅ Transaction hash: 0xdcf365542237eb8e40d0aa1cdb3fec2e77dbcb2475c30457682cf385e974b7b8
+  - ✅ Agent daemon running on aitbc configured to reply with "pong" on "ping"
+
+- **Git & Repository Management**
+  - ✅ Fixed gitea pull conflicts on aitbc1
+  - ✅ Stashed local changes causing conflicts in blockchain files
+  - ✅ Successfully pulled latest changes from gitea (fast-forward)
+  - ✅ Both nodes now up to date with origin/main
+
+- **Documentation**
+  - ✅ Created comprehensive blockchain synchronization documentation
+  - ✅ File: `docs/blockchain/blockchain_synchronization_issues_and_fixes.md`
+  - ✅ Created OpenClaw cross-node communication guides
+  - ✅ File: `docs/openclaw/guides/openclaw_cross_node_communication.md`
+  - ✅ File: `docs/openclaw/training/cross_node_communication_training.md`
+  - ✅ Deployed agent daemon service with systemd integration
+  - ✅ File: `services/agent_daemon.py`
+  - ✅ Systemd service: `systemd/aitbc-agent-daemon.service`
+
+## Current Status: Multi-Node Blockchain Synchronization Complete
+
+**Milestone Achievement**: Successfully fixed multi-node blockchain synchronization issues between aitbc and aitbc1. Both nodes are now in sync with gossip backend working correctly via Redis. OpenClaw agent communication tested and working.
+
+**Next Phase**: Continue with wallet funding and enhanced agent communication testing (see docs/openclaw/guides/)
 
 ## Stage 20 — Agent Ecosystem Transformation [COMPLETED: 2026-02-24]
 
