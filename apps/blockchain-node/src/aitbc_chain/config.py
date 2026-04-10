@@ -43,6 +43,9 @@ class ChainSettings(BaseSettings):
     max_block_size_bytes: int = 1_000_000  # 1 MB
     max_txs_per_block: int = 500
 
+    # Only propose blocks if mempool is not empty (prevents empty blocks)
+    propose_only_if_mempool_not_empty: bool = True
+
     # Monitoring interval (in seconds)
     blockchain_monitoring_interval_seconds: int = 60
     min_fee: int = 0  # Minimum fee to accept into mempool
