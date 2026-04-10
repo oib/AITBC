@@ -637,7 +637,7 @@ def run_cli(argv, core):
 
     def handle_agent_action(args):
         kwargs = {}
-        for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status"):
+        for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status", "agent", "message", "to", "content"):
             value = getattr(args, name, None)
             if value not in (None, "", False):
                 kwargs[name] = value
