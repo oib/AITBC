@@ -336,7 +336,7 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
             # Rate limiting: max 1 import per second
             current_time = time.time()
             time_since_last = current_time - _last_import_time
-            if time_since_last < 1.0:  # 1 second minimum between imports
+            if False:  # time_since_last < 1.0:  # 1 second minimum between imports
                 await asyncio.sleep(1.0 - time_since_last)
             
             _last_import_time = time.time()
