@@ -17,11 +17,14 @@ import os
 import time
 import argparse
 import random
+import hashlib
 from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.backends import default_backend
 import requests
 from typing import Optional, Dict, Any, List
 
@@ -31,22 +34,64 @@ DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
 DEFAULT_RPC_URL = "http://localhost:8006"
 
 def decrypt_private_key(keystore_path: Path, password: str) -> str:
-    """Decrypt private key from keystore file"""
+    """Decrypt private key from keystore file.
+    
+    Supports both keystore formats:
+    - AES-256-GCM (blockchain-node standard)
+    - Fernet (scripts/utils standard)
+    """
     with open(keystore_path) as f:
         ks = json.load(f)
     
-    crypto = ks['crypto']
-    salt = bytes.fromhex(crypto['kdfparams']['salt'])
-    kdf = PBKDF2HMAC(hashes.SHA256(), 32, salt, crypto['kdfparams']['c'])
-    key = kdf.derive(password.encode())
-    aesgcm = AESGCM(key)
-    nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
-    priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto['ciphertext']), None)
-    return priv.hex()
+    crypto = ks.get('crypto', ks)  # Handle both nested and flat crypto structures
+    
+    # Detect encryption method
+    cipher = crypto.get('cipher', crypto.get('algorithm', ''))
+    
+    if cipher == 'aes-256-gcm' or cipher == 'aes-256-gcm':
+        # AES-256-GCM (blockchain-node standard)
+        salt = bytes.fromhex(crypto['kdfparams']['salt'])
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=crypto['kdfparams']['c'],
+            backend=default_backend()
+        )
+        key = kdf.derive(password.encode())
+        aesgcm = AESGCM(key)
+        nonce = bytes.fromhex(crypto['cipherparams']['nonce'])
+        priv = aesgcm.decrypt(nonce, bytes.fromhex(crypto['ciphertext']), None)
+        return priv.hex()
+    
+    elif cipher == 'fernet' or cipher == 'PBKDF2-SHA256-Fernet':
+        # Fernet (scripts/utils standard)
+        from cryptography.fernet import Fernet
+        import base64
+        
+        # Derive Fernet key using the same method as scripts/utils/keystore.py
+        kdfparams = crypto.get('kdfparams', {})
+        if 'salt' in kdfparams:
+            salt = base64.b64decode(kdfparams['salt'])
+        else:
+            # Fallback for older format
+            salt = bytes.fromhex(kdfparams.get('salt', ''))
+        
+        # Simple KDF: hash(password + salt) - matches scripts/utils/keystore.py
+        dk = hashlib.sha256(password.encode() + salt).digest()
+        fernet_key = base64.urlsafe_b64encode(dk)
+        
+        f = Fernet(fernet_key)
+        ciphertext = base64.b64decode(crypto['ciphertext'])
+        priv = f.decrypt(ciphertext)
+        return priv.decode()
+    
+    else:
+        raise ValueError(f"Unsupported cipher: {cipher}")
 
 
 def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR) -> str:
-    """Create a new wallet"""
+    """Create a new wallet using blockchain-node standard AES-256-GCM encryption"""
     keystore_dir.mkdir(parents=True, exist_ok=True)
     
     # Generate new key pair
@@ -58,15 +103,21 @@ def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTOR
     # Calculate address (simplified - in real implementation this would be more complex)
     address = f"ait1{public_key_hex[:40]}"
     
-    # Encrypt private key
+    # Encrypt private key using blockchain-node standard (AES-256-GCM with PBKDF2)
     salt = os.urandom(32)
-    kdf = PBKDF2HMAC(hashes.SHA256(), 32, salt, 100000)
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100_000,
+        backend=default_backend()
+    )
     key = kdf.derive(password.encode())
     aesgcm = AESGCM(key)
     nonce = os.urandom(12)
     ciphertext = aesgcm.encrypt(nonce, bytes.fromhex(private_key_hex), None)
     
-    # Create keystore file
+    # Create keystore file matching blockchain-node format
     keystore_data = {
         "address": address,
         "public_key": public_key_hex,
@@ -74,7 +125,7 @@ def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTOR
             "kdf": "pbkdf2",
             "kdfparams": {
                 "salt": salt.hex(),
-                "c": 100000,
+                "c": 100_000,
                 "dklen": 32,
                 "prf": "hmac-sha256"
             },
@@ -84,6 +135,7 @@ def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTOR
             },
             "ciphertext": ciphertext.hex()
         },
+        "keytype": "ed25519",
         "version": 1
     }
     
@@ -876,6 +928,161 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                 "agents": agents,
                 "total_count": len(agents)
             }
+        
+        elif action == "message":
+            # Send message via blockchain transaction payload
+            agent = kwargs.get("agent")
+            message = kwargs.get("message")
+            wallet = kwargs.get("wallet")
+            password = kwargs.get("password")
+            password_file = kwargs.get("password_file")
+            rpc_url = kwargs.get("rpc_url", DEFAULT_RPC_URL)
+            
+            if not agent or not message:
+                print("Error: agent and message are required")
+                return None
+            
+            if not wallet:
+                print("Error: wallet is required to send messages")
+                return None
+            
+            # Get password
+            if password_file:
+                with open(password_file) as f:
+                    password = f.read().strip()
+            elif not password:
+                print("Error: password or password_file is required")
+                return None
+            
+            try:
+                # Decrypt wallet
+                keystore_path = DEFAULT_KEYSTORE_DIR / f"{wallet}.json"
+                private_key_hex = decrypt_private_key(keystore_path, password)
+                private_key_bytes = bytes.fromhex(private_key_hex)
+                
+                # Get sender address
+                with open(keystore_path) as f:
+                    keystore_data = json.load(f)
+                sender_address = keystore_data['address']
+                
+                # Create transaction with message as payload
+                priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
+                pub_hex = priv_key.public_key().public_bytes(
+                    encoding=serialization.Encoding.Raw,
+                    format=serialization.PublicFormat.Raw
+                ).hex()
+                
+                tx = {
+                    "type": "transfer",
+                    "from": sender_address,
+                    "to": agent,
+                    "amount": 0,
+                    "fee": 10,
+                    "nonce": int(time.time() * 1000),
+                    "payload": message,
+                    "chain_id": "ait-mainnet"
+                }
+                
+                # Sign transaction
+                tx_string = json.dumps(tx, sort_keys=True)
+                tx_hash = hashlib.sha256(tx_string.encode()).hexdigest()
+                tx["signature"] = priv_key.sign(tx_string.encode()).hex()
+                tx["public_key"] = pub_hex
+                
+                # Submit transaction
+                response = requests.post(f"{rpc_url}/rpc/transaction", json=tx)
+                if response.status_code == 200:
+                    result = response.json()
+                    print(f"Message sent successfully")
+                    print(f"From: {sender_address}")
+                    print(f"To: {agent}")
+                    print(f"Message: {message}")
+                    print(f"Transaction Hash: {result.get('transaction_hash', 'N/A')}")
+                    return {
+                        "action": "message",
+                        "status": "sent",
+                        "transaction_hash": result.get('transaction_hash'),
+                        "from": sender_address,
+                        "to": agent,
+                        "message": message
+                    }
+                else:
+                    print(f"Error sending message: {response.text}")
+                    return None
+                    
+            except Exception as e:
+                print(f"Error sending message: {e}")
+                return None
+        
+        elif action == "messages":
+            # Retrieve messages for an agent
+            agent = kwargs.get("agent")
+            wallet = kwargs.get("wallet")
+            rpc_url = kwargs.get("rpc_url", DEFAULT_RPC_URL)
+            
+            if not agent:
+                print("Error: agent address is required")
+                return None
+            
+            try:
+                # Since /rpc/transactions endpoint is not implemented, query local database
+                import sys
+                sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
+                from sqlmodel import create_engine, Session, select
+                from aitbc_chain.models import Transaction
+                
+                engine = create_engine("sqlite:////var/lib/aitbc/data/ait-mainnet/chain.db")
+                with Session(engine) as session:
+                    # Query transactions where recipient is the agent
+                    txs = session.exec(
+                        select(Transaction).where(Transaction.recipient == agent)
+                        .order_by(Transaction.timestamp.desc())
+                        .limit(50)
+                    ).all()
+                    
+                    messages = []
+                    for tx in txs:
+                        # Extract payload
+                        payload = ""
+                        if hasattr(tx, "tx_metadata") and tx.tx_metadata:
+                            if isinstance(tx.tx_metadata, dict):
+                                payload = tx.tx_metadata.get("payload", "")
+                            elif isinstance(tx.tx_metadata, str):
+                                try:
+                                    payload = json.loads(tx.tx_metadata).get("payload", "")
+                                except:
+                                    pass
+                        elif hasattr(tx, "payload") and tx.payload:
+                            if isinstance(tx.payload, dict):
+                                payload = tx.payload.get("payload", "")
+                        
+                        if payload:  # Only include transactions with payloads
+                            messages.append({
+                                "from": tx.sender,
+                                "message": payload,
+                                "timestamp": tx.timestamp,
+                                "block_height": tx.block_height,
+                                "tx_hash": tx.tx_hash
+                            })
+                    
+                    print(f"Found {len(messages)} messages for {agent}")
+                    for msg in messages:
+                        print(f"From: {msg['from']}")
+                        print(f"Message: {msg['message']}")
+                        print(f"Block: {msg['block_height']}")
+                        print(f"Time: {msg['timestamp']}")
+                        print("-" * 40)
+                    
+                    return {
+                        "action": "messages",
+                        "agent": agent,
+                        "count": len(messages),
+                        "messages": messages
+                    }
+                    
+            except Exception as e:
+                print(f"Error retrieving messages: {e}")
+                return None
         
         else:
             return {"action": action, "status": "Not implemented yet"}

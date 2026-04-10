@@ -229,10 +229,18 @@ async def get_account(address: str) -> Dict[str, Any]:
 
 
 @router.get("/blocks-range", summary="Get blocks in height range")
-async def get_blocks_range(start: int = 0, end: int = 10) -> Dict[str, Any]:
-    """Get blocks in a height range"""
+async def get_blocks_range(start: int = 0, end: int = 10, include_tx: bool = True) -> Dict[str, Any]:
+    """Get blocks in a height range
+    
+    Args:
+        start: Starting block height (inclusive)
+        end: Ending block height (inclusive)
+        include_tx: Whether to include transaction data (default: True)
+    """
     with session_scope() as session:
         from ..config import settings as cfg
+        from ..models import Transaction
+        
         blocks = session.exec(
             select(Block).where(
                 Block.chain_id == cfg.chain_id,
@@ -240,9 +248,28 @@ async def get_blocks_range(start: int = 0, end: int = 10) -> Dict[str, Any]:
                 Block.height <= end,
             ).order_by(Block.height.asc())
         ).all()
+        
+        result_blocks = []
+        for b in blocks:
+            block_data = {
+                "height": b.height,
+                "hash": b.hash,
+                "timestamp": b.timestamp.isoformat(),
+                "tx_count": b.tx_count,
+            }
+            
+            if include_tx:
+                # Fetch transactions for this block
+                txs = session.exec(
+                    select(Transaction).where(Transaction.block_height == b.height)
+                ).all()
+                block_data["transactions"] = [tx.model_dump() for tx in txs]
+            
+            result_blocks.append(block_data)
+        
         return {
             "success": True,
-            "blocks": [{"height": b.height, "hash": b.hash, "timestamp": b.timestamp.isoformat(), "tx_count": b.tx_count} for b in blocks],
+            "blocks": result_blocks,
             "count": len(blocks),
         }
 

@@ -80,11 +80,48 @@ pip install -r requirements.txt
 
 # Run training
 ./scripts/training/master_training_launcher.sh
+
+# Cross-node communication training
+./scripts/training/openclaw_cross_node_comm.sh
 ```
+
+## Recent Achievements
+
+### Cross-Node Agent Communication (April 2026)
+- **Successfully implemented** autonomous agent messaging between blockchain nodes
+- **Ping-pong test completed**: Agents on `aitbc` and `aitbc1` successfully exchanged messages
+- **Transaction-based messaging**: Agents communicate via blockchain transaction payloads
+- **Autonomous agent daemon**: Listens for messages and replies automatically
+- **Block confirmed**: Cross-node communication verified in Block 26952
+
+### Multi-Node Blockchain Network
+- **Genesis Node (aitbc1)**: Height 26952+, operational at 10.1.223.40:8006
+- **Follower Node (aitbc)**: Height 26952+, operational at 10.1.223.93:8006
+- **Synchronization**: Nodes synchronized with manual sync workaround
+- **RPC Services**: Running on both nodes
+
+### Blockchain Synchronization Fixes
+- **Rate limiting disabled**: Removed 1-second import rate limit on `/rpc/importBlock`
+- **Issue documented**: `/rpc/blocks-range` endpoint missing transaction data
+- **Workaround implemented**: Direct database queries for transaction retrieval
+- **Manual sync procedure**: Database copy method for rapid synchronization
 
 ## Development
 
 See `docs/SETUP.md` for detailed setup instructions.
+
+## Documentation
+
+### Recent Documentation Updates
+- [Cross-Node Communication Guide](docs/openclaw/guides/openclaw_cross_node_communication.md) - Implementation guide for multi-node agent messaging
+- [Blockchain Synchronization Issues](docs/blockchain/blockchain_synchronization_issues_and_fixes.md) - Detailed documentation of sync fixes and workarounds
+- [Cross-Node Training Module](docs/openclaw/training/cross_node_communication_training.md) - Training workflow for agent communication
+- [OpenClaw Documentation](docs/openclaw/README.md) - Complete OpenClaw integration documentation
+
+### Core Documentation
+- [Main Documentation](docs/README.md) - Comprehensive project documentation
+- [Setup Instructions](docs/SETUP.md) - Installation and configuration guide
+- [Python Compatibility](docs/PYTHON_VERSION_STATUS.md) - Python version requirements
 
 ## Security
 
