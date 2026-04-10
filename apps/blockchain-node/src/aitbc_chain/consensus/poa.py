@@ -96,14 +96,24 @@ class PoAProposer:
         self._task = None
 
     async def _run_loop(self) -> None:
+        # Initial sleep so we don't start proposing immediately
+        await asyncio.sleep(self._config.interval_seconds)
         while not self._stop_event.is_set():
-            await self._wait_until_next_slot()
             if self._stop_event.is_set():
                 break
             try:
-                await self._propose_block()
+                proposed = await self._propose_block()
+                if proposed:
+                    await self._wait_until_next_slot()
+                else:
+                    # If we skipped proposing, wait a regular interval
+                    try:
+                        await asyncio.wait_for(self._stop_event.wait(), timeout=self._config.interval_seconds)
+                    except asyncio.TimeoutError:
+                        pass
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._logger.exception("Failed to propose block", extra={"error": str(exc)})
+                await asyncio.sleep(1.0)
 
     async def _wait_until_next_slot(self) -> None:
         head = self._fetch_chain_head()
@@ -119,7 +129,7 @@ class PoAProposer:
         except asyncio.TimeoutError:
             return
 
-    async def _propose_block(self) -> None:
+    async def _propose_block(self) -> bool:
         # Check internal mempool and include transactions
         from ..mempool import get_mempool
         from ..models import Transaction, Account
@@ -131,7 +141,7 @@ class PoAProposer:
             mempool_size = mempool.size(self._config.chain_id)
             if mempool_size == 0:
                 self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id})")
-                return
+                return False
 
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
@@ -282,6 +292,8 @@ class PoAProposer:
                     "transactions": tx_list,
                 },
             )
+
+        return True
 
     async def _ensure_genesis_block(self) -> None:
         with self._session_factory() as session:

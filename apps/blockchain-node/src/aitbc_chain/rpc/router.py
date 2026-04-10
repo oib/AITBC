@@ -254,10 +254,13 @@ async def get_blocks_range(start: int = 0, end: int = 10, include_tx: bool = Tru
             block_data = {
                 "height": b.height,
                 "hash": b.hash,
+                "parent_hash": b.parent_hash,
+                "proposer": b.proposer,
                 "timestamp": b.timestamp.isoformat(),
                 "tx_count": b.tx_count,
+                "state_root": b.state_root,
             }
-            
+
             if include_tx:
                 # Fetch transactions for this block
                 txs = session.exec(
