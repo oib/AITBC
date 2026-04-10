@@ -1,0 +1,37 @@
+[Unit]
+Description=AITBC Autonomous Agent Listener Daemon
+Documentation=https://github.com/aitbc/blockchain
+After=network.target aitbc-blockchain-node.service
+Requires=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/agent_daemon.py \
+    --wallet temp-agent \
+    --address ait1d18e286fc0c12888aca94732b5507c8787af71a5 \
+    --password-file /opt/aitbc/.agent_daemon_password \
+    --keystore-dir /var/lib/aitbc/keystore \
+    --db-path /var/lib/aitbc/data/ait-mainnet/chain.db \
+    --rpc-url http://localhost:8006 \
+    --poll-interval 2 \
+    --reply-message pong \
+    --trigger-message ping
+
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+# Security settings
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aitbc/data /var/lib/aitbc/keystore
+
+[Install]
+WantedBy=multi-user.target
