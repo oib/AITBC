@@ -76,7 +76,7 @@ class ChainSyncService:
         """Broadcast local blocks to other nodes"""
         import aiohttp
         
-        last_broadcast_height = 0
+        last_broadcast_height = 22505
         retry_count = 0
         max_retries = 5
         base_delay = settings.blockchain_monitoring_interval_seconds  # Use config setting instead of hardcoded value
@@ -169,7 +169,7 @@ class ChainSyncService:
             
         try:
             await self._redis.publish("blocks", json.dumps(block_data))
-            logger.debug(f"Broadcasted block {block_data.get('height')}")
+            logger.info(f"Broadcasted block {block_data.get('height')}")
         except Exception as e:
             logger.error(f"Error broadcasting block: {e}")
     
@@ -202,7 +202,7 @@ class ChainSyncService:
                                 if result.get('accepted'):
                                     logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
                                 else:
-                                    logger.debug(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
+                                    logger.info(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
                                 return
                             else:
                                 try:
