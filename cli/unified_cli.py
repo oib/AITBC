@@ -69,60 +69,109 @@ def run_cli(argv, core):
             elif "ai --service --list" in arg_str: cmd = "ai_service_list"
             elif "ai --service --test" in arg_str: cmd = "ai_service_test"
             elif "ai --service --status" in arg_str: cmd = "ai_service_status"
-            elif "ai status --job-id" in arg_str: cmd = "ai_status"
+            elif "ai status --job-id" in arg_str: 
+                cmd = "ai_status"
+                kwargs["job_id"] = raw_args[raw_args.index("--job-id")+1] if "--job-id" in raw_args else "unknown"
             elif "ai status --name" in arg_str: cmd = "ai_service_status"
             elif "resource --status" in arg_str: cmd = "resource_status"
-            elif "resource --allocate" in arg_str: cmd = "resource_allocate"
-            elif "resource --optimize" in arg_str: cmd = "resource_optimize"
-            elif "resource --benchmark" in arg_str: cmd = "resource_benchmark"
+            elif "resource --allocate" in arg_str: 
+                cmd = "resource_allocate"
+                kwargs["amount"] = raw_args[raw_args.index("--amount")+1] if "--amount" in raw_args else "unknown"
+                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
+            elif "resource --optimize" in arg_str: 
+                cmd = "resource_optimize"
+                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
+            elif "resource --benchmark" in arg_str: 
+                cmd = "resource_benchmark"
+                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
             elif "resource --monitor" in arg_str: cmd = "resource_monitor"
             elif "ollama --models" in arg_str: cmd = "ollama_models"
-            elif "ollama --pull" in arg_str: cmd = "ollama_pull"
-            elif "ollama --run" in arg_str: cmd = "ollama_run"
+            elif "ollama --pull" in arg_str: 
+                cmd = "ollama_pull"
+                kwargs["model"] = raw_args[raw_args.index("--model")+1] if "--model" in raw_args else "unknown"
+            elif "ollama --run" in arg_str: 
+                cmd = "ollama_run"
+                kwargs["model"] = raw_args[raw_args.index("--model")+1] if "--model" in raw_args else "unknown"
             elif "ollama --status" in arg_str: cmd = "ollama_status"
-            elif "marketplace --buy" in arg_str: cmd = "marketplace_buy"
-            elif "marketplace --sell" in arg_str: cmd = "marketplace_sell"
+            elif "marketplace --buy" in arg_str: 
+                cmd = "marketplace_buy"
+                kwargs["item"] = raw_args[raw_args.index("--item")+1] if "--item" in raw_args else "unknown"
+                kwargs["price"] = raw_args[raw_args.index("--price")+1] if "--price" in raw_args else "unknown"
+            elif "marketplace --sell" in arg_str: 
+                cmd = "marketplace_sell"
+                kwargs["item"] = raw_args[raw_args.index("--item")+1] if "--item" in raw_args else "unknown"
+                kwargs["price"] = raw_args[raw_args.index("--price")+1] if "--price" in raw_args else "unknown"
             elif "marketplace --orders" in arg_str: cmd = "marketplace_orders"
             elif "marketplace --cancel" in arg_str: cmd = "marketplace_cancel"
             elif "marketplace --status" in arg_str: cmd = "marketplace_status"
             elif "marketplace --list" in arg_str: cmd = "marketplace_status"
-            elif "economics --model" in arg_str: cmd = "economics_model"
+            elif "economics --model" in arg_str: 
+                cmd = "economics_model"
+                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
             elif "economics --forecast" in arg_str: cmd = "economics_forecast"
-            elif "economics --optimize" in arg_str: cmd = "economics_optimize"
+            elif "economics --optimize" in arg_str: 
+                cmd = "economics_optimize"
+                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
             elif "economics --market" in arg_str: cmd = "economics_market_analyze"
             elif "economics --trends" in arg_str: cmd = "economics_trends"
             elif "economics --distributed" in arg_str: cmd = "economics_distributed_cost_optimize"
-            elif "economics --revenue" in arg_str: cmd = "economics_revenue_share"
-            elif "economics --workload" in arg_str: cmd = "economics_workload_balance"
+            elif "economics --revenue" in arg_str: 
+                cmd = "economics_revenue_share"
+                kwargs["node"] = raw_args[raw_args.index("--node")+1] if "--node" in raw_args else "unknown"
+            elif "economics --workload" in arg_str: 
+                cmd = "economics_workload_balance"
+                kwargs["nodes"] = raw_args[raw_args.index("--nodes")+1] if "--nodes" in raw_args else "unknown"
             elif "economics --sync" in arg_str: cmd = "economics_sync"
             elif "economics --strategy" in arg_str: cmd = "economics_strategy_optimize"
-            elif "analytics --report" in arg_str: cmd = "analytics_report"
+            elif "analytics --report" in arg_str: 
+                cmd = "analytics_report"
+                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
             elif "analytics --metrics" in arg_str: cmd = "analytics_metrics"
             elif "analytics --export" in arg_str: cmd = "analytics_export"
             elif "analytics --predict" in arg_str: cmd = "analytics_predict"
-            elif "analytics --optimize" in arg_str: cmd = "analytics_optimize"
+            elif "analytics --optimize" in arg_str: 
+                cmd = "analytics_optimize"
+                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
             elif "automate --workflow" in arg_str:
                 cmd = "automate_workflow"
                 kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
             elif "automate --schedule" in arg_str: cmd = "automate_schedule"
-            elif "automate --monitor" in arg_str: cmd = "automate_monitor"
+            elif "automate --monitor" in arg_str: 
+                cmd = "automate_monitor"
+                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
             elif "cluster status" in arg_str: cmd = "cluster_status"
             elif "cluster --sync" in arg_str: cmd = "cluster_sync"
             elif "cluster --balance" in arg_str: cmd = "cluster_balance"
-            elif "cluster --coordinate" in arg_str: cmd = "cluster_coordinate"
+            elif "cluster --coordinate" in arg_str: 
+                cmd = "cluster_coordinate"
+                kwargs["action"] = raw_args[raw_args.index("--action")+1] if "--action" in raw_args else "unknown"
             elif "performance benchmark" in arg_str: cmd = "performance_benchmark"
-            elif "performance --optimize" in arg_str: cmd = "performance_optimize"
+            elif "performance --optimize" in arg_str: 
+                cmd = "performance_optimize"
+                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
             elif "performance --tune" in arg_str: cmd = "performance_tune"
             elif "performance --resource" in arg_str: cmd = "performance_resource_optimize"
-            elif "performance --cache" in arg_str: cmd = "performance_cache_optimize"
+            elif "performance --cache" in arg_str: 
+                cmd = "performance_cache_optimize"
+                kwargs["strategy"] = raw_args[raw_args.index("--strategy")+1] if "--strategy" in raw_args else "unknown"
             elif "security --audit" in arg_str: cmd = "security_audit"
             elif "security --scan" in arg_str: cmd = "security_scan"
             elif "security --patch" in arg_str: cmd = "security_patch"
-            elif "compliance --check" in arg_str: cmd = "compliance_check"
-            elif "compliance --report" in arg_str: cmd = "compliance_report"
-            elif "script --run" in arg_str: cmd = "script_run"
-            elif "api --monitor" in arg_str: cmd = "api_monitor"
-            elif "api --test" in arg_str: cmd = "api_test"
+            elif "compliance --check" in arg_str: 
+                cmd = "compliance_check"
+                kwargs["standard"] = raw_args[raw_args.index("--standard")+1] if "--standard" in raw_args else "unknown"
+            elif "compliance --report" in arg_str: 
+                cmd = "compliance_report"
+                kwargs["format"] = raw_args[raw_args.index("--format")+1] if "--format" in raw_args else "unknown"
+            elif "script --run" in arg_str: 
+                cmd = "script_run"
+                kwargs["file"] = raw_args[raw_args.index("--file")+1] if "--file" in raw_args else "unknown"
+            elif "api --monitor" in arg_str: 
+                cmd = "api_monitor"
+                kwargs["endpoint"] = raw_args[raw_args.index("--endpoint")+1] if "--endpoint" in raw_args else "unknown"
+            elif "api --test" in arg_str: 
+                cmd = "api_test"
+                kwargs["endpoint"] = raw_args[raw_args.index("--endpoint")+1] if "--endpoint" in raw_args else "unknown"
             
             if cmd:
                 res = handle_extended_command(cmd, raw_args, kwargs)
