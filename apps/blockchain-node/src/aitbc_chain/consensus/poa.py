@@ -123,8 +123,16 @@ class PoAProposer:
         # Check internal mempool and include transactions
         from ..mempool import get_mempool
         from ..models import Transaction, Account
+        from ..config import settings
         mempool = get_mempool()
-        
+
+        # Check if we should only propose when mempool is not empty
+        if getattr(settings, "propose_only_if_mempool_not_empty", True):
+            mempool_size = mempool.size(self._config.chain_id)
+            if mempool_size == 0:
+                self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id})")
+                return
+
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
             next_height = 0
@@ -154,30 +162,50 @@ class PoAProposer:
                     value = tx_data.get("amount", 0)
                     fee = tx_data.get("fee", 0)
                     
+                    self._logger.info(f"[PROPOSE] Processing tx {tx.tx_hash}: from={sender}, to={recipient}, amount={value}, fee={fee}")
+                    
                     if not sender or not recipient:
+                        self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: missing sender or recipient")
                         continue
                     
                     # Get sender account
                     sender_account = session.get(Account, (self._config.chain_id, sender))
                     if not sender_account:
+                        self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: sender account not found for {sender}")
                         continue
                     
                     # Check sufficient balance
                     total_cost = value + fee
                     if sender_account.balance < total_cost:
+                        self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: insufficient balance (has {sender_account.balance}, needs {total_cost})")
                         continue
                     
                     # Get or create recipient account
                     recipient_account = session.get(Account, (self._config.chain_id, recipient))
                     if not recipient_account:
+                        self._logger.info(f"[PROPOSE] Creating recipient account for {recipient}")
                         recipient_account = Account(chain_id=self._config.chain_id, address=recipient, balance=0, nonce=0)
                         session.add(recipient_account)
                         session.flush()
+                    else:
+                        self._logger.info(f"[PROPOSE] Recipient account exists for {recipient}")
                     
                     # Update balances
                     sender_account.balance -= total_cost
                     sender_account.nonce += 1
                     recipient_account.balance += value
+                    
+                    # Check if transaction already exists in database
+                    existing_tx = session.exec(
+                        select(Transaction).where(
+                            Transaction.chain_id == self._config.chain_id,
+                            Transaction.tx_hash == tx.tx_hash
+                        )
+                    ).first()
+                    
+                    if existing_tx:
+                        self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: already exists in database at block {existing_tx.block_height}")
+                        continue
                     
                     # Create transaction record
                     transaction = Transaction(
@@ -195,6 +223,7 @@ class PoAProposer:
                     )
                     session.add(transaction)
                     processed_txs.append(tx)
+                    self._logger.info(f"[PROPOSE] Successfully processed tx {tx.tx_hash}: updated balances")
                     
                 except Exception as e:
                     self._logger.warning(f"Failed to process transaction {tx.tx_hash}: {e}")
@@ -256,25 +285,39 @@ class PoAProposer:
 
     async def _ensure_genesis_block(self) -> None:
         with self._session_factory() as session:
-            head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
-            if head is not None:
+            # Check if genesis block already exists
+            genesis = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).where(Block.height == 0).limit(1)).first()
+            if genesis is not None:
+                self._logger.info(f"Genesis block already exists: height={genesis.height}, hash={genesis.hash}, proposer={genesis.proposer}")
                 return
 
             # Use a deterministic genesis timestamp so all nodes agree on the genesis block hash
             timestamp = datetime(2025, 1, 1, 0, 0, 0)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
+            
+            # Check if block with this hash already exists (duplicate check)
+            existing = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).where(Block.hash == block_hash).limit(1)).first()
+            if existing is not None:
+                self._logger.info(f"Genesis block with hash {block_hash} already exists, skipping creation")
+                return
+            
             genesis = Block(
                 chain_id=self._config.chain_id,
                 height=0,
                 hash=block_hash,
                 parent_hash="0x00",
-                proposer=self._config.proposer_id,  # Use configured proposer as genesis proposer
+                proposer="genesis",  # Use "genesis" as the proposer for genesis block to avoid hash conflicts
                 timestamp=timestamp,
                 tx_count=0,
                 state_root=None,
             )
             session.add(genesis)
-            session.commit()
+            try:
+                session.commit()
+            except Exception as e:
+                self._logger.warning(f"Failed to create genesis block: {e}")
+                session.rollback()
+                return
 
             # Initialize accounts from genesis allocations file (if present)
             await self._initialize_genesis_allocations(session)
