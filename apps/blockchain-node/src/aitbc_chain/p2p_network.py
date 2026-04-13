@@ -8,15 +8,26 @@ import asyncio
 import json
 import logging
 from .mempool import get_mempool, compute_tx_hash
-from typing import Dict, Any, Optional, Set, Tuple
+from .network.nat_traversal import NATTraversalService
+from .network.island_manager import IslandManager
+from .network.hub_manager import HubManager
+from typing import Dict, Any, Optional, Set, Tuple, List
 
 logger = logging.getLogger(__name__)
 
 class P2PNetworkService:
-    def __init__(self, host: str, port: int, node_id: str, peers: str = ""):
+    def __init__(self, host: str, port: int, node_id: str, peers: str = "", stun_servers: List[str] = None,
+                 island_id: str = "", island_name: str = "default", is_hub: bool = False,
+                 island_chain_id: str = ""):
         self.host = host
         self.port = port
         self.node_id = node_id
+        
+        # Island configuration
+        self.island_id = island_id
+        self.island_name = island_name
+        self.is_hub = is_hub
+        self.island_chain_id = island_chain_id or f"ait-{island_id[:8]}" if island_id else ""
         
         # Initial peers to dial (format: "ip:port,ip:port")
         self.initial_peers = []
@@ -36,6 +47,20 @@ class P2PNetworkService:
         self.active_connections: Dict[str, asyncio.StreamWriter] = {}
         # Set of active endpoints we've connected to prevent duplicate dialing
         self.connected_endpoints: Set[Tuple[str, int]] = set()
+        
+        # Public endpoint discovered via STUN
+        self.public_endpoint: Optional[Tuple[str, int]] = None
+        
+        # NAT traversal service
+        self.nat_traversal: Optional[NATTraversalService] = None
+        if stun_servers:
+            self.nat_traversal = NATTraversalService(stun_servers)
+        
+        # Island manager
+        self.island_manager: Optional[IslandManager] = None
+        
+        # Hub manager
+        self.hub_manager: Optional[HubManager] = None
 
         self._background_tasks = []
 
@@ -43,6 +68,44 @@ class P2PNetworkService:
         """Start P2P network service"""
         logger.info(f"Starting P2P network mesh service on {self.host}:{self.port}")
         logger.info(f"Node ID: {self.node_id}")
+        logger.info(f"Island ID: {self.island_id}")
+        logger.info(f"Island Name: {self.island_name}")
+        logger.info(f"Is Hub: {self.is_hub}")
+        
+        # Initialize island manager
+        if self.island_id:
+            self.island_manager = IslandManager(
+                self.node_id,
+                self.island_id,
+                self.island_chain_id or f"ait-{self.island_id[:8]}"
+            )
+            logger.info("Initialized island manager")
+        
+        # Initialize hub manager if this node is a hub
+        if self.is_hub:
+            self.hub_manager = HubManager(
+                self.node_id,
+                self.host,
+                self.port,
+                self.island_id,
+                self.island_name
+            )
+            self.hub_manager.register_as_hub(self.public_endpoint[0] if self.public_endpoint else None,
+                                            self.public_endpoint[1] if self.public_endpoint else None)
+            logger.info("Initialized hub manager")
+        
+        # Discover public endpoint via STUN if configured
+        if self.nat_traversal:
+            logger.info("Attempting STUN discovery for public endpoint...")
+            try:
+                await self.nat_traversal.discover_endpoint()
+                self.public_endpoint = self.nat_traversal.get_public_endpoint()
+                if self.public_endpoint:
+                    logger.info(f"Discovered public endpoint: {self.public_endpoint[0]}:{self.public_endpoint[1]}")
+                else:
+                    logger.warning("STUN discovery failed, will use local address")
+            except Exception as e:
+                logger.error(f"STUN discovery error: {e}")
         
         # Create TCP server for inbound P2P connections
         self._server = await asyncio.start_server(
@@ -176,11 +239,17 @@ class P2PNetworkService:
             # Record that we're connected to this endpoint
             self.connected_endpoints.add(endpoint)
             
-            # Send handshake immediately
+            # Send handshake immediately with island information
             handshake = {
                 'type': 'handshake',
                 'node_id': self.node_id,
-                'listen_port': self.port
+                'listen_port': self.port,
+                'island_id': self.island_id,
+                'island_name': self.island_name,
+                'is_hub': self.is_hub,
+                'island_chain_id': self.island_chain_id,
+                'public_address': self.public_endpoint[0] if self.public_endpoint else None,
+                'public_port': self.public_endpoint[1] if self.public_endpoint else None
             }
             await self._send_message(writer, handshake)
             
@@ -213,12 +282,25 @@ class P2PNetworkService:
                 
             peer_node_id = message.get('node_id')
             peer_listen_port = message.get('listen_port', 7070)
+            peer_island_id = message.get('island_id', '')
+            peer_island_name = message.get('island_name', '')
+            peer_is_hub = message.get('is_hub', False)
+            peer_island_chain_id = message.get('island_chain_id', '')
+            peer_public_address = message.get('public_address')
+            peer_public_port = message.get('public_port')
             
             if not peer_node_id or peer_node_id == self.node_id:
                 logger.warning(f"Peer {addr} provided invalid or self node_id: {peer_node_id}")
                 writer.close()
                 return
-                
+            
+            # Store peer's island information
+            logger.info(f"Peer {peer_node_id} from island {peer_island_id} (hub: {peer_is_hub})")
+            
+            # Store peer's public endpoint if provided
+            if peer_public_address and peer_public_port:
+                logger.info(f"Peer {peer_node_id} public endpoint: {peer_public_address}:{peer_public_port}")
+            
             # Accept handshake and store connection
             logger.info(f"Handshake accepted from node {peer_node_id} at {addr}")
             
@@ -234,11 +316,35 @@ class P2PNetworkService:
             remote_ip = addr[0]
             self.connected_endpoints.add((remote_ip, peer_listen_port))
             
-            # Reply with our handshake
+            # Add peer to island manager if available
+            if self.island_manager and peer_island_id:
+                self.island_manager.add_island_peer(peer_island_id, peer_node_id)
+            
+            # Add peer to hub manager if available and peer is a hub
+            if self.hub_manager and peer_is_hub:
+                from .network.hub_manager import PeerInfo
+                self.hub_manager.register_peer(PeerInfo(
+                    node_id=peer_node_id,
+                    address=remote_ip,
+                    port=peer_listen_port,
+                    island_id=peer_island_id,
+                    is_hub=peer_is_hub,
+                    public_address=peer_public_address,
+                    public_port=peer_public_port,
+                    last_seen=asyncio.get_event_loop().time()
+                ))
+            
+            # Reply with our handshake including island information
             reply_handshake = {
                 'type': 'handshake',
                 'node_id': self.node_id,
-                'listen_port': self.port
+                'listen_port': self.port,
+                'island_id': self.island_id,
+                'island_name': self.island_name,
+                'is_hub': self.is_hub,
+                'island_chain_id': self.island_chain_id,
+                'public_address': self.public_endpoint[0] if self.public_endpoint else None,
+                'public_port': self.public_endpoint[1] if self.public_endpoint else None
             }
             await self._send_message(writer, reply_handshake)
             
@@ -270,6 +376,9 @@ class P2PNetworkService:
                     if outbound and peer_id is None:
                         if msg_type == 'handshake':
                             peer_id = message.get('node_id')
+                            peer_island_id = message.get('island_id', '')
+                            peer_is_hub = message.get('is_hub', False)
+                            
                             if not peer_id or peer_id == self.node_id:
                                 logger.warning(f"Invalid handshake reply from {addr}. Closing.")
                                 break
@@ -279,7 +388,26 @@ class P2PNetworkService:
                                 break
                                 
                             self.active_connections[peer_id] = writer
-                            logger.info(f"Outbound handshake complete. Connected to node {peer_id}")
+                            
+                            # Add peer to island manager if available
+                            if self.island_manager and peer_island_id:
+                                self.island_manager.add_island_peer(peer_island_id, peer_id)
+                            
+                            # Add peer to hub manager if available and peer is a hub
+                            if self.hub_manager and peer_is_hub:
+                                from .network.hub_manager import PeerInfo
+                                self.hub_manager.register_peer(PeerInfo(
+                                    node_id=peer_id,
+                                    address=addr[0],
+                                    port=addr[1],
+                                    island_id=peer_island_id,
+                                    is_hub=peer_is_hub,
+                                    public_address=message.get('public_address'),
+                                    public_port=message.get('public_port'),
+                                    last_seen=asyncio.get_event_loop().time()
+                                ))
+                            
+                            logger.info(f"Outbound handshake complete. Connected to node {peer_id} (island: {peer_island_id})")
                             continue
                         else:
                             logger.warning(f"Expected handshake reply from {addr}, got {msg_type}")

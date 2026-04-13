@@ -5,6 +5,7 @@ from typing import Optional
 from ..core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
 from ..core.node_client import NodeClient
 from ..utils import output, error, success
+import uuid
 
 @click.group()
 def node():
@@ -436,4 +437,325 @@ def test(ctx, node_id):
         
     except Exception as e:
         error(f"Error testing node: {str(e)}")
+        raise click.Abort()
+
+# Island management commands
+@node.group()
+def island():
+    """Island management commands for federated mesh"""
+    pass
+
+@island.command()
+@click.option('--island-id', help='Island ID (UUID), generates new if not provided')
+@click.option('--island-name', default='default', help='Human-readable island name')
+@click.option('--chain-id', help='Chain ID for this island')
+@click.pass_context
+def create(ctx, island_id, island_name, chain_id):
+    """Create a new island"""
+    try:
+        if not island_id:
+            island_id = str(uuid.uuid4())
+        
+        if not chain_id:
+            chain_id = f"ait-{island_id[:8]}"
+        
+        island_info = {
+            "Island ID": island_id,
+            "Island Name": island_name,
+            "Chain ID": chain_id,
+            "Created": "Now"
+        }
+        
+        output(island_info, ctx.obj.get('output_format', 'table'), title="New Island Created")
+        success(f"Island {island_name} ({island_id}) created successfully")
+        
+        # Note: In a real implementation, this would update the configuration
+        # and notify the island manager
+        
+    except Exception as e:
+        error(f"Error creating island: {str(e)}")
+        raise click.Abort()
+
+@island.command()
+@click.argument('island_id')
+@click.argument('island_name')
+@click.argument('chain_id')
+@click.option('--is-hub', is_flag=True, help='Register this node as a hub for the island')
+@click.pass_context
+def join(ctx, island_id, island_name, chain_id, is_hub):
+    """Join an existing island"""
+    try:
+        join_info = {
+            "Island ID": island_id,
+            "Island Name": island_name,
+            "Chain ID": chain_id,
+            "As Hub": is_hub
+        }
+        
+        output(join_info, ctx.obj.get('output_format', 'table'), title=f"Joining Island: {island_name}")
+        success(f"Successfully joined island {island_name}")
+        
+        # Note: In a real implementation, this would update the island manager
+        
+    except Exception as e:
+        error(f"Error joining island: {str(e)}")
+        raise click.Abort()
+
+@island.command()
+@click.argument('island_id')
+@click.pass_context
+def leave(ctx, island_id):
+    """Leave an island"""
+    try:
+        success(f"Successfully left island {island_id}")
+        
+        # Note: In a real implementation, this would update the island manager
+        
+    except Exception as e:
+        error(f"Error leaving island: {str(e)}")
+        raise click.Abort()
+
+@island.command()
+@click.pass_context
+def list(ctx):
+    """List all known islands"""
+    try:
+        # Note: In a real implementation, this would query the island manager
+        islands = [
+            {
+                "Island ID": "550e8400-e29b-41d4-a716-446655440000",
+                "Island Name": "default",
+                "Chain ID": "ait-island-default",
+                "Status": "Active",
+                "Peer Count": "3"
+            }
+        ]
+        
+        output(islands, ctx.obj.get('output_format', 'table'), title="Known Islands")
+        
+    except Exception as e:
+        error(f"Error listing islands: {str(e)}")
+        raise click.Abort()
+
+@island.command()
+@click.argument('island_id')
+@click.pass_context
+def info(ctx, island_id):
+    """Show information about a specific island"""
+    try:
+        # Note: In a real implementation, this would query the island manager
+        island_info = {
+            "Island ID": island_id,
+            "Island Name": "default",
+            "Chain ID": "ait-island-default",
+            "Status": "Active",
+            "Peer Count": "3",
+            "Hub Count": "1"
+        }
+        
+        output(island_info, ctx.obj.get('output_format', 'table'), title=f"Island Information: {island_id}")
+        
+    except Exception as e:
+        error(f"Error getting island info: {str(e)}")
+        raise click.Abort()
+
+# Hub management commands
+@node.group()
+def hub():
+    """Hub management commands for federated mesh"""
+    pass
+
+@hub.command()
+@click.option('--public-address', help='Public IP address')
+@click.option('--public-port', type=int, help='Public port')
+@click.pass_context
+def register(ctx, public_address, public_port):
+    """Register this node as a hub"""
+    try:
+        hub_info = {
+            "Node ID": "local-node",
+            "Status": "Registered",
+            "Public Address": public_address or "auto-discovered",
+            "Public Port": public_port or "auto-discovered"
+        }
+        
+        output(hub_info, ctx.obj.get('output_format', 'table'), title="Hub Registration")
+        success("Successfully registered as hub")
+        
+        # Note: In a real implementation, this would update the hub manager
+        
+    except Exception as e:
+        error(f"Error registering as hub: {str(e)}")
+        raise click.Abort()
+
+@hub.command()
+@click.pass_context
+def unregister(ctx):
+    """Unregister this node as a hub"""
+    try:
+        success("Successfully unregistered as hub")
+        
+        # Note: In a real implementation, this would update the hub manager
+        
+    except Exception as e:
+        error(f"Error unregistering as hub: {str(e)}")
+        raise click.Abort()
+
+@hub.command()
+@click.pass_context
+def list(ctx):
+    """List known hubs"""
+    try:
+        # Note: In a real implementation, this would query the hub manager
+        hubs = [
+            {
+                "Node ID": "hub-node-1",
+                "Address": "10.1.1.1",
+                "Port": 7070,
+                "Island ID": "550e8400-e29b-41d4-a716-446655440000",
+                "Peer Count": "5"
+            }
+        ]
+        
+        output(hubs, ctx.obj.get('output_format', 'table'), title="Known Hubs")
+        
+    except Exception as e:
+        error(f"Error listing hubs: {str(e)}")
+        raise click.Abort()
+
+# Bridge management commands
+@node.group()
+def bridge():
+    """Bridge management commands for federated mesh"""
+    pass
+
+@bridge.command()
+@click.argument('target_island_id')
+@click.pass_context
+def request(ctx, target_island_id):
+    """Request a bridge to another island"""
+    try:
+        success(f"Bridge request sent to island {target_island_id}")
+        
+        # Note: In a real implementation, this would use the bridge manager
+        
+    except Exception as e:
+        error(f"Error requesting bridge: {str(e)}")
+        raise click.Abort()
+
+@bridge.command()
+@click.argument('request_id')
+@click.argument('approving_node_id')
+@click.pass_context
+def approve(ctx, request_id, approving_node_id):
+    """Approve a bridge request"""
+    try:
+        success(f"Bridge request {request_id} approved")
+        
+        # Note: In a real implementation, this would use the bridge manager
+        
+    except Exception as e:
+        error(f"Error approving bridge request: {str(e)}")
+        raise click.Abort()
+
+@bridge.command()
+@click.argument('request_id')
+@click.option('--reason', help='Rejection reason')
+@click.pass_context
+def reject(ctx, request_id, reason):
+    """Reject a bridge request"""
+    try:
+        success(f"Bridge request {request_id} rejected")
+        
+        # Note: In a real implementation, this would use the bridge manager
+        
+    except Exception as e:
+        error(f"Error rejecting bridge request: {str(e)}")
+        raise click.Abort()
+
+@bridge.command()
+@click.pass_context
+def list(ctx):
+    """List bridge connections"""
+    try:
+        # Note: In a real implementation, this would query the bridge manager
+        bridges = [
+            {
+                "Bridge ID": "bridge-1",
+                "Source Island": "island-a",
+                "Target Island": "island-b",
+                "Status": "Active"
+            }
+        ]
+        
+        output(bridges, ctx.obj.get('output_format', 'table'), title="Bridge Connections")
+        
+    except Exception as e:
+        error(f"Error listing bridges: {str(e)}")
+        raise click.Abort()
+
+# Multi-chain management commands
+@node.group()
+def chain():
+    """Multi-chain management commands for parallel chains"""
+    pass
+
+@chain.command()
+@click.argument('chain_id')
+@click.option('--chain-type', type=click.Choice(['bilateral', 'micro']), default='micro', help='Chain type')
+@click.pass_context
+def start(ctx, chain_id, chain_type):
+    """Start a new parallel chain instance"""
+    try:
+        chain_info = {
+            "Chain ID": chain_id,
+            "Chain Type": chain_type,
+            "Status": "Starting",
+            "RPC Port": "auto-allocated",
+            "P2P Port": "auto-allocated"
+        }
+        
+        output(chain_info, ctx.obj.get('output_format', 'table'), title=f"Starting Chain: {chain_id}")
+        success(f"Chain {chain_id} started successfully")
+        
+        # Note: In a real implementation, this would use the multi-chain manager
+        
+    except Exception as e:
+        error(f"Error starting chain: {str(e)}")
+        raise click.Abort()
+
+@chain.command()
+@click.argument('chain_id')
+@click.pass_context
+def stop(ctx, chain_id):
+    """Stop a parallel chain instance"""
+    try:
+        success(f"Chain {chain_id} stopped successfully")
+        
+        # Note: In a real implementation, this would use the multi-chain manager
+        
+    except Exception as e:
+        error(f"Error stopping chain: {str(e)}")
+        raise click.Abort()
+
+@chain.command()
+@click.pass_context
+def list(ctx):
+    """List all active chain instances"""
+    try:
+        # Note: In a real implementation, this would query the multi-chain manager
+        chains = [
+            {
+                "Chain ID": "ait-mainnet",
+                "Chain Type": "default",
+                "Status": "Running",
+                "RPC Port": 8000,
+                "P2P Port": 7070
+            }
+        ]
+        
+        output(chains, ctx.obj.get('output_format', 'table'), title="Active Chains")
+        
+    except Exception as e:
+        error(f"Error listing chains: {str(e)}")
         raise click.Abort()

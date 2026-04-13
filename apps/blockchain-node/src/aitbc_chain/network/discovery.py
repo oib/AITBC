@@ -30,6 +30,11 @@ class PeerNode:
     capabilities: List[str]
     reputation: float
     connection_count: int
+    public_address: Optional[str] = None
+    public_port: Optional[int] = None
+    island_id: str = ""  # Island membership
+    island_chain_id: str = ""  # Chain ID for this island
+    is_hub: bool = False  # Hub capability
 
 @dataclass
 class DiscoveryMessage:
@@ -37,16 +42,28 @@ class DiscoveryMessage:
     node_id: str
     address: str
     port: int
-    timestamp: float
-    signature: str
+    island_id: str  # UUID-based island ID
+    island_chain_id: str  # Chain ID for this island
+    is_hub: bool  # Hub capability
+    public_address: Optional[str] = None  # Public endpoint address
+    public_port: Optional[int] = None  # Public endpoint port
+    timestamp: float = 0
+    signature: str = ""
 
 class P2PDiscovery:
     """P2P node discovery and management service"""
     
-    def __init__(self, local_node_id: str, local_address: str, local_port: int):
+    def __init__(self, local_node_id: str, local_address: str, local_port: int, 
+                 island_id: str = "", island_chain_id: str = "", is_hub: bool = False,
+                 public_endpoint: Optional[Tuple[str, int]] = None):
         self.local_node_id = local_node_id
         self.local_address = local_address
         self.local_port = local_port
+        self.island_id = island_id
+        self.island_chain_id = island_chain_id
+        self.is_hub = is_hub
+        self.public_endpoint = public_endpoint
+        
         self.peers: Dict[str, PeerNode] = {}
         self.bootstrap_nodes: List[Tuple[str, int]] = []
         self.discovery_interval = 30  # seconds
@@ -114,12 +131,20 @@ class P2PDiscovery:
     async def _connect_to_peer(self, address: str, port: int) -> bool:
         """Connect to a specific peer"""
         try:
-            # Create discovery message
+            # Create discovery message with island information
+            public_addr = self.public_endpoint[0] if self.public_endpoint else None
+            public_port = self.public_endpoint[1] if self.public_endpoint else None
+            
             message = DiscoveryMessage(
                 message_type="hello",
                 node_id=self.local_node_id,
                 address=self.local_address,
                 port=self.local_port,
+                island_id=self.island_id,
+                island_chain_id=self.island_chain_id,
+                is_hub=self.is_hub,
+                public_address=public_addr,
+                public_port=public_port,
                 timestamp=time.time(),
                 signature=""  # Would be signed in real implementation
             )
@@ -172,9 +197,14 @@ class P2PDiscovery:
             peer_node_id = response["node_id"]
             peer_address = response["address"]
             peer_port = response["port"]
+            peer_island_id = response.get("island_id", "")
+            peer_island_chain_id = response.get("island_chain_id", "")
+            peer_is_hub = response.get("is_hub", False)
+            peer_public_address = response.get("public_address")
+            peer_public_port = response.get("public_port")
             peer_capabilities = response.get("capabilities", [])
             
-            # Create peer node
+            # Create peer node with island information
             peer = PeerNode(
                 node_id=peer_node_id,
                 address=peer_address,
@@ -184,13 +214,18 @@ class P2PDiscovery:
                 status=NodeStatus.ONLINE,
                 capabilities=peer_capabilities,
                 reputation=1.0,
-                connection_count=0
+                connection_count=0,
+                public_address=peer_public_address,
+                public_port=peer_public_port,
+                island_id=peer_island_id,
+                island_chain_id=peer_island_chain_id,
+                is_hub=peer_is_hub
             )
             
             # Add to peers
             self.peers[peer_node_id] = peer
             
-            log_info(f"Added peer {peer_node_id} from {peer_address}:{peer_port}")
+            log_info(f"Added peer {peer_node_id} from {peer_address}:{peer_port} (island: {peer_island_id}, hub: {peer_is_hub})")
             
         except Exception as e:
             log_error(f"Error handling hello response: {e}")
@@ -296,20 +331,28 @@ class P2PDiscovery:
         message_type = message.get("message_type")
         node_id = message.get("node_id")
         
+        public_addr = self.public_endpoint[0] if self.public_endpoint else None
+        public_port = self.public_endpoint[1] if self.public_endpoint else None
+        
         if message_type == "hello":
-            # Respond with peer information
+            # Respond with peer information including island data
             return {
                 "message_type": "hello_response",
                 "node_id": self.local_node_id,
                 "address": self.local_address,
                 "port": self.local_port,
+                "island_id": self.island_id,
+                "island_chain_id": self.island_chain_id,
+                "is_hub": self.is_hub,
+                "public_address": public_addr,
+                "public_port": public_port,
                 "public_key": "",  # Would include actual public key
                 "capabilities": ["consensus", "mempool", "rpc"],
                 "timestamp": time.time()
             }
         
         elif message_type == "get_peers":
-            # Return list of known peers
+            # Return list of known peers with island information
             peer_list = []
             for peer in self.peers.values():
                 if peer.status == NodeStatus.ONLINE:
@@ -317,6 +360,11 @@ class P2PDiscovery:
                         "node_id": peer.node_id,
                         "address": peer.address,
                         "port": peer.port,
+                        "island_id": peer.island_id,
+                        "island_chain_id": peer.island_chain_id,
+                        "is_hub": peer.is_hub,
+                        "public_address": peer.public_address,
+                        "public_port": peer.public_port,
                         "capabilities": peer.capabilities,
                         "reputation": peer.reputation
                     })
@@ -325,6 +373,27 @@ class P2PDiscovery:
                 "message_type": "peers_response",
                 "node_id": self.local_node_id,
                 "peers": peer_list,
+                "timestamp": time.time()
+            }
+        
+        elif message_type == "get_hubs":
+            # Return list of hub nodes
+            hub_list = []
+            for peer in self.peers.values():
+                if peer.status == NodeStatus.ONLINE and peer.is_hub:
+                    hub_list.append({
+                        "node_id": peer.node_id,
+                        "address": peer.address,
+                        "port": peer.port,
+                        "island_id": peer.island_id,
+                        "public_address": peer.public_address,
+                        "public_port": peer.public_port,
+                    })
+            
+            return {
+                "message_type": "hubs_response",
+                "node_id": self.local_node_id,
+                "hubs": hub_list,
                 "timestamp": time.time()
             }
         
