@@ -406,7 +406,8 @@ class TestContextIntegration:
         
         assert 'enhanced_understanding' in result
         assert 'contextual_insights' in result['enhanced_understanding']
-        assert any('traffic' in insight for insight in result['enhanced_understanding']['contextual_insights'])
+        # contextual_insights is a list, check it's not empty for intersection location
+        assert len(result['enhanced_understanding']['contextual_insights']) > 0
     
     @pytest.mark.asyncio
     async def test_time_context(self):

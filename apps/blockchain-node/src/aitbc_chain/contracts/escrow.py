@@ -11,6 +11,10 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from decimal import Decimal
 
+def log_info(message: str):
+    """Simple logging function"""
+    print(f"[EscrowManager] {message}")
+
 class EscrowState(Enum):
     CREATED = "created"
     FUNDED = "funded"
@@ -240,7 +244,7 @@ class EscrowManager:
         if not contract:
             return False, "Contract not found"
         
-        if contract.state not in [EscrowState.JOB_STARTED, EscrowState.JOB_COMPLETED]:
+        if contract.state not in [EscrowState.FUNDED, EscrowState.JOB_STARTED, EscrowState.JOB_COMPLETED]:
             return False, f"Cannot complete milestone in {contract.state.value} state"
         
         # Find milestone
@@ -264,48 +268,15 @@ class EscrowManager:
         if evidence:
             milestone['evidence'] = evidence
         
-        # Check if all milestones are completed
-        all_completed = all(ms['completed'] for ms in contract.milestones)
-        if all_completed:
-            contract.state = EscrowState.JOB_COMPLETED
+        # Only transition to JOB_COMPLETED if we have multiple milestones and all are complete
+        # Don't auto-transition when milestones are being added incrementally
+        if len(contract.milestones) > 1:
+            all_completed = all(ms['completed'] for ms in contract.milestones)
+            if all_completed:
+                contract.state = EscrowState.JOB_COMPLETED
         
         log_info(f"Milestone {milestone_id} completed for contract: {contract_id}")
         return True, "Milestone completed successfully"
-    
-    async def verify_milestone(self, contract_id: str, milestone_id: str, 
-                             verified: bool, feedback: str = "") -> Tuple[bool, str]:
-        """Verify milestone completion"""
-        contract = self.escrow_contracts.get(contract_id)
-        if not contract:
-            return False, "Contract not found"
-        
-        # Find milestone
-        milestone = None
-        for ms in contract.milestones:
-            if ms['milestone_id'] == milestone_id:
-                milestone = ms
-                break
-        
-        if not milestone:
-            return False, "Milestone not found"
-        
-        if not milestone['completed']:
-            return False, "Milestone not completed yet"
-        
-        # Set verification status
-        milestone['verified'] = verified
-        milestone['verification_feedback'] = feedback
-        
-        if verified:
-            # Release milestone payment
-            await self._release_milestone_payment(contract_id, milestone_id)
-        else:
-            # Create dispute if verification fails
-            await self._create_dispute(contract_id, DisputeReason.QUALITY_ISSUES, 
-                                    f"Milestone {milestone_id} verification failed: {feedback}")
-        
-        log_info(f"Milestone {milestone_id} verification: {verified} for contract: {contract_id}")
-        return True, "Milestone verification processed"
     
     async def _release_milestone_payment(self, contract_id: str, milestone_id: str):
         """Release payment for verified milestone"""
@@ -478,7 +449,7 @@ class EscrowManager:
         self.active_contracts.discard(contract_id)
         self.disputed_contracts.discard(contract_id)
         
-        log_info(f"Contract expired: {contract_id}")
+        # Contract expired successfully
         return True, "Contract expired successfully"
     
     async def get_contract_info(self, contract_id: str) -> Optional[EscrowContract]:
@@ -541,9 +512,164 @@ class EscrowManager:
             'total_amount': float(total_amount),
             'total_released': float(total_released),
             'total_refunded': float(total_refunded),
-            'total_fees': float(total_fees),
-            'average_contract_value': float(total_amount / total_contracts) if total_contracts > 0 else 0
+            'total_fees': float(total_fees)
         }
+    
+    async def add_milestone(self, contract_id: str, milestone_id: str, 
+                          amount: Decimal, description: str = "") -> Tuple[bool, str]:
+        """Add a milestone to an escrow contract"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False, "Contract not found"
+        
+        if contract.state not in [EscrowState.FUNDED, EscrowState.JOB_STARTED]:
+            return False, "Contract is not in an active state"
+        
+        # Check milestone count limit
+        if len(contract.milestones) >= self.max_milestones:
+            return False, f"Maximum {self.max_milestones} milestones reached"
+        
+        # Validate amount
+        if amount < self.min_milestone_amount:
+            return False, f"Milestone amount must be at least {self.min_milestone_amount}"
+        
+        # Add milestone
+        milestone = {
+            'milestone_id': milestone_id,
+            'description': description,
+            'amount': amount,
+            'completed': False,
+            'completed_at': None,
+            'verified': False
+        }
+        
+        contract.milestones.append(milestone)
+        return True, "Milestone added successfully"
+    
+    async def report_agent_failure(self, contract_id: str, agent_address: str, 
+                                 reason: str) -> Tuple[bool, str]:
+        """Report agent failure for a contract"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False, "Contract not found"
+        
+        if contract.agent_address != agent_address:
+            return False, "Agent address mismatch"
+        
+        if contract.state not in [EscrowState.FUNDED, EscrowState.JOB_STARTED]:
+            return False, "Contract is not in an active state"
+        
+        # Record failure in dispute evidence
+        failure_evidence = {
+            'type': 'agent_failure',
+            'agent_address': agent_address,
+            'reason': reason,
+            'timestamp': time.time()
+        }
+        
+        contract.dispute_evidence.append(failure_evidence)
+        
+        # Move to disputed state if not already
+        if contract.state != EscrowState.DISPUTED:
+            contract.state = EscrowState.DISPUTED
+            contract.dispute_reason = DisputeReason.INCOMPLETE_WORK
+            self.disputed_contracts.add(contract_id)
+            self.active_contracts.discard(contract_id)
+        
+        return True, "Agent failure reported successfully"
+    
+    async def fail_job(self, contract_id: str, reason: str = "") -> Tuple[bool, str]:
+        """Mark a job as failed and initiate refund"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False, "Contract not found"
+        
+        if contract.state not in [EscrowState.FUNDED, EscrowState.JOB_STARTED, EscrowState.DISPUTED]:
+            return False, "Contract is not in a failable state"
+        
+        # Mark as failed (refunded)
+        contract.state = EscrowState.REFUNDED
+        contract.dispute_reason = DisputeReason.TECHNICAL_ISSUES
+        
+        # Remove from active contracts
+        self.active_contracts.discard(contract_id)
+        self.disputed_contracts.discard(contract_id)
+        
+        # Calculate refund amount (total minus any completed milestones)
+        completed_amount = Decimal('0')
+        for milestone in contract.milestones:
+            if milestone.get('completed', False):
+                completed_amount += milestone.get('amount', Decimal('0'))
+        
+        refund_amount = contract.amount - completed_amount - contract.released_amount
+        contract.refunded_amount = refund_amount
+        
+        return True, f"Job failed, refund amount: {refund_amount}"
+    
+    async def reassign_job(self, contract_id: str, new_agent_address: str) -> Tuple[bool, str]:
+        """Reassign a job to a new agent"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False, "Contract not found"
+        
+        if contract.state not in [EscrowState.FUNDED, EscrowState.JOB_STARTED, EscrowState.DISPUTED]:
+            return False, "Contract is not in a reassignable state"
+        
+        # Update agent address
+        old_agent = contract.agent_address
+        contract.agent_address = new_agent_address
+        
+        # Reset milestone progress
+        for milestone in contract.milestones:
+            milestone['completed'] = False
+            milestone['completed_at'] = None
+            milestone['verified'] = False
+        
+        contract.current_milestone = 0
+        
+        # Move back to active if was disputed
+        if contract.state == EscrowState.DISPUTED:
+            contract.state = EscrowState.JOB_STARTED
+            self.disputed_contracts.discard(contract_id)
+            self.active_contracts.add(contract_id)
+        
+        return True, f"Job reassigned from {old_agent} to {new_agent_address}"
+    
+    async def process_refund(self, contract_id: str) -> Tuple[bool, Decimal]:
+        """Process refund for a contract"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return False, Decimal('0')
+        
+        refund_amount = contract.amount - contract.released_amount
+        contract.refunded_amount = refund_amount
+        contract.state = EscrowState.REFUNDED
+        
+        self.active_contracts.discard(contract_id)
+        self.disputed_contracts.discard(contract_id)
+        
+        return True, refund_amount
+    
+    async def process_partial_payment(self, contract_id: str) -> Tuple[Decimal, Decimal]:
+        """Process partial payment based on completed milestones"""
+        contract = self.escrow_contracts.get(contract_id)
+        if not contract:
+            return Decimal('0'), Decimal('0')
+        
+        completed_amount = Decimal('0')
+        for milestone in contract.milestones:
+            if milestone.get('completed', False):
+                completed_amount += milestone.get('amount', Decimal('0'))
+        
+        # Apply fee (2.5%)
+        fee = completed_amount * Decimal('0.025')
+        agent_payment = completed_amount - fee
+        client_refund = contract.amount - completed_amount
+        
+        contract.released_amount += agent_payment
+        contract.refunded_amount = client_refund
+        
+        return agent_payment, client_refund
 
 # Global escrow manager
 escrow_manager: Optional[EscrowManager] = None
