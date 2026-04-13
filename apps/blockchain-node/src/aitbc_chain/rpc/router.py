@@ -711,6 +711,7 @@ async def export_chain(chain_id: str = None) -> Dict[str, Any]:
                 ],
                 "accounts": [
                     {
+                        "chain_id": a.chain_id,
                         "address": a.address,
                         "balance": a.balance,
                         "nonce": a.nonce
@@ -773,9 +774,10 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
                 }
                 _logger.info(f"Backing up existing chain with {existing_count} blocks")
             
-            # Clear existing data
+            # Clear existing data - only clear accounts if we have accounts to import
             session.execute(delete(Block))
-            session.execute(delete(Account))
+            if accounts:
+                session.execute(delete(Account))
             session.execute(delete(Transaction))
             
             # Import blocks
@@ -795,7 +797,7 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
             # Import accounts
             for account_data in accounts:
                 account = Account(
-                    chain_id=chain_id,
+                    chain_id=account_data.get("chain_id", chain_id),
                     address=account_data["address"],
                     balance=account_data["balance"],
                     nonce=account_data["nonce"]
