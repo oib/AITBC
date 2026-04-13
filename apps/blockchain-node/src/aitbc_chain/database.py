@@ -80,7 +80,12 @@ _engine_internal = _engine
 def init_db() -> None:
     """Initialize database with file-based encryption"""
     settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    SQLModel.metadata.create_all(_engine)
+    try:
+        SQLModel.metadata.create_all(_engine)
+    except Exception as e:
+        # If tables already exist, that's okay
+        if "already exists" not in str(e):
+            raise
     # Set restrictive file permissions on database file
     if settings.db_path.exists():
         os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
