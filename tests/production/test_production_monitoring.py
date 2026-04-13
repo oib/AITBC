@@ -6,8 +6,7 @@ Tests Prometheus metrics, alerting, and SLA monitoring systems
 import pytest
 import requests
 import time
-import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
 class TestPrometheusMetrics:
@@ -501,10 +500,10 @@ class TestMonitoringIntegration:
         assert uptime_diff < 1.0, f"Uptime difference {uptime_diff} exceeds tolerance of 1.0 second"
         
         # Check timestamps are recent
-        summary_time = datetime.fromisoformat(summary["timestamp"].replace('Z', '+00:00'))
-        system_time = datetime.fromisoformat(system["timestamp"].replace('Z', '+00:00'))
+        summary_time = datetime.fromisoformat(summary["timestamp"].replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
+        system_time = datetime.fromisoformat(system["timestamp"].replace('Z', '+00:00')).replace(tzinfo=timezone.utc)
         
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         assert (now - summary_time).total_seconds() < 60  # Within last minute
         assert (now - system_time).total_seconds() < 60  # Within last minute
 

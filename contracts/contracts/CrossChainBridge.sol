@@ -340,15 +340,38 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Gets bridge request details
      * @param requestId The bridge request ID
-     * @return request The bridge request details
+     * @return sourceChainId The source chain ID
+     * @return targetChainId The destination chain ID
+     * @return sourceToken The source token address
+     * @return amount The amount to bridge
+     * @return recipient The recipient address
+     * @return status The request status
+     * @return createdAt The request timestamp
      */
     function getBridgeRequest(uint256 requestId) 
         external 
         view 
         validRequest(requestId)
-        returns (BridgeRequest memory) 
+        returns (
+            uint256 sourceChainId,
+            uint256 targetChainId,
+            address sourceToken,
+            uint256 amount,
+            address recipient,
+            BridgeStatus status,
+            uint256 createdAt
+        ) 
     {
-        return bridgeRequests[requestId];
+        BridgeRequest storage request = bridgeRequests[requestId];
+        return (
+            request.sourceChainId,
+            request.targetChainId,
+            request.sourceToken,
+            request.amount,
+            request.recipient,
+            request.status,
+            request.createdAt
+        );
     }
 
     /**

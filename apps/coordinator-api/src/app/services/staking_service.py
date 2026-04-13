@@ -3,6 +3,7 @@ Staking Management Service
 Business logic for AI agent staking system with reputation-based yield farming
 """
 
+import logging
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -10,6 +11,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from ..domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
+
+logger = logging.getLogger(__name__)
 
 
 class StakingService:
@@ -27,6 +30,10 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(agent_wallet)
             if not agent_metrics:
                 raise ValueError("Agent not supported for staking")
+
+            # Validate stake amount
+            if amount < 100:
+                raise ValueError("Stake amount must be at least 100 AITBC")
 
             # Calculate APY
             current_apy = await self.calculate_apy(agent_wallet, lock_period)
@@ -49,9 +56,9 @@ class StakingService:
 
             # Update agent metrics
             agent_metrics.total_staked += amount
-            if agent_metrics.total_staked == amount:
-                agent_metrics.staker_count = 1
-            else:
+            # Check if this is the first stake from this staker
+            existing_stakes = await self.get_user_stakes(staker_address, agent_wallet=agent_wallet)
+            if not existing_stakes:
                 agent_metrics.staker_count += 1
 
             # Update staking pool
@@ -68,13 +75,17 @@ class StakingService:
             self.session.rollback()
             raise
 
-    async def get_stake(self, stake_id: str) -> AgentStake | None:
+    async def get_stake(self, stake_id: str) -> AgentStake:
         """Get stake by ID"""
         try:
             stmt = select(AgentStake).where(AgentStake.stake_id == stake_id)
             result = self.session.execute(stmt).scalar_one_or_none()
+            if not result:
+                raise ValueError("Stake not found")
             return result
 
+        except ValueError:
+            raise
         except Exception as e:
             logger.error(f"Failed to get stake {stake_id}: {e}")
             raise
@@ -213,9 +224,9 @@ class StakingService:
             agent_metrics = await self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 agent_metrics.total_staked -= stake.amount
-                if agent_metrics.total_staked <= 0:
-                    agent_metrics.staker_count = 0
-                else:
+                # Check if this is the last stake from this staker
+                remaining_stakes = await self.get_user_stakes(stake.staker_address, agent_wallet=stake.agent_wallet, status=StakeStatus.ACTIVE)
+                if not remaining_stakes:
                     agent_metrics.staker_count -= 1
 
             # Update staking pool
@@ -704,6 +715,10 @@ class StakingService:
             if not pool:
                 pool = StakingPool(agent_wallet=agent_wallet)
                 self.session.add(pool)
+                self.session.commit()
+                self.session.refresh(pool)
+            else:
+                self.session.refresh(pool)
 
             if is_stake:
                 if staker_address not in pool.active_stakers:
@@ -717,6 +732,9 @@ class StakingService:
             # Update pool APY
             if pool.total_staked > 0:
                 pool.pool_apy = await self.calculate_apy(agent_wallet, 30)
+
+            self.session.commit()
+            self.session.refresh(pool)
 
         except Exception as e:
             logger.error(f"Failed to update staking pool: {e}")
