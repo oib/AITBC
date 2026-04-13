@@ -7,6 +7,10 @@ import click
 import os
 from pathlib import Path
 
+# Import island-specific commands
+from aitbc_cli.commands.gpu_marketplace import gpu
+from aitbc_cli.commands.exchange_island import exchange_island
+
 # Force version to 0.2.2
 __version__ = "0.2.2"
 
@@ -141,6 +145,8 @@ def cli(ctx, url, api_key, output, verbose, debug):
 # Add commands to CLI
 cli.add_command(system)
 cli.add_command(version)
+cli.add_command(gpu)
+cli.add_command(exchange_island)
 
 if __name__ == '__main__':
     cli()

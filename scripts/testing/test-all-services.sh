@@ -6,7 +6,7 @@ set -euo pipefail
 
 echo "=== 🧪 AITBC Comprehensive Services Test ==="
 echo "Date: $(date)"
-echo "Testing all services with new port logic (8000-8003, 8010-8016)"
+echo "Testing all services with new port logic (8000-8003, 8010-8015)"
 echo ""
 
 # Colors for output
@@ -82,7 +82,6 @@ test_service "Multimodal GPU (8010)" "http://localhost:8010/health" '"service":"
 test_service "GPU Multimodal (8011)" "http://localhost:8011/health" '"service":"gpu-multimodal"'
 test_service "Modality Optimization (8012)" "http://localhost:8012/health" '"service":"modality-optimization"'
 test_service "Adaptive Learning (8013)" "http://localhost:8013/health" '"service":"adaptive-learning"'
-test_service "Web UI (8016)" "http://localhost:8016/health" '"service":"web-ui"'
 
 echo ""
 echo "🔧 Service Features Testing"
@@ -106,7 +105,6 @@ test_port "8010" "Multimodal GPU"
 test_port "8011" "GPU Multimodal"
 test_port "8012" "Modality Optimization"
 test_port "8013" "Adaptive Learning"
-test_port "8016" "Web UI"
 
 echo ""
 echo "📊 Test Results Summary"

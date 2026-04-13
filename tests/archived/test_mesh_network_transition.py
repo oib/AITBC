@@ -266,8 +266,9 @@ class TestPhase2NetworkInfrastructure:
         port = 8000
         public_key = "test_public_key"
         
-        node_id1 = p2p_discovery.generate_node_id(address, port, public_key)
-        node_id2 = p2p_discovery.generate_node_id(address, port, public_key)
+        hostname = "node.example.com"
+        node_id1 = p2p_discovery.generate_node_id(hostname, address, port, public_key)
+        node_id2 = p2p_discovery.generate_node_id(hostname, address, port, public_key)
         
         assert node_id1 == node_id2  # Same inputs should generate same ID
         assert len(node_id1) == 64  # SHA256 hex length
