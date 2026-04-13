@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 
 from .config import settings
 from .logger import get_logger
+from .state.merkle_patricia_trie import StateManager
 from .metrics import metrics_registry
 from .models import Block, Account
 from aitbc_chain.models import Transaction as ChainTransaction
@@ -307,15 +308,15 @@ class ChainSync:
                     session.add(recipient_acct)
                     session.flush()
 
-                # Apply balances/nonce; assume block validity already verified on producer
-                total_cost = value + fee
-                sender_acct.balance -= total_cost
-                tx_nonce = tx_data.get("nonce")
-                if tx_nonce is not None:
-                    sender_acct.nonce = max(sender_acct.nonce, int(tx_nonce) + 1)
-                else:
-                    sender_acct.nonce += 1
-                recipient_acct.balance += value
+                # Apply state transition through validated transaction
+                state_transition = get_state_transition()
+                success, error_msg = state_transition.apply_transaction(
+                    session, self._chain_id, tx_data, tx_hash
+                )
+                
+                if not success:
+                    logger.warning(f"[SYNC] Failed to apply transaction {tx_hash}: {error_msg}")
+                    # For now, log warning but continue (to be enforced in production)
 
                 tx = ChainTransaction(
                     chain_id=self._chain_id,
@@ -328,6 +329,24 @@ class ChainSync:
                 session.add(tx)
 
         session.commit()
+
+        # Verify state root if provided
+        if block_data.get("state_root"):
+            state_manager = StateManager()
+            accounts = session.exec(
+                select(Account).where(Account.chain_id == self._chain_id)
+            ).all()
+            account_dict = {acc.address: acc for acc in accounts}
+            
+            computed_root = state_manager.compute_state_root(account_dict)
+            expected_root = bytes.fromhex(block_data.get("state_root").replace("0x", ""))
+            
+            if computed_root != expected_root:
+                logger.warning(
+                    f"[SYNC] State root mismatch at height {height}: "
+                    f"expected {expected_root.hex()}, computed {computed_root.hex()}"
+                )
+                # For now, log warning but accept block (to be enforced in Phase 1.3)
 
         metrics_registry.increment("sync_blocks_accepted_total")
         metrics_registry.set_gauge("sync_chain_height", float(block_data["height"]))
