@@ -71,12 +71,29 @@ class ChainSyncService:
         """Stop chain synchronization service"""
         logger.info("Stopping chain sync service")
         self._stop_event.set()
+
+    async def _get_import_head_height(self, session) -> int:
+        """Get the current height on the local import target."""
+        try:
+            async with session.get(
+                f"http://{self.import_host}:{self.import_port}/rpc/head",
+                params={"chain_id": settings.chain_id},
+            ) as resp:
+                if resp.status == 200:
+                    head_data = await resp.json()
+                    return int(head_data.get('height', 0))
+                if resp.status == 404:
+                    return -1
+                logger.warning(f"Failed to get import head height: RPC returned status {resp.status}")
+        except Exception as e:
+            logger.warning(f"Failed to get import head height: {e}")
+        return -1
     
     async def _broadcast_blocks(self):
         """Broadcast local blocks to other nodes"""
         import aiohttp
         
-        last_broadcast_height = 22505
+        last_broadcast_height = -1
         retry_count = 0
         max_retries = 5
         base_delay = settings.blockchain_monitoring_interval_seconds  # Use config setting instead of hardcoded value
@@ -85,6 +102,10 @@ class ChainSyncService:
             try:
                 # Get current head from local RPC
                 async with aiohttp.ClientSession() as session:
+                    if last_broadcast_height < 0:
+                        last_broadcast_height = await self._get_import_head_height(session)
+                        logger.info(f"Initialized sync baseline at height {last_broadcast_height} for node {self.node_id}")
+
                     async with session.get(f"http://{self.source_host}:{self.source_port}/rpc/head") as resp:
                         if resp.status == 200:
                             head_data = await resp.json()

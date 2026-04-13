@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -9,7 +10,7 @@ from fastapi.responses import JSONResponse, PlainTextResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import settings
-from .database import init_db
+from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
 from .logger import get_logger
 from .mempool import init_mempool
@@ -99,29 +100,36 @@ async def lifespan(app: FastAPI):
         broadcast_url=settings.gossip_broadcast_url,
     )
     await gossip_broker.set_backend(backend)
+    proposers = []
     
     # Initialize PoA proposer for mining integration
     if settings.enable_block_production and settings.proposer_id:
         try:
             from .consensus import PoAProposer, ProposerConfig
-            proposer_config = ProposerConfig(
-                chain_id=settings.chain_id,
-                proposer_id=settings.proposer_id,
-                interval_seconds=settings.block_time_seconds,
-                max_block_size_bytes=settings.max_block_size_bytes,
-                max_txs_per_block=settings.max_txs_per_block,
-            )
-            proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
-            
-            # Set the proposer for mining integration
-            set_poa_proposer(proposer)
-            
-            # Start the proposer if block production is enabled
-            asyncio.create_task(proposer.start())
-            
+            supported_chains = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
+            if not supported_chains and settings.chain_id:
+                supported_chains = [settings.chain_id]
+
+            for chain_id in supported_chains:
+                proposer_config = ProposerConfig(
+                    chain_id=chain_id,
+                    proposer_id=settings.proposer_id,
+                    interval_seconds=settings.block_time_seconds,
+                    max_block_size_bytes=settings.max_block_size_bytes,
+                    max_txs_per_block=settings.max_txs_per_block,
+                )
+                proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+
+                # Set the proposer for mining integration
+                set_poa_proposer(proposer)
+
+                # Start the proposer if block production is enabled
+                asyncio.create_task(proposer.start())
+                proposers.append(proposer)
+
             _app_logger.info("PoA proposer initialized for mining integration", extra={
                 "proposer_id": settings.proposer_id,
-                "chain_id": settings.chain_id
+                "supported_chains": supported_chains
             })
         except Exception as e:
             _app_logger.warning(f"Failed to initialize PoA proposer for mining: {e}")
@@ -130,6 +138,11 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
+        for proposer in proposers:
+            try:
+                await proposer.stop()
+            except Exception as exc:
+                _app_logger.warning(f"Failed to stop PoA proposer during shutdown: {exc}")
         await gossip_broker.shutdown()
         _app_logger.info("Blockchain node stopped")
 
