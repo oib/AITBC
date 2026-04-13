@@ -8,9 +8,11 @@ import logging
 import time
 import json
 import os
+import socket
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field, asdict
 from enum import Enum
+from ..config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +61,7 @@ class HubManager:
         self.local_port = local_port
         self.island_id = island_id
         self.island_name = island_name
+        self.island_chain_id = settings.island_chain_id or settings.chain_id or f"ait-{island_id[:8]}"
         self.redis_url = redis_url or "redis://localhost:6379"
 
         # Hub registration status
@@ -155,15 +158,20 @@ class HubManager:
             credentials = {}
 
             # Get genesis block hash from genesis.json
-            genesis_path = '/var/lib/aitbc/data/ait-mainnet/genesis.json'
-            if os.path.exists(genesis_path):
-                with open(genesis_path, 'r') as f:
-                    genesis_data = json.load(f)
-                    # Get genesis block hash
-                    if 'blocks' in genesis_data and len(genesis_data['blocks']) > 0:
-                        genesis_block = genesis_data['blocks'][0]
-                        credentials['genesis_block_hash'] = genesis_block.get('hash', '')
-                    credentials['genesis_block'] = genesis_data
+            genesis_candidates = [
+                str(settings.db_path.parent / 'genesis.json'),
+                f"/var/lib/aitbc/data/{settings.chain_id}/genesis.json",
+                '/var/lib/aitbc/data/ait-mainnet/genesis.json',
+            ]
+            for genesis_path in genesis_candidates:
+                if os.path.exists(genesis_path):
+                    with open(genesis_path, 'r') as f:
+                        genesis_data = json.load(f)
+                        if 'blocks' in genesis_data and len(genesis_data['blocks']) > 0:
+                            genesis_block = genesis_data['blocks'][0]
+                            credentials['genesis_block_hash'] = genesis_block.get('hash', '')
+                        credentials['genesis_block'] = genesis_data
+                    break
 
             # Get genesis address from keystore
             keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
@@ -177,45 +185,21 @@ class HubManager:
                         break
 
             # Add chain info
-            credentials['chain_id'] = self.island_chain_id or f"ait-{self.island_id[:8]}"
+            credentials['chain_id'] = self.island_chain_id
             credentials['island_id'] = self.island_id
             credentials['island_name'] = self.island_name
 
             # Add RPC endpoint (local)
-            credentials['rpc_endpoint'] = f"http://{self.local_address}:8006"
+            rpc_host = self.local_address
+            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:
+                rpc_host = settings.hub_discovery_url or socket.gethostname()
+            credentials['rpc_endpoint'] = f"http://{rpc_host}:8006"
             credentials['p2p_port'] = self.local_port
 
             return credentials
         except Exception as e:
             logger.error(f"Failed to get blockchain credentials: {e}")
             return {}
-
-    def __init__(self, local_node_id: str, local_address: str, local_port: int,
-                 island_id: str, island_name: str, redis_url: str):
-        self.local_node_id = local_node_id
-        self.local_address = local_address
-        self.local_port = local_port
-        self.island_id = island_id
-        self.island_name = island_name
-        self.island_chain_id = f"ait-{island_id[:8]}"
-        
-        self.known_hubs: Dict[str, HubInfo] = {}
-        self.peer_registry: Dict[str, PeerInfo] = {}
-        self.peer_reputation: Dict[str, float] = {}
-        self.peer_last_seen: Dict[str, float] = {}
-        
-        # GPU marketplace tracking
-        self.gpu_offers: Dict[str, dict] = {}
-        self.gpu_bids: Dict[str, dict] = {}
-        self.gpu_providers: Dict[str, dict] = {}  # node_id -> gpu info
-        
-        # Exchange tracking
-        self.exchange_orders: Dict[str, dict] = {}  # order_id -> order info
-        self.exchange_order_books: Dict[str, Dict] = {}  # pair -> {bids: [], asks: []}
-        
-        # Redis client for persistence
-        self.redis_url = redis_url
-        self._redis_client = None
 
     async def handle_join_request(self, join_request: dict) -> Optional[dict]:
         """

@@ -214,7 +214,7 @@ class ChainSync:
         with self._session_factory() as session:
             # Check for duplicate
             existing = session.exec(
-                select(Block).where(Block.hash == block_hash)
+                select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
             ).first()
             if existing:
                 metrics_registry.increment("sync_blocks_duplicate_total")
