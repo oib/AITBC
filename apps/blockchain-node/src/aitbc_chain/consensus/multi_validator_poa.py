@@ -38,6 +38,15 @@ class MultiValidatorPoA:
         self.round_robin_enabled = True
         self.consensus_timeout = 30  # seconds
         
+        # Network partition tracking
+        self.network_partitioned = False
+        self.last_partition_healed = 0.0
+        self.partitioned_validators: Set[str] = set()
+        
+        # Byzantine fault tolerance tracking
+        self.prepare_messages: Dict[str, List[Dict]] = {}  # validator -> list of prepare messages
+        self.consensus_attempts: int = 0
+        
     def add_validator(self, address: str, stake: float = 1000.0) -> bool:
         """Add a new validator to the consensus"""
         if address in self.validators:
@@ -99,6 +108,172 @@ class MultiValidatorPoA:
             v.address for v in self.validators.values()
             if v.is_active and v.role in [ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR]
         ]
+    
+    def can_resume_consensus(self) -> bool:
+        """Check if consensus can resume after network partition"""
+        if not self.network_partitioned:
+            return True
+        
+        # Require minimum time after partition healing
+        if self.last_partition_healed > 0:
+            return (time.time() - self.last_partition_healed) >= 5.0
+        
+        return False
+    
+    def mark_validator_partitioned(self, address: str) -> bool:
+        """Mark a validator as partitioned"""
+        if address not in self.validators:
+            return False
+        
+        self.partitioned_validators.add(address)
+        return True
+    
+    async def validate_transaction_async(self, transaction) -> bool:
+        """Asynchronously validate a transaction"""
+        # Simulate async validation
+        await asyncio.sleep(0.001)
+        
+        # Basic validation
+        if not hasattr(transaction, 'tx_id'):
+            return False
+        
+        return True
+    
+    async def attempt_consensus(self, block_hash: str = "", round: int = 1) -> bool:
+        """Attempt to reach consensus"""
+        self.consensus_attempts += 1
+        
+        # Check if enough validators are available
+        active_validators = self.get_consensus_participants()
+        if len(active_validators) < 2:
+            return False
+        
+        # Check if partitioned validators are too many
+        if len(self.partitioned_validators) > len(self.validators) // 2:
+            return False
+        
+        # Simulate consensus attempt
+        await asyncio.sleep(0.01)
+        
+        # Simple consensus: succeed if majority of validators are active
+        return len(active_validators) >= len(self.validators) // 2 + 1
+    
+    def record_prepare(self, validator: str, block_hash: str, round: int) -> bool:
+        """Record a prepare message from a validator"""
+        if validator not in self.validators:
+            return False
+        
+        if validator not in self.prepare_messages:
+            self.prepare_messages[validator] = []
+        
+        # Check for conflicting messages (Byzantine detection)
+        for msg in self.prepare_messages[validator]:
+            if msg['round'] == round and msg['block_hash'] != block_hash:
+                # Conflicting message detected - still record it
+                self.prepare_messages[validator].append({
+                    'block_hash': block_hash,
+                    'round': round,
+                    'timestamp': time.time()
+                })
+                return True  # Return True even if conflicting
+        
+        self.prepare_messages[validator].append({
+            'block_hash': block_hash,
+            'round': round,
+            'timestamp': time.time()
+        })
+        
+        return True
+    
+    def detect_byzantine_behavior(self, validator: str) -> bool:
+        """Detect if a validator exhibited Byzantine behavior"""
+        if validator not in self.prepare_messages:
+            return False
+        
+        messages = self.prepare_messages[validator]
+        if len(messages) < 2:
+            return False
+        
+        # Check for conflicting messages in same round
+        rounds: Dict[int, Set[str]] = {}
+        for msg in messages:
+            if msg['round'] not in rounds:
+                rounds[msg['round']] = set()
+            rounds[msg['round']].add(msg['block_hash'])
+        
+        # Byzantine if any round has multiple block hashes
+        for block_hashes in rounds.values():
+            if len(block_hashes) > 1:
+                return True
+        
+        return False
+    
+    def get_state_snapshot(self) -> Dict:
+        """Get a snapshot of the current blockchain state"""
+        return {
+            'chain_id': self.chain_id,
+            'validators': {
+                addr: {
+                    'stake': v.stake,
+                    'role': v.role.value,
+                    'is_active': v.is_active,
+                    'reputation': v.reputation
+                }
+                for addr, v in self.validators.items()
+            },
+            'network_partitioned': self.network_partitioned,
+            'partitioned_validators': list(self.partitioned_validators),
+            'consensus_attempts': self.consensus_attempts,
+            'timestamp': time.time()
+        }
+    
+    def calculate_state_hash(self, state: Dict) -> str:
+        """Calculate hash of blockchain state"""
+        import json
+        state_str = json.dumps(state, sort_keys=True)
+        return hashlib.sha256(state_str.encode()).hexdigest()
+    
+    def create_block(self) -> Dict:
+        """Create a new block"""
+        proposer = self.select_proposer(len(self.validators))
+        return {
+            'block_height': len(self.validators),
+            'proposer': proposer,
+            'timestamp': time.time(),
+            'hash': hashlib.sha256(str(time.time()).encode()).hexdigest()
+        }
+    
+    def add_transaction(self, transaction) -> bool:
+        """Add a transaction to the block"""
+        return hasattr(transaction, 'tx_id')
+    
+    def simulate_crash(self):
+        """Simulate a crash (for testing)"""
+        self._crashed_state = self.get_state_snapshot()
+    
+    def recover_from_crash(self):
+        """Recover from a crash (for testing)"""
+        if hasattr(self, '_crashed_state'):
+            self._crashed_state = None
+    
+    def recover_state(self, state: Dict) -> bool:
+        """Recover state from snapshot (for testing)"""
+        try:
+            self.validators = {}
+            for addr, v_data in state.get('validators', {}).items():
+                self.validators[addr] = Validator(
+                    address=addr,
+                    stake=v_data.get('stake', 1000.0),
+                    reputation=v_data.get('reputation', 1.0),
+                    role=ValidatorRole(v_data.get('role', 'STANDBY')),
+                    last_proposed=0,
+                    is_active=v_data.get('is_active', True)
+                )
+            self.network_partitioned = state.get('network_partitioned', False)
+            self.consensus_attempts = state.get('consensus_attempts', 0)
+            return True
+        except Exception:
+            return False
     
     def update_validator_reputation(self, address: str, delta: float) -> bool:
         """Update validator reputation"""

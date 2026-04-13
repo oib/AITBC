@@ -7,8 +7,9 @@ import os
 import json
 import time
 from typing import Dict, Optional, Tuple
+from dataclasses import dataclass
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
 
@@ -23,7 +24,7 @@ class ValidatorKeyPair:
 class KeyManager:
     """Manages validator cryptographic keys"""
     
-    def __init__(self, keys_dir: str = "/opt/aitbc/keys"):
+    def __init__(self, keys_dir: str = "/opt/aitbc/dev"):
         self.keys_dir = keys_dir
         self.key_pairs: Dict[str, ValidatorKeyPair] = {}
         self._ensure_keys_directory()
@@ -112,55 +113,61 @@ class KeyManager:
         return new_key_pair
     
     def sign_message(self, address: str, message: str) -> Optional[str]:
-        """Sign message with validator private key"""
-        key_pair = self.get_key_pair(address)
-        if not key_pair:
+        """Sign a message with validator's private key"""
+        if address not in self.key_pairs:
             return None
         
-        try:
-            # Load private key from PEM
-            private_key = serialization.load_pem_private_key(
-                key_pair.private_key_pem.encode(),
-                password=None,
-                backend=default_backend()
-            )
-            
-            # Sign message
-            signature = private_key.sign(
-                message.encode('utf-8'),
-                hashes.SHA256(),
-                default_backend()
-            )
-            
-            return signature.hex()
-        except Exception as e:
-            print(f"Error signing message: {e}")
-            return None
+        key_pair = self.key_pairs[address]
+        
+        # Load private key
+        private_key = serialization.load_pem_private_key(
+            key_pair.private_key_pem.encode(),
+            password=None,
+            backend=default_backend()
+        )
+        
+        # Sign message with explicit hash algorithm
+        signature = private_key.sign(
+            message.encode(),
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        
+        return signature.hex()
     
     def verify_signature(self, address: str, message: str, signature: str) -> bool:
-        """Verify message signature"""
-        key_pair = self.get_key_pair(address)
-        if not key_pair:
+        """Verify a message signature"""
+        if address not in self.key_pairs:
             return False
         
+        key_pair = self.key_pairs[address]
+        
+        # Load public key
+        public_key = serialization.load_pem_public_key(
+            key_pair.public_key_pem.encode(),
+            backend=default_backend()
+        )
+        
         try:
-            # Load public key from PEM
-            public_key = serialization.load_pem_public_key(
-                key_pair.public_key_pem.encode(),
-                backend=default_backend()
-            )
+            # Convert hex signature to bytes
+            signature_bytes = bytes.fromhex(signature)
             
-            # Verify signature
+            # Verify signature with explicit hash algorithm
             public_key.verify(
-                bytes.fromhex(signature),
-                message.encode('utf-8'),
-                hashes.SHA256(),
-                default_backend()
+                signature_bytes,
+                message.encode(),
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
             )
             
             return True
-        except Exception as e:
-            print(f"Error verifying signature: {e}")
+        except Exception:
             return False
     
     def get_public_key_pem(self, address: str) -> Optional[str]:

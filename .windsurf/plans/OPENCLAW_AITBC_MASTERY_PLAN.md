@@ -1,7 +1,7 @@
 ---
 description: Comprehensive OpenClaw agent training plan for AITBC software mastery from beginner to expert level
 title: OPENCLAW_AITBC_MASTERY_PLAN
-version: 1.0
+version: 2.0
 ---
 
 # OpenClaw AITBC Mastery Plan
@@ -78,7 +78,30 @@ ssh aitbc1 'cd /opt/aitbc && git reset --hard origin/main'
 **Gitea Repository**: `http://gitea.bubuit.net:3000/oib/aitbc.git`
 **GitHub Mirror**: `https://github.com/oib/AITBC.git` (push only after milestones)
 
-### 🚀 **Training Scripts Suite**
+### � **Workflow Integration**
+**Multi-Node Workflows**: Comprehensive workflow suite for deployment and operations
+- **Master Index**: [`/opt/aitbc/.windsurf/workflows/MULTI_NODE_MASTER_INDEX.md`](../workflows/MULTI_NODE_MASTER_INDEX.md)
+- **Core Setup**: [`multi-node-blockchain-setup-core.md`](../workflows/multi-node-blockchain-setup-core.md) - Prerequisites and basic node configuration
+- **Operations**: [`multi-node-blockchain-operations.md`](../workflows/multi-node-blockchain-operations.md) - Daily operations and monitoring
+- **Advanced Features**: [`multi-node-blockchain-advanced.md`](../workflows/multi-node-blockchain-advanced.md) - Smart contracts and security testing
+- **Marketplace**: [`multi-node-blockchain-marketplace.md`](../workflows/multi-node-blockchain-marketplace.md) - GPU provider testing and AI operations
+- **Production**: [`multi-node-blockchain-production.md`](../workflows/multi-node-blockchain-production.md) - Production deployment and scaling
+- **Reference**: [`multi-node-blockchain-reference.md`](../workflows/multi-node-blockchain-reference.md) - Configuration reference
+- **OpenClaw Setup**: [`multi-node-blockchain-setup-openclaw.md`](../workflows/multi-node-blockchain-setup-openclaw.md) - OpenClaw-specific deployment
+- **Communication Test**: [`blockchain-communication-test.md`](../workflows/blockchain-communication-test.md) - Cross-node verification
+
+**Test Phases**: Structured test suite for comprehensive validation
+- **Phase 1**: Consensus testing ([`/opt/aitbc/tests/phase1/consensus`](../../tests/phase1/consensus))
+- **Phase 2**: Network testing ([`/opt/aitbc/tests/phase2/network`](../../tests/phase2/network))
+- **Phase 3**: Economics testing ([`/opt/aitbc/tests/phase3/economics`](../../tests/phase3/economics))
+- **Phase 4**: Agent testing ([`/opt/aitbc/tests/phase4/agents`](../../tests/phase4/agents))
+- **Phase 5**: Contract testing ([`/opt/aitbc/tests/phase5/contracts`](../../tests/phase5/contracts))
+
+**Workflow Scripts**: Automation scripts at [`/opt/aitbc/scripts/workflow`](../../scripts/workflow)
+- 40+ workflow scripts covering setup, deployment, testing, and operations
+- See [`scripts/workflow/README.md`](../../scripts/workflow/README.md) for complete script catalog
+
+### �🚀 **Training Scripts Suite**
 **Location**: `/opt/aitbc/scripts/training/`
 
 #### **Master Training Launcher**
@@ -879,6 +902,53 @@ curl http://10.1.223.40:8000/health
 **Estimated Duration**: 4 weeks  
 **Certification**: OpenClaw AITBC Master  
 **Training Scripts**: Complete automation suite available at `/opt/aitbc/scripts/training/`
+
+---
+
+## 🌐 **Multi-Chain and Hub/Follower Integration**
+
+### **Multi-Chain Runtime (v2.0)**
+The training plan now includes multi-chain operations:
+- **Supported Chains**: `ait-testnet` (primary), `ait-devnet` (parallel)
+- **Shared Database**: `/var/lib/aitbc/data/chain.db` with chain-aware partitioning
+- **Chain-Aware RPC**: All RPC endpoints support `chain_id` parameter
+- **Chain-Specific Mempool**: Transactions partitioned by chain ID
+- **Parallel Proposer**: Separate PoA proposers per chain
+
+### **Hub/Follower Topology (v2.0)**
+Training now covers hub/follower architecture:
+- **Hub (aitbc)**: Block producer, P2P listener, chain authority
+- **Follower (aitbc1)**: Block consumer, P2P dialer, chain sync
+- **Island Management**: Hub registration and island join operations
+- **P2P Network**: Port 7070 for cross-node communication
+- **Chain Sync Service**: Automated block import from hub to follower
+
+### **Workflow Integration**
+Training stages now reference comprehensive workflow documentation:
+- **Stage 2**: Uses [`multi-node-blockchain-operations.md`](../workflows/multi-node-blockchain-operations.md) and [`blockchain-communication-test.md`](../workflows/blockchain-communication-test.md)
+- **Stage 5**: Uses [`multi-node-blockchain-advanced.md`](../workflows/multi-node-blockchain-advanced.md) and [`multi-node-blockchain-production.md`](../workflows/multi-node-blockchain-production.md)
+- **Test Phases**: Integration with [`/opt/aitbc/tests/phase1-5`](../../tests/) for comprehensive validation
+
+### **New Training Commands**
+Multi-chain operations:
+```bash
+# Check head on specific chain
+curl -s 'http://localhost:8006/rpc/head?chain_id=ait-testnet' | jq .
+curl -s 'http://localhost:8006/rpc/head?chain_id=ait-devnet' | jq .
+
+# Query chain-specific mempool
+curl -s 'http://localhost:8006/rpc/mempool?chain_id=ait-testnet&limit=10' | jq .
+```
+
+Hub/follower operations:
+```bash
+# Check P2P connections
+ss -tnp | grep ':7070'
+
+# Run cross-node communication test
+cd /opt/aitbc
+./scripts/blockchain-communication-test.sh --full
+```
 
 ---
 

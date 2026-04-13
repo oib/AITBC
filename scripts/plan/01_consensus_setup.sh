@@ -705,7 +705,7 @@ class ValidatorKeyPair:
 class KeyManager:
     """Manages validator cryptographic keys"""
     
-    def __init__(self, keys_dir: str = "/opt/aitbc/keys"):
+    def __init__(self, keys_dir: str = "/opt/aitbc/dev"):
         self.keys_dir = keys_dir
         self.key_pairs: Dict[str, ValidatorKeyPair] = {}
         self._ensure_keys_directory()
@@ -1157,7 +1157,7 @@ main() {
     # Create necessary directories
     mkdir -p "$CONSENSUS_DIR"
     mkdir -p "/opt/aitbc/config"
-    mkdir -p "/opt/aitbc/keys"
+    mkdir -p "/opt/aitbc/dev"
     
     # Execute setup steps
     backup_consensus

@@ -7,51 +7,62 @@ The AITBC production environment follows Linux Filesystem Hierarchy Standard (FH
 ### 📁 System Directory Structure
 
 ```
-/etc/aitbc/production/          # Production configurations
+/etc/aitbc/                    # Production configurations
 ├── .env                       # Production environment variables
-├── blockchain.py              # Blockchain service config
-├── database.py                # Database configuration
-├── services.py                # Services configuration
-└── certs/                     # SSL certificates
+├── blockchain.env             # Blockchain service config
+└── production/                # Production-specific configs
 
-/var/lib/aitbc/production/     # Production services and data
-├── blockchain.py              # Production blockchain service
-├── marketplace.py             # Production marketplace service
-├── unified_marketplace.py     # Unified marketplace service
-├── openclaw_ai.py             # OpenClaw AI service
+/opt/aitbc/services/           # Production service scripts
+├── blockchain_http_launcher.py
+├── blockchain_simple.py
+├── marketplace.py
+└── ...                        # Other service scripts
+
+/var/lib/aitbc/                # Runtime data
+├── data/                      # Blockchain databases
+│   ├── blockchain/            # Blockchain data
+│   ├── coordinator/           # Coordinator database
+│   └── marketplace/           # Marketplace data
+├── keystore/                  # Cryptographic keys (secure)
 └── backups/                   # Production backups
 
-/var/log/aitbc/production/      # Production logs
+/var/log/aitbc/                # Production logs
+├── production/                # Production service logs
 ├── blockchain/                # Blockchain service logs
-├── marketplace/               # Marketplace service logs
-└── unified_marketplace/       # Unified marketplace logs
+└── coordinator/               # Coordinator logs
 ```
 
 ### 🚀 Launching Production Services
 
-Use the production launcher:
+Services are launched via systemd:
 
 ```bash
-# Launch all production services
-/opt/aitbc/scripts/production_launcher.py
+# Start blockchain node
+systemctl start aitbc-blockchain-node
 
-# Launch individual service
-python3 /var/lib/aitbc/production/blockchain.py
+# Start blockchain RPC
+systemctl start aitbc-blockchain-rpc
+
+# Start coordinator API
+systemctl start aitbc-agent-coordinator
+
+# Check status
+systemctl status aitbc-blockchain-node
 ```
 
 ### ⚙️ Configuration Management
 
-Production configurations are stored in `/etc/aitbc/production/`:
+Production configurations are stored in `/etc/aitbc/`:
 - Environment variables in `.env`
-- Service-specific configs in Python modules
-- SSL certificates in `certs/`
+- Blockchain config in `blockchain.env`
+- Service-specific configs in production subdirectory
 
 ### 📊 Monitoring and Logs
 
-Production logs are centralized in `/var/log/aitbc/production/`:
- - Each service has its own log directory
- - Logs rotate automatically
- - Real-time monitoring available
+Production logs are centralized in `/var/log/aitbc/`:
+- Each service has its own log directory
+- Logs rotate automatically
+- Real-time monitoring available
 
 Coordinator observability endpoints:
  - JSON metrics endpoint: `http://localhost:8000/v1/metrics`
@@ -68,22 +79,23 @@ Current monitoring flow:
 
 ### 🔧 Maintenance
 
-- **Backups**: Stored in `/var/lib/aitbc/production/backups/`
+- **Backups**: Stored in `/var/lib/aitbc/backups/`
 - **Updates**: Update code in `/opt/aitbc/`, restart services
-- **Configuration**: Edit files in `/etc/aitbc/production/`
+- **Configuration**: Edit files in `/etc/aitbc/`
 
 ### 🛡️ Security
 
 - All production files have proper permissions
-- Keystore remains at `/var/lib/aitbc/keystore/`
+- Keystore at `/var/lib/aitbc/keystore/` (secure, permissions 700)
 - Environment variables are protected
-- SSL certificates secured in `/etc/aitbc/production/certs/`
+- SSL certificates in `/etc/aitbc/production/certs/` (if used)
 
-## 📋 Migration Complete
+## 📋 Architecture Status
 
-The "box in box" structure has been eliminated:
-- ✅ Configurations moved to `/etc/aitbc/production/`
-- ✅ Services moved to `/var/lib/aitbc/production/`
-- ✅ Logs centralized in `/var/log/aitbc/production/`
-- ✅ Repository cleaned of production runtime files
+The AITBC production environment follows FHS compliance:
+- ✅ Configurations in `/etc/aitbc/`
+- ✅ Service scripts in `/opt/aitbc/services/`
+- ✅ Runtime data in `/var/lib/aitbc/`
+- ✅ Logs centralized in `/var/log/aitbc/`
+- ✅ Repository clean of runtime files
 - ✅ Proper FHS compliance achieved

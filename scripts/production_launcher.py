@@ -21,7 +21,7 @@ def launch_service(service_name: str, script_path: str):
     try:
         subprocess.run([
             sys.executable, 
-            str(Path("/var/lib/aitbc/production") / script_path)
+            str(Path("/opt/aitbc/services") / script_path)
         ], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Failed to launch {service_name}: {e}")

@@ -298,6 +298,106 @@ class StakingManager:
         except Exception as e:
             return False, f"Slashing failed: {str(e)}"
     
+    def calculate_epoch_rewards(self, total_reward: float = 1000.0) -> Dict[str, float]:
+        """Calculate epoch rewards for all validators"""
+        rewards = {}
+        
+        # Get total active stake
+        total_stake = self.get_total_staked()
+        if total_stake == 0:
+            return rewards
+        
+        # Calculate rewards proportional to stake
+        for validator_address, info in self.validator_info.items():
+            if info.is_active:
+                stake_share = float(info.total_stake) / float(total_stake)
+                reward = total_reward * stake_share
+                rewards[validator_address] = reward
+        
+        return rewards
+    
+    def complete_validator_exit(self, validator_address: str) -> Tuple[bool, str]:
+        """Complete validator exit process after unstaking period"""
+        try:
+            validator_info = self.validator_info.get(validator_address)
+            if not validator_info:
+                return False, "Validator not found"
+            
+            # Find all unstaking positions for this validator
+            unstaking_positions = [
+                pos for pos in self.stake_positions.values()
+                if pos.validator_address == validator_address and
+                pos.status == StakingStatus.UNSTAKING
+            ]
+            
+            if not unstaking_positions:
+                return False, "No unstaking positions found"
+            
+            # Check if unstaking period has elapsed
+            current_time = time.time()
+            for position in unstaking_positions:
+                request_key = f"{validator_address}:{position.delegator_address}"
+                request_time = self.unstaking_requests.get(request_key, 0)
+                
+                if current_time - request_time < self.unstaking_period * 86400:
+                    return False, "Unstaking period not yet elapsed"
+                
+                # Complete unstake
+                position.status = StakingStatus.WITHDRAWN
+                del self.unstaking_requests[request_key]
+            
+            # Mark validator as inactive
+            validator_info.is_active = False
+            self._update_validator_stake_info(validator_address)
+            
+            return True, f"Completed exit for {len(unstaking_positions)} positions"
+            
+        except Exception as e:
+            return False, f"Exit completion failed: {str(e)}"
+    
+    def distribute_rewards(self, total_reward: float = 1000.0) -> Tuple[bool, str]:
+        """Distribute rewards to validators"""
+        try:
+            rewards = self.calculate_epoch_rewards(total_reward)
+            
+            if not rewards:
+                return False, "No rewards to distribute"
+            
+            # Add rewards to validator stake positions
+            for validator_address, reward_amount in rewards.items():
+                validator_positions = [
+                    pos for pos in self.stake_positions.values()
+                    if pos.validator_address == validator_address and
+                    pos.status == StakingStatus.ACTIVE
+                ]
+                
+                if not validator_positions:
+                    continue
+                
+                # Distribute reward proportionally among positions
+                total_stake = sum(pos.amount for pos in validator_positions)
+                if total_stake == 0:
+                    continue
+                
+                for position in validator_positions:
+                    share = float(position.amount) / float(total_stake)
+                    position.rewards += Decimal(str(reward_amount * share))
+            
+            return True, f"Distributed rewards to {len(rewards)} validators"
+            
+        except Exception as e:
+            return False, f"Reward distribution failed: {str(e)}"
+    
+    def get_validator_rewards(self, validator_address: str) -> float:
+        """Get total rewards for a validator"""
+        validator_positions = [
+            pos for pos in self.stake_positions.values()
+            if pos.validator_address == validator_address
+        ]
+        
+        total_rewards = sum(pos.rewards for pos in validator_positions)
+        return float(total_rewards)
+    
     def _update_validator_stake_info(self, validator_address: str):
         """Update validator stake information"""
         validator_positions = [
