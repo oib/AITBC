@@ -7,7 +7,7 @@ import pytest
 import requests
 import jwt
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
 
 class TestJWTAuthentication:
@@ -32,8 +32,6 @@ class TestJWTAuthentication:
         assert data["username"] == "admin"
         assert "expires_at" in data
         assert data["token_type"] == "Bearer"
-        
-        return data["access_token"]
     
     def test_operator_login(self):
         """Test operator user login"""
@@ -49,8 +47,6 @@ class TestJWTAuthentication:
         assert data["role"] == "operator"
         assert "access_token" in data
         assert "refresh_token" in data
-        
-        return data["access_token"]
     
     def test_user_login(self):
         """Test regular user login"""
@@ -66,8 +62,6 @@ class TestJWTAuthentication:
         assert data["role"] == "user"
         assert "access_token" in data
         assert "refresh_token" in data
-        
-        return data["access_token"]
     
     def test_invalid_login(self):
         """Test login with invalid credentials"""
@@ -94,7 +88,12 @@ class TestJWTAuthentication:
     def test_token_validation(self):
         """Test JWT token validation"""
         # Login to get token
-        token = self.test_admin_login()
+        response = requests.post(
+            f"{self.BASE_URL}/auth/login",
+            json={"username": "admin", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        token = response.json()["access_token"]
         
         # Validate token
         response = requests.post(
@@ -136,8 +135,8 @@ class TestJWTAuthentication:
             "user_id": "test_user",
             "username": "test",
             "role": "user",
-            "exp": datetime.utcnow() - timedelta(hours=1),  # Expired 1 hour ago
-            "iat": datetime.utcnow() - timedelta(hours=2),
+            "exp": datetime.now(timezone.utc) - timedelta(hours=1),  # Expired 1 hour ago
+            "iat": datetime.now(timezone.utc) - timedelta(hours=2),
             "type": "access"
         }
         
@@ -326,13 +325,26 @@ class TestAPIKeyManagement:
         assert "permissions" in data
         assert "created_at" in data
         assert len(data["api_key"]) > 30  # Should be a long secure key
-        
-        return data["api_key"]
     
     def test_validate_api_key(self):
         """Test API key validation"""
-        # Generate API key first
-        api_key = self.test_generate_api_key()
+        # Login as admin and generate API key
+        response = requests.post(
+            f"{self.BASE_URL}/auth/login",
+            json={"username": "admin", "password": "admin123"},
+            headers={"Content-Type": "application/json"}
+        )
+        token = response.json()["access_token"]
+        
+        response = requests.post(
+            f"{self.BASE_URL}/auth/api-key/generate?user_id=test_user_validate",
+            json=["agent:view", "task:view"],
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json"
+            }
+        )
+        api_key = response.json()["api_key"]
         
         # Validate API key (use query parameter)
         response = requests.post(

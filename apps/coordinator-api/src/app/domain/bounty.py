@@ -4,7 +4,7 @@ Database models for AI agent bounty system with ZK-proof verification
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 

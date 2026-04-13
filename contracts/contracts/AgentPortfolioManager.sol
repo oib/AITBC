@@ -289,7 +289,6 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
      * @dev Creates a new trading strategy
      * @param name The strategy name
      * @param strategyType The strategy type
-     * @param allocations Target allocations for each supported asset
      * @param maxDrawdown Maximum allowed drawdown
      * @param rebalanceFrequency Rebalancing frequency in seconds
      * @return strategyId The ID of the created strategy
@@ -297,7 +296,6 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
     function createStrategy(
         string memory name,
         StrategyType strategyType,
-        mapping(string => uint256) storage allocations,
         uint256 maxDrawdown,
         uint256 rebalanceFrequency
     ) 
@@ -316,18 +314,36 @@ contract AgentPortfolioManager is Ownable, ReentrancyGuard, Pausable {
         strategy.rebalanceFrequency = rebalanceFrequency;
         strategy.isActive = true;
 
-        // Copy allocations
-        uint256 totalAllocation = 0;
-        for (uint i = 0; i < supportedAssetSymbols.length; i++) {
-            string memory symbol = supportedAssetSymbols[i];
-            strategy.targetAllocations[symbol] = allocations[symbol];
-            totalAllocation += allocations[symbol];
-        }
-
-        require(totalAllocation == 10000, "Allocations must sum to 100%");
-
         emit StrategyCreated(strategyId, name, strategyType);
         return strategyId;
+    }
+
+    /**
+     * @dev Sets target allocations for a strategy
+     * @param strategyId The strategy ID
+     * @param allocations Array of asset symbols
+     * @param allocationValues Array of allocation values (in basis points, 10000 = 100%)
+     */
+    function setStrategyAllocations(
+        uint256 strategyId,
+        string[] memory allocations,
+        uint256[] memory allocationValues
+    ) 
+        external 
+        onlyOwner 
+    {
+        require(allocations.length == allocationValues.length, "Arrays must have same length");
+        require(strategyId <= strategyCounter, "Invalid strategy ID");
+        
+        TradingStrategy storage strategy = strategies[strategyId];
+        
+        uint256 totalAllocation = 0;
+        for (uint i = 0; i < allocations.length; i++) {
+            strategy.targetAllocations[allocations[i]] = allocationValues[i];
+            totalAllocation += allocationValues[i];
+        }
+        
+        require(totalAllocation == 10000, "Allocations must sum to 100%");
     }
 
     /**

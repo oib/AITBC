@@ -151,9 +151,15 @@ def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTOR
 
 
 def send_transaction(from_wallet: str, to_address: str, amount: float, fee: float, 
-                   password: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR, 
+                   password: str, keystore_dir: Path = None, 
                    rpc_url: str = DEFAULT_RPC_URL) -> Optional[str]:
     """Send transaction from one wallet to another"""
+    
+    # Ensure keystore_dir is a Path object
+    if keystore_dir is None:
+        keystore_dir = DEFAULT_KEYSTORE_DIR
+    if isinstance(keystore_dir, str):
+        keystore_dir = Path(keystore_dir)
     
     # Get sender wallet info
     sender_keystore = keystore_dir / f"{from_wallet}.json"
@@ -174,33 +180,42 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
         print(f"Error decrypting wallet: {e}")
         return None
     
+    # Get chain_id from RPC health endpoint
+    chain_id = "ait-testnet"  # Default
+    try:
+        health_response = requests.get(f"{rpc_url}/health", timeout=5)
+        if health_response.status_code == 200:
+            health_data = health_response.json()
+            supported_chains = health_data.get("supported_chains", [])
+            if supported_chains:
+                chain_id = supported_chains[0]
+    except Exception:
+        pass
+    
     # Create transaction
     transaction = {
+        "chain_id": chain_id,
         "from": sender_address,
         "to": to_address,
         "amount": int(amount),
         "fee": int(fee),
-        "nonce": 0,  # In real implementation, get current nonce
-        "payload": "0x",
-        "chain_id": "ait-mainnet"
+        "nonce": 0,
+        "payload": {}
     }
     
-    # Sign transaction (simplified)
+    # Sign transaction
     message = json.dumps(transaction, sort_keys=True).encode()
     signature = private_key.sign(message)
     transaction["signature"] = signature.hex()
     
-    # Submit transaction
+    # Submit to blockchain
     try:
         response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction)
         if response.status_code == 200:
             result = response.json()
-            print(f"Transaction submitted successfully")
-            print(f"From: {sender_address}")
-            print(f"To: {to_address}")
-            print(f"Amount: {amount} AIT")
-            print(f"Fee: {fee} AIT")
-            return result.get("hash")
+            tx_hash = result.get("transaction_hash")
+            print(f"Transaction submitted: {tx_hash}")
+            return tx_hash
         else:
             print(f"Error submitting transaction: {response.text}")
             return None
@@ -865,21 +880,46 @@ def ai_operations(action: str, **kwargs) -> Optional[Dict]:
 def mining_operations(action: str, **kwargs) -> Optional[Dict]:
     """Handle mining operations"""
     try:
+        rpc_url = kwargs.get('rpc_url', DEFAULT_RPC_URL)
+        
         if action == "status":
+            # Query actual blockchain status from RPC
+            try:
+                response = requests.get(f"{rpc_url}/rpc/head", timeout=5)
+                if response.status_code == 200:
+                    head_data = response.json()
+                    actual_height = head_data.get('height', 0)
+                else:
+                    actual_height = 0
+            except Exception:
+                actual_height = 0
+            
             return {
                 "action": "status",
                 "mining_active": True,
-                "current_height": 166,
-                "blocks_mined": 166,
-                "rewards_earned": "1660 AIT",
+                "current_height": actual_height,
+                "blocks_mined": actual_height,
+                "rewards_earned": f"{actual_height * 10} AIT",
                 "hash_rate": "High"
             }
         
         elif action == "rewards":
+            # Query actual blockchain height for reward calculation
+            try:
+                response = requests.get(f"{rpc_url}/rpc/head", timeout=5)
+                if response.status_code == 200:
+                    head_data = response.json()
+                    actual_height = head_data.get('height', 0)
+                else:
+                    actual_height = 0
+            except Exception:
+                actual_height = 0
+            
+            total_rewards = actual_height * 10
             return {
                 "action": "rewards",
-                "total_rewards": "1660 AIT",
-                "last_reward": "10 AIT",
+                "total_rewards": f"{total_rewards} AIT",
+                "last_reward": "10 AIT" if actual_height > 0 else "0 AIT",
                 "reward_rate": "10 AIT per block",
                 "next_reward": "In ~8 seconds"
             }
@@ -988,6 +1028,18 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                     format=serialization.PublicFormat.Raw
                 ).hex()
                 
+                # Get chain_id from RPC health endpoint
+                chain_id = "ait-testnet"  # Default
+                try:
+                    health_response = requests.get(f"{rpc_url}/health", timeout=5)
+                    if health_response.status_code == 200:
+                        health_data = health_response.json()
+                        supported_chains = health_data.get("supported_chains", [])
+                        if supported_chains:
+                            chain_id = supported_chains[0]
+                except Exception:
+                    pass
+                
                 tx = {
                     "type": "transfer",
                     "from": sender_address,
@@ -996,7 +1048,7 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                     "fee": 10,
                     "nonce": int(time.time() * 1000),
                     "payload": message,
-                    "chain_id": "ait-mainnet"
+                    "chain_id": chain_id
                 }
                 
                 # Sign transaction
