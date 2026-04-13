@@ -799,6 +799,22 @@ def marketplace_operations(action: str, **kwargs) -> Optional[Dict]:
                 "name": kwargs.get("name", ""),
                 "price": kwargs.get("price", 0)
             }
+        elif action == "buy":
+            return {
+                "action": "buy",
+                "status": "Purchase successful",
+                "item_id": kwargs.get("item", ""),
+                "wallet": kwargs.get("wallet", ""),
+                "price": kwargs.get("price", 0),
+                "tx_hash": "tx_" + str(int(time.time()))
+            }
+        elif action == "orders":
+            return {
+                "action": "orders",
+                "status": "success",
+                "orders": [],
+                "count": 0
+            }
         
         else:
             return {"action": action, "status": "Not implemented yet"}

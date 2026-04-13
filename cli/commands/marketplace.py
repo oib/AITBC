@@ -245,34 +245,72 @@ def ollama_task(ctx, gpu_id: str, model: str, prompt: str, temperature: float, m
 @gpu.command(name="pay")
 @click.argument("booking_id")
 @click.argument("amount", type=float)
-@click.option("--from-wallet", required=True, help="Sender wallet address")
+@click.option("--from-wallet", required=True, help="Sender wallet name")
 @click.option("--to-wallet", required=True, help="Recipient wallet address")
 @click.option("--task-id", help="Optional task id to link payment")
 @click.pass_context
 def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, task_id: Optional[str]):
-    """Send payment via coordinator payment hook (for real blockchain processor)."""
+    """Send payment via blockchain RPC (password-free for marketplace operations)"""
     config = ctx.obj["config"]
+    
     try:
-        payload = {
+        # Get sender wallet address
+        wallet_path = Path(f"/var/lib/aitbc/keystore/{from_wallet}.json")
+        if not wallet_path.exists():
+            error(f"Wallet '{from_wallet}' not found")
+            return
+            
+        with open(wallet_path) as f:
+            wallet_data = json.load(f)
+        address = wallet_data["address"]
+        
+        # Get wallet balance from blockchain
+        rpc_url = config.get('rpc_url', 'http://localhost:8006')
+        balance_response = httpx.Client().get(f"{rpc_url}/rpc/account/{address}?chain_id=ait-testnet", timeout=5)
+        if balance_response.status_code != 200:
+            error(f"Failed to get wallet balance")
+            return
+            
+        balance_data = balance_response.json()
+        
+        if balance_data["balance"] < amount:
+            error(f"Insufficient balance. Have: {balance_data['balance']}, Need: {amount}")
+            return
+        
+        # Create payment transaction
+        tx_data = {
+            "from": address,
+            "to": to_wallet,
+            "value": amount,
+            "fee": 1,
+            "nonce": balance_data["nonce"],
+            "chain_id": "ait-testnet",
+            "payload": {
+                "type": "marketplace_payment",
+                "booking_id": booking_id,
+                "task_id": task_id,
+                "timestamp": str(time.time())
+            }
+        }
+        
+        # Submit transaction to blockchain
+        tx_response = httpx.Client().post(f"{rpc_url}/rpc/transactions/marketplace", json=tx_data, timeout=5)
+        if tx_response.status_code not in (200, 201):
+            error(f"Failed to submit payment transaction: {tx_response.text}")
+            return
+            
+        tx_result = tx_response.json()
+        
+        success(f"Payment sent: {tx_result.get('tx_hash')}")
+        output({
+            "tx_hash": tx_result.get("tx_hash"),
             "booking_id": booking_id,
             "amount": amount,
-            "from_wallet": from_wallet,
-            "to_wallet": to_wallet,
-        }
-        if task_id:
-            payload["task_id"] = task_id
-        with httpx.Client() as client:
-            response = client.post(
-                f"{config.coordinator_url}/v1/payments/send",
-                headers={"Content-Type": "application/json", "X-Api-Key": config.api_key or ""},
-                json=payload,
-            )
-        if response.status_code in (200, 201):
-            result = response.json()
-            success(f"Payment sent: {result.get('tx_id')}")
-            output(result, ctx.obj["output_format"])
-        else:
-            error(f"Failed to send payment: {response.status_code} {response.text}")
+            "from": address,
+            "to": to_wallet,
+            "remaining_balance": balance_data["balance"] - amount
+        }, ctx.obj["output_format"])
+        
     except Exception as e:
         error(f"Payment failed: {e}")
 
