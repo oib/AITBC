@@ -311,7 +311,7 @@ class DualModeWalletAdapter:
             
         rpc_url = self.config.blockchain_rpc_url
         try:
-            resp = httpx.get(f"{rpc_url}/rpc/getBalance/{from_address}?chain_id=ait-mainnet", timeout=5)
+            resp = httpx.get(f"{rpc_url}/rpc/account/{from_address}?chain_id=ait-testnet", timeout=5)
             if resp.status_code == 200:
                 data = resp.json()
                 chain_balance = data.get("balance", 0)
