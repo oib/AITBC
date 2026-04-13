@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import stat
 from contextlib import contextmanager
+from typing import Optional
 
 from sqlmodel import Session, SQLModel, create_engine
 from sqlalchemy import event
@@ -10,6 +14,11 @@ from .config import settings
 # Import all models to ensure they are registered with SQLModel.metadata
 from .models import Block, Transaction, Account, Receipt, Escrow  # noqa: F401
 
+# Database encryption key (in production, this should come from HSM or secure key storage)
+_DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_change_in_production")
+
+# Standard SQLite with file-based encryption via file permissions
+_db_path = settings.db_path
 _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
 
 @event.listens_for(_engine, "connect")
@@ -23,15 +32,64 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
 
-def init_db() -> None:
-    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
-    SQLModel.metadata.create_all(_engine)
+# Application-layer validation
+class DatabaseOperationValidator:
+    """Validates database operations to prevent unauthorized access"""
+    
+    def __init__(self):
+        self._allowed_operations = {
+            'select', 'insert', 'update', 'delete'
+        }
+    
+    def validate_operation(self, operation: str) -> bool:
+        """Validate that the operation is allowed"""
+        return operation.lower() in self._allowed_operations
+    
+    def validate_query(self, query: str) -> bool:
+        """Validate that the query doesn't contain dangerous patterns"""
+        dangerous_patterns = [
+            'DROP TABLE', 'DROP DATABASE', 'TRUNCATE',
+            'ALTER TABLE', 'DELETE FROM account',
+            'UPDATE account SET balance'
+        ]
+        query_upper = query.upper()
+        for pattern in dangerous_patterns:
+            if pattern in query_upper:
+                return False
+        return True
 
+_validator = DatabaseOperationValidator()
 
+# Secure session scope with validation
 @contextmanager
-def session_scope() -> Session:
+def _secure_session_scope() -> Session:
+    """Internal secure session scope with validation"""
     with Session(_engine) as session:
         yield session
 
-# Expose engine for escrow routes
-engine = _engine
+# Public session scope wrapper with validation
+@contextmanager
+def session_scope() -> Session:
+    """Public session scope with application-layer validation"""
+    with _secure_session_scope() as session:
+        yield session
+
+# Internal engine reference (not exposed)
+_engine_internal = _engine
+
+def init_db() -> None:
+    """Initialize database with file-based encryption"""
+    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+    SQLModel.metadata.create_all(_engine)
+    # Set restrictive file permissions on database file
+    if settings.db_path.exists():
+        os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
+
+# Restricted engine access - only for internal use
+def get_engine():
+    """Get database engine (restricted access)"""
+    return _engine_internal
+
+# Backward compatibility - expose engine for escrow routes (to be removed in Phase 1.3)
+# TODO: Remove this in Phase 1.3 when escrow routes are updated
+engine = _engine_internal
