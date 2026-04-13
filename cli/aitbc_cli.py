@@ -192,6 +192,17 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
     except Exception:
         pass
     
+    # Get actual nonce from blockchain
+    try:
+        nonce_response = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5)
+        if nonce_response.status_code == 200:
+            account_data = nonce_response.json()
+            actual_nonce = account_data.get("nonce", 0)
+        else:
+            actual_nonce = 0
+    except Exception:
+        actual_nonce = 0
+    
     # Create transaction
     transaction = {
         "chain_id": chain_id,
@@ -199,7 +210,7 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
         "to": to_address,
         "amount": int(amount),
         "fee": int(fee),
-        "nonce": 0,
+        "nonce": actual_nonce,
         "payload": {}
     }
     
@@ -1040,13 +1051,24 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                 except Exception:
                     pass
                 
+                # Get actual nonce from blockchain
+                try:
+                    nonce_response = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5)
+                    if nonce_response.status_code == 200:
+                        account_data = nonce_response.json()
+                        actual_nonce = account_data.get("nonce", 0)
+                    else:
+                        actual_nonce = 0
+                except Exception:
+                    actual_nonce = 0
+                
                 tx = {
                     "type": "transfer",
                     "from": sender_address,
                     "to": agent,
                     "amount": 0,
                     "fee": 10,
-                    "nonce": int(time.time() * 1000),
+                    "nonce": actual_nonce,
                     "payload": message,
                     "chain_id": chain_id
                 }
