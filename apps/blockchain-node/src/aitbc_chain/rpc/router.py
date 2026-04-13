@@ -677,17 +677,26 @@ async def export_chain(chain_id: str = None) -> Dict[str, Any]:
     chain_id = get_chain_id(chain_id)
     
     try:
-        with session_scope() as session:
+        # Use synchronous database operations in async context
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from ..database import _db_path
+        
+        engine = create_engine(f"sqlite:///{_db_path}")
+        Session = sessionmaker(bind=engine)
+        session = Session()
+        
+        try:
             # Get all blocks
-            blocks_result = await session.execute(select(Block).order_by(Block.height))
+            blocks_result = session.execute(select(Block).order_by(Block.height))
             blocks = blocks_result.scalars().all()
             
             # Get all accounts
-            accounts_result = await session.execute(select(Account))
+            accounts_result = session.execute(select(Account))
             accounts = accounts_result.scalars().all()
             
             # Get all transactions
-            txs_result = await session.execute(select(Transaction))
+            txs_result = session.execute(select(Transaction))
             transactions = txs_result.scalars().all()
             
             # Build export data
@@ -738,6 +747,8 @@ async def export_chain(chain_id: str = None) -> Dict[str, Any]:
                 "export_data": export_data,
                 "export_size_bytes": len(json.dumps(export_data))
             }
+        finally:
+            session.close()
     except Exception as e:
         _logger.error(f"Error exporting chain: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}")
@@ -811,7 +822,7 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
                 )
                 session.add(tx)
             
-            await session.commit()
+            session.commit()
             
             return {
                 "success": True,
@@ -827,7 +838,7 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Failed to import chain: {str(e)}")
 
 @router.post("/force-sync", summary="Force reorg to specified peer")
-async def force_sync(peer_data: dict) -> Dict[str, Any]:
+def force_sync(peer_data: dict) -> Dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
     try:
         peer_url = peer_data.get("peer_url")
@@ -850,7 +861,7 @@ async def force_sync(peer_data: dict) -> Dict[str, Any]:
             raise HTTPException(status_code=400, detail=f"Peer only has {len(peer_blocks)} blocks, cannot sync to height {target_height}")
         
         # Import peer's chain
-        import_result = await import_chain(peer_chain_data["export_data"])
+        import_result = import_chain(peer_chain_data["export_data"])
         
         return {
             "success": True,
