@@ -334,10 +334,10 @@ class TestAPIKeyManagement:
         # Generate API key first
         api_key = self.test_generate_api_key()
         
-        # Validate API key
+        # Validate API key (use query parameter)
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/validate",
-            json={"api_key": api_key},
+            params={"api_key": api_key},
             headers={"Content-Type": "application/json"}
         )
         
@@ -352,7 +352,7 @@ class TestAPIKeyManagement:
         """Test validation of invalid API key"""
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/validate",
-            json={"api_key": "invalid_api_key"},
+            params={"api_key": "invalid_api_key"},
             headers={"Content-Type": "application/json"}
         )
         
@@ -380,7 +380,7 @@ class TestAPIKeyManagement:
         )
         api_key = response.json()["api_key"]
         
-        # Revoke API key
+        # Revoke API key (use DELETE method)
         response = requests.delete(
             f"{self.BASE_URL}/auth/api-key/{api_key}",
             headers={"Authorization": f"Bearer {token}"}
@@ -391,10 +391,10 @@ class TestAPIKeyManagement:
         assert data["status"] == "success"
         assert "API key revoked" in data["message"]
         
-        # Try to validate revoked key
+        # Try to validate revoked key (use query parameter)
         response = requests.post(
             f"{self.BASE_URL}/auth/api-key/validate",
-            json={"api_key": api_key},
+            params={"api_key": api_key},
             headers={"Content-Type": "application/json"}
         )
         
