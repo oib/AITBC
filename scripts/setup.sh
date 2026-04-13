@@ -228,10 +228,9 @@ echo ""
 echo "🔧 Core Services (8000-8009):"
 check_service "Coordinator API" "http://localhost:8000/health"
 check_service "Exchange API" "http://localhost:8001/api/health"
-check_service "Marketplace API" "http://localhost:8002/health"
+check_service "Marketplace API" "http://localhost:8007/health"
 check_service "Wallet API" "http://localhost:8003/health"
 check_service "Explorer" "http://localhost:8004/health"
-check_service "Web UI" "http://localhost:8007/health"
 
 # Check blockchain node and RPC
 echo ""
@@ -282,12 +281,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-web-ui aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
-        
+
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-web-ui aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"

@@ -77,7 +77,7 @@ app.add_middleware(
         "http://localhost:3000",
         "http://localhost:8080",
         "http://localhost:8000",
-        "http://localhost:3003"
+        "http://localhost:8008"
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -358,4 +358,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=3003)
+    uvicorn.run(app, host="0.0.0.0", port=8008)

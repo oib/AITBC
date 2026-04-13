@@ -75,9 +75,9 @@ class P2PDiscovery:
         """Add bootstrap node for initial connection"""
         self.bootstrap_nodes.append((address, port))
     
-    def generate_node_id(self, address: str, port: int, public_key: str) -> str:
-        """Generate unique node ID from address, port, and public key"""
-        content = f"{address}:{port}:{public_key}"
+    def generate_node_id(self, hostname: str, address: str, port: int, public_key: str) -> str:
+        """Generate unique node ID from hostname, address, port, and public key"""
+        content = f"{hostname}:{address}:{port}:{public_key}"
         return hashlib.sha256(content.encode()).hexdigest()
     
     async def start_discovery(self):

@@ -88,10 +88,11 @@ class P2PNetworkService:
                 self.host,
                 self.port,
                 self.island_id,
-                self.island_name
+                self.island_name,
+                self.config.redis_url
             )
-            self.hub_manager.register_as_hub(self.public_endpoint[0] if self.public_endpoint else None,
-                                            self.public_endpoint[1] if self.public_endpoint else None)
+            await self.hub_manager.register_as_hub(self.public_endpoint[0] if self.public_endpoint else None,
+                                                 self.public_endpoint[1] if self.public_endpoint else None)
             logger.info("Initialized hub manager")
         
         # Discover public endpoint via STUN if configured
@@ -423,6 +424,40 @@ class P2PNetworkService:
                         
                     elif msg_type == 'handshake':
                         pass # Ignore subsequent handshakes
+                    elif msg_type == 'join_request':
+                        # Handle island join request (only if we're a hub)
+                        if self.hub_manager:
+                            logger.info(f"Received join_request from {peer_id}")
+                            response = await self.hub_manager.handle_join_request(message)
+                            if response:
+                                await self._send_message(writer, response)
+                        else:
+                            logger.warning(f"Received join_request but not a hub, ignoring")
+                    elif msg_type == 'join_response':
+                        # Handle island join response (only if we requested to join)
+                        logger.info(f"Received join_response from {peer_id}")
+                        # Store the response for the CLI to retrieve
+                        if not hasattr(self, '_join_response'):
+                            self._join_response = {}
+                        self._join_response[peer_id] = message
+                    elif msg_type == 'gpu_provider_query':
+                        # Handle GPU provider query
+                        logger.info(f"Received gpu_provider_query from {peer_id}")
+                        # Respond with GPU availability
+                        gpu_response = {
+                            'type': 'gpu_provider_response',
+                            'node_id': self.node_id,
+                            'gpu_available': self._get_gpu_count(),
+                            'gpu_specs': self._get_gpu_specs()
+                        }
+                        await self._send_message(writer, gpu_response)
+                    elif msg_type == 'gpu_provider_response':
+                        # Handle GPU provider response
+                        logger.info(f"Received gpu_provider_response from {peer_id}")
+                        # Store the response for the CLI to retrieve
+                        if not hasattr(self, '_gpu_provider_responses'):
+                            self._gpu_provider_responses = {}
+                        self._gpu_provider_responses[peer_id] = message
                     elif msg_type == 'new_transaction':
                         tx_data = message.get('tx')
                         if tx_data:
@@ -470,28 +505,101 @@ class P2PNetworkService:
             writer.close()
             try:
                 await writer.wait_closed()
-            except Exception:
+            except:
                 pass
 
-    async def _send_message(self, writer: asyncio.StreamWriter, message: dict):
-        """Helper to send a JSON message over a stream"""
+    def _get_gpu_count(self) -> int:
+        """Get the number of available GPUs on this node"""
         try:
-            data = json.dumps(message) + '\n'
-            writer.write(data.encode())
-            await writer.drain()
+            # Try to read GPU count from system
+            # This is a placeholder - in a real implementation, this would
+            # query the actual GPU hardware or a configuration file
+            import os
+            gpu_config_path = '/var/lib/aitbc/gpu_config.json'
+            if os.path.exists(gpu_config_path):
+                with open(gpu_config_path, 'r') as f:
+                    config = json.load(f)
+                    return config.get('gpu_count', 0)
+            return 0
         except Exception as e:
-            logger.error(f"Failed to send message: {e}")
+            logger.error(f"Error getting GPU count: {e}")
+            return 0
 
-    async def _ping_peers_loop(self):
-        """Periodically broadcast pings to all active connections to keep them alive"""
-        while not self._stop_event.is_set():
-            await asyncio.sleep(20)
-            ping_msg = {'type': 'ping', 'node_id': self.node_id}
-            
-            # Make a copy of writers to avoid dictionary changed during iteration error
-            writers = list(self.active_connections.values())
-            for writer in writers:
-                await self._send_message(writer, ping_msg)
+    def _get_gpu_specs(self) -> dict:
+        """Get GPU specifications for this node"""
+        try:
+            # Try to read GPU specs from system
+            # This is a placeholder - in a real implementation, this would
+            # query the actual GPU hardware or a configuration file
+            import os
+            gpu_config_path = '/var/lib/aitbc/gpu_config.json'
+            if os.path.exists(gpu_config_path):
+                with open(gpu_config_path, 'r') as f:
+                    config = json.load(f)
+                    return config.get('specs', {})
+            return {}
+        except Exception as e:
+            logger.error(f"Error getting GPU specs: {e}")
+            return {}
+
+    async def send_join_request(self, hub_address: str, hub_port: int, island_id: str, island_name: str, node_id: str, public_key_pem: str) -> Optional[dict]:
+        """
+        Send join request to a hub and wait for response
+
+        Args:
+            hub_address: Hub IP address or hostname
+            hub_port: Hub port
+            island_id: Island ID to join
+            island_name: Island name
+            node_id: Local node ID
+            public_key_pem: Public key PEM
+
+        Returns:
+            dict: Join response from hub, or None if failed
+        """
+        try:
+            # Connect to hub
+            reader, writer = await asyncio.open_connection(hub_address, hub_port)
+            logger.info(f"Connected to hub {hub_address}:{hub_port}")
+
+            # Send join request
+            join_request = {
+                'type': 'join_request',
+                'node_id': node_id,
+                'island_id': island_id,
+                'island_name': island_name,
+                'public_key_pem': public_key_pem
+            }
+            await self._send_message(writer, join_request)
+            logger.info(f"Sent join_request to hub")
+
+            # Wait for join response (with timeout)
+            try:
+                data = await asyncio.wait_for(reader.readline(), timeout=30.0)
+                if data:
+                    response = json.loads(data.decode().strip())
+                    if response.get('type') == 'join_response':
+                        logger.info(f"Received join_response from hub")
+                        writer.close()
+                        await writer.wait_closed()
+                        return response
+                    else:
+                        logger.warning(f"Unexpected response type: {response.get('type')}")
+                else:
+                    logger.warning("No response from hub")
+            except asyncio.TimeoutError:
+                logger.warning("Timeout waiting for join response")
+
+            writer.close()
+            await writer.wait_closed()
+            return None
+
+        except ConnectionRefusedError:
+            logger.error(f"Hub {hub_address}:{hub_port} refused connection")
+            return None
+        except Exception as e:
+            logger.error(f"Failed to send join request: {e}")
+            return None
 
 
 async def run_p2p_service(host: str, port: int, node_id: str, peers: str):

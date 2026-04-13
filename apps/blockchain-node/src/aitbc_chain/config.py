@@ -26,11 +26,11 @@ class ChainSettings(BaseSettings):
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
     db_path: Path = Path("/var/lib/aitbc/data/chain.db")
 
-    rpc_bind_host: str = "127.0.0.1"
+    rpc_bind_host: str = "0.0.0.0"
     rpc_bind_port: int = 8080
 
-    p2p_bind_host: str = "127.0.0.2"
-    p2p_bind_port: int = 7070
+    p2p_bind_host: str = "0.0.0.0"
+    p2p_bind_port: int = 8001
 
     proposer_id: str = ""
     proposer_key: Optional[str] = None
@@ -84,6 +84,9 @@ class ChainSettings(BaseSettings):
     island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
     hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
     bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
+
+    # Redis Configuration (Hub persistence)
+    redis_url: str = "redis://localhost:6379"  # Redis connection URL
 
     # Keystore for proposer private key (future block signing)
     keystore_path: Path = Path("/var/lib/aitbc/keystore")
