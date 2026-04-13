@@ -1,5 +1,4 @@
 from __future__ import annotations
-from sqlalchemy import func
 
 import asyncio
 import json
@@ -9,7 +8,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
-from sqlmodel import select
+from sqlmodel import select, delete
 
 from ..database import session_scope
 from ..gossip import gossip_broker
@@ -739,8 +738,6 @@ async def export_chain(chain_id: str = None) -> Dict[str, Any]:
                 "export_data": export_data,
                 "export_size_bytes": len(json.dumps(export_data))
             }
-        finally:
-            session.close()
     except Exception as e:
         _logger.error(f"Error exporting chain: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to export chain: {str(e)}")
@@ -753,6 +750,10 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
         blocks = import_data.get("blocks", [])
         accounts = import_data.get("accounts", [])
         transactions = import_data.get("transactions", [])
+        
+        # If chain_id not in import_data, try to get it from first block
+        if not chain_id and blocks:
+            chain_id = blocks[0].get("chain_id")
         
         with session_scope() as session:
             # Validate import
@@ -773,13 +774,14 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
                 _logger.info(f"Backing up existing chain with {existing_count} blocks")
             
             # Clear existing data
-            session.execute(select(Block).delete())
-            session.execute(select(Account).delete())
-            session.execute(select(Transaction).delete())
+            session.execute(delete(Block))
+            session.execute(delete(Account))
+            session.execute(delete(Transaction))
             
             # Import blocks
             for block_data in blocks:
                 block = Block(
+                    chain_id=chain_id,
                     height=block_data["height"],
                     hash=block_data["hash"],
                     parent_hash=block_data["parent_hash"],
@@ -793,6 +795,7 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
             # Import accounts
             for account_data in accounts:
                 account = Account(
+                    chain_id=chain_id,
                     address=account_data["address"],
                     balance=account_data["balance"],
                     nonce=account_data["nonce"]
