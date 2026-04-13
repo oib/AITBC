@@ -4,6 +4,7 @@ from typing import Annotated
 GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
+import logging
 import statistics
 from datetime import datetime, timedelta
 from typing import Any
@@ -19,6 +20,8 @@ from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..services.market_data_collector import MarketDataCollector
 from ..storage import get_session
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["marketplace-gpu"])
 
@@ -715,22 +718,4 @@ async def bid_gpu(request: dict[str, Any], session: Session = Depends(get_sessio
         "bid_amount": request.get("bid_amount"),
         "duration_hours": request.get("duration_hours"),
         "timestamp": datetime.utcnow().isoformat() + "Z",
-    }
-
-
-@router.get("/marketplace/gpu/{gpu_id}")
-async def get_gpu_details(gpu_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
-    """Get GPU details"""
-    # Simple implementation
-    return {
-        "gpu_id": gpu_id,
-        "name": "Test GPU",
-        "memory_gb": 8,
-        "cuda_cores": 2560,
-        "compute_capability": "8.6",
-        "price_per_hour": 10.0,
-        "status": "available",
-        "miner_id": "test-miner",
-        "region": "us-east",
-        "created_at": datetime.utcnow().isoformat() + "Z",
     }

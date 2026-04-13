@@ -342,8 +342,8 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Calculates the optimal amount of tokenB for adding liquidity
      * @param poolId The pool ID
-     * @param amountA Amount of tokenA
-     * @return optimalAmountB Optimal amount of tokenB
+     * @param amountIn Amount of tokenIn
+     * @return amountOut Optimal amount of tokenOut
      */
     function calculateOptimalSwap(uint256 poolId, uint256 amountIn) 
         external 
