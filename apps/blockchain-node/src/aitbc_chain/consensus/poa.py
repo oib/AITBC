@@ -163,12 +163,12 @@ class PoAProposer:
         from ..config import settings
         mempool = get_mempool()
 
-        # Check if we should only propose when mempool is not empty
-        if getattr(settings, "propose_only_if_mempool_not_empty", True):
-            mempool_size = mempool.size(self._config.chain_id)
-            if mempool_size == 0:
-                self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id})")
-                return False
+        # Check if we should only propose when mempool is not empty (disabled for testing)
+        # if getattr(settings, "propose_only_if_mempool_not_empty", True):
+        #     mempool_size = mempool.size(self._config.chain_id)
+        #     if mempool_size == 0:
+        #         self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id})")
+        #         return False
 
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
