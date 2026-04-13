@@ -13,10 +13,17 @@ from pathlib import Path
 from typing import Optional
 from datetime import datetime
 
-from ..utils.output import output, success, error, warning, info
-from ..core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
-from ..core.node_client import NodeClient
-from ..utils import output, error, success
+try:
+    from ..utils.output import output, success, error, warning, info
+    from ..core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
+    from ..core.node_client import NodeClient
+except ImportError:
+    from utils import output, error, success, warning
+    from core.config import MultiChainConfig, load_multichain_config, get_default_node_config, add_node_config, remove_node_config
+    from core.node_client import NodeClient
+
+    def info(message):
+        print(message)
 import uuid
 
 @click.group()
@@ -501,6 +508,9 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
         # Get system hostname
         hostname = socket.gethostname()
 
+        sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
+        from aitbc_chain.config import settings as chain_settings
+
         # Get public key from keystore
         keystore_path = '/var/lib/aitbc/keystore/validator_keys.json'
         public_key_pem = None
@@ -522,22 +532,30 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
 
         # Generate node_id using hostname-based method
         local_address = socket.gethostbyname(hostname)
-        local_port = 8001  # Default hub port
+        local_port = chain_settings.p2p_bind_port
         content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Resolve hub domain to IP
         hub_ip = socket.gethostbyname(hub)
-        hub_port = 8001  # Default hub port
+        hub_port = chain_settings.p2p_bind_port
 
-        info(f"Connecting to hub {hub} ({hub_ip}:{hub_port})...")
+        click.echo(f"Connecting to hub {hub} ({hub_ip}:{hub_port})...")
 
         # Create P2P network service instance for sending join request
-        sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
         from aitbc_chain.p2p_network import P2PNetworkService
 
         # Create a minimal P2P service just for sending the join request
-        p2p_service = P2PNetworkService(local_address, local_port, node_id, [])
+        p2p_service = P2PNetworkService(
+            local_address,
+            local_port,
+            node_id,
+            "",
+            island_id=island_id,
+            island_name=island_name,
+            is_hub=is_hub,
+            island_chain_id=chain_id or chain_settings.island_chain_id or chain_settings.chain_id,
+        )
 
         # Send join request
         async def send_join():
@@ -586,9 +604,9 @@ def join(ctx, island_id, island_name, chain_id, hub, is_hub):
 
             # If registering as hub
             if is_hub:
-                info("Registering as hub...")
+                click.echo("Registering as hub...")
                 # Hub registration would happen here via the hub register command
-                info("Run 'aitbc node hub register' to complete hub registration")
+                click.echo("Run 'aitbc node hub register' to complete hub registration")
         else:
             error("Failed to join island - no response from hub")
             raise click.Abort()

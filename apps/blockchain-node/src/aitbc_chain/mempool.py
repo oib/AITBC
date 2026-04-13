@@ -35,10 +35,16 @@ class InMemoryMempool:
     def __init__(self, max_size: int = 10_000, min_fee: int = 0, chain_id: str = None) -> None:
         from .config import settings
         self._lock = Lock()
-        self._transactions: Dict[str, PendingTransaction] = {}
+        self._transactions: Dict[str, Dict[str, PendingTransaction]] = {}
         self._max_size = max_size
         self._min_fee = min_fee
         self.chain_id = chain_id or settings.chain_id
+
+    def _get_chain_transactions(self, chain_id: str) -> Dict[str, PendingTransaction]:
+        return self._transactions.setdefault(chain_id, {})
+
+    def _total_size(self) -> int:
+        return sum(len(chain_txs) for chain_txs in self._transactions.values())
 
     def add(self, tx: Dict[str, Any], chain_id: str = None) -> str:
         from .config import settings
@@ -55,12 +61,13 @@ class InMemoryMempool:
             fee=fee, size_bytes=size_bytes
         )
         with self._lock:
-            if tx_hash in self._transactions:
+            chain_transactions = self._get_chain_transactions(chain_id)
+            if tx_hash in chain_transactions:
                 return tx_hash  # duplicate
-            if len(self._transactions) >= self._max_size:
-                self._evict_lowest_fee()
-            self._transactions[tx_hash] = entry
-            metrics_registry.set_gauge("mempool_size", float(len(self._transactions)))
+            if len(chain_transactions) >= self._max_size:
+                self._evict_lowest_fee(chain_id)
+            chain_transactions[tx_hash] = entry
+            metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
         return tx_hash
 
@@ -69,7 +76,7 @@ class InMemoryMempool:
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
-            return list(self._transactions.values())
+            return list(self._get_chain_transactions(chain_id).values())
 
     def drain(self, max_count: int, max_bytes: int, chain_id: str = None) -> List[PendingTransaction]:
         from .config import settings
@@ -77,8 +84,9 @@ class InMemoryMempool:
             chain_id = settings.chain_id
         """Drain transactions for block inclusion, prioritized by fee (highest first)."""
         with self._lock:
+            chain_transactions = self._get_chain_transactions(chain_id)
             sorted_txs = sorted(
-                self._transactions.values(),
+                chain_transactions.values(),
                 key=lambda t: (-t.fee, t.received_at)
             )
             result: List[PendingTransaction] = []
@@ -92,9 +100,9 @@ class InMemoryMempool:
                 total_bytes += tx.size_bytes
 
             for tx in result:
-                del self._transactions[tx.tx_hash]
+                del chain_transactions[tx.tx_hash]
 
-            metrics_registry.set_gauge("mempool_size", float(len(self._transactions)))
+            metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))
             return result
 
@@ -103,9 +111,9 @@ class InMemoryMempool:
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
-            removed = self._transactions.pop(tx_hash, None) is not None
+            removed = self._get_chain_transactions(chain_id).pop(tx_hash, None) is not None
             if removed:
-                metrics_registry.set_gauge("mempool_size", float(len(self._transactions)))
+                metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             return removed
 
     def size(self, chain_id: str = None) -> int:
@@ -113,7 +121,7 @@ class InMemoryMempool:
         if chain_id is None:
             chain_id = settings.chain_id
         with self._lock:
-            return len(self._transactions)
+            return len(self._get_chain_transactions(chain_id))
 
     def get_pending_transactions(self, chain_id: str = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
@@ -124,20 +132,21 @@ class InMemoryMempool:
         with self._lock:
             # Get transactions sorted by fee (highest first) and time
             sorted_txs = sorted(
-                self._transactions.values(),
+                self._get_chain_transactions(chain_id).values(),
                 key=lambda t: (-t.fee, t.received_at)
             )
             
             # Return only the content, limited by the limit parameter
             return [tx.content for tx in sorted_txs[:limit]]
 
-    def _evict_lowest_fee(self) -> None:
+    def _evict_lowest_fee(self, chain_id: str) -> None:
         """Evict the lowest-fee transaction to make room."""
-        if not self._transactions:
+        chain_transactions = self._get_chain_transactions(chain_id)
+        if not chain_transactions:
             return
-        lowest = min(self._transactions.values(), key=lambda t: (t.fee, -t.received_at))
-        del self._transactions[lowest.tx_hash]
-        metrics_registry.increment(f"mempool_evictions_total_{self.chain_id}")
+        lowest = min(chain_transactions.values(), key=lambda t: (t.fee, -t.received_at))
+        del chain_transactions[lowest.tx_hash]
+        metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
 
 
 class DatabaseMempool:
