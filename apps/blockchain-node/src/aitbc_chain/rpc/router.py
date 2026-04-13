@@ -314,7 +314,7 @@ async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Failed to get mempool: {str(e)}")
 
 
-@router.get("/accounts/{address}", summary="Get account information")
+@router.get("/account/{address}", summary="Get account information")
 async def get_account(address: str, chain_id: str = None) -> Dict[str, Any]:
     """Get account information"""
     chain_id = get_chain_id(chain_id)
@@ -330,6 +330,12 @@ async def get_account(address: str, chain_id: str = None) -> Dict[str, Any]:
             "nonce": account.nonce,
             "chain_id": account.chain_id
         }
+
+
+@router.get("/accounts/{address}", summary="Get account information (alias)")
+async def get_account_alias(address: str, chain_id: str = None) -> Dict[str, Any]:
+    """Get account information (alias endpoint)"""
+    return await get_account(address, chain_id)
 
 
 @router.get("/transactions", summary="Query transactions")

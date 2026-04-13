@@ -966,7 +966,7 @@ def balance(ctx, address, chain_id, all_chains):
                 for chain in chains:
                     try:
                         response = client.get(
-                            f"{_get_node_endpoint(ctx)}/rpc/getBalance/{address}?chain_id={chain}",
+                            f"{_get_node_endpoint(ctx)}/rpc/account/{address}?chain_id={chain}",
                             timeout=5
                         )
                         if response.status_code == 200:

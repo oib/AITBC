@@ -673,7 +673,7 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Di
         address = wallet_data["address"]
         
         # Get account info from RPC
-        response = requests.get(f"{rpc_url}/rpc/accounts/{address}")
+        response = requests.get(f"{rpc_url}/rpc/account/{address}?chain_id=ait-testnet")
         if response.status_code == 200:
             account_info = response.json()
             return {
