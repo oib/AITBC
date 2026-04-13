@@ -6,7 +6,7 @@
 **Prerequisites**: Basic computer skills  
 **Estimated Time**: Varies by learning path  
 **Last Updated**: 2026-04-13  
-**Version**: 6.0 (April 13, 2026 Update - Federated Mesh Architecture)
+**Version**: 6.1 (April 13, 2026 Update - Test Cleanup & Milestone Tracking Fix)
 
 ## 🎉 **PROJECT STATUS: 100% COMPLETED - April 13, 2026**
 
@@ -155,7 +155,7 @@ For historical reference, duplicate content, and temporary files.
 2. Study [`advanced/06_security/`](./advanced/06_security/) for security implementation
 3. Check [`expert/01_issues/`](./expert/01_issues/) for issue resolution
 
-## 📊 **Current Status: PRODUCTION READY - March 18, 2026**
+## 📊 **Current Status: PRODUCTION READY - April 13, 2026**
 
 ### ✅ **Completed Features (100%)**
 - **Core Infrastructure**: Coordinator API, Blockchain Node, Miner Node fully operational
@@ -164,13 +164,41 @@ For historical reference, duplicate content, and temporary files.
 - **Multi-Chain Support**: Complete 7-layer architecture with chain isolation
 - **AI-Powered Features**: Advanced surveillance, trading engine, and analytics
 - **Security**: Multi-sig, time-lock, and compliance features implemented
+- **Test Cleanup**: Removed 12 legacy test files, consolidated configuration
+- **Production Architecture**: Aligned with current codebase, systemd service management
 
-### 🎯 **Latest Achievements (March 18, 2026)**
-- **Documentation Organization**: Restructured by reading level with systematic prefixes
-- **Duplicate Content Cleanup**: Removed duplicate files and organized archives
-- **GitHub PR Resolution**: All dependency updates completed and pushed
-- **Multi-Chain System**: Complete 7-layer architecture operational
-- **AI Integration**: Advanced surveillance and analytics implemented
+### 🎯 **Latest Release: v0.3.1**
+
+**Released**: April 13, 2026  
+**Status**: ✅ Stable
+
+### Key Features
+- **Milestone Tracking Fix**: Fixed state transition issue in escrow milestone completion
+- **Test Cleanup**: Removed 12 legacy test files, consolidated conftest configuration
+- **Production Architecture**: Removed legacy /var/lib/aitbc/production directory, aligned with current codebase
+- **Key Management**: Updated default keys_dir to /opt/aitbc/dev for development
+
+### Migration Notes
+- Review [RELEASE_v0.3.1.md](./RELEASE_v0.3.1.md) for detailed migration instructions
+- Legacy conftest files removed (use main conftest.py)
+- Phase test runner removed (use run_production_tests.py)
+- Production services now managed via systemd
+
+## 🎯 **Previous Release: v0.2.5**
+
+**Released**: March 30, 2026  
+**Status**: ✅ Stable
+
+### Key Features
+- Enhanced multi-node blockchain synchronization
+- Improved consensus mechanism
+- Updated monitoring and alerting
+- Security hardening improvements
+
+### Migration Notes
+- Review [RELEASE_v0.2.5.md](./RELEASE_v0.2.5.md) for detailed migration instructions
+- Update configuration files as needed
+- Test new features in development environment first
 
 ## 🏷️ **File Naming Convention**
 
