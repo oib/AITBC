@@ -6,7 +6,8 @@ DNS-based hub discovery for federated mesh with hardcoded fallback
 import asyncio
 import logging
 import socket
-from typing import List, Optional, Tuple
+import json
+from typing import List, Optional, Tuple, Dict
 from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -102,16 +103,73 @@ class HubDiscovery:
             for address, port in self.FALLBACK_HUBS
         ]
     
-    async def register_hub(self, hub_address: str, hub_port: int, discovery_url: Optional[str] = None) -> bool:
+    async def register_hub(self, hub_info: Dict, discovery_url: Optional[str] = None) -> bool:
         """
-        Register this node as a hub (placeholder for future DNS registration)
-        
-        Note: This is a placeholder for future DNS registration functionality.
-        Currently, hub registration is done via manual DNS configuration.
+        Register this node as a hub with DNS discovery service
+
+        Args:
+            hub_info: Dictionary containing hub information (node_id, address, port, island_id, island_name, public_address, public_port, public_key_pem)
+            discovery_url: Optional custom discovery URL (uses default if not provided)
+
+        Returns:
+            bool: True if registration successful, False otherwise
         """
-        logger.info(f"Hub registration placeholder: {hub_address}:{hub_port}")
-        # Future: Implement dynamic DNS registration
-        return True
+        url = discovery_url or self.discovery_url
+        registration_url = f"https://{url}/api/register"
+
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(registration_url, json=hub_info)
+
+                if response.status_code == 200:
+                    logger.info(f"Successfully registered hub {hub_info.get('node_id')} with DNS discovery service")
+                    return True
+                else:
+                    logger.error(f"DNS registration failed: {response.status_code} - {response.text}")
+                    return False
+
+        except httpx.RequestError as e:
+            logger.error(f"DNS registration request failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"DNS registration error: {e}")
+            return False
+
+    async def unregister_hub(self, node_id: str, discovery_url: Optional[str] = None) -> bool:
+        """
+        Unregister this node as a hub from DNS discovery service
+
+        Args:
+            node_id: Node ID to unregister
+            discovery_url: Optional custom discovery URL (uses default if not provided)
+
+        Returns:
+            bool: True if unregistration successful, False otherwise
+        """
+        url = discovery_url or self.discovery_url
+        unregistration_url = f"https://{url}/api/unregister"
+
+        try:
+            import httpx
+
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(unregistration_url, json={"node_id": node_id})
+
+                if response.status_code == 200:
+                    logger.info(f"Successfully unregistered hub {node_id} from DNS discovery service")
+                    return True
+                else:
+                    logger.error(f"DNS unregistration failed: {response.status_code} - {response.text}")
+                    return False
+
+        except httpx.RequestError as e:
+            logger.error(f"DNS unregistration request failed: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"DNS unregistration error: {e}")
+            return False
     
     def clear_cache(self):
         """Clear cached hub list"""

@@ -60,7 +60,7 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 
 
 class TransactionRequest(BaseModel):
-    type: str = Field(description="Transaction type, e.g. TRANSFER or RECEIPT_CLAIM")
+    type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE")
     sender: str
     nonce: int
     fee: int = Field(ge=0)
@@ -70,8 +70,9 @@ class TransactionRequest(BaseModel):
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
         normalized = self.type.upper()
-        if normalized not in {"TRANSFER", "RECEIPT_CLAIM"}:
-            raise ValueError(f"unsupported transaction type: {self.type}")
+        valid_types = {"TRANSFER", "RECEIPT_CLAIM", "GPU_MARKETPLACE", "EXCHANGE"}
+        if normalized not in valid_types:
+            raise ValueError(f"unsupported transaction type: {normalized}. Valid types: {valid_types}")
         self.type = normalized
         return self
 
@@ -201,31 +202,83 @@ async def get_mempool(chain_id: str = None, limit: int = 100) -> Dict[str, Any]:
 
 
 @router.get("/accounts/{address}", summary="Get account information")
-async def get_account(address: str) -> Dict[str, Any]:
-    """Get account information including balance"""
-    from ..models import Account
+async def get_account(address: str, chain_id: str = None) -> Dict[str, Any]:
+    """Get account information"""
+    chain_id = get_chain_id(chain_id)
     
-    try:
-        with session_scope() as session:
-            account = session.exec(select(Account).where(Account.address == address)).first()
+    with session_scope() as session:
+        account = session.exec(select(Account).where(Account.address == address).where(Account.chain_id == chain_id)).first()
+        if not account:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        
+        return {
+            "address": account.address,
+            "balance": account.balance,
+            "nonce": account.nonce,
+            "chain_id": account.chain_id
+        }
+
+
+@router.get("/transactions", summary="Query transactions")
+async def query_transactions(
+    transaction_type: Optional[str] = None,
+    island_id: Optional[str] = None,
+    pair: Optional[str] = None,
+    status: Optional[str] = None,
+    order_id: Optional[str] = None,
+    limit: Optional[int] = 100,
+    chain_id: str = None
+) -> List[Dict[str, Any]]:
+    """Query transactions with optional filters"""
+    chain_id = get_chain_id(chain_id)
+    
+    with session_scope() as session:
+        query = select(Transaction).where(Transaction.chain_id == chain_id)
+        
+        # Apply filters based on payload fields
+        transactions = session.exec(query).all()
+        
+        results = []
+        for tx in transactions:
+            # Filter by transaction type in payload
+            if transaction_type and tx.payload.get('type') != transaction_type:
+                continue
             
-            if account is None:
-                return {
-                    "address": address,
-                    "balance": 0,
-                    "nonce": 0,
-                    "exists": False
-                }
+            # Filter by island_id in payload
+            if island_id and tx.payload.get('island_id') != island_id:
+                continue
             
-            return {
-                "address": account.address,
-                "balance": account.balance,
-                "nonce": account.nonce,
-                "exists": True
-            }
-    except Exception as e:
-        _logger.error("Failed to get account", extra={"error": str(e), "address": address})
-        raise HTTPException(status_code=500, detail=f"Failed to get account: {str(e)}")
+            # Filter by pair in payload
+            if pair and tx.payload.get('pair') != pair:
+                continue
+            
+            # Filter by status in payload
+            if status and tx.payload.get('status') != status:
+                continue
+            
+            # Filter by order_id in payload
+            if order_id and tx.payload.get('order_id') != order_id and tx.payload.get('offer_id') != order_id and tx.payload.get('bid_id') != order_id:
+                continue
+            
+            results.append({
+                "transaction_id": tx.id,
+                "tx_hash": tx.tx_hash,
+                "sender": tx.sender,
+                "recipient": tx.recipient,
+                "payload": tx.payload,
+                "status": tx.status,
+                "created_at": tx.created_at.isoformat(),
+                "timestamp": tx.timestamp,
+                "nonce": tx.nonce,
+                "value": tx.value,
+                "fee": tx.fee
+            })
+        
+        # Apply limit
+        if limit:
+            results = results[:limit]
+        
+        return results
 
 
 @router.get("/blocks-range", summary="Get blocks in height range")
