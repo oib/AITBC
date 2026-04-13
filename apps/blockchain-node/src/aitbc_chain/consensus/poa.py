@@ -171,25 +171,25 @@ class PoAProposer:
                     recipient = tx_data.get("to")
                     value = tx_data.get("amount", 0)
                     fee = tx_data.get("fee", 0)
-                    
+
                     self._logger.info(f"[PROPOSE] Processing tx {tx.tx_hash}: from={sender}, to={recipient}, amount={value}, fee={fee}")
-                    
+
                     if not sender or not recipient:
                         self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: missing sender or recipient")
                         continue
-                    
+
                     # Get sender account
                     sender_account = session.get(Account, (self._config.chain_id, sender))
                     if not sender_account:
                         self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: sender account not found for {sender}")
                         continue
-                    
+
                     # Check sufficient balance
                     total_cost = value + fee
                     if sender_account.balance < total_cost:
                         self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: insufficient balance (has {sender_account.balance}, needs {total_cost})")
                         continue
-                    
+
                     # Get or create recipient account
                     recipient_account = session.get(Account, (self._config.chain_id, recipient))
                     if not recipient_account:
@@ -199,12 +199,12 @@ class PoAProposer:
                         session.flush()
                     else:
                         self._logger.info(f"[PROPOSE] Recipient account exists for {recipient}")
-                    
+
                     # Update balances
                     sender_account.balance -= total_cost
                     sender_account.nonce += 1
                     recipient_account.balance += value
-                    
+
                     # Check if transaction already exists in database
                     existing_tx = session.exec(
                         select(Transaction).where(
@@ -212,11 +212,11 @@ class PoAProposer:
                             Transaction.tx_hash == tx.tx_hash
                         )
                     ).first()
-                    
+
                     if existing_tx:
                         self._logger.warning(f"[PROPOSE] Skipping tx {tx.tx_hash}: already exists in database at block {existing_tx.block_height}")
                         continue
-                    
+
                     # Create transaction record
                     transaction = Transaction(
                         chain_id=self._config.chain_id,
@@ -234,11 +234,17 @@ class PoAProposer:
                     session.add(transaction)
                     processed_txs.append(tx)
                     self._logger.info(f"[PROPOSE] Successfully processed tx {tx.tx_hash}: updated balances")
-                    
+
                 except Exception as e:
                     self._logger.warning(f"Failed to process transaction {tx.tx_hash}: {e}")
                     continue
-            
+
+            if pending_txs and not processed_txs and getattr(settings, "propose_only_if_mempool_not_empty", True):
+                self._logger.warning(
+                    f"[PROPOSE] Skipping block proposal: all drained transactions were invalid (count={len(pending_txs)}, chain={self._config.chain_id})"
+                )
+                return False
+
             # Compute block hash with transaction data
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
 
@@ -388,7 +394,12 @@ class PoAProposer:
 
     def _fetch_chain_head(self) -> Optional[Block]:
         with self._session_factory() as session:
-            return session.exec(select(Block).order_by(Block.height.desc()).limit(1)).first()
+            return session.exec(
+                select(Block)
+                .where(Block.chain_id == self._config.chain_id)
+                .order_by(Block.height.desc())
+                .limit(1)
+            ).first()
 
     def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list = None) -> str:
         # Include transaction hashes in block hash computation
