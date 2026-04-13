@@ -9,9 +9,11 @@ from typing import Callable, ContextManager, Optional
 from sqlmodel import Session, select
 
 from ..gossip import gossip_broker
+from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
 from ..state.state_transition import get_state_transition
 from ..config import ProposerConfig
+from ..metrics import metrics_registry
 from ..models import Block, Account
 
 _METRIC_KEY_SANITIZE = re.compile(r"[^a-zA-Z0-9_]")
@@ -22,29 +24,29 @@ def _sanitize_metric_suffix(value: str) -> str:
     return sanitized or "unknown"
 
 
-def _compute_state_root(session: Session, chain_id: str) -> str:
-    """Compute state root from current account state."""
-    try:
-        state_manager = StateManager()
-        
-        # Get all accounts for this chain
-        accounts = session.exec(
-            select(Account).where(Account.chain_id == chain_id)
-        ).all()
-        
-        # Convert to dictionary
-        account_dict = {acc.address: acc for acc in accounts}
-        
-        # Compute state root
-        root = state_manager.compute_state_root(account_dict)
-        
-        # Return as hex string
-        return '0x' + root.hex()
-    except Exception as e:
-        # If state root computation fails, return None for now
-        # This can happen during genesis block creation when accounts don't exist yet
-        logger.warning(f"Failed to compute state root: {e}")
-        return None
+# def _compute_state_root(session: Session, chain_id: str) -> str:
+#     """Compute state root from current account state."""
+#     try:
+#         state_manager = StateManager()
+#         
+#         # Get all accounts for this chain
+#         accounts = session.exec(
+#             select(Account).where(Account.chain_id == chain_id)
+#         ).all()
+#         
+#         # Convert to dictionary
+#         account_dict = {acc.address: acc for acc in accounts}
+#         
+#         # Compute state root
+#         root = state_manager.compute_state_root(account_dict)
+#         
+#         # Return as hex string
+#         return '0x' + root.hex()
+#     except Exception as e:
+#         # If state root computation fails, return None for now
+#         # This can happen during genesis block creation when accounts don't exist yet
+#         logger.warning(f"Failed to compute state root: {e}")
+#         return None
 
 
 
@@ -293,7 +295,7 @@ class PoAProposer:
                 proposer=self._config.proposer_id,
                 timestamp=timestamp,
                 tx_count=len(processed_txs),
-                state_root=_compute_state_root(session, self._config.chain_id),
+                state_root=None,  # Temporarily disabled for debugging
             )
             session.add(block)
             session.commit()
@@ -364,7 +366,7 @@ class PoAProposer:
                 proposer="genesis",  # Use "genesis" as the proposer for genesis block to avoid hash conflicts
                 timestamp=timestamp,
                 tx_count=0,
-                state_root=_compute_state_root(session, self._config.chain_id),
+                state_root=None,  # Temporarily disabled for debugging
             )
             session.add(genesis)
             try:

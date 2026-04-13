@@ -6,8 +6,6 @@ Runs both the main blockchain node and P2P placeholder service
 
 import asyncio
 import logging
-import os
-import signal
 import sys
 from pathlib import Path
 
@@ -22,18 +20,10 @@ logger = logging.getLogger(__name__)
 
 class CombinedService:
     def __init__(self):
-        self._stop_event = asyncio.Event()
         self._tasks = []
-        self._loop = None
-        
-    def set_stop_event(self):
-        """Set the stop event to trigger shutdown"""
-        if self._stop_event and not self._stop_event.is_set():
-            self._stop_event.set()
         
     async def start(self):
         """Start both blockchain node and P2P server"""
-        self._loop = asyncio.get_running_loop()
         logger.info("Starting combined blockchain service")
         
         # Start blockchain node in background
@@ -43,7 +33,8 @@ class CombinedService:
         logger.info(f"Combined service started - Node on mainnet")
         
         try:
-            await self._stop_event.wait()
+            # Wait for the node task to complete
+            await node_task
         finally:
             await self.stop()
     
@@ -53,7 +44,8 @@ class CombinedService:
         
         # Cancel all tasks
         for task in self._tasks:
-            task.cancel()
+            if not task.done():
+                task.cancel()
         
         # Wait for tasks to complete
         if self._tasks:
@@ -62,25 +54,9 @@ class CombinedService:
         self._tasks.clear()
         logger.info("Combined service stopped")
 
-# Global service instance for signal handler
-_service_instance = None
-
-def signal_handler(signum, frame):
-    """Handle shutdown signals"""
-    logger.info(f"Received signal {signum}, initiating shutdown")
-    global _service_instance
-    if _service_instance:
-        _service_instance.set_stop_event()
-
 async def main():
     """Main entry point"""
-    global _service_instance
     service = CombinedService()
-    _service_instance = service
-    
-    # Set up signal handlers
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
     
     try:
         await service.start()
@@ -88,7 +64,6 @@ async def main():
         logger.info("Received keyboard interrupt")
     finally:
         await service.stop()
-        _service_instance = None
 
 if __name__ == "__main__":
     asyncio.run(main())
