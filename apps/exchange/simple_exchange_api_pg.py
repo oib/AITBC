@@ -347,7 +347,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 "error": str(e)
             }, 500)
 
-def run_server(port=3003):
+def run_server(port=8008):
     """Run the server"""
     init_db()
     

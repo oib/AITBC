@@ -31,7 +31,7 @@ def main():
         
         # Run the marketplace service
         import uvicorn
-        uvicorn.run(app, host="0.0.0.0", port=8002)
+        uvicorn.run(app, host="0.0.0.0", port=8007)
         
     except ImportError as e:
         logger.error(f"Failed to import marketplace app: {e}")
@@ -43,7 +43,7 @@ def main():
             logger.info("Successfully imported unified marketplace app")
             
             import uvicorn
-            uvicorn.run(app, host="0.0.0.0", port=8002)
+            uvicorn.run(app, host="0.0.0.0", port=8007)
             
         except ImportError as e2:
             logger.error(f"Failed to import unified marketplace: {e2}")
@@ -73,8 +73,8 @@ def heartbeat_service():
         async def root():
             return {"service": "marketplace", "status": "running", "endpoints": ["/health", "/"]}
         
-        logger.info("Starting simple marketplace API on port 8002")
-        uvicorn.run(app, host="0.0.0.0", port=8002)
+        logger.info("Starting simple marketplace API on port 8007")
+        uvicorn.run(app, host="0.0.0.0", port=8007)
         
     except ImportError:
         # Fallback to simple heartbeat

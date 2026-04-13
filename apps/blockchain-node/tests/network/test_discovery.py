@@ -21,17 +21,18 @@ class TestP2PDiscovery:
     
     def test_generate_node_id(self):
         """Test node ID generation"""
+        hostname = "node1.example.com"
         address = "127.0.0.1"
         port = 8000
         public_key = "test_public_key"
-        
-        node_id = self.discovery.generate_node_id(address, port, public_key)
-        
+
+        node_id = self.discovery.generate_node_id(hostname, address, port, public_key)
+
         assert isinstance(node_id, str)
         assert len(node_id) == 64  # SHA256 hex length
-        
+
         # Test consistency
-        node_id2 = self.discovery.generate_node_id(address, port, public_key)
+        node_id2 = self.discovery.generate_node_id(hostname, address, port, public_key)
         assert node_id == node_id2
     
     def test_add_bootstrap_node(self):
@@ -45,17 +46,18 @@ class TestP2PDiscovery:
     
     def test_generate_node_id_consistency(self):
         """Test node ID generation consistency"""
+        hostname = "node2.example.com"
         address = "192.168.1.1"
         port = 9000
         public_key = "test_key"
-        
-        node_id1 = self.discovery.generate_node_id(address, port, public_key)
-        node_id2 = self.discovery.generate_node_id(address, port, public_key)
-        
+
+        node_id1 = self.discovery.generate_node_id(hostname, address, port, public_key)
+        node_id2 = self.discovery.generate_node_id(hostname, address, port, public_key)
+
         assert node_id1 == node_id2
-        
+
         # Different inputs should produce different IDs
-        node_id3 = self.discovery.generate_node_id("192.168.1.2", port, public_key)
+        node_id3 = self.discovery.generate_node_id(hostname, "192.168.1.2", port, public_key)
         assert node_id1 != node_id3
     
     def test_get_peer_count_empty(self):

@@ -17,12 +17,11 @@ echo "Multimodal GPU (8010): $(curl -s http://localhost:8010/health | jq -r .sta
 echo "GPU Multimodal (8011): $(curl -s http://localhost:8011/health | jq -r .status 2>/dev/null || echo 'FAIL')"
 echo "Modality Optimization (8012): $(curl -s http://localhost:8012/health | jq -r .status 2>/dev/null || echo 'FAIL')"
 echo "Adaptive Learning (8013): $(curl -s http://localhost:8013/health | jq -r .status 2>/dev/null || echo 'FAIL')"
-echo "Web UI (8016): $(curl -s http://localhost:8016/health | jq -r .status 2>/dev/null || echo 'FAIL')"
 echo "Geographic Load Balancer (8017): $(curl -s http://localhost:8017/health | jq -r .status 2>/dev/null || echo 'FAIL')"
 
 echo ""
 echo "📊 Port Usage:"
-sudo netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8016|8017)" | sort
+sudo netstat -tlnp | grep -E ":(8000|8001|8003|8010|8011|8012|8013|8017)" | sort
 
 echo ""
 echo "✅ All services tested!"

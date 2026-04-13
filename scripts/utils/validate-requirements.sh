@@ -143,7 +143,7 @@ check_network() {
     echo -e "\n📋 Checking Network Requirements..."
     
     # Check if required ports are available
-    REQUIRED_PORTS=(8000 8001 8002 8003 8010 8011 8012 8013 8014 8015 8016)
+    REQUIRED_PORTS=(8000 8001 8003 8007 8008 8010 8011 8012 8013 8014 8015)
     OCCUPIED_PORTS=()
     
     for port in "${REQUIRED_PORTS[@]}"; do
