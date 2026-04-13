@@ -2,7 +2,16 @@
 
 This directory contains the comprehensive test suite for the AITBC platform, including unit tests, integration tests, end-to-end tests, security tests, and load tests.
 
-## Recent Updates (March 30, 2026)
+## Recent Updates (April 13, 2026)
+
+### ✅ Test Cleanup Completed
+- **Archived Tests**: Removed legacy archived tests directory (6 files)
+- **Conftest Consolidation**: Deleted duplicate conftest files, kept main conftest.py
+- **Test Runner Cleanup**: Deleted run_all_phase_tests.py (phase2 missing)
+- **Phase Tests Archived**: Moved phase3, phase4, phase5 to archived_phase_tests/
+- **Active Tests**: phase1, cross_phase, production, integration remain active
+
+## Previous Updates (March 30, 2026)
 
 ### ✅ Structure Improvements Completed
 - **Scripts Organization**: Test scripts moved to `scripts/testing/` and `scripts/utils/`
@@ -24,20 +33,27 @@ This directory contains the comprehensive test suite for the AITBC platform, inc
 
 ```
 tests/
-├── conftest.py              # Shared fixtures and configuration
-├── test_runner.py          # Test suite runner script
-├── load_test.py            # Load testing utilities
-├── integration_test.sh     # Integration test shell script
-├── docs/                   # Test documentation
+├── conftest.py                    # Main shared fixtures and configuration
+├── run_production_tests.py        # Production test runner
+├── load_test.py                   # Load testing utilities
+├── docs/                          # Test documentation
 │   ├── README.md
 │   ├── USAGE_GUIDE.md
 │   ├── TEST_REFACTORING_COMPLETED.md
+│   ├── cli-test-updates-completed.md
 │   └── test-integration-completed.md
-├── e2e/                    # End-to-end tests
-├── fixtures/               # Test fixtures and data
-├── openclaw_marketplace/   # OpenClaw marketplace tests
-├── .pytest_cache/          # Pytest cache (auto-generated)
-└── __pycache__/            # Python cache (auto-generated)
+├── archived_phase_tests/          # Archived legacy phase tests
+│   ├── phase3/                    # Decision framework tests
+│   ├── phase4/                    # Autonomous decision making tests
+│   └── phase5/                    # Vision integration tests
+├── phase1/                        # Phase 1 tests (active)
+│   └── consensus/                # Consensus layer tests
+├── cross_phase/                   # Cross-phase integration tests (active)
+├── production/                    # Production test suite (active)
+├── integration/                   # Integration tests (active)
+├── fixtures/                      # Test fixtures and data
+├── __pycache__/                   # Python cache (auto-generated)
+└── __pycache__/                   # Python cache (auto-generated)
 ```
 
 ### Related Test Scripts
@@ -234,10 +250,5 @@ All test logs are now centralized in `/var/log/aitbc/`:
 
 ---
 
-*Last updated: March 30, 2026*  
-*For questions or suggestions, please open an issue or contact the development team.*
-
----
-
-*Last updated: March 30, 2026*
+*Last updated: April 13, 2026*  
 *For questions or suggestions, please open an issue or contact the development team.*

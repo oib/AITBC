@@ -393,9 +393,9 @@ class PerformanceMonitor:
     
     def update_system_metrics(self, memory_bytes: int, cpu_percent: float):
         """Update system metrics"""
-        self.registry.gauge("system_memory_usage_bytes").set(memory_bytes)
-        self.registry.gauge("system_cpu_usage_percent").set(cpu_percent)
-        self.registry.gauge("system_uptime_seconds").set(time.time() - self.start_time)
+        self.registry.gauge("system_memory_usage_bytes", "Memory usage in bytes").set(memory_bytes)
+        self.registry.gauge("system_cpu_usage_percent", "CPU usage percentage").set(cpu_percent)
+        self.registry.gauge("system_uptime_seconds", "System uptime in seconds").set(time.time() - self.start_time)
     
     def update_load_balancer_strategy(self, strategy: str):
         """Update load balancer strategy"""
