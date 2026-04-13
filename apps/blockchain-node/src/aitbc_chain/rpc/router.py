@@ -338,6 +338,97 @@ async def get_account_alias(address: str, chain_id: str = None) -> Dict[str, Any
     return await get_account(address, chain_id)
 
 
+@router.post("/transactions/marketplace", summary="Submit marketplace transaction")
+async def submit_marketplace_transaction(tx_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Submit a marketplace purchase transaction to the blockchain"""
+    from ..config import settings as cfg
+    chain_id = get_chain_id(tx_data.get("chain_id"))
+    
+    metrics_registry.increment("rpc_marketplace_transaction_total")
+    start = time.perf_counter()
+    
+    try:
+        with session_scope() as session:
+            # Validate sender account
+            sender_addr = tx_data.get("from")
+            sender_account = session.get(Account, (chain_id, sender_addr))
+            if not sender_account:
+                raise ValueError(f"Sender account not found: {sender_addr}")
+            
+            # Validate balance
+            amount = tx_data.get("value", 0)
+            fee = tx_data.get("fee", 0)
+            total_cost = amount + fee
+            
+            if sender_account.balance < total_cost:
+                raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_cost}")
+            
+            # Validate nonce
+            tx_nonce = tx_data.get("nonce", 0)
+            if tx_nonce != sender_account.nonce:
+                raise ValueError(f"Invalid nonce: expected {sender_account.nonce}, got {tx_nonce}")
+            
+            # Get or create recipient account
+            recipient_addr = tx_data.get("to")
+            recipient_account = session.get(Account, (chain_id, recipient_addr))
+            if not recipient_account:
+                recipient_account = Account(
+                    chain_id=chain_id,
+                    address=recipient_addr,
+                    balance=0,
+                    nonce=0
+                )
+                session.add(recipient_account)
+            
+            # Create transaction record
+            tx_hash = compute_tx_hash(tx_data)
+            transaction = Transaction(
+                chain_id=chain_id,
+                tx_hash=tx_hash,
+                sender=sender_addr,
+                recipient=recipient_addr,
+                payload=tx_data.get("payload", {}),
+                created_at=datetime.utcnow(),
+                nonce=tx_nonce,
+                value=amount,
+                fee=fee,
+                status="pending",
+                timestamp=datetime.utcnow().isoformat()
+            )
+            session.add(transaction)
+            
+            # Update account balances (pending state)
+            sender_account.balance -= total_cost
+            sender_account.nonce += 1
+            recipient_account.balance += amount
+            
+            metrics_registry.increment("rpc_marketplace_transaction_success")
+            duration = time.perf_counter() - start
+            metrics_registry.observe("rpc_marketplace_transaction_duration_seconds", duration)
+            
+            _logger.info(f"Marketplace transaction submitted: {tx_hash[:16]}... from {sender_addr[:16]}... to {recipient_addr[:16]}... amount={amount}")
+            
+            return {
+                "success": True,
+                "tx_hash": tx_hash,
+                "status": "pending",
+                "chain_id": chain_id,
+                "amount": amount,
+                "fee": fee,
+                "from": sender_addr,
+                "to": recipient_addr
+            }
+            
+    except ValueError as e:
+        metrics_registry.increment("rpc_marketplace_transaction_validation_errors_total")
+        _logger.error(f"Marketplace transaction validation failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        metrics_registry.increment("rpc_marketplace_transaction_errors_total")
+        _logger.error(f"Failed to submit marketplace transaction", extra={"error": str(e)})
+        raise HTTPException(status_code=500, detail=f"Failed to submit marketplace transaction: {str(e)}")
+
+
 @router.get("/transactions", summary="Query transactions")
 async def query_transactions(
     transaction_type: Optional[str] = None,
