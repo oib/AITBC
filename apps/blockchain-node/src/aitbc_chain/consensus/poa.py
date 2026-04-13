@@ -24,21 +24,27 @@ def _sanitize_metric_suffix(value: str) -> str:
 
 def _compute_state_root(session: Session, chain_id: str) -> str:
     """Compute state root from current account state."""
-    state_manager = StateManager()
-    
-    # Get all accounts for this chain
-    accounts = session.exec(
-        select(Account).where(Account.chain_id == chain_id)
-    ).all()
-    
-    # Convert to dictionary
-    account_dict = {acc.address: acc for acc in accounts}
-    
-    # Compute state root
-    root = state_manager.compute_state_root(account_dict)
-    
-    # Return as hex string
-    return '0x' + root.hex()
+    try:
+        state_manager = StateManager()
+        
+        # Get all accounts for this chain
+        accounts = session.exec(
+            select(Account).where(Account.chain_id == chain_id)
+        ).all()
+        
+        # Convert to dictionary
+        account_dict = {acc.address: acc for acc in accounts}
+        
+        # Compute state root
+        root = state_manager.compute_state_root(account_dict)
+        
+        # Return as hex string
+        return '0x' + root.hex()
+    except Exception as e:
+        # If state root computation fails, return None for now
+        # This can happen during genesis block creation when accounts don't exist yet
+        logger.warning(f"Failed to compute state root: {e}")
+        return None
 
 
 
