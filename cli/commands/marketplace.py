@@ -240,7 +240,6 @@ def ollama_task(ctx, gpu_id: str, model: str, prompt: str, temperature: float, m
         else:
             error(f"Failed to submit Ollama task: {response.status_code} {response.text}")
     except Exception as e:
-        error(f"Ollama task submission failed: {e}")
 
 
 @gpu.command(name="pay")
