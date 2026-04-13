@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Optional
+import uuid
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +15,9 @@ class ProposerConfig(BaseModel):
     interval_seconds: int
     max_block_size_bytes: int
     max_txs_per_block: int
+
+# Default island ID for new installations
+DEFAULT_ISLAND_ID = str(uuid.uuid4())
 
 class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file="/etc/aitbc/.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
@@ -66,6 +70,20 @@ class ChainSettings(BaseSettings):
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
+
+    # NAT Traversal (STUN/TURN)
+    stun_servers: str = ""  # Comma-separated STUN server addresses (e.g., "stun.l.google.com:19302,jitsi.example.com:3478")
+    turn_server: Optional[str] = None  # TURN server address (future support)
+    turn_username: Optional[str] = None  # TURN username (future support)
+    turn_password: Optional[str] = None  # TURN password (future support)
+
+    # Island Configuration (Federated Mesh)
+    island_id: str = DEFAULT_ISLAND_ID  # UUID-based island identifier
+    island_name: str = "default"  # Human-readable island name
+    is_hub: bool = False  # This node acts as a hub
+    island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
+    hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
+    bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
 
     # Keystore for proposer private key (future block signing)
     keystore_path: Path = Path("/var/lib/aitbc/keystore")
