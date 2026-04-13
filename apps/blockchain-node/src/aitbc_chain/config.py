@@ -48,7 +48,7 @@ class ChainSettings(BaseSettings):
     max_txs_per_block: int = 500
 
     # Only propose blocks if mempool is not empty (prevents empty blocks)
-    propose_only_if_mempool_not_empty: bool = True
+    propose_only_if_mempool_not_empty: bool = False
 
     # Monitoring interval (in seconds)
     blockchain_monitoring_interval_seconds: int = 60
