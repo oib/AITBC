@@ -91,8 +91,14 @@ class BlockchainNode:
         self._proposers: dict[str, PoAProposer] = {}
 
     async def _setup_gossip_subscribers(self) -> None:
+        logger.info("Setting up gossip subscribers")
         # Transactions
-        tx_sub = await gossip_broker.subscribe("transactions")
+        try:
+            tx_sub = await gossip_broker.subscribe("transactions")
+            logger.info("Successfully subscribed to transactions topic")
+        except Exception as e:
+            logger.error(f"Failed to subscribe to transactions: {e}")
+            return
         
         async def process_txs():
             from .mempool import get_mempool
@@ -111,7 +117,12 @@ class BlockchainNode:
         asyncio.create_task(process_txs())
 
         # Blocks
-        block_sub = await gossip_broker.subscribe("blocks")
+        try:
+            block_sub = await gossip_broker.subscribe("blocks")
+            logger.info("Successfully subscribed to blocks topic")
+        except Exception as e:
+            logger.error(f"Failed to subscribe to blocks: {e}")
+            return
         
         async def process_blocks():
             while True:
@@ -130,6 +141,7 @@ class BlockchainNode:
                     logger.error(f"Error processing block from gossip: {exc}")
                     
         asyncio.create_task(process_blocks())
+        logger.info("Gossip subscribers setup completed")
 
     async def start(self) -> None:
         logger.info("Starting blockchain node", extra={"supported_chains": getattr(settings, 'supported_chains', settings.chain_id)})
@@ -139,7 +151,9 @@ class BlockchainNode:
             settings.gossip_backend,
             broadcast_url=settings.gossip_broadcast_url,
         )
+        logger.info(f"Initializing gossip backend: {settings.gossip_backend}, url: {settings.gossip_broadcast_url}")
         await gossip_broker.set_backend(backend)
+        logger.info("Gossip backend initialized successfully")
         
         init_db()
         init_mempool(
