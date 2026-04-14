@@ -51,6 +51,7 @@ def _seed_chain(session_factory, count=5, chain_id="test-chain", proposer="propo
             ts = datetime(2026, 1, 1, 0, 0, h)
             bh = _make_block_hash(chain_id, h, parent_hash, ts)
             block = Block(
+                chain_id=chain_id,
                 height=h, hash=bh, parent_hash=parent_hash,
                 proposer=proposer, timestamp=ts, tx_count=0,
             )
