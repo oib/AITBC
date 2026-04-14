@@ -31,6 +31,7 @@ class ChainSettings(BaseSettings):
 
     p2p_bind_host: str = "0.0.0.0"
     p2p_bind_port: int = 8001
+    p2p_node_id: str = ""
 
     proposer_id: str = ""
     proposer_key: Optional[str] = None
