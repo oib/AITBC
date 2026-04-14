@@ -54,6 +54,26 @@ class TestBlockchainCommand:
         assert "--rpc-url" in result.stdout
 
 
+class TestNetworkCommand:
+    """Test network subcommands and backward-compatible argument forms."""
+
+    def test_network_ping_positional_node(self):
+        result = run_cli("network", "ping", "localhost")
+        assert result.returncode == 0
+        assert "Ping: Node localhost" in result.stdout
+
+    def test_network_ping_flag_alias(self):
+        result = run_cli("network", "ping", "--node", "localhost")
+        assert result.returncode == 0
+        assert "Ping: Node localhost" in result.stdout
+
+    def test_network_propagate_flag_alias(self):
+        result = run_cli("network", "propagate", "--data", "smoke-test")
+        assert result.returncode == 0
+        assert "Data propagation: Complete" in result.stdout
+        assert "smoke-test" in result.stdout
+
+
 class TestMarketplaceCommand:
     """Test marketplace grouping and legacy rewrite."""
 
