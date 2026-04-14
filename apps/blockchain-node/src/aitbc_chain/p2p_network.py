@@ -683,7 +683,7 @@ def main():
     parser = argparse.ArgumentParser(description="AITBC Direct TCP P2P Mesh Network")
     parser.add_argument("--host", default="0.0.0.0", help="Bind host")
     parser.add_argument("--port", type=int, default=7070, help="Bind port")
-    parser.add_argument("--node-id", required=True, help="Node identifier (required for handshake)")
+    parser.add_argument("--node-id", default="", help="Node identifier (defaults to settings.p2p_node_id)")
     parser.add_argument("--peers", default="", help="Comma separated list of initial peers to dial (ip:port)")
 
     args = parser.parse_args()
@@ -708,8 +708,12 @@ def main():
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee
         )
-        
-        asyncio.run(run_p2p_service(args.host, args.port, args.node_id, args.peers))
+
+        node_id = args.node_id or settings.p2p_node_id or settings.proposer_id
+        if not node_id:
+            raise ValueError("p2p node_id is required")
+
+        asyncio.run(run_p2p_service(args.host, args.port, node_id, args.peers))
     except KeyboardInterrupt:
         logger.info("P2P service stopped by user")
 
