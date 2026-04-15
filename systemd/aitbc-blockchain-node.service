@@ -22,8 +22,6 @@ TimeoutStopSec=10
 # Production reliability
 Restart=always
 RestartSec=5
-StartLimitBurst=5
-StartLimitIntervalSec=60
 
 # Production logging
 StandardOutput=journal
@@ -34,7 +32,7 @@ SyslogIdentifier=aitbc-blockchain-production
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data/blockchain /var/log/aitbc/production/blockchain
+ReadWritePaths=/var/lib/aitbc/data /var/log/aitbc/production/blockchain
 
 # Production performance
 LimitNOFILE=65536
