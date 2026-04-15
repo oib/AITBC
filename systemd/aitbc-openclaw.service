@@ -25,9 +25,7 @@ SyslogIdentifier=aitbc-openclaw-enhanced
 
 # Security
 NoNewPrivileges=true
-ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/apps/coordinator-api /opt/aitbc/venv
 
 [Install]
 WantedBy=multi-user.target
