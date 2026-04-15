@@ -7,7 +7,6 @@ Type=simple
 User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
-EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
