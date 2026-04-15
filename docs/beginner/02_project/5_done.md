@@ -711,7 +711,7 @@ This document tracks components that have been successfully deployed and are ope
   - File: `services/agent_daemon.py`
   - Systemd service: `systemd/aitbc-agent-daemon.service`
   - Configured to listen for messages and auto-reply with configurable responses
-  - Password file: `.agent_daemon_password` (temp123 for temp-agent wallet)
+  - Password file: `/var/lib/aitbc/keystore/.agent_daemon_password` (temp123 for temp-agent wallet)
 
 - ✅ **Phase 1: Core Enhancements**
   - Client: retry with exponential backoff, job history/filtering, batch submit from CSV/JSON, job templates
