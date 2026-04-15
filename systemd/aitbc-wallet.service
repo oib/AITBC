@@ -24,5 +24,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-wallet-daemon
 
+# Allow database writes for SQLite WAL mode
+ProtectSystem=no
+
 [Install]
 WantedBy=multi-user.target
