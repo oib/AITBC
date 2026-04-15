@@ -8,6 +8,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
 EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/.env
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc/apps/blockchain-node/scripts
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${rpc_bind_host} --port ${rpc_bind_port}
