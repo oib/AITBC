@@ -238,3 +238,105 @@ async def test_import_chain_dedupes_duplicate_heights_and_preserves_transaction_
     assert len(chain_a_transactions) == 1
     assert chain_a_transactions[0].tx_hash == _hex("incoming-tx-1")
     assert chain_a_transactions[0].timestamp == "2026-01-02T00:00:02"
+
+
+async def test_import_chain_clears_hash_conflicts_across_chains(isolated_engine):
+    """Test that import-chain clears blocks with conflicting hashes across different chains."""
+    from aitbc_chain.rpc import router as rpc_router
+    from aitbc_chain.database import get_engine
+
+    with Session(isolated_engine) as session:
+        session.add(
+            Block(
+                chain_id="chain-a",
+                height=0,
+                hash=_hex("chain-a-block-0"),
+                parent_hash="0x00",
+                proposer="node-a",
+                timestamp=datetime(2026, 1, 1, 0, 0, 0),
+                tx_count=0,
+            )
+        )
+        session.add(
+            Block(
+                chain_id="chain-a",
+                height=1,
+                hash=_hex("chain-a-block-1"),
+                parent_hash=_hex("chain-a-block-0"),
+                proposer="node-a",
+                timestamp=datetime(2026, 1, 1, 0, 0, 1),
+                tx_count=0,
+            )
+        )
+        session.add(
+            Block(
+                chain_id="chain-b",
+                height=0,
+                hash=_hex("chain-b-block-0"),
+                parent_hash="0x00",
+                proposer="node-b",
+                timestamp=datetime(2026, 1, 1, 0, 0, 0),
+                tx_count=0,
+            )
+        )
+        session.add(
+            Block(
+                chain_id="chain-b",
+                height=1,
+                hash=_hex("chain-b-block-1"),
+                parent_hash=_hex("chain-b-block-0"),
+                proposer="node-b",
+                timestamp=datetime(2026, 1, 1, 0, 0, 1),
+                tx_count=0,
+            )
+        )
+        session.commit()
+
+    with Session(isolated_engine) as session:
+        chain_a_blocks = session.exec(
+            select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)
+        ).all()
+
+    conflicting_hash = chain_a_blocks[0].hash
+
+    import_payload = {
+        "chain_id": "chain-c",
+        "blocks": [
+            {
+                "chain_id": "chain-c",
+                "height": 0,
+                "hash": conflicting_hash,
+                "parent_hash": _hex("parent-0"),
+                "proposer": _hex("proposer-0"),
+                "timestamp": "2026-01-01T00:00:00",
+                "tx_count": 0,
+            },
+            {
+                "chain_id": "chain-c",
+                "height": 1,
+                "hash": _hex("chain-c-block-1"),
+                "parent_hash": conflicting_hash,
+                "proposer": _hex("proposer-1"),
+                "timestamp": "2026-01-01T00:00:01",
+                "tx_count": 0,
+            },
+        ],
+    }
+
+    result = await rpc_router.import_chain(import_payload)
+
+    assert result["success"] is True
+    assert result["imported_blocks"] == 2
+
+    with Session(isolated_engine) as session:
+        chain_c_blocks = session.exec(
+            select(Block).where(Block.chain_id == "chain-c").order_by(Block.height)
+        ).all()
+        chain_a_blocks_after = session.exec(
+            select(Block).where(Block.chain_id == "chain-a").order_by(Block.height)
+        ).all()
+
+    assert [block.height for block in chain_c_blocks] == [0, 1]
+    assert chain_c_blocks[0].hash == conflicting_hash
+    assert len(chain_a_blocks_after) == 1
+    assert chain_a_blocks_after[0].height == 1

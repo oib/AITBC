@@ -86,9 +86,16 @@ def init_db() -> None:
         # If tables already exist, that's okay
         if "already exists" not in str(e):
             raise
-    # Set restrictive file permissions on database file
+    # Set restrictive file permissions on database file and WAL files
     if settings.db_path.exists():
         os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
+        # Also set permissions on WAL files if they exist
+        wal_shm = settings.db_path.with_suffix('.db-shm')
+        wal_wal = settings.db_path.with_suffix('.db-wal')
+        if wal_shm.exists():
+            os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR)
+        if wal_wal.exists():
+            os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR)
 
 # Restricted engine access - only for internal use
 def get_engine():
