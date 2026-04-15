@@ -10,8 +10,9 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=PYTHONPATH=/opt/aitbc/services
+Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src
 EnvironmentFile=/etc/aitbc/production.env
+Environment=AITBC_ENV=production
 
 # Production execution
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main
