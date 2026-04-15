@@ -8,6 +8,7 @@ User=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
 Environment=COORDINATOR_API_KEY=admin_prod_key_use_real_value
+EnvironmentFile=/etc/aitbc/.env
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=5
