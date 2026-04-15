@@ -29,9 +29,10 @@ fi
 
 echo "🔍 Creating symbolic links for AITBC systemd files..."
 
-# Remove existing aitbc-* files (but not directories)
+# Remove existing aitbc-* files and stale drop-in directories
 echo "🧹 Removing existing systemd files..."
 find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -delete 2>/dev/null || true
+find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -exec rm -rf {} + 2>/dev/null || true
 
 # Create symbolic links
 echo "🔗 Creating symbolic links..."
