@@ -88,14 +88,24 @@ def init_db() -> None:
             raise
     # Set restrictive file permissions on database file and WAL files
     if settings.db_path.exists():
-        os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
+        try:
+            os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
+        except OSError:
+            # Ignore permission errors (e.g., read-only filesystem in containers)
+            pass
         # Also set permissions on WAL files if they exist
         wal_shm = settings.db_path.with_suffix('.db-shm')
         wal_wal = settings.db_path.with_suffix('.db-wal')
         if wal_shm.exists():
-            os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR)
+            try:
+                os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR)
+            except OSError:
+                pass
         if wal_wal.exists():
-            os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR)
+            try:
+                os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR)
+            except OSError:
+                pass
 
 # Restricted engine access - only for internal use
 def get_engine():
