@@ -9,6 +9,8 @@ Type=simple
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc
+EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/node.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/agent_daemon.py \
     --wallet temp-agent \
