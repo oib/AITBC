@@ -29,12 +29,6 @@ fi
 
 echo "🔍 Creating symbolic links for AITBC systemd files..."
 
-# Create backup of current active systemd files
-BACKUP_DIR="/opt/aitbc/systemd-backup-$(date +%Y%m%d-%H%M%S)"
-echo "📦 Creating backup: $BACKUP_DIR"
-mkdir -p "$BACKUP_DIR"
-find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -exec cp {} "$BACKUP_DIR/" \; 2>/dev/null || true
-
 # Remove existing aitbc-* files (but not directories)
 echo "🧹 Removing existing systemd files..."
 find "$ACTIVE_SYSTEMD_DIR" -name "aitbc-*" -type f -delete 2>/dev/null || true
@@ -105,11 +99,10 @@ fi
 echo
 echo "✅ Systemd linking completed!"
 echo
-echo "📊 Link Summary:"
+echo "📊 Linking Summary:"
 echo "  Linked files: $linked_files"
 echo "  Repository: $REPO_SYSTEMD_DIR"
 echo "  Active: $ACTIVE_SYSTEMD_DIR"
-echo "  Backup location: $BACKUP_DIR"
 echo
 echo "🎯 Benefits:"
 echo "  ✅ Active systemd files always match repository"
@@ -129,10 +122,6 @@ echo
 echo "🔍 To verify links:"
 echo "  ls -la /etc/systemd/system/aitbc-*"
 echo "  readlink /etc/systemd/system/aitbc-blockchain-node.service"
-echo
-echo "⚠️  If you need to restore backup:"
-echo "  sudo cp $BACKUP_DIR/* /etc/systemd/system/"
-echo "  sudo systemctl daemon-reload"
 
 # Ensure script exits successfully
 if [[ $linked_files -gt 0 ]]; then
