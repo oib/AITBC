@@ -9,7 +9,7 @@ Group=root
 WorkingDirectory=/opt/aitbc/apps/agent-coordinator
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/agent-coordinator/src
-EnvironmentFile=/etc/aitbc/production.env
+EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 
 # Agent coordinator execution
