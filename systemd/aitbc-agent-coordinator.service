@@ -21,8 +21,6 @@ TimeoutStopSec=10
 # Production reliability
 Restart=always
 RestartSec=5
-StartLimitBurst=5
-StartLimitIntervalSec=60
 
 # Production logging
 StandardOutput=journal
@@ -31,9 +29,6 @@ SyslogIdentifier=aitbc-agent-coordinator
 
 # Production security
 NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data/agent-coordinator /var/log/aitbc/agent-coordinator
 
 # Production performance
 LimitNOFILE=65536
