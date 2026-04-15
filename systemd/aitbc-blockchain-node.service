@@ -11,6 +11,7 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc/apps/blockchain-node/src
 EnvironmentFile=/etc/aitbc/production.env
+EnvironmentFile=/etc/aitbc/node.env
 
 # Production execution
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main
