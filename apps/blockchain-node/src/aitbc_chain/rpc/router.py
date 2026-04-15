@@ -647,11 +647,23 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
                 timestamp = datetime.utcnow()
 
             with session_scope() as session:
+                # Check for hash conflicts across chains
+                block_hash = block_data["hash"]
+                existing_block = session.execute(
+                    select(Block).where(Block.hash == block_hash)
+                ).first()
+                
+                if existing_block:
+                    # Delete existing block with conflicting hash
+                    _logger.warning(f"Deleting existing block with conflicting hash {block_hash} from chain {existing_block[0].chain_id}")
+                    session.execute(delete(Block).where(Block.hash == block_hash))
+                    session.commit()
+                
                 # Create block
                 block = Block(
                     chain_id=chain_id,
                     height=block_data["height"],
-                    hash=block_data["hash"],
+                    hash=block_hash,
                     parent_hash=block_data["parent_hash"],
                     proposer=block_data["proposer"],
                     timestamp=timestamp,
@@ -859,6 +871,19 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
                      session.execute(delete(Account).where(Account.chain_id == chain_id))
                  _logger.info(f"Clearing existing blocks for chain {chain_id}")
                  session.execute(delete(Block).where(Block.chain_id == chain_id))
+                
+                 import_hashes = {block_data["hash"] for block_data in unique_blocks}
+                 if import_hashes:
+                     hash_conflict_result = session.execute(
+                         select(Block.hash, Block.chain_id)
+                         .where(Block.hash.in_(import_hashes))
+                     )
+                     hash_conflicts = hash_conflict_result.all()
+                     if hash_conflicts:
+                         conflict_chains = {chain_id for _, chain_id in hash_conflicts}
+                         _logger.warning(f"Clearing {len(hash_conflicts)} blocks with conflicting hashes across chains: {conflict_chains}")
+                         session.execute(delete(Block).where(Block.hash.in_(import_hashes)))
+                
                  session.commit()
                  session.expire_all()
 

@@ -11,10 +11,21 @@ import urllib.parse
 import random
 
 # Database setup
-def init_db():
-    """Initialize SQLite database"""
+def get_db_path():
+    """Get database path and ensure directory exists"""
     import os
     db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+    
+    # Create directory if it doesn't exist
+    db_dir = os.path.dirname(db_path)
+    if db_dir and not os.path.exists(db_dir):
+        os.makedirs(db_dir, exist_ok=True)
+    
+    return db_path
+
+def init_db():
+    """Initialize SQLite database"""
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -61,8 +72,7 @@ def init_db():
 
 def create_mock_trades():
     """Create some mock trades"""
-    import os
-    db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+    db_path = get_db_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
@@ -121,8 +131,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         limit = int(query.get('limit', [20])[0])
         
-        import os
-        db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+        db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
@@ -149,8 +158,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
     
     def get_orderbook(self):
         """Get order book"""
-        import os
-        db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+        db_path = get_db_path()
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
@@ -255,8 +263,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 # Store order in local database for orderbook
                 total = amount * price
                 
-                import os
-                db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+                db_path = get_db_path()
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 
@@ -297,8 +304,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 # Fallback to database-only if blockchain is down
                 total = amount * price
                 
-                import os
-                db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+                db_path = get_db_path()
                 conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
                 
