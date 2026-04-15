@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from collections import defaultdict
 from contextlib import asynccontextmanager
@@ -101,9 +102,15 @@ async def lifespan(app: FastAPI):
     )
     await gossip_broker.set_backend(backend)
     proposers = []
+    block_production_override = os.getenv("enable_block_production")
+    if block_production_override is None:
+        block_production_override = os.getenv("ENABLE_BLOCK_PRODUCTION")
+    block_production_enabled = settings.enable_block_production
+    if block_production_override is not None:
+        block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
     
     # Initialize PoA proposer for mining integration
-    if settings.enable_block_production and settings.proposer_id:
+    if block_production_enabled and settings.proposer_id:
         try:
             from .consensus import PoAProposer, ProposerConfig
             supported_chains = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
