@@ -12,6 +12,7 @@ Environment=PYTHONPATH=/opt/aitbc/apps/agent-coordinator/src
 EnvironmentFile=/etc/aitbc/production.env
 
 # Agent coordinator execution
+ExecStartPre=/bin/mkdir -p /var/lib/aitbc/data/agent-coordinator /var/log/aitbc/agent-coordinator
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app.main:app --host 0.0.0.0 --port 9001
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
