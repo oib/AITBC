@@ -9,12 +9,12 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PYTHONPATH=/opt/aitbc/services
+Environment=PYTHONPATH=/opt/aitbc/apps/marketplace/scripts:/opt/aitbc/apps/marketplace/src:/opt/aitbc/apps/coordinator-api/src
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/marketplace.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/marketplace/scripts/marketplace.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10

@@ -22,13 +22,13 @@ def main():
     
     try:
         # Set environment variables
-        os.environ.setdefault('PYTHONPATH', '/opt/aitbc/services')
+        os.environ.setdefault('PYTHONPATH', '/opt/aitbc/apps/marketplace/scripts:/opt/aitbc/apps/marketplace/src:/opt/aitbc/apps/coordinator-api/src')
         
         # Try to run the GPU marketplace service
         logger.info("Launching GPU marketplace service")
         
         # Check if the main marketplace service exists
-        marketplace_path = '/opt/aitbc/services/marketplace.py'
+        marketplace_path = '/opt/aitbc/apps/marketplace/scripts/marketplace.py'
         if os.path.exists(marketplace_path):
             logger.info("Found marketplace service, launching...")
             subprocess.run([

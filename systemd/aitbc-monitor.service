@@ -12,7 +12,7 @@ EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 
 # Monitor execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/monitor.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/monitor/monitor.py
 
 # Production reliability
 Restart=always

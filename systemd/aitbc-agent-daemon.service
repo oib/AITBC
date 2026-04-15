@@ -12,7 +12,7 @@ WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/agent_daemon.py \
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py \
     --wallet temp-agent \
     --address ait1d18e286fc0c12888aca94732b5507c8787af71a5 \
     --password-file /var/lib/aitbc/keystore/.agent_daemon_password \
