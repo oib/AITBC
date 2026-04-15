@@ -10,6 +10,7 @@ Group=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
 EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn app.services.adaptive_learning_app:app --host 127.0.0.1 --port 8011
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
