@@ -31,7 +31,7 @@ StartLimitIntervalSec=60
 # Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-marketplace-production
+SyslogIdentifier=aitbc-marketplace
 
 # Production security
 NoNewPrivileges=true
