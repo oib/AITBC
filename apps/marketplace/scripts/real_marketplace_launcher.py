@@ -21,7 +21,7 @@ def main():
         logger.info("Launching real marketplace service")
         subprocess.run([
             '/opt/aitbc/venv/bin/python',
-            '/opt/aitbc/services/marketplace.py'
+            '/opt/aitbc/apps/marketplace/scripts/marketplace.py'
         ], check=True)
     except subprocess.CalledProcessError as e:
         logger.error(f"Marketplace service failed with exit code {e.returncode}: {e}")

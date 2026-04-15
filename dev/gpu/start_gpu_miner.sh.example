@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # AITBC GPU Miner Startup Script
@@ -25,12 +26,14 @@ fi
 
 echo "✅ Ollama is running"
 
-# Check GPU
+# Check GPU (NVIDIA required)
 if command -v nvidia-smi &> /dev/null; then
     echo "GPU detected:"
     nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 else
-    echo "⚠️  No NVIDIA GPU detected (CPU-only mode)"
+    echo "❌ No NVIDIA GPU detected"
+    echo "NVIDIA GPU is required for GPU mining"
+    exit 1
 fi
 
 # Register miner
