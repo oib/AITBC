@@ -24,9 +24,7 @@ SyslogIdentifier=aitbc-adaptive-learning
 
 # Security
 NoNewPrivileges=true
-ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/home/oib/aitbc/apps/coordinator-api
 
 [Install]
 WantedBy=multi-user.target

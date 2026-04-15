@@ -26,9 +26,7 @@ SyslogIdentifier=aitbc-monitor
 
 # Production security
 NoNewPrivileges=true
-ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data /var/log/aitbc
 
 # Production performance
 LimitNOFILE=65536

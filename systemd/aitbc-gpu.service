@@ -32,9 +32,7 @@ SyslogIdentifier=aitbc-marketplace
 
 # Production security
 NoNewPrivileges=true
-ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data/marketplace /var/log/aitbc/marketplace
 
 # Production performance
 LimitNOFILE=65536
