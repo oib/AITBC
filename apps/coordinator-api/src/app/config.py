@@ -61,6 +61,21 @@ class Settings(BaseSettings):
     miner_api_keys: list[str] = []
     admin_api_keys: list[str] = []
 
+    @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys", mode="before")
+    @classmethod
+    def parse_api_keys(cls, v: str | list[str]) -> list[str]:
+        import json
+        if isinstance(v, str):
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except (json.JSONDecodeError, TypeError):
+                pass
+            # Fall back to comma-separated
+            return [k.strip() for k in v.split(",") if k.strip()]
+        return v
+
     @field_validator("client_api_keys", "miner_api_keys", "admin_api_keys")
     @classmethod
     def validate_api_keys(cls, v: list[str]) -> list[str]:
