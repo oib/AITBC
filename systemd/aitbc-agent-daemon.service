@@ -29,9 +29,7 @@ StandardError=journal
 # Security settings
 NoNewPrivileges=true
 PrivateTmp=true
-ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/aitbc/data /var/lib/aitbc/keystore
 
 [Install]
 WantedBy=multi-user.target

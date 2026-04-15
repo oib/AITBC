@@ -14,5 +14,8 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
+# Allow database writes for SQLite WAL mode
+ProtectSystem=no
+
 [Install]
 WantedBy=multi-user.target
