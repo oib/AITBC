@@ -14,7 +14,7 @@ Environment=PYTHONPATH=/opt/aitbc/services
 EnvironmentFile=/etc/aitbc/production.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/blockchain_simple.py
+ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.combined_main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
