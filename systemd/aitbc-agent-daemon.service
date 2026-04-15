@@ -15,7 +15,7 @@ Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/services/agent_daemon.py \
     --wallet temp-agent \
     --address ait1d18e286fc0c12888aca94732b5507c8787af71a5 \
-    --password-file /opt/aitbc/.agent_daemon_password \
+    --password-file /var/lib/aitbc/keystore/.agent_daemon_password \
     --keystore-dir /var/lib/aitbc/keystore \
     --db-path /var/lib/aitbc/data/chain.db \
     --rpc-url http://localhost:8006 \
