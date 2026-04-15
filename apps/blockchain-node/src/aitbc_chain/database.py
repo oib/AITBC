@@ -86,10 +86,10 @@ def init_db() -> None:
         # If tables already exist, that's okay
         if "already exists" not in str(e):
             raise
-    # Set restrictive file permissions on database file and WAL files
+    # Set permissive file permissions on database file to handle filesystem restrictions
     if settings.db_path.exists():
         try:
-            os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR)  # Read/write for owner only
+            os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # Read/write for all
         except OSError:
             # Ignore permission errors (e.g., read-only filesystem in containers)
             pass
@@ -98,12 +98,12 @@ def init_db() -> None:
         wal_wal = settings.db_path.with_suffix('.db-wal')
         if wal_shm.exists():
             try:
-                os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR)
+                os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
             except OSError:
                 pass
         if wal_wal.exists():
             try:
-                os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR)
+                os.chmod(wal_wal, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)
             except OSError:
                 pass
 
