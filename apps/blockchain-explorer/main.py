@@ -457,7 +457,7 @@ HTML_TEMPLATE = r"""
                     <td class="py-3 font-mono">${block.height}</td>
                     <td class="py-3 font-mono text-sm">${block.hash ? block.hash.substring(0, 16) + '...' : '-'}</td>
                     <td class="py-3 text-sm">${formatTimestamp(block.timestamp)}</td>
-                    <td class="py-3">${block.transactions ? block.transactions.length : 0}</td>
+                    <td class="py-3">${block.tx_count || 0}</td>
                     <td class="py-3">
                         <button onclick="showBlockDetails(${block.height})" class="text-blue-600 hover:text-blue-800">
                             View Details
@@ -501,33 +501,10 @@ HTML_TEMPLATE = r"""
                         </div>
                     </div>
                     
-                    ${block.transactions && block.transactions.length > 0 ? `
                     <div>
-                        <h3 class="text-lg font-semibold mb-2">Transactions (${block.transactions.length})</h3>
-                        <div class="space-y-2">
-                            ${block.transactions.map(tx => `
-                                <div class="bg-gray-50 rounded p-4">
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-gray-600">Hash:</span>
-                                        <span class="font-mono text-sm">${tx.hash || '-'}</span>
-                                    </div>
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-gray-600">Type:</span>
-                                        <span>${tx.type || '-'}</span>
-                                    </div>
-                                    <div class="flex justify-between mb-2">
-                                        <span class="text-gray-600">From:</span>
-                                        <span class="font-mono text-sm">${tx.sender || '-'}</span>
-                                    </div>
-                                    <div class="flex justify-between">
-                                        <span class="text-gray-600">Fee:</span>
-                                        <span>${tx.fee || '0'}</span>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+                        <h3 class="text-lg font-semibold mb-2">Transactions (${block.tx_count || 0})</h3>
+                        <p class="text-gray-500 text-sm">Transaction details can be fetched separately via the transaction lookup endpoint</p>
                     </div>
-                    ` : '<p class="text-gray-500">No transactions in this block</p>'}
                 </div>
             `;
             
