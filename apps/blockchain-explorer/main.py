@@ -11,7 +11,7 @@ import csv
 import io
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
-from fastapi import FastAPI, Request, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Request, Query, Response
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -628,11 +628,11 @@ HTML_TEMPLATE = r"""
                         <tbody>
                             ${results.map(tx => `
                                 <tr class="border-t hover:bg-gray-50">
-                                    <td class="py-3 font-mono text-sm">${tx.hash || '-'}</td>
-                                    <td class="py-3">${tx.type || '-'}</td>
-                                    <td class="py-3 font-mono text-sm">${tx.from || '-'}</td>
-                                    <td class="py-3 font-mono text-sm">${tx.to || '-'}</td>
-                                    <td class="py-3">${tx.amount || '0'}</td>
+                                    <td class="py-3 font-mono text-sm">${tx.tx_hash || '-'}</td>
+                                    <td class="py-3">${tx.payload?.type || '-'}</td>
+                                    <td class="py-3 font-mono text-sm">${tx.sender || '-'}</td>
+                                    <td class="py-3 font-mono text-sm">${tx.recipient || '-'}</td>
+                                    <td class="py-3">${tx.payload?.amount ?? tx.payload?.value ?? '0'}</td>
                                     <td class="py-3">${formatTimestamp(tx.timestamp)}</td>
                                 </tr>
                             `).join('')}
@@ -677,27 +677,27 @@ HTML_TEMPLATE = r"""
                         <div class="bg-gray-50 rounded p-4 space-y-2">
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Hash:</span>
-                                <span class="font-mono text-sm">${tx.hash || '-'}</span>
+                                <span class="font-mono text-sm">${tx.tx_hash || '-'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Type:</span>
-                                <span>${tx.type || '-'}</span>
+                                <span>${tx.payload?.type || '-'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">From:</span>
-                                <span class="font-mono text-sm">${tx.from || '-'}</span>
+                                <span class="font-mono text-sm">${tx.sender || '-'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">To:</span>
-                                <span class="font-mono text-sm">${tx.to || '-'}</span>
+                                <span class="font-mono text-sm">${tx.recipient || '-'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Amount:</span>
-                                <span>${tx.amount || '0'}</span>
+                                <span>${tx.payload?.amount ?? tx.payload?.value ?? '0'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Fee:</span>
-                                <span>${tx.fee || '0'}</span>
+                                <span>${tx.payload?.fee ?? '0'}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-gray-600">Timestamp:</span>
@@ -842,7 +842,7 @@ HTML_TEMPLATE = r"""
                 alert('Export failed. Please try again.');
             }
         }
-                                        <span>${tx.fee || '0'}</span>
+                                        <span>${tx.payload?.fee ?? '0'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Block:</span>
