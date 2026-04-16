@@ -9,7 +9,7 @@ import httpx
 import json
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import uvicorn
@@ -321,27 +321,27 @@ HTML_TEMPLATE = """
                                 <div class="bg-gray-50 rounded p-4 space-y-2">
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Hash:</span>
-                                        <span class="font-mono text-sm">${tx.hash || '-'}</span>
+                                        <span class="font-mono text-sm">${tx.tx_hash || '-'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Type:</span>
-                                        <span>${tx.type || '-'}</span>
+                                        <span>${tx.payload?.type || '-'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">From:</span>
-                                        <span class="font-mono text-sm">${tx.from || '-'}</span>
+                                        <span class="font-mono text-sm">${tx.sender || '-'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">To:</span>
-                                        <span class="font-mono text-sm">${tx.to || '-'}</span>
+                                        <span class="font-mono text-sm">${tx.recipient || '-'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Amount:</span>
-                                        <span>${tx.amount || '0'}</span>
+                                        <span>${tx.payload?.amount ?? tx.payload?.value ?? '0'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Fee:</span>
-                                        <span>${tx.fee || '0'}</span>
+                                        <span>${tx.payload?.fee ?? '0'}</span>
                                     </div>
                                     <div class="flex justify-between">
                                         <span class="text-gray-600">Block:</span>
@@ -365,7 +365,10 @@ HTML_TEMPLATE = """
         // Format timestamp
         function formatTimestamp(timestamp) {
             if (!timestamp) return '-';
-            return new Date(timestamp * 1000).toLocaleString();
+            const date = typeof timestamp === 'number'
+                ? new Date(timestamp * 1000)
+                : new Date(timestamp);
+            return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
         }
 
         // Auto-refresh every 30 seconds
@@ -400,6 +403,18 @@ async def get_block(height: int) -> Dict[str, Any]:
     return {}
 
 
+async def get_transaction(tx_hash: str) -> Dict[str, Any]:
+    """Get a specific transaction by hash"""
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
+            if response.status_code == 200:
+                return response.json()
+    except Exception as e:
+        print(f"Error getting transaction {tx_hash}: {e}")
+    return {}
+
+
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the explorer UI"""
@@ -416,6 +431,15 @@ async def api_chain_head():
 async def api_block(height: int):
     """API endpoint for block data"""
     return await get_block(height)
+
+
+@app.get("/api/transactions/{tx_hash}")
+async def api_transaction(tx_hash: str):
+    """API endpoint for transaction data"""
+    tx = await get_transaction(tx_hash)
+    if not tx:
+        raise HTTPException(status_code=404, detail="transaction not found")
+    return tx
 
 
 @app.get("/health")
