@@ -16,16 +16,14 @@ logger = logging.getLogger(__name__)
 import os
 import sys
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "../../../../../dev/gpu_acceleration"))
-from parallel_processing.marketplace_gpu_optimizer import MarketplaceGPUOptimizer
-
-from dev.gpu_acceleration.parallel_processing.distributed_framework import (
+from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer
+from app.services.distributed_framework import (
     DistributedProcessingCoordinator,
     DistributedTask,
 )
-from dev.gpu_acceleration.parallel_processing.marketplace_cache_optimizer import MarketplaceDataOptimizer
-from dev.gpu_acceleration.parallel_processing.marketplace_monitor import monitor as marketplace_monitor
-from dev.gpu_acceleration.parallel_processing.marketplace_scaler import ResourceScaler
+from app.services.marketplace_cache_optimizer import MarketplaceDataOptimizer
+from app.services.marketplace_monitor import monitor as marketplace_monitor
+from app.services.marketplace_scaler import ResourceScaler
 
 router = APIRouter(prefix="/v1/marketplace/performance", tags=["marketplace-performance"])
 
