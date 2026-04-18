@@ -56,13 +56,16 @@ jobs:
       - name: Lint
         run: |
           cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
-          npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
-          npx prettier --check "src/**/*.ts" 2>/dev/null && echo "✅ Prettier passed" || echo "⚠️ Prettier skipped"
+          npm run lint
+          echo "✅ Lint passed"
+          npx prettier --check "src/**/*.ts"
+          echo "✅ Prettier passed"
 
       - name: Run tests
         run: |
           cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
-          npm test 2>/dev/null && echo "✅ Tests passed" || echo "⚠️ Tests skipped"
+          npm test
+          echo "✅ Tests passed"
 
       - name: Cleanup
         if: always()

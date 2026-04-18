@@ -4,6 +4,10 @@
 
 echo "=== AITBC Transaction Manager ==="
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+CLI_PATH="${REPO_ROOT}/aitbc-cli"
+
 # Configuration
 GENESIS_WALLET="aitbc1genesis"
 TARGET_WALLET="aitbc-user"
@@ -21,7 +25,7 @@ fi
 # Get wallet addresses
 echo "2. Getting wallet addresses..."
 GENESIS_ADDR=$(cat /var/lib/aitbc/keystore/aitbc1genesis.json | jq -r '.address')
-TARGET_ADDR=$(/opt/aitbc/aitbc-cli wallet balance aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
+TARGET_ADDR=$("$CLI_PATH" wallet balance aitbc-user 2>/dev/null | grep "Address:" | awk '{print $2}' || echo "")
 
 echo "Genesis address: $GENESIS_ADDR"
 echo "Target address: $TARGET_ADDR"
@@ -92,7 +96,7 @@ else
   # Try alternative method using CLI
   echo "7. Trying alternative CLI method..."
   PASSWORD=$(cat $PASSWORD_FILE)
-  /opt/aitbc/aitbc-cli wallet send $GENESIS_WALLET $TARGET_ADDR $AMOUNT $PASSWORD
+  "$CLI_PATH" wallet send $GENESIS_WALLET $TARGET_ADDR $AMOUNT $PASSWORD
 fi
 
 # Final verification

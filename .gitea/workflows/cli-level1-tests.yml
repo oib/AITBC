@@ -49,7 +49,7 @@ jobs:
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
-          python3 -c "from core.main import cli; print('✅ CLI imports OK')" || echo "⚠️ CLI import issues"
+          python3 -c "from core.main import cli; print('✅ CLI imports OK')"
 
       - name: Run CLI tests
         run: |
@@ -59,9 +59,10 @@ jobs:
 
           if [[ -d "cli/tests" ]]; then
             # Run the CLI test runner that uses virtual environment
-            python3 cli/tests/run_cli_tests.py || echo "⚠️ Some CLI tests failed"
+            python3 cli/tests/run_cli_tests.py
           else
-            echo "⚠️ No CLI tests directory"
+            echo "❌ No CLI tests directory"
+            exit 1
           fi
 
           echo "✅ CLI tests completed"

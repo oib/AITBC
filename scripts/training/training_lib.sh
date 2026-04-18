@@ -6,12 +6,15 @@
 # Version: 1.0
 # Last Updated: 2026-04-02
 
+TRAINING_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${TRAINING_LIB_DIR}/../.." && pwd)"
+
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 
 # Default configuration (can be overridden)
-export CLI_PATH="${CLI_PATH:-/opt/aitbc/aitbc-cli}"
+export CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"

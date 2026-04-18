@@ -2,7 +2,8 @@
 
 ## Overview
 
-This document outlines the recommended branch protection settings for the AITBC repository to ensure code quality, security, and collaboration standards.
+This document outlines the recommended branch protection settings for the AITBC
+repository to ensure code quality, security, and collaboration standards.
 
 ## GitHub Branch Protection Settings
 
@@ -14,11 +15,13 @@ Navigate to: `Settings > Branches > Branch protection rules`
 
 **Branch name pattern**: `main`
 
-**Require status checks to pass before merging**
+##### Require status checks to pass before merging
+
 - ✅ Require branches to be up to date before merging
 - ✅ Require status checks to pass before merging
 
-**Required status checks**
+##### Required status checks
+
 - ✅ Lint (ruff)
 - ✅ Check .env.example drift
 - ✅ Test (pytest)
@@ -34,22 +37,28 @@ Navigate to: `Settings > Branches > Branch protection rules`
 - ✅ security-scanning / trivy
 - ✅ security-scanning / ossf-scorecard
 
-**Require pull request reviews before merging**
+##### Require pull request reviews before merging
+
 - ✅ Require approvals
   - **Required approving reviews**: 2
 - ✅ Dismiss stale PR approvals when new commits are pushed
 - ✅ Require review from CODEOWNERS
 - ✅ Require review from users with write access in the target repository
-- ✅ Limit the number of approvals required (2) - **Do not allow users with write access to approve their own pull requests**
+- ✅ Limit the number of approvals required (2)
+  - **Do not allow users with write access to approve their own pull
+    requests**
 
-**Restrict pushes**
+##### Restrict pushes
+
 - ✅ Limit pushes to users who have write access in the repository
 - ✅ Do not allow force pushes
 
-**Restrict deletions**
+##### Restrict deletions
+
 - ✅ Do not allow users with write access to delete matching branches
 
-**Require signed commits**
+##### Require signed commits
+
 - ✅ Require signed commits (optional, for enhanced security)
 
 ### Develop Branch Protection
@@ -57,6 +66,7 @@ Navigate to: `Settings > Branches > Branch protection rules`
 **Branch name pattern**: `develop`
 
 **Settings** (same as main, but with fewer required checks):
+
 - Require status checks to pass before merging
 - Required status checks: Lint, Test, Check .env.example drift
 - Require pull request reviews before merging (1 approval)
@@ -67,26 +77,39 @@ Navigate to: `Settings > Branches > Branch protection rules`
 
 ### Continuous Integration Checks
 
-| Status Check | Description | Workflow |
-|-------------|-------------|----------|
-| `Lint (ruff)` | Python code linting | `.github/workflows/ci.yml` |
-| `Check .env.example drift` | Configuration drift detection | `.github/workflows/ci.yml` |
-| `Test (pytest)` | Python unit tests | `.github/workflows/ci.yml` |
-| `contracts-ci / Lint` | Solidity linting | `.github/workflows/contracts-ci.yml` |
-| `contracts-ci / Slither Analysis` | Solidity security analysis | `.github/workflows/contracts-ci.yml` |
-| `contracts-ci / Compile` | Smart contract compilation | `.github/workflows/contracts-ci.yml` |
-| `contracts-ci / Test` | Smart contract tests | `.github/workflows/contracts-ci.yml` |
-| `dotenv-check / dotenv-validation` | .env.example format validation | `.github/workflows/dotenv-check.yml` |
-| `dotenv-check / dotenv-security` | .env.example security check | `.github/workflows/dotenv-check.yml` |
-| `security-scanning / bandit` | Python security scanning | `.github/workflows/security-scanning.yml` |
-| `security-scanning / codeql` | CodeQL analysis | `.github/workflows/security-scanning.yml` |
-| `security-scanning / safety` | Dependency vulnerability scan | `.github/workflows/security-scanning.yml` |
-| `security-scanning / trivy` | Container security scan | `.github/workflows/security-scanning.yml` |
-| `security-scanning / ossf-scorecard` | OSSF Scorecard analysis | `.github/workflows/security-scanning.yml` |
+- **`Lint (ruff)`**: Python code linting. Workflow:
+  `.github/workflows/ci.yml`
+- **`Check .env.example drift`**: Configuration drift detection. Workflow:
+  `.github/workflows/ci.yml`
+- **`Test (pytest)`**: Python unit tests. Workflow:
+  `.github/workflows/ci.yml`
+- **`contracts-ci / Lint`**: Solidity linting. Workflow:
+  `.github/workflows/contracts-ci.yml`
+- **`contracts-ci / Slither Analysis`**: Solidity security analysis.
+  Workflow: `.github/workflows/contracts-ci.yml`
+- **`contracts-ci / Compile`**: Smart contract compilation. Workflow:
+  `.github/workflows/contracts-ci.yml`
+- **`contracts-ci / Test`**: Smart contract tests. Workflow:
+  `.github/workflows/contracts-ci.yml`
+- **`dotenv-check / dotenv-validation`**: `.env.example` format validation.
+  Workflow: `.github/workflows/dotenv-check.yml`
+- **`dotenv-check / dotenv-security`**: `.env.example` security check.
+  Workflow: `.github/workflows/dotenv-check.yml`
+- **`security-scanning / bandit`**: Python security scanning. Workflow:
+  `.github/workflows/security-scanning.yml`
+- **`security-scanning / codeql`**: CodeQL analysis. Workflow:
+  `.github/workflows/security-scanning.yml`
+- **`security-scanning / safety`**: Dependency vulnerability scan. Workflow:
+  `.github/workflows/security-scanning.yml`
+- **`security-scanning / trivy`**: Container security scan. Workflow:
+  `.github/workflows/security-scanning.yml`
+- **`security-scanning / ossf-scorecard`**: OSSF Scorecard analysis.
+  Workflow: `.github/workflows/security-scanning.yml`
 
 ### Additional Checks for Feature Branches
 
 For feature branches, consider requiring:
+
 - `comprehensive-tests / unit-tests`
 - `comprehensive-tests / integration-tests`
 - `comprehensive-tests / api-tests`
@@ -94,7 +117,8 @@ For feature branches, consider requiring:
 
 ## CODEOWNERS Integration
 
-The branch protection should be configured to require review from CODEOWNERS. This ensures that:
+The branch protection should be configured to require review from CODEOWNERS.
+This ensures that:
 
 1. **Domain experts review relevant changes**
 2. **Security team reviews security-sensitive files**
@@ -208,7 +232,9 @@ jobs:
         run: python scripts/focused_dotenv_linter.py --check
       
       - name: Test (pytest)
-        run: poetry run pytest --cov=aitbc_cli --cov-report=term-missing --cov-report=xml
+        run: >-
+          poetry run pytest --cov=aitbc_cli --cov-report=term-missing
+          --cov-report=xml
 ```
 
 ## Security Best Practices
@@ -386,6 +412,9 @@ New team members should be trained on:
 
 ## Conclusion
 
-Proper branch protection configuration ensures code quality, security, and collaboration standards. By implementing these settings, the AITBC repository maintains high standards while enabling efficient development workflows.
+Proper branch protection configuration ensures code quality, security, and
+collaboration standards. By implementing these settings, the AITBC repository
+maintains high standards while enabling efficient development workflows.
 
-Regular review and updates to branch protection settings ensure they remain effective as the project evolves.
+Regular review and updates to branch protection settings ensure they remain
+effective as the project evolves.

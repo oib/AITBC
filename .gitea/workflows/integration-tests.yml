@@ -30,19 +30,26 @@ jobs:
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Sync systemd files
+        if: github.event_name != 'pull_request'
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           if [[ -d "systemd" ]]; then
-            echo "Syncing systemd service files..."
-            for f in systemd/*.service; do
-              fname=$(basename "$f")
-              cp "$f" "/etc/systemd/system/$fname" 2>/dev/null || true
-            done
-            systemctl daemon-reload
-            echo "✅ Systemd files synced"
+            echo "Linking systemd service files..."
+            if [[ -x /opt/aitbc/scripts/utils/link-systemd.sh ]]; then
+              if [[ $EUID -eq 0 ]]; then
+                /opt/aitbc/scripts/utils/link-systemd.sh
+              else
+                sudo /opt/aitbc/scripts/utils/link-systemd.sh
+              fi
+              echo "✅ Systemd files linked"
+            else
+              echo "❌ /opt/aitbc/scripts/utils/link-systemd.sh not found"
+              exit 1
+            fi
           fi
 
       - name: Start services
+        if: github.event_name != 'pull_request'
         run: |
           echo "Starting AITBC services..."
           for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
@@ -58,26 +65,34 @@ jobs:
         run: |
           echo "Waiting for services..."
           for port in 8000 8001 8003 8006; do
+            port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
               # Try alternate paths
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/api/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
-              [ "$i" -eq 15 ] && echo "⚠️ Port $port not ready"
+              [ "$i" -eq 15 ] && echo "❌ Port $port not ready"
               sleep 2
             done
+
+            if [[ $port_ready -ne 1 ]]; then
+              exit 1
+            fi
           done
 
       - name: Setup test environment
@@ -97,11 +112,11 @@ jobs:
 
           # Run existing test suites
           if [[ -d "tests" ]]; then
-            pytest tests/ -x --timeout=30 -q || echo "⚠️ Some tests failed"
+            pytest tests/ -x --timeout=30 -q
           fi
 
           # Service health check integration
-          python3 scripts/ci/test_api_endpoints.py || echo "⚠️ Some endpoints unavailable"
+          python3 scripts/ci/test_api_endpoints.py
           echo "✅ Integration tests completed"
 
       - name: Service status report

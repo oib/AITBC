@@ -11,19 +11,22 @@ def run_cli_test():
     print("🧪 Running CLI Tests with Virtual Environment...")
     
     # Set up environment
-    cli_dir = Path(__file__).parent.parent
-    cli_bin = "/opt/aitbc/aitbc-cli"
+    cli_dir = Path(__file__).resolve().parent.parent
+    cli_bin = cli_dir.parent / "aitbc-cli"
+
+    def run_command(*args):
+        return subprocess.run(
+            [str(cli_bin), *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=str(cli_dir),
+        )
     
     # Test 1: CLI help command
     print("\n1. Testing CLI help command...")
     try:
-        result = subprocess.run(
-            [cli_bin, "--help"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=str(cli_dir)
-        )
+        result = run_command("--help")
         
         if result.returncode == 0 and "AITBC CLI" in result.stdout:
             print("✅ CLI help command working")
@@ -37,13 +40,7 @@ def run_cli_test():
     # Test 2: CLI list command
     print("\n2. Testing CLI list command...")
     try:
-        result = subprocess.run(
-            [cli_bin, "wallet", "list"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=str(cli_dir)
-        )
+        result = run_command("wallet", "list")
         
         if result.returncode == 0:
             print("✅ CLI list command working")
@@ -57,13 +54,7 @@ def run_cli_test():
     # Test 3: CLI blockchain command
     print("\n3. Testing CLI blockchain command...")
     try:
-        result = subprocess.run(
-            [cli_bin, "blockchain", "info"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=str(cli_dir)
-        )
+        result = run_command("blockchain", "info")
         
         if result.returncode == 0:
             print("✅ CLI blockchain command working")
@@ -77,13 +68,7 @@ def run_cli_test():
     # Test 4: CLI invalid command handling
     print("\n4. Testing CLI invalid command handling...")
     try:
-        result = subprocess.run(
-            [cli_bin, "invalid-command"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=str(cli_dir)
-        )
+        result = run_command("invalid-command")
         
         if result.returncode != 0:
             print("✅ CLI invalid command handling working")

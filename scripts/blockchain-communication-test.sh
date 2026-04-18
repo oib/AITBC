@@ -7,11 +7,14 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
 # Configuration
 GENESIS_IP="10.1.223.40"
 FOLLOWER_IP="<aitbc1-ip>"  # Replace with actual IP
 PORT=8006
-CLI_PATH="/opt/aitbc/aitbc-cli"
+CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/blockchain-communication-test.log"
 MONITOR_LOG="${LOG_DIR}/blockchain-monitor.log"
