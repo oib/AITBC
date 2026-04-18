@@ -10,7 +10,6 @@ set -e
 
 # Training configuration
 TRAINING_STAGE="Stage 4: Marketplace & Economic Intelligence"
-CLI_PATH="/opt/aitbc/aitbc-cli"
 LOG_FILE="/var/log/aitbc/training_stage4.log"
 WALLET_NAME="openclaw-trainee"
 WALLET_PASSWORD="trainee123"

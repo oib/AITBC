@@ -131,7 +131,8 @@ jobs:
           cd /var/lib/aitbc-workspaces/staking-contract/repo/contracts
           
           echo "🧪 Running staking contract tests..."
-          npx hardhat test test/AgentStaking.test.js || echo "⚠️ Contract tests blocked by compilation errors"
+          npx hardhat compile
+          npx hardhat test test/AgentStaking.test.js
           echo "✅ Contract tests completed"
 
       - name: Cleanup
@@ -141,7 +142,7 @@ jobs:
   run-staking-test-runner:
     runs-on: debian
     timeout-minutes: 25
-    needs: [test-staking-service, test-staking-integration]
+    needs: [test-staking-service, test-staking-integration, test-staking-contract]
 
     steps:
       - name: Clone repository

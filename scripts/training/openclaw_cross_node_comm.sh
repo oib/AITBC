@@ -7,11 +7,14 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
 # Configuration
 GENESIS_IP="10.1.223.40"
 FOLLOWER_IP="<aitbc1-ip>"  # To be replaced during live training
 PORT=8006
-CLI_PATH="/opt/aitbc/aitbc-cli"
+CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 
 # Colors for output
 RED='\033[0;31m'

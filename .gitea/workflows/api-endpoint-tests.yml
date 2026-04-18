@@ -44,31 +44,39 @@ jobs:
         run: |
           echo "Waiting for AITBC services..."
           for port in 8000 8001 8003 8006; do
+            port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/api/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
+                port_ready=1
                 break
               fi
-              [ "$i" -eq 15 ] && echo "⚠️ Port $port not ready"
+              [ "$i" -eq 15 ] && echo "❌ Port $port not ready"
               sleep 2
             done
+
+            if [[ $port_ready -ne 1 ]]; then
+              exit 1
+            fi
           done
 
       - name: Run API endpoint tests
         run: |
           cd /var/lib/aitbc-workspaces/api-tests/repo
-          venv/bin/python scripts/ci/test_api_endpoints.py || echo "⚠️ Some endpoints unavailable"
+          venv/bin/python scripts/ci/test_api_endpoints.py
           echo "✅ API endpoint tests completed"
 
       - name: Cleanup

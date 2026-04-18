@@ -2,7 +2,9 @@
 
 ## 🎯 Problem Solved
 
-Having a `.env.example` file is good practice, but without automated checking, it can drift from what the application actually uses. This creates silent configuration issues where:
+Having a `.env.example` file is good practice, but without automated
+checking, it can drift from what the application actually uses. This creates
+silent configuration issues where:
 
 - New environment variables are added to code but not documented
 - Old variables remain in `.env.example` but are no longer used
@@ -14,28 +16,35 @@ Having a `.env.example` file is good practice, but without automated checking, i
 ### **Focused Dotenv Linter**
 
 Created a sophisticated linter that:
+
 - **Scans all code** for actual environment variable usage
 - **Filters out script variables** and non-config variables
 - **Compares with `.env.example`** to find drift
-- **Auto-fixes missing variables** in `.env.example
+- **Auto-fixes missing variables** in `.env.example`
 - **Validates format** and security of `.env.example`
 - **Integrates with CI/CD** to prevent drift
+
 
 ### **Key Features**
 
 #### **Smart Variable Detection**
+
 - Scans Python files for `os.environ.get()`, `os.getenv()`, etc.
 - Scans config files for `${VAR}` and `$VAR` patterns
 - Scans shell scripts for `export VAR=` and `VAR=` patterns
 - Filters out script variables, system variables, and internal variables
 
+
 #### **Comprehensive Coverage**
+
 - **Python files**: `*.py` across the entire project
 - **Config files**: `pyproject.toml`, `*.yml`, `*.yaml`, `Dockerfile`, etc.
 - **Shell scripts**: `*.sh`, `*.bash`, `*.zsh`
 - **CI/CD files**: `.github/workflows/*.yml`
 
+
 #### **Intelligent Filtering**
+
 - Excludes common script variables (`PID`, `VERSION`, `DEBUG`, etc.)
 - Excludes system variables (`PATH`, `HOME`, `USER`, etc.)
 - Excludes external tool variables (`NODE_ENV`, `DOCKER_HOST`, etc.)
@@ -61,7 +70,7 @@ python scripts/focused_dotenv_linter.py --check
 
 ### **Output Example**
 
-```
+```text
 🔍 Focused Dotenv Linter for AITBC
 ==================================================
 📄 Found 111 variables in .env.example
@@ -140,28 +149,37 @@ Created `.github/workflows/dotenv-check.yml` with:
 ### **Workflow Triggers**
 
 The dotenv check runs on:
+
 - **Push** to any branch (when relevant files change)
 - **Pull Request** (when relevant files change)
 - **File patterns**: `.env.example`, `*.py`, `*.yml`, `*.toml`, `*.sh`
 
+
 ## 📊 Benefits Achieved
 
 ### ✅ **Prevents Silent Drift**
+
 - **Automated Detection**: Catches drift as soon as it's introduced
 - **CI/CD Integration**: Prevents merging with configuration issues
 - **Developer Feedback**: Clear reports on what's missing/unused
 
+
 ### ✅ **Maintains Documentation**
+
 - **Always Up-to-Date**: `.env.example` reflects actual usage
 - **Comprehensive Coverage**: All environment variables documented
 - **Clear Organization**: Logical grouping and naming
 
+
 ### ✅ **Improves Developer Experience**
+
 - **Easy Discovery**: Developers can see all required variables
 - **Auto-Fix**: One-command fix for missing variables
 - **Validation**: Format and security checks
 
+
 ### ✅ **Enhanced Security**
+
 - **No Secrets**: Ensures `.env.example` contains only placeholders
 - **Security Scanning**: Detects potential actual secrets
 - **Best Practices**: Enforces good naming conventions
@@ -210,7 +228,8 @@ r'([A-Z_][A-Z0-9_]*)='
 
 ```bash
 # Checks for actual secrets vs placeholders
-if grep -i "password=" .env.example | grep -v -E "(your-|placeholder|change-)"; then
+if grep -i "password=" .env.example \
+  | grep -v -E "(your-|placeholder|change-)"; then
   echo "❌ Potential actual secrets found!"
   exit 1
 fi
@@ -219,13 +238,16 @@ fi
 ## 📈 Statistics
 
 ### **Current State**
+
 - **Variables in .env.example**: 111
 - **Actual variables used**: 124
 - **Missing variables**: 13 (auto-fixed)
 - **Unused variables**: 0
 - **Coverage**: 89.5%
 
+
 ### **Historical Tracking**
+
 - **Before linter**: 14 variables, 357 missing
 - **After linter**: 111 variables, 13 missing
 - **Improvement**: 693% increase in coverage
@@ -233,12 +255,15 @@ fi
 ## 🔮 Future Enhancements
 
 ### **Planned Features**
+
 - **Environment-specific configs**: `.env.development`, `.env.production`
 - **Type validation**: Validate variable value formats
 - **Dependency tracking**: Track which variables are required together
 - **Documentation generation**: Auto-generate config documentation
 
+
 ### **Advanced Validation**
+
 - **URL validation**: Ensure RPC URLs are properly formatted
 - **File path validation**: Check if referenced paths exist
 - **Value ranges**: Validate numeric variables have reasonable ranges
@@ -277,7 +302,9 @@ The dotenv configuration discipline ensures:
 ✅ **Security**: Ensures no actual secrets in documentation
 ✅ **Maintainability**: Clean, organized, and up-to-date configuration
 
-This discipline prevents the common problem of configuration drift and ensures that `.env.example` always accurately reflects what the application actually needs.
+This discipline prevents the common problem of configuration drift and ensures
+that `.env.example` always accurately reflects what the application actually
+needs.
 
 ---
 

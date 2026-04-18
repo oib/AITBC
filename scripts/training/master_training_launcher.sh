@@ -10,8 +10,7 @@ set -e
 
 # Training configuration
 TRAINING_PROGRAM="OpenClaw AITBC Mastery Training"
-CLI_PATH="/opt/aitbc/aitbc-cli"
-SCRIPT_DIR="/opt/aitbc/scripts/training"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="/var/log/aitbc"
 WALLET_NAME="openclaw-trainee"
 

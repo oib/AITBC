@@ -5,10 +5,14 @@ on:
     branches: [main, develop]
     paths:
       - 'docs/**'
-      - '**/*.md'
+      - '*.md'
       - '.gitea/workflows/docs-validation.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'docs/**'
+      - '*.md'
+      - '.gitea/workflows/docs-validation.yml'
   workflow_dispatch:
 
 concurrency:
@@ -42,9 +46,32 @@ jobs:
           
           echo "=== Linting Markdown ==="
           if command -v markdownlint >/dev/null 2>&1; then
-            markdownlint "docs/**/*.md" "*.md" \
-              --ignore "docs/archive/**" \
-              --ignore "node_modules/**" || echo "⚠️ Markdown linting warnings"
+            shopt -s globstar nullglob
+            targets=(
+              *.md
+              docs/*.md
+              docs/11_agents/**/*.md
+              docs/agent-sdk/**/*.md
+              docs/blockchain/**/*.md
+              docs/deployment/**/*.md
+              docs/development/**/*.md
+              docs/general/**/*.md
+              docs/governance/**/*.md
+              docs/implementation/**/*.md
+              docs/infrastructure/**/*.md
+              docs/openclaw/**/*.md
+              docs/policies/**/*.md
+              docs/security/**/*.md
+              docs/workflows/**/*.md
+            )
+
+            if [[ ${#targets[@]} -eq 0 ]]; then
+              echo "⚠️ No curated Markdown targets matched"
+            else
+              echo "Curated advisory scope: ${#targets[@]} Markdown files"
+              echo "Excluded high-noise areas: about, advanced, archive, backend, beginner, completed, expert, intermediate, project, reports, summaries, trail"
+              markdownlint "${targets[@]}" --ignore "node_modules/**" || echo "⚠️ Markdown linting warnings in curated docs scope"
+            fi
           else
             echo "⚠️ markdownlint not available, skipping"
           fi

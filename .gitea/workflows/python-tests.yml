@@ -69,8 +69,8 @@ jobs:
           export PYTHONPATH="apps/coordinator-api/src:apps/blockchain-node/src:apps/wallet/src:packages/py/aitbc-crypto/src:packages/py/aitbc-sdk/src:."
 
           # Test if packages are importable
-          python3 -c "import aitbc_crypto; print('✅ aitbc_crypto imported')" || echo "❌ aitbc_crypto import failed"
-          python3 -c "import aitbc_sdk; print('✅ aitbc_sdk imported')" || echo "❌ aitbc_sdk import failed"
+          python3 -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
+          python3 -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
 
           pytest tests/ \
             apps/coordinator-api/tests/ \
@@ -79,8 +79,7 @@ jobs:
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
             --tb=short -q --timeout=30 \
-            --ignore=apps/coordinator-api/tests/test_confidential*.py \
-            || echo "⚠️ Some tests failed"
+            --ignore=apps/coordinator-api/tests/test_confidential*.py
 
           echo "✅ Python tests completed"
 

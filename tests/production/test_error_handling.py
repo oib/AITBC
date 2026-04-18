@@ -5,6 +5,10 @@ Test error handling improvements in AITBC services
 import pytest
 import subprocess
 import time
+from pathlib import Path
+
+
+CLI_BIN = Path(__file__).resolve().parents[2] / "aitbc-cli"
 
 
 class TestServiceErrorHandling:
@@ -126,7 +130,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_help_command(self):
         """Test CLI help command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "--help"],
+            [str(CLI_BIN), "--help"],
             capture_output=True,
             text=True
         )
@@ -136,7 +140,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_system_command(self):
         """Test CLI system command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "system", "status"],
+            [str(CLI_BIN), "system", "status"],
             capture_output=True,
             text=True
         )
@@ -146,7 +150,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_chain_command(self):
         """Test CLI chain command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "blockchain", "info"],
+            [str(CLI_BIN), "blockchain", "info"],
             capture_output=True,
             text=True
         )
@@ -156,7 +160,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_network_command(self):
         """Test CLI network command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "network", "status"],
+            [str(CLI_BIN), "network", "status"],
             capture_output=True,
             text=True
         )
@@ -166,7 +170,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_wallet_command(self):
         """Test CLI wallet command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "wallet", "--help"],
+            [str(CLI_BIN), "wallet", "--help"],
             capture_output=True,
             text=True
         )
@@ -176,7 +180,7 @@ class TestCLIComprehensiveTesting:
     def test_cli_marketplace_list_command(self):
         """Test CLI marketplace list command works"""
         result = subprocess.run(
-            ["/opt/aitbc/aitbc-cli", "market", "list"],
+            [str(CLI_BIN), "market", "list"],
             capture_output=True,
             text=True
         )

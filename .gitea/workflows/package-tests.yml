@@ -59,12 +59,12 @@ jobs:
 
           # Install dependencies
           if [[ -f "pyproject.toml" ]]; then
-            pip install -q -e ".[dev]" 2>/dev/null || pip install -q -e . 2>/dev/null || true
+            pip install -q -e ".[dev]" 2>/dev/null || pip install -q -e .
           fi
           if [[ -f "requirements.txt" ]]; then
-            pip install -q -r requirements.txt 2>/dev/null || true
+            pip install -q -r requirements.txt
           fi
-          pip install -q pytest mypy black 2>/dev/null || true
+          pip install -q pytest mypy black
 
           # Linting
           echo "=== Linting ==="
@@ -76,7 +76,7 @@ jobs:
           # Tests
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
-            pytest tests/ -q --tb=short || echo "⚠️ Some tests failed"
+            pytest tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
           fi
@@ -89,10 +89,11 @@ jobs:
           cd "$WORKSPACE/repo/${{ matrix.package.path }}"
 
           if [[ -f "pyproject.toml" ]]; then
-            python3 -m venv venv 2>/dev/null || true
+            python3 -m venv venv
             source venv/bin/activate
-            pip install -q build 2>/dev/null || true
-            python -m build 2>/dev/null && echo "✅ Package built" || echo "⚠️ Build failed"
+            pip install -q build
+            python -m build
+            echo "✅ Package built"
           fi
 
       - name: Cleanup
@@ -134,7 +135,7 @@ jobs:
           node --version
           npm --version
 
-          npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || true
+          npm install --legacy-peer-deps 2>/dev/null || npm install
 
           # Fix missing Hardhat dependencies for aitbc-token
           if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
@@ -147,13 +148,15 @@ jobs:
           fi
 
           # Build
-          npm run build && echo "✅ Build passed" || echo "⚠️ Build failed"
+          npm run build
+          echo "✅ Build passed"
 
           # Lint
           npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
 
           # Test
-          npm test && echo "✅ Tests passed" || echo "⚠️ Tests skipped"
+          npm test
+          echo "✅ Tests passed"
 
           echo "✅ ${{ matrix.package.name }} completed"
 
