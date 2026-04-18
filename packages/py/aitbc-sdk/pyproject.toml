@@ -6,7 +6,7 @@ authors = [
     {name = "AITBC Team", email = "team@aitbc.dev"}
 ]
 readme = "README.md"
-requires-python = "^3.13"
+requires-python = ">=3.13"
 dependencies = [
     "cryptography>=41.0.0",
     "requests>=2.31.0",
@@ -16,3 +16,8 @@ dependencies = [
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "aitbc_sdk", from = "src" }
+]
