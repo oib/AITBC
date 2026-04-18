@@ -6,7 +6,7 @@ Bitcoin Wallet Integration for AITBC Trade Exchange
 import os
 import json
 import hashlib
- import hmac
+import hmac
 import time
 from typing import Dict, Optional, Tuple
 from dataclasses import dataclass
