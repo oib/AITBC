@@ -17,6 +17,7 @@ concurrency:
 
 jobs:
   test-python-packages:
+    name: Python package - ${{ matrix.package.name }}
     runs-on: debian
     timeout-minutes: 15
 
@@ -101,6 +102,7 @@ jobs:
         run: rm -rf "/var/lib/aitbc-workspaces/pkg-${{ matrix.package.name }}"
 
   test-javascript-packages:
+    name: JavaScript package - ${{ matrix.package.name }}
     runs-on: debian
     timeout-minutes: 15
 
