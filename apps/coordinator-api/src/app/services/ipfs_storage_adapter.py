@@ -125,7 +125,7 @@ class IPFSAdapterService:
         try:
             # Mocking the smart contract call to AgentMemory.sol
             # tx_hash = await self.contract_service.anchor_agent_memory(node.agent_id, node.cid, node.zk_proof_hash)
-            tx_hash = "0x" + hashlib.md5(f"{node.id}{node.cid}".encode()).hexdigest()
+            tx_hash = "0x" + hashlib.sha256(f"{node.id}{node.cid}".encode()).hexdigest()
 
             node.anchor_tx_hash = tx_hash
             node.status = StorageStatus.ANCHORED

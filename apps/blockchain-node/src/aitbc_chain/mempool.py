@@ -257,8 +257,10 @@ class DatabaseMempool:
                 hashes_to_remove.append(r[0])
 
             if hashes_to_remove:
-                placeholders = ",".join("?" * len(hashes_to_remove))
-                self._conn.execute(f"DELETE FROM mempool WHERE chain_id = ? AND tx_hash IN ({placeholders})", [chain_id] + hashes_to_remove)
+                # Use parameterized query to avoid SQL injection
+                placeholders = ",".join(["?"] * len(hashes_to_remove))
+                query = f"DELETE FROM mempool WHERE chain_id = ? AND tx_hash IN ({placeholders})"
+                self._conn.execute(query, [chain_id] + hashes_to_remove)
                 self._conn.commit()
 
             metrics_registry.increment(f"mempool_tx_drained_total_{chain_id}", float(len(result)))

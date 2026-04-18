@@ -241,7 +241,7 @@ class RealKYCProvider:
             await asyncio.sleep(0.5)
 
             # Simulate different statuses based on request_id
-            hash_val = int(hashlib.md5(request_id.encode()).hexdigest()[:8], 16)
+            hash_val = int(hashlib.sha256(request_id.encode()).hexdigest()[:8], 16)
 
             if hash_val % 4 == 0:
                 status = KYCStatus.APPROVED
@@ -303,7 +303,7 @@ class RealAMLProvider:
             await asyncio.sleep(2.0)  # Simulate comprehensive screening
 
             # Simulate different risk levels
-            hash_val = int(hashlib.md5(f"{user_id}_{user_data.get('email', '')}".encode()).hexdigest()[:8], 16)
+            hash_val = int(hashlib.sha256(f"{user_id}_{user_data.get('email', '')}".encode()).hexdigest()[:8], 16)
 
             if hash_val % 5 == 0:
                 risk_level = AMLRiskLevel.CRITICAL

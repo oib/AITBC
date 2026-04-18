@@ -252,6 +252,12 @@ def migrate_data():
     ]
     
     for table_name, insert_sql in migrations:
+        # Validate table name to prevent SQL injection
+        allowed_tables = ['user', 'wallet', 'transaction', 'agent', 'job', 'receipt', 'marketplace_listing']
+        if table_name not in allowed_tables:
+            print(f"Skipping table {table_name} (not in allowed list)")
+            continue
+        
         print(f"Migrating {table_name}...")
         sqlite_cursor.execute(f"SELECT * FROM {table_name}")
         rows = sqlite_cursor.fetchall()

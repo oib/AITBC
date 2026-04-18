@@ -68,10 +68,10 @@ class TranslationCache:
         """Generate cache key for translation request"""
 
         # Create a consistent key format
-        key_parts = ["translate", source_lang.lower(), target_lang.lower(), hashlib.md5(text.encode()).hexdigest()]
+        key_parts = ["translate", source_lang.lower(), target_lang.lower(), hashlib.sha256(text.encode()).hexdigest()]
 
         if context:
-            key_parts.append(hashlib.md5(context.encode()).hexdigest())
+            key_parts.append(hashlib.sha256(context.encode()).hexdigest())
 
         if domain:
             key_parts.append(domain.lower())

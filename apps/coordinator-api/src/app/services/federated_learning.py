@@ -169,7 +169,7 @@ class FederatedLearningService:
         import hashlib
         import time
 
-        mock_hash = hashlib.md5(str(time.time()).encode()).hexdigest()
+        mock_hash = hashlib.sha256(str(time.time()).encode()).hexdigest()
         new_global_cid = f"bafy_aggregated_{mock_hash[:20]}"
 
         current_round.aggregated_model_cid = new_global_cid

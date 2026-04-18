@@ -492,7 +492,7 @@ class LoadBalancer:
         """Consistent hash selection for sticky routing"""
         # Create hash key from task data
         hash_key = json.dumps(task_data, sort_keys=True)
-        hash_value = int(hashlib.md5(hash_key.encode()).hexdigest(), 16)
+        hash_value = int(hashlib.sha256(hash_key.encode()).hexdigest(), 16)
         
         # Build hash ring if not exists
         if not self.consistent_hash_ring:
@@ -514,7 +514,7 @@ class LoadBalancer:
             # Create multiple virtual nodes for better distribution
             for i in range(100):
                 virtual_key = f"{agent_id}:{i}"
-                hash_value = int(hashlib.md5(virtual_key.encode()).hexdigest(), 16)
+                hash_value = int(hashlib.sha256(virtual_key.encode()).hexdigest(), 16)
                 self.consistent_hash_ring[hash_value] = agent_id
     
     def get_load_balancing_stats(self) -> Dict[str, Any]:

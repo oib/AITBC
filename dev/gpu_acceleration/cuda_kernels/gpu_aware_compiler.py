@@ -296,7 +296,7 @@ class GPUAwareCompiler:
             
         except Exception:
             # Fallback to filename
-            return hashlib.md5(str(circuit_path).encode()).hexdigest()[:16]
+            return hashlib.sha256(str(circuit_path).encode()).hexdigest()[:16]
     
     def _load_cache(self, cache_path: Path) -> Optional[Dict]:
         """Load cached compilation result"""
