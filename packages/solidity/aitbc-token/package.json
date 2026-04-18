@@ -2,6 +2,7 @@
   "name": "@aitbc/aitbc-token",
   "version": "0.2.3",
   "private": true,
+  "type": "module",
   "description": "AITBC Solidity contracts for attested receipt-based minting",
   "scripts": {
     "build": "hardhat compile",
