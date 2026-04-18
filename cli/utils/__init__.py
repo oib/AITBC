@@ -242,6 +242,11 @@ def success(message: str):
     console.print(Panel(f"[green]{message}[/green]", title="✅"))
 
 
+def info(message: str):
+    """Print informational message"""
+    console.print(Panel(f"[cyan]{message}[/cyan]", title="ℹ️"))
+
+
 def warning(message: str):
     """Print warning message"""
     console.print(Panel(f"[yellow]{message}[/yellow]", title="⚠️"))
