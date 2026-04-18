@@ -552,7 +552,8 @@ class AgentCommunicationClient:
             
             # For simulation, we'll return a mock response
             if method == "create_topic":
-                topic_id = f"topic_{hashlib.sha256(f'{params.get(\"agent_id\")}_{params.get(\"title\")}_{datetime.now()}'.encode()).hexdigest()[:16]}"
+                topic_seed = f"{params.get('agent_id')}_{params.get('title')}_{datetime.now()}"
+                topic_id = f"topic_{hashlib.sha256(topic_seed.encode()).hexdigest()[:16]}"
                 return {
                     "success": True,
                     "topic_id": topic_id,
@@ -571,7 +572,8 @@ class AgentCommunicationClient:
                 }
             
             elif method == "post_message":
-                message_id = f"msg_{hashlib.sha256(f'{params.get(\"agent_id\")}_{params.get(\"topic_id\")}_{params.get(\"content\")}_{datetime.now()}'.encode()).hexdigest()[:16]}"
+                message_seed = f"{params.get('agent_id')}_{params.get('topic_id')}_{params.get('content')}_{datetime.now()}"
+                message_id = f"msg_{hashlib.sha256(message_seed.encode()).hexdigest()[:16]}"
                 return {
                     "success": True,
                     "message_id": message_id,
