@@ -101,3 +101,43 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -rf /var/lib/aitbc-workspaces/docs-validation
+
+  validate-policies-strict:
+    runs-on: debian
+    timeout-minutes: 10
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/docs-validation-policies"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Install markdownlint
+        run: |
+          npm install -g markdownlint-cli
+
+      - name: Strict lint policy docs
+        run: |
+          cd /var/lib/aitbc-workspaces/docs-validation-policies/repo
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          shopt -s globstar nullglob
+          mapfile -t targets < <(printf '%s\n' docs/policies/*.md docs/policies/**/*.md | awk '!seen[$0]++')
+
+          if [[ ${#targets[@]} -eq 0 ]]; then
+            echo "❌ No policy Markdown files found"
+            exit 1
+          fi
+
+          echo "Strict docs scope: ${#targets[@]} policy Markdown files"
+          markdownlint "${targets[@]}"
+          echo "✅ Policy docs lint passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/docs-validation-policies

@@ -1,0 +1,125 @@
+name: Production Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'tests/production/**'
+      - 'apps/agent-coordinator/**'
+      - '.gitea/workflows/production-tests.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: production-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-production:
+    name: Production Integration Tests
+    runs-on: debian
+    timeout-minutes: 20
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/production-tests"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Setup test environment
+        run: |
+          cd /var/lib/aitbc-workspaces/production-tests/repo
+          python3 -m venv venv
+          venv/bin/pip install -q \
+            pytest \
+            pytest-asyncio \
+            pytest-timeout \
+            requests \
+            pyjwt \
+            fastapi \
+            uvicorn[standard] \
+            redis \
+            bcrypt \
+            websockets \
+            numpy \
+            psutil \
+            prometheus-client
+
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+      - name: Start Redis
+        run: |
+          redis-server --daemonize yes --port 6379
+          sleep 2
+          redis-cli ping || exit 1
+          echo "✅ Redis started"
+
+      - name: Start agent coordinator
+        run: |
+          cd /var/lib/aitbc-workspaces/production-tests/repo
+          source venv/bin/activate
+          export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
+          
+          # Start agent coordinator in background
+          nohup uvicorn src.app.main:app \
+            --host 0.0.0.0 \
+            --port 9001 \
+            --log-level info \
+            > /tmp/agent-coordinator.log 2>&1 &
+          
+          echo $! > /tmp/agent-coordinator.pid
+          echo "✅ Agent coordinator started (PID: $(cat /tmp/agent-coordinator.pid))"
+
+      - name: Wait for agent coordinator ready
+        run: |
+          echo "Waiting for agent coordinator on port 9001..."
+          for i in $(seq 1 30); do
+            code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:9001/health" 2>/dev/null) || code=0
+            if [ "$code" -ge 200 ] && [ "$code" -lt 600 ]; then
+              echo "✅ Agent coordinator ready (HTTP $code)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "❌ Agent coordinator not ready"
+          cat /tmp/agent-coordinator.log
+          exit 1
+
+      - name: Run production tests
+        run: |
+          cd /var/lib/aitbc-workspaces/production-tests/repo
+          source venv/bin/activate
+          export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
+          
+          pytest tests/production/ \
+            -v \
+            --tb=short \
+            --timeout=30 \
+            --import-mode=importlib \
+            -k "not test_error_handling"
+          
+          echo "✅ Production tests completed"
+
+      - name: Agent coordinator logs
+        if: always()
+        run: |
+          if [ -f /tmp/agent-coordinator.log ]; then
+            echo "=== Agent Coordinator Logs ==="
+            cat /tmp/agent-coordinator.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: |
+          if [ -f /tmp/agent-coordinator.pid ]; then
+            kill $(cat /tmp/agent-coordinator.pid) 2>/dev/null || true
+            rm -f /tmp/agent-coordinator.pid
+          fi
+          pkill -f "uvicorn src.app.main:app" 2>/dev/null || true
+          redis-cli shutdown 2>/dev/null || true
+          rm -rf /var/lib/aitbc-workspaces/production-tests

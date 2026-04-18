@@ -43,22 +43,51 @@ jobs:
       - name: Wait for services
         run: |
           echo "Waiting for AITBC services..."
+          gateway_host=$(ip route 2>/dev/null | awk '/default/ {print $3; exit}')
+          host_candidates=(localhost host.docker.internal)
+          if [[ -n "$gateway_host" ]]; then
+            host_candidates+=("$gateway_host")
+          fi
+
+          service_host=""
+          for candidate in "${host_candidates[@]}"; do
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8000/health" 2>/dev/null) || code=0
+            if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+              service_host="$candidate"
+              break
+            fi
+
+            code=$(curl -so /dev/null -w '%{http_code}' "http://$candidate:8000/v1/health" 2>/dev/null) || code=0
+            if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
+              service_host="$candidate"
+              break
+            fi
+          done
+
+          if [[ -z "$service_host" ]]; then
+            echo "❌ Could not find a reachable API host"
+            exit 1
+          fi
+
+          echo "$service_host" > /var/lib/aitbc-workspaces/api-tests/service_host
+          echo "Using service host: $service_host"
+
           for port in 8000 8001 8003 8006; do
             port_ready=0
             for i in $(seq 1 15); do
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
                 port_ready=1
                 break
               fi
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/api/health" 2>/dev/null) || code=0
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/api/health" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
                 port_ready=1
                 break
               fi
-              code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/" 2>/dev/null) || code=0
+              code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/" 2>/dev/null) || code=0
               if [ "$code" -gt 0 ] && [ "$code" -lt 600 ]; then
                 echo "✅ Port $port ready (HTTP $code)"
                 port_ready=1
@@ -76,7 +105,8 @@ jobs:
       - name: Run API endpoint tests
         run: |
           cd /var/lib/aitbc-workspaces/api-tests/repo
-          venv/bin/python scripts/ci/test_api_endpoints.py
+          service_host=$(cat /var/lib/aitbc-workspaces/api-tests/service_host)
+          AITBC_API_HOST="$service_host" venv/bin/python scripts/ci/test_api_endpoints.py
           echo "✅ API endpoint tests completed"
 
       - name: Cleanup

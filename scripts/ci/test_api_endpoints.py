@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """CI test script for AITBC API endpoints."""
 
+import os
 import requests
 import json
 import time
@@ -8,11 +9,13 @@ import statistics
 import sys
 
 # Service ports (must match systemd config)
+API_HOST = os.environ.get("AITBC_API_HOST", "localhost")
+
 SERVICES = {
-    "coordinator": {"url": "http://localhost:8000", "endpoints": ["/", "/health", "/info"]},
-    "exchange": {"url": "http://localhost:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
-    "wallet": {"url": "http://localhost:8003", "endpoints": ["/", "/health", "/wallets"]},
-    "blockchain_rpc": {"url": "http://localhost:8006", "endpoints": ["/health", "/rpc/head", "/rpc/mempool"]},
+    "coordinator": {"url": f"http://{API_HOST}:8000", "endpoints": ["/", "/health", "/info"]},
+    "exchange": {"url": f"http://{API_HOST}:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
+    "wallet": {"url": f"http://{API_HOST}:8003", "endpoints": ["/", "/health", "/wallets"]},
+    "blockchain_rpc": {"url": f"http://{API_HOST}:8006", "endpoints": ["/health", "/rpc/head", "/rpc/mempool"]},
 }
 
 
@@ -76,10 +79,10 @@ def main():
 
     print("\n⚡ Performance tests...")
     perf = test_performance([
-        ("Coordinator", "http://localhost:8000/health"),
-        ("Exchange", "http://localhost:8001/api/health"),
-        ("Wallet", "http://localhost:8003/health"),
-        ("Blockchain RPC", "http://localhost:8006/health"),
+        ("Coordinator", f"http://{API_HOST}:8000/health"),
+        ("Exchange", f"http://{API_HOST}:8001/api/health"),
+        ("Wallet", f"http://{API_HOST}:8003/health"),
+        ("Blockchain RPC", f"http://{API_HOST}:8006/health"),
     ])
     all_results["performance"] = perf
 

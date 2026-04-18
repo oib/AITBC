@@ -78,7 +78,8 @@ jobs:
             apps/wallet/tests/ \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
-            --tb=short -q --timeout=30 \
+            --tb=short -q --timeout=30 --import-mode=importlib \
+            --ignore=tests/production \
             --ignore=apps/coordinator-api/tests/test_confidential*.py
 
           echo "✅ Python tests completed"
