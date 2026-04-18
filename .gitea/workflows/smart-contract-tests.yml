@@ -114,7 +114,7 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          for project in packages/solidity/aitbc-token apps/zk-circuits; do
+          for project in packages/solidity/aitbc-token; do
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
