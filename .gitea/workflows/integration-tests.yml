@@ -35,15 +35,15 @@ jobs:
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           if [[ -d "systemd" ]]; then
             echo "Linking systemd service files..."
-            if [[ -x /opt/aitbc/scripts/utils/link-systemd.sh ]]; then
+            if [[ -x scripts/utils/link-systemd.sh ]]; then
               if [[ $EUID -eq 0 ]]; then
-                /opt/aitbc/scripts/utils/link-systemd.sh
+                ./scripts/utils/link-systemd.sh
               else
-                sudo /opt/aitbc/scripts/utils/link-systemd.sh
+                sudo ./scripts/utils/link-systemd.sh
               fi
               echo "✅ Systemd files linked"
             else
-              echo "❌ /opt/aitbc/scripts/utils/link-systemd.sh not found"
+              echo "❌ scripts/utils/link-systemd.sh not found"
               exit 1
             fi
           fi
