@@ -204,7 +204,8 @@ def handle_extended_command(command, args, kwargs):
         result["metrics"] = {"tx_rate": 15, "block_time": 30.1}
         
     elif command == "analytics_export":
-        result["file"] = "/tmp/analytics_export.csv"
+        import tempfile
+        result["file"] = tempfile.gettempdir() + "/analytics_export.csv"
         
     elif command == "analytics_predict":
         result["prediction"] = "stable"
