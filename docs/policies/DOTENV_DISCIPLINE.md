@@ -16,6 +16,7 @@ silent configuration issues where:
 ### **Focused Dotenv Linter**
 
 Created a sophisticated linter that:
+
 - **Scans all code** for actual environment variable usage
 - **Filters out script variables** and non-config variables
 - **Compares with `.env.example`** to find drift
@@ -142,6 +143,7 @@ Created `.github/workflows/dotenv-check.yml` with:
 ### **Workflow Triggers**
 
 The dotenv check runs on:
+
 - **Push** to any branch (when relevant files change)
 - **Pull Request** (when relevant files change)
 - File patterns: `.env.example`, `*.py`, `*.yml`, `*.toml`, `*.sh`
