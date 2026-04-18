@@ -42,8 +42,9 @@ def get_encryption_service() -> EncryptionService:
     if encryption_service is None:
         # Initialize with key manager
         from ..services.key_management import FileKeyStorage
+        import tempfile
 
-        key_storage = FileKeyStorage("/tmp/aitbc_keys")
+        key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
         key_manager = KeyManager(key_storage)
         encryption_service = EncryptionService(key_manager)
     return encryption_service
@@ -54,8 +55,9 @@ def get_key_manager() -> KeyManager:
     global key_manager
     if key_manager is None:
         from ..services.key_management import FileKeyStorage
+        import tempfile
 
-        key_storage = FileKeyStorage("/tmp/aitbc_keys")
+        key_storage = FileKeyStorage(tempfile.gettempdir() + "/aitbc_keys")
         key_manager = KeyManager(key_storage)
     return key_manager
 
