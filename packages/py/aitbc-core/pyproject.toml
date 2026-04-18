@@ -22,5 +22,5 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 packages = [
-    { include = "aitbc_core", from = "src" }
+    { include = "aitbc", from = "src" }
 ]
