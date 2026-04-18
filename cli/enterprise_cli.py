@@ -125,7 +125,7 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
     elif operation == "stop":
         print("Stopping mining...")
         try:
-            response = requests.post(f"{rpc_url}/rpc/mining/stop")
+            response = requests.post(f"{rpc_url}/rpc/mining/stop", timeout=30)
             if response.status_code == 200:
                 result = response.json()
                 print(f"✅ Mining stopped")
@@ -141,7 +141,7 @@ def mining_operations(operation: str, wallet_name: str = None, threads: int = 1,
     elif operation == "status":
         print("Getting mining status...")
         try:
-            response = requests.get(f"{rpc_url}/rpc/mining/status")
+            response = requests.get(f"{rpc_url}/rpc/mining/status", timeout=30)
             if response.status_code == 200:
                 status = response.json()
                 print("⛏️  Mining Status:")
@@ -165,7 +165,7 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
     if operation == "list":
         print("Getting marketplace listings...")
         try:
-            response = requests.get(f"{rpc_url}/rpc/marketplace/listings")
+            response = requests.get(f"{rpc_url}/rpc/marketplace/listings", timeout=30)
             if response.status_code == 200:
                 listings = response.json().get("listings", [])
                 print(f"🏪 Marketplace Listings ({len(listings)} items):")
@@ -203,7 +203,7 @@ def marketplace_operations(operation: str, wallet_name: str = None, item_type: s
         }
         
         try:
-            response = requests.post(f"{rpc_url}/rpc/marketplace/create", json=listing_data)
+            response = requests.post(f"{rpc_url}/rpc/marketplace/create", json=listing_data, timeout=30)
             if response.status_code == 200:
                 result = response.json()
                 listing_id = result.get("listing_id")
@@ -241,7 +241,7 @@ def ai_operations(operation: str, wallet_name: str = None, job_type: str = None,
         }
         
         try:
-            response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data)
+            response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, timeout=30)
             if response.status_code == 200:
                 result = response.json()
                 job_id = result.get("job_id")

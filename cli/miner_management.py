@@ -69,7 +69,8 @@ def register_miner(
         response = requests.post(
             f"{coordinator_url}/v1/miners/register",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -115,7 +116,8 @@ def get_miner_status(
         
         response = requests.get(
             f"{coordinator_url}/v1/admin/miners",
-            headers=headers
+            headers=headers,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -188,7 +190,8 @@ def send_heartbeat(
         response = requests.post(
             f"{coordinator_url}/v1/miners/heartbeat",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -232,7 +235,8 @@ def poll_jobs(
         response = requests.post(
             f"{coordinator_url}/v1/miners/poll",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200 and response.content:
