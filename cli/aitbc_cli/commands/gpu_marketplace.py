@@ -12,8 +12,8 @@ import asyncio
 from datetime import datetime
 from decimal import Decimal
 from typing import Optional, List
-from ..utils import output, error, success, info, warning
-from ..utils.island_credentials import (
+from cli.utils import output, error, success, info, warning
+from cli.utils.island_credentials import (
     load_island_credentials, get_rpc_endpoint, get_chain_id,
     get_island_id, get_island_name
 )
