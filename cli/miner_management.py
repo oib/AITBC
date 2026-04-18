@@ -309,7 +309,8 @@ def submit_job_result(
         response = requests.post(
             f"{coordinator_url}/v1/miners/{job_id}/result",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -384,7 +385,8 @@ def update_capabilities(
         response = requests.put(
             f"{coordinator_url}/v1/miners/{miner_id}/capabilities",
             headers=headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -450,7 +452,8 @@ def list_marketplace_offers(
         response = requests.get(
             f"{coordinator_url}/v1/marketplace/miner-offers",
             headers=admin_headers,
-            params=params
+            params=params,
+            timeout=30
         )
         
         if response.status_code == 200:
@@ -503,7 +506,8 @@ def create_marketplace_offer(
         response = requests.post(
             f"{coordinator_url}/v1/marketplace/offers",
             headers=admin_headers,
-            json=payload
+            json=payload,
+            timeout=30
         )
         
         if response.status_code == 200:
