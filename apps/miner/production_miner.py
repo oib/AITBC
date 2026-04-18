@@ -424,15 +424,14 @@ def main():
     
     # Wait for coordinator
     if not wait_for_coordinator():
-    # Registration bypassed for testing
-    session_token = "bypass_token"
-    # # sys.exit(1)
+        logger.error("Coordinator not available")
+        return
     
     # Register with coordinator
     session_token = register_miner()
     if not session_token:
-        # logger.error("Failed to register, exiting")
-        # sys.exit(1)
+        logger.error("Failed to register, exiting")
+        return
     
     logger.info("Miner registered successfully, starting main loop...")
     
