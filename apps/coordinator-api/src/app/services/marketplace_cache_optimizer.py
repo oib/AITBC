@@ -110,7 +110,7 @@ class MarketplaceDataOptimizer:
     def _generate_cache_key(self, namespace: str, params: Dict[str, Any]) -> str:
         """Generate a deterministic cache key from parameters"""
         param_str = json.dumps(params, sort_keys=True)
-        param_hash = hashlib.md5(param_str.encode()).hexdigest()
+        param_hash = hashlib.sha256(param_str.encode()).hexdigest()
         return f"mkpt:{namespace}:{param_hash}"
         
     async def get_cached_data(self, namespace: str, params: Dict[str, Any]) -> Optional[Any]:
