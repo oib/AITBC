@@ -198,10 +198,10 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
     password = None
     if not no_encrypt:
         if use_daemon:
-            # For daemon mode, use a default password or prompt
-            password = getpass.getpass(f"Enter password for wallet '{name}' (press Enter for default): ")
+            # For daemon mode, require password input
+            password = getpass.getpass(f"Enter password for wallet '{name}': ")
             if not password:
-                password = "default_wallet_password"
+                raise click.ClickException("Password cannot be empty for daemon mode")
         else:
             # For file mode, use existing password prompt logic
             password = getpass.getpass(f"Enter password for wallet '{name}': ")
@@ -2066,7 +2066,7 @@ def create_in_chain(ctx, chain_id: str, wallet_name: str, wallet_type: str, no_e
                 error("Passwords do not match")
                 return
         else:
-            password = "insecure"  # Default password for unencrypted wallets
+            raise click.ClickException("Password cannot be empty for wallet creation")
         
         metadata = {
             "wallet_type": wallet_type,

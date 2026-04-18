@@ -42,6 +42,12 @@ def migrate_all_data():
         print(f"\nMigrating {table_name}...")
         
         # Get table schema
+        # Validate table name to prevent SQL injection
+        allowed_tables = ['user', 'wallet', 'transaction', 'agent', 'job', 'receipt', 'marketplace_listing']
+        if table_name not in allowed_tables:
+            print(f"  Skipping table {table_name} (not in allowed list)")
+            continue
+        
         sqlite_cursor.execute(f"PRAGMA table_info({table_name})")
         columns = sqlite_cursor.fetchall()
         column_names = [col[1] for col in columns]

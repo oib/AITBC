@@ -364,7 +364,7 @@ class TranslationEngine:
         if request.domain:
             content += f":{request.domain}"
 
-        return hashlib.md5(content.encode()).hexdigest()
+        return hashlib.sha256(content.encode()).hexdigest()
 
     def get_supported_languages(self) -> dict[str, list[str]]:
         """Get all supported languages by provider"""

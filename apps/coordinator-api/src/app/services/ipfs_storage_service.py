@@ -356,8 +356,8 @@ class MemoryCompressionService:
         # Simplified similarity calculation
         # In real implementation, this would use more sophisticated methods
         try:
-            hash1 = hashlib.md5(pickle.dumps(data1)).hexdigest()
-            hash2 = hashlib.md5(pickle.dumps(data2)).hexdigest()
+            hash1 = hashlib.sha256(pickle.dumps(data1)).hexdigest()
+            hash2 = hashlib.sha256(pickle.dumps(data2)).hexdigest()
 
             # Simple hash comparison (not ideal for real use)
             return 1.0 if hash1 == hash2 else 0.0
