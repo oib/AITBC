@@ -664,7 +664,7 @@ class EnterpriseIntegrationFramework:
     
     def __init__(self):
         self.integrations = {}  # Active integrations
-        self.
+        self.logger = logger
         
     async def create_integration(self, config: IntegrationConfig) -> bool:
         """Create and initialize enterprise integration"""
