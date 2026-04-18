@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'gpu_acceleration/research/gpu_zk_research/**'
+      - 'dev/gpu/gpu_zk_research/**'
       - '.gitea/workflows/rust-zk-tests.yml'
   pull_request:
     branches: [main, develop]
@@ -40,37 +40,40 @@ jobs:
           export CARGO_HOME="$HOME/.cargo"
           export PATH="$CARGO_HOME/bin:$PATH"
 
-          if ! command -v rustc >/dev/null 2>&1; then
+          if ! command -v rustup >/dev/null 2>&1; then
             echo "Installing Rust..."
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           fi
-          source "$CARGO_HOME/env" 2>/dev/null || true
+          source "$CARGO_HOME/env"
+          rustup default stable
           rustc --version
           cargo --version
-          rustup component add rustfmt clippy 2>/dev/null || true
+          rustup component add rustfmt clippy
 
       - name: Check formatting
         run: |
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
-          cargo fmt -- --check 2>/dev/null && echo "✅ Formatting OK" || echo "⚠️ Format warnings"
+          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cargo fmt --all -- --check
+          echo "✅ Formatting OK"
 
       - name: Run Clippy
         run: |
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
-          cargo clippy -- -D warnings 2>/dev/null && echo "✅ Clippy OK" || echo "⚠️ Clippy warnings"
+          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cargo clippy --all-targets -- -D warnings
+          echo "✅ Clippy OK"
 
       - name: Build
         run: |
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
+          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
           cargo build --release
           echo "✅ Build completed"
 
@@ -79,8 +82,9 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/gpu_acceleration/research/gpu_zk_research
-          cargo test && echo "✅ Tests passed" || echo "⚠️ Tests completed with issues"
+          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cargo test --all-targets
+          echo "✅ Tests passed"
 
       - name: Cleanup
         if: always()

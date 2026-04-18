@@ -54,28 +54,44 @@ jobs:
           echo "Node: $(node --version), npm: $(npm --version)"
 
           # Install
-          npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || true
+          npm install --legacy-peer-deps 2>/dev/null || npm install
 
           # Fix missing Hardhat dependencies for aitbc-token
           if [[ "${{ matrix.project.name }}" == "aitbc-token" ]]; then
             echo "Installing missing Hardhat dependencies..."
-            npm install --save-dev "@nomicfoundation/hardhat-ignition@^0.15.16" "@nomicfoundation/ignition-core@^0.15.15" 2>/dev/null || true
-            
-            # Fix formatting issues
-            echo "Fixing formatting issues..."
-            npm run format 2>/dev/null || echo "⚠️ Format fix failed"
+            npm install --no-save "@nomicfoundation/hardhat-ignition@^0.15.16" "@nomicfoundation/ignition-core@^0.15.15"
           fi
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
-            npx hardhat compile && echo "✅ Compiled" || echo "⚠️ Compile failed"
-            npx hardhat test && echo "✅ Tests passed" || echo "⚠️ Tests failed"
+            npx hardhat compile
+            echo "✅ Compiled"
+            npx hardhat test
+            echo "✅ Tests passed"
           elif [[ -f "foundry.toml" ]]; then
-            forge build && echo "✅ Compiled" || echo "⚠️ Compile failed"
-            forge test && echo "✅ Tests passed" || echo "⚠️ Tests failed"
+            forge build
+            echo "✅ Compiled"
+            forge test
+            echo "✅ Tests passed"
           else
-            npm run build 2>/dev/null || echo "⚠️ No build script"
-            npm test 2>/dev/null || echo "⚠️ No test script"
+            if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.compile ? 0 : 1)"; then
+              npm run compile
+              echo "✅ Compiled"
+            elif node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.build ? 0 : 1)"; then
+              npm run build
+              echo "✅ Compiled"
+            else
+              echo "❌ No compile or build script found"
+              exit 1
+            fi
+
+            if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.test ? 0 : 1)"; then
+              npm test
+              echo "✅ Tests passed"
+            else
+              echo "❌ No test script found"
+              exit 1
+            fi
           fi
 
           echo "✅ ${{ matrix.project.name }} completed"
@@ -108,19 +124,20 @@ jobs:
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
-              npm install --legacy-peer-deps 2>/dev/null || npm install 2>/dev/null || true
+              npm install --legacy-peer-deps 2>/dev/null || npm install
               
               # Fix missing Hardhat dependencies and formatting for aitbc-token
               if [[ "$project" == "packages/solidity/aitbc-token" ]]; then
                 echo "Installing missing Hardhat dependencies..."
-                npm install --save-dev "@nomicfoundation/hardhat-ignition@^0.15.16" "@nomicfoundation/ignition-core@^0.15.15" 2>/dev/null || true
-                
-                # Fix formatting issues
-                echo "Fixing formatting issues..."
-                npm run format 2>/dev/null || echo "⚠️ Format fix failed"
+                npm install --no-save "@nomicfoundation/hardhat-ignition@^0.15.16" "@nomicfoundation/ignition-core@^0.15.15"
               fi
-              
-              npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
+
+              if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.lint ? 0 : 1)"; then
+                npm run lint
+                echo "✅ Lint passed"
+              else
+                echo "⚠️ No lint script for $project, skipping"
+              fi
               cd /var/lib/aitbc-workspaces/solidity-lint/repo
             fi
           done

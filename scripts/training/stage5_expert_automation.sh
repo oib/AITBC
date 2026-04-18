@@ -10,7 +10,6 @@ set -e
 
 # Training configuration
 TRAINING_STAGE="Stage 5: Expert Operations & Automation"
-CLI_PATH="/opt/aitbc/aitbc-cli"
 LOG_FILE="/var/log/aitbc/training_stage5.log"
 WALLET_NAME="openclaw-trainee"
 WALLET_PASSWORD="trainee123"
@@ -176,7 +175,7 @@ advanced_scripting() {
     print_status "Advanced Automation Scripting"
     
     print_status "Creating custom automation script..."
-    cat > /tmp/openclaw_automation.py << 'EOF'
+    cat > /tmp/openclaw_automation.py <<EOF
 #!/usr/bin/env python3
 """
 OpenClaw Advanced Automation Script
@@ -191,6 +190,7 @@ import logging
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+CLI_PATH = "${CLI_PATH}"
 
 def run_command(cmd):
     """Execute AITBC CLI command and return result"""
@@ -207,13 +207,13 @@ def automated_job_submission():
     logger.info("Starting automated job submission...")
     
     # Submit inference job
-    success, output, error = run_command("/opt/aitbc/aitbc-cli ai submit --prompt 'Automated analysis'")
+    success, output, error = run_command(f"{CLI_PATH} ai submit --prompt 'Automated analysis'")
     
     if success:
         logger.info(f"Job submitted successfully: {output}")
         # Monitor job completion
         time.sleep(5)
-        success, output, error = run_command("/opt/aitbc/aitbc-cli ai list --status completed")
+        success, output, error = run_command(f"{CLI_PATH} ai list --status completed")
         logger.info(f"Job monitoring result: {output}")
     else:
         logger.error(f"Job submission failed: {error}")
@@ -223,14 +223,14 @@ def automated_marketplace_monitoring():
     logger.info("Starting marketplace monitoring...")
     
     # Check marketplace status
-    success, output, error = run_command("/opt/aitbc/aitbc-cli market list")
+    success, output, error = run_command(f"{CLI_PATH} market list")
     
     if success:
         logger.info(f"Marketplace status: {output}")
         
         # Simple trading logic - place buy order for low-priced items
         if "test-item" in output:
-            success, output, error = run_command("/opt/aitbc/aitbc-cli market buy --item test-item --price 25")
+            success, output, error = run_command(f"{CLI_PATH} market buy --item test-item --price 25")
             logger.info(f"Buy order placed: {output}")
     else:
         logger.error(f"Marketplace monitoring failed: {error}")

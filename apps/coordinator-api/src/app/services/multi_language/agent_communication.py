@@ -160,7 +160,6 @@ class MultilingualAgentCommunication:
             domain = self._get_translation_domain(message_type)
 
             # Check cache first
-            f"agent_message:{hashlib.md5(content.encode()).hexdigest()}:{source_lang}:{target_lang}"
             if self.translation_cache:
                 cached_result = await self.translation_cache.get(content, source_lang, target_lang, context, domain)
                 if cached_result:

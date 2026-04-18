@@ -57,7 +57,12 @@ jobs:
 
           echo "=== Found $(ls systemd/*.service 2>/dev/null | wc -l) service files, $errors errors ==="
 
+          if [[ $errors -gt 0 ]]; then
+            exit 1
+          fi
+
       - name: Sync service files
+        if: github.event_name != 'pull_request'
         run: |
           cd /var/lib/aitbc-workspaces/systemd-sync/repo
 
@@ -66,11 +71,16 @@ jobs:
           fi
 
           echo "=== Syncing systemd files ==="
-          for f in systemd/*.service; do
-            fname=$(basename "$f")
-            cp "$f" "/etc/systemd/system/$fname"
-            echo "  ✅ $fname synced"
-          done
+          if [[ -x /opt/aitbc/scripts/utils/link-systemd.sh ]]; then
+            if [[ $EUID -eq 0 ]]; then
+              /opt/aitbc/scripts/utils/link-systemd.sh
+            else
+              sudo /opt/aitbc/scripts/utils/link-systemd.sh
+            fi
+          else
+            echo "⚠️ /opt/aitbc/scripts/utils/link-systemd.sh not found"
+            exit 1
+          fi
 
           systemctl daemon-reload
           echo "✅ Systemd daemon reloaded"

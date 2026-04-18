@@ -41,7 +41,7 @@ jobs:
           
           python3 -m venv venv
           source venv/bin/activate
-          pip install -q bandit safety pip-audit
+          pip install -q bandit pip-audit
           echo "✅ Security tools installed"
 
       - name: Python dependency audit
@@ -49,7 +49,7 @@ jobs:
           cd /var/lib/aitbc-workspaces/security-scan/repo
           source venv/bin/activate
           echo "=== Dependency Audit ==="
-          pip-audit -r requirements.txt --desc 2>/dev/null || echo "⚠️ Some vulnerabilities found"
+          pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
 
       - name: Bandit security scan
@@ -60,7 +60,7 @@ jobs:
           bandit -r apps/ packages/py/ cli/ \
             -s B101,B311 \
             --severity-level medium \
-            -f txt -q 2>/dev/null || echo "⚠️ Bandit findings"
+            -f txt -q
           echo "✅ Bandit scan completed"
 
       - name: Check for secrets
@@ -68,8 +68,28 @@ jobs:
           cd /var/lib/aitbc-workspaces/security-scan/repo
           echo "=== Secret Detection ==="
           # Simple pattern check for leaked secrets
-          grep -rn "PRIVATE_KEY\s*=\s*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" && echo "⚠️ Possible secrets found" || echo "✅ No secrets detected"
-          grep -rn "password\s*=\s*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" | head -5 && echo "⚠️ Possible hardcoded passwords" || echo "✅ No hardcoded passwords"
+          secret_matches=$(mktemp)
+          password_matches=$(mktemp)
+
+          grep -RInE "PRIVATE_KEY[[:space:]]*=[[:space:]]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" > "$secret_matches" || true
+          grep -RInE "password[[:space:]]*=[[:space:]]*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" > "$password_matches" || true
+
+          if [[ -s "$secret_matches" ]]; then
+            echo "❌ Possible secrets found"
+            cat "$secret_matches"
+            rm -f "$secret_matches" "$password_matches"
+            exit 1
+          fi
+
+          if [[ -s "$password_matches" ]]; then
+            echo "❌ Possible hardcoded passwords"
+            head -5 "$password_matches"
+            rm -f "$secret_matches" "$password_matches"
+            exit 1
+          fi
+
+          rm -f "$secret_matches" "$password_matches"
+          echo "✅ No hardcoded secrets detected"
 
       - name: Cleanup
         if: always()
