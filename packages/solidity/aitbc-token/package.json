@@ -16,7 +16,7 @@
     "@nomicfoundation/hardhat-ethers": "^4.0.7",
     "@nomicfoundation/hardhat-ignition-ethers": "^3.1.1",
     "@nomicfoundation/hardhat-network-helpers": "^3.0.4",
-    "@nomicfoundation/hardhat-toolbox": "^7.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^7.0.0-hh2",
     "@nomicfoundation/hardhat-verify": "^3.0.13",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^6.0.0",
