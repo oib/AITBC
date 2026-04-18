@@ -2,12 +2,16 @@
 
 ## 🔐 Security Overview
 
-This document outlines the comprehensive security policy for CLI translation functionality in the AITBC platform, ensuring that translation services never compromise security-sensitive operations.
+This document outlines the comprehensive security policy for CLI translation
+functionality in the AITBC platform, ensuring that translation services never
+compromise security-sensitive operations.
 
 ## ⚠️ Security Problem Statement
 
 ### Identified Risks
-1. **API Dependency**: Translation services rely on external APIs (OpenAI, Google, DeepL)
+
+1. **API Dependency**: Translation services rely on external APIs (OpenAI,
+   Google, DeepL)
 2. **Network Failures**: Translation unavailable during network outages
 3. **Data Privacy**: Sensitive command data sent to third-party services
 4. **Command Injection**: Risk of translated commands altering security context
@@ -15,6 +19,7 @@ This document outlines the comprehensive security policy for CLI translation fun
 6. **Audit Trail**: Loss of original command intent in translation
 
 ### Security-Sensitive Operations
+
 - **Agent Strategy Commands**: `aitbc agent strategy --aggressive`
 - **Wallet Operations**: `aitbc wallet send --to 0x... --amount 100`
 - **Deployment Commands**: `aitbc deploy --production`
@@ -26,48 +31,63 @@ This document outlines the comprehensive security policy for CLI translation fun
 ### Security Levels
 
 #### 🔴 CRITICAL (Translation Disabled)
-**Commands**: `agent`, `strategy`, `wallet`, `sign`, `deploy`, `genesis`, `transfer`, `send`, `approve`, `mint`, `burn`, `stake`
+
+**Commands**: `agent`, `strategy`, `wallet`, `sign`, `deploy`, `genesis`,
+`transfer`, `send`, `approve`, `mint`, `burn`, `stake`
 
 **Policy**:
+
 - ✅ Translation: **DISABLED**
 - ✅ External APIs: **BLOCKED**
 - ✅ User Consent: **REQUIRED**
 - ✅ Fallback: **Original text only**
 
-**Rationale**: These commands handle sensitive operations where translation could compromise security or financial transactions.
+**Rationale**: These commands handle sensitive operations where translation
+could compromise security or financial transactions.
 
 #### 🟠 HIGH (Local Translation Only)
-**Commands**: `config`, `node`, `chain`, `marketplace`, `swap`, `liquidity`, `governance`, `vote`, `proposal`
+
+**Commands**: `config`, `node`, `chain`, `marketplace`, `swap`, `liquidity`,
+`governance`, `vote`, `proposal`
 
 **Policy**:
+
 - ✅ Translation: **LOCAL ONLY**
 - ✅ External APIs: **BLOCKED**
 - ✅ User Consent: **REQUIRED**
 - ✅ Fallback: **Local dictionary**
 
-**Rationale**: Important operations that benefit from localization but don't require external services.
+**Rationale**: Important operations that benefit from localization but don't
+require external services.
 
 #### 🟡 MEDIUM (Fallback Mode)
-**Commands**: `balance`, `status`, `monitor`, `analytics`, `logs`, `history`, `simulate`, `test`
+
+**Commands**: `balance`, `status`, `monitor`, `analytics`, `logs`, `history`,
+`simulate`, `test`
 
 **Policy**:
+
 - ✅ Translation: **EXTERNAL WITH LOCAL FALLBACK**
 - ✅ External APIs: **ALLOWED**
 - ✅ User Consent: **NOT REQUIRED**
 - ✅ Fallback: **Local translation on failure**
 
-**Rationale**: Standard operations where translation enhances user experience but isn't critical.
+**Rationale**: Standard operations where translation enhances user experience
+but isn't critical.
 
 #### 🟢 LOW (Full Translation)
+
 **Commands**: `help`, `version`, `info`, `list`, `show`, `explain`
 
 **Policy**:
+
 - ✅ Translation: **FULL CAPABILITIES**
 - ✅ External APIs: **ALLOWED**
 - ✅ User Consent: **NOT REQUIRED**
 - ✅ Fallback: **External retry then local**
 
-**Rationale**: Informational commands where translation improves accessibility without security impact.
+**Rationale**: Informational commands where translation improves
+accessibility without security impact.
 
 ## 🔧 Implementation Details
 
@@ -107,15 +127,26 @@ HIGH_POLICY = {
 
 ### Local Translation System
 
-For security-sensitive operations, a local translation system provides basic localization:
+For security-sensitive operations, a local translation system provides basic
+localization:
 
 ```python
 LOCAL_TRANSLATIONS = {
     "help": {"es": "ayuda", "fr": "aide", "de": "hilfe", "zh": "帮助"},
     "error": {"es": "error", "fr": "erreur", "de": "fehler", "zh": "错误"},
     "success": {"es": "éxito", "fr": "succès", "de": "erfolg", "zh": "成功"},
-    "wallet": {"es": "cartera", "fr": "portefeuille", "de": "börse", "zh": "钱包"},
-    "transaction": {"es": "transacción", "fr": "transaction", "de": "transaktion", "zh": "交易"}
+    "wallet": {
+        "es": "cartera",
+        "fr": "portefeuille",
+        "de": "börse",
+        "zh": "钱包"
+    },
+    "transaction": {
+        "es": "transacción",
+        "fr": "transaction",
+        "de": "transaktion",
+        "zh": "交易"
+    }
 }
 ```
 
@@ -237,7 +268,10 @@ from aitbc_cli.security import get_translation_security_report
 
 report = get_translation_security_report()
 print(f"Total security checks: {report['security_summary']['total_checks']}")
-print(f"Critical operations: {report['security_summary']['by_security_level']['critical']}")
+print(
+    f"Critical operations: "
+    f"{report['security_summary']['by_security_level']['critical']}"
+)
 print(f"Recommendations: {report['recommendations']}")
 ```
 
@@ -333,7 +367,8 @@ def handle_security_incident(incident_type: str):
 
 ### Key Performance Indicators
 
-- **Translation Success Rate**: Percentage of successful translations by security level
+- **Translation Success Rate**: Percentage of successful translations by
+  security level
 - **Fallback Usage Rate**: How often local fallback is used
 - **API Response Time**: External API performance metrics
 - **Security Violations**: Attempts to bypass security policies
@@ -356,24 +391,32 @@ def get_security_metrics():
 
 ### Planned Security Features
 
-1. **Machine Learning Detection**: AI-powered detection of sensitive command patterns
-2. **Dynamic Policy Adjustment**: Automatic security level adjustment based on context
+1. **Machine Learning Detection**: AI-powered detection of sensitive command
+   patterns
+2. **Dynamic Policy Adjustment**: Automatic security level adjustment based on
+   context
 3. **Zero-Knowledge Translation**: Privacy-preserving translation protocols
 4. **Blockchain Auditing**: Immutable audit trail on blockchain
-5. **Multi-Factor Authentication**: Additional security for sensitive translations
+5. **Multi-Factor Authentication**: Additional security for sensitive
+   translations
 
 ### Research Areas
 
-1. **Federated Learning**: Local translation models without external dependencies
-2. **Quantum-Resistant Security**: Future-proofing against quantum computing threats
+1. **Federated Learning**: Local translation models without external
+   dependencies
+2. **Quantum-Resistant Security**: Future-proofing against quantum computing
+   threats
 3. **Behavioral Analysis**: User behavior patterns for anomaly detection
 4. **Cross-Platform Security**: Consistent security across all CLI platforms
 
 ---
 
-**Security Policy Status**: ✅ **IMPLEMENTED**  
-**Last Updated**: March 3, 2026  
-**Next Review**: March 17, 2026  
-**Security Level**: 🔒 **HIGH** - Comprehensive protection for sensitive operations  
+- **Security Policy Status**: ✅ **IMPLEMENTED**
+- **Last Updated**: March 3, 2026
+- **Next Review**: March 17, 2026
+- **Security Level**: 🔒 **HIGH** - Comprehensive protection for sensitive
+  operations
 
-This security policy ensures that CLI translation functionality never compromises security-sensitive operations while providing appropriate localization capabilities for non-critical commands.
+This security policy ensures that CLI translation functionality never
+compromises security-sensitive operations while providing appropriate
+localization capabilities for non-critical commands.
