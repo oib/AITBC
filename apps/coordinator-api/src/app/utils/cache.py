@@ -150,7 +150,7 @@ def cache_key_generator(*args, **kwargs) -> str:
 
     # Create hash for consistent key length
     key_string = "|".join(key_parts)
-    return hashlib.md5(key_string.encode()).hexdigest()
+    return hashlib.sha256(key_string.encode()).hexdigest()
 
 
 def cached(ttl_seconds: int = 300, key_prefix: str = ""):
