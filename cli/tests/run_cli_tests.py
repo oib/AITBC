@@ -54,12 +54,12 @@ def run_cli_test():
     # Test 3: CLI blockchain command
     print("\n3. Testing CLI blockchain command...")
     try:
-        result = run_command("blockchain", "info")
+        result = run_command("blockchain", "block", "--number", "1")
         
-        if result.returncode == 0:
+        if result.returncode == 0 and "Block #1" in result.stdout:
             print("✅ CLI blockchain command working")
         else:
-            print(f"❌ CLI blockchain command failed: {result.stderr}")
+            print(f"❌ CLI blockchain command failed: {result.stderr or result.stdout}")
             return False
     except Exception as e:
         print(f"❌ CLI blockchain command error: {e}")
