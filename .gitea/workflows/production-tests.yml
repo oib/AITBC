@@ -37,7 +37,10 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client"
+            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic"
+
+          # Install agent-coordinator package with its dependencies
+          venv/bin/pip install -q -e apps/agent-coordinator
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -62,16 +65,15 @@ jobs:
       - name: Start agent coordinator
         run: |
           cd /var/lib/aitbc-workspaces/production-tests/repo
-          source venv/bin/activate
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
-          
+
           # Start agent coordinator in background
-          nohup uvicorn app.main:app \
+          nohup venv/bin/uvicorn app.main:app \
             --host 0.0.0.0 \
             --port 9001 \
             --log-level info \
             > /tmp/agent-coordinator.log 2>&1 &
-          
+
           echo $! > /tmp/agent-coordinator.pid
           echo "✅ Agent coordinator started (PID: $(cat /tmp/agent-coordinator.pid))"
 
@@ -93,16 +95,15 @@ jobs:
       - name: Run production tests
         run: |
           cd /var/lib/aitbc-workspaces/production-tests/repo
-          source venv/bin/activate
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
-          
-          pytest tests/production/ \
+
+          venv/bin/pytest tests/production/ \
             -v \
             --tb=short \
             --timeout=30 \
             --import-mode=importlib \
             -k "not test_error_handling"
-          
+
           echo "✅ Production tests completed"
 
       - name: Agent coordinator logs

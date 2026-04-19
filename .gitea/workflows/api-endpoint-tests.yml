@@ -39,9 +39,30 @@ jobs:
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --extra-packages "requests pytest httpx"
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+      - name: Start required services
+        run: |
+          echo "Starting AITBC services for endpoint testing..."
+          
+          # Start coordinator-api
+          systemctl start aitbc-coordinator-api.service || echo "⚠️  coordinator-api already running or failed to start"
+          
+          # Start exchange-api
+          systemctl start aitbc-exchange-api.service || echo "⚠️  exchange-api already running or failed to start"
+          
+          # Start wallet daemon
+          systemctl start aitbc-wallet.service || echo "⚠️  wallet already running or failed to start"
+          
+          # Start blockchain RPC
+          systemctl start aitbc-blockchain-rpc.service || echo "⚠️  blockchain-rpc already running or failed to start"
+          
+          # Give services time to initialize
+          sleep 5
+          
+          echo "✅ Services started"
 
       - name: Wait for services
         id: wait-services
@@ -124,4 +145,12 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/api-tests
+        run: |
+          # Stop the services we started
+          systemctl stop aitbc-coordinator-api.service || true
+          systemctl stop aitbc-exchange-api.service || true
+          systemctl stop aitbc-wallet.service || true
+          systemctl stop aitbc-blockchain-rpc.service || true
+          
+          # Clean up workspace
+          rm -rf /var/lib/aitbc-workspaces/api-tests
