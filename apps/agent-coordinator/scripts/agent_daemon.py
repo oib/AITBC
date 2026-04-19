@@ -101,7 +101,6 @@ def create_tx(private_bytes: bytes, from_addr: str, to_addr: str, amount: float,
     }
     
     tx_string = json.dumps(tx, sort_keys=True)
-    tx_hash = hashlib.sha256(tx_string.encode()).hexdigest()
     tx["signature"] = priv_key.sign(tx_string.encode()).hex()
     tx["public_key"] = pub_hex
     return tx
