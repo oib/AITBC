@@ -1,7 +1,8 @@
-import { HardhatUserConfig } from "hardhat/config";
-import "@nomicfoundation/hardhat-toolbox";
+import { defineConfig } from "hardhat/config";
+import hardhatToolboxMochaEthersPlugin from "@nomicfoundation/hardhat-toolbox-mocha-ethers";
 
-const config: HardhatUserConfig = {
+export default defineConfig({
+  plugins: [hardhatToolboxMochaEthersPlugin],
   solidity: {
     version: "0.8.25",
     settings: {
@@ -19,11 +20,10 @@ const config: HardhatUserConfig = {
     artifacts: "artifacts"
   },
   networks: {
-    hardhat: {},
     localhost: {
+      type: "http",
+      chainType: "l1",
       url: "http://127.0.0.1:8545"
     }
   }
-};
-
-export default config;
+});

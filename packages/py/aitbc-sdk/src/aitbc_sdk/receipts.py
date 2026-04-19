@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Iterator, List, Optional
+from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
 
 import httpx
 import base64
@@ -94,7 +94,10 @@ class CoordinatorReceiptClient:
         resp = self._request("GET", f"/v1/jobs/{job_id}/receipt", allow_404=True)
         if resp is None:
             return None
-        return resp.json()  # type: ignore[return-value]
+        payload = resp.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Expected receipt payload to be a JSON object")
+        return cast(Dict[str, Any], payload)
 
     def fetch_history(self, job_id: str) -> List[Dict[str, Any]]:
         return list(self.iter_receipts(job_id=job_id))
