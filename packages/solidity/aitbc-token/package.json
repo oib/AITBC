@@ -19,7 +19,6 @@
     "@nomicfoundation/hardhat-toolbox": "7.0.0-hh2",
     "@nomicfoundation/hardhat-verify": "^3.0.13",
     "@typechain/ethers-v6": "^0.5.1",
-    "@typechain/hardhat": "^6.0.0",
     "@types/chai": "^4.3.11",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20.11.30",
@@ -31,7 +30,6 @@
     "prettier": "^3.2.5",
     "solidity-coverage": "^0.8.4",
     "ts-node": "^10.9.2",
-    "typechain": "^8.3.2",
     "typescript": "^5.9.2"
   },
   "dependencies": {
