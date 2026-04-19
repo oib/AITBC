@@ -100,15 +100,15 @@ build_cached_environment() {
     "$PYTHON_BIN" -m venv "$temp_dir"
     source "$temp_dir/bin/activate"
 
-    python -m pip install -q --upgrade pip setuptools wheel
+    python -m pip install -q --upgrade pip setuptools wheel --no-cache-dir
 
     if [[ -n "$REQUIREMENTS_FILE" && -f "$REQUIREMENTS_FILE" ]]; then
-        python -m pip install -q -r "$REQUIREMENTS_FILE"
+        python -m pip install -q -r "$REQUIREMENTS_FILE" --no-cache-dir
     fi
 
     if [[ -n "$EXTRA_PACKAGES" ]]; then
         read -r -a extra_array <<< "$EXTRA_PACKAGES"
-        python -m pip install -q "${extra_array[@]}"
+        python -m pip install -q "${extra_array[@]}" --no-cache-dir
     fi
 
     deactivate || true
