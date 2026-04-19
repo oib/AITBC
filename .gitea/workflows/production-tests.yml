@@ -76,7 +76,7 @@ jobs:
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
           
           # Start agent coordinator in background
-          nohup uvicorn src.app.main:app \
+          nohup uvicorn app.main:app \
             --host 0.0.0.0 \
             --port 9001 \
             --log-level info \
@@ -130,6 +130,6 @@ jobs:
             kill $(cat /tmp/agent-coordinator.pid) 2>/dev/null || true
             rm -f /tmp/agent-coordinator.pid
           fi
-          pkill -f "uvicorn src.app.main:app" 2>/dev/null || true
+          pkill -f "uvicorn app.main:app" 2>/dev/null || true
           redis-cli shutdown 2>/dev/null || true
           rm -rf /var/lib/aitbc-workspaces/production-tests
