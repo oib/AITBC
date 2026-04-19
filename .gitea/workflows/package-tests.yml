@@ -53,10 +53,12 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          # Create venv
-          python3 -m venv venv
+          bash "$WORKSPACE/repo/scripts/ci/setup-python-venv.sh" \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --mode copy \
+            --extra-packages "pytest mypy black"
           source venv/bin/activate
-          pip install -q --upgrade pip setuptools wheel
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
             pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
@@ -69,7 +71,6 @@ jobs:
           if [[ -f "requirements.txt" ]]; then
             pip install -q -r requirements.txt
           fi
-          pip install -q pytest mypy black
 
           # Linting
           echo "=== Linting ==="
@@ -94,9 +95,12 @@ jobs:
           cd "$WORKSPACE/repo/${{ matrix.package.path }}"
 
           if [[ -f "pyproject.toml" ]]; then
-            python3 -m venv venv
-            source venv/bin/activate
-            pip install -q build
+            bash "$WORKSPACE/repo/scripts/ci/setup-python-venv.sh" \
+              --repo-dir "$PWD" \
+              --venv-dir "$PWD/venv-build" \
+              --skip-requirements \
+              --extra-packages "build"
+            source venv-build/bin/activate
             python -m build
             echo "✅ Package built"
           fi

@@ -42,9 +42,11 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
           
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -q bandit pip-audit
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "bandit pip-audit"
           echo "✅ Security tools installed"
 
       - name: Python dependency audit

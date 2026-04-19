@@ -39,12 +39,12 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
           
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -q --upgrade pip setuptools wheel
-          pip install -q -r requirements.txt
-          pip install -q pytest pytest-asyncio pytest-cov pytest-mock pytest-timeout click pynacl locust
-          echo "✅ Python $(python3 --version) environment ready"
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --mode copy \
+            --extra-packages "pytest-cov pytest-mock pytest-timeout locust"
+          echo "✅ Python environment ready"
 
       - name: Run linting
         run: |

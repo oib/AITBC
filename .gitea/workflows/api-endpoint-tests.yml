@@ -34,8 +34,11 @@ jobs:
       - name: Setup test environment
         run: |
           cd /var/lib/aitbc-workspaces/api-tests/repo
-          python3 -m venv venv
-          venv/bin/pip install -q requests pytest httpx
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests pytest httpx"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
