@@ -59,6 +59,17 @@ jobs:
             --mode copy \
             --extra-packages "pytest mypy black"
 
+          # Validate venv and rebuild if corrupted
+          if [[ ! -x "venv/bin/pip" ]]; then
+            echo "⚠️  Corrupted venv detected, rebuilding..."
+            rm -rf venv
+            bash "$WORKSPACE/repo/scripts/ci/setup-python-venv.sh" \
+              --repo-dir "$PWD" \
+              --venv-dir "$PWD/venv" \
+              --mode copy \
+              --extra-packages "pytest mypy black"
+          fi
+
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
             venv/bin/pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
           fi
@@ -99,6 +110,18 @@ jobs:
               --venv-dir "$PWD/venv-build" \
               --skip-requirements \
               --extra-packages "build"
+
+            # Validate venv-build and rebuild if corrupted
+            if [[ ! -x "venv-build/bin/python" ]]; then
+              echo "⚠️  Corrupted venv-build detected, rebuilding..."
+              rm -rf venv-build
+              bash "$WORKSPACE/repo/scripts/ci/setup-python-venv.sh" \
+                --repo-dir "$PWD" \
+                --venv-dir "$PWD/venv-build" \
+                --skip-requirements \
+                --extra-packages "build"
+            fi
+
             venv-build/bin/python -m build
             echo "✅ Package built"
           fi
