@@ -52,18 +52,16 @@ jobs:
       - name: Python dependency audit
         run: |
           cd /var/lib/aitbc-workspaces/security-scan/repo
-          source venv/bin/activate
           echo "=== Dependency Audit ==="
-          pip-audit -r requirements.txt --desc
+          venv/bin/pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
 
       - name: Bandit security scan
         run: |
           cd /var/lib/aitbc-workspaces/security-scan/repo
-          source venv/bin/activate
           echo "=== Bandit Security Scan ==="
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            bandit -r apps/ packages/py/ cli/ \
+            venv/bin/bandit -r apps/ packages/py/ cli/ \
               -s B101,B311 \
               --severity-level medium \
               -f txt -q
@@ -76,7 +74,7 @@ jobs:
             fi
 
             printf '%s\n' "${python_files[@]}"
-            bandit \
+            venv/bin/bandit \
               -s B101,B311 \
               --severity-level medium \
               -f txt -q \
