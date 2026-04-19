@@ -3,15 +3,16 @@ Staking Service Tests
 High-priority tests for staking service functionality
 """
 
-import pytest
 import asyncio
 import sys
+from pathlib import Path
 from datetime import datetime, timedelta
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-import sys
-sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/coordinator-api/src"))
 
 from app.domain.bounty import AgentStake, AgentMetrics, StakingPool, StakeStatus, PerformanceTier
 from app.services.staking_service import StakingService

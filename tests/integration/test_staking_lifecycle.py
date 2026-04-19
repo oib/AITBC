@@ -3,13 +3,16 @@ Staking Lifecycle Integration Tests
 Test 3.1.1: Complete staking lifecycle integration test
 """
 
-import pytest
 import asyncio
 import sys
+from pathlib import Path
 from datetime import datetime, timedelta
 
-sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
-sys.path.insert(0, "/opt/aitbc/contracts")
+import pytest
+
+repo_root = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(repo_root / "apps/coordinator-api/src"))
+sys.path.insert(0, str(repo_root / "contracts"))
 
 # Import after path setup
 from sqlalchemy import create_engine
