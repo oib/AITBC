@@ -52,6 +52,16 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
+      - name: Ensure Redis server
+        run: |
+          if command -v redis-server >/dev/null 2>&1 && command -v redis-cli >/dev/null 2>&1; then
+            echo "✅ Redis binaries already available"
+            exit 0
+          fi
+
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y redis-server
+
       - name: Start Redis
         run: |
           redis-server --daemonize yes --port 6379
