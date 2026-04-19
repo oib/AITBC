@@ -72,15 +72,12 @@ jobs:
           python3 -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
           python3 -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
 
-          pytest tests/ \
-            apps/coordinator-api/tests/ \
-            apps/blockchain-node/tests/ \
+          pytest tests/archived_phase_tests/ \
+            tests/cross_phase/ \
             apps/wallet/tests/ \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
-            --tb=short -q --timeout=30 --import-mode=importlib \
-            --ignore=tests/production \
-            --ignore=apps/coordinator-api/tests/test_confidential*.py
+            --tb=short -q --timeout=30 --import-mode=importlib
 
           echo "✅ Python tests completed"
 
