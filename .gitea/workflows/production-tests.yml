@@ -33,21 +33,11 @@ jobs:
       - name: Setup test environment
         run: |
           cd /var/lib/aitbc-workspaces/production-tests/repo
-          python3 -m venv venv
-          venv/bin/pip install -q \
-            pytest \
-            pytest-asyncio \
-            pytest-timeout \
-            requests \
-            pyjwt \
-            fastapi \
-            uvicorn[standard] \
-            redis \
-            bcrypt \
-            websockets \
-            numpy \
-            psutil \
-            prometheus-client
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc

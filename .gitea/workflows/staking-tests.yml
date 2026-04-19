@@ -36,11 +36,9 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/staking-tests/repo
           
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -q --upgrade pip setuptools wheel
-          pip install -q -r requirements.txt
-          pip install -q pytest pytest-asyncio
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv"
           echo "✅ Python environment ready"
 
       - name: Run staking service tests
@@ -84,11 +82,9 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/staking-integration/repo
           
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -q --upgrade pip setuptools wheel
-          pip install -q -r requirements.txt
-          pip install -q pytest pytest-asyncio
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv"
           echo "✅ Python environment ready"
 
       - name: Run staking integration tests
@@ -157,10 +153,9 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/staking-runner/repo
           
-          python3 -m venv venv
-          source venv/bin/activate
-          pip install -q --upgrade pip setuptools wheel
-          pip install -q -r requirements.txt
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv"
           echo "✅ Python environment ready"
 
       - name: Run staking test runner
