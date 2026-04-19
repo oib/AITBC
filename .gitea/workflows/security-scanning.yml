@@ -30,7 +30,10 @@ jobs:
           rm -rf "$WORKSPACE"
           mkdir -p "$WORKSPACE"
           cd "$WORKSPACE"
-          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+          git clone --depth 2 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+          cd repo
+          git fetch --depth 2 origin "${{ github.ref }}"
+          git checkout --detach FETCH_HEAD
 
       - name: Setup tools
         run: |
@@ -63,7 +66,7 @@ jobs:
               --severity-level medium \
               -f txt -q
           else
-            mapfile -t python_files < <(git show --name-only --pretty="" --diff-filter=ACMR HEAD | grep -E '^((apps|cli)/.*|packages/py/.*)\.py$' || true)
+            mapfile -t python_files < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^((apps|cli)/.*|packages/py/.*)\.py$' || true)
 
             if [[ ${#python_files[@]} -eq 0 ]]; then
               echo "✅ No changed Python files to scan"
@@ -91,7 +94,7 @@ jobs:
             grep -RInE "PRIVATE_KEY[[:space:]]*=[[:space:]]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" > "$secret_matches" || true
             grep -RInE "password[[:space:]]*=[[:space:]]*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" > "$password_matches" || true
           else
-            mapfile -t changed_files < <(git show --name-only --pretty="" --diff-filter=ACMR HEAD | grep -E '^((apps|cli)/.*|packages/.*)$' || true)
+            mapfile -t changed_files < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^((apps|cli)/.*|packages/.*)$' || true)
 
             if [[ ${#changed_files[@]} -eq 0 ]]; then
               echo "✅ No changed files to scan for secrets"
