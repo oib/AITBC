@@ -58,6 +58,10 @@ jobs:
           source venv/bin/activate
           pip install -q --upgrade pip setuptools wheel
 
+          if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
+            pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
+          fi
+
           # Install dependencies
           if [[ -f "pyproject.toml" ]]; then
             pip install -q -e ".[dev]" 2>/dev/null || pip install -q -e .
@@ -137,17 +141,7 @@ jobs:
           node --version
           npm --version
 
-          npm install --legacy-peer-deps 2>/dev/null || npm install
-
-          # Fix missing Hardhat dependencies for aitbc-token
-          if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
-            echo "Installing missing Hardhat dependencies..."
-            npm install --save-dev "@nomicfoundation/hardhat-ignition@^0.15.16" "@nomicfoundation/ignition-core@^0.15.15" 2>/dev/null || true
-            
-            # Fix formatting issues
-            echo "Fixing formatting issues..."
-            npm run format 2>/dev/null || echo "⚠️ Format fix failed"
-          fi
+          npm install --legacy-peer-deps
 
           # Build
           npm run build

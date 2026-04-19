@@ -1,14 +1,20 @@
 {
   "compilerOptions": {
-    "target": "es2020",
-    "module": "commonjs",
+    "target": "es2022",
+    "module": "esnext",
     "strict": true,
     "esModuleInterop": true,
+    "skipLibCheck": true,
     "outDir": "dist",
-    "types": ["node", "mocha", "hardhat", "@nomicfoundation/hardhat-chai-matchers"],
     "resolveJsonModule": true,
-    "moduleResolution": "node"
+    "moduleResolution": "bundler"
   },
-  "include": ["hardhat.config.ts", "scripts", "test", "typechain-types"],
+  "include": [
+    "hardhat.config.ts",
+    "hardhat-toolbox-mocha-ethers.d.ts",
+    "scripts",
+    "test",
+    "typechain-types"
+  ],
   "exclude": ["dist"]
 }
