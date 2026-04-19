@@ -187,7 +187,7 @@ def main():
                         elif isinstance(tx.tx_metadata, str):
                             try:
                                 data = json.loads(tx.tx_metadata).get("payload", "")
-                            except:
+                            except json.JSONDecodeError:
                                 pass
                     elif hasattr(tx, "payload") and tx.payload:
                         if isinstance(tx.payload, dict):

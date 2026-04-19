@@ -52,7 +52,7 @@ jobs:
           echo "Node: $(node --version), npm: $(npm --version)"
 
           # Install
-          npm install --legacy-peer-deps 2>/dev/null || npm install
+          npm install --legacy-peer-deps
 
           # Compile
           if [[ -f "hardhat.config.js" ]] || [[ -f "hardhat.config.ts" ]]; then
@@ -116,7 +116,7 @@ jobs:
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
-              npm install --legacy-peer-deps 2>/dev/null || npm install
+              npm install --legacy-peer-deps
 
               if node -e "const pkg=require('./package.json'); process.exit(pkg.scripts && pkg.scripts.lint ? 0 : 1)"; then
                 npm run lint
