@@ -63,9 +63,14 @@ sys.modules['slowapi'] = Mock()
 sys.modules['slowapi.util'] = Mock()
 sys.modules['slowapi.limiter'] = Mock()
 sys.modules['web3'] = Mock()
-sys.modules['aitbc_crypto'] = Mock()
 
 # Mock aitbc_crypto functions
+try:
+    import aitbc_crypto as _aitbc_crypto
+except ImportError:
+    _aitbc_crypto = Mock()
+    sys.modules['aitbc_crypto'] = _aitbc_crypto
+
 def mock_encrypt_data(data, key):
     return f"encrypted_{data}"
 def mock_decrypt_data(data, key):
@@ -73,9 +78,12 @@ def mock_decrypt_data(data, key):
 def mock_generate_viewing_key():
     return "test_viewing_key"
 
-sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
-sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
-sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
+if not hasattr(_aitbc_crypto, 'encrypt_data'):
+    _aitbc_crypto.encrypt_data = mock_encrypt_data
+if not hasattr(_aitbc_crypto, 'decrypt_data'):
+    _aitbc_crypto.decrypt_data = mock_decrypt_data
+if not hasattr(_aitbc_crypto, 'generate_viewing_key'):
+    _aitbc_crypto.generate_viewing_key = mock_generate_viewing_key
 
 # Common fixtures for all test types
 @pytest.fixture
