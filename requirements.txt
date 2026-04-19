@@ -6,6 +6,7 @@
 # - Added bech32>=1.2.0 for blockchain address encoding (2026-03-30)
 # - Fixed duplicate web3 entries and tenseal version
 # - All dependencies tested and working with current services
+# - Cache invalidation for CLI rich dependency (2026-04-19)
 
 # Core Web Framework
 fastapi>=0.115.6
