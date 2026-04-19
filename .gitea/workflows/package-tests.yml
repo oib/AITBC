@@ -58,18 +58,17 @@ jobs:
             --venv-dir "$PWD/venv" \
             --mode copy \
             --extra-packages "pytest mypy black"
-          source venv/bin/activate
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
-            pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
+            venv/bin/pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
           fi
 
           # Install dependencies
           if [[ -f "pyproject.toml" ]]; then
-            pip install -q -e ".[dev]" 2>/dev/null || pip install -q -e .
+            venv/bin/pip install -q -e ".[dev]" 2>/dev/null || venv/bin/pip install -q -e .
           fi
           if [[ -f "requirements.txt" ]]; then
-            pip install -q -r requirements.txt
+            venv/bin/pip install -q -r requirements.txt
           fi
 
           # Linting
@@ -100,8 +99,7 @@ jobs:
               --venv-dir "$PWD/venv-build" \
               --skip-requirements \
               --extra-packages "build"
-            source venv-build/bin/activate
-            python -m build
+            venv-build/bin/python -m build
             echo "✅ Package built"
           fi
 
