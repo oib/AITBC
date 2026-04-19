@@ -94,7 +94,7 @@ class CoordinatorReceiptClient:
         resp = self._request("GET", f"/v1/jobs/{job_id}/receipt", allow_404=True)
         if resp is None:
             return None
-        return resp.json()
+        return resp.json()  # type: ignore[return-value]
 
     def fetch_history(self, job_id: str) -> List[Dict[str, Any]]:
         return list(self.iter_receipts(job_id=job_id))
@@ -124,6 +124,8 @@ class CoordinatorReceiptClient:
             params["limit"] = limit
 
         response = self._request("GET", f"/v1/jobs/{job_id}/receipts", params=params)
+        if response is None:
+            raise ValueError("Response should not be None")
         payload = response.json()
 
         if isinstance(payload, list):
