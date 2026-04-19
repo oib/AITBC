@@ -3,15 +3,17 @@ Shared fixtures for staking tests
 Reusable fixtures for service and integration tests to avoid duplication
 """
 
-import pytest
 import sys
+from pathlib import Path
 from datetime import datetime, timedelta
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlmodel import SQLModel
 
 # Add paths for imports
-sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/coordinator-api/src"))
 
 from app.domain.bounty import (
     AgentStake, AgentMetrics, StakingPool, 
