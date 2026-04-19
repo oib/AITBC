@@ -1,9 +1,15 @@
-import { ethers } from "hardhat";
+import type { HardhatEthers } from "@nomicfoundation/hardhat-ethers/types";
+import { network } from "hardhat";
+import type { NetworkConnection } from "hardhat/types/network";
 import { AIToken__factory } from "../typechain-types";
+
+type HardhatConnection = NetworkConnection & {
+  ethers: HardhatEthers;
+};
 
 type HexString = `0x${string}`;
 
-type EnvValue = string & {}
+type EnvValue = string & {};
 
 function requireEnv(name: string): EnvValue {
   const value = process.env[name]?.trim();
@@ -20,7 +26,9 @@ function parseUnits(value: string): bigint {
     }
     return BigInt(value);
   } catch (error) {
-    throw new Error(`UNITS must be a BigInt-compatible value, received ${value}`);
+    throw new Error(
+      `UNITS must be a BigInt-compatible value, received ${value}`,
+    );
   }
 }
 
@@ -32,18 +40,25 @@ function assertHex(value: string, name: string): HexString {
 }
 
 async function main() {
-  const contractAddress = assertHex(requireEnv("AITOKEN_ADDRESS"), "AITOKEN_ADDRESS");
+  const { ethers } = (await network.connect()) as HardhatConnection;
+  const contractAddress = assertHex(
+    requireEnv("AITOKEN_ADDRESS"),
+    "AITOKEN_ADDRESS",
+  );
   const providerAddress = requireEnv("PROVIDER_ADDRESS");
   const units = parseUnits(requireEnv("UNITS"));
   const receiptHash = assertHex(requireEnv("RECEIPT_HASH"), "RECEIPT_HASH");
-  const signature = assertHex(requireEnv("ATTESTOR_SIGNATURE"), "ATTESTOR_SIGNATURE");
+  const signature = assertHex(
+    requireEnv("ATTESTOR_SIGNATURE"),
+    "ATTESTOR_SIGNATURE",
+  );
 
   const coordinatorIndex = Number(process.env.COORDINATOR_SIGNER_INDEX ?? "1");
   const signers = await ethers.getSigners();
   const coordinator = signers[coordinatorIndex];
   if (!coordinator) {
     throw new Error(
-      `COORDINATOR_SIGNER_INDEX=${coordinatorIndex} does not correspond to an available signer`
+      `COORDINATOR_SIGNER_INDEX=${coordinatorIndex} does not correspond to an available signer`,
     );
   }
 
@@ -52,7 +67,12 @@ async function main() {
   console.log("Units:", units.toString());
 
   const token = AIToken__factory.connect(contractAddress, coordinator);
-  const tx = await token.mintWithReceipt(providerAddress, units, receiptHash, signature);
+  const tx = await token.mintWithReceipt(
+    providerAddress,
+    units,
+    receiptHash,
+    signature,
+  );
   const receipt = await tx.wait();
 
   console.log("Mint transaction hash:", receipt?.hash ?? tx.hash);

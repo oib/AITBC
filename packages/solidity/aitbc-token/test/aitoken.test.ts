@@ -1,12 +1,70 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
-import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
-import type { Signer } from "ethers";
+import type { HardhatEthers } from "@nomicfoundation/hardhat-ethers/types";
+import type { NetworkHelpers } from "@nomicfoundation/hardhat-network-helpers/types";
+import type { BaseContract, ContractTransactionResponse, Signer } from "ethers";
+import { network } from "hardhat";
+import type { NetworkConnection } from "hardhat/types/network";
 import type { AIToken } from "../typechain-types";
 import { AIToken__factory } from "../typechain-types";
 
+type HardhatConnection = NetworkConnection & {
+  ethers: HardhatEthers;
+  networkHelpers: NetworkHelpers;
+};
+
+const { ethers, networkHelpers } =
+  (await network.connect()) as HardhatConnection;
+
+async function expectRevert(
+  operation: Promise<unknown>,
+  expectedMessage?: string,
+) {
+  let caughtError: unknown;
+
+  try {
+    await operation;
+  } catch (error) {
+    caughtError = error;
+  }
+
+  expect(caughtError).to.not.equal(undefined);
+
+  if (expectedMessage !== undefined) {
+    const message =
+      caughtError instanceof Error ? caughtError.message : String(caughtError);
+    expect(message).to.contain(expectedMessage);
+  }
+}
+
+async function expectEvent(
+  contract: BaseContract,
+  operation: Promise<ContractTransactionResponse>,
+  eventName: string,
+  expectedArgs: readonly unknown[],
+) {
+  const tx = await operation;
+  const receipt = await tx.wait();
+
+  expect(receipt).to.not.equal(null);
+
+  const parsedLog = receipt!.logs
+    .map((log) => {
+      try {
+        return contract.interface.parseLog(log);
+      } catch {
+        return null;
+      }
+    })
+    .find((entry) => entry?.name === eventName);
+
+  expect(parsedLog).to.not.equal(undefined);
+  expect(parsedLog).to.not.equal(null);
+  expect(Array.from(parsedLog!.args)).to.deep.equal([...expectedArgs]);
+}
+
 async function deployAITokenFixture() {
-  const [admin, coordinator, attestor, provider, outsider] = await ethers.getSigners();
+  const [admin, coordinator, attestor, provider, outsider] =
+    await ethers.getSigners();
 
   const factory = new AIToken__factory(admin);
   const token = await factory.deploy(admin.address);
@@ -26,7 +84,7 @@ async function buildSignature(
   attestor: Signer,
   provider: string,
   units: bigint,
-  receiptHash: string
+  receiptHash: string,
 ) {
   const chainId = (await ethers.provider.getNetwork()).chainId;
   const contractAddress = await token.getAddress();
@@ -34,7 +92,7 @@ async function buildSignature(
 
   const encoded = abiCoder.encode(
     ["uint256", "address", "address", "uint256", "bytes32"],
-    [chainId, contractAddress, provider, units, receiptHash]
+    [chainId, contractAddress, provider, units, receiptHash],
   );
 
   const structHash = ethers.keccak256(encoded);
@@ -43,46 +101,61 @@ async function buildSignature(
 
 describe("AIToken", function () {
   it("mints tokens when presented a valid attestor signature", async function () {
-    const { token, coordinator, attestor, provider } = await loadFixture(deployAITokenFixture);
+    const { token, coordinator, attestor, provider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 100n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-1"));
-    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+    const signature = await buildSignature(
+      token,
+      attestor,
+      provider.address,
+      units,
+      receiptHash,
+    );
 
-    await expect(
+    await expectEvent(
+      token,
       token
         .connect(coordinator)
-        .mintWithReceipt(provider.address, units, receiptHash, signature)
-    )
-      .to.emit(token, "ReceiptConsumed")
-      .withArgs(receiptHash, provider.address, units, attestor.address);
+        .mintWithReceipt(provider.address, units, receiptHash, signature),
+      "ReceiptConsumed",
+      [receiptHash, provider.address, units, attestor.address],
+    );
 
     expect(await token.balanceOf(provider.address)).to.equal(units);
     expect(await token.consumedReceipts(receiptHash)).to.equal(true);
   });
 
   it("rejects reuse of a consumed receipt hash", async function () {
-    const { token, coordinator, attestor, provider } = await loadFixture(deployAITokenFixture);
+    const { token, coordinator, attestor, provider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 50n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-2"));
-    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+    const signature = await buildSignature(
+      token,
+      attestor,
+      provider.address,
+      units,
+      receiptHash,
+    );
 
     await token
       .connect(coordinator)
       .mintWithReceipt(provider.address, units, receiptHash, signature);
 
-    await expect(
+    await expectRevert(
       token
         .connect(coordinator)
-        .mintWithReceipt(provider.address, units, receiptHash, signature)
-    ).to.be.revertedWith("receipt already consumed");
+        .mintWithReceipt(provider.address, units, receiptHash, signature),
+      "receipt already consumed",
+    );
   });
 
   it("rejects signatures from non-attestors", async function () {
-    const { token, coordinator, attestor, provider, outsider } = await loadFixture(
-      deployAITokenFixture
-    );
+    const { token, coordinator, attestor, provider, outsider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 25n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-3"));
@@ -91,60 +164,85 @@ describe("AIToken", function () {
       outsider,
       provider.address,
       units,
-      receiptHash
+      receiptHash,
     );
 
-    await expect(
+    await expectRevert(
       token
         .connect(coordinator)
-        .mintWithReceipt(provider.address, units, receiptHash, signature)
-    ).to.be.revertedWith("invalid attestor signature");
+        .mintWithReceipt(provider.address, units, receiptHash, signature),
+      "invalid attestor signature",
+    );
   });
 
   it("rejects minting to zero address", async function () {
-    const { token, coordinator, attestor } = await loadFixture(deployAITokenFixture);
+    const { token, coordinator, attestor } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 100n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-4"));
-    const signature = await buildSignature(token, attestor, ethers.ZeroAddress, units, receiptHash);
+    const signature = await buildSignature(
+      token,
+      attestor,
+      ethers.ZeroAddress,
+      units,
+      receiptHash,
+    );
 
-    await expect(
+    await expectRevert(
       token
         .connect(coordinator)
-        .mintWithReceipt(ethers.ZeroAddress, units, receiptHash, signature)
-    ).to.be.revertedWith("invalid provider");
+        .mintWithReceipt(ethers.ZeroAddress, units, receiptHash, signature),
+      "invalid provider",
+    );
   });
 
   it("rejects minting zero units", async function () {
-    const { token, coordinator, attestor, provider } = await loadFixture(deployAITokenFixture);
+    const { token, coordinator, attestor, provider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 0n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-5"));
-    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+    const signature = await buildSignature(
+      token,
+      attestor,
+      provider.address,
+      units,
+      receiptHash,
+    );
 
-    await expect(
+    await expectRevert(
       token
         .connect(coordinator)
-        .mintWithReceipt(provider.address, units, receiptHash, signature)
-    ).to.be.revertedWith("invalid units");
+        .mintWithReceipt(provider.address, units, receiptHash, signature),
+      "invalid units",
+    );
   });
 
   it("rejects minting from non-coordinator", async function () {
-    const { token, attestor, provider, outsider } = await loadFixture(deployAITokenFixture);
+    const { token, attestor, provider, outsider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 100n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-6"));
-    const signature = await buildSignature(token, attestor, provider.address, units, receiptHash);
+    const signature = await buildSignature(
+      token,
+      attestor,
+      provider.address,
+      units,
+      receiptHash,
+    );
 
-    await expect(
+    await expectRevert(
       token
         .connect(outsider)
-        .mintWithReceipt(provider.address, units, receiptHash, signature)
-    ).to.be.reverted;
+        .mintWithReceipt(provider.address, units, receiptHash, signature),
+    );
   });
 
   it("returns correct mint digest", async function () {
-    const { token, provider } = await loadFixture(deployAITokenFixture);
+    const { token, provider } =
+      await networkHelpers.loadFixture(deployAITokenFixture);
 
     const units = 100n;
     const receiptHash = ethers.keccak256(ethers.toUtf8Bytes("receipt-7"));
@@ -155,7 +253,7 @@ describe("AIToken", function () {
   });
 
   it("has correct token name and symbol", async function () {
-    const { token } = await loadFixture(deployAITokenFixture);
+    const { token } = await networkHelpers.loadFixture(deployAITokenFixture);
 
     expect(await token.name()).to.equal("AIToken");
     expect(await token.symbol()).to.equal("AIT");
