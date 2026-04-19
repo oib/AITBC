@@ -57,10 +57,26 @@ jobs:
           cd /var/lib/aitbc-workspaces/security-scan/repo
           source venv/bin/activate
           echo "=== Bandit Security Scan ==="
-          bandit -r apps/ packages/py/ cli/ \
-            -s B101,B311 \
-            --severity-level medium \
-            -f txt -q
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            bandit -r apps/ packages/py/ cli/ \
+              -s B101,B311 \
+              --severity-level medium \
+              -f txt -q
+          else
+            mapfile -t python_files < <(git show --name-only --pretty="" --diff-filter=ACMR HEAD | grep -E '^((apps|cli)/.*|packages/py/.*)\.py$' || true)
+
+            if [[ ${#python_files[@]} -eq 0 ]]; then
+              echo "✅ No changed Python files to scan"
+              exit 0
+            fi
+
+            printf '%s\n' "${python_files[@]}"
+            bandit \
+              -s B101,B311 \
+              --severity-level medium \
+              -f txt -q \
+              "${python_files[@]}"
+          fi
           echo "✅ Bandit scan completed"
 
       - name: Check for secrets
@@ -71,8 +87,21 @@ jobs:
           secret_matches=$(mktemp)
           password_matches=$(mktemp)
 
-          grep -RInE "PRIVATE_KEY[[:space:]]*=[[:space:]]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" > "$secret_matches" || true
-          grep -RInE "password[[:space:]]*=[[:space:]]*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" > "$password_matches" || true
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            grep -RInE "PRIVATE_KEY[[:space:]]*=[[:space:]]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy" > "$secret_matches" || true
+            grep -RInE "password[[:space:]]*=[[:space:]]*['\"][^'\"]*['\"]" apps/ packages/ cli/ 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" > "$password_matches" || true
+          else
+            mapfile -t changed_files < <(git show --name-only --pretty="" --diff-filter=ACMR HEAD | grep -E '^((apps|cli)/.*|packages/.*)$' || true)
+
+            if [[ ${#changed_files[@]} -eq 0 ]]; then
+              echo "✅ No changed files to scan for secrets"
+              rm -f "$secret_matches" "$password_matches"
+              exit 0
+            fi
+
+            grep -InE "PRIVATE_KEY[[:space:]]*=[[:space:]]*['\"]" "${changed_files[@]}" 2>/dev/null | grep -v "example\|test\|mock\|dummy" > "$secret_matches" || true
+            grep -InE "password[[:space:]]*=[[:space:]]*['\"][^'\"]*['\"]" "${changed_files[@]}" 2>/dev/null | grep -v "example\|test\|mock\|dummy\|placeholder" > "$password_matches" || true
+          fi
 
           if [[ -s "$secret_matches" ]]; then
             echo "❌ Possible secrets found"
