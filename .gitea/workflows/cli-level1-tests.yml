@@ -41,7 +41,9 @@ jobs:
 
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
-            --venv-dir "$PWD/venv"
+            --venv-dir "$PWD/venv" \
+            --requirements-file "$PWD/cli/requirements-cli.txt" \
+            --extra-packages "PyYAML requests cryptography"
           echo "✅ Python environment ready"
 
       - name: Verify CLI imports

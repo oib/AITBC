@@ -63,28 +63,28 @@ jobs:
             --extra-packages "pytest mypy black"
 
           if [[ "${{ matrix.package.name }}" == "aitbc-sdk" ]]; then
-            venv/bin/pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
+            venv/bin/python -m pip install -q -e "$WORKSPACE/repo/packages/py/aitbc-crypto"
           fi
 
           # Install dependencies
           if [[ -f "pyproject.toml" ]]; then
-            venv/bin/pip install -q -e ".[dev]" 2>/dev/null || venv/bin/pip install -q -e .
+            venv/bin/python -m pip install -q -e ".[dev]" 2>/dev/null || venv/bin/python -m pip install -q -e .
           fi
           if [[ -f "requirements.txt" ]]; then
-            venv/bin/pip install -q -r requirements.txt
+            venv/bin/python -m pip install -q -r requirements.txt
           fi
 
           # Linting
           echo "=== Linting ==="
           if [[ -d "src" ]]; then
-            mypy src/ --ignore-missing-imports --no-error-summary 2>/dev/null || echo "⚠️ MyPy warnings"
-            black --check src/ 2>/dev/null || echo "⚠️ Black warnings"
+            venv/bin/python -m mypy src/ --ignore-missing-imports --no-error-summary 2>/dev/null || echo "⚠️ MyPy warnings"
+            venv/bin/python -m black --check src/ 2>/dev/null || echo "⚠️ Black warnings"
           fi
 
           # Tests
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
-            pytest tests/ -q --tb=short
+            venv/bin/python -m pytest tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
           fi
@@ -117,6 +117,7 @@ jobs:
     timeout-minutes: 30
 
     strategy:
+      max-parallel: 1
       matrix:
         package:
           - name: "aitbc-sdk-js"
@@ -147,7 +148,11 @@ jobs:
           node --version
           npm --version
 
-          npm install --legacy-peer-deps
+          if [[ -f "package-lock.json" ]]; then
+            npm ci --legacy-peer-deps --no-audit --no-fund
+          else
+            npm install --legacy-peer-deps --no-audit --no-fund
+          fi
 
           # Build
           npm run build
@@ -157,7 +162,11 @@ jobs:
           npm run lint 2>/dev/null && echo "✅ Lint passed" || echo "⚠️ Lint skipped"
 
           # Test
-          npm test
+          if [[ "${{ matrix.package.name }}" == "aitbc-token" ]]; then
+            npx hardhat test --no-compile
+          else
+            npm test
+          fi
           echo "✅ Tests passed"
 
           echo "✅ ${{ matrix.package.name }} completed"
