@@ -46,7 +46,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic"
+            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic python-dotenv"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -74,13 +74,19 @@ jobs:
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
 
           # Start agent coordinator in background
-          nohup venv/bin/uvicorn app.main:app \
+          nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn app.main:app \
             --host 0.0.0.0 \
             --port 9001 \
             --log-level info \
             > /tmp/agent-coordinator.log 2>&1 &
 
           echo $! > /tmp/agent-coordinator.pid
+          sleep 2
+          if ! kill -0 "$(cat /tmp/agent-coordinator.pid)" 2>/dev/null; then
+            echo "❌ Agent coordinator exited during startup"
+            cat /tmp/agent-coordinator.log
+            exit 1
+          fi
           echo "✅ Agent coordinator started (PID: $(cat /tmp/agent-coordinator.pid))"
 
       - name: Wait for agent coordinator ready
