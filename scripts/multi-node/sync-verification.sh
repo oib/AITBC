@@ -52,13 +52,6 @@ log_warning() {
     echo -e "${YELLOW}$@${NC}"
 }
 
-# SSH execution helper
-ssh_exec() {
-    local node="$1"
-    local command="$2"
-    ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$node" "$command" 2>&1 || return 1
-}
-
 # Get block height from RPC endpoint
 get_block_height() {
     local node_ip="$1"
@@ -237,37 +230,14 @@ check_block_hash_consistency() {
     fi
 }
 
-# Remediation: Force sync from healthy node
+# Remediation: Skip force sync (not supported without SSH)
 force_sync_from_source() {
-    local target_node="$1"
-    local target_name="$2"
-    local source_node="$3"
-    local source_name="$4"
+    local target_name="$1"
+    local source_name="$2"
     
-    log "Forcing sync from ${source_name} to ${target_name}"
-    
-    # Stop blockchain service on target
-    log "Stopping blockchain service on ${target_name}"
-    ssh_exec "$target_node" "systemctl stop aitbc-blockchain-node" 2>&1 | tee -a "${LOG_FILE}"
-    sleep 5
-    
-    # Copy chain.db from source to target
-    log "Copying chain.db from ${source_name} to ${target_name}"
-    ssh_exec "$source_node" "cat /var/lib/aitbc/data/chain.db" | ssh_exec "$target_node" "cat > /var/lib/aitbc/data/chain.db" 2>&1 | tee -a "${LOG_FILE}"
-    
-    # Start blockchain service on target
-    log "Starting blockchain service on ${target_name}"
-    ssh_exec "$target_node" "systemctl start aitbc-blockchain-node" 2>&1 | tee -a "${LOG_FILE}"
-    sleep 10
-    
-    # Verify service is running
-    if ssh_exec "$target_node" "systemctl is-active aitbc-blockchain-node" | grep -q "active"; then
-        log_success "Sync completed successfully on ${target_name}"
-        return 0
-    else
-        log_error "Failed to start blockchain service on ${target_name} after sync"
-        return 1
-    fi
+    log "Skipping SSH-based force sync from ${source_name} to ${target_name} (not supported without SSH)"
+    log "Sync remediation requires SSH access to copy chain.db between nodes"
+    return 1
 }
 
 # Main sync verification
@@ -315,23 +285,12 @@ main() {
             fi
         done
         
-        # Attempt remediation if difference exceeds threshold
+        # Skip remediation (not supported without SSH)
         local height_diff=$((max_height - min_height))
         if [ "$height_diff" -gt "$SYNC_THRESHOLD" ]; then
-            log "Attempting remediation: sync from ${max_node} to ${min_node}"
-            if force_sync_from_source "$min_ip" "$min_node" "$max_ip" "$max_node"; then
-                log_success "Remediation successful"
-                # Re-check sync after remediation
-                if check_block_sync; then
-                    log_success "Sync verification passed after remediation"
-                else
-                    log_error "Sync still fails after remediation"
-                    ((total_failures++))
-                fi
-            else
-                log_error "Remediation failed"
-                ((total_failures++))
-            fi
+            log_warning "Sync difference exceeds threshold (diff: ${height_diff} blocks)"
+            log_warning "Skipping SSH-based remediation (requires SSH access to copy chain.db)"
+            ((total_failures++))
         fi
     fi
     
