@@ -35,6 +35,11 @@ jobs:
           git fetch --depth 2 origin "${{ github.ref }}"
           git checkout --detach FETCH_HEAD
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Setup tools
         run: |
           cd /var/lib/aitbc-workspaces/security-scan/repo
