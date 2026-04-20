@@ -98,10 +98,11 @@ monitor_performance() {
     local duration=$((end_time - start_time))
     
     if [ $duration -gt 0 ]; then
-        local tps=$(echo "scale=2; $transaction_count / $duration" | bc)
+        # Calculate TPS as integer
+        local tps=$((transaction_count / duration))
         log "Performance: ${transaction_count} transactions in ${duration}s = ${tps} TPS"
         
-        if [ "$(echo "$tps < $TARGET_TPS" | bc)" -eq 1 ]; then
+        if [ "$tps" -lt "$TARGET_TPS" ]; then
             log_warning "TPS below target: ${tps} < ${TARGET_TPS}"
         else
             log_success "TPS meets target: ${tps} >= ${TARGET_TPS}"
@@ -194,10 +195,13 @@ main() {
     local balance=$(get_wallet_balance "${STRESS_WALLET_NAME}")
     log "Stress test wallet balance: ${balance}"
     
-    if [ "$(echo "$balance < $TRANSACTION_COUNT" | bc)" -eq 1 ]; then
-        log_warning "Insufficient balance for ${TRANSACTION_COUNT} transactions (have ${balance})"
-        log "Reducing transaction count to ${balance%%.*}"
-        TRANSACTION_COUNT=${balance%%.*}
+    # Extract integer part of balance for comparison
+    local balance_int=${balance%%.*}
+    
+    if [ "$balance_int" -lt "$TRANSACTION_COUNT" ]; then
+        log_warning "Insufficient balance for ${TRANSACTION_COUNT} transactions (have ${balance_int})"
+        log "Reducing transaction count to ${balance_int}"
+        TRANSACTION_COUNT=$balance_int
     fi
     
     if [ "$TRANSACTION_COUNT" -lt 1 ]; then
@@ -240,11 +244,11 @@ main() {
     
     log "Transaction generation completed: ${successful_transactions} successful, ${failed_transactions} failed"
     
-    # Calculate error rate
-    local error_rate=$(echo "scale=2; $failed_transactions * 100 / $TRANSACTION_COUNT" | bc)
+    # Calculate error rate as integer percentage
+    local error_rate=$((failed_transactions * 100 / TRANSACTION_COUNT))
     log "Error rate: ${error_rate}%"
     
-    if [ "$(echo "$error_rate > $ERROR_RATE_THRESHOLD" | bc)" -eq 1 ]; then
+    if [ "$error_rate" -gt "$ERROR_RATE_THRESHOLD" ]; then
         log_error "Error rate exceeds threshold: ${error_rate}% > ${ERROR_RATE_THRESHOLD}%"
         ((total_failures++))
     fi
