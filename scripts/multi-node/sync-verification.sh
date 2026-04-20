@@ -72,7 +72,7 @@ get_chain_id() {
     local node_ip="$1"
     
     # Get chain ID from /health endpoint
-    chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null | grep -o '"supported_chains":\["[^"]*"\]' | grep -o '"[^"]*"' | head -1 | tr -d '"' || echo "")
+    chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null | grep -o '"supported_chains":\["[^"]*"\]' | grep -o '\["[^"]*"\]' | grep -o '[^"\[\]]*' || echo "")
     
     if [ -z "$chain_id" ]; then
         # Try alternative endpoint
