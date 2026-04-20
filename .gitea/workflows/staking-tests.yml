@@ -43,7 +43,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio sqlmodel"
+            --extra-packages "pytest pytest-asyncio sqlmodel click"
           echo "✅ Python environment ready"
 
       - name: Run staking service tests
@@ -90,7 +90,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio sqlmodel"
+            --extra-packages "pytest pytest-asyncio sqlmodel click"
           echo "✅ Python environment ready"
 
       - name: Run staking integration tests
