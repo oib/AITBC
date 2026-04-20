@@ -158,8 +158,8 @@ class BlockchainNode:
                                     # Get source URL from block metadata if available
                                     source_url = block_data.get("source_url")
                                     if not source_url:
-                                        # Fallback to default peer URL from gossip backend
-                                        source_url = settings.gossip_broadcast_url
+                                        # Fallback to default peer RPC URL
+                                        source_url = settings.default_peer_rpc_url
                                     
                                     if source_url:
                                         try:
