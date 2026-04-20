@@ -74,13 +74,13 @@ create_test_wallet() {
 # Get wallet address
 get_wallet_address() {
     local wallet_name="$1"
-    ${CLI_PATH} wallet address --name "${wallet_name}" --output json 2>/dev/null | grep -o '"address":"[^"]*"' | grep -o ':[^:]*$' | tr -d '"' || echo ""
+    ${CLI_PATH} wallet address --name "${wallet_name}" 2>/dev/null || echo ""
 }
 
 # Get wallet balance
 get_wallet_balance() {
     local wallet_name="$1"
-    ${CLI_PATH} wallet balance --name "${wallet_name}" --output json 2>/dev/null | grep -o '"balance":[0-9.]*' | grep -o '[0-9.]*' || echo "0"
+    ${CLI_PATH} wallet balance --name "${wallet_name}" 2>/dev/null || echo "0"
 }
 
 # Submit transaction
