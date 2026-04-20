@@ -58,8 +58,11 @@ ssh_exec() {
     local node="$1"
     local command="$2"
     
-    # If node is localhost, execute directly without SSH
-    if [ "$node" = "localhost" ] || [ "$node" = "$(hostname)" ]; then
+    # Get local IP address
+    local local_ip=$(hostname -I | awk '{print $1}')
+    
+    # If node is localhost or local IP, execute directly without SSH
+    if [ "$node" = "localhost" ] || [ "$node" = "$(hostname)" ] || [ "$node" = "$local_ip" ]; then
         bash -c "$command" 2>&1 || return 1
     else
         ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$node" "$command" 2>&1 || return 1
