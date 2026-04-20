@@ -79,6 +79,7 @@ class ChainSettings(BaseSettings):
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
+    default_peer_rpc_url: Optional[str] = None  # HTTP RPC URL of default peer for bulk sync
 
     # NAT Traversal (STUN/TURN)
     stun_servers: str = ""  # Comma-separated STUN server addresses (e.g., "stun.l.google.com:19302,jitsi.example.com:3478")
