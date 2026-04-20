@@ -53,10 +53,9 @@ jobs:
       - name: Run linting
         run: |
           cd /var/lib/aitbc-workspaces/python-tests/repo
-          source venv/bin/activate
 
-          if command -v ruff >/dev/null 2>&1; then
-            ruff check apps/ packages/py/ --select E,F --ignore E501 -q || echo "⚠️ Ruff warnings"
+          if venv/bin/python -m ruff --version >/dev/null 2>&1; then
+            venv/bin/python -m ruff check apps/ packages/py/ --select E,F --ignore E501 -q || echo "⚠️ Ruff warnings"
           fi
 
           echo "✅ Linting completed"
@@ -64,19 +63,18 @@ jobs:
       - name: Run tests
         run: |
           cd /var/lib/aitbc-workspaces/python-tests/repo
-          source venv/bin/activate
 
           # Install packages in development mode
-          pip install -e packages/py/aitbc-crypto/
-          pip install -e packages/py/aitbc-sdk/
+          venv/bin/python -m pip install -e packages/py/aitbc-crypto/
+          venv/bin/python -m pip install -e packages/py/aitbc-sdk/
 
           export PYTHONPATH="apps/coordinator-api/src:apps/blockchain-node/src:apps/wallet/src:packages/py/aitbc-crypto/src:packages/py/aitbc-sdk/src:."
 
           # Test if packages are importable
-          python3 -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
-          python3 -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
+          venv/bin/python -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
+          venv/bin/python -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
 
-          pytest tests/archived_phase_tests/ \
+          venv/bin/python -m pytest tests/archived_phase_tests/ \
             tests/cross_phase/ \
             apps/wallet/tests/ \
             packages/py/aitbc-crypto/tests/ \

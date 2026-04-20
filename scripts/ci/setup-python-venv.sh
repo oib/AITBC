@@ -92,27 +92,37 @@ CACHE_KEY="py${PYTHON_VERSION}-req${REQUIREMENTS_HASH}-extra${EXTRA_HASH}"
 CACHE_VENV_DIR="$CACHE_ROOT/$CACHE_KEY"
 LOCK_FILE="$CACHE_ROOT/$CACHE_KEY.lock"
 
+cached_environment_is_valid() {
+    [[ -x "$CACHE_VENV_DIR/bin/python" ]] || return 1
+    [[ -x "$CACHE_VENV_DIR/bin/pip" ]] || return 1
+
+    "$CACHE_VENV_DIR/bin/python" -c 'import sys; print(sys.executable)' >/dev/null 2>&1 || return 1
+    "$CACHE_VENV_DIR/bin/pip" --version >/dev/null 2>&1 || return 1
+}
+
 build_cached_environment() {
-    local temp_dir
-    temp_dir="${CACHE_VENV_DIR}.tmp.$$"
+    rm -rf "$CACHE_VENV_DIR"
+    "$PYTHON_BIN" -m venv "$CACHE_VENV_DIR"
 
-    rm -rf "$temp_dir"
-    "$PYTHON_BIN" -m venv "$temp_dir"
-    source "$temp_dir/bin/activate"
-
-    python -m pip install -q --upgrade pip setuptools wheel --no-cache-dir
+    if ! "$CACHE_VENV_DIR/bin/python" -m pip install -q --upgrade pip setuptools wheel --no-cache-dir; then
+        rm -rf "$CACHE_VENV_DIR"
+        return 1
+    fi
 
     if [[ -n "$REQUIREMENTS_FILE" && -f "$REQUIREMENTS_FILE" ]]; then
-        python -m pip install -q -r "$REQUIREMENTS_FILE" --no-cache-dir
+        if ! "$CACHE_VENV_DIR/bin/python" -m pip install -q -r "$REQUIREMENTS_FILE" --no-cache-dir; then
+            rm -rf "$CACHE_VENV_DIR"
+            return 1
+        fi
     fi
 
     if [[ -n "$EXTRA_PACKAGES" ]]; then
         read -r -a extra_array <<< "$EXTRA_PACKAGES"
-        python -m pip install -q "${extra_array[@]}" --no-cache-dir
+        if ! "$CACHE_VENV_DIR/bin/python" -m pip install -q "${extra_array[@]}" --no-cache-dir; then
+            rm -rf "$CACHE_VENV_DIR"
+            return 1
+        fi
     fi
-
-    deactivate || true
-    mv "$temp_dir" "$CACHE_VENV_DIR"
 }
 
 if command -v flock >/dev/null 2>&1; then
@@ -120,10 +130,15 @@ if command -v flock >/dev/null 2>&1; then
     flock 9
 fi
 
-if [[ -x "$CACHE_VENV_DIR/bin/python" ]]; then
+if cached_environment_is_valid; then
     echo "✅ Reusing cached Python environment: $CACHE_KEY"
 else
-    echo "📦 Building cached Python environment: $CACHE_KEY"
+    if [[ -e "$CACHE_VENV_DIR" ]]; then
+        echo "⚠️ Invalid cached Python environment detected, rebuilding: $CACHE_KEY"
+        rm -rf "$CACHE_VENV_DIR"
+    else
+        echo "📦 Building cached Python environment: $CACHE_KEY"
+    fi
     build_cached_environment
 fi
 
