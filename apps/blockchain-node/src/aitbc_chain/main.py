@@ -125,6 +125,7 @@ class BlockchainNode:
             return
         
         async def process_blocks():
+            last_bulk_sync_time = 0
             while True:
                 try:
                     block_data = await block_sub.queue.get()
@@ -137,6 +138,46 @@ class BlockchainNode:
                     sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
                     res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                     logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
+                    
+                    # Automatic bulk sync on gap detection
+                    if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
+                        # Parse gap size from reason string
+                        try:
+                            reason_parts = res.reason.split(":")
+                            our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
+                            received_height = int(reason_parts[2].strip().replace("received: ", ""))
+                            gap_size = received_height - our_height
+                            
+                            if gap_size > settings.auto_sync_threshold:
+                                current_time = asyncio.get_event_loop().time()
+                                time_since_last_sync = current_time - last_bulk_sync_time
+                                
+                                if time_since_last_sync >= settings.min_bulk_sync_interval:
+                                    logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync")
+                                    
+                                    # Get source URL from block metadata if available
+                                    source_url = block_data.get("source_url")
+                                    if not source_url:
+                                        # Fallback to default peer URL from gossip backend
+                                        source_url = settings.gossip_broadcast_url
+                                    
+                                    if source_url:
+                                        try:
+                                            imported = await sync.bulk_import_from(source_url)
+                                            logger.info(f"Bulk sync completed: {imported} blocks imported")
+                                            last_bulk_sync_time = current_time
+                                            
+                                            # Retry block import after bulk sync
+                                            res = sync.import_block(block_data, transactions=block_data.get("transactions"))
+                                            logger.info(f"Retry import result: accepted={res.accepted}, reason={res.reason}")
+                                        except Exception as sync_exc:
+                                            logger.error(f"Automatic bulk sync failed: {sync_exc}")
+                                    else:
+                                        logger.warning("No source URL available for bulk sync")
+                                else:
+                                    logger.info(f"Skipping bulk sync, too recent ({time_since_last_sync:.0f}s ago)")
+                        except (ValueError, IndexError) as parse_exc:
+                            logger.error(f"Failed to parse gap size from reason: {res.reason}, error: {parse_exc}")
                 except Exception as exc:
                     logger.error(f"Error processing block from gossip: {exc}")
                     

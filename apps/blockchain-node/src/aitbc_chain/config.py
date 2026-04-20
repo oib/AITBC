@@ -68,6 +68,12 @@ class ChainSettings(BaseSettings):
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
+    
+    # Automatic bulk sync settings
+    auto_sync_enabled: bool = True  # enable automatic bulk sync when gap detected
+    auto_sync_threshold: int = 10  # blocks gap threshold to trigger bulk sync
+    auto_sync_max_retries: int = 3  # max retry attempts for automatic bulk sync
+    min_bulk_sync_interval: int = 60  # minimum seconds between bulk sync attempts
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
