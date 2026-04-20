@@ -32,6 +32,11 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/staking-tests/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Setup Python environment
         run: |
           cd /var/lib/aitbc-workspaces/staking-tests/repo
@@ -81,6 +86,11 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/staking-integration/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Setup Python environment
         run: |
           cd /var/lib/aitbc-workspaces/staking-integration/repo
@@ -120,6 +130,11 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/staking-contract/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Setup Node.js environment
         run: |
           cd /var/lib/aitbc-workspaces/staking-contract/repo/contracts
@@ -153,6 +168,11 @@ jobs:
           mkdir -p "$WORKSPACE"
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/staking-runner/repo
+          bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
