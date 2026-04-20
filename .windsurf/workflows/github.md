@@ -302,6 +302,55 @@ git remote set-url github https://${GITHUB_TOKEN}@github.com/oib/AITBC.git
 git remote -v | grep github
 ```
 
+### Gitea Remote Setup
+```bash
+# Gitea is configured as primary remote (origin)
+# Uses HTTP authentication with token stored in ~/.git-credentials
+
+# Add Gitea remote (if not already configured)
+git remote add origin http://gitea.bubuit.net:3000/oib/aitbc.git
+
+# Configure token authentication via ~/.git-credentials
+# Format: http://<username>:<token>@gitea.bubuit.net:3000
+# Note: Replace <GITEA_TOKEN> with actual Gitea access token
+# Note: Replace <GITHUB_TOKEN> with actual GitHub personal access token
+cat > ~/.git-credentials << 'EOF'
+http://aitbc:<GITEA_TOKEN>@gitea.bubuit.net:3000
+https://oib:<GITHUB_TOKEN>@github.com
+EOF
+
+# Enable credential helper
+git config --global credential.helper store
+
+# Verify Gitea remote
+git remote -v | grep origin
+```
+
+### Git Setup Configuration
+
+**Current Git Remote Configuration:**
+```
+origin    http://gitea.bubuit.net:3000/oib/aitbc.git (fetch)
+origin    http://gitea.bubuit.net:3000/oib/aitbc.git (push)
+github   https://<GITHUB_TOKEN>@github.com/oib/AITBC.git (fetch)
+github   https://<GITHUB_TOKEN>@github.com/oib/AITBC.git (push)
+```
+
+**Authentication Method:**
+- **Gitea**: HTTP authentication with token stored in `~/.git-credentials`
+- **GitHub**: HTTPS authentication with token embedded in remote URL
+
+**Credential Storage:**
+- `~/.git-credentials` file contains authentication tokens
+- Git credential helper configured to use this file
+- Tokens are stored in URL format: `http://<username>:<token>@<host>:<port>`
+
+**Security Notes:**
+- Gitea token: Stored in `~/.git-credentials` for HTTP authentication
+- GitHub token: Stored in `/root/github_token` file for milestone pushes
+- Ensure credential files have appropriate permissions (chmod 600)
+- Never commit actual tokens to version control
+
 ## Advanced GitHub Operations
 
 ### Branch Management
