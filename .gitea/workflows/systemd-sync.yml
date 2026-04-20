@@ -28,6 +28,11 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/systemd-sync/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Validate service files
         run: |
           cd /var/lib/aitbc-workspaces/systemd-sync/repo
@@ -71,14 +76,14 @@ jobs:
           fi
 
           echo "=== Syncing systemd files ==="
-          if [[ -x /opt/aitbc/scripts/utils/link-systemd.sh ]]; then
+          if [[ -x scripts/utils/link-systemd.sh ]]; then
             if [[ $EUID -eq 0 ]]; then
-              /opt/aitbc/scripts/utils/link-systemd.sh
+              ./scripts/utils/link-systemd.sh
             else
-              sudo /opt/aitbc/scripts/utils/link-systemd.sh
+              sudo ./scripts/utils/link-systemd.sh
             fi
           else
-            echo "⚠️ /opt/aitbc/scripts/utils/link-systemd.sh not found"
+            echo "⚠️ scripts/utils/link-systemd.sh not found"
             exit 1
           fi
 
