@@ -1,0 +1,67 @@
+name: Multi-Node Blockchain Health Monitoring
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'scripts/multi-node/**'
+      - '.gitea/workflows/multi-node-health.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *'  # Every 2 hours
+
+concurrency:
+  group: multi-node-health-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  health-check:
+    runs-on: debian
+    timeout-minutes: 15
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/multi-node-health"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-health/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-health/repo
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run multi-node health check
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-health/repo
+          bash scripts/multi-node/blockchain-health-check.sh
+
+      - name: Health check report
+        if: always()
+        run: |
+          echo "=== Multi-Node Health Check Report ==="
+          if [ -f /var/log/aitbc/multi-node-health.log ]; then
+            tail -50 /var/log/aitbc/multi-node-health.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/multi-node-health
