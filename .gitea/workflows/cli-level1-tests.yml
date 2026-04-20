@@ -41,7 +41,9 @@ jobs:
 
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
-            --venv-dir "$PWD/venv"
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest click typer rich"
           echo "✅ Python environment ready"
 
       - name: Verify CLI imports
