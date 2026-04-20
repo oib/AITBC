@@ -39,7 +39,7 @@ class ChainSettings(BaseSettings):
     mint_per_unit: int = 0  # No new minting after genesis for production
     coordinator_ratio: float = 0.05
 
-    block_time_seconds: int = 2
+    block_time_seconds: int = 10
 
     # Block production toggle (set false on followers)
     enable_block_production: bool = True
