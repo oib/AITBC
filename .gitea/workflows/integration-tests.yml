@@ -72,7 +72,7 @@ jobs:
         run: |
           echo "Waiting for services..."
           services_available=true
-          for port in 8000 8001 8003 8006; do
+          for port in 8000 8001 8003 8006 9001; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
