@@ -1,0 +1,57 @@
+name: Node Failover Simulation
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: node-failover-simulation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  failover-test:
+    runs-on: debian
+    timeout-minutes: 15
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/node-failover-simulation"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/node-failover-simulation/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd /var/lib/aitbc-workspaces/node-failover-simulation/repo
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run node failover simulation
+        run: |
+          cd /var/lib/aitbc-workspaces/node-failover-simulation/repo
+          bash scripts/multi-node/failover-simulation.sh
+
+      - name: Failover simulation report
+        if: always()
+        run: |
+          echo "=== Node Failover Simulation Report ==="
+          if [ -f /var/log/aitbc/failover-simulation.log ]; then
+            tail -50 /var/log/aitbc/failover-simulation.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/node-failover-simulation
