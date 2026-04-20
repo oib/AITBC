@@ -57,7 +57,13 @@ log_warning() {
 ssh_exec() {
     local node="$1"
     local command="$2"
-    ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$node" "$command" 2>&1 || return 1
+    
+    # If node is localhost, execute directly without SSH
+    if [ "$node" = "localhost" ] || [ "$node" = "$(hostname)" ]; then
+        bash -c "$command" 2>&1 || return 1
+    else
+        ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no "$node" "$command" 2>&1 || return 1
+    fi
 }
 
 # Check RPC endpoint health
