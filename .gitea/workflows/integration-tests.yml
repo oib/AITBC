@@ -57,7 +57,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           echo "Starting AITBC services..."
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
             if systemctl is-active --quiet "$svc" 2>/dev/null; then
               echo "✅ $svc already running"
             else
@@ -150,7 +150,7 @@ jobs:
         if: always()
         run: |
           echo "=== Service Status ==="
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
             status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
             echo "  $svc: $status"
           done
