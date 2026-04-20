@@ -20,6 +20,7 @@ Use this workflow when a Gitea Actions job fails and you need Windsurf to:
 - Prefer `GITHUB_RUN_ID` and `GITHUB_RUN_NUMBER`, not `GITEA_RUN_ID`
 - Internal runner `task <id>` messages in `journalctl` are useful for runner debugging, but are not stable workflow-facing identifiers
 - CI job logs created by the reusable logging wrapper live under `/opt/gitea-runner/logs`
+- `rg` is installed on `gitea-runner`; prefer it over `grep` for targeted log discovery and failure-marker searches
 
 ## Safety Rules
 - Start with read-only inspection only
@@ -58,10 +59,12 @@ If you know the workflow or job name, start there.
 ```bash
 ssh gitea-runner 'ls -lah /opt/gitea-runner/logs'
 ssh gitea-runner 'tail -n 20 /opt/gitea-runner/logs/index.tsv'
+ssh gitea-runner 'rg -n --fixed-strings "Production Tests" /opt/gitea-runner/logs/index.tsv | tail -n 20'
+ssh gitea-runner 'rg -n --fixed-strings "test-production" /opt/gitea-runner/logs/index.tsv | tail -n 20'
 ssh gitea-runner 'tail -n 200 /opt/gitea-runner/logs/latest.log'
 ```
 
-If you know the run id:
+If you know the run id, keep using `awk` because `index.tsv` is tab-separated and you want an exact column match:
 
 ```bash
 ssh gitea-runner "awk -F '\t' '\$2 == \"1787\" {print}' /opt/gitea-runner/logs/index.tsv"
@@ -70,8 +73,8 @@ ssh gitea-runner "awk -F '\t' '\$2 == \"1787\" {print}' /opt/gitea-runner/logs/i
 If you know the workflow/job name:
 
 ```bash
-ssh gitea-runner 'grep -i "staking tests" /opt/gitea-runner/logs/index.tsv | tail -n 20'
-ssh gitea-runner 'grep -i "test-staking-service" /opt/gitea-runner/logs/index.tsv | tail -n 20'
+ssh gitea-runner 'rg -n -i --fixed-strings "staking tests" /opt/gitea-runner/logs/index.tsv | tail -n 20'
+ssh gitea-runner 'rg -n -i --fixed-strings "test-staking-service" /opt/gitea-runner/logs/index.tsv | tail -n 20'
 ```
 
 ### Step 3: Read the Most Relevant Job Log
@@ -85,6 +88,12 @@ If `latest.log` already matches the failing run:
 
 ```bash
 ssh gitea-runner 'tail -n 200 /opt/gitea-runner/logs/latest.log'
+```
+
+For a fast failure-marker pass inside a resolved log file:
+
+```bash
+ssh gitea-runner 'rg -n "❌|Traceback|FAILED|FAILURES|ModuleNotFoundError|AssertionError|not ready|oom|Killed" /opt/gitea-runner/logs/<resolved-log-file>.log'
 ```
 
 ### Step 4: Correlate With Runner Health
@@ -101,8 +110,8 @@ Use these when the log suggests abrupt termination, hanging setup, missing conta
 
 ```bash
 ssh gitea-runner 'free -h; df -h /opt /var /tmp'
-ssh gitea-runner 'dmesg -T | grep -i -E "oom|out of memory|killed process" | tail -n 50'
-ssh gitea-runner 'journalctl -u gitea-runner --since "2 hours ago" --no-pager | grep -i -E "oom|killed|failed|panic|error"'
+ssh gitea-runner 'dmesg -T | rg -i "oom|out of memory|killed process" | tail -n 50'
+ssh gitea-runner 'journalctl -u gitea-runner --since "2 hours ago" --no-pager | rg -i "oom|killed|failed|panic|error"'
 ```
 
 ### Step 6: Classify the Failure
@@ -208,6 +217,8 @@ ssh gitea-runner '
   tail -n 10 /opt/gitea-runner/logs/index.tsv 2>/dev/null || true;
   echo "=== latest job log ===";
   tail -n 120 /opt/gitea-runner/logs/latest.log 2>/dev/null || true;
+  echo "=== latest job markers ===";
+  rg -n "❌|Traceback|FAILED|FAILURES|ModuleNotFoundError|AssertionError|not ready|oom|Killed" /opt/gitea-runner/logs/latest.log 2>/dev/null | tail -n 40 || true;
   echo "=== runner journal ===";
   journalctl -u gitea-runner -n 80 --no-pager || true
 '
