@@ -145,7 +145,7 @@ class BlockchainNode:
                         try:
                             reason_parts = res.reason.split(":")
                             our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
-                            received_height = int(reason_parts[2].strip().replace("received: ", ""))
+                            received_height = int(reason_parts[2].strip().replace("received: ", "").replace(")", ""))
                             gap_size = received_height - our_height
                             
                             if gap_size > settings.auto_sync_threshold:
