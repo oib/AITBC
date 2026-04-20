@@ -26,10 +26,10 @@ class ChainSettings(BaseSettings):
     supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
     db_path: Path = Path("/var/lib/aitbc/data/chain.db")
 
-    rpc_bind_host: str = "0.0.0.0"
+    rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
     rpc_bind_port: int = 8080
 
-    p2p_bind_host: str = "0.0.0.0"
+    p2p_bind_host: str = "0.0.0.0"  # nosec B104: intentional for P2P peer connections
     p2p_bind_port: int = 8001
     p2p_node_id: str = ""
 
