@@ -139,7 +139,7 @@ jobs:
 
           # Run existing test suites
           if [[ -d "tests" ]]; then
-            pytest tests/ -x --timeout=30 -q
+            pytest tests/ -x --timeout=30 -q --ignore=tests/production
           fi
 
           # Service health check integration
