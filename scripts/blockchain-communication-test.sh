@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Blockchain Communication Test Script
-# Tests communication between aitbc (genesis) and aitbc1 (follower) nodes
-# Both nodes run on port 8006 on different physical machines
+# Tests communication between aitbc (genesis), aitbc1 (follower), and aitbc2 (gitea-runner) nodes
+# All nodes run on port 8006 on different physical machines
 #
 
 set -e
@@ -11,8 +11,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Configuration
-GENESIS_IP="10.1.223.40"
-FOLLOWER_IP="<aitbc1-ip>"  # Replace with actual IP
+GENESIS_IP="10.1.223.93"
+FOLLOWER_IP="10.1.223.40"
+FOLLOWER2_IP="10.1.223.98"  # gitea-runner/aitbc2
 PORT=8006
 CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 LOG_DIR="/var/log/aitbc"
@@ -114,7 +115,7 @@ test_connectivity() {
         return 1
     fi
     
-    # Test follower node
+    # Test follower node (aitbc1)
     log_debug "Testing follower node at ${FOLLOWER_IP}:${PORT}"
     if curl -f -s "http://${FOLLOWER_IP}:${PORT}/health" > /dev/null; then
         log_success "Follower node (aitbc1) is reachable"
@@ -123,12 +124,27 @@ test_connectivity() {
         return 1
     fi
     
+    # Test follower node (aitbc2/gitea-runner)
+    log_debug "Testing follower node (aitbc2/gitea-runner) at ${FOLLOWER2_IP}:${PORT}"
+    if curl -f -s "http://${FOLLOWER2_IP}:${PORT}/health" > /dev/null; then
+        log_success "Follower node (aitbc2/gitea-runner) is reachable"
+    else
+        log_error "Follower node (aitbc2/gitea-runner) is NOT reachable"
+        return 1
+    fi
+    
     # Test P2P connectivity
     log_debug "Testing P2P connectivity"
     if ${CLI_PATH} network ping --node aitbc1 --host ${FOLLOWER_IP} --port ${PORT} --debug > /dev/null 2>&1; then
-        log_success "P2P connectivity between nodes is working"
+        log_success "P2P connectivity to aitbc1 is working"
     else
-        log_warning "P2P connectivity test failed (may not be critical)"
+        log_warning "P2P connectivity to aitbc1 test failed (may not be critical)"
+    fi
+    
+    if ${CLI_PATH} network ping --node aitbc2 --host ${FOLLOWER2_IP} --port ${PORT} --debug > /dev/null 2>&1; then
+        log_success "P2P connectivity to aitbc2 is working"
+    else
+        log_warning "P2P connectivity to aitbc2 test failed (may not be critical)"
     fi
     
     # Check peers
@@ -146,23 +162,38 @@ test_blockchain_status() {
     GENESIS_HEIGHT=$(NODE_URL="http://${GENESIS_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
     log_info "Genesis node block height: ${GENESIS_HEIGHT}"
     
-    # Get follower node status
-    log_debug "Getting follower node blockchain info"
+    # Get follower node (aitbc1) status
+    log_debug "Getting follower node (aitbc1) blockchain info"
     FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
-    log_info "Follower node block height: ${FOLLOWER_HEIGHT}"
+    log_info "Follower node (aitbc1) block height: ${FOLLOWER_HEIGHT}"
+    
+    # Get follower node (aitbc2/gitea-runner) status
+    log_debug "Getting follower node (aitbc2/gitea-runner) blockchain info"
+    FOLLOWER2_HEIGHT=$(NODE_URL="http://${FOLLOWER2_IP}:${PORT}" ${CLI_PATH} blockchain height --output json 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+    log_info "Follower node (aitbc2/gitea-runner) block height: ${FOLLOWER2_HEIGHT}"
     
     # Compare heights
-    HEIGHT_DIFF=$((GENESIS_HEIGHT - FOLLOWER_HEIGHT))
-    HEIGHT_DIFF=${HEIGHT_DIFF#-}  # Absolute value
+    HEIGHT_DIFF1=$((GENESIS_HEIGHT - FOLLOWER_HEIGHT))
+    HEIGHT_DIFF1=${HEIGHT_DIFF1#-}  # Absolute value
     
-    if [ ${HEIGHT_DIFF} -le 2 ]; then
-        log_success "Block synchronization is good (diff: ${HEIGHT_DIFF} blocks)"
+    HEIGHT_DIFF2=$((GENESIS_HEIGHT - FOLLOWER2_HEIGHT))
+    HEIGHT_DIFF2=${HEIGHT_DIFF2#-}  # Absolute value
+    
+    HEIGHT_DIFF3=$((FOLLOWER_HEIGHT - FOLLOWER2_HEIGHT))
+    HEIGHT_DIFF3=${HEIGHT_DIFF3#-}  # Absolute value
+    
+    # Use the maximum difference
+    MAX_DIFF=$((HEIGHT_DIFF1 > HEIGHT_DIFF2 ? HEIGHT_DIFF1 : HEIGHT_DIFF2))
+    MAX_DIFF=$((MAX_DIFF > HEIGHT_DIFF3 ? MAX_DIFF : HEIGHT_DIFF3))
+    
+    if [ ${MAX_DIFF} -le 2 ]; then
+        log_success "Block synchronization is good (max diff: ${MAX_DIFF} blocks)"
         return 0
-    elif [ ${HEIGHT_DIFF} -le 10 ]; then
-        log_warning "Block synchronization lag (diff: ${HEIGHT_DIFF} blocks)"
+    elif [ ${MAX_DIFF} -le 10 ]; then
+        log_warning "Block synchronization lag (max diff: ${MAX_DIFF} blocks)"
         return 1
     else
-        log_error "Block synchronization severely lagged (diff: ${HEIGHT_DIFF} blocks)"
+        log_error "Block synchronization severely lagged (max diff: ${MAX_DIFF} blocks)"
         return 1
     fi
 }
@@ -259,23 +290,37 @@ test_sync() {
         log_warning "Genesis node has uncommitted changes"
     fi
     
-    # Check git status on follower
-    log_debug "Checking git status on follower node"
+    # Check git status on follower (aitbc1)
+    log_debug "Checking git status on follower node (aitbc1)"
     FOLLOWER_STATUS=$(ssh aitbc1 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
     
     if [ "${FOLLOWER_STATUS}" = "error" ]; then
-        log_error "Git status check failed on follower node"
+        log_error "Git status check failed on follower node (aitbc1)"
         return 1
     elif [ -z "${FOLLOWER_STATUS}" ]; then
-        log_success "Follower node git status is clean"
+        log_success "Follower node (aitbc1) git status is clean"
     else
-        log_warning "Follower node has uncommitted changes"
+        log_warning "Follower node (aitbc1) has uncommitted changes"
+    fi
+    
+    # Check git status on follower (aitbc2/gitea-runner)
+    log_debug "Checking git status on follower node (aitbc2/gitea-runner)"
+    FOLLOWER2_STATUS=$(ssh gitea-runner 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
+    
+    if [ "${FOLLOWER2_STATUS}" = "error" ]; then
+        log_error "Git status check failed on follower node (aitbc2/gitea-runner)"
+        return 1
+    elif [ -z "${FOLLOWER2_STATUS}" ]; then
+        log_success "Follower node (aitbc2/gitea-runner) git status is clean"
+    else
+        log_warning "Follower node (aitbc2/gitea-runner) has uncommitted changes"
     fi
     
     # Test git pull
     log_debug "Testing git pull from Gitea"
     git pull origin main --verbose >> "${LOG_FILE}" 2>&1
     ssh aitbc1 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
+    ssh gitea-runner 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
     
     log_success "Git synchronization test completed"
     return 0
@@ -347,7 +392,7 @@ run_monitor() {
 # Main execution
 main() {
     log_info "Blockchain Communication Test Script"
-    log_info "Genesis IP: ${GENESIS_IP}, Follower IP: ${FOLLOWER_IP}, Port: ${PORT}"
+    log_info "Genesis IP: ${GENESIS_IP}, Follower IP: ${FOLLOWER_IP}, Follower2 IP: ${FOLLOWER2_IP}, Port: ${PORT}"
     
     # Create log directory if it doesn't exist
     mkdir -p "${LOG_DIR}"
