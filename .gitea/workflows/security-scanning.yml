@@ -38,15 +38,19 @@ jobs:
       - name: Setup tools
         run: |
           cd /var/lib/aitbc-workspaces/security-scan/repo
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
-          
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --extra-packages "bandit pip-audit"
+
           echo "✅ Security tools installed"
 
       - name: Python dependency audit
