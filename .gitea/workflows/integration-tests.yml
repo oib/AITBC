@@ -107,12 +107,16 @@ jobs:
       - name: Setup test environment
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --extra-packages "requests pytest httpx pytest-asyncio pytest-timeout click locust"
-          
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
