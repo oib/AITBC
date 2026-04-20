@@ -46,6 +46,7 @@ htmlcov/
 *.db-shm
 data/
 apps/blockchain-node/data/
+!apps/coordinator-api/src/app/data/
 
 # ===================
 # Runtime Directories (System Standard)
