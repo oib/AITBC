@@ -120,7 +120,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "requests pytest httpx pytest-asyncio pytest-timeout click locust"
+            --extra-packages "requests pytest httpx pytest-asyncio pytest-timeout click locust sqlalchemy"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
