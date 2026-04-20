@@ -74,6 +74,8 @@ class ChainSettings(BaseSettings):
     auto_sync_threshold: int = 10  # blocks gap threshold to trigger bulk sync
     auto_sync_max_retries: int = 3  # max retry attempts for automatic bulk sync
     min_bulk_sync_interval: int = 60  # minimum seconds between bulk sync attempts
+    min_bulk_sync_batch_size: int = 20  # minimum batch size for dynamic bulk sync
+    max_bulk_sync_batch_size: int = 200  # maximum batch size for dynamic bulk sync
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
