@@ -30,6 +30,11 @@ jobs:
           cd "$WORKSPACE"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/production-tests/repo
+          bash scripts/ci/setup-job-logging.sh
+
       - name: Setup test environment
         run: |
           cd /var/lib/aitbc-workspaces/production-tests/repo
@@ -42,9 +47,6 @@ jobs:
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic"
-
-          # Install agent-coordinator package with its dependencies
-          venv/bin/pip install -q -e apps/agent-coordinator
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
