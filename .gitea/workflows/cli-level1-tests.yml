@@ -32,10 +32,13 @@ jobs:
       - name: Setup Python environment
         run: |
           cd /var/lib/aitbc-workspaces/cli-tests/repo
-          
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
-          
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv"

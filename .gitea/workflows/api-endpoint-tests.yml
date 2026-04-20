@@ -34,6 +34,10 @@ jobs:
       - name: Setup test environment
         run: |
           cd /var/lib/aitbc-workspaces/api-tests/repo
+
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
