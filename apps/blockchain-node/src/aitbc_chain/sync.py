@@ -111,6 +111,8 @@ class ChainSync:
         self._batch_size = batch_size
         self._poll_interval = poll_interval
         self._client = httpx.AsyncClient(timeout=10.0)
+        self._last_bulk_sync_time = 0
+        self._min_bulk_sync_interval = getattr(settings, 'min_bulk_sync_interval', 60)
 
     async def close(self) -> None:
         """Close HTTP client."""
@@ -137,6 +139,13 @@ class ChainSync:
         """Bulk import missing blocks from source to catch up quickly."""
         if import_url is None:
             import_url = "http://127.0.0.1:8006"  # default local RPC
+
+        # Rate limiting check
+        current_time = time.time()
+        time_since_last_sync = current_time - self._last_bulk_sync_time
+        if time_since_last_sync < self._min_bulk_sync_interval:
+            logger.warning("Bulk sync rate limited", extra={"time_since_last_sync": time_since_last_sync, "min_interval": self._min_bulk_sync_interval})
+            return 0
 
         # Get local head
         with self._session_factory() as session:
@@ -185,6 +194,10 @@ class ChainSync:
             await asyncio.sleep(self._poll_interval)
 
         logger.info("Bulk import completed", extra={"imported": imported, "final_height": remote_height})
+        
+        # Update last bulk sync time
+        self._last_bulk_sync_time = current_time
+        
         return imported
 
     def import_block(self, block_data: Dict[str, Any], transactions: Optional[List[Dict[str, Any]]] = None) -> ImportResult:
