@@ -43,26 +43,24 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio"
+            --extra-packages "pytest pytest-asyncio sqlmodel"
           echo "✅ Python environment ready"
 
       - name: Run staking service tests
         run: |
           cd /var/lib/aitbc-workspaces/staking-tests/repo
-          source venv/bin/activate
           export PYTHONPATH="apps/coordinator-api/src:."
 
           echo "🧪 Running staking service tests..."
-          python3 -m pytest tests/services/test_staking_service.py -v --tb=short
+          venv/bin/pytest tests/services/test_staking_service.py -v --tb=short
           echo "✅ Service tests completed"
 
       - name: Generate test data
         run: |
           cd /var/lib/aitbc-workspaces/staking-tests/repo
-          source venv/bin/activate
           
           echo "🔧 Generating test data..."
-          python3 scripts/testing/generate_staking_test_data.py
+          venv/bin/python scripts/testing/generate_staking_test_data.py
           echo "✅ Test data generated"
 
       - name: Cleanup
@@ -86,20 +84,22 @@ jobs:
       - name: Setup Python environment
         run: |
           cd /var/lib/aitbc-workspaces/staking-integration/repo
+          rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
-            --venv-dir "$PWD/venv"
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "pytest pytest-asyncio sqlmodel"
           echo "✅ Python environment ready"
 
       - name: Run staking integration tests
         run: |
           cd /var/lib/aitbc-workspaces/staking-integration/repo
-          source venv/bin/activate
           export PYTHONPATH="apps/coordinator-api/src:."
 
           echo "🧪 Running staking integration tests..."
-          python3 -m pytest tests/integration/test_staking_lifecycle.py -v --tb=short
+          venv/bin/pytest tests/integration/test_staking_lifecycle.py -v --tb=short
           echo "✅ Integration tests completed"
 
       - name: Cleanup
@@ -157,6 +157,7 @@ jobs:
       - name: Setup Python environment
         run: |
           cd /var/lib/aitbc-workspaces/staking-runner/repo
+          rm -rf venv
           
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
