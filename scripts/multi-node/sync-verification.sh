@@ -63,8 +63,8 @@ ssh_exec() {
 get_block_height() {
     local node_ip="$1"
     
-    # Try to get block height from RPC
-    height=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/blockchain/height" 2>/dev/null | grep -o '[0-9]*' || echo "0")
+    # Try to get block height from RPC /rpc/head endpoint
+    height=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/rpc/head" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
     
     if [ -z "$height" ] || [ "$height" = "0" ]; then
         # Try alternative endpoint
@@ -78,9 +78,11 @@ get_block_height() {
 get_chain_id() {
     local node_ip="$1"
     
-    chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/blockchain/chain-id" 2>/dev/null || echo "")
+    # Get chain ID from /health endpoint
+    chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null | grep -o '"supported_chains":\["[^"]*"\]' | grep -o '"[^"]*"' | head -1 | tr -d '"' || echo "")
     
     if [ -z "$chain_id" ]; then
+        # Try alternative endpoint
         chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/chain-id" 2>/dev/null || echo "")
     fi
     
@@ -92,7 +94,14 @@ get_block_hash() {
     local node_ip="$1"
     local height="$2"
     
-    hash=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/blockchain/block/${height}/hash" 2>/dev/null || echo "")
+    # Get block hash from /rpc/blocks/{height} endpoint
+    hash=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/rpc/blocks/${height}" 2>/dev/null | grep -o '"hash":"[^"]*"' | grep -o ':[^:]*$' | tr -d '"' || echo "")
+    
+    if [ -z "$hash" ]; then
+        # Try alternative endpoint
+        hash=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/blockchain/block/${height}/hash" 2>/dev/null || echo "")
+    fi
+    
     echo "$hash"
 }
 
