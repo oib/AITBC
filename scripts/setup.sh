@@ -114,6 +114,13 @@ setup_runtime_directories() {
     chown root:root /var/log/aitbc
     chown root:root /etc/aitbc
     
+    # Disable Btrfs CoW on data directory to prevent SQLite corruption
+    # SQLite expects overwrite-in-place behavior, which conflicts with CoW
+    if command -v chattr >/dev/null 2>&1; then
+        chattr +C /var/lib/aitbc 2>/dev/null || log "Could not disable CoW (not Btrfs or no permissions)"
+        log "Disabled Btrfs CoW on /var/lib/aitbc to prevent SQLite corruption"
+    fi
+    
     # Create README files
     echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
     echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
