@@ -1,603 +1,574 @@
 # AITBC Test Suite
 
-**Project Status**: ✅ **100% COMPLETED** (v0.3.0 - April 2, 2026)
+This directory contains the comprehensive test suite for the AITBC platform, including unit tests, integration tests, end-to-end tests, security tests, and load tests.
 
-This directory contains comprehensive tests for the AITBC system, covering all 9 major systems with 100% test success rate achieved.
+## Table of Contents
 
-## 🎉 **Test Achievement Summary**
+1. [Test Structure](#test-structure)
+2. [Prerequisites](#prerequisites)
+3. [Running Tests](#running-tests)
+4. [Test Types](#test-types)
+5. [Configuration](#configuration)
+6. [CI/CD Integration](#cicd-integration)
+7. [Troubleshooting](#troubleshooting)
 
-### **✅ 100% Test Success Rate Achieved**
-- **JWT Authentication Tests**: ✅ PASSED
-- **Production Monitoring Tests**: ✅ PASSED  
-- **Type Safety Tests**: ✅ PASSED
-- **Advanced Features Tests**: ✅ PASSED
-- **Complete System Integration**: ✅ PASSED
-- **Overall Success Rate**: **100% (4/4 major test suites)**
-
-### **✅ All 9 Major Systems Tested**
-1. **System Architecture**: ✅ FHS compliance testing
-2. **Service Management**: ✅ Single marketplace service testing
-3. **Basic Security**: ✅ Secure keystore implementation testing
-4. **Agent Systems**: ✅ Multi-agent coordination testing
-5. **API Functionality**: ✅ 17/17 endpoints testing
-6. **Test Suite**: ✅ 100% test success rate validation
-7. **Advanced Security**: ✅ JWT auth and RBAC testing
-8. **Production Monitoring**: ✅ Prometheus metrics and alerting testing
-9. **Type Safety**: ✅ MyPy strict checking validation
-
----
-
-## 🧪 **Test Structure**
-
-### **🎯 Core Production Test Files (100% Complete)**
-
-| Test File | Purpose | Status | Coverage |
-|-----------|---------|--------|----------|
-| **`test_jwt_authentication.py`** | JWT authentication & RBAC | ✅ PASSED | Security system |
-| **`test_production_monitoring.py`** | Prometheus metrics & alerting | ✅ PASSED | Monitoring system |
-| **`test_type_safety.py`** | Type validation & MyPy checking | ✅ PASSED | Type safety system |
-| **`test_advanced_features.py`** | AI/ML & advanced features | ✅ PASSED | Advanced systems |
-| **`test_complete_system_integration.py`** | End-to-end integration | ✅ PASSED | All systems |
-| **`test_runner_complete.py`** | Complete test runner | ✅ PASSED | Test execution |
-
-### **📋 Legacy Test Files (Archived)**
-
-| Test File | Purpose | Status | Notes |
-|-----------|---------|--------|-------|
-| **`test_mesh_network_transition.py`** | Legacy mesh network tests | 📚 ARCHIVED | Pre-100% completion |
-| **`test_phase_integration.py`** | Legacy phase integration | 📚 ARCHIVED | Pre-100% completion |
-| **`test_security_validation.py`** | Legacy security tests | 📚 ARCHIVED | Replaced by JWT tests |
-| **`test_performance_benchmarks.py`** | Legacy performance tests | 📚 ARCHIVED | Pre-100% completion |
-
----
-
-## 📊 **Test Categories**
-
-### **🎯 Production Tests** (`@pytest.mark.production`)
-- **JWT Authentication**: Complete authentication flow testing
-- **Production Monitoring**: Metrics collection and alerting
-- **Type Safety**: Comprehensive type validation
-- **Advanced Features**: AI/ML and advanced functionality
-- **System Integration**: End-to-end workflow testing
-
-### **📋 Legacy Tests** (`@pytest.mark.legacy`)
-- **Mesh Network**: Historical mesh network tests
-- **Phase Integration**: Legacy phase-based testing
-- **Security Validation**: Historical security tests
-- **Performance Benchmarks**: Legacy performance testing
-
----
-
-## 🚀 **Running Tests**
-
-### **🎯 Production Test Suite (Recommended)**
-```bash
-# Run complete production test suite
-cd /opt/aitbc/tests
-/opt/aitbc/venv/bin/python run_production_tests.py
-
-# Or run individual production test suites
-/opt/aitbc/venv/bin/python -m pytest production/test_jwt_authentication.py -v
-/opt/aitbc/venv/bin/python -m pytest production/test_production_monitoring.py -v
-/opt/aitbc/venv/bin/python -m pytest production/test_type_safety.py -v
-/opt/aitbc/venv/bin/python -m pytest production/test_advanced_features.py -v
-/opt/aitbc/venv/bin/python -m pytest production/test_complete_system_integration.py -v
-```
-
-### **📋 Legacy Test Suite (Archived)**
-```bash
-# Run legacy tests (for reference only)
-/opt/aitbc/venv/bin/python -m pytest archived/test_mesh_network_transition.py -v
-/opt/aitbc/venv/bin/python -m pytest archived/test_phase_integration.py -v
-```
-
-### **🔧 Integration Tests**
-```bash
-# Run integration tests
-/opt/aitbc/venv/bin/python -m pytest integration/test_agent_coordinator_api.py -v
-```
-
----
-
-## 📁 **Directory Structure**
+## Test Structure
 
 ```
 tests/
-├── README.md                    # This file
-├── run_production_tests.py     # Production test runner
-├── conftest.py                  # Test configuration
-├── production/                  # Production test suites (100% complete)
-│   ├── test_jwt_authentication.py
-│   ├── test_production_monitoring.py
-│   ├── test_type_safety.py
-│   ├── test_advanced_features.py
-│   ├── test_complete_system_integration.py
-│   └── test_runner_complete.py
-├── archived/                    # Legacy test files (pre-100% completion)
-│   ├── test_mesh_network_transition.py
-│   ├── test_phase_integration.py
-│   ├── test_security_validation.py
-│   ├── test_performance_benchmarks.py
-│   └── test_runner.py
-├── integration/                 # Integration tests
-│   ├── test_agent_coordinator_api.py
-│   └── integration_test.sh
-└── [legacy config files...]     # Legacy configuration files
+├── conftest.py              # Shared fixtures and configuration
+├── conftest_fixtures.py     # Comprehensive test fixtures
+├── pytest.ini              # Pytest configuration
+├── README.md               # This file
+├── run_test_suite.py       # Test suite runner script
+├── unit/                   # Unit tests
+│   ├── test_coordinator_api.py
+│   ├── test_wallet_daemon.py
+│   └── test_blockchain_node.py
+├── integration/            # Integration tests
+│   ├── test_blockchain_node.py
+│   └── test_full_workflow.py
+├── e2e/                    # End-to-end tests
+│   ├── test_wallet_daemon.py
+│   └── test_user_scenarios.py
+├── security/               # Security tests
+│   ├── test_confidential_transactions.py
+│   └── test_security_comprehensive.py
+├── load/                   # Load tests
+│   └── locustfile.py
+└── fixtures/               # Test data and fixtures
+    ├── sample_receipts.json
+    └── test_transactions.json
 ```
 
----
+## Prerequisites
 
-## 🎯 **Test Execution Status**
+### Required Dependencies
 
-### **✅ Production Tests: 100% Complete**
-All production test suites are passing and validated:
-
-1. **JWT Authentication**: Complete authentication flow
-2. **Production Monitoring**: Metrics and alerting systems
-3. **Type Safety**: Comprehensive type validation
-4. **Advanced Features**: AI/ML and advanced functionality
-5. **System Integration**: End-to-end workflows
-
-### **📋 Legacy Tests: Archived**
-Legacy test files are preserved for reference but no longer needed for production validation.
-
-### **🔧 Integration Tests: Available**
-Additional integration tests for specific component testing.
-
----
-
-## 🚀 **Quick Start Commands**
-
-### **Run All Production Tests**
 ```bash
-cd /opt/aitbc/tests
-/opt/aitbc/venv/bin/python run_production_tests.py
+# Core testing framework
+pip install pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist
+
+# Security testing
+pip install bandit safety
+
+# Load testing
+pip install locust
+
+# Additional testing tools
+pip install requests-mock websockets psutil
 ```
 
-### **Run Specific Production Test**
+### System Dependencies
+
 ```bash
-cd /opt/aitbc/tests
-/opt/aitbc/venv/bin/python -m pytest production/test_jwt_authentication.py -v
+# Ubuntu/Debian
+sudo apt-get update
+sudo apt-get install -y postgresql redis-server
+
+# macOS
+brew install postgresql redis
+
+# Docker (for isolated testing)
+docker --version
 ```
 
-### **Check Test Coverage**
+### Environment Setup
+
+1. Clone the repository:
 ```bash
-cd /opt/aitbc/tests
-/opt/aitbc/venv/bin/python -m pytest production/ --cov=src --cov-report=html
+git clone https://github.com/aitbc/aitbc.git
+cd aitbc
 ```
+
+2. Create virtual environment:
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+pip install -r requirements-test.txt
+```
+
+4. Set up test databases:
+```bash
+# PostgreSQL
+createdb aitbc_test
+
+# Redis (use test database 1)
+redis-cli -n 1 FLUSHDB
+```
+
+5. Environment variables:
+```bash
+export DATABASE_URL="postgresql://localhost/aitbc_test"
+export REDIS_URL="redis://localhost:6379/1"
+export TEST_MODE="true"
+```
+
+## Running Tests
+
+### Basic Commands
+
+```bash
 # Run all tests
-cd /opt/aitbc/tests
-python -m pytest -v
+pytest
+
+# Run using the test suite script (recommended)
+python run_test_suite.py
+
+# Run with coverage
+python run_test_suite.py --coverage
+
+# Run specific suite
+python run_test_suite.py --suite unit
+python run_test_suite.py --suite integration
+python run_test_suite.py --suite e2e
+python run_test_suite.py --suite security
 
 # Run specific test file
-python -m pytest test_mesh_network_transition.py -v
+pytest tests/unit/test_coordinator_api.py
 
-# Run by category
-python -m pytest -m unit -v                    # Unit tests only
-python -m pytest -m integration -v             # Integration tests only
-python -m pytest -m performance -v            # Performance tests only
-python -m pytest -m security -v                # Security tests only
+# Run specific test class
+pytest tests/unit/test_coordinator_api.py::TestJobEndpoints
+
+# Run specific test method
+pytest tests/unit/test_coordinator_api.py::TestJobEndpoints::test_create_job_success
 ```
 
-### **Advanced Options**
+### Running by Test Type
+
 ```bash
-# Run with coverage
-python -m pytest --cov=aitbc_chain --cov-report=html
+# Unit tests only (fast)
+pytest -m unit
 
-# Run performance tests with detailed output
-python -m pytest test_performance_benchmarks.py -v -s
+# Integration tests (require services)
+pytest -m integration
 
-# Run security tests with strict checking
-python -m pytest test_security_validation.py -v --tb=long
+# End-to-end tests (full system)
+pytest -m e2e
 
-# Run integration tests only (slow)
-python -m pytest test_phase_integration.py -v -m slow
+# Security tests
+pytest -m security
+
+# Load tests (requires Locust)
+locust -f tests/load/locustfile.py
+
+# Performance tests
+pytest -m performance
+
+# GPU tests (requires GPU)
+pytest -m gpu
 ```
 
----
+### Parallel Execution
 
-## 📋 **Test Coverage**
-
-### **Phase 1: Consensus Layer** (Tests 1-5)
-- ✅ Multi-validator PoA initialization
-- ✅ Validator rotation mechanisms
-- ✅ PBFT consensus phases
-- ✅ Slashing condition detection
-- ✅ Key management security
-- ✅ Byzantine fault tolerance
-
-### **Phase 2: Network Infrastructure** (Tests 6-10)
-- ✅ P2P discovery performance
-- ✅ Peer health monitoring
-- ✅ Dynamic peer management
-- ✅ Network topology optimization
-- ✅ Partition detection & recovery
-- ✅ Message throughput
-
-### **Phase 3: Economic Layer** (Tests 11-15)
-- ✅ Staking operation speed
-- ✅ Reward calculation accuracy
-- ✅ Gas fee dynamics
-- ✅ Economic attack prevention
-- ✅ Slashing enforcement
-- ✅ Token economics
-
-### **Phase 4: Agent Network** (Tests 16-20)
-- ✅ Agent registration speed
-- ✅ Capability matching accuracy
-- ✅ Reputation system integrity
-- ✅ Communication protocol security
-- ✅ Behavior monitoring
-- ✅ Agent lifecycle management
-
-### **Phase 5: Smart Contracts** (Tests 21-25)
-- ✅ Escrow contract creation
-- ✅ Dispute resolution fairness
-- ✅ Contract upgrade security
-- ✅ Gas optimization effectiveness
-- ✅ Payment processing
-- ✅ Contract state integrity
-
----
-
-## 🔧 **Test Configuration**
-
-### **Environment Variables**
 ```bash
-export AITBC_TEST_MODE=true          # Enable test mode
-export AITBC_MOCK_MODE=true          # Use mocks by default
-export AITBC_LOG_LEVEL=DEBUG         # Verbose logging
-export AITBC_INTEGRATION_TESTS=false  # Skip slow integration tests
+# Run with multiple workers
+pytest -n auto
+
+# Specify number of workers
+pytest -n 4
+
+# Distribute by test file
+pytest --dist=loadfile
 ```
 
-### **Configuration Files**
-- **`conftest_mesh_network.py`**: Global test configuration
-- **Mock fixtures**: Pre-configured test data
-- **Test utilities**: Helper functions and assertions
-- **Performance metrics**: Benchmark data
+### Filtering Tests
 
-### **Test Data**
-```python
-# Sample addresses
-TEST_ADDRESSES = {
-    "validator_1": "0x1111111111111111111111111111111111111111",
-    "client_1": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "agent_1": "0xcccccccccccccccccccccccccccccccccccccccccc",
-}
+```bash
+# Run tests matching pattern
+pytest -k "test_create_job"
 
-# Sample transactions
-sample_transactions = [
-    {"tx_id": "tx_001", "type": "transfer", "amount": 100.0},
-    {"tx_id": "tx_002", "type": "stake", "amount": 1000.0},
-    # ... more test data
-]
+# Run tests not matching pattern
+pytest -k "not slow"
+
+# Run tests with multiple markers
+pytest -m "unit and not slow"
+
+# Run tests with any of multiple markers
+pytest -m "unit or integration"
 ```
 
----
+## Test Types
 
-## 📈 **Performance Benchmarks**
+### Unit Tests (`tests/unit/`)
 
-### **Target Metrics**
-| Metric | Target | Test |
-|--------|--------|------|
-| **Block Propagation** | < 5 seconds | `test_block_propagation_time` |
-| **Transaction Throughput** | > 100 tx/s | `test_consensus_throughput` |
-| **Peer Discovery** | < 1 second | `test_peer_discovery_speed` |
-| **Agent Registration** | > 25 agents/s | `test_agent_registration_speed` |
-| **Escrow Creation** | > 20 contracts/s | `test_escrow_creation_speed` |
+Fast, isolated tests that test individual components:
 
-### **Scalability Limits**
-| Component | Max Tested | Target |
-|-----------|------------|--------|
-| **Validators** | 100 | 50+ |
-| **Agents** | 10,000 | 100+ |
-| **Concurrent Transactions** | 10,000 | 1,000+ |
-| **Network Nodes** | 500 | 50+ |
+- **Purpose**: Test individual functions and classes
+- **Speed**: < 1 second per test
+- **Dependencies**: Mocked external services
+- **Database**: In-memory SQLite
+- **Examples**:
+  ```bash
+  pytest tests/unit/ -v
+  ```
 
----
+### Integration Tests (`tests/integration/`)
 
-## 🔒 **Security Validation**
+Tests that verify multiple components work together:
 
-### **Attack Prevention Tests**
-- ✅ **Consensus**: Double signing, key compromise, Byzantine attacks
-- ✅ **Network**: Sybil attacks, DDoS, message tampering
-- ✅ **Economics**: Reward manipulation, gas price manipulation, staking attacks
-- ✅ **Agents**: Authentication bypass, reputation manipulation, communication hijacking
-- ✅ **Contracts**: Double spend, escrow manipulation, dispute bias
+- **Purpose**: Test component interactions
+- **Speed**: 1-10 seconds per test
+- **Dependencies**: Real services required
+- **Database**: Test PostgreSQL instance
+- **Examples**:
+  ```bash
+  # Start required services first
+  docker-compose up -d postgres redis
+  
+  # Run integration tests
+  pytest tests/integration/ -v
+  ```
 
-### **Security Requirements**
+### End-to-End Tests (`tests/e2e/`)
+
+Full system tests that simulate real user workflows:
+
+- **Purpose**: Test complete user journeys
+- **Speed**: 10-60 seconds per test
+- **Dependencies**: Full system running
+- **Database**: Production-like setup
+- **Examples**:
+  ```bash
+  # Start full system
+  docker-compose up -d
+  
+  # Run E2E tests
+  pytest tests/e2e/ -v -s
+  ```
+
+### Security Tests (`tests/security/`)
+
+Tests that verify security properties and vulnerability resistance:
+
+- **Purpose**: Test security controls
+- **Speed**: Variable (some are slow)
+- **Dependencies**: May require special setup
+- **Tools**: Bandit, Safety, Custom security tests
+- **Examples**:
+  ```bash
+  # Run security scanner
+  bandit -r apps/ -f json -o bandit-report.json
+  
+  # Run security tests
+  pytest tests/security/ -v
+  ```
+
+### Load Tests (`tests/load/`)
+
+Performance and scalability tests:
+
+- **Purpose**: Test system under load
+- **Speed**: Long-running (minutes)
+- **Dependencies**: Locust, staging environment
+- **Examples**:
+  ```bash
+  # Run Locust web UI
+  locust -f tests/load/locustfile.py --web-host 127.0.0.1
+  
+  # Run headless
+  locust -f tests/load/locustfile.py --headless -u 100 -r 10 -t 5m
+  ```
+
+## Configuration
+
+### Pytest Configuration (`pytest.ini`)
+
+Key configuration options:
+
+```ini
+[tool:pytest]
+# Test paths
+testpaths = tests
+python_files = test_*.py
+
+# Coverage settings
+addopts = --cov=apps --cov=packages --cov-report=html
+
+# Markers
+markers =
+    unit: Unit tests
+    integration: Integration tests
+    e2e: End-to-end tests
+    security: Security tests
+    slow: Slow tests
+```
+
+### Environment Variables
+
+```bash
+# Test configuration
+export TEST_MODE=true
+export TEST_DATABASE_URL="postgresql://localhost/aitbc_test"
+export TEST_REDIS_URL="redis://localhost:6379/1"
+
+# Service URLs for integration tests
+export COORDINATOR_URL="http://localhost:8001"
+export WALLET_URL="http://localhost:8002"
+export BLOCKCHAIN_URL="http://localhost:8545"
+
+# Security test configuration
+export TEST_HSM_ENDPOINT="http://localhost:9999"
+export TEST_ZK_CIRCUITS_PATH="./apps/zk-circuits"
+```
+
+### Test Data Management
+
 ```python
-# Example security test
-def test_double_signing_detection(self):
-    """Test detection of validator double signing"""
-    # Simulate double signing
-    event = mock_slashing.detect_double_sign(
-        validator_address, block_hash_1, block_hash_2, block_height
+# Using fixtures in conftest.py
+@pytest.fixture
+def test_data():
+    return {
+        "sample_job": {...},
+        "sample_receipt": {...},
+    }
+
+# Custom test configuration
+@pytest.fixture(scope="session")
+def test_config():
+    return TestConfig(
+        database_url="sqlite:///:memory:",
+        redis_url="redis://localhost:6379/1",
     )
-    
-    assert event is not None
-    assert event.validator_address == validator_address
-    mock_slashing.apply_slash.assert_called_once()
 ```
 
----
+## CI/CD Integration
 
-## 🔗 **Integration Testing**
+### GitHub Actions Example
 
-### **Cross-Phase Workflows**
-1. **End-to-End Job Execution**
-   - Client creates job → Agent matches → Escrow funded → Work completed → Payment released
-
-2. **Consensus with Network**
-   - Validators discover peers → Form consensus → Propagate blocks → Handle partitions
-
-3. **Economics with Agents**
-   - Agents earn rewards → Stake tokens → Reputation affects earnings → Economic incentives
-
-4. **Contracts with All Layers**
-   - Escrow created → Network validates → Economics processes → Agents participate
-
-### **Test Scenarios**
-```python
-@pytest.mark.asyncio
-async def test_end_to_end_job_execution_workflow(self):
-    """Test complete job execution workflow across all phases"""
-    # 1. Client creates escrow contract
-    success, _, contract_id = mock_escrow.create_contract(...)
-    
-    # 2. Find suitable agent
-    agents = mock_agents.find_agents("text_generation")
-    
-    # 3. Network communication
-    success, _, _ = mock_protocol.send_message(...)
-    
-    # 4. Consensus validation
-    valid, _ = mock_consensus.validate_transaction(...)
-    
-    # 5. Complete workflow
-    assert success is True
-```
-
----
-
-## 📊 **Test Reports**
-
-### **HTML Coverage Report**
-```bash
-python -m pytest --cov=aitbc_chain --cov-report=html
-# View: htmlcov/index.html
-```
-
-### **Performance Report**
-```bash
-python -m pytest test_performance_benchmarks.py -v --tb=short
-# Output: Performance metrics and benchmark results
-```
-
-### **Security Report**
-```bash
-python -m pytest test_security_validation.py -v --tb=long
-# Output: Security validation results and vulnerability assessment
-```
-
----
-
-## 🛠️ **Test Utilities**
-
-### **Helper Functions**
-```python
-# Performance assertion
-def assert_performance_metric(actual, expected, tolerance=0.1):
-    """Assert performance metric within tolerance"""
-    lower_bound = expected * (1 - tolerance)
-    upper_bound = expected * (1 + tolerance)
-    assert lower_bound <= actual <= upper_bound
-
-# Async condition waiting
-async def async_wait_for_condition(condition, timeout=10.0):
-    """Wait for async condition to be true"""
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        if condition():
-            return True
-        await asyncio.sleep(0.1)
-    raise AssertionError("Timeout waiting for condition")
-
-# Test data generators
-def generate_test_transactions(count=100):
-    """Generate test transactions"""
-    return [create_test_transaction() for _ in range(count)]
-```
-
-### **Mock Decorators**
-```python
-@mock_integration_test
-def test_cross_phase_functionality():
-    """Integration test with mocked dependencies"""
-    pass
-
-@mock_performance_test
-def test_system_performance():
-    """Performance test with benchmarking"""
-    pass
-
-@mock_security_test
-def test_attack_prevention():
-    """Security test with attack simulation"""
-    pass
-```
-
----
-
-## 📝 **Writing New Tests**
-
-### **Test Structure Template**
-```python
-class TestNewFeature:
-    """Test new feature implementation"""
-    
-    @pytest.fixture
-    def new_feature_instance(self):
-        """Create test instance"""
-        return NewFeature()
-    
-    @pytest.mark.asyncio
-    async def test_basic_functionality(self, new_feature_instance):
-        """Test basic functionality"""
-        # Arrange
-        test_data = create_test_data()
-        
-        # Act
-        result = await new_feature_instance.process(test_data)
-        
-        # Assert
-        assert result is not None
-        assert result.success is True
-    
-    @pytest.mark.integration
-    def test_integration_with_existing_system(self, new_feature_instance):
-        """Test integration with existing system"""
-        # Integration test logic
-        pass
-    
-    @pytest.mark.performance
-    def test_performance_requirements(self, new_feature_instance):
-        """Test performance meets requirements"""
-        # Performance test logic
-        pass
-```
-
-### **Best Practices**
-1. **Use descriptive test names**
-2. **Arrange-Act-Assert pattern**
-3. **Test both success and failure cases**
-4. **Mock external dependencies**
-5. **Use fixtures for shared setup**
-6. **Add performance assertions**
-7. **Include security edge cases**
-8. **Document test purpose**
-
----
-
-## 🚨 **Troubleshooting**
-
-### **Common Issues**
-
-#### **Import Errors**
-```bash
-# Add missing paths to sys.path
-export PYTHONPATH="/opt/aitbc/apps/blockchain-node/src:$PYTHONPATH"
-```
-
-#### **Mock Mode Issues**
-```bash
-# Disable mock mode for integration tests
-export AITBC_MOCK_MODE=false
-python -m pytest test_phase_integration.py -v
-```
-
-#### **Performance Test Timeouts**
-```bash
-# Increase timeout for slow tests
-python -m pytest test_performance_benchmarks.py -v --timeout=300
-```
-
-#### **Security Test Failures**
-```bash
-# Run security tests with verbose output
-python -m pytest test_security_validation.py -v -s --tb=long
-```
-
-### **Debug Mode**
-```bash
-# Run with debug logging
-export AITBC_LOG_LEVEL=DEBUG
-python -m pytest test_mesh_network_transition.py::test_consensus_initialization -v -s
-```
-
----
-
-## 📈 **Continuous Integration**
-
-### **CI/CD Pipeline**
 ```yaml
-# Example GitHub Actions workflow
-name: AITBC Tests
+name: Tests
+
 on: [push, pull_request]
+
 jobs:
-  test:
+  unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Setup Python
-        uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python: "3.11"
+      
       - name: Install dependencies
-        run: pip install -r requirements-test.txt
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+      
       - name: Run unit tests
-        run: python -m pytest -m unit --cov=aitbc_chain
+        run: |
+          pytest tests/unit/ -v --cov=apps --cov-report=xml
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python: "3.11"
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+      
       - name: Run integration tests
-        run: python -m pytest -m integration
-      - name: Run performance tests
-        run: python -m pytest -m performance
-      - name: Run security tests
-        run: python -m pytest -m security
+        run: |
+          pytest tests/integration/ -v
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost/postgres
+          REDIS_URL: redis://localhost:6379/0
 ```
 
-### **Quality Gates**
-- ✅ **Unit Tests**: 95%+ coverage, all pass
-- ✅ **Integration Tests**: All critical paths pass
-- ✅ **Performance Tests**: Meet all benchmarks
-- ✅ **Security Tests**: No critical vulnerabilities
-- ✅ **Code Quality**: Pass linting and formatting
+### Docker Compose for Testing
 
----
+```yaml
+# docker-compose.test.yml
+version: '3.8'
 
-## 📚 **Documentation**
-
-### **Test Documentation**
-- **Inline comments**: Explain complex test logic
-- **Docstrings**: Document test purpose and setup
-- **README files**: Explain test structure and usage
-- **Examples**: Provide usage examples
-
-### **API Documentation**
-```python
-def test_consensus_initialization(self):
-    """Test consensus layer initialization
-    
-    Verifies that:
-    - Multi-validator PoA initializes correctly
-    - Default configuration is applied
-    - Validators can be added
-    - Round-robin selection works
-    
-    Args:
-        mock_consensus: Mock consensus instance
-    
-    Returns:
-        None
-    """
-    # Test implementation
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: aitbc_test
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+  
+  coordinator:
+    build: ./apps/coordinator-api
+    environment:
+      DATABASE_URL: postgresql://test:test@postgres:5432/aitbc_test
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8001:8000"
 ```
 
----
+## Troubleshooting
 
-## 🎯 **Success Criteria**
+### Common Issues
 
-### **Test Coverage Goals**
-- **Unit Tests**: 95%+ code coverage
-- **Integration Tests**: All critical workflows
-- **Performance Tests**: All benchmarks met
-- **Security Tests**: All attack vectors covered
+1. **Import Errors**
+   ```bash
+   # Ensure PYTHONPATH is set
+   export PYTHONPATH="${PYTHONPATH}:$(pwd)"
+   
+   # Or install in development mode
+   pip install -e .
+   ```
 
-### **Quality Metrics**
-- **Test Reliability**: < 1% flaky tests
-- **Execution Time**: < 10 minutes for full suite
-- **Maintainability**: Clear, well-documented tests
-- **Reproducibility**: Consistent results across environments
+2. **Database Connection Errors**
+   ```bash
+   # Check if PostgreSQL is running
+   pg_isready -h localhost -p 5432
+   
+   # Create test database
+   createdb -h localhost -p 5432 aitbc_test
+   ```
 
----
+3. **Redis Connection Errors**
+   ```bash
+   # Check if Redis is running
+   redis-cli ping
+   
+   # Use correct database
+   redis-cli -n 1 FLUSHDB
+   ```
 
-**🎉 This comprehensive test suite ensures the AITBC mesh network implementation meets all functional, performance, and security requirements before production deployment!**
+4. **Test Timeouts**
+   ```bash
+   # Increase timeout for slow tests
+   pytest --timeout=600
+   
+   # Run tests sequentially
+   pytest -n 0
+   ```
+
+5. **Port Conflicts**
+   ```bash
+   # Kill processes using ports
+   lsof -ti:8001 | xargs kill -9
+   lsof -ti:8002 | xargs kill -9
+   ```
+
+### Debugging Tests
+
+```bash
+# Run with verbose output
+pytest -v -s
+
+# Stop on first failure
+pytest -x
+
+# Run with pdb on failure
+pytest --pdb
+
+# Print local variables on failure
+pytest --tb=long
+
+# Run specific test with debugging
+pytest tests/unit/test_coordinator_api.py::TestJobEndpoints::test_create_job_success -v -s --pdb
+```
+
+### Performance Issues
+
+```bash
+# Profile test execution
+pytest --profile
+
+# Find slowest tests
+pytest --durations=10
+
+# Run with memory profiling
+pytest --memprof
+```
+
+### Test Data Issues
+
+```bash
+# Clean test database
+psql -h localhost -U test -d aitbc_test -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+
+# Reset Redis
+redis-cli -n 1 FLUSHALL
+
+# Regenerate test fixtures
+python tests/generate_fixtures.py
+```
+
+## Best Practices
+
+1. **Write Isolated Tests**: Each test should be independent
+2. **Use Descriptive Names**: Test names should describe what they test
+3. **Mock External Dependencies**: Use mocks for external services
+4. **Clean Up Resources**: Use fixtures for setup/teardown
+5. **Test Edge Cases**: Don't just test happy paths
+6. **Use Type Hints**: Makes tests more maintainable
+7. **Document Complex Tests**: Add comments for complex logic
+
+## Contributing
+
+When adding new tests:
+
+1. Follow the existing structure and naming conventions
+2. Add appropriate markers (`@pytest.mark.unit`, etc.)
+3. Update this README if adding new test types
+4. Ensure tests pass on CI before submitting PR
+5. Add coverage for new features
+
+## Resources
+
+- [Pytest Documentation](https://docs.pytest.org/)
+- [Locust Documentation](https://docs.locust.io/)
+- [Security Testing Guide](https://owasp.org/www-project-security-testing-guide/)
+- [Load Testing Best Practices](https://docs.locust.io/en/stable/writing-a-locustfile.html)
