@@ -1,16 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Marketplace Web - AITBC Documentation</title>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/docs.css">
-    <link rel="stylesheet" href="/assets/css/site-header.css">
-    <link rel="preload" href="/assets/css/font-awesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/assets/css/font-awesome.min.css"></noscript>
-    <!-- Font Awesome CDN fallback -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" media="print" onload="this.media='all'; this.onload=null;">
 </head>
 <body>
     <div data-global-header></div>
@@ -125,8 +120,8 @@ npm run preview</code></pre>
 
                 <h3>Environment Configuration</h3>
                 <pre><code># .env.local
-VITE_API_URL=http://localhost:8000
-VITE_WS_URL=ws://localhost:8015
+VITE_API_URL=http://localhost:18000
+VITE_WS_URL=ws://localhost:18001
 VITE_NETWORK=mainnet
 VITE_MOCK_DATA=false</code></pre>
             </section>
@@ -175,7 +170,7 @@ POST /v1/jobs
 }
 
 // WebSocket for live updates
-ws://localhost:8015/ws</code></pre>
+ws://localhost:18001/ws</code></pre>
 
                 <h3>Blockchain RPC</h3>
                 <pre><code>// Get transaction status
@@ -260,6 +255,6 @@ docker run -d \
         </div>
     </footer>
     <script src="js/theme.js"></script>
-    <script src="/assets/js/global-header.js"></script>
+    <script src="../assets/js/global-header.js"></script>
 </body>
 </html>
