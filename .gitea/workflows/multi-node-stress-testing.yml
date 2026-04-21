@@ -1,0 +1,57 @@
+name: Multi-Node Stress Testing
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: multi-node-stress-testing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  stress-test:
+    runs-on: debian
+    timeout-minutes: 30
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/multi-node-stress-testing"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-stress-testing/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Python environment
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-stress-testing/repo
+          
+          # Remove any existing venv to avoid cache corruption issues
+          rm -rf venv
+          
+          bash scripts/ci/setup-python-venv.sh \
+            --repo-dir "$PWD" \
+            --venv-dir "$PWD/venv" \
+            --skip-requirements \
+            --extra-packages "requests psutil"
+
+      - name: Run multi-node stress test
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-node-stress-testing/repo
+          bash scripts/multi-node/stress-test.sh
+
+      - name: Stress test report
+        if: always()
+        run: |
+          echo "=== Multi-Node Stress Test Report ==="
+          if [ -f /var/log/aitbc/stress-test.log ]; then
+            tail -50 /var/log/aitbc/stress-test.log
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/multi-node-stress-testing

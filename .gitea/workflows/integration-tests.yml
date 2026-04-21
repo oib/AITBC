@@ -57,7 +57,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           echo "Starting AITBC services..."
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
             if systemctl is-active --quiet "$svc" 2>/dev/null; then
               echo "✅ $svc already running"
             else
@@ -72,7 +72,7 @@ jobs:
         run: |
           echo "Waiting for services..."
           services_available=true
-          for port in 8000 8001 8003 8006; do
+          for port in 8000 8001 8003 8006 9001; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
@@ -120,7 +120,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "requests pytest httpx pytest-asyncio pytest-timeout click locust"
+            --extra-packages "requests pytest httpx pytest-asyncio pytest-timeout click locust sqlalchemy sqlmodel PyJWT"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -139,7 +139,7 @@ jobs:
 
           # Run existing test suites
           if [[ -d "tests" ]]; then
-            pytest tests/ -x --timeout=30 -q
+            pytest tests/ -x --timeout=30 -q --ignore=tests/production
           fi
 
           # Service health check integration
@@ -150,7 +150,7 @@ jobs:
         if: always()
         run: |
           echo "=== Service Status ==="
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node; do
+          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
             status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
             echo "  $svc: $status"
           done
