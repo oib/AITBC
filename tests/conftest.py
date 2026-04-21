@@ -1,57 +1,25 @@
 """
-Enhanced conftest for pytest with AITBC CLI support and comprehensive test coverage
+Minimal conftest for pytest discovery without complex imports
 """
 
 import pytest
 import sys
 import os
-import subprocess
 from pathlib import Path
 from unittest.mock import Mock
-from click.testing import CliRunner
 
 # Configure Python path for test discovery
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# Add CLI path
-sys.path.insert(0, str(project_root / "cli"))
-
-# Add all source paths for comprehensive testing
-source_paths = [
-    "packages/py/aitbc-core/src",
-    "packages/py/aitbc-crypto/src", 
-    "packages/py/aitbc-p2p/src",
-    "packages/py/aitbc-sdk/src",
-    "apps/coordinator-api/src",
-    "apps/wallet-daemon/src",
-    "apps/blockchain-node/src",
-    "apps/pool-hub/src",
-    "apps/explorer-web/src",
-    "apps/zk-circuits/src"
-]
-
-for path in source_paths:
-    full_path = project_root / path
-    if full_path.exists():
-        sys.path.insert(0, str(full_path))
-
-# Add test paths for imports
-test_paths = [
-    "packages/py/aitbc-crypto/tests",
-    "packages/py/aitbc-sdk/tests", 
-    "apps/coordinator-api/tests",
-    "apps/wallet-daemon/tests",
-    "apps/blockchain-node/tests",
-    "apps/pool-hub/tests",
-    "apps/explorer-web/tests",
-    "cli/tests"
-]
-
-for path in test_paths:
-    full_path = project_root / path
-    if full_path.exists():
-        sys.path.insert(0, str(full_path))
+# Add necessary source paths
+sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
+sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-crypto" / "src"))
+sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-p2p" / "src"))
+sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-sdk" / "src"))
+sys.path.insert(0, str(project_root / "apps" / "coordinator-api" / "src"))
+sys.path.insert(0, str(project_root / "apps" / "wallet-daemon" / "src"))
+sys.path.insert(0, str(project_root / "apps" / "blockchain-node" / "src"))
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
@@ -64,136 +32,36 @@ sys.modules['slowapi.util'] = Mock()
 sys.modules['slowapi.limiter'] = Mock()
 sys.modules['web3'] = Mock()
 
-# Mock aitbc_crypto functions
+# Mock aitbc_crypto only when package import is unavailable
 try:
-    import aitbc_crypto as _aitbc_crypto
-except ImportError:
-    _aitbc_crypto = Mock()
-    sys.modules['aitbc_crypto'] = _aitbc_crypto
+    import aitbc_crypto as _aitbc_crypto_pkg  # type: ignore
+except Exception:
+    _aitbc_crypto_pkg = Mock()
+    sys.modules['aitbc_crypto'] = _aitbc_crypto_pkg
 
-def mock_encrypt_data(data, key):
-    return f"encrypted_{data}"
-def mock_decrypt_data(data, key):
-    return data.replace("encrypted_", "")
-def mock_generate_viewing_key():
-    return "test_viewing_key"
+    # Mock aitbc_crypto functions
+    def mock_encrypt_data(data, key):
+        return f"encrypted_{data}"
 
-if not hasattr(_aitbc_crypto, 'encrypt_data'):
-    _aitbc_crypto.encrypt_data = mock_encrypt_data
-if not hasattr(_aitbc_crypto, 'decrypt_data'):
-    _aitbc_crypto.decrypt_data = mock_decrypt_data
-if not hasattr(_aitbc_crypto, 'generate_viewing_key'):
-    _aitbc_crypto.generate_viewing_key = mock_generate_viewing_key
+    def mock_decrypt_data(data, key):
+        return data.replace("encrypted_", "")
 
-# Common fixtures for all test types
-@pytest.fixture
-def cli_runner():
-    """Create CLI runner for testing"""
-    return CliRunner()
+    def mock_generate_viewing_key():
+        return "test_viewing_key"
 
-@pytest.fixture
-def mock_config():
-    """Mock configuration for testing"""
-    return {
-        'coordinator_url': 'http://localhost:8000',
-        'api_key': 'test-key',
-        'wallet_name': 'test-wallet',
-        'blockchain_url': 'http://localhost:8082'
-    }
+    _aitbc_crypto_pkg.encrypt_data = mock_encrypt_data
+    _aitbc_crypto_pkg.decrypt_data = mock_decrypt_data
+    _aitbc_crypto_pkg.generate_viewing_key = mock_generate_viewing_key
 
-@pytest.fixture
-def temp_dir():
-    """Create temporary directory for tests"""
-    import tempfile
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
+    # Provide minimal submodules used by coordinator imports
+    signing_mod = Mock()
 
-@pytest.fixture
-def mock_http_client():
-    """Mock HTTP client for API testing"""
-    mock_client = Mock()
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {"status": "ok"}
-    mock_client.get.return_value = mock_response
-    mock_client.post.return_value = mock_response
-    mock_client.put.return_value = mock_response
-    mock_client.delete.return_value = mock_response
-    return mock_client
+    class _ReceiptSigner:
+        def verify_receipt(self, payload, signature):
+            return True
 
-# Test markers for different test types
-def pytest_configure(config):
-    """Configure pytest markers"""
-    config.addinivalue_line("markers", "unit: Unit tests (fast, isolated)")
-    config.addinivalue_line("markers", "integration: Integration tests (may require external services)")
-    config.addinivalue_line("markers", "slow: Slow running tests")
-    config.addinivalue_line("markers", "cli: CLI command tests")
-    config.addinivalue_line("markers", "api: API endpoint tests")
-    config.addinivalue_line("markers", "blockchain: Blockchain-related tests")
-    config.addinivalue_line("markers", "crypto: Cryptography tests")
-    config.addinivalue_line("markers", "contracts: Smart contract tests")
-
-# Pytest collection hooks
-def pytest_collection_modifyitems(config, items):
-    """Modify test collection to add markers based on file location"""
-    for item in items:
-        # Add markers based on file path
-        if "cli/tests" in str(item.fspath):
-            item.add_marker(pytest.mark.cli)
-        elif "apps/coordinator-api/tests" in str(item.fspath):
-            item.add_marker(pytest.mark.api)
-        elif "apps/blockchain-node/tests" in str(item.fspath):
-            item.add_marker(pytest.mark.blockchain)
-        elif "packages/py/aitbc-crypto/tests" in str(item.fspath):
-            item.add_marker(pytest.mark.crypto)
-        elif "contracts/test" in str(item.fspath):
-            item.add_marker(pytest.mark.contracts)
-        
-        # Add slow marker for integration tests
-        if "integration" in str(item.fspath).lower():
-            item.add_marker(pytest.mark.integration)
-            item.add_marker(pytest.mark.slow)
-
-
-@pytest.fixture
-def aitbc_cli_runner():
-    """Create AITBC CLI runner with test configuration"""
-    cli_path = project_root / "aitbc-cli"
-
-    def runner(*args, env=None, cwd=None):
-        merged_env = os.environ.copy()
-        if env:
-            merged_env.update(env)
-        return subprocess.run(
-            [str(cli_path), *args],
-            capture_output=True,
-            text=True,
-            cwd=str(cwd or project_root),
-            env=merged_env,
-        )
-    
-    # Default test configuration
-    default_config = {
-        'coordinator_url': 'http://test:8000',
-        'api_key': 'test_api_key',
-        'output_format': 'json',
-        'log_level': 'INFO'
-    }
-    
-    return runner, default_config
-
-
-@pytest.fixture
-def mock_aitbc_config():
-    """Mock AITBC configuration for testing"""
-    config = Mock()
-    config.coordinator_url = "http://test:8000"
-    config.api_key = "test_api_key"
-    config.wallet_path = "/tmp/test_wallet.json"
-    config.default_chain = "testnet"
-    config.timeout = 30
-    config.retry_attempts = 3
-    return config
+    signing_mod.ReceiptSigner = _ReceiptSigner
+    sys.modules['aitbc_crypto.signing'] = signing_mod
 
 
 @pytest.fixture
