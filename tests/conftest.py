@@ -31,19 +31,37 @@ sys.modules['slowapi'] = Mock()
 sys.modules['slowapi.util'] = Mock()
 sys.modules['slowapi.limiter'] = Mock()
 sys.modules['web3'] = Mock()
-sys.modules['aitbc_crypto'] = Mock()
 
-# Mock aitbc_crypto functions
-def mock_encrypt_data(data, key):
-    return f"encrypted_{data}"
-def mock_decrypt_data(data, key):
-    return data.replace("encrypted_", "")
-def mock_generate_viewing_key():
-    return "test_viewing_key"
+# Mock aitbc_crypto only when package import is unavailable
+try:
+    import aitbc_crypto as _aitbc_crypto_pkg  # type: ignore
+except Exception:
+    _aitbc_crypto_pkg = Mock()
+    sys.modules['aitbc_crypto'] = _aitbc_crypto_pkg
 
-sys.modules['aitbc_crypto'].encrypt_data = mock_encrypt_data
-sys.modules['aitbc_crypto'].decrypt_data = mock_decrypt_data
-sys.modules['aitbc_crypto'].generate_viewing_key = mock_generate_viewing_key
+    # Mock aitbc_crypto functions
+    def mock_encrypt_data(data, key):
+        return f"encrypted_{data}"
+
+    def mock_decrypt_data(data, key):
+        return data.replace("encrypted_", "")
+
+    def mock_generate_viewing_key():
+        return "test_viewing_key"
+
+    _aitbc_crypto_pkg.encrypt_data = mock_encrypt_data
+    _aitbc_crypto_pkg.decrypt_data = mock_decrypt_data
+    _aitbc_crypto_pkg.generate_viewing_key = mock_generate_viewing_key
+
+    # Provide minimal submodules used by coordinator imports
+    signing_mod = Mock()
+
+    class _ReceiptSigner:
+        def verify_receipt(self, payload, signature):
+            return True
+
+    signing_mod.ReceiptSigner = _ReceiptSigner
+    sys.modules['aitbc_crypto.signing'] = signing_mod
 
 
 @pytest.fixture

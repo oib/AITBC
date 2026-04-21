@@ -476,10 +476,10 @@ def balance(ctx):
             "transactions": [],
         }
         wallet_path.parent.mkdir(parents=True, exist_ok=True)
-        # Auto-create with encryption
-        success("Creating new wallet with encryption enabled")
-        password = _get_wallet_password(wallet_name)
-        _save_wallet(wallet_path, wallet_data, password)
+        # Auto-create without prompt in balance command
+        if ctx.obj.get("output_format", "table") == "table":
+            success("Creating new wallet")
+        _save_wallet(wallet_path, wallet_data, None)
     else:
         wallet_data = _load_wallet(wallet_path, wallet_name)
 
