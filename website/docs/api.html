@@ -1,16 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Documentation - AITBC</title>
-    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/docs.css">
-    <link rel="stylesheet" href="/assets/css/site-header.css">
-    <link rel="preload" href="/assets/css/font-awesome.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="/assets/css/font-awesome.min.css"></noscript>
-    <!-- Font Awesome CDN fallback -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" media="print" onload="this.media='all'; this.onload=null;">
 </head>
 <body>
     <div data-global-header></div>
@@ -179,14 +174,14 @@
                 <pre class="code-inline"><code>https://aitbc.bubuit.net/api</code></pre>
                 
                 <p>For development:</p>
-                <pre class="code-inline"><code>http://localhost:8000</code></pre>
+                <pre class="code-inline"><code>http://localhost:18000</code></pre>
             </section>
 
             <!-- WebSocket -->
             <section class="content-section">
                 <h2>WebSocket API</h2>
                 <p>Real-time updates are available through WebSocket connections:</p>
-                <pre class="code-inline"><code>ws://aitbc.bubuit.net:8015/ws</code></pre>
+                <pre class="code-inline"><code>ws://aitbc.bubuit.net:18001/ws</code></pre>
                 
                 <p>Subscribe to events:</p>
                 <pre class="code-inline"><code>{
@@ -203,6 +198,6 @@
         </div>
     </footer>
     <script src="js/theme.js"></script>
-    <script src="/assets/js/global-header.js"></script>
+    <script src="../assets/js/global-header.js"></script>
 </body>
 </html>
