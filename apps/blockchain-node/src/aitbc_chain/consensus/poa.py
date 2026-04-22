@@ -255,7 +255,6 @@ class PoAProposer:
                     # Create transaction record
                     # Extract type from normalized tx_data (which should have the type field)
                     tx_type = tx.content.get("type", "TRANSFER")
-                    self._logger.info(f"[PROPOSE] Transaction {tx.tx_hash} content type: {tx_type}, full content: {tx.content}")
                     if tx_type:
                         tx_type = tx_type.upper()
                     else:
