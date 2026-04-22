@@ -394,6 +394,14 @@ class PoAProposer:
             # Initialize accounts from genesis allocations file (if present)
             await self._initialize_genesis_allocations(session)
 
+            # Recompute state root after accounts are initialized
+            new_state_root = _compute_state_root(session, self._config.chain_id)
+            if new_state_root:
+                genesis.state_root = new_state_root
+                session.add(genesis)
+                session.commit()
+                self._logger.info(f"Updated genesis block state_root: {new_state_root}")
+
             # Broadcast genesis block for initial sync
             await gossip_broker.publish(
                 "blocks",

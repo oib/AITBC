@@ -10,7 +10,7 @@ import requests
 from datetime import datetime
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-devnet"
+CHAIN_ID = "ait-mainnet"
 
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
@@ -29,7 +29,7 @@ def test_block_import_complete():
     # Test 1: Invalid height (0)
     print("\n[TEST 1] Invalid height (0)...")
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 0,
             "hash": "0x123",
@@ -49,7 +49,7 @@ def test_block_import_complete():
     # Test 2: Block conflict
     print("\n[TEST 2] Block conflict...")
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 1,
             "hash": "0xinvalidhash",
@@ -72,7 +72,7 @@ def test_block_import_complete():
     block_data = response.json()
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": block_data["height"],
             "hash": block_data["hash"],
@@ -95,7 +95,7 @@ def test_block_import_complete():
     head = response.json()
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 999999,
             "hash": "0xinvalid",
@@ -115,7 +115,7 @@ def test_block_import_complete():
     # Test 5: Parent not found
     print("\n[TEST 5] Parent block not found...")
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 999998,
             "hash": compute_block_hash(999998, "0xnonexistent", "2026-01-29T10:20:00"),
@@ -141,7 +141,7 @@ def test_block_import_complete():
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": height,
             "hash": block_hash,
@@ -168,7 +168,7 @@ def test_block_import_complete():
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": height,
             "hash": block_hash,
