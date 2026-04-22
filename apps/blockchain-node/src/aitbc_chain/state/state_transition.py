@@ -68,20 +68,33 @@ class StateTransition:
         if tx_nonce != expected_nonce:
             return False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}"
         
+        # Get transaction type
+        tx_type = tx_data.get("type", "TRANSFER").upper()
+        
         # Validate balance
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
-        total_cost = value + fee
+        
+        # For MESSAGE transactions, value must be 0
+        if tx_type == "MESSAGE" and value != 0:
+            return False, f"MESSAGE transactions must have value=0, got {value}"
+        
+        # For MESSAGE transactions, only check fee
+        if tx_type == "MESSAGE":
+            total_cost = fee
+        else:
+            total_cost = value + fee
         
         if sender_account.balance < total_cost:
             return False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}"
         
-        # Get recipient account
+        # Get recipient account (not required for MESSAGE)
         recipient_addr = tx_data.get("to")
-        recipient_account = session.get(Account, (chain_id, recipient_addr))
-        
-        if not recipient_account:
-            return False, f"Recipient account not found: {recipient_addr}"
+        if tx_type != "MESSAGE":
+            recipient_account = session.get(Account, (chain_id, recipient_addr))
+            
+            if not recipient_account:
+                return False, f"Recipient account not found: {recipient_addr}"
         
         return True, "Transaction validated successfully"
     
@@ -114,17 +127,27 @@ class StateTransition:
         recipient_addr = tx_data.get("to")
         
         sender_account = session.get(Account, (chain_id, sender_addr))
-        recipient_account = session.get(Account, (chain_id, recipient_addr))
+        
+        # Get transaction type
+        tx_type = tx_data.get("type", "TRANSFER").upper()
         
         # Apply balance changes
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
-        total_cost = value + fee
+        
+        # For MESSAGE transactions, only deduct fee
+        if tx_type == "MESSAGE":
+            total_cost = fee
+        else:
+            total_cost = value + fee
+            recipient_account = session.get(Account, (chain_id, recipient_addr))
         
         sender_account.balance -= total_cost
         sender_account.nonce += 1
         
-        recipient_account.balance += value
+        # For MESSAGE transactions, skip recipient balance change
+        if tx_type != "MESSAGE":
+            recipient_account.balance += value
         
         # Mark transaction as processed
         self._processed_tx_hashes.add(tx_hash)
@@ -132,7 +155,7 @@ class StateTransition:
         
         logger.info(
             f"Applied transaction {tx_hash}: "
-            f"{sender_addr} -> {recipient_addr}, value={value}, fee={fee}"
+            f"{sender_addr} -> {recipient_addr}, value={value}, fee={fee}, type={tx_type}"
         )
         
         return True, "Transaction applied successfully"

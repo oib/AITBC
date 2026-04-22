@@ -131,6 +131,75 @@ setup_runtime_directories() {
     success "Runtime directories setup completed"
 }
 
+# Generate UUID
+generate_uuid() {
+    if [ -f /proc/sys/kernel/random/uuid ]; then
+        cat /proc/sys/kernel/random/uuid
+    else
+        python3 -c "import uuid; print(uuid.uuid4())"
+    fi
+}
+
+# Setup unique node identities
+setup_node_identities() {
+    log "Setting up unique node identities..."
+
+    # Generate unique proposer_id if not already set in /etc/aitbc/.env
+    if [ ! -f "/etc/aitbc/.env" ]; then
+        log "/etc/aitbc/.env does not exist, creating with unique IDs..."
+        PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
+        P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+        cat > /etc/aitbc/.env << EOF
+# AITBC Blockchain Configuration
+# Auto-generated unique node identities
+proposer_id=$PROPOSER_ID
+p2p_node_id=$P2P_NODE_ID
+EOF
+        log "Created /etc/aitbc/.env with unique IDs"
+    else
+        # Check if proposer_id exists, if not add it
+        if ! grep -q "^proposer_id=" /etc/aitbc/.env; then
+            PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
+            echo "proposer_id=$PROPOSER_ID" >> /etc/aitbc/.env
+            log "Added unique proposer_id to /etc/aitbc/.env"
+        else
+            log "proposer_id already exists in /etc/aitbc/.env"
+        fi
+    fi
+
+    # Create /etc/aitbc/node.env with unique p2p_node_id if not exists
+    if [ ! -f "/etc/aitbc/node.env" ]; then
+        P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+        cat > /etc/aitbc/node.env << EOF
+# AITBC Node-Specific Environment Configuration
+# This file contains variables unique to each node - DO NOT share across nodes
+
+# Node Identity
+NODE_ID=aitbc
+
+# P2P Configuration
+# P2P node identity (must be unique for each node)
+p2p_node_id=$P2P_NODE_ID
+
+# P2P Peers (comma-separated list of peer nodes)
+# Format: hostname:port (e.g., "aitbc1:7070,aitbc2:7070")
+p2p_peers=
+EOF
+        log "Created /etc/aitbc/node.env with unique p2p_node_id"
+    else
+        # Check if p2p_node_id exists, if not add it
+        if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
+            P2P_NODE_ID="node-$(generate_uuid | tr -d '-')"
+            echo "p2p_node_id=$P2P_NODE_ID" >> /etc/aitbc/node.env
+            log "Added unique p2p_node_id to /etc/aitbc/node.env"
+        else
+            log "p2p_node_id already exists in /etc/aitbc/node.env"
+        fi
+    fi
+
+    success "Node identities setup completed"
+}
+
 # Setup Python virtual environments
 setup_venvs() {
     log "Setting up Python virtual environments..."
@@ -344,6 +413,7 @@ main() {
     check_prerequisites
     clone_repo
     setup_runtime_directories
+    setup_node_identities
     setup_venvs
     install_services
     create_health_check
