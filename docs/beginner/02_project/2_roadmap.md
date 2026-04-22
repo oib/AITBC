@@ -797,6 +797,48 @@ Operations (see docs/10_plan/00_nextMileston.md)
 
 - **Git & Repository Management**
   - ✅ Fixed gitea pull conflicts on aitbc1
+  - ✅ Successfully pulled latest changes from gitea (fast-forward)
+  - ✅ Both nodes now up to date with origin/main
+
+## Stage 30 — ait-mainnet Migration & Cross-Node Blockchain Tests [COMPLETED: 2026-04-22]
+
+- **ait-mainnet Chain Migration**
+  - ✅ Migrated all blockchain nodes from ait-devnet to ait-mainnet
+  - ✅ Updated `/etc/aitbc/.env` on aitbc: CHAIN_ID=ait-mainnet (already configured)
+  - ✅ Updated `/etc/aitbc/.env` on aitbc1: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+  - ✅ Updated `/etc/aitbc/.env` on gitea-runner: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+  - ✅ All three nodes now on same blockchain (ait-mainnet)
+  - ✅ Updated blockchain node configuration: supported_chains from "ait-devnet" to "ait-mainnet"
+
+- **Cross-Node Blockchain Tests**
+  - ✅ Created comprehensive cross-node test suite
+  - ✅ File: `/opt/aitbc/tests/verification/test_cross_node_blockchain.py`
+  - ✅ Tests: Chain ID Consistency, Block Synchronization, Block Range Query, RPC Connectivity
+  - ✅ Tests all three nodes: aitbc, aitbc1, gitea-runner
+  - ✅ Verifies chain_id consistency via SSH configuration check
+  - ✅ Tests block import functionality and RPC connectivity
+  - ✅ All 4 tests passing across 3 nodes
+
+- **Test File Updates for ait-mainnet**
+  - ✅ test_tx_import.py: Updated CHAIN_ID and endpoint path
+  - ✅ test_simple_import.py: Updated CHAIN_ID and endpoint path
+  - ✅ test_minimal.py: Updated CHAIN_ID and endpoint path
+  - ✅ test_block_import.py: Updated CHAIN_ID and endpoint path
+  - ✅ test_block_import_complete.py: Updated CHAIN_ID and endpoint path
+  - ✅ All tests now include chain_id in block data payloads
+
+- **SQLite Database Corruption Fix**
+  - ✅ Fixed SQLite corruption on aitbc1 caused by Btrfs CoW behavior
+  - ✅ Applied `chattr +C` to `/var/lib/aitbc/data` to disable CoW
+  - ✅ Cleared corrupted database files (chain.db*)
+  - ✅ Restarted aitbc-blockchain-node.service
+  - ✅ Service now running successfully without corruption errors
+
+- **Network Connectivity Fixes**
+  - ✅ Corrected aitbc1 RPC URL from 10.0.3.107:8006 to 10.1.223.40:8006
+  - ✅ Added gitea-runner RPC URL: 10.1.223.93:8006
+  - ✅ All nodes now reachable via RPC endpoints
+  - ✅ Cross-node tests verify connectivity between all nodes
   - ✅ Stashed local changes causing conflicts in blockchain files
   - ✅ Successfully pulled latest changes from gitea (fast-forward)
   - ✅ Both nodes now up to date with origin/main
@@ -811,7 +853,97 @@ Operations (see docs/10_plan/00_nextMileston.md)
   - ✅ File: `services/agent_daemon.py`
   - ✅ Systemd service: `systemd/aitbc-agent-daemon.service`
 
-## Current Status: Multi-Node Blockchain Synchronization Complete
+## Stage 31 — SLA-Backed Coordinator/Pool Hubs [COMPLETED: 2026-04-22]
+
+- **Coordinator-API SLA Monitoring Extension**
+  - ✅ Extended `marketplace_monitor.py` with pool-hub specific SLA metrics
+  - ✅ Added miner uptime tracking, response time tracking, job completion rate tracking
+  - ✅ Added capacity availability tracking
+  - ✅ Integrated pool-hub MinerStatus for latency data
+  - ✅ Extended `_evaluate_alerts()` for pool-hub SLA violations
+  - ✅ Added pool-hub specific alert thresholds
+
+- **Capacity Planning Infrastructure Enhancement**
+  - ✅ Extended `system_maintenance.py` capacity planning
+  - ✅ Added `_collect_pool_hub_capacity()` method
+  - ✅ Enhanced `_perform_capacity_planning()` to consume pool-hub data
+  - ✅ Added pool-hub metrics to capacity results
+  - ✅ Added pool-hub specific scaling recommendations
+
+- **Pool-Hub Models Extension**
+  - ✅ Added `SLAMetric` model for tracking miner SLA data
+  - ✅ Added `SLAViolation` model for SLA breach tracking
+  - ✅ Added `CapacitySnapshot` model for capacity planning data
+  - ✅ Extended `MinerStatus` with uptime_pct and last_heartbeat_at fields
+  - ✅ Added indexes for SLA queries
+
+- **SLA Metrics Collection Service**
+  - ✅ Created `sla_collector.py` service
+  - ✅ Implemented miner uptime tracking based on heartbeat intervals
+  - ✅ Implemented response time tracking from match results
+  - ✅ Implemented job completion rate tracking from feedback
+  - ✅ Implemented capacity availability tracking
+  - ✅ Added SLA threshold configuration per metric type
+  - ✅ Added automatic violation detection
+  - ✅ Added Prometheus metrics exposure
+  - ✅ Created `SLACollectorScheduler` for automated collection
+
+- **Coordinator-API Billing Integration**
+  - ✅ Created `billing_integration.py` service
+  - ✅ Implemented usage data aggregation from pool-hub to coordinator-api
+  - ✅ Implemented tenant mapping (pool-hub miners to coordinator-api tenants)
+  - ✅ Implemented billing event emission via HTTP API
+  - ✅ Leveraged existing ServiceConfig pricing schemas
+  - ✅ Integrated with existing quota enforcement
+  - ✅ Created `BillingIntegrationScheduler` for automated sync
+
+- **API Endpoints**
+  - ✅ Created `sla.py` router with comprehensive endpoints
+  - ✅ `GET /sla/metrics/{miner_id}` - Get SLA metrics for a miner
+  - ✅ `GET /sla/metrics` - Get SLA metrics across all miners
+  - ✅ `GET /sla/violations` - Get SLA violations
+  - ✅ `POST /sla/metrics/collect` - Trigger SLA metrics collection
+  - ✅ `GET /sla/capacity/snapshots` - Get capacity planning snapshots
+  - ✅ `GET /sla/capacity/forecast` - Get capacity forecast
+  - ✅ `GET /sla/capacity/recommendations` - Get scaling recommendations
+  - ✅ `POST /sla/capacity/alerts/configure` - Configure capacity alerts
+  - ✅ `GET /sla/billing/usage` - Get billing usage data
+  - ✅ `POST /sla/billing/sync` - Trigger billing sync with coordinator-api
+  - ✅ `POST /sla/billing/usage/record` - Record usage event
+  - ✅ `POST /sla/billing/invoice/generate` - Trigger invoice generation
+  - ✅ `GET /sla/status` - Get overall SLA status
+
+- **Configuration and Settings**
+  - ✅ Added coordinator-api billing URL configuration
+  - ✅ Added coordinator-api API key configuration
+  - ✅ Added SLA threshold configurations
+  - ✅ Added capacity planning parameters
+  - ✅ Added billing sync interval configuration
+  - ✅ Added SLA collection interval configuration
+
+- **Database Migrations**
+  - ✅ Created migration `b2a1c4d5e6f7_add_sla_and_capacity_tables.py`
+  - ✅ Added SLA-related tables (sla_metrics, sla_violations)
+  - ✅ Added capacity planning table (capacity_snapshots)
+  - ✅ Extended miner_status with uptime_pct and last_heartbeat_at
+  - ✅ Added indexes for performance
+  - ✅ Added foreign key constraints
+
+- **Testing**
+  - ✅ Created `test_sla_collector.py` - SLA collection tests
+  - ✅ Created `test_billing_integration.py` - Billing integration tests
+  - ✅ Created `test_sla_endpoints.py` - API endpoint tests
+  - ✅ Created `test_integration_coordinator.py` - Integration tests
+  - ✅ Added comprehensive test coverage for SLA and billing features
+
+- **Documentation**
+  - ✅ Updated `apps/pool-hub/README.md` with SLA and billing documentation
+  - ✅ Added configuration examples
+  - ✅ Added API endpoint documentation
+  - ✅ Added database migration instructions
+  - ✅ Added testing instructions
+
+## Current Status: SLA-Backed Coordinator/Pool Hubs Complete
 
 **Milestone Achievement**: Successfully fixed multi-node blockchain
 synchronization issues between aitbc and aitbc1. Both nodes are now in sync with

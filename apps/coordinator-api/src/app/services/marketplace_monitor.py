@@ -69,6 +69,12 @@ class MarketplaceMonitor:
         self.network_bandwidth_mbps = TimeSeriesData()
         self.active_providers = TimeSeriesData()
         
+        # Pool-Hub SLA Metrics
+        self.miner_uptime_pct = TimeSeriesData()
+        self.miner_response_time_ms = TimeSeriesData()
+        self.job_completion_rate_pct = TimeSeriesData()
+        self.capacity_availability_pct = TimeSeriesData()
+        
         # internal tracking
         self._request_counter = 0
         self._error_counter = 0
@@ -83,7 +89,11 @@ class MarketplaceMonitor:
             'api_latency_p95_ms': 500.0,
             'api_error_rate_pct': 5.0,
             'gpu_utilization_pct': 90.0,
-            'matching_time_ms': 100.0
+            'matching_time_ms': 100.0,
+            'miner_uptime_pct': 95.0,
+            'miner_response_time_ms': 1000.0,
+            'job_completion_rate_pct': 90.0,
+            'capacity_availability_pct': 80.0
         }
         
         self.active_alerts = []
@@ -119,6 +129,13 @@ class MarketplaceMonitor:
         self.network_bandwidth_mbps.add(bandwidth)
         self.active_providers.add(providers)
         self.active_orders.add(orders)
+        
+    def record_pool_hub_sla(self, uptime_pct: float, response_time_ms: float, completion_rate_pct: float, capacity_pct: float):
+        """Record pool-hub specific SLA metrics"""
+        self.miner_uptime_pct.add(uptime_pct)
+        self.miner_response_time_ms.add(response_time_ms)
+        self.job_completion_rate_pct.add(completion_rate_pct)
+        self.capacity_availability_pct.add(capacity_pct)
         
     async def _metric_tick_loop(self):
         """Background task that aggregates metrics every second"""
@@ -195,6 +212,59 @@ class MarketplaceMonitor:
                 'value': avg_matching,
                 'threshold': self.alert_thresholds['matching_time_ms'],
                 'message': f"Slow Order Matching: {avg_matching:.2f}ms",
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        # Pool-Hub SLA Alerts
+        # Miner Uptime Alert
+        avg_uptime = self.miner_uptime_pct.get_average(window_seconds=60)
+        if avg_uptime < self.alert_thresholds['miner_uptime_pct']:
+            current_alerts.append({
+                'id': f"alert_miner_uptime_{int(time.time())}",
+                'severity': 'high' if avg_uptime < self.alert_thresholds['miner_uptime_pct'] * 0.9 else 'medium',
+                'metric': 'miner_uptime',
+                'value': avg_uptime,
+                'threshold': self.alert_thresholds['miner_uptime_pct'],
+                'message': f"Low Miner Uptime: {avg_uptime:.2f}%",
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        # Miner Response Time Alert
+        p95_response = self.miner_response_time_ms.get_percentile(0.95, window_seconds=60)
+        if p95_response > self.alert_thresholds['miner_response_time_ms']:
+            current_alerts.append({
+                'id': f"alert_miner_response_{int(time.time())}",
+                'severity': 'high' if p95_response > self.alert_thresholds['miner_response_time_ms'] * 2 else 'medium',
+                'metric': 'miner_response_time',
+                'value': p95_response,
+                'threshold': self.alert_thresholds['miner_response_time_ms'],
+                'message': f"High Miner Response Time (p95): {p95_response:.2f}ms",
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        # Job Completion Rate Alert
+        avg_completion = self.job_completion_rate_pct.get_average(window_seconds=60)
+        if avg_completion < self.alert_thresholds['job_completion_rate_pct']:
+            current_alerts.append({
+                'id': f"alert_job_completion_{int(time.time())}",
+                'severity': 'critical',
+                'metric': 'job_completion_rate',
+                'value': avg_completion,
+                'threshold': self.alert_thresholds['job_completion_rate_pct'],
+                'message': f"Low Job Completion Rate: {avg_completion:.2f}%",
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+        # Capacity Availability Alert
+        avg_capacity = self.capacity_availability_pct.get_average(window_seconds=60)
+        if avg_capacity < self.alert_thresholds['capacity_availability_pct']:
+            current_alerts.append({
+                'id': f"alert_capacity_{int(time.time())}",
+                'severity': 'high',
+                'metric': 'capacity_availability',
+                'value': avg_capacity,
+                'threshold': self.alert_thresholds['capacity_availability_pct'],
+                'message': f"Low Capacity Availability: {avg_capacity:.2f}%",
                 'timestamp': datetime.utcnow().isoformat()
             })
             

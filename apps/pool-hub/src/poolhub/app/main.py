@@ -8,6 +8,7 @@ from ..database import close_engine, create_engine
 from ..redis_cache import close_redis, create_redis
 from ..settings import settings
 from .routers import health_router, match_router, metrics_router, services, ui, validation
+from .routers.sla import router as sla_router
 
 
 @asynccontextmanager
@@ -28,6 +29,7 @@ app.include_router(metrics_router)
 app.include_router(services, prefix="/v1")
 app.include_router(ui)
 app.include_router(validation, prefix="/v1")
+app.include_router(sla_router)
 
 
 def create_app() -> FastAPI:

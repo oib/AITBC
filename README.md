@@ -5,64 +5,64 @@
 This project has been organized for better maintainability. Here's the directory structure:
 
 ### 📁 Essential Root Files
-- `LICENSE` - Project license
-- `aitbc-cli` - Main CLI symlink
-- `README.md` - This file
+- [`LICENSE`](LICENSE) - Project license
+- [`aitbc-cli`](aitbc-cli) - Main CLI symlink
+- [`README.md`](README.md) - This file
 
 ### 📁 Core Directories
-- `aitbc/` - Core AITBC Python package
-- `cli/` - Command-line interface implementation
-- `contracts/` - Smart contracts
-- `scripts/` - Automation and deployment scripts
-- `services/` - Microservices
-- `tests/` - Test suites
+- [`aitbc/`](aitbc/) - Core AITBC Python package
+- [`cli/`](cli/) - Command-line interface implementation
+- [`contracts/`](contracts/) - Smart contracts
+- [`scripts/`](scripts/) - Automation and deployment scripts
+- [`services/`](services/) - Microservices
+- [`tests/`](tests/) - Test suites
 
 ### 📁 Configuration
-- `project-config/` - Project configuration files
-  - `pyproject.toml` - Python project configuration
-  - `requirements.txt` - Python dependencies
-  - `poetry.lock` - Dependency lock file
-  - `.gitignore` - Git ignore rules
-  - `.deployment_progress` - Deployment tracking
+- [`project-config/`](project-config/) - Project configuration files
+  - [`pyproject.toml`](pyproject.toml) - Python project configuration
+  - [`requirements.txt`](requirements.txt) - Python dependencies
+  - [`poetry.lock`](poetry.lock) - Dependency lock file
+  - [`.gitignore`](.gitignore) - Git ignore rules
+  - [`.deployment_progress`](.deployment_progress) - Deployment tracking
 
 ### 📁 Documentation
-- `docs/` - Comprehensive documentation
-  - `README.md` - Main project documentation
-  - `SETUP.md` - Setup instructions
-  - `PYTHON_VERSION_STATUS.md` - Python compatibility
-  - `AITBC1_TEST_COMMANDS.md` - Testing commands
-  - `AITBC1_UPDATED_COMMANDS.md` - Updated commands
-  - `README_DOCUMENTATION.md` - Detailed documentation
+- [`docs/`](docs/) - Comprehensive documentation
+  - [`README.md`](docs/README.md) - Main project documentation
+  - [`SETUP.md`](docs/SETUP.md) - Setup instructions
+  - [`PYTHON_VERSION_STATUS.md`](docs/PYTHON_VERSION_STATUS.md) - Python compatibility
+  - [`AITBC1_TEST_COMMANDS.md`](docs/AITBC1_TEST_COMMANDS.md) - Testing commands
+  - [`AITBC1_UPDATED_COMMANDS.md`](docs/AITBC1_UPDATED_COMMANDS.md) - Updated commands
+  - [`README_DOCUMENTATION.md`](docs/README_DOCUMENTATION.md) - Detailed documentation
 
 ### 📁 Development
-- `dev/` - Development tools and examples
-- `.windsurf/` - IDE configuration
-- `packages/` - Package distributions
-- `extensions/` - Browser extensions
-- `plugins/` - System plugins
+- [`dev/`](dev/) - Development tools and examples
+- [`.windsurf/`](.windsurf/) - IDE configuration
+- [`packages/`](packages/) - Package distributions
+- [`extensions/`](extensions/) - Browser extensions
+- [`plugins/`](plugins/) - System plugins
 
 ### 📁 Infrastructure
-- `infra/` - Infrastructure as code
-- `systemd/` - System service configurations
-- `monitoring/` - Monitoring setup
+- [`infra/`](infra/) - Infrastructure as code
+- [`systemd/`](systemd/) - System service configurations
+- [`monitoring/`](monitoring/) - Monitoring setup
 
 ### 📁 Applications
-- `apps/` - Application components
-- `services/` - Service implementations
-- `website/` - Web interface
+- [`apps/`](apps/) - Application components
+- [`services/`](services/) - Service implementations
+- [`website/`](website/) - Web interface
 
 ### 📁 AI & GPU
-- `gpu_acceleration/` - GPU optimization
-- `ai-ml/` - AI/ML components
+- [`gpu_acceleration/`](gpu_acceleration/) - GPU optimization
+- [`ai-ml/`](ai-ml/) - AI/ML components
 
 ### 📁 Security & Backup
-- `security/` - Security reports and fixes
-- `backup-config/` - Backup configurations
-- `backups/` - Data backups
+- [`security/`](security/) - Security reports and fixes
+- [`backup-config/`](backup-config/) - Backup configurations
+- [`backups/`](backups/) - Data backups
 
 ### 📁 Cache & Logs
-- `venv/` - Python virtual environment
-- `logs/` - Application logs
+- [`venv/`](venv/) - Python virtual environment
+- [`logs/`](logs/) - Application logs
 - `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/` - Tool caches
 
 ## Quick Start
@@ -86,6 +86,26 @@ pip install -r requirements.txt
 ```
 
 ## Recent Achievements
+
+See [Completed Deployments](docs/beginner/02_project/5_done.md) for detailed project completion history.
+
+### ait-mainnet Migration & Cross-Node Tests (April 22, 2026)
+- **All Nodes Migrated to ait-mainnet**: Successfully migrated all blockchain nodes from ait-devnet to ait-mainnet
+  - aitbc: CHAIN_ID=ait-mainnet (already configured)
+  - aitbc1: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+  - gitea-runner: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+- **Cross-Node Blockchain Tests**: Created comprehensive test suite for multi-node blockchain features
+  - Test file: `/opt/aitbc/tests/verification/test_cross_node_blockchain.py`
+  - Tests: Chain ID Consistency, Block Synchronization, Block Range Query, RPC Connectivity
+  - All 4 tests passing across 3 nodes (aitbc, aitbc1, gitea-runner)
+- **SQLite Database Corruption Fix**: Resolved database corruption on aitbc1 caused by Btrfs CoW behavior
+  - Applied `chattr +C` to `/var/lib/aitbc/data` to disable CoW
+  - Cleared corrupted database files and restarted service
+- **Network Connectivity Fixes**: Corrected RPC URLs for all nodes
+  - aitbc1: 10.1.223.40:8006 (corrected from 10.0.3.107:8006)
+  - gitea-runner: 10.1.223.93:8006
+- **Test File Updates**: Updated all verification tests to use ait-mainnet chain_id
+  - test_tx_import.py, test_simple_import.py, test_minimal.py, test_block_import.py, test_block_import_complete.py
 
 ### Multi-Node Blockchain Synchronization (April 10, 2026)
 - **Gossip Backend Configuration**: Fixed both nodes to use broadcast backend with Redis
