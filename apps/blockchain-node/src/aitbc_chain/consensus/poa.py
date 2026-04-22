@@ -24,29 +24,29 @@ def _sanitize_metric_suffix(value: str) -> str:
     return sanitized or "unknown"
 
 
-# def _compute_state_root(session: Session, chain_id: str) -> str:
-#     """Compute state root from current account state."""
-#     try:
-#         state_manager = StateManager()
-#         
-#         # Get all accounts for this chain
-#         accounts = session.exec(
-#             select(Account).where(Account.chain_id == chain_id)
-#         ).all()
-#         
-#         # Convert to dictionary
-#         account_dict = {acc.address: acc for acc in accounts}
-#         
-#         # Compute state root
-#         root = state_manager.compute_state_root(account_dict)
-#         
-#         # Return as hex string
-#         return '0x' + root.hex()
-#     except Exception as e:
-#         # If state root computation fails, return None for now
-#         # This can happen during genesis block creation when accounts don't exist yet
-#         logger.warning(f"Failed to compute state root: {e}")
-#         return None
+def _compute_state_root(session: Session, chain_id: str) -> str:
+    """Compute state root from current account state."""
+    try:
+        state_manager = StateManager()
+        
+        # Get all accounts for this chain
+        accounts = session.exec(
+            select(Account).where(Account.chain_id == chain_id)
+        ).all()
+        
+        # Convert to dictionary
+        account_dict = {acc.address: acc for acc in accounts}
+        
+        # Compute state root
+        root = state_manager.compute_state_root(account_dict)
+        
+        # Return as hex string
+        return '0x' + root.hex()
+    except Exception as e:
+        # If state root computation fails, return None for now
+        # This can happen during genesis block creation when accounts don't exist yet
+        logger.warning(f"Failed to compute state root: {e}")
+        return None
 
 
 
@@ -287,6 +287,9 @@ class PoAProposer:
             # Compute block hash with transaction data
             block_hash = self._compute_block_hash(next_height, parent_hash, timestamp, processed_txs)
 
+            # Compute state root from account state
+            state_root = _compute_state_root(session, self._config.chain_id)
+
             block = Block(
                 chain_id=self._config.chain_id,
                 height=next_height,
@@ -295,7 +298,7 @@ class PoAProposer:
                 proposer=self._config.proposer_id,
                 timestamp=timestamp,
                 tx_count=len(processed_txs),
-                state_root=None,  # Temporarily disabled for debugging
+                state_root=state_root,
             )
             session.add(block)
             session.commit()
@@ -358,6 +361,9 @@ class PoAProposer:
                 self._logger.info(f"Genesis block with hash {block_hash} already exists, skipping creation")
                 return
             
+            # Compute state root for genesis block
+            state_root = _compute_state_root(session, self._config.chain_id)
+            
             genesis = Block(
                 chain_id=self._config.chain_id,
                 height=0,
@@ -366,7 +372,7 @@ class PoAProposer:
                 proposer="genesis",  # Use "genesis" as the proposer for genesis block to avoid hash conflicts
                 timestamp=timestamp,
                 tx_count=0,
-                state_root=None,  # Temporarily disabled for debugging
+                state_root=state_root,
             )
             session.add(genesis)
             try:
