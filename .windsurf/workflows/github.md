@@ -1,7 +1,7 @@
 ---
 description: Git operations workflow with Gitea for daily usage and GitHub for milestone pushes
 title: AITBC Git Operations Workflow (Gitea + GitHub)
-version: 3.0
+version: 4.0
 auto_execution_mode: 3
 ---
 
@@ -11,7 +11,7 @@ This workflow handles git operations for the AITBC project with a dual-remote st
 - **Gitea**: Used for daily git operations (commits, pushes, pulls, CI/CD)
 - **GitHub**: Used only for milestone pushes (public releases, major milestones)
 
-This ensures both genesis and follower nodes maintain consistent git status after git operations.
+This ensures genesis, follower, and gitea-runner nodes maintain consistent git status after git operations.
 
 ## Git Remote Strategy
 
@@ -121,7 +121,7 @@ git push --all origin
 
 ### 5. Multi-Node Git Status Check
 ```bash
-# Check git status on both nodes
+# Check git status on all three nodes
 echo "=== Genesis Node Git Status ==="
 cd /opt/aitbc
 git status
@@ -133,24 +133,32 @@ ssh aitbc1 'cd /opt/aitbc && git status'
 ssh aitbc1 'cd /opt/aitbc && git log --oneline -3'
 
 echo ""
+echo "=== Gitea-Runner Node Git Status ==="
+ssh gitea-runner 'cd /opt/aitbc && git status'
+ssh gitea-runner 'cd /opt/aitbc && git log --oneline -3'
+
+echo ""
 echo "=== Comparison Check ==="
 # Get latest commit hashes
 GENESIS_HASH=$(git rev-parse HEAD)
 FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
 
 echo "Genesis latest: $GENESIS_HASH"
 echo "Follower latest: $FOLLOWER_HASH"
+echo "Gitea-Runner latest: $RUNNER_HASH"
 
-if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ]; then
-    echo "✅ Both nodes are in sync"
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$RUNNER_HASH" ]; then
+    echo "✅ All three nodes are in sync"
 else
     echo "⚠️ Nodes are out of sync"
     echo "Genesis ahead by: $(git rev-list --count $FOLLOWER_HASH..HEAD 2>/dev/null || echo "N/A") commits"
     echo "Follower ahead by: $(ssh aitbc1 'cd /opt/aitbc && git rev-list --count $GENESIS_HASH..HEAD 2>/dev/null || echo "N/A"') commits"
+    echo "Runner ahead by: $(ssh gitea-runner 'cd /opt/aitbc && git rev-list --count $GENESIS_HASH..HEAD 2>/dev/null || echo "N/A"') commits"
 fi
 ```
 
-### 6. Sync Follower Node (if needed)
+### 6. Sync Follower and Gitea-Runner Nodes (if needed)
 ```bash
 # Sync follower node with genesis
 if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
@@ -166,6 +174,21 @@ if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
     
     echo "✅ Follower node synced"
 fi
+
+# Sync gitea-runner node with genesis
+if [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
+    echo "=== Syncing Gitea-Runner Node ==="
+    
+    # Option 1: Push from genesis to gitea-runner
+    ssh gitea-runner 'cd /opt/aitbc && git fetch origin'
+    ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
+    
+    # Option 2: Copy changes directly (if remote sync fails)
+    rsync -av --exclude='.git' /opt/aitbc/ gitea-runner:/opt/aitbc/
+    ssh gitea-runner 'cd /opt/aitbc && git add . && git commit -m "sync from genesis node" || true'
+    
+    echo "✅ Gitea-Runner node synced"
+fi
 ```
 
 ### 7. Verify Push
@@ -179,23 +202,48 @@ git log --oneline -5 origin/main
 # Verify on Gitea (web interface)
 # Open: https://gitea.bubuit.net/oib/aitbc
 
-# Verify both nodes are updated
+# Verify all three nodes are updated
 echo "=== Final Status Check ==="
 echo "Genesis: $(git rev-parse --short HEAD)"
 echo "Follower: $(ssh aitbc1 'cd /opt/aitbc && git rev-parse --short HEAD')"
+echo "Gitea-Runner: $(ssh gitea-runner 'cd /opt/aitbc && git rev-parse --short HEAD')"
+```
+
+### 8. Push to GitHub (Milestone Only)
+```bash
+# Only push to GitHub for milestones (releases, major features)
+# Verify all three nodes are in sync before GitHub push
+GENESIS_HASH=$(git rev-parse HEAD)
+FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
+
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$RUNNER_HASH" ]; then
+    echo "✅ All nodes in sync, proceeding with GitHub push"
+    
+    # Push to GitHub (milestone only)
+    git push github main
+    
+    echo "✅ GitHub push complete"
+    echo "Verify on GitHub: https://github.com/oib/AITBC"
+else
+    echo "❌ Nodes out of sync, aborting GitHub push"
+    echo "Sync all nodes first before pushing to GitHub"
+    exit 1
+fi
 ```
 
 ## Quick Git Commands
 
 ### Multi-Node Standard Workflow (Gitea)
 ```bash
-# Complete multi-node workflow - check, stage, commit, push to Gitea, sync
+# Complete multi-node workflow - check, stage, commit, push to Gitea, sync all nodes
 cd /opt/aitbc
 
-# 1. Check both nodes status
-echo "=== Checking Both Nodes ==="
+# 1. Check all three nodes status
+echo "=== Checking All Nodes ==="
 git status
 ssh aitbc1 'cd /opt/aitbc && git status'
+ssh gitea-runner 'cd /opt/aitbc && git status'
 
 # 2. Stage and commit
 git add .
@@ -207,10 +255,14 @@ git push origin main
 # 4. Sync follower node
 ssh aitbc1 'cd /opt/aitbc && git pull origin main'
 
-# 5. Verify both nodes
+# 5. Sync gitea-runner node
+ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
+
+# 6. Verify all three nodes
 echo "=== Verification ==="
 git rev-parse --short HEAD
 ssh aitbc1 'cd /opt/aitbc && git rev-parse --short HEAD'
+ssh gitea-runner 'cd /opt/aitbc && git rev-parse --short HEAD'
 ```
 
 ### Quick Multi-Node Push (Gitea)
@@ -219,6 +271,7 @@ ssh aitbc1 'cd /opt/aitbc && git rev-parse --short HEAD'
 cd /opt/aitbc
 git add . && git commit -m "docs: update documentation" && git push origin main
 ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
 ```
 
 ### Multi-Node Sync Check
@@ -227,8 +280,9 @@ ssh aitbc1 'cd /opt/aitbc && git pull origin main'
 cd /opt/aitbc
 GENESIS_HASH=$(git rev-parse HEAD)
 FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
-if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ]; then
-    echo "✅ Both nodes in sync"
+RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$RUNNER_HASH" ]; then
+    echo "✅ All three nodes in sync"
 else
     echo "⚠️ Nodes out of sync - sync needed"
 fi
@@ -272,11 +326,12 @@ cd /opt/aitbc
 git status
 git pull origin main
 
-# 2. Verify commit hash matches between nodes
+# 2. Verify commit hash matches between all three nodes
 GENESIS_HASH=$(git rev-parse HEAD)
 FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
-if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ]; then
-    echo "✅ Nodes in sync, proceeding with GitHub push"
+RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
+if [ "$GENESIS_HASH" = "$FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$RUNNER_HASH" ]; then
+    echo "✅ All nodes in sync, proceeding with GitHub push"
 else
     echo "❌ Nodes out of sync, aborting GitHub push"
     exit 1
@@ -409,8 +464,9 @@ git push origin main
 cd /opt/aitbc
 GENESIS_HASH=$(git rev-parse HEAD)
 FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
+RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
 
-if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
+if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ] || [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
     echo "⚠️ Nodes out of sync - fixing..."
     
     # Check connectivity to follower
@@ -419,14 +475,29 @@ if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
         exit 1
     }
     
+    # Check connectivity to gitea-runner
+    ssh gitea-runner 'echo "Gitea-Runner node reachable"' || {
+        echo "❌ Cannot reach gitea-runner node"
+        exit 1
+    }
+    
     # Sync follower node
-    ssh aitbc1 'cd /opt/aitbc && git fetch origin'
-    ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+    if [ "$GENESIS_HASH" != "$FOLLOWER_HASH" ]; then
+        ssh aitbc1 'cd /opt/aitbc && git fetch origin'
+        ssh aitbc1 'cd /opt/aitbc && git pull origin main'
+    fi
+    
+    # Sync gitea-runner node
+    if [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
+        ssh gitea-runner 'cd /opt/aitbc && git fetch origin'
+        ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
+    fi
     
     # Verify sync
     NEW_FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
-    if [ "$GENESIS_HASH" = "$NEW_FOLLOWER_HASH" ]; then
-        echo "✅ Nodes synced successfully"
+    NEW_RUNNER_HASH=$(ssh gitea-runner 'cd /opt/aitbc && git rev-parse HEAD')
+    if [ "$GENESIS_HASH" = "$NEW_FOLLOWER_HASH" ] && [ "$GENESIS_HASH" = "$NEW_RUNNER_HASH" ]; then
+        echo "✅ All nodes synced successfully"
     else
         echo "❌ Sync failed - manual intervention required"
     fi
@@ -536,6 +607,35 @@ xdg-open https://github.com/oib/AITBC/commit/$(git rev-parse HEAD)
 - Include documentation with code changes
 - Push to GitHub only for milestones (releases, major features)
 - Tag releases appropriately on GitHub
+
+## Recent Updates (v4.0)
+
+### Three-Node Verification
+- **Gitea-Runner Added**: Extended multi-node verification to include gitea-runner node
+- **All-Node Sync Check**: Updated all verification steps to check genesis, aitbc1, and gitea-runner nodes
+- **GitHub Push Verification**: Added three-node sync verification before GitHub milestone pushes
+- **Sync Operations**: Updated sync procedures to include gitea-runner node
+
+### Updated Workflow Sections
+- **Multi-Node Git Status Check**: Now checks all three nodes (genesis, aitbc1, gitea-runner)
+- **Sync Follower and Gitea-Runner Nodes**: Added gitea-runner sync to section 6
+- **Verify Push**: Updated to verify all three nodes are updated
+- **Push to GitHub (Milestone Only)**: New section 8 for GitHub push with three-node verification
+
+### Updated Quick Commands
+- **Multi-Node Standard Workflow**: Updated to include gitea-runner status check and sync
+- **Quick Multi-Node Push**: Added gitea-runner sync to quick push command
+- **Multi-Node Sync Check**: Updated to check all three nodes for sync status
+
+### Updated Milestone Workflow
+- **Three-Node Verification**: GitHub milestone push now verifies all three nodes are in sync
+- **Sync Check**: Added gitea-runner hash comparison before GitHub push
+- **Error Handling**: Aborts GitHub push if any node is out of sync
+
+### Updated Troubleshooting
+- **Multi-Node Sync Issues**: Updated to handle gitea-runner sync issues
+- **Connectivity Checks**: Added gitea-runner connectivity verification
+- **Sync Validation**: Updated to verify all three nodes after sync operations
 
 ## Recent Updates (v3.0)
 
