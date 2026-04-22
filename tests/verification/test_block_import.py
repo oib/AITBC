@@ -10,7 +10,7 @@ from datetime import datetime
 
 # Test configuration
 BASE_URL = "https://aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-devnet"
+CHAIN_ID = "ait-mainnet"
 
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
@@ -27,7 +27,7 @@ def test_block_import():
     # Test 1: Invalid height (0)
     print("\n1. Testing invalid height (0)...")
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 0,
             "hash": "0x123",
@@ -45,7 +45,7 @@ def test_block_import():
     # Test 2: Block already exists with different hash
     print("\n2. Testing block conflict...")
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": 1,
             "hash": "0xinvalidhash",
@@ -67,7 +67,7 @@ def test_block_import():
     block_data = response.json()
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": block_data["height"],
             "hash": block_data["hash"],
@@ -95,7 +95,7 @@ def test_block_import():
     invalid_hash = "0xinvalid"
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": height,
             "hash": invalid_hash,
@@ -119,7 +119,7 @@ def test_block_import():
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": height,
             "hash": valid_hash,
@@ -171,7 +171,7 @@ def test_block_import():
     }
     
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json=test_block
     )
     print(f"Status: {response.status_code}")
