@@ -22,7 +22,6 @@ def _configure_context(connection=None, *, url: str | None = None) -> None:
         connection=connection,
         url=url,
         target_metadata=target_metadata,
-        literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
 

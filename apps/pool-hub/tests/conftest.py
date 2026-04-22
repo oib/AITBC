@@ -6,10 +6,14 @@ from pathlib import Path
 
 import pytest
 import pytest_asyncio
+from dotenv import load_dotenv
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+# Load .env file
 BASE_DIR = Path(__file__).resolve().parents[2]
+load_dotenv(BASE_DIR / ".env")
+
 POOLHUB_SRC = BASE_DIR / "pool-hub" / "src"
 if str(POOLHUB_SRC) not in sys.path:
     sys.path.insert(0, str(POOLHUB_SRC))
