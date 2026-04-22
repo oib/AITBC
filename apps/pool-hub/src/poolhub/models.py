@@ -11,10 +11,11 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    JSON,
     String,
     Text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from uuid import uuid4
 
@@ -50,8 +51,8 @@ class Miner(Base):
     ram_gb: Mapped[float] = mapped_column(Float)
     max_parallel: Mapped[int] = mapped_column(Integer)
     base_price: Mapped[float] = mapped_column(Float)
-    tags: Mapped[Dict[str, str]] = mapped_column(JSONB, default=dict)
-    capabilities: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    tags: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
+    capabilities: Mapped[List[str]] = mapped_column(JSON, default=list)
     trust_score: Mapped[float] = mapped_column(Float, default=0.5)
     region: Mapped[Optional[str]] = mapped_column(String(64))
 
@@ -74,6 +75,8 @@ class MinerStatus(Base):
     avg_latency_ms: Mapped[Optional[int]] = mapped_column(Integer)
     temp_c: Mapped[Optional[int]] = mapped_column(Integer)
     mem_free_gb: Mapped[Optional[float]] = mapped_column(Float)
+    uptime_pct: Mapped[Optional[float]] = mapped_column(Float)  # SLA metric
+    last_heartbeat_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
     )
@@ -88,8 +91,8 @@ class MatchRequest(Base):
         PGUUID(as_uuid=True), primary_key=True, default=uuid4
     )
     job_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    requirements: Mapped[Dict[str, object]] = mapped_column(JSONB, nullable=False)
-    hints: Mapped[Dict[str, object]] = mapped_column(JSONB, default=dict)
+    requirements: Mapped[Dict[str, object]] = mapped_column(JSON, nullable=False)
+    hints: Mapped[Dict[str, object]] = mapped_column(JSON, default=dict)
     top_k: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.utcnow
@@ -156,9 +159,9 @@ class ServiceConfig(Base):
     )
     service_type: Mapped[str] = mapped_column(String(32), nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    config: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-    pricing: Mapped[Dict[str, Any]] = mapped_column(JSONB, default=dict)
-    capabilities: Mapped[List[str]] = mapped_column(JSONB, default=list)
+    config: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    pricing: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
+    capabilities: Mapped[List[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime(timezone=True), default=dt.datetime.utcnow
@@ -171,3 +174,73 @@ class ServiceConfig(Base):
     __table_args__ = ({"schema": None},)
 
     miner: Mapped[Miner] = relationship(backref="service_configs")
+
+
+class SLAMetric(Base):
+    """SLA metrics tracking for miners"""
+
+    __tablename__ = "sla_metrics"
+
+    id: Mapped[PGUUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    miner_id: Mapped[str] = mapped_column(
+        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
+    )
+    metric_type: Mapped[str] = mapped_column(String(32), nullable=False)  # uptime, response_time, completion_rate, capacity
+    metric_value: Mapped[float] = mapped_column(Float, nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    is_violation: Mapped[bool] = mapped_column(Boolean, default=False)
+    timestamp: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow
+    )
+    meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
+
+    miner: Mapped[Miner] = relationship(backref="sla_metrics")
+
+
+class SLAViolation(Base):
+    """SLA violation tracking"""
+
+    __tablename__ = "sla_violations"
+
+    id: Mapped[PGUUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    miner_id: Mapped[str] = mapped_column(
+        ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False
+    )
+    violation_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)  # critical, high, medium, low
+    metric_value: Mapped[float] = mapped_column(Float, nullable=False)
+    threshold: Mapped[float] = mapped_column(Float, nullable=False)
+    violation_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
+    resolved_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow
+    )
+    meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
+
+    miner: Mapped[Miner] = relationship(backref="sla_violations")
+
+
+class CapacitySnapshot(Base):
+    """Capacity planning snapshots"""
+
+    __tablename__ = "capacity_snapshots"
+
+    id: Mapped[PGUUID] = mapped_column(
+        PGUUID(as_uuid=True), primary_key=True, default=uuid4
+    )
+    total_miners: Mapped[int] = mapped_column(Integer, nullable=False)
+    active_miners: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_parallel_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    total_queue_length: Mapped[int] = mapped_column(Integer, nullable=False)
+    capacity_utilization_pct: Mapped[float] = mapped_column(Float, nullable=False)
+    forecast_capacity: Mapped[int] = mapped_column(Integer, nullable=False)
+    recommended_scaling: Mapped[str] = mapped_column(String(32), nullable=False)
+    scaling_reason: Mapped[str] = mapped_column(Text)
+    timestamp: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), default=dt.datetime.utcnow
+    )
+    meta_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)

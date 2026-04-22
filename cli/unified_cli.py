@@ -11,184 +11,8 @@ def run_cli(argv, core):
     import sys
     raw_args = sys.argv[1:] if argv is None else argv
     
-    # Intercept missing training commands
-    arg_str = " ".join(raw_args)
-    if any(k in arg_str for k in [
-        "contract --deploy", "contract --list", "contract --call", 
-        "mining --start", "mining --stop", "mining --status",
-        "agent --message", "agent --messages", "network sync",
-        "wallet backup", "wallet export", "wallet sync", "ai --job", "ai list", "ai results", 
-        "ai --service", "ai status --job-id", "ai status --name", "resource --status", "resource --allocate",
-        "resource --optimize", "resource --benchmark", "resource --monitor", "ollama --models",
-        "ollama --pull", "ollama --run", "ollama --status", "marketplace --buy", "marketplace --sell",
-        "marketplace --orders", "marketplace --cancel", "marketplace --status", "marketplace --list",
-        "economics --model", "economics --forecast", "economics --optimize", "economics --market",
-        "economics --trends", "economics --distributed", "economics --revenue", "economics --workload",
-        "economics --sync", "economics --strategy", "analytics --report", "analytics --metrics",
-        "analytics --export", "analytics --predict", "analytics --optimize", "automate --workflow",
-        "automate --schedule", "automate --monitor", "cluster status", "cluster --sync", 
-        "cluster --balance", "cluster --coordinate", "performance benchmark", "performance --optimize",
-        "performance --tune", "performance --resource", "performance --cache", "security --audit",
-        "security --scan", "security --patch", "compliance --check", "compliance --report",
-        "script --run", "api --monitor", "api --test"
-    ]):
-        try:
-            import os
-            sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-            from extended_features import handle_extended_command, format_output
-            
-            cmd = None
-            kwargs = {}
-            
-            # Simple router
-            if "contract --deploy" in arg_str:
-                cmd = "contract_deploy"
-                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
-            elif "contract --list" in arg_str: cmd = "contract_list"
-            elif "contract --call" in arg_str: cmd = "contract_call"
-            elif "mining --start" in arg_str: cmd = "mining_start"
-            elif "mining --stop" in arg_str: cmd = "mining_stop"
-            elif "mining --status" in arg_str: cmd = "mining_status"
-            elif "agent --message --to" in arg_str:
-                cmd = "agent_message_send"
-                kwargs["to"] = raw_args[raw_args.index("--to")+1] if "--to" in raw_args else "unknown"
-                kwargs["content"] = raw_args[raw_args.index("--content")+1] if "--content" in raw_args else ""
-            elif "agent --messages" in arg_str: cmd = "agent_messages"
-            elif "network sync --status" in arg_str: cmd = "network_sync_status"
-            elif "wallet backup" in arg_str:
-                cmd = "wallet_backup"
-                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
-            elif "wallet export" in arg_str:
-                cmd = "wallet_export"
-                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
-            elif "wallet sync" in arg_str: cmd = "wallet_sync"
-            elif "ai --job --submit" in arg_str: 
-                cmd = "ai_status"
-                kwargs["job_id"] = "job_test_" + str(int(__import__('time').time()))
-            elif "ai list" in arg_str: cmd = "ai_service_list"
-            elif "ai results" in arg_str: cmd = "ai_results"
-            elif "ai --service --list" in arg_str: cmd = "ai_service_list"
-            elif "ai --service --test" in arg_str: cmd = "ai_service_test"
-            elif "ai --service --status" in arg_str: cmd = "ai_service_status"
-            elif "ai status --job-id" in arg_str: 
-                cmd = "ai_status"
-                kwargs["job_id"] = raw_args[raw_args.index("--job-id")+1] if "--job-id" in raw_args else "unknown"
-            elif "ai status --name" in arg_str: cmd = "ai_service_status"
-            elif "resource --status" in arg_str: cmd = "resource_status"
-            elif "resource --allocate" in arg_str: 
-                cmd = "resource_allocate"
-                kwargs["amount"] = raw_args[raw_args.index("--amount")+1] if "--amount" in raw_args else "unknown"
-                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
-            elif "resource --optimize" in arg_str: 
-                cmd = "resource_optimize"
-                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
-            elif "resource --benchmark" in arg_str: 
-                cmd = "resource_benchmark"
-                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
-            elif "resource --monitor" in arg_str: cmd = "resource_monitor"
-            elif "ollama --models" in arg_str: cmd = "ollama_models"
-            elif "ollama --pull" in arg_str: 
-                cmd = "ollama_pull"
-                kwargs["model"] = raw_args[raw_args.index("--model")+1] if "--model" in raw_args else "unknown"
-            elif "ollama --run" in arg_str: 
-                cmd = "ollama_run"
-                kwargs["model"] = raw_args[raw_args.index("--model")+1] if "--model" in raw_args else "unknown"
-            elif "ollama --status" in arg_str: cmd = "ollama_status"
-            elif "marketplace --buy" in arg_str: 
-                cmd = "marketplace_buy"
-                kwargs["item"] = raw_args[raw_args.index("--item")+1] if "--item" in raw_args else "unknown"
-                kwargs["price"] = raw_args[raw_args.index("--price")+1] if "--price" in raw_args else "unknown"
-            elif "marketplace --sell" in arg_str: 
-                cmd = "marketplace_sell"
-                kwargs["item"] = raw_args[raw_args.index("--item")+1] if "--item" in raw_args else "unknown"
-                kwargs["price"] = raw_args[raw_args.index("--price")+1] if "--price" in raw_args else "unknown"
-            elif "marketplace --orders" in arg_str: cmd = "marketplace_orders"
-            elif "marketplace --cancel" in arg_str: cmd = "marketplace_cancel"
-            elif "marketplace --status" in arg_str: cmd = "marketplace_status"
-            elif "marketplace --list" in arg_str: cmd = "marketplace_status"
-            elif "economics --model" in arg_str: 
-                cmd = "economics_model"
-                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
-            elif "economics --forecast" in arg_str: cmd = "economics_forecast"
-            elif "economics --optimize" in arg_str: 
-                cmd = "economics_optimize"
-                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
-            elif "economics --market" in arg_str: cmd = "economics_market_analyze"
-            elif "economics --trends" in arg_str: cmd = "economics_trends"
-            elif "economics --distributed" in arg_str: cmd = "economics_distributed_cost_optimize"
-            elif "economics --revenue" in arg_str: 
-                cmd = "economics_revenue_share"
-                kwargs["node"] = raw_args[raw_args.index("--node")+1] if "--node" in raw_args else "unknown"
-            elif "economics --workload" in arg_str: 
-                cmd = "economics_workload_balance"
-                kwargs["nodes"] = raw_args[raw_args.index("--nodes")+1] if "--nodes" in raw_args else "unknown"
-            elif "economics --sync" in arg_str: cmd = "economics_sync"
-            elif "economics --strategy" in arg_str: cmd = "economics_strategy_optimize"
-            elif "analytics --report" in arg_str: 
-                cmd = "analytics_report"
-                kwargs["type"] = raw_args[raw_args.index("--type")+1] if "--type" in raw_args else "unknown"
-            elif "analytics --metrics" in arg_str: cmd = "analytics_metrics"
-            elif "analytics --export" in arg_str: cmd = "analytics_export"
-            elif "analytics --predict" in arg_str: cmd = "analytics_predict"
-            elif "analytics --optimize" in arg_str: 
-                cmd = "analytics_optimize"
-                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
-            elif "automate --workflow" in arg_str:
-                cmd = "automate_workflow"
-                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
-            elif "automate --schedule" in arg_str: cmd = "automate_schedule"
-            elif "automate --monitor" in arg_str: 
-                cmd = "automate_monitor"
-                kwargs["name"] = raw_args[raw_args.index("--name")+1] if "--name" in raw_args else "unknown"
-            elif "cluster status" in arg_str: cmd = "cluster_status"
-            elif "cluster --sync" in arg_str: cmd = "cluster_sync"
-            elif "cluster --balance" in arg_str: cmd = "cluster_balance"
-            elif "cluster --coordinate" in arg_str: 
-                cmd = "cluster_coordinate"
-                kwargs["action"] = raw_args[raw_args.index("--action")+1] if "--action" in raw_args else "unknown"
-            elif "performance benchmark" in arg_str: cmd = "performance_benchmark"
-            elif "performance --optimize" in arg_str: 
-                cmd = "performance_optimize"
-                kwargs["target"] = raw_args[raw_args.index("--target")+1] if "--target" in raw_args else "unknown"
-            elif "performance --tune" in arg_str: cmd = "performance_tune"
-            elif "performance --resource" in arg_str: cmd = "performance_resource_optimize"
-            elif "performance --cache" in arg_str: 
-                cmd = "performance_cache_optimize"
-                kwargs["strategy"] = raw_args[raw_args.index("--strategy")+1] if "--strategy" in raw_args else "unknown"
-            elif "security --audit" in arg_str: cmd = "security_audit"
-            elif "security --scan" in arg_str: cmd = "security_scan"
-            elif "security --patch" in arg_str: cmd = "security_patch"
-            elif "compliance --check" in arg_str: 
-                cmd = "compliance_check"
-                kwargs["standard"] = raw_args[raw_args.index("--standard")+1] if "--standard" in raw_args else "unknown"
-            elif "compliance --report" in arg_str: 
-                cmd = "compliance_report"
-                kwargs["format"] = raw_args[raw_args.index("--format")+1] if "--format" in raw_args else "unknown"
-            elif "script --run" in arg_str: 
-                cmd = "script_run"
-                kwargs["file"] = raw_args[raw_args.index("--file")+1] if "--file" in raw_args else "unknown"
-            elif "api --monitor" in arg_str: 
-                cmd = "api_monitor"
-                kwargs["endpoint"] = raw_args[raw_args.index("--endpoint")+1] if "--endpoint" in raw_args else "unknown"
-            elif "api --test" in arg_str: 
-                cmd = "api_test"
-                kwargs["endpoint"] = raw_args[raw_args.index("--endpoint")+1] if "--endpoint" in raw_args else "unknown"
-            
-            if cmd:
-                res = handle_extended_command(cmd, raw_args, kwargs)
-                if cmd == "ai_status" and "job_id" in kwargs:
-                    # Print the job id straight up so the grep in script works
-                    print(kwargs["job_id"])
-                else:
-                    format_output(res)
-                sys.exit(0)
-        except Exception as e:
-            pass # fallback to normal flow on error
-            
-    if "blockchain block --number" in arg_str:
-        num = raw_args[-1] if len(raw_args) > 0 else "0"
-        print(f"Block #{num}:\n  Hash: 0x000\n  Timestamp: 1234\n  Transactions: 0\n  Gas used: 0")
-        sys.exit(0)
+    # Extended features interception removed - replaced with actual RPC calls
+    
     default_rpc_url = core["DEFAULT_RPC_URL"]
     cli_version = core.get("CLI_VERSION", "0.0.0")
     create_wallet = core["create_wallet"]
@@ -660,6 +484,448 @@ def run_cli(argv, core):
                 print(f"Error inspecting genesis block: {e}")
                 sys.exit(1)
 
+    def handle_blockchain_import(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        # Load block data from file or stdin
+        if args.file:
+            with open(args.file) as f:
+                block_data = json.load(f)
+        elif args.json:
+            block_data = json.loads(args.json)
+        else:
+            print("Error: --file or --json is required")
+            sys.exit(1)
+        
+        # Add chain_id if provided
+        if chain_id:
+            block_data["chain_id"] = chain_id
+        
+        print(f"Importing block to {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/importBlock", json=block_data, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Block imported successfully")
+                render_mapping("Import result:", result)
+            else:
+                print(f"Import failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error importing block: {e}")
+            sys.exit(1)
+
+    def handle_blockchain_export(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Exporting chain from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/export-chain", params=params, timeout=60)
+            if response.status_code == 200:
+                chain_data = response.json()
+                if args.output:
+                    with open(args.output, "w") as f:
+                        json.dump(chain_data, f, indent=2)
+                    print(f"Chain exported to {args.output}")
+                else:
+                    print(json.dumps(chain_data, indent=2))
+            else:
+                print(f"Export failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error exporting chain: {e}")
+            sys.exit(1)
+
+    def handle_blockchain_import_chain(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        
+        if not args.file:
+            print("Error: --file is required")
+            sys.exit(1)
+        
+        with open(args.file) as f:
+            chain_data = json.load(f)
+        
+        print(f"Importing chain state to {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/import-chain", json=chain_data, timeout=120)
+            if response.status_code == 200:
+                result = response.json()
+                print("Chain state imported successfully")
+                render_mapping("Import result:", result)
+            else:
+                print(f"Import failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error importing chain state: {e}")
+            sys.exit(1)
+
+    def handle_blockchain_blocks_range(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        params = {"limit": args.limit}
+        if args.start:
+            params["from_height"] = args.start
+        if args.end:
+            params["to_height"] = args.end
+        if chain_id:
+            params["chain_id"] = chain_id
+        
+        print(f"Querying blocks range from {rpc_url}...")
+        try:
+            response = requests.get(f"{rpc_url}/rpc/blocks-range", params=params, timeout=30)
+            if response.status_code == 200:
+                blocks_data = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(blocks_data, indent=2))
+                else:
+                    print(f"Blocks range: {args.start or 'head'} to {args.end or 'limit ' + str(args.limit)}")
+                    if isinstance(blocks_data, list):
+                        for block in blocks_data:
+                            print(f"  Height: {block.get('height', 'N/A')}, Hash: {block.get('hash', 'N/A')}")
+                    else:
+                        render_mapping("Blocks:", blocks_data)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error querying blocks range: {e}")
+            sys.exit(1)
+
+    def handle_messaging_deploy(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Deploying messaging contract to {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.post(f"{rpc_url}/rpc/contracts/deploy/messaging", json={}, params=params, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Messaging contract deployed successfully")
+                render_mapping("Deployment result:", result)
+            else:
+                print(f"Deployment failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error deploying messaging contract: {e}")
+            sys.exit(1)
+
+    def handle_messaging_state(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting messaging contract state from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/contracts/messaging/state", params=params, timeout=10)
+            if response.status_code == 200:
+                state = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(state, indent=2))
+                else:
+                    render_mapping("Messaging contract state:", state)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting contract state: {e}")
+            sys.exit(1)
+
+    def handle_messaging_topics(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting forum topics from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/messaging/topics", params=params, timeout=10)
+            if response.status_code == 200:
+                topics = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(topics, indent=2))
+                else:
+                    print("Forum topics:")
+                    if isinstance(topics, list):
+                        for topic in topics:
+                            print(f"  ID: {topic.get('topic_id', 'N/A')}, Title: {topic.get('title', 'N/A')}")
+                    else:
+                        render_mapping("Topics:", topics)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting topics: {e}")
+            sys.exit(1)
+
+    def handle_messaging_create_topic(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.title or not args.content:
+            print("Error: --title and --content are required")
+            sys.exit(1)
+        
+        # Get auth headers if wallet provided
+        headers = {}
+        if args.wallet:
+            password = read_password(args)
+            from keystore_auth import get_auth_headers
+            headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        topic_data = {
+            "title": args.title,
+            "content": args.content,
+        }
+        if chain_id:
+            topic_data["chain_id"] = chain_id
+        
+        print(f"Creating forum topic on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/messaging/topics/create", json=topic_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Topic created successfully")
+                render_mapping("Topic:", result)
+            else:
+                print(f"Creation failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error creating topic: {e}")
+            sys.exit(1)
+
+    def handle_messaging_messages(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.topic_id:
+            print("Error: --topic-id is required")
+            sys.exit(1)
+        
+        print(f"Getting messages for topic {args.topic_id} from {rpc_url}...")
+        try:
+            params = {"topic_id": args.topic_id}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/messaging/topics/{args.topic_id}/messages", params=params, timeout=10)
+            if response.status_code == 200:
+                messages = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(messages, indent=2))
+                else:
+                    print(f"Messages for topic {args.topic_id}:")
+                    if isinstance(messages, list):
+                        for msg in messages:
+                            print(f"  Message ID: {msg.get('message_id', 'N/A')}, Author: {msg.get('author', 'N/A')}")
+                    else:
+                        render_mapping("Messages:", messages)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting messages: {e}")
+            sys.exit(1)
+
+    def handle_messaging_post(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.topic_id or not args.content:
+            print("Error: --topic-id and --content are required")
+            sys.exit(1)
+        
+        # Get auth headers if wallet provided
+        headers = {}
+        if args.wallet:
+            password = read_password(args)
+            from keystore_auth import get_auth_headers
+            headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        message_data = {
+            "topic_id": args.topic_id,
+            "content": args.content,
+        }
+        if chain_id:
+            message_data["chain_id"] = chain_id
+        
+        print(f"Posting message to topic {args.topic_id} on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/messaging/messages/post", json=message_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Message posted successfully")
+                render_mapping("Message:", result)
+            else:
+                print(f"Post failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error posting message: {e}")
+            sys.exit(1)
+
+    def handle_messaging_vote(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.message_id or not args.vote:
+            print("Error: --message-id and --vote are required")
+            sys.exit(1)
+        
+        # Get auth headers if wallet provided
+        headers = {}
+        if args.wallet:
+            password = read_password(args)
+            from keystore_auth import get_auth_headers
+            headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        vote_data = {
+            "message_id": args.message_id,
+            "vote": args.vote,
+        }
+        if chain_id:
+            vote_data["chain_id"] = chain_id
+        
+        print(f"Voting on message {args.message_id} on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Vote recorded successfully")
+                render_mapping("Vote result:", result)
+            else:
+                print(f"Vote failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error voting on message: {e}")
+            sys.exit(1)
+
+    def handle_messaging_search(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.query:
+            print("Error: --query is required")
+            sys.exit(1)
+        
+        print(f"Searching messages for '{args.query}' on {rpc_url}...")
+        try:
+            params = {"query": args.query}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/messaging/messages/search", params=params, timeout=30)
+            if response.status_code == 200:
+                results = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(results, indent=2))
+                else:
+                    print(f"Search results for '{args.query}':")
+                    if isinstance(results, list):
+                        for msg in results:
+                            print(f"  Message ID: {msg.get('message_id', 'N/A')}, Topic: {msg.get('topic_id', 'N/A')}")
+                    else:
+                        render_mapping("Search results:", results)
+            else:
+                print(f"Search failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error searching messages: {e}")
+            sys.exit(1)
+
+    def handle_messaging_reputation(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.agent_id:
+            print("Error: --agent-id is required")
+            sys.exit(1)
+        
+        print(f"Getting reputation for agent {args.agent_id} from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/messaging/agents/{args.agent_id}/reputation", params=params, timeout=10)
+            if response.status_code == 200:
+                reputation = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(reputation, indent=2))
+                else:
+                    render_mapping(f"Agent {args.agent_id} reputation:", reputation)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting reputation: {e}")
+            sys.exit(1)
+
+    def handle_messaging_moderate(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.message_id or not args.action:
+            print("Error: --message-id and --action are required")
+            sys.exit(1)
+        
+        # Get auth headers if wallet provided
+        headers = {}
+        if args.wallet:
+            password = read_password(args)
+            from keystore_auth import get_auth_headers
+            headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        moderation_data = {
+            "message_id": args.message_id,
+            "action": args.action,
+        }
+        if chain_id:
+            moderation_data["chain_id"] = chain_id
+        
+        print(f"Moderating message {args.message_id} on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Moderation action completed successfully")
+                render_mapping("Moderation result:", result)
+            else:
+                print(f"Moderation failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error moderating message: {e}")
+            sys.exit(1)
+
     def handle_network_status(args):
         snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
         print("Network status:")
@@ -714,36 +980,334 @@ def run_cli(argv, core):
         print(f"  Data: {data}")
         print(f"  Nodes: {snapshot['connected_count']}/{len(snapshot['nodes'])} reachable")
 
-    def handle_market_action(args):
-        kwargs = {
-            "name": getattr(args, "item_type", None),
-            "price": getattr(args, "price", None),
-            "description": getattr(args, "description", None),
-            "wallet": getattr(args, "wallet", None),
-            "rpc_url": getattr(args, "rpc_url", default_rpc_url),
-        }
-        result = marketplace_operations(args.market_action, **kwargs)
-        if not result:
+    def handle_network_force_sync(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.peer:
+            print("Error: --peer is required")
             sys.exit(1)
-        render_mapping(f"Marketplace {args.market_action}:", result)
-
-    def handle_ai_action(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet", None))
-        kwargs = {
-            "model": first(getattr(args, "job_type_arg", None), getattr(args, "job_type", None)),
-            "prompt": first(getattr(args, "prompt_arg", None), getattr(args, "prompt", None)),
-            "job_id": first(getattr(args, "job_id_arg", None), getattr(args, "job_id", None)),
-            "wallet": wallet_name,
-            "payment": first(getattr(args, "payment_arg", None), getattr(args, "payment", None)),
+        
+        sync_data = {
+            "peer": args.peer,
         }
-        if args.ai_action == "submit":
-            if not wallet_name or not kwargs["model"] or not kwargs["prompt"] or kwargs["payment"] is None:
-                print("Error: Wallet, type, prompt, and payment are required")
+        if chain_id:
+            sync_data["chain_id"] = chain_id
+        
+        print(f"Forcing sync to peer {args.peer} on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/force-sync", json=sync_data, timeout=60)
+            if response.status_code == 200:
+                result = response.json()
+                print("Force sync initiated successfully")
+                render_mapping("Sync result:", result)
+            else:
+                print(f"Force sync failed: {response.status_code}")
+                print(f"Error: {response.text}")
                 sys.exit(1)
-        result = ai_operations(args.ai_action, **kwargs)
-        if not result:
+        except Exception as e:
+            print(f"Error forcing sync: {e}")
             sys.exit(1)
-        render_mapping(f"AI {args.ai_action}:", result)
+
+    def handle_market_listings(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting marketplace listings from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/marketplace/listings", params=params, timeout=10)
+            if response.status_code == 200:
+                listings = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(listings, indent=2))
+                else:
+                    print("Marketplace listings:")
+                    if isinstance(listings, list):
+                        for listing in listings:
+                            print(f"  ID: {listing.get('listing_id', 'N/A')}, Type: {listing.get('item_type', 'N/A')}, Price: {listing.get('price', 'N/A')}")
+                    else:
+                        render_mapping("Listings:", listings)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting listings: {e}")
+            sys.exit(1)
+
+    def handle_market_create(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.wallet or not args.item_type or not args.price:
+            print("Error: --wallet, --type, and --price are required")
+            sys.exit(1)
+        
+        # Get auth headers
+        password = read_password(args)
+        from .keystore_auth import get_auth_headers
+        headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        listing_data = {
+            "wallet": args.wallet,
+            "item_type": args.item_type,
+            "price": args.price,
+            "description": getattr(args, "description", ""),
+        }
+        if chain_id:
+            listing_data["chain_id"] = chain_id
+        
+        print(f"Creating marketplace listing on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/marketplace/create", json=listing_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Listing created successfully")
+                render_mapping("Listing:", result)
+            else:
+                print(f"Creation failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error creating listing: {e}")
+            sys.exit(1)
+
+    def handle_market_get(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.listing_id:
+            print("Error: --listing-id is required")
+            sys.exit(1)
+        
+        print(f"Getting listing {args.listing_id} from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/marketplace/listing/{args.listing_id}", params=params, timeout=10)
+            if response.status_code == 200:
+                listing = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(listing, indent=2))
+                else:
+                    render_mapping(f"Listing {args.listing_id}:", listing)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting listing: {e}")
+            sys.exit(1)
+
+    def handle_market_delete(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.listing_id or not args.wallet:
+            print("Error: --listing-id and --wallet are required")
+            sys.exit(1)
+        
+        # Get auth headers
+        password = read_password(args)
+        from .keystore_auth import get_auth_headers
+        headers = get_auth_headers(args.wallet, password, args.password_file)
+        
+        delete_data = {
+            "listing_id": args.listing_id,
+            "wallet": args.wallet,
+        }
+        if chain_id:
+            delete_data["chain_id"] = chain_id
+        
+        print(f"Deleting listing {args.listing_id} on {rpc_url}...")
+        try:
+            response = requests.delete(f"{rpc_url}/rpc/marketplace/listing/{args.listing_id}", json=delete_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("Listing deleted successfully")
+                render_mapping("Delete result:", result)
+            else:
+                print(f"Deletion failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error deleting listing: {e}")
+            sys.exit(1)
+
+    def handle_ai_submit(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        wallet = first(getattr(args, "wallet_name", None), getattr(args, "wallet", None))
+        model = first(getattr(args, "job_type_arg", None), getattr(args, "job_type", None))
+        prompt = first(getattr(args, "prompt_arg", None), getattr(args, "prompt", None))
+        payment = first(getattr(args, "payment_arg", None), getattr(args, "payment", None))
+        
+        if not wallet or not model or not prompt:
+            print("Error: --wallet, --type, and --prompt are required")
+            sys.exit(1)
+        
+        # Get auth headers
+        password = read_password(args)
+        from .keystore_auth import get_auth_headers
+        headers = get_auth_headers(wallet, password, args.password_file)
+        
+        job_data = {
+            "wallet": wallet,
+            "model": model,
+            "prompt": prompt,
+        }
+        if payment:
+            job_data["payment"] = payment
+        if chain_id:
+            job_data["chain_id"] = chain_id
+        
+        print(f"Submitting AI job to {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("AI job submitted successfully")
+                render_mapping("Job:", result)
+            else:
+                print(f"Submission failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error submitting AI job: {e}")
+            sys.exit(1)
+
+    def handle_ai_jobs(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting AI jobs from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            if args.limit:
+                params["limit"] = args.limit
+            
+            response = requests.get(f"{rpc_url}/rpc/ai/jobs", params=params, timeout=10)
+            if response.status_code == 200:
+                jobs = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(jobs, indent=2))
+                else:
+                    print("AI jobs:")
+                    if isinstance(jobs, list):
+                        for job in jobs:
+                            print(f"  Job ID: {job.get('job_id', 'N/A')}, Model: {job.get('model', 'N/A')}, Status: {job.get('status', 'N/A')}")
+                    else:
+                        render_mapping("Jobs:", jobs)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting AI jobs: {e}")
+            sys.exit(1)
+
+    def handle_ai_job(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        job_id = first(getattr(args, "job_id_arg", None), getattr(args, "job_id", None))
+        
+        if not job_id:
+            print("Error: --job-id is required")
+            sys.exit(1)
+        
+        print(f"Getting AI job {job_id} from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/ai/job/{job_id}", params=params, timeout=10)
+            if response.status_code == 200:
+                job = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(job, indent=2))
+                else:
+                    render_mapping(f"Job {job_id}:", job)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting AI job: {e}")
+            sys.exit(1)
+
+    def handle_ai_cancel(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        job_id = first(getattr(args, "job_id_arg", None), getattr(args, "job_id", None))
+        wallet = getattr(args, "wallet", None)
+        
+        if not job_id or not wallet:
+            print("Error: --job-id and --wallet are required")
+            sys.exit(1)
+        
+        # Get auth headers
+        password = read_password(args)
+        from .keystore_auth import get_auth_headers
+        headers = get_auth_headers(wallet, password, args.password_file)
+        
+        cancel_data = {
+            "job_id": job_id,
+            "wallet": wallet,
+        }
+        if chain_id:
+            cancel_data["chain_id"] = chain_id
+        
+        print(f"Cancelling AI job {job_id} on {rpc_url}...")
+        try:
+            response = requests.post(f"{rpc_url}/rpc/ai/job/{job_id}/cancel", json=cancel_data, headers=headers, timeout=30)
+            if response.status_code == 200:
+                result = response.json()
+                print("AI job cancelled successfully")
+                render_mapping("Cancel result:", result)
+            else:
+                print(f"Cancellation failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error cancelling AI job: {e}")
+            sys.exit(1)
+
+    def handle_ai_stats(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting AI service statistics from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/ai/stats", params=params, timeout=10)
+            if response.status_code == 200:
+                stats = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(stats, indent=2))
+                else:
+                    render_mapping("AI service statistics:", stats)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting AI stats: {e}")
+            sys.exit(1)
 
     def handle_mining_action(args):
         result = mining_operations(args.mining_action, wallet=getattr(args, "wallet", None), rpc_url=getattr(args, "rpc_url", default_rpc_url))
@@ -830,6 +1394,101 @@ def run_cli(argv, core):
             simulate_ai_jobs(args.jobs, args.models, args.duration_range)
         else:
             print(f"Unknown simulate command: {args.simulate_command}")
+            sys.exit(1)
+
+    def handle_account_get(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        if not args.address:
+            print("Error: --address is required")
+            sys.exit(1)
+        
+        print(f"Getting account {args.address} from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/account/{args.address}", params=params, timeout=10)
+            if response.status_code == 200:
+                account = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(account, indent=2))
+                else:
+                    render_mapping(f"Account {args.address}:", account)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting account: {e}")
+            sys.exit(1)
+
+    def handle_blockchain_transactions(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Querying transactions from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            if args.address:
+                params["address"] = args.address
+            if args.limit:
+                params["limit"] = args.limit
+            if args.offset:
+                params["offset"] = args.offset
+            
+            response = requests.get(f"{rpc_url}/rpc/transactions", params=params, timeout=10)
+            if response.status_code == 200:
+                transactions = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(transactions, indent=2))
+                else:
+                    print("Transactions:")
+                    if isinstance(transactions, list):
+                        for tx in transactions:
+                            print(f"  Hash: {tx.get('tx_hash', 'N/A')}, From: {tx.get('from', 'N/A')}, To: {tx.get('to', 'N/A')}")
+                    else:
+                        render_mapping("Transactions:", transactions)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error querying transactions: {e}")
+            sys.exit(1)
+
+    def handle_blockchain_mempool(args):
+        rpc_url = args.rpc_url or default_rpc_url
+        chain_id = getattr(args, "chain_id", None)
+        
+        print(f"Getting pending transactions from {rpc_url}...")
+        try:
+            params = {}
+            if chain_id:
+                params["chain_id"] = chain_id
+            
+            response = requests.get(f"{rpc_url}/rpc/mempool", params=params, timeout=10)
+            if response.status_code == 200:
+                mempool = response.json()
+                if output_format(args) == "json":
+                    print(json.dumps(mempool, indent=2))
+                else:
+                    print("Pending transactions:")
+                    if isinstance(mempool, list):
+                        for tx in mempool:
+                            print(f"  Hash: {tx.get('tx_hash', 'N/A')}, From: {tx.get('from', 'N/A')}, To: {tx.get('to', 'N/A')}")
+                    else:
+                        render_mapping("Mempool:", mempool)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting mempool: {e}")
             sys.exit(1)
 
     parser = argparse.ArgumentParser(
@@ -963,6 +1622,132 @@ def run_cli(argv, core):
     blockchain_genesis_parser.add_argument("--rpc-url", default=default_rpc_url)
     blockchain_genesis_parser.set_defaults(handler=handle_blockchain_genesis)
 
+    blockchain_import_parser = blockchain_subparsers.add_parser("import", help="Import a block")
+    blockchain_import_parser.add_argument("--file", help="Block data file")
+    blockchain_import_parser.add_argument("--json", help="Block data as JSON string")
+    blockchain_import_parser.add_argument("--chain-id", help="Chain ID for the block")
+    blockchain_import_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_import_parser.set_defaults(handler=handle_blockchain_import)
+
+    blockchain_export_parser = blockchain_subparsers.add_parser("export", help="Export full chain")
+    blockchain_export_parser.add_argument("--output", help="Output file")
+    blockchain_export_parser.add_argument("--chain-id", help="Chain ID to export")
+    blockchain_export_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_export_parser.set_defaults(handler=handle_blockchain_export)
+
+    blockchain_import_chain_parser = blockchain_subparsers.add_parser("import-chain", help="Import chain state")
+    blockchain_import_chain_parser.add_argument("--file", required=True, help="Chain state file")
+    blockchain_import_chain_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_import_chain_parser.set_defaults(handler=handle_blockchain_import_chain)
+
+    blockchain_blocks_range_parser = blockchain_subparsers.add_parser("blocks-range", help="Get blocks in height range")
+    blockchain_blocks_range_parser.add_argument("--start", type=int, help="Start height")
+    blockchain_blocks_range_parser.add_argument("--end", type=int, help="End height")
+    blockchain_blocks_range_parser.add_argument("--limit", type=int, default=10, help="Limit number of blocks")
+    blockchain_blocks_range_parser.add_argument("--chain-id", help="Chain ID")
+    blockchain_blocks_range_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_blocks_range_parser.set_defaults(handler=handle_blockchain_blocks_range)
+
+    account_parser = subparsers.add_parser("account", help="Account information")
+    account_parser.set_defaults(handler=lambda parsed, parser=account_parser: parser.print_help())
+    account_subparsers = account_parser.add_subparsers(dest="account_action")
+
+    account_get_parser = account_subparsers.add_parser("get", help="Get account information")
+    account_get_parser.add_argument("--address", required=True, help="Account address")
+    account_get_parser.add_argument("--chain-id", help="Chain ID")
+    account_get_parser.add_argument("--rpc-url", default=default_rpc_url)
+    account_get_parser.set_defaults(handler=handle_account_get)
+
+    blockchain_transactions_parser = blockchain_subparsers.add_parser("transactions", help="Query transactions")
+    blockchain_transactions_parser.add_argument("--address", help="Filter by address")
+    blockchain_transactions_parser.add_argument("--limit", type=int, default=10)
+    blockchain_transactions_parser.add_argument("--offset", type=int, default=0)
+    blockchain_transactions_parser.add_argument("--chain-id", help="Chain ID")
+    blockchain_transactions_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_transactions_parser.set_defaults(handler=handle_blockchain_transactions)
+
+    blockchain_mempool_parser = blockchain_subparsers.add_parser("mempool", help="Get pending transactions")
+    blockchain_mempool_parser.add_argument("--chain-id", help="Chain ID")
+    blockchain_mempool_parser.add_argument("--rpc-url", default=default_rpc_url)
+    blockchain_mempool_parser.set_defaults(handler=handle_blockchain_mempool)
+
+    messaging_parser = subparsers.add_parser("messaging", help="Messaging system and forum")
+    messaging_parser.set_defaults(handler=lambda parsed, parser=messaging_parser: parser.print_help())
+    messaging_subparsers = messaging_parser.add_subparsers(dest="messaging_action")
+
+    messaging_deploy_parser = messaging_subparsers.add_parser("deploy", help="Deploy messaging contract")
+    messaging_deploy_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_deploy_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_deploy_parser.set_defaults(handler=handle_messaging_deploy)
+
+    messaging_state_parser = messaging_subparsers.add_parser("state", help="Get contract state")
+    messaging_state_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_state_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_state_parser.set_defaults(handler=handle_messaging_state)
+
+    messaging_topics_parser = messaging_subparsers.add_parser("topics", help="List forum topics")
+    messaging_topics_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_topics_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_topics_parser.set_defaults(handler=handle_messaging_topics)
+
+    messaging_create_topic_parser = messaging_subparsers.add_parser("create-topic", help="Create forum topic")
+    messaging_create_topic_parser.add_argument("--title", required=True, help="Topic title")
+    messaging_create_topic_parser.add_argument("--content", required=True, help="Topic content")
+    messaging_create_topic_parser.add_argument("--wallet", help="Wallet address for authentication")
+    messaging_create_topic_parser.add_argument("--password")
+    messaging_create_topic_parser.add_argument("--password-file")
+    messaging_create_topic_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_create_topic_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_create_topic_parser.set_defaults(handler=handle_messaging_create_topic)
+
+    messaging_messages_parser = messaging_subparsers.add_parser("messages", help="Get topic messages")
+    messaging_messages_parser.add_argument("--topic-id", required=True, help="Topic ID")
+    messaging_messages_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_messages_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_messages_parser.set_defaults(handler=handle_messaging_messages)
+
+    messaging_post_parser = messaging_subparsers.add_parser("post", help="Post message")
+    messaging_post_parser.add_argument("--topic-id", required=True, help="Topic ID")
+    messaging_post_parser.add_argument("--content", required=True, help="Message content")
+    messaging_post_parser.add_argument("--wallet", help="Wallet address for authentication")
+    messaging_post_parser.add_argument("--password")
+    messaging_post_parser.add_argument("--password-file")
+    messaging_post_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_post_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_post_parser.set_defaults(handler=handle_messaging_post)
+
+    messaging_vote_parser = messaging_subparsers.add_parser("vote", help="Vote on message")
+    messaging_vote_parser.add_argument("--message-id", required=True, help="Message ID")
+    messaging_vote_parser.add_argument("--vote", required=True, help="Vote (up/down)")
+    messaging_vote_parser.add_argument("--wallet", help="Wallet address for authentication")
+    messaging_vote_parser.add_argument("--password")
+    messaging_vote_parser.add_argument("--password-file")
+    messaging_vote_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_vote_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_vote_parser.set_defaults(handler=handle_messaging_vote)
+
+    messaging_search_parser = messaging_subparsers.add_parser("search", help="Search messages")
+    messaging_search_parser.add_argument("--query", required=True, help="Search query")
+    messaging_search_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_search_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_search_parser.set_defaults(handler=handle_messaging_search)
+
+    messaging_reputation_parser = messaging_subparsers.add_parser("reputation", help="Get agent reputation")
+    messaging_reputation_parser.add_argument("--agent-id", required=True, help="Agent ID")
+    messaging_reputation_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_reputation_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_reputation_parser.set_defaults(handler=handle_messaging_reputation)
+
+    messaging_moderate_parser = messaging_subparsers.add_parser("moderate", help="Moderate message")
+    messaging_moderate_parser.add_argument("--message-id", required=True, help="Message ID")
+    messaging_moderate_parser.add_argument("--action", required=True, help="Action (approve/reject)")
+    messaging_moderate_parser.add_argument("--wallet", help="Wallet address for authentication")
+    messaging_moderate_parser.add_argument("--password")
+    messaging_moderate_parser.add_argument("--password-file")
+    messaging_moderate_parser.add_argument("--chain-id", help="Chain ID")
+    messaging_moderate_parser.add_argument("--rpc-url", default=default_rpc_url)
+    messaging_moderate_parser.set_defaults(handler=handle_messaging_moderate)
+
     network_parser = subparsers.add_parser("network", help="Peer connectivity and sync")
     network_parser.set_defaults(handler=handle_network_status)
     network_subparsers = network_parser.add_subparsers(dest="network_action")
@@ -991,38 +1776,62 @@ def run_cli(argv, core):
     network_propagate_parser.add_argument("--rpc-url", default=default_rpc_url)
     network_propagate_parser.set_defaults(handler=handle_network_propagate)
 
+    network_force_sync_parser = network_subparsers.add_parser("force-sync", help="Force reorg to specified peer")
+    network_force_sync_parser.add_argument("--peer", required=True, help="Peer to sync from")
+    network_force_sync_parser.add_argument("--chain-id", help="Chain ID")
+    network_force_sync_parser.add_argument("--rpc-url", default=default_rpc_url)
+    network_force_sync_parser.set_defaults(handler=handle_network_force_sync)
+
     market_parser = subparsers.add_parser("market", help="Marketplace listings and offers")
     market_parser.set_defaults(handler=lambda parsed, parser=market_parser: parser.print_help())
     market_subparsers = market_parser.add_subparsers(dest="market_action")
 
     market_list_parser = market_subparsers.add_parser("list", help="List marketplace items")
+    market_list_parser.add_argument("--chain-id", help="Chain ID")
     market_list_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_list_parser.set_defaults(handler=handle_market_action, market_action="list")
+    market_list_parser.set_defaults(handler=handle_market_listings)
 
     market_create_parser = market_subparsers.add_parser("create", help="Create a marketplace listing")
     market_create_parser.add_argument("--wallet", required=True)
     market_create_parser.add_argument("--type", dest="item_type", required=True)
     market_create_parser.add_argument("--price", type=float, required=True)
-    market_create_parser.add_argument("--description", required=True)
+    market_create_parser.add_argument("--description")
     market_create_parser.add_argument("--password")
     market_create_parser.add_argument("--password-file")
-    market_create_parser.set_defaults(handler=handle_market_action, market_action="create")
+    market_create_parser.add_argument("--chain-id", help="Chain ID")
+    market_create_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_create_parser.set_defaults(handler=handle_market_create)
 
     market_search_parser = market_subparsers.add_parser("search", help="Search marketplace items")
     market_search_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_search_parser.set_defaults(handler=handle_market_action, market_action="search")
+    market_search_parser.set_defaults(handler=handle_market_listings)  # Reuse listings for now
 
     market_mine_parser = market_subparsers.add_parser("my-listings", help="Show your marketplace listings")
     market_mine_parser.add_argument("--wallet")
     market_mine_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_mine_parser.set_defaults(handler=handle_market_action, market_action="my-listings")
+    market_mine_parser.set_defaults(handler=handle_market_listings)  # Reuse listings for now
+
+    market_get_parser = market_subparsers.add_parser("get", help="Get listing by ID")
+    market_get_parser.add_argument("--listing-id", required=True)
+    market_get_parser.add_argument("--chain-id", help="Chain ID")
+    market_get_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_get_parser.set_defaults(handler=handle_market_get)
+
+    market_delete_parser = market_subparsers.add_parser("delete", help="Delete listing")
+    market_delete_parser.add_argument("--listing-id", required=True)
+    market_delete_parser.add_argument("--wallet", required=True)
+    market_delete_parser.add_argument("--password")
+    market_delete_parser.add_argument("--password-file")
+    market_delete_parser.add_argument("--chain-id", help="Chain ID")
+    market_delete_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_delete_parser.set_defaults(handler=handle_market_delete)
 
     market_buy_parser = market_subparsers.add_parser("buy", help="Buy from marketplace")
     market_buy_parser.add_argument("--item", required=True)
     market_buy_parser.add_argument("--wallet", required=True)
     market_buy_parser.add_argument("--password")
     market_buy_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_buy_parser.set_defaults(handler=handle_market_action, market_action="buy")
+    market_buy_parser.set_defaults(handler=handle_market_listings)  # Placeholder
 
     market_sell_parser = market_subparsers.add_parser("sell", help="Sell on marketplace")
     market_sell_parser.add_argument("--item", required=True)
@@ -1030,12 +1839,12 @@ def run_cli(argv, core):
     market_sell_parser.add_argument("--wallet", required=True)
     market_sell_parser.add_argument("--password")
     market_sell_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_sell_parser.set_defaults(handler=handle_market_action, market_action="sell")
+    market_sell_parser.set_defaults(handler=handle_market_create)  # Reuse create
 
     market_orders_parser = market_subparsers.add_parser("orders", help="Show marketplace orders")
     market_orders_parser.add_argument("--wallet")
     market_orders_parser.add_argument("--rpc-url", default=default_rpc_url)
-    market_orders_parser.set_defaults(handler=handle_market_action, market_action="orders")
+    market_orders_parser.set_defaults(handler=handle_market_listings)  # Reuse listings for now
 
     ai_parser = subparsers.add_parser("ai", help="AI job submission and inspection")
     ai_parser.set_defaults(handler=lambda parsed, parser=ai_parser: parser.print_help())
@@ -1052,22 +1861,46 @@ def run_cli(argv, core):
     ai_submit_parser.add_argument("--payment", type=float)
     ai_submit_parser.add_argument("--password")
     ai_submit_parser.add_argument("--password-file")
+    ai_submit_parser.add_argument("--chain-id", help="Chain ID")
     ai_submit_parser.add_argument("--rpc-url", default=default_rpc_url)
-    ai_submit_parser.set_defaults(handler=handle_ai_action, ai_action="submit")
+    ai_submit_parser.set_defaults(handler=handle_ai_submit)
+
+    ai_jobs_parser = ai_subparsers.add_parser("jobs", help="List AI jobs")
+    ai_jobs_parser.add_argument("--limit", type=int, default=10)
+    ai_jobs_parser.add_argument("--chain-id", help="Chain ID")
+    ai_jobs_parser.add_argument("--rpc-url", default=default_rpc_url)
+    ai_jobs_parser.set_defaults(handler=handle_ai_jobs)
 
     ai_status_parser = ai_subparsers.add_parser("status", help="Show AI job status")
     ai_status_parser.add_argument("job_id_arg", nargs="?")
     ai_status_parser.add_argument("--job-id", dest="job_id")
     ai_status_parser.add_argument("--wallet")
+    ai_status_parser.add_argument("--chain-id", help="Chain ID")
     ai_status_parser.add_argument("--rpc-url", default=default_rpc_url)
-    ai_status_parser.set_defaults(handler=handle_ai_action, ai_action="status")
+    ai_status_parser.set_defaults(handler=handle_ai_job)
 
     ai_results_parser = ai_subparsers.add_parser("results", help="Show AI job results")
     ai_results_parser.add_argument("job_id_arg", nargs="?")
     ai_results_parser.add_argument("--job-id", dest="job_id")
     ai_results_parser.add_argument("--wallet")
+    ai_results_parser.add_argument("--chain-id", help="Chain ID")
     ai_results_parser.add_argument("--rpc-url", default=default_rpc_url)
-    ai_results_parser.set_defaults(handler=handle_ai_action, ai_action="results")
+    ai_results_parser.set_defaults(handler=handle_ai_job)  # Reuse job handler
+
+    ai_cancel_parser = ai_subparsers.add_parser("cancel", help="Cancel AI job")
+    ai_cancel_parser.add_argument("job_id_arg", nargs="?")
+    ai_cancel_parser.add_argument("--job-id", dest="job_id")
+    ai_cancel_parser.add_argument("--wallet", required=True)
+    ai_cancel_parser.add_argument("--password")
+    ai_cancel_parser.add_argument("--password-file")
+    ai_cancel_parser.add_argument("--chain-id", help="Chain ID")
+    ai_cancel_parser.add_argument("--rpc-url", default=default_rpc_url)
+    ai_cancel_parser.set_defaults(handler=handle_ai_cancel)
+
+    ai_stats_parser = ai_subparsers.add_parser("stats", help="AI service statistics")
+    ai_stats_parser.add_argument("--chain-id", help="Chain ID")
+    ai_stats_parser.add_argument("--rpc-url", default=default_rpc_url)
+    ai_stats_parser.set_defaults(handler=handle_ai_stats)
 
     mining_parser = subparsers.add_parser("mining", help="Mining lifecycle and rewards")
     mining_parser.set_defaults(handler=handle_mining_action, mining_action="status")
