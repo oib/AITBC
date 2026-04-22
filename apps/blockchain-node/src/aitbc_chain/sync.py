@@ -355,6 +355,13 @@ class ChainSync:
                     logger.warning(f"[SYNC] Failed to apply transaction {tx_hash}: {error_msg}")
                     # For now, log warning but continue (to be enforced in production)
 
+                # Extract type from transaction data
+                tx_type = tx_data.get("type", "TRANSFER")
+                if tx_type:
+                    tx_type = tx_type.upper()
+                else:
+                    tx_type = "TRANSFER"
+                
                 tx = ChainTransaction(
                     chain_id=self._chain_id,
                     tx_hash=tx_hash,
@@ -362,6 +369,7 @@ class ChainSync:
                     sender=sender_addr,
                     recipient=recipient_addr,
                     payload=tx_data,
+                    type=tx_type,
                 )
                 session.add(tx)
 
