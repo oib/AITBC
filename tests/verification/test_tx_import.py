@@ -39,6 +39,7 @@ def test_transaction_import():
         "proposer": "test-proposer",
         "timestamp": timestamp,
         "tx_count": 1,
+        "chain_id": CHAIN_ID,
         "transactions": [{
             "tx_hash": "0xtx123456789",
             "sender": "0xsender123",

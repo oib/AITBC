@@ -36,7 +36,8 @@ def test_block_import_complete():
             "parent_hash": "0x00",
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
-            "tx_count": 0
+            "tx_count": 0,
+            "chain_id": CHAIN_ID
         }
     )
     if response.status_code == 422 and "greater_than" in response.json()["detail"][0]["msg"]:
@@ -56,7 +57,8 @@ def test_block_import_complete():
             "parent_hash": "0x00",
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
-            "tx_count": 0
+            "tx_count": 0,
+            "chain_id": CHAIN_ID
         }
     )
     if response.status_code == 409 and "already exists with different hash" in response.json()["detail"]:
@@ -68,25 +70,26 @@ def test_block_import_complete():
     
     # Test 3: Import existing block with correct hash
     print("\n[TEST 3] Import existing block with correct hash...")
-    response = requests.get(f"{BASE_URL}/blocks/1")
-    block_data = response.json()
+    response = requests.get(f"{BASE_URL}/head")
+    head = response.json()
     
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
-            "height": block_data["height"],
-            "hash": block_data["hash"],
-            "parent_hash": block_data["parent_hash"],
-            "proposer": block_data["proposer"],
-            "timestamp": block_data["timestamp"],
-            "tx_count": block_data["tx_count"]
+            "height": head["height"],
+            "hash": head["hash"],
+            "parent_hash": head.get("parent_hash", "0x00"),
+            "proposer": head.get("proposer", "test"),
+            "timestamp": head["timestamp"],
+            "tx_count": head.get("tx_count", 0),
+            "chain_id": CHAIN_ID
         }
     )
-    if response.status_code == 200 and response.json()["status"] == "exists":
+    if response.status_code == 200 and response.json().get("success") == True:
         print("✅ PASS: Correctly handled existing block")
         results.append(True)
     else:
-        print(f"❌ FAIL: Expected 200 with 'exists' status, got {response.status_code}")
+        print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}")
         results.append(False)
     
     # Test 4: Invalid block hash
@@ -102,7 +105,8 @@ def test_block_import_complete():
             "parent_hash": head["hash"],
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
-            "tx_count": 0
+            "tx_count": 0,
+            "chain_id": CHAIN_ID
         }
     )
     if response.status_code == 400 and "Invalid block hash" in response.json()["detail"]:
@@ -122,7 +126,8 @@ def test_block_import_complete():
             "parent_hash": "0xnonexistent",
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
-            "tx_count": 0
+            "tx_count": 0,
+            "chain_id": CHAIN_ID
         }
     )
     if response.status_code == 400 and "Parent block not found" in response.json()["detail"]:
@@ -149,14 +154,15 @@ def test_block_import_complete():
             "proposer": "test-proposer",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 0,
-            "transactions": []
+            "transactions": [],
+            "chain_id": CHAIN_ID
         }
     )
-    if response.status_code == 200 and response.json()["status"] == "imported":
+    if response.status_code == 200 and response.json().get("success") == True:
         print("✅ PASS: Successfully imported block without transactions")
         results.append(True)
     else:
-        print(f"❌ FAIL: Expected 200, got {response.status_code}")
+        print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}")
         results.append(False)
     
     # Test 7: Import block with transactions (KNOWN ISSUE)
@@ -176,6 +182,7 @@ def test_block_import_complete():
             "proposer": "test-proposer",
             "timestamp": "2026-01-29T10:20:00",
             "tx_count": 1,
+            "chain_id": CHAIN_ID,
             "transactions": [{
                 "tx_hash": "0xtx123",
                 "sender": "0xsender",
