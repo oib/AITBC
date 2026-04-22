@@ -380,7 +380,7 @@ class ChainSync:
             
             if computed_root != expected_root:
                 logger.warning(
-                    f"[SYNC] State root mismatch at height {height}: "
+                    f"[SYNC] State root mismatch at height {block_data['height']}: "
                     f"expected {expected_root.hex()}, computed {computed_root.hex()}"
                 )
                 # For now, log warning but accept block (to be enforced in Phase 1.3)
