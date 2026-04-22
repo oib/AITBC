@@ -8,7 +8,7 @@ import hashlib
 import requests
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-devnet"
+CHAIN_ID = "ait-mainnet"
 
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
@@ -40,7 +40,7 @@ def test_minimal():
     }
     
     print("Testing with empty transactions list...")
-    response = requests.post(f"{BASE_URL}/blocks/import", json=test_block)
+    response = requests.post(f"{BASE_URL}/importBlock", json=test_block)
     print(f"Status: {response.status_code}")
     print(f"Response: {response.json()}")
     
@@ -57,7 +57,7 @@ def test_minimal():
         test_block["transactions"] = [{"tx_hash": "0xtest", "sender": "0xtest", "recipient": "0xtest", "payload": {}}]
         
         print("\nTesting with one transaction...")
-        response = requests.post(f"{BASE_URL}/blocks/import", json=test_block)
+        response = requests.post(f"{BASE_URL}/importBlock", json=test_block)
         print(f"Status: {response.status_code}")
         print(f"Response: {response.json()}")
 
