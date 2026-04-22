@@ -308,12 +308,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
             "signature": tx_data.sig
         }
         
-        _logger.info(f"[ROUTER] Before normalization: type={tx_data.type}, full dict keys={list(tx_data_dict.keys())}")
-        
         tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
-        
-        _logger.info(f"[ROUTER] After normalization: type={tx_data_dict.get('type')}, full dict keys={list(tx_data_dict.keys())}")
-        
         _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
