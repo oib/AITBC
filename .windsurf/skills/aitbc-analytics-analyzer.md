@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC blockchain analytics and performance metrics with deterministic outputs
 title: aitbc-analytics-analyzer
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Analytics Analyzer

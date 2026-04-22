@@ -10,8 +10,9 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 from sqlmodel import Session, select
+from datetime import datetime
 
-from ..models import Account, Transaction
+from ..models import Account, Transaction, Receipt
 from ..logger import get_logger
 
 
@@ -68,8 +69,27 @@ class StateTransition:
         if tx_nonce != expected_nonce:
             return False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}"
         
-        # Get transaction type
-        tx_type = tx_data.get("type", "TRANSFER").upper()
+        # Get transaction type - check Transaction model first, then tx_data
+        tx_record = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.tx_hash == tx_hash
+            )
+        ).first()
+        
+        if tx_record and tx_record.type:
+            tx_type = tx_record.type.upper()
+        else:
+            tx_type = tx_data.get("type", "TRANSFER")
+            if not tx_type or tx_type == "TRANSFER":
+                # Check if type is in payload
+                payload = tx_data.get("payload", {})
+                if isinstance(payload, dict):
+                    tx_type = payload.get("type", "TRANSFER")
+            if tx_type:
+                tx_type = tx_type.upper()
+            else:
+                tx_type = "TRANSFER"
         
         # Validate balance
         value = tx_data.get("value", 0)
@@ -88,13 +108,41 @@ class StateTransition:
         if sender_account.balance < total_cost:
             return False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}"
         
-        # Get recipient account (not required for MESSAGE)
+        # Get recipient account (not required for MESSAGE or RECEIPT_CLAIM)
         recipient_addr = tx_data.get("to")
-        if tx_type != "MESSAGE":
+        if tx_type not in {"MESSAGE", "RECEIPT_CLAIM"}:
             recipient_account = session.get(Account, (chain_id, recipient_addr))
             
             if not recipient_account:
                 return False, f"Recipient account not found: {recipient_addr}"
+        
+        # For RECEIPT_CLAIM transactions, validate receipt exists
+        if tx_type == "RECEIPT_CLAIM":
+            receipt_id = tx_data.get("payload", {}).get("receipt_id")
+            if not receipt_id:
+                return False, "RECEIPT_CLAIM transactions must include receipt_id in payload"
+            
+            receipt = session.exec(
+                select(Receipt).where(
+                    Receipt.chain_id == chain_id,
+                    Receipt.receipt_id == receipt_id
+                )
+            ).first()
+            
+            if not receipt:
+                return False, f"Receipt not found: {receipt_id}"
+            
+            if receipt.status != "pending":
+                return False, f"Receipt already claimed or invalid: {receipt.status}"
+            
+            # Basic signature validation (full validation requires aitbc_sdk)
+            # Check that miner_signature exists and is non-empty
+            if not receipt.miner_signature or not isinstance(receipt.miner_signature, dict):
+                return False, f"Receipt {receipt_id} has invalid miner signature"
+            
+            # Check that coordinator_attestations exists and is non-empty
+            if not receipt.coordinator_attestations or not isinstance(receipt.coordinator_attestations, list):
+                return False, f"Receipt {receipt_id} has invalid coordinator attestations"
         
         return True, "Transaction validated successfully"
     
@@ -128,8 +176,27 @@ class StateTransition:
         
         sender_account = session.get(Account, (chain_id, sender_addr))
         
-        # Get transaction type
-        tx_type = tx_data.get("type", "TRANSFER").upper()
+        # Get transaction type - check Transaction model first, then tx_data
+        tx_record = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                Transaction.tx_hash == tx_hash
+            )
+        ).first()
+        
+        if tx_record and tx_record.type:
+            tx_type = tx_record.type.upper()
+        else:
+            tx_type = tx_data.get("type", "TRANSFER")
+            if not tx_type or tx_type == "TRANSFER":
+                # Check if type is in payload
+                payload = tx_data.get("payload", {})
+                if isinstance(payload, dict):
+                    tx_type = payload.get("type", "TRANSFER")
+            if tx_type:
+                tx_type = tx_type.upper()
+            else:
+                tx_type = "TRANSFER"
         
         # Apply balance changes
         value = tx_data.get("value", 0)
@@ -148,6 +215,30 @@ class StateTransition:
         # For MESSAGE transactions, skip recipient balance change
         if tx_type != "MESSAGE":
             recipient_account.balance += value
+        
+        # For RECEIPT_CLAIM transactions, mint reward and update receipt status
+        if tx_type == "RECEIPT_CLAIM":
+            receipt_id = tx_data.get("payload", {}).get("receipt_id")
+            receipt = session.exec(
+                select(Receipt).where(
+                    Receipt.chain_id == chain_id,
+                    Receipt.receipt_id == receipt_id
+                )
+            ).first()
+            
+            if receipt and receipt.minted_amount:
+                # Mint reward to claimant (sender)
+                sender_account.balance += receipt.minted_amount
+                
+                # Update receipt status
+                receipt.status = "claimed"
+                receipt.claimed_at = datetime.utcnow()
+                receipt.claimed_by = sender_addr
+                
+                logger.info(
+                    f"Claimed receipt {receipt_id}: "
+                    f"minted_amount={receipt.minted_amount}, claimed_by={sender_addr}"
+                )
         
         # Mark transaction as processed
         self._processed_tx_hashes.add(tx_hash)

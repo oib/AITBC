@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw session management with deterministic context preservation and workflow coordination
 title: openclaw-session-manager
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Session Manager

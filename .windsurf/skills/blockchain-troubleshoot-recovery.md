@@ -1,7 +1,7 @@
 ---
 description: Autonomous AI skill for blockchain troubleshooting and recovery across multi-node AITBC setup
 title: Blockchain Troubleshoot & Recovery
-version: 1.0
+version: 1.1
 ---
 
 # Blockchain Troubleshoot & Recovery Skill
@@ -18,13 +18,15 @@ Activate this skill when:
 - Git synchronization fails
 - Network latency issues detected
 - Service health checks fail
+- P2P handshake rejections (duplicate node IDs)
+- Nodes with identical p2p_node_id or proposer_id
 
 ## Input Schema
 ```json
 {
   "issue_type": {
     "type": "string",
-    "enum": ["connectivity", "sync_lag", "transaction_timeout", "service_failure", "git_sync_failure", "network_latency", "unknown"],
+    "enum": ["connectivity", "sync_lag", "transaction_timeout", "service_failure", "git_sync_failure", "network_latency", "p2p_identity_conflict", "unknown"],
     "description": "Type of blockchain communication issue"
   },
   "affected_nodes": {
@@ -132,6 +134,34 @@ Based on diagnostic data, identify:
 - Configuration errors
 
 ### 3. Execute Recovery Actions
+
+#### P2P Identity Conflict Recovery
+```bash
+# Check current node IDs on all nodes
+echo "=== aitbc node IDs ==="
+grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env
+
+echo "=== aitbc1 node IDs ==="
+ssh aitbc1 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+echo "=== gitea-runner node IDs ==="
+ssh gitea-runner 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+# Run unique ID generation on affected nodes
+python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
+ssh aitbc1 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+ssh gitea-runner 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+
+# Restart P2P services on all nodes
+systemctl restart aitbc-blockchain-p2p
+ssh aitbc1 'systemctl restart aitbc-blockchain-p2p'
+ssh gitea-runner 'systemctl restart aitbc-blockchain-p2p'
+
+# Verify P2P connectivity
+journalctl -u aitbc-blockchain-p2p -n 30 --no-pager
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager'
+ssh gitea-runner 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager'
+```
 
 #### Connectivity Recovery
 ```bash

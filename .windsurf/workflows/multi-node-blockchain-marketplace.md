@@ -180,6 +180,70 @@ DATA_SERVICE_ID=$(./aitbc-cli market search --query "data processing" | grep "se
 ./aitbc-cli market settle-payment --service-id $DATA_SERVICE_ID --amount 30 --wallet enterprise-1
 ```
 
+## Ollama GPU Provider Operations
+
+### Ollama GPU Provider Registration
+
+```bash
+# Register GPU provider with Ollama model support
+./aitbc-cli market create \
+    --type gpu-provider \
+    --price 100 \
+    --wallet gpu-provider \
+    --description "Ollama GPU inference with llama2, mistral, codellama support"
+
+# Register with specific model specifications
+./aitbc-cli provider register \
+    --name ollama-gpu-provider \
+    --gpu-model "NVIDIA RTX 4090" \
+    --gpu-count 1 \
+    --models "llama2,mistral,codellama,llama3.2:latest" \
+    --wallet gpu-provider
+
+# Verify provider registration
+./aitbc-cli provider status --provider-id "ollama-gpu-provider"
+```
+
+### Ollama GPU Provider Testing
+
+```bash
+# Test Ollama GPU inference with specific model
+./aitbc-cli ai submit --wallet test-wallet --type ollama \
+    --prompt "What is the capital of France?" \
+    --model "llama3.2:latest" \
+    --payment 50 \
+    --provider-id "ollama-gpu-provider"
+
+# Monitor Ollama job execution
+./aitbc-cli ai status --job-id "ollama_job_123"
+
+# Retrieve Ollama results
+./aitbc-cli ai results --job-id "ollama_job_123"
+
+# Test streaming Ollama responses
+./aitbc-cli ai submit --wallet test-wallet --type ollama-streaming \
+    --prompt "Generate a short story" \
+    --model "mistral" \
+    --payment 100 \
+    --provider-id "ollama-gpu-provider"
+```
+
+### GPU Provider Marketplace Operations
+
+```bash
+# List all registered GPU providers
+./aitbc-cli provider list --type gpu-provider
+
+# Check GPU provider availability
+./aitbc-cli provider availability --provider-id "ollama-gpu-provider"
+
+# Query GPU provider models
+./aitbc-cli provider models --provider-id "ollama-gpu-provider"
+
+# Compare GPU provider pricing
+./aitbc-cli provider pricing --type gpu-provider
+```
+
 ## GPU Provider Testing
 
 ### GPU Resource Allocation Testing
