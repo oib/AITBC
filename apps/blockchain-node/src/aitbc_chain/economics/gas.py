@@ -17,6 +17,10 @@ class GasType(Enum):
     VALIDATOR_STAKE = "validator_stake"
     AGENT_OPERATION = "agent_operation"
     CONSENSUS = "consensus"
+    MESSAGE = "message"
+    RECEIPT_CLAIM = "receipt_claim"
+    GPU_MARKETPLACE = "gpu_marketplace"
+    EXCHANGE = "exchange"
 
 @dataclass
 class GasSchedule:
@@ -89,6 +93,12 @@ class GasManager:
             GasType.CONSENSUS: GasSchedule(
                 gas_type=GasType.CONSENSUS,
                 base_gas=80000,
+                gas_per_byte=0,
+                complexity_multiplier=1.0
+            ),
+            GasType.MESSAGE: GasSchedule(
+                gas_type=GasType.MESSAGE,
+                base_gas=21000,
                 gas_per_byte=0,
                 complexity_multiplier=1.0
             )

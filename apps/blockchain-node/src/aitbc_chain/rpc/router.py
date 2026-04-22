@@ -173,7 +173,7 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 
 
 class TransactionRequest(BaseModel):
-    type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE")
+    type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
     sender: str
     nonce: int
     fee: int = Field(ge=0)
@@ -183,7 +183,7 @@ class TransactionRequest(BaseModel):
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
         normalized = self.type.upper()
-        valid_types = {"TRANSFER", "RECEIPT_CLAIM", "GPU_MARKETPLACE", "EXCHANGE"}
+        valid_types = {"TRANSFER", "RECEIPT_CLAIM", "GPU_MARKETPLACE", "EXCHANGE", "MESSAGE"}
         if normalized not in valid_types:
             raise ValueError(f"unsupported transaction type: {normalized}. Valid types: {valid_types}")
         self.type = normalized
