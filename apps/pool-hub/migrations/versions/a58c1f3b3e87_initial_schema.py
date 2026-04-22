@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "a58c1f3b3e87"
@@ -34,8 +33,8 @@ def upgrade() -> None:
         sa.Column("ram_gb", sa.Float()),
         sa.Column("max_parallel", sa.Integer()),
         sa.Column("base_price", sa.Float()),
-        sa.Column("tags", postgresql.JSONB(astext_type=sa.Text())),
-        sa.Column("capabilities", postgresql.JSONB(astext_type=sa.Text())),
+        sa.Column("tags", sa.JSON()),
+        sa.Column("capabilities", sa.JSON()),
         sa.Column("trust_score", sa.Float(), server_default="0.5"),
         sa.Column("region", sa.String(length=64)),
     )
@@ -53,18 +52,18 @@ def upgrade() -> None:
 
     op.create_table(
         "match_requests",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("job_id", sa.String(length=64), nullable=False),
-        sa.Column("requirements", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
-        sa.Column("hints", postgresql.JSONB(astext_type=sa.Text()), server_default=sa.text("'{}'::jsonb")),
+        sa.Column("requirements", sa.JSON(), nullable=False),
+        sa.Column("hints", sa.JSON(), server_default=sa.text("'{}'")),
         sa.Column("top_k", sa.Integer(), server_default="1"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("NOW()")),
     )
 
     op.create_table(
         "match_results",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column("request_id", postgresql.UUID(as_uuid=True), sa.ForeignKey("match_requests.id", ondelete="CASCADE"), nullable=False),
+        sa.Column("id", sa.String(36), primary_key=True),
+        sa.Column("request_id", sa.String(36), sa.ForeignKey("match_requests.id", ondelete="CASCADE"), nullable=False),
         sa.Column("miner_id", sa.String(length=64), nullable=False),
         sa.Column("score", sa.Float(), nullable=False),
         sa.Column("explain", sa.Text()),
@@ -76,7 +75,7 @@ def upgrade() -> None:
 
     op.create_table(
         "feedback",
-        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True),
+        sa.Column("id", sa.String(36), primary_key=True),
         sa.Column("job_id", sa.String(length=64), nullable=False),
         sa.Column("miner_id", sa.String(length=64), sa.ForeignKey("miners.miner_id", ondelete="CASCADE"), nullable=False),
         sa.Column("outcome", sa.String(length=32), nullable=False),

@@ -837,6 +837,60 @@ operational.
   - Includes troubleshooting steps and verification procedures
 
 - ✅ **OpenClaw Cross-Node Communication Documentation** - Added agent
+  communication workflow documentation
+  - File: `docs/openclaw/openclaw-cross-node-communication.md`
+  - Documents agent-to-agent communication via AITBC blockchain transactions
+  - Includes setup, testing, and troubleshooting procedures
+
+## Recent Updates (2026-04-22)
+
+### ait-mainnet Migration Complete ✅
+
+- ✅ **All Nodes Migrated to ait-mainnet** - Successfully migrated all blockchain nodes
+  from ait-devnet to ait-mainnet
+  - Updated `/etc/aitbc/.env` on aitbc: CHAIN_ID=ait-mainnet (already configured)
+  - Updated `/etc/aitbc/.env` on aitbc1: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+  - Updated `/etc/aitbc/.env` on gitea-runner: CHAIN_ID=ait-mainnet (changed from ait-devnet)
+  - All three nodes now on same blockchain (ait-mainnet)
+
+- ✅ **Cross-Node Blockchain Tests Created** - New test suite for multi-node blockchain
+  features
+  - File: `/opt/aitbc/tests/verification/test_cross_node_blockchain.py`
+  - Tests: Chain ID Consistency, Block Synchronization, Block Range Query, RPC
+    Connectivity
+  - Tests all three nodes: aitbc, aitbc1, gitea-runner
+  - Verifies chain_id consistency via SSH configuration check
+  - Tests block import functionality and RPC connectivity
+  - All 4 tests passing across 3 nodes
+
+- ✅ **Test Files Updated for ait-mainnet** - Updated all verification tests to use
+  ait-mainnet chain_id
+  - test_tx_import.py: Updated CHAIN_ID and endpoint path
+  - test_simple_import.py: Updated CHAIN_ID and endpoint path
+  - test_minimal.py: Updated CHAIN_ID and endpoint path
+  - test_block_import.py: Updated CHAIN_ID and endpoint path
+  - test_block_import_complete.py: Updated CHAIN_ID and endpoint path
+  - All tests now include chain_id in block data payloads
+
+- ✅ **SQLite Database Corruption Fixed on aitbc1** - Resolved database corruption
+  issue
+  - Root cause: Btrfs copy-on-write (CoW) behavior causing SQLite corruption
+  - Fix: Applied `chattr +C` to `/var/lib/aitbc/data` to disable CoW
+  - Cleared corrupted database files (chain.db*)
+  - Restarted aitbc-blockchain-node.service
+  - Service now running successfully without corruption errors
+
+- ✅ **Network Connectivity Fixes** - Fixed cross-node RPC connectivity
+  - Corrected aitbc1 RPC URL from 10.0.3.107:8006 to 10.1.223.40:8006
+  - Added gitea-runner RPC URL: 10.1.223.93:8006
+  - All nodes now reachable via RPC endpoints
+  - Cross-node tests verify connectivity between all nodes
+
+- ✅ **Blockchain Configuration Updates** - Updated blockchain node configuration
+  - File: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py`
+  - Changed supported_chains from "ait-devnet" to "ait-mainnet"
+  - All nodes now support ait-mainnet chain
+  - Blockchain node services restarted with new configuration
   communication guides
   - File: `docs/openclaw/guides/openclaw_cross_node_communication.md`
   - File: `docs/openclaw/training/cross_node_communication_training.md`

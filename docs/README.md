@@ -2,11 +2,11 @@
 
 **AI Training Blockchain - Privacy-Preserving ML & Edge Computing Platform**
 
-**Level**: All Levels  
-**Prerequisites**: Basic computer skills  
-**Estimated Time**: Varies by learning path  
-**Last Updated**: 2026-04-13  
-**Version**: 6.1 (April 13, 2026 Update - Test Cleanup & Milestone Tracking Fix)
+**Level**: All Levels
+**Prerequisites**: Basic computer skills
+**Estimated Time**: Varies by learning path
+**Last Updated**: 2026-04-22
+**Version**: 6.2 (April 22, 2026 Update - ait-mainnet Migration & Cross-Node Tests)
 
 ## 🎉 **PROJECT STATUS: 100% COMPLETED - April 13, 2026**
 
@@ -167,7 +167,26 @@ For historical reference, duplicate content, and temporary files.
 - **Test Cleanup**: Removed 12 legacy test files, consolidated configuration
 - **Production Architecture**: Aligned with current codebase, systemd service management
 
-### 🎯 **Latest Release: v0.3.1**
+### 🎯 **Latest Release: v0.3.2**
+
+**Released**: April 22, 2026
+**Status**: ✅ Stable
+
+### Key Features
+- **ait-mainnet Migration**: Successfully migrated all blockchain nodes from ait-devnet to ait-mainnet
+- **Cross-Node Blockchain Tests**: Created comprehensive test suite for multi-node blockchain features
+- **SQLite Corruption Fix**: Resolved database corruption on aitbc1 caused by Btrfs CoW behavior
+- **Network Connectivity Fixes**: Corrected RPC URLs for all nodes (aitbc, aitbc1, gitea-runner)
+- **Test File Updates**: Updated all verification tests to use ait-mainnet chain_id
+
+### Migration Notes
+- All three nodes now using CHAIN_ID=ait-mainnet (aitbc, aitbc1, gitea-runner)
+- Cross-node tests verify chain_id consistency and RPC connectivity across all nodes
+- Applied `chattr +C` to `/var/lib/aitbc/data` on aitbc1 to disable CoW
+- Updated blockchain node configuration: supported_chains from "ait-devnet" to "ait-mainnet"
+- Test file: `/opt/aitbc/tests/verification/test_cross_node_blockchain.py`
+
+### 🎯 **Previous Release: v0.3.1**
 
 **Released**: April 13, 2026  
 **Status**: ✅ Stable
@@ -320,11 +339,11 @@ Files are now organized with systematic prefixes based on reading level:
 
 ---
 
-**Last Updated**: 2026-04-13  
-**Documentation Version**: 4.0 (April 13, 2026 Update - Federated Mesh Architecture)  
-**Quality Score**: 10/10 (Perfect Documentation)  
-**Total Files**: 500+ markdown files with standardized templates  
-**Status**: PRODUCTION READY with perfect documentation structure  
+**Last Updated**: 2026-04-22
+**Documentation Version**: 4.1 (April 22, 2026 Update - ait-mainnet Migration)
+**Quality Score**: 10/10 (Perfect Documentation)
+**Total Files**: 500+ markdown files with standardized templates
+**Status**: PRODUCTION READY with perfect documentation structure
 
 **🎉 Achievement: Perfect 10/10 Documentation Quality Score Attained!**
 # OpenClaw Integration
