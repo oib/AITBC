@@ -38,8 +38,31 @@ from .env import (
     get_float_env_var,
     get_list_env_var,
 )
+from .paths import (
+    get_data_path,
+    get_config_path,
+    get_log_path,
+    get_repo_path,
+    ensure_dir,
+    ensure_file_dir,
+    resolve_path,
+    get_keystore_path,
+    get_blockchain_data_path,
+    get_marketplace_data_path,
+)
+from .json_utils import (
+    load_json,
+    save_json,
+    merge_json,
+    json_to_string,
+    string_to_json,
+    get_nested_value,
+    set_nested_value,
+    flatten_json,
+)
+from .http_client import AITBCHTTPClient
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = [
     # Logging
     "get_logger",
@@ -75,4 +98,26 @@ __all__ = [
     "get_int_env_var",
     "get_float_env_var",
     "get_list_env_var",
+    # Path utilities
+    "get_data_path",
+    "get_config_path",
+    "get_log_path",
+    "get_repo_path",
+    "ensure_dir",
+    "ensure_file_dir",
+    "resolve_path",
+    "get_keystore_path",
+    "get_blockchain_data_path",
+    "get_marketplace_data_path",
+    # JSON utilities
+    "load_json",
+    "save_json",
+    "merge_json",
+    "json_to_string",
+    "string_to_json",
+    "get_nested_value",
+    "set_nested_value",
+    "flatten_json",
+    # HTTP client
+    "AITBCHTTPClient",
 ]
