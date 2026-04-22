@@ -61,8 +61,52 @@ from .json_utils import (
     flatten_json,
 )
 from .http_client import AITBCHTTPClient
+from .config import BaseAITBCConfig, AITBCConfig
+from .decorators import (
+    retry,
+    timing,
+    cache_result,
+    validate_args,
+    handle_exceptions,
+    async_timing,
+)
+from .validation import (
+    validate_address,
+    validate_hash,
+    validate_url,
+    validate_port,
+    validate_email,
+    validate_non_empty,
+    validate_positive_number,
+    validate_range,
+    validate_chain_id,
+    validate_uuid,
+)
+from .async_helpers import (
+    run_sync,
+    gather_with_concurrency,
+    run_with_timeout,
+    batch_process,
+    sync_to_async,
+    async_to_sync,
+    retry_async,
+    wait_for_condition,
+)
+from .database import (
+    DatabaseConnection,
+    get_database_connection,
+    ensure_database,
+    vacuum_database,
+    get_table_info,
+    table_exists,
+)
+from .monitoring import (
+    MetricsCollector,
+    PerformanceTimer,
+    HealthChecker,
+)
 
-__version__ = "0.4.0"
+__version__ = "0.6.0"
 __all__ = [
     # Logging
     "get_logger",
@@ -120,4 +164,45 @@ __all__ = [
     "flatten_json",
     # HTTP client
     "AITBCHTTPClient",
+    # Configuration
+    "BaseAITBCConfig",
+    "AITBCConfig",
+    # Decorators
+    "retry",
+    "timing",
+    "cache_result",
+    "validate_args",
+    "handle_exceptions",
+    "async_timing",
+    # Validators
+    "validate_address",
+    "validate_hash",
+    "validate_url",
+    "validate_port",
+    "validate_email",
+    "validate_non_empty",
+    "validate_positive_number",
+    "validate_range",
+    "validate_chain_id",
+    "validate_uuid",
+    # Async helpers
+    "run_sync",
+    "gather_with_concurrency",
+    "run_with_timeout",
+    "batch_process",
+    "sync_to_async",
+    "async_to_sync",
+    "retry_async",
+    "wait_for_condition",
+    # Database
+    "DatabaseConnection",
+    "get_database_connection",
+    "ensure_database",
+    "vacuum_database",
+    "get_table_info",
+    "table_exists",
+    # Monitoring
+    "MetricsCollector",
+    "PerformanceTimer",
+    "HealthChecker",
 ]
