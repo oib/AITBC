@@ -46,7 +46,8 @@ def test_simple_block_import():
             "parent_hash": parent_hash,
             "proposer": "test-proposer",
             "timestamp": timestamp,
-            "tx_count": 0
+            "tx_count": 0,
+            "chain_id": CHAIN_ID
         }
     )
     
