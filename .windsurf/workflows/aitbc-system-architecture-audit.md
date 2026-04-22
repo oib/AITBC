@@ -162,6 +162,71 @@ echo "Tracked Runtime Files:"
 git ls-files | grep -E "(data/|config/|logs/|\.log|\.db)" || echo "✅ No tracked runtime files"
 ```
 
+#### 2.3 Node Identity Audit
+```bash
+# Audit unique node identities across all nodes
+echo "=== 5.5 NODE IDENTITY AUDIT ==="
+
+# Check aitbc node IDs
+echo "aitbc Node IDs:"
+grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env 2>/dev/null || echo "❌ Node ID files not found"
+
+# Check aitbc1 node IDs
+echo "aitbc1 Node IDs:"
+ssh aitbc1 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env' 2>/dev/null || echo "❌ aitbc1 node ID files not found"
+
+# Check gitea-runner node IDs
+echo "gitea-runner Node IDs:"
+ssh gitea-runner 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env' 2>/dev/null || echo "❌ gitea-runner node ID files not found"
+
+# Verify uniqueness
+echo "Uniqueness Verification:"
+AITBC_P2P=$(grep "^p2p_node_id=" /etc/aitbc/node.env 2>/dev/null | cut -d= -f2)
+AITBC1_P2P=$(ssh aitbc1 'grep "^p2p_node_id=" /etc/aitbc/node.env' 2>/dev/null | cut -d= -f2)
+GITEA_P2P=$(ssh gitea-runner 'grep "^p2p_node_id=" /etc/aitbc/node.env' 2>/dev/null | cut -d= -f2)
+
+DUPLICATE_COUNT=0
+if [ "$AITBC_P2P" == "$AITBC1_P2P" ] && [ -n "$AITBC_P2P" ]; then
+    echo "❌ Duplicate p2p_node_id between aitbc and aitbc1"
+    DUPLICATE_COUNT=$((DUPLICATE_COUNT + 1))
+fi
+if [ "$AITBC_P2P" == "$GITEA_P2P" ] && [ -n "$AITBC_P2P" ] && [ -n "$GITEA_P2P" ]; then
+    echo "❌ Duplicate p2p_node_id between aitbc and gitea-runner"
+    DUPLICATE_COUNT=$((DUPLICATE_COUNT + 1))
+fi
+if [ "$AITBC1_P2P" == "$GITEA_P2P" ] && [ -n "$AITBC1_P2P" ] && [ -n "$GITEA_P2P" ]; then
+    echo "❌ Duplicate p2p_node_id between aitbc1 and gitea-runner"
+    DUPLICATE_COUNT=$((DUPLICATE_COUNT + 1))
+fi
+
+if [ $DUPLICATE_COUNT -eq 0 ]; then
+    echo "✅ All node IDs are unique"
+else
+    echo "❌ Found $DUPLICATE_COUNT duplicate node ID(s)"
+    echo "Run remediation: python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py"
+fi
+```
+
+#### 2.4 P2P Network Configuration Audit
+```bash
+# Audit P2P network configuration
+echo "=== 5.6 P2P NETWORK CONFIGURATION AUDIT ==="
+
+# Check P2P service status
+echo "P2P Service Status:"
+systemctl status aitbc-blockchain-p2p.service --no-pager | grep -E "(Active|loaded)" || echo "❌ P2P service not found"
+ssh aitbc1 'systemctl status aitbc-blockchain-p2p.service --no-pager' | grep -E "(Active|loaded)" || echo "❌ aitbc1 P2P service not found"
+
+# Check for P2P handshake errors
+echo "P2P Handshake Errors:"
+journalctl -u aitbc-blockchain-p2p --no-pager | grep -c "invalid or self node_id" || echo "0 errors on aitbc"
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p --no-pager | grep -c "invalid or self node_id"' || echo "0 errors on aitbc1"
+
+# Verify P2P service uses p2p_node_id
+echo "P2P Service Configuration:"
+grep "node-id" /etc/systemd/system/aitbc-blockchain-p2p.service 2>/dev/null || echo "❌ P2P service not configured with node-id"
+```
+
 ### Phase 3: Path Rewire Operations
 **Objective**: Automatically rewire incorrect paths to system locations
 

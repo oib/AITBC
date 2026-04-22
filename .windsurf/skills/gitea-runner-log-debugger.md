@@ -1,7 +1,7 @@
 ---
 description: Autonomous skill for SSH-based investigation of gitea-runner CI logs, runner health, and root-cause-oriented debug guidance
 title: Gitea Runner Log Debugger
-version: 1.0
+version: 1.1
 ---
 
 # Gitea Runner Log Debugger Skill

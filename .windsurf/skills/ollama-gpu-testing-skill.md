@@ -1,7 +1,7 @@
 ---
 description: Atomic Ollama GPU inference testing with deterministic performance validation and benchmarking
 title: ollama-gpu-testing-skill
-version: 1.0
+version: 1.1
 ---
 
 # Ollama GPU Testing Skill

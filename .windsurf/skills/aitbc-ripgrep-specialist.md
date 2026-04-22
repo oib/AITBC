@@ -2,7 +2,7 @@
 name: aitbc-ripgrep-specialist
 description: Expert ripgrep (rg) specialist for AITBC system with advanced search patterns, performance optimization, and codebase analysis techniques
 author: AITBC System Architect
-version: 1.0.0
+version: 1.1
 usage: Use this skill for advanced ripgrep operations, codebase analysis, pattern matching, and performance optimization in AITBC system
 ---
 

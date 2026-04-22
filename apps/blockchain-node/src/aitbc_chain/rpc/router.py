@@ -87,12 +87,28 @@ def _normalize_transaction_data(tx_data: Dict[str, Any], chain_id: str) -> Dict[
     if nonce < 0:
         raise ValueError("transaction.nonce must be non-negative")
 
-    payload = tx_data.get("payload", "0x")
+    payload = tx_data.get("payload", {})
     if payload is None:
-        payload = "0x"
+        payload = {}
+
+    tx_type = tx_data.get("type", "TRANSFER")
+    if tx_type:
+        tx_type = tx_type.upper()
+
+    # Ensure payload is a dict
+    if isinstance(payload, str):
+        try:
+            import json
+            payload = json.loads(payload)
+        except:
+            payload = {}
+    
+    if not isinstance(payload, dict):
+        payload = {}
 
     return {
         "chain_id": chain_id,
+        "type": tx_type,
         "from": sender.strip(),
         "to": recipient.strip(),
         "amount": amount,
@@ -174,7 +190,7 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 
 class TransactionRequest(BaseModel):
     type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
-    sender: str
+    sender: str = Field(alias="from")  # Accept both "sender" and "from"
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
@@ -271,15 +287,33 @@ async def get_block(height: int, chain_id: str = None) -> Dict[str, Any]:
 
 
 @router.post("/transaction", summary="Submit transaction")
-async def submit_transaction(tx_data: dict) -> Dict[str, Any]:
+async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
      
     try:
         mempool = get_mempool()
-        chain_id = tx_data.get("chain_id") or get_chain_id(None)
+        chain_id = get_chain_id(None)
 
-        tx_data_dict = _normalize_transaction_data(tx_data, chain_id)
+        # Convert TransactionRequest to dict for normalization
+        # _normalize_transaction_data expects "from", not "sender"
+        tx_data_dict = {
+            "from": tx_data.sender,
+            "to": tx_data.payload.get("to", tx_data.sender),  # Get to from payload or default to sender
+            "amount": tx_data.payload.get("amount", 0),  # Get amount from payload
+            "fee": tx_data.fee,
+            "nonce": tx_data.nonce,
+            "payload": tx_data.payload,
+            "type": tx_data.type,
+            "signature": tx_data.sig
+        }
+        
+        _logger.info(f"[ROUTER] Before normalization: type={tx_data.type}, full dict keys={list(tx_data_dict.keys())}")
+        
+        tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
+        
+        _logger.info(f"[ROUTER] After normalization: type={tx_data_dict.get('type')}, full dict keys={list(tx_data_dict.keys())}")
+        
         _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)

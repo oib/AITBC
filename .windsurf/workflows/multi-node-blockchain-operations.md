@@ -101,6 +101,65 @@ ping -c 5 aitbc1
 ssh aitbc1 'ping -c 5 localhost'
 ```
 
+### Node Identity Verification
+
+```bash
+# Verify unique node IDs across all nodes
+echo "=== aitbc node IDs ==="
+grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env
+
+echo "=== aitbc1 node IDs ==="
+ssh aitbc1 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+echo "=== gitea-runner node IDs ==="
+ssh gitea-runner 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+# Check for duplicate IDs
+AITBC_P2P=$(grep "^p2p_node_id=" /etc/aitbc/node.env | cut -d= -f2)
+AITBC1_P2P=$(ssh aitbc1 'grep "^p2p_node_id=" /etc/aitbc/node.env | cut -d= -f2')
+
+if [ "$AITBC_P2P" == "$AITBC1_P2P" ]; then
+    echo "WARNING: Duplicate p2p_node_id detected!"
+    echo "Run: python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py"
+fi
+```
+
+### P2P Health Check
+
+```bash
+# Check P2P service status on all nodes
+systemctl status aitbc-blockchain-p2p.service --no-pager
+ssh aitbc1 'systemctl status aitbc-blockchain-p2p.service --no-pager'
+ssh gitea-runner 'systemctl status aitbc-blockchain-p2p.service --no-pager'
+
+# Verify P2P connectivity and peer connections
+journalctl -u aitbc-blockchain-p2p -n 30 --no-pager | grep -E "(peer|handshake|connected)"
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager | grep -E "(peer|handshake|connected)'
+
+# Check for P2P handshake rejections (duplicate IDs)
+journalctl -u aitbc-blockchain-p2p --no-pager | grep "invalid or self node_id"
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p --no-pager | grep "invalid or self node_id"
+```
+
+### Node Identity Remediation
+
+```bash
+# If duplicate IDs detected, run remediation
+python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
+ssh aitbc1 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+ssh gitea-runner 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+
+# Restart P2P services on all nodes
+systemctl restart aitbc-blockchain-p2p
+ssh aitbc1 'systemctl restart aitbc-blockchain-p2p'
+ssh gitea-runner 'systemctl restart aitbc-blockchain-p2p'
+
+# Verify P2P connectivity after remediation
+sleep 5
+journalctl -u aitbc-blockchain-p2p -n 20 --no-pager
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p -n 20 --no-pager'
+```
+
 ## Troubleshooting Common Issues
 
 ### Service Issues
