@@ -531,6 +531,7 @@ This marketplace module depends on:
 - **[Operations Module](multi-node-blockchain-operations.md)** - Daily operations
 - **[Advanced Features Module](multi-node-blockchain-advanced.md)** - Advanced features
 - **[Production Module](multi-node-blockchain-production.md)** - Production deployment
+- **[AI Operations Reference](../references/ai-operations-reference.md)** - GPU marketplace and AI operations reference
 
 ## Next Steps
 
