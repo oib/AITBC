@@ -8,7 +8,7 @@ import hashlib
 import requests
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
-CHAIN_ID = "ait-devnet"
+CHAIN_ID = "ait-mainnet"
 
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
@@ -39,7 +39,7 @@ def test_simple_block_import():
     
     # Import the block
     response = requests.post(
-        f"{BASE_URL}/blocks/import",
+        f"{BASE_URL}/importBlock",
         json={
             "height": height,
             "hash": block_hash,
