@@ -36,7 +36,8 @@ def test_minimal():
         "proposer": "test-proposer",
         "timestamp": timestamp,
         "tx_count": 0,
-        "transactions": []
+        "transactions": [],
+        "chain_id": CHAIN_ID
     }
     
     print("Testing with empty transactions list...")
