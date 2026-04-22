@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw multi-agent workflow coordination with deterministic outputs
 title: openclaw-coordination-orchestrator
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Coordination Orchestrator

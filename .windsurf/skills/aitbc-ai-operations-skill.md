@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC AI operations testing with deterministic job submission and validation
 title: aitbc-ai-operations-skill
-version: 1.0
+version: 1.1
 ---
 
 # AITBC AI Operations Skill

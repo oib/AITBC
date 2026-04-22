@@ -215,6 +215,34 @@ ssh aitbc1 'systemctl restart aitbc-blockchain-p2p'
 ./aitbc-cli network status --verbose
 ```
 
+#### P2P Identity Conflict (Duplicate Node IDs)
+```bash
+# Check current node IDs on all nodes
+echo "=== aitbc node IDs ==="
+grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env
+
+echo "=== aitbc1 node IDs ==="
+ssh aitbc1 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+echo "=== gitea-runner node IDs ==="
+ssh gitea-runner 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+# Run unique ID generation on affected nodes
+python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
+ssh aitbc1 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+ssh gitea-runner 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+
+# Restart P2P services on all nodes
+systemctl restart aitbc-blockchain-p2p
+ssh aitbc1 'systemctl restart aitbc-blockchain-p2p'
+ssh gitea-runner 'systemctl restart aitbc-blockchain-p2p'
+
+# Verify P2P connectivity
+journalctl -u aitbc-blockchain-p2p -n 30 --no-pager
+ssh aitbc1 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager'
+ssh gitea-runner 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager'
+```
+
 ## Success Criteria
 - Both nodes respond to health checks
 - Block heights match within 2 blocks

@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC wallet management operations with deterministic outputs
 title: aitbc-wallet-manager
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Wallet Manager

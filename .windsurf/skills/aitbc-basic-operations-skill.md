@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC basic operations testing with deterministic validation and health checks
 title: aitbc-basic-operations-skill
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Basic Operations Skill

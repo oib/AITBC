@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw agent performance tuning and optimization with deterministic outputs
 title: openclaw-performance-optimizer
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Performance Optimizer

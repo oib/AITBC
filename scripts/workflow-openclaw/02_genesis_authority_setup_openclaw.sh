@@ -42,16 +42,19 @@ openclaw execute --agent GenesisAgent --task update_genesis_config || {
     cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc.backup 2>/dev/null || true
     
     # Update .env for aitbc genesis authority configuration
-    sed -i 's|proposer_id=.*|proposer_id=aitbcgenesis|g' /etc/aitbc/.env
+    # Note: Don't overwrite auto-generated proposer_id - it will be updated with actual genesis address after wallet generation
+    # Note: Don't overwrite auto-generated p2p_node_id - it must remain unique for P2P networking
     sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
     sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
     sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
     sed -i 's|enable_block_production=true|enable_block_production=true|g' /etc/aitbc/.env
     sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g' /etc/aitbc/.env
     sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
-    
-    # Add trusted proposers for follower nodes
-    echo "trusted_proposers=aitbcgenesis" >> /etc/aitbc/.env
+
+    # Ensure p2p_node_id exists in node.env (preserve if already set)
+    if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
+        echo "p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')" >> /etc/aitbc/node.env
+    fi
 }
 
 # 6. Create genesis block with wallets (via OpenClaw)

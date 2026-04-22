@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw error detection and recovery procedures with deterministic outputs
 title: openclaw-error-handler
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Error Handler

@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw agent communication with deterministic message handling and response validation
 title: openclaw-agent-communicator
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Agent Communicator
