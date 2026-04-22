@@ -434,9 +434,8 @@ Two-Node AITBC Blockchain:
 - Created learning paths for different user types
 - Added quick reference commands and troubleshooting
 
-### Previous Versions
+### Archived Workflows
 - **Archived Monolithic Workflow**: `archive/multi-node-blockchain-setup.md` (64KB, 2,098 lines)
-- **OpenClaw Integration**: `multi-node-blockchain-setup-openclaw.md`
 
 ## 🤝 Contributing
 
