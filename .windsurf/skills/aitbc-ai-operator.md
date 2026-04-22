@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC AI job operations with deterministic monitoring and optimization
 title: aitbc-ai-operator
-version: 1.0
+version: 1.1
 ---
 
 # AITBC AI Operator
@@ -17,15 +17,21 @@ Trigger when user requests AI operations: job submission, status monitoring, res
 {
   "operation": "submit|status|results|list|optimize|cancel",
   "wallet": "string (for submit/optimize)",
-  "job_type": "inference|parallel|ensemble|multimodal|resource-allocation|performance-tuning|economic-modeling|marketplace-strategy|investment-strategy",
+  "job_type": "inference|training|multimodal|ollama|streaming|monitoring",
   "prompt": "string (for submit)",
   "payment": "number (for submit)",
   "job_id": "string (for status/results/cancel)",
   "agent_id": "string (for optimize)",
   "cpu": "number (for optimize)",
   "memory": "number (for optimize)",
+  "gpu": "number (for optimize)",
   "duration": "number (for optimize)",
-  "limit": "number (optional for list)"
+  "limit": "number (optional for list)",
+  "model": "string (optional for ollama jobs, e.g., llama2, mistral)",
+  "provider_id": "string (optional for GPU provider selection)",
+  "endpoint": "string (optional for custom Ollama endpoint)",
+  "batch_file": "string (optional for batch operations)",
+  "parallel": "number (optional for parallel job count)"
 }
 ```
 
@@ -91,9 +97,13 @@ Trigger when user requests AI operations: job submission, status monitoring, res
 ## Environment Assumptions
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - AI services operational (Ollama, exchange, coordinator)
+- Ollama endpoint accessible at `http://localhost:11434` or custom endpoint
+- GPU provider marketplace operational for resource allocation
 - Sufficient wallet balance for job payments
 - Resource allocation system operational
 - Job queue processing functional
+- Ollama models available: llama2, mistral, codellama, etc.
+- GPU providers registered with unique p2p_node_id for P2P connectivity
 
 ## Error Handling
 - Insufficient balance → Return error with required amount

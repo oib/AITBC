@@ -46,6 +46,44 @@ The workflow uses the single central `/etc/aitbc/.env` file as the configuration
 - **Standard Location**: Config moved to `/etc/aitbc/` following system standards
 - **CLI Integration**: AITBC CLI tool uses this config file by default
 
+## Unique Node Identity Configuration
+
+Each node must have unique `proposer_id` and `p2p_node_id` for proper P2P network operation. The setup scripts automatically generate UUID-based IDs during initial setup.
+
+### Node Identity Files
+- `/etc/aitbc/.env` - Contains `proposer_id` for block signing and consensus
+- `/etc/aitbc/node.env` - Contains `p2p_node_id` for P2P network identity
+
+### Identity Generation Utility
+```bash
+# Generate or update unique node IDs (if missing or duplicate)
+python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
+
+# Run on all nodes for remediation
+python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
+ssh aitbc1 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+ssh gitea-runner 'python3 /opt/aitbc/scripts/utils/generate_unique_node_ids.py'
+```
+
+### Verification
+```bash
+# Check node IDs are unique across all nodes
+echo "=== aitbc ==="
+grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env
+
+echo "=== aitbc1 ==="
+ssh aitbc1 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+
+echo "=== gitea-runner ==="
+ssh gitea-runner 'grep -E "^(proposer_id|p2p_node_id)=" /etc/aitbc/.env /etc/aitbc/node.env'
+```
+
+### P2P Identity Issues
+If nodes fail to connect due to duplicate IDs:
+1. Run the ID generation utility on affected nodes
+2. Restart P2P services: `systemctl restart aitbc-blockchain-p2p`
+3. Verify connectivity: `journalctl -u aitbc-blockchain-p2p -n 30`
+
 ## 🚨 Important: Genesis Block Architecture
 
 **CRITICAL**: Only the genesis authority node (aitbc) should have the genesis block!

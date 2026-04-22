@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC cross-node coordination and messaging operations with deterministic outputs
 title: aitbc-node-coordinator
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Node Coordinator
@@ -134,14 +134,16 @@ Trigger when user requests cross-node operations: synchronization, coordination,
 - SSH keys located at `/root/.ssh/` for passwordless access
 - Blockchain nodes operational on both nodes via systemd services
 - P2P mesh network active on port 7070 with peer configuration
+- Unique node IDs configured: each node has unique `proposer_id` and `p2p_node_id` in `/etc/aitbc/.env` and `/etc/aitbc/node.env`
 - Git synchronization configured between nodes at `/opt/aitbc/.git`
 - CLI accessible on both nodes at `/opt/aitbc/aitbc-cli`
 - Python venv activated at `/opt/aitbc/venv/bin/python` for CLI operations
-- Systemd services: `aitbc-blockchain-node.service` on both nodes
-- Node addresses: genesis (localhost/aitbc), follower (aitbc1)
+- Systemd services: `aitbc-blockchain-node.service` and `aitbc-blockchain-p2p.service` on both nodes
+- Node addresses: genesis (localhost/aitbc), follower (aitbc1), gitea-runner
 - Git remote: `origin` at `http://gitea.bubuit.net:3000/oib/aitbc.git`
 - Log directory: `/var/log/aitbc/` for service logs
 - Data directory: `/var/lib/aitbc/` for blockchain data
+- Node identity utility: `/opt/aitbc/scripts/utils/generate_unique_node_ids.py` for ID generation
 
 ## Error Handling
 - SSH connectivity failures → Return connection error with affected node, attempt fallback node
@@ -150,7 +152,8 @@ Trigger when user requests cross-node operations: synchronization, coordination,
 - Sync failures → Return partial sync with details, identify which sync type failed
 - Timeout during operations → Return timeout error with operation details, suggest increasing timeout
 - Git synchronization conflicts → Return conflict error, suggest manual resolution
-- P2P network disconnection → Return network error, check mesh network status
+- P2P network disconnection → Return network error, check mesh network status and node IDs
+- P2P handshake rejection → Check for duplicate p2p_node_id, run `/opt/aitbc/scripts/utils/generate_unique_node_ids.py`
 - Service restart failures → Return service error, check systemd logs
 - Node unreachable → Return unreachable error, verify network connectivity
 - Invalid target node → Return validation error, suggest valid node names

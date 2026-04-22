@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC marketplace operations with deterministic pricing and listing management
 title: aitbc-marketplace-participant
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Marketplace Participant
@@ -15,15 +15,19 @@ Trigger when user requests marketplace operations: listing creation, price optim
 ## Input
 ```json
 {
-  "operation": "create|list|analyze|optimize|trade|status",
-  "service_type": "ai-inference|ai-training|resource-compute|resource-storage|data-processing",
-  "name": "string (for create)",
+  "operation": "create|list|analyze|optimize|trade|status|gpu-provider-register|gpu-provider-status",
+  "service_type": "ai-inference|ai-training|resource-compute|resource-storage|data-processing|gpu-provider",
+  "name": "string (for create/gpu-provider-register)",
   "description": "string (for create)",
   "price": "number (for create/optimize)",
-  "wallet": "string (for create/trade)",
+  "wallet": "string (for create/trade/gpu-provider-register)",
   "listing_id": "string (for status/trade)",
+  "provider_id": "string (for gpu-provider-status)",
   "quantity": "number (for create/trade)",
   "duration": "number (for create, hours)",
+  "gpu_model": "string (for gpu-provider-register)",
+  "gpu_count": "number (for gpu-provider-register)",
+  "models": "array (optional for gpu-provider-register, e.g., [\"llama2\", \"mistral\"])",
   "competitor_analysis": "boolean (optional for analyze)",
   "market_trends": "boolean (optional for analyze)"
 }
@@ -33,17 +37,22 @@ Trigger when user requests marketplace operations: listing creation, price optim
 ```json
 {
   "summary": "Marketplace operation completed successfully",
-  "operation": "create|list|analyze|optimize|trade|status",
+  "operation": "create|list|analyze|optimize|trade|status|gpu-provider-register|gpu-provider-status",
   "listing_id": "string (for create/status/trade)",
+  "provider_id": "string (for gpu-provider-register/gpu-provider-status)",
   "service_type": "string",
-  "name": "string (for create)",
+  "name": "string (for create/gpu-provider-register)",
   "price": "number",
-  "wallet": "string (for create/trade)",
+  "wallet": "string (for create/trade/gpu-provider-register)",
   "quantity": "number",
+  "gpu_model": "string (for gpu-provider-register/gpu-provider-status)",
+  "gpu_count": "number (for gpu-provider-register/gpu-provider-status)",
+  "models": "array (for gpu-provider-register/gpu-provider-status)",
   "market_data": "object (for analyze)",
   "competitor_analysis": "array (for analyze)",
   "pricing_recommendations": "array (for optimize)",
   "trade_details": "object (for trade)",
+  "provider_status": "object (for gpu-provider-status)",
   "issues": [],
   "recommendations": [],
   "confidence": 1.0,
@@ -90,8 +99,11 @@ Trigger when user requests marketplace operations: listing creation, price optim
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Marketplace service operational
 - Exchange API accessible for pricing data
+- GPU provider marketplace operational for resource allocation
+- Ollama GPU providers can register with model specifications
 - Sufficient wallet balance for listing fees
 - Market data available for analysis
+- GPU providers have unique p2p_node_id for P2P connectivity
 
 ## Error Handling
 - Invalid service type → Return service type validation error

@@ -1,7 +1,7 @@
 ---
 description: Atomic OpenClaw agent testing with deterministic communication validation and performance metrics
 title: openclaw-agent-testing-skill
-version: 1.0
+version: 1.1
 ---
 
 # OpenClaw Agent Testing Skill

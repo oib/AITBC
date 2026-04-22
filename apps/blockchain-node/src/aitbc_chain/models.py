@@ -95,6 +95,7 @@ class Transaction(SQLModel, table=True):
     nonce: int = Field(default=0)
     value: int = Field(default=0)
     fee: int = Field(default=0)
+    type: str = Field(default="TRANSFER", index=True)
     status: str = Field(default="pending")
     timestamp: Optional[str] = Field(default=None)
     tx_metadata: Optional[str] = Field(default=None)
@@ -140,6 +141,9 @@ class Receipt(SQLModel, table=True):
     )
     minted_amount: Optional[int] = None
     recorded_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    status: str = Field(default="pending", index=True)  # pending, claimed, invalid
+    claimed_at: Optional[datetime] = None
+    claimed_by: Optional[str] = None
     
     # Relationship
     block: Optional["Block"] = Relationship(

@@ -1,7 +1,7 @@
 ---
 description: Atomic AITBC transaction processing with deterministic validation and tracking
 title: aitbc-transaction-processor
-version: 1.0
+version: 1.1
 ---
 
 # AITBC Transaction Processor

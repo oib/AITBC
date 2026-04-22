@@ -52,14 +52,17 @@ openclaw execute --agent FollowerAgent --task update_follower_config --node aitb
     ssh aitbc1 'cp /etc/aitbc/blockchain.env /etc/aitbc/blockchain.env.aitbc1.backup 2>/dev/null || true'
     
     # Update .env for aitbc1 follower configuration
-    ssh aitbc1 'sed -i "s|proposer_id=.*|proposer_id=aitbc1follower|g" /etc/aitbc/.env'
+    # Note: Don't overwrite auto-generated proposer_id or p2p_node_id - they must remain unique for P2P networking
     ssh aitbc1 'sed -i "s|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g" /etc/aitbc/.env'
     ssh aitbc1 'sed -i "s|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g" /etc/aitbc/.env'
     ssh aitbc1 'sed -i "s|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g" /etc/aitbc/.env'
     ssh aitbc1 'sed -i "s|enable_block_production=true|enable_block_production=false|g" /etc/aitbc/.env'
     ssh aitbc1 'sed -i "s|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://localhost:6379|g" /etc/aitbc/.env'
     ssh aitbc1 'sed -i "s|p2p_bind_port=8005|p2p_bind_port=7071|g" /etc/aitbc/.env'
-    
+
+    # Ensure p2p_node_id exists in node.env (preserve if already set)
+    ssh aitbc1 'if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then echo "p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')" >> /etc/aitbc/node.env; fi'
+
     # Add genesis node connection
     ssh aitbc1 'echo "genesis_node=aitbc:8006" >> /etc/aitbc/.env'
     ssh aitbc1 'echo "trusted_proposers=aitbcgenesis" >> /etc/aitbc/.env'

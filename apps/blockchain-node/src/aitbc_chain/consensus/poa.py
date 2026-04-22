@@ -229,15 +229,11 @@ class PoAProposer:
 
                     # Apply state transition through validated transaction
                     state_transition = get_state_transition()
-                    tx_data = {
-                        "from": sender,
-                        "to": recipient,
-                        "value": value,
-                        "fee": fee,
-                        "nonce": sender_account.nonce
-                    }
+                    # Use original tx_data from mempool to preserve type and payload
+                    tx_data_for_transition = tx.content.copy()
+                    tx_data_for_transition["nonce"] = sender_account.nonce
                     success, error_msg = state_transition.apply_transaction(
-                        session, self._config.chain_id, tx_data, tx.tx_hash
+                        session, self._config.chain_id, tx_data_for_transition, tx.tx_hash
                     )
                     
                     if not success:
@@ -257,18 +253,30 @@ class PoAProposer:
                         continue
 
                     # Create transaction record
+                    # Extract type from normalized tx_data (which should have the type field)
+                    tx_type = tx.content.get("type", "TRANSFER")
+                    self._logger.info(f"[PROPOSE] Transaction {tx.tx_hash} content type: {tx_type}, full content: {tx.content}")
+                    if tx_type:
+                        tx_type = tx_type.upper()
+                    else:
+                        tx_type = "TRANSFER"
+                    
+                    # Store only the original payload, not the full normalized data
+                    original_payload = tx.content.get("payload", {})
+                    
                     transaction = Transaction(
                         chain_id=self._config.chain_id,
                         tx_hash=tx.tx_hash,
                         sender=sender,
                         recipient=recipient,
-                        payload=tx_data,
+                        payload=original_payload,
                         value=value,
                         fee=fee,
                         nonce=sender_account.nonce - 1,
                         timestamp=timestamp,
                         block_height=next_height,
-                        status="confirmed"
+                        status="confirmed",
+                        type=tx_type
                     )
                     session.add(transaction)
                     processed_txs.append(tx)
