@@ -11,6 +11,8 @@ from sqlmodel import Session, select
 from ..gossip import gossip_broker
 from ..logger import get_logger
 from ..state.merkle_patricia_trie import StateManager
+
+logger = get_logger(__name__)
 from ..state.state_transition import get_state_transition
 from ..config import ProposerConfig
 from ..metrics import metrics_registry

@@ -23,7 +23,7 @@ class ChainSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file="/etc/aitbc/.env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 
     chain_id: str = ""
-    supported_chains: str = "ait-devnet" # Comma-separated list of supported chain IDs
+    supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
     db_path: Path = Path("/var/lib/aitbc/data/chain.db")
 
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain

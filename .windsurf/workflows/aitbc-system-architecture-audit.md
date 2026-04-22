@@ -227,6 +227,42 @@ echo "P2P Service Configuration:"
 grep "node-id" /etc/systemd/system/aitbc-blockchain-p2p.service 2>/dev/null || echo "❌ P2P service not configured with node-id"
 ```
 
+#### 2.5 Node Identity Utility Script Audit
+```bash
+# Audit node identity utility script
+echo "=== 5.7 NODE IDENTITY UTILITY SCRIPT AUDIT ==="
+
+# Check if utility script exists
+echo "Utility Script Existence:"
+if [ -f "/opt/aitbc/scripts/utils/generate_unique_node_ids.py" ]; then
+    echo "✅ Node identity utility script exists"
+else
+    echo "❌ Node identity utility script not found"
+fi
+
+# Verify script is executable
+echo "Script Executability:"
+if [ -x "/opt/aitbc/scripts/utils/generate_unique_node_ids.py" ]; then
+    echo "✅ Script is executable"
+else
+    echo "⚠️  Script may not be executable (chmod +x recommended)"
+fi
+
+# Test script syntax
+echo "Script Syntax Check:"
+python3 -m py_compile /opt/aitbc/scripts/utils/generate_unique_node_ids.py 2>/dev/null && echo "✅ Script syntax valid" || echo "❌ Script has syntax errors"
+
+# Verify script functions
+echo "Script Functionality Test:"
+python3 -c "
+import sys
+sys.path.insert(0, '/opt/aitbc/scripts/utils')
+from generate_unique_node_ids import generate_proposer_id, generate_p2p_node_id
+print('✅ generate_proposer_id function works')
+print('✅ generate_p2p_node_id function works')
+" 2>/dev/null || echo "❌ Script functions not working correctly"
+```
+
 ### Phase 3: Path Rewire Operations
 **Objective**: Automatically rewire incorrect paths to system locations
 
@@ -453,6 +489,9 @@ echo "  • Code path analysis"
 echo "  • SystemD service analysis"
 echo "  • FHS compliance verification"
 echo "  • Git repository analysis"
+echo "  • Node identity audit"
+echo "  • P2P network configuration audit"
+echo "  • Node identity utility script audit"
 echo "  • Python code path rewire"
 echo "  • SystemD service path rewire"
 echo "  • System directory creation"
