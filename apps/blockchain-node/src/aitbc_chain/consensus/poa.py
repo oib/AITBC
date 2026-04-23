@@ -107,6 +107,7 @@ class PoAProposer:
         self._stop_event = asyncio.Event()
         self._task: Optional[asyncio.Task[None]] = None
         self._last_proposer_id: Optional[str] = None
+        self._last_block_timestamp: Optional[datetime] = None
 
     async def start(self) -> None:
         if self._task is not None:
@@ -127,6 +128,8 @@ class PoAProposer:
     async def _run_loop(self) -> None:
         # Initial sleep so we don't start proposing immediately
         await asyncio.sleep(self._config.interval_seconds)
+        from ..config import settings
+        block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
         while not self._stop_event.is_set():
             if self._stop_event.is_set():
                 break
@@ -135,11 +138,21 @@ class PoAProposer:
                 if proposed:
                     await self._wait_until_next_slot()
                 else:
-                    # If we skipped proposing, wait a regular interval
-                    try:
-                        await asyncio.wait_for(self._stop_event.wait(), timeout=self._config.interval_seconds)
-                    except asyncio.TimeoutError:
-                        pass
+                    # If we skipped proposing, wait based on mode
+                    if block_generation_mode == "hybrid":
+                        # Check more frequently in hybrid mode to catch heartbeat timing
+                        # Use 1/4 of normal interval for responsive heartbeat checks
+                        check_interval = self._config.interval_seconds / 4
+                        try:
+                            await asyncio.wait_for(self._stop_event.wait(), timeout=check_interval)
+                        except asyncio.TimeoutError:
+                            pass
+                    else:
+                        # Regular interval for other modes
+                        try:
+                            await asyncio.wait_for(self._stop_event.wait(), timeout=self._config.interval_seconds)
+                        except asyncio.TimeoutError:
+                            pass
             except Exception as exc:  # pragma: no cover - defensive logging
                 self._logger.exception("Failed to propose block", extra={"error": str(exc)})
                 await asyncio.sleep(1.0)
@@ -165,12 +178,36 @@ class PoAProposer:
         from ..config import settings
         mempool = get_mempool()
 
-        # Check if we should only propose when mempool is not empty (disabled for testing)
-        # if getattr(settings, "propose_only_if_mempool_not_empty", True):
-        #     mempool_size = mempool.size(self._config.chain_id)
-        #     if mempool_size == 0:
-        #         self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id})")
-        #         return False
+        # Hybrid block generation logic
+        block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
+        max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
+
+        if block_generation_mode in ["mempool-only", "hybrid"]:
+            mempool_size = mempool.size(self._config.chain_id)
+
+            if block_generation_mode == "mempool-only":
+                # Strict mempool-only mode: skip if empty
+                if mempool_size == 0:
+                    self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id}, mode=mempool-only)")
+                    metrics_registry.increment("sync_empty_blocks_skipped_total")
+                    return False
+            elif block_generation_mode == "hybrid":
+                # Hybrid mode: check heartbeat interval
+                if self._last_block_timestamp:
+                    time_since_last_block = (datetime.utcnow() - self._last_block_timestamp).total_seconds()
+                    if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
+                        self._logger.info(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
+                        metrics_registry.increment("sync_empty_blocks_skipped_total")
+                        return False
+                    elif mempool_size == 0 and time_since_last_block >= max_empty_block_interval:
+                        self._logger.info(f"[PROPOSE] Forcing heartbeat block: idle for {time_since_last_block:.1f}s (chain={self._config.chain_id}, mode=hybrid)")
+                        metrics_registry.increment("sync_heartbeat_blocks_forced_total")
+                        metrics_registry.observe("sync_time_since_last_block_seconds", time_since_last_block)
+                elif mempool_size == 0:
+                    # No previous block timestamp, skip (will be set after genesis)
+                    self._logger.info(f"[PROPOSE] Skipping block proposal: no previous block timestamp (chain={self._config.chain_id}, mode=hybrid)")
+                    metrics_registry.increment("sync_empty_blocks_skipped_total")
+                    return False
 
         with self._session_factory() as session:
             head = session.exec(select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)).first()
@@ -323,6 +360,9 @@ class PoAProposer:
             if self._last_proposer_id is not None and self._last_proposer_id != self._config.proposer_id:
                 metrics_registry.increment("poa_proposer_switches_total")
             self._last_proposer_id = self._config.proposer_id
+
+            # Update last block timestamp for heartbeat logic
+            self._last_block_timestamp = timestamp
 
             self._logger.info(
                 "Proposed block",

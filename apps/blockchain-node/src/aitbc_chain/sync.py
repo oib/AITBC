@@ -101,7 +101,7 @@ class ChainSync:
         validator: Optional[ProposerSignatureValidator] = None,
         validate_signatures: bool = True,
         batch_size: int = 50,
-        poll_interval: float = 0.5,
+        poll_interval: float = 5.0,
     ) -> None:
         self._session_factory = session_factory
         self._chain_id = chain_id or settings.chain_id
@@ -120,24 +120,91 @@ class ChainSync:
 
     def _calculate_dynamic_batch_size(self, gap_size: int) -> int:
         """Calculate dynamic batch size based on gap size.
-        
+
         Strategy:
-        - Small gaps (< 100): Use smaller batches (20-50) for precision
-        - Medium gaps (100-500): Use medium batches (50-100)
-        - Large gaps (> 500): Use larger batches (100-200) for speed
+        - Initial sync gaps (>10,000): Very large batches (500-1000) for maximum throughput
+        - Large gaps (1,000-10,000): Accelerated batches (200-500)
+        - Medium gaps (500-1,000): Standard batches (100-200)
+        - Small gaps (<500): Precision batches (20-100)
         """
         min_batch = getattr(settings, 'min_bulk_sync_batch_size', 20)
         max_batch = getattr(settings, 'max_bulk_sync_batch_size', 200)
-        
-        if gap_size < 100:
-            # Small gaps: scale from min to 50
-            return min(min_batch + gap_size // 2, 50)
-        elif gap_size < 500:
-            # Medium gaps: scale from 50 to 100
+        initial_sync_threshold = getattr(settings, 'initial_sync_threshold', 10000)
+        initial_sync_max_batch = getattr(settings, 'initial_sync_max_batch_size', 1000)
+        large_gap_threshold = getattr(settings, 'large_gap_threshold', 1000)
+        large_gap_max_batch = getattr(settings, 'large_gap_max_batch_size', 500)
+
+        if gap_size > initial_sync_threshold:
+            # Initial sync: very large batches for maximum throughput
+            return min(500 + (gap_size - initial_sync_threshold) // 20, initial_sync_max_batch)
+        elif gap_size > large_gap_threshold:
+            # Large gap: accelerated sync
+            return min(200 + (gap_size - large_gap_threshold) // 10, large_gap_max_batch)
+        elif gap_size > 500:
+            # Medium gap: standard sync
+            return min(100 + (gap_size - 500) // 5, max_batch)
+        elif gap_size > 100:
+            # Medium-small gaps: scale from 50 to 100
             return min(50 + (gap_size - 100) // 4, 100)
         else:
-            # Large gaps: scale from 100 to max
-            return min(100 + (gap_size - 500) // 5, max_batch)
+            # Small gaps: scale from min to 50
+            return min(min_batch + gap_size // 2, 50)
+
+    def _get_adaptive_poll_interval(self, gap_size: int) -> float:
+        """Get adaptive polling interval based on sync mode.
+
+        Strategy:
+        - Initial sync gaps (>10,000): Fast polling (2s) for maximum throughput
+        - Large gaps (1,000-10,000): Moderate polling (3s)
+        - Medium gaps (500-1,000): Standard polling (5s)
+        - Small gaps (<500): Steady-state polling (5s)
+        """
+        initial_sync_threshold = getattr(settings, 'initial_sync_threshold', 10000)
+        initial_sync_poll_interval = getattr(settings, 'initial_sync_poll_interval', 2.0)
+        large_gap_threshold = getattr(settings, 'large_gap_threshold', 1000)
+        large_gap_poll_interval = getattr(settings, 'large_gap_poll_interval', 3.0)
+
+        if gap_size > initial_sync_threshold:
+            return initial_sync_poll_interval
+        elif gap_size > large_gap_threshold:
+            return large_gap_poll_interval
+        else:
+            return self._poll_interval  # Use configured steady-state poll interval
+
+    def _get_adaptive_bulk_sync_interval(self, gap_size: int) -> int:
+        """Get adaptive bulk sync interval based on sync mode.
+
+        Strategy:
+        - Initial sync gaps (>10,000): Frequent bulk sync (10s) for maximum throughput
+        - Large gaps (1,000-10,000): Moderate bulk sync (30s)
+        - Medium gaps (500-1,000): Standard bulk sync (60s)
+        - Small gaps (<500): Steady-state bulk sync (60s)
+        """
+        initial_sync_threshold = getattr(settings, 'initial_sync_threshold', 10000)
+        initial_sync_bulk_interval = getattr(settings, 'initial_sync_bulk_interval', 10)
+        large_gap_threshold = getattr(settings, 'large_gap_threshold', 1000)
+        large_gap_bulk_interval = getattr(settings, 'large_gap_bulk_interval', 30)
+
+        if gap_size > initial_sync_threshold:
+            return initial_sync_bulk_interval
+        elif gap_size > large_gap_threshold:
+            return large_gap_bulk_interval
+        else:
+            return self._min_bulk_sync_interval  # Use configured steady-state interval
+
+    def _get_sync_mode(self, gap_size: int) -> str:
+        """Determine current sync mode based on gap size."""
+        initial_sync_threshold = getattr(settings, 'initial_sync_threshold', 10000)
+        large_gap_threshold = getattr(settings, 'large_gap_threshold', 1000)
+
+        if gap_size > initial_sync_threshold:
+            return "initial_sync"
+        elif gap_size > large_gap_threshold:
+            return "large_gap"
+        elif gap_size > 500:
+            return "medium_gap"
+        else:
+            return "steady_state"
 
     async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> List[Dict[str, Any]]:
         """Fetch a range of blocks from a source RPC."""
@@ -161,13 +228,6 @@ class ChainSync:
         if import_url is None:
             import_url = "http://127.0.0.1:8006"  # default local RPC
 
-        # Rate limiting check
-        current_time = time.time()
-        time_since_last_sync = current_time - self._last_bulk_sync_time
-        if time_since_last_sync < self._min_bulk_sync_interval:
-            logger.warning("Bulk sync rate limited", extra={"time_since_last_sync": time_since_last_sync, "min_interval": self._min_bulk_sync_interval})
-            return 0
-
         # Get local head
         with self._session_factory() as session:
             local_head = session.exec(
@@ -190,8 +250,36 @@ class ChainSync:
             return 0
 
         gap_size = remote_height - local_height
+        sync_mode = self._get_sync_mode(gap_size)
         dynamic_batch_size = self._calculate_dynamic_batch_size(gap_size)
-        logger.info("Starting bulk import", extra={"local_height": local_height, "remote_height": remote_height, "gap_size": gap_size, "batch_size": dynamic_batch_size})
+        adaptive_bulk_interval = self._get_adaptive_bulk_sync_interval(gap_size)
+        adaptive_poll_interval = self._get_adaptive_poll_interval(gap_size)
+
+        # Rate limiting check with adaptive interval
+        current_time = time.time()
+        time_since_last_sync = current_time - self._last_bulk_sync_time
+        if time_since_last_sync < adaptive_bulk_interval:
+            logger.warning("Bulk sync rate limited", extra={
+                "time_since_last_sync": time_since_last_sync,
+                "min_interval": adaptive_bulk_interval,
+                "sync_mode": sync_mode
+            })
+            return 0
+
+        logger.info("Starting bulk import", extra={
+            "local_height": local_height,
+            "remote_height": remote_height,
+            "gap_size": gap_size,
+            "batch_size": dynamic_batch_size,
+            "sync_mode": sync_mode,
+            "bulk_interval": adaptive_bulk_interval,
+            "poll_interval": adaptive_poll_interval
+        })
+
+        # Record sync mode metrics
+        metrics_registry.set_gauge(f"sync_mode_{sync_mode}", 1.0)
+        metrics_registry.set_gauge("sync_gap_size", float(gap_size))
+        metrics_registry.set_gauge("sync_batch_size", float(dynamic_batch_size))
 
         imported = 0
         start_height = local_height + 1
@@ -213,14 +301,26 @@ class ChainSync:
                     break
 
             start_height = end_height + 1
-            # Brief pause to avoid overwhelming the DB
-            await asyncio.sleep(self._poll_interval)
+            # Brief pause to avoid overwhelming the DB (use adaptive poll interval)
+            await asyncio.sleep(adaptive_poll_interval)
 
-        logger.info("Bulk import completed", extra={"imported": imported, "final_height": remote_height})
-        
+        logger.info("Bulk import completed", extra={
+            "imported": imported,
+            "final_height": remote_height,
+            "sync_mode": sync_mode
+        })
+
+        # Record completion metrics
+        sync_duration = time.time() - current_time
+        metrics_registry.observe("sync_bulk_duration_seconds", sync_duration)
+        if imported > 0:
+            sync_rate = imported / sync_duration
+            metrics_registry.observe("sync_blocks_per_second", sync_rate)
+        metrics_registry.set_gauge("sync_chain_height", float(remote_height))
+
         # Update last bulk sync time
         self._last_bulk_sync_time = current_time
-        
+
         return imported
 
     def import_block(self, block_data: Dict[str, Any], transactions: Optional[List[Dict[str, Any]]] = None) -> ImportResult:
