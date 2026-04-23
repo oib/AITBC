@@ -50,7 +50,7 @@ def audit():
     click.echo("Service Health: ✅")
     
     # Check repository cleanliness
-    repo_dirs = ['/opt/aitbc/data', '/opt/aitbc/config', '/opt/aitbc/logs']
+    repo_dirs = ['/var/lib/aitbc/data', '/etc/aitbc', '/var/log/aitbc']
     clean = True
     for dir_path in repo_dirs:
         if os.path.exists(dir_path):

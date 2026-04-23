@@ -333,3 +333,14 @@ backups/*/logs/
 # ===================
 monitoring/*.pid
 systemd/*.backup
+data/
+config/
+logs/
+production/data/
+production/logs/
+*.log
+*.log.*
+*.db
+*.db-wal
+*.db-shm
+!*.example
