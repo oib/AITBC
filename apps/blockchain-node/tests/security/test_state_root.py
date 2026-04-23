@@ -2,6 +2,7 @@
 Security tests for state root verification.
 
 Tests that state root verification prevents silent tampering.
+import sys
 """
 
 import pytest

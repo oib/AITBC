@@ -2,6 +2,7 @@
 
 Env vars (set any that you want to exercise):
 
+import sys
 For optional endpoints:
   EXPLORER_API_URL   # e.g., http://127.0.0.1:8000/v1/explorer/blocks/head
   MARKET_STATS_URL   # e.g., http://127.0.0.1:8000/v1/marketplace/stats

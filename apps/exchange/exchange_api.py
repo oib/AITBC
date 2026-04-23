@@ -118,16 +118,6 @@ class OrderBookResponse(BaseModel):
     buys: List[OrderResponse]
     sells: List[OrderResponse]
 
-    
-    # Create mock data if database is empty
-    db = get_db_session()
-    try:
-        # Check if we have any trades
-        if db.query(Trade).count() == 0:
-            create_mock_trades(db)
-    finally:
-        db.close()
-
 def create_mock_trades(db: Session):
     """Create some mock trades for demonstration"""
     import random

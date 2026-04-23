@@ -2,6 +2,7 @@
 Tests for SLA Collector Service
 """
 
+import sys
 import pytest
 from datetime import datetime, timedelta
 from decimal import Decimal
