@@ -49,7 +49,11 @@ class ChainSettings(BaseSettings):
     max_txs_per_block: int = 500
 
     # Only propose blocks if mempool is not empty (prevents empty blocks)
-    propose_only_if_mempool_not_empty: bool = False
+    propose_only_if_mempool_not_empty: bool = False  # Deprecated: use block_generation_mode
+
+    # Hybrid block generation settings
+    block_generation_mode: str = "hybrid"  # "always", "mempool-only", "hybrid"
+    max_empty_block_interval: int = 60  # seconds before forcing empty block (heartbeat)
 
     # Monitoring interval (in seconds)
     blockchain_monitoring_interval_seconds: int = 60
@@ -76,6 +80,16 @@ class ChainSettings(BaseSettings):
     min_bulk_sync_interval: int = 60  # minimum seconds between bulk sync attempts
     min_bulk_sync_batch_size: int = 20  # minimum batch size for dynamic bulk sync
     max_bulk_sync_batch_size: int = 200  # maximum batch size for dynamic bulk sync
+
+    # Adaptive sync settings
+    initial_sync_threshold: int = 10000  # blocks gap threshold for initial sync mode
+    initial_sync_max_batch_size: int = 1000  # max batch size during initial sync
+    initial_sync_poll_interval: float = 2.0  # poll interval during initial sync (seconds)
+    initial_sync_bulk_interval: int = 10  # min seconds between bulk sync during initial sync
+    large_gap_threshold: int = 1000  # blocks gap threshold for large gap mode
+    large_gap_max_batch_size: int = 500  # max batch size during large gap sync
+    large_gap_poll_interval: float = 3.0  # poll interval during large gap sync (seconds)
+    large_gap_bulk_interval: int = 30  # min seconds between bulk sync during large gap
 
     gossip_backend: str = "memory"
     gossip_broadcast_url: Optional[str] = None
