@@ -8,7 +8,7 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "cryptography>=47.0.0",
+    "cryptography>=46.0.0",
     "pynacl>=1.5.0"
 ]
 
