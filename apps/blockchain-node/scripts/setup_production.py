@@ -133,6 +133,8 @@ def main():
     os.chmod(password_file, 0o600)
 
     print(f"[setup] Generated keystore password and saved to {password_file}")
+    # Clear password from memory for security
+    password = None
 
     # Generate two wallets
     wallets = []
