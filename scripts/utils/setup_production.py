@@ -52,6 +52,9 @@ def main():
             # Use provided password from environment
             PASSWORD_FILE.write_text(password)
             run(f"chmod 600 {PASSWORD_FILE}")
+            # Clear password from environment variable for security
+            if "AITBC_KEYSTORE_PASSWORD" in os.environ:
+                del os.environ["AITBC_KEYSTORE_PASSWORD"]
     
     os.environ["KEYSTORE_PASSWORD"] = PASSWORD_FILE.read_text().strip()
 
