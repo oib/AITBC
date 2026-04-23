@@ -19,11 +19,11 @@ from cryptography.fernet import Fernet
 
 
 def derive_key(password: str, salt: bytes = b"") -> bytes:
-    """Derive a 32-byte key from the password using SHA-256."""
+    """Derive a 32-byte key from the password using PBKDF2-HMAC-SHA256."""
     if not salt:
         salt = secrets.token_bytes(16)
-    # Simple KDF: hash(password + salt)
-    dk = hashlib.sha256(password.encode() + salt).digest()
+    # Use PBKDF2 for secure key derivation (100,000 iterations for security)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
     return base64.urlsafe_b64encode(dk), salt
 
 
