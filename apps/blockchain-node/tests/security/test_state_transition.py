@@ -2,6 +2,7 @@
 Security tests for state transition validation.
 
 Tests that balance changes only occur through validated transactions.
+import sys
 """
 
 import pytest

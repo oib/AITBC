@@ -6,6 +6,18 @@ from urllib.parse import urlparse
 
 import requests
 
+# Import command handlers
+from handlers import market as market_handlers
+from handlers import wallet as wallet_handlers
+from handlers import blockchain as blockchain_handlers
+from handlers import messaging as messaging_handlers
+from handlers import network as network_handlers
+from handlers import ai as ai_handlers
+from handlers import system as system_handlers
+from handlers import pool_hub as pool_hub_handlers
+from handlers import bridge as bridge_handlers
+from handlers import account as account_handlers
+
 
 def run_cli(argv, core):
     import sys
@@ -14,6 +26,7 @@ def run_cli(argv, core):
     # Extended features interception removed - replaced with actual RPC calls
     
     default_rpc_url = core["DEFAULT_RPC_URL"]
+    default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:8000")
     cli_version = core.get("CLI_VERSION", "0.0.0")
     create_wallet = core["create_wallet"]
     list_wallets = core["list_wallets"]
@@ -256,1567 +269,241 @@ def run_cli(argv, core):
         return normalized
 
     def handle_wallet_create(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        password = read_password(args, "wallet_password")
-        if not wallet_name or not password:
-            print("Error: Wallet name and password are required")
-            sys.exit(1)
-        address = create_wallet(wallet_name, password)
-        print(f"Wallet address: {address}")
+        wallet_handlers.handle_wallet_create(args, create_wallet, read_password, first)
 
     def handle_wallet_list(args):
-        wallets = list_wallets()
-        if output_format(args) == "json":
-            print(json.dumps(wallets, indent=2))
-            return
-        print("Wallets:")
-        for wallet in wallets:
-            print(f"  {wallet['name']}: {wallet['address']}")
+        wallet_handlers.handle_wallet_list(args, list_wallets, output_format)
 
     def handle_wallet_balance(args):
-        rpc_url = getattr(args, "rpc_url", default_rpc_url)
-        if getattr(args, "all", False):
-            print("All wallet balances:")
-            for wallet in list_wallets():
-                balance_info = get_balance(wallet["name"], rpc_url=rpc_url)
-                if balance_info:
-                    print(f"  {wallet['name']}: {balance_info['balance']} AIT")
-                else:
-                    print(f"  {wallet['name']}: unavailable")
-            return
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        if not wallet_name:
-            print("Error: Wallet name is required")
-            sys.exit(1)
-        balance_info = get_balance(wallet_name, rpc_url=rpc_url)
-        if not balance_info:
-            sys.exit(1)
-        print(f"Wallet: {balance_info['wallet_name']}")
-        print(f"Address: {balance_info['address']}")
-        print(f"Balance: {balance_info['balance']} AIT")
-        print(f"Nonce: {balance_info['nonce']}")
+        wallet_handlers.handle_wallet_balance(args, default_rpc_url, list_wallets, get_balance, first)
 
     def handle_wallet_transactions(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        if not wallet_name:
-            print("Error: Wallet name is required")
-            sys.exit(1)
-        transactions = get_transactions(wallet_name, limit=args.limit, rpc_url=args.rpc_url)
-        if output_format(args) == "json":
-            print(json.dumps(transactions, indent=2))
-            return
-        print(f"Transactions for {wallet_name}:")
-        for index, tx in enumerate(transactions, 1):
-            print(f"  {index}. Hash: {tx.get('hash', 'N/A')}")
-            print(f"     Amount: {tx.get('value', 0)} AIT")
-            print(f"     Fee: {tx.get('fee', 0)} AIT")
-            print(f"     Type: {tx.get('type', 'N/A')}")
-            print()
+        wallet_handlers.handle_wallet_transactions(args, get_transactions, output_format, first)
 
     def handle_wallet_send(args):
-        from_wallet = first(getattr(args, "from_wallet_arg", None), getattr(args, "from_wallet", None))
-        to_address = first(getattr(args, "to_address_arg", None), getattr(args, "to_address", None))
-        amount_value = first(getattr(args, "amount_arg", None), getattr(args, "amount", None))
-        password = read_password(args, "wallet_password")
-        if not from_wallet or not to_address or amount_value is None or not password:
-            print("Error: From wallet, destination, amount, and password are required")
-            sys.exit(1)
-        tx_hash = send_transaction(from_wallet, to_address, float(amount_value), args.fee, password, rpc_url=args.rpc_url)
-        if not tx_hash:
-            sys.exit(1)
-        print(f"Transaction hash: {tx_hash}")
+        wallet_handlers.handle_wallet_send(args, send_transaction, read_password, first)
 
     def handle_wallet_import(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        private_key = first(getattr(args, "private_key_arg", None), getattr(args, "private_key_opt", None))
-        password = read_password(args, "wallet_password")
-        if not wallet_name or not private_key or not password:
-            print("Error: Wallet name, private key, and password are required")
-            sys.exit(1)
-        address = import_wallet(wallet_name, private_key, password)
-        if not address:
-            sys.exit(1)
-        print(f"Wallet address: {address}")
+        wallet_handlers.handle_wallet_import(args, import_wallet, read_password, first)
 
     def handle_wallet_export(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        password = read_password(args, "wallet_password")
-        if not wallet_name or not password:
-            print("Error: Wallet name and password are required")
-            sys.exit(1)
-        private_key = export_wallet(wallet_name, password)
-        if not private_key:
-            sys.exit(1)
-        print(private_key)
+        wallet_handlers.handle_wallet_export(args, export_wallet, read_password, first)
 
     def handle_wallet_delete(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        if not wallet_name or not args.confirm:
-            print("Error: Wallet name and --confirm are required")
-            sys.exit(1)
-        if not delete_wallet(wallet_name):
-            sys.exit(1)
+        wallet_handlers.handle_wallet_delete(args, delete_wallet, first)
 
     def handle_wallet_rename(args):
-        old_name = first(getattr(args, "old_name_arg", None), getattr(args, "old_name", None))
-        new_name = first(getattr(args, "new_name_arg", None), getattr(args, "new_name", None))
-        if not old_name or not new_name:
-            print("Error: Old and new wallet names are required")
-            sys.exit(1)
-        if not rename_wallet(old_name, new_name):
-            sys.exit(1)
+        wallet_handlers.handle_wallet_rename(args, rename_wallet, first)
 
     def handle_wallet_backup(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        if not wallet_name:
-            print("Error: Wallet name is required")
-            sys.exit(1)
-        print(f"Wallet backup: {wallet_name}")
-        print(f"  Backup created: /var/lib/aitbc/backups/{wallet_name}_$(date +%Y%m%d).json")
-        print("  Status: completed")
+        wallet_handlers.handle_wallet_backup(args, first)
 
     def handle_wallet_sync(args):
-        wallet_name = first(getattr(args, "wallet_name", None), getattr(args, "wallet_name_opt", None))
-        if args.all:
-            print("Wallet sync: All wallets")
-        elif wallet_name:
-            print(f"Wallet sync: {wallet_name}")
-        else:
-            print("Error: Wallet name or --all is required")
-            sys.exit(1)
-        print("  Sync status: completed")
-        print("  Last sync: $(date)")
+        wallet_handlers.handle_wallet_sync(args, first)
 
     def handle_wallet_batch(args):
-        password = read_password(args)
-        if not password:
-            print("Error: Password is required")
-            sys.exit(1)
-        with open(args.file) as handle:
-            transactions = json.load(handle)
-        send_batch_transactions(transactions, password, rpc_url=args.rpc_url)
+        wallet_handlers.handle_wallet_batch(args, send_batch_transactions, read_password)
 
     def handle_blockchain_info(args):
-        chain_info = get_chain_info(rpc_url=args.rpc_url)
-        if not chain_info:
-            sys.exit(1)
-        render_mapping("Blockchain information:", chain_info)
+        blockchain_handlers.handle_blockchain_info(args, get_chain_info, render_mapping)
 
     def handle_blockchain_height(args):
-        chain_info = get_chain_info(rpc_url=args.rpc_url)
-        print(chain_info.get("height", 0) if chain_info else 0)
+        blockchain_handlers.handle_blockchain_height(args, get_chain_info)
 
     def handle_blockchain_block(args):
-        if args.number is None:
-            print("Error: block number is required")
-            sys.exit(1)
-        print(f"Block #{args.number}:")
-        print(f"  Hash: 0x{args.number:016x}")
-        print("  Timestamp: $(date)")
-        print(f"  Transactions: {args.number % 100}")
-        print(f"  Gas used: {args.number * 1000}")
+        blockchain_handlers.handle_blockchain_block(args)
 
     def handle_blockchain_init(args):
-        rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-        print(f"Initializing blockchain on {rpc_url}...")
-        
-        try:
-            response = requests.post(f"{rpc_url}/rpc/init", json={}, timeout=10)
-            if response.status_code == 200:
-                data = response.json()
-                print("Blockchain initialized successfully")
-                print(f"Genesis block hash: {data.get('genesis_hash', 'N/A')}")
-                print(f"Initial reward: {data.get('initial_reward', 'N/A')} AIT")
-            else:
-                print(f"Initialization failed: {response.status_code}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error initializing blockchain: {e}")
-            print("Note: Blockchain may already be initialized")
-            if args.force:
-                print("Force reinitialization requested - attempting...")
-                try:
-                    response = requests.post(f"{rpc_url}/rpc/init?force=true", json={}, timeout=10)
-                    if response.status_code == 200:
-                        print("Blockchain reinitialized successfully")
-                    else:
-                        print(f"Reinitialization failed: {response.status_code}")
-                        sys.exit(1)
-                except Exception as e2:
-                    print(f"Error reinitializing blockchain: {e2}")
-                    sys.exit(1)
+        blockchain_handlers.handle_blockchain_init(args, default_rpc_url)
 
     def handle_blockchain_genesis(args):
-        rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-        
-        if args.create:
-            print(f"Creating genesis block on {rpc_url}...")
-            try:
-                response = requests.post(f"{rpc_url}/rpc/genesis", json={}, timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
-                    print("Genesis block created successfully")
-                    print(f"Block hash: {data.get('hash', 'N/A')}")
-                    print(f"Block number: {data.get('number', 0)}")
-                    print(f"Timestamp: {data.get('timestamp', 'N/A')}")
-                else:
-                        print(f"Genesis block creation failed: {response.status_code}")
-                        sys.exit(1)
-            except Exception as e:
-                print(f"Error creating genesis block: {e}")
-                sys.exit(1)
-        else:
-            print(f"Inspecting genesis block on {rpc_url}...")
-            try:
-                response = requests.get(f"{rpc_url}/rpc/block/0", timeout=10)
-                if response.status_code == 200:
-                    data = response.json()
-                    print("Genesis block information:")
-                    print(f"  Hash: {data.get('hash', 'N/A')}")
-                    print(f"  Number: {data.get('number', 0)}")
-                    print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
-                    print(f"  Miner: {data.get('miner', 'N/A')}")
-                    print(f"  Reward: {data.get('reward', 'N/A')} AIT")
-                else:
-                    print(f"Failed to get genesis block: {response.status_code}")
-                    sys.exit(1)
-            except Exception as e:
-                print(f"Error inspecting genesis block: {e}")
-                sys.exit(1)
+        blockchain_handlers.handle_blockchain_genesis(args, default_rpc_url)
 
     def handle_blockchain_import(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        # Load block data from file or stdin
-        if args.file:
-            with open(args.file) as f:
-                block_data = json.load(f)
-        elif args.json:
-            block_data = json.loads(args.json)
-        else:
-            print("Error: --file or --json is required")
-            sys.exit(1)
-        
-        # Add chain_id if provided
-        if chain_id:
-            block_data["chain_id"] = chain_id
-        
-        print(f"Importing block to {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/importBlock", json=block_data, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Block imported successfully")
-                render_mapping("Import result:", result)
-            else:
-                print(f"Import failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error importing block: {e}")
-            sys.exit(1)
+        blockchain_handlers.handle_blockchain_import(args, default_rpc_url, render_mapping)
 
     def handle_blockchain_export(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Exporting chain from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/export-chain", params=params, timeout=60)
-            if response.status_code == 200:
-                chain_data = response.json()
-                if args.output:
-                    with open(args.output, "w") as f:
-                        json.dump(chain_data, f, indent=2)
-                    print(f"Chain exported to {args.output}")
-                else:
-                    print(json.dumps(chain_data, indent=2))
-            else:
-                print(f"Export failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error exporting chain: {e}")
-            sys.exit(1)
+        blockchain_handlers.handle_blockchain_export(args, default_rpc_url)
 
     def handle_blockchain_import_chain(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        
-        if not args.file:
-            print("Error: --file is required")
-            sys.exit(1)
-        
-        with open(args.file) as f:
-            chain_data = json.load(f)
-        
-        print(f"Importing chain state to {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/import-chain", json=chain_data, timeout=120)
-            if response.status_code == 200:
-                result = response.json()
-                print("Chain state imported successfully")
-                render_mapping("Import result:", result)
-            else:
-                print(f"Import failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error importing chain state: {e}")
-            sys.exit(1)
+        blockchain_handlers.handle_blockchain_import_chain(args, default_rpc_url, render_mapping)
 
     def handle_blockchain_blocks_range(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        params = {"limit": args.limit}
-        if args.start:
-            params["from_height"] = args.start
-        if args.end:
-            params["to_height"] = args.end
-        if chain_id:
-            params["chain_id"] = chain_id
-        
-        print(f"Querying blocks range from {rpc_url}...")
-        try:
-            response = requests.get(f"{rpc_url}/rpc/blocks-range", params=params, timeout=30)
-            if response.status_code == 200:
-                blocks_data = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(blocks_data, indent=2))
-                else:
-                    print(f"Blocks range: {args.start or 'head'} to {args.end or 'limit ' + str(args.limit)}")
-                    if isinstance(blocks_data, list):
-                        for block in blocks_data:
-                            print(f"  Height: {block.get('height', 'N/A')}, Hash: {block.get('hash', 'N/A')}")
-                    else:
-                        render_mapping("Blocks:", blocks_data)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error querying blocks range: {e}")
-            sys.exit(1)
-
-    def handle_messaging_deploy(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Deploying messaging contract to {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.post(f"{rpc_url}/rpc/contracts/deploy/messaging", json={}, params=params, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Messaging contract deployed successfully")
-                render_mapping("Deployment result:", result)
-            else:
-                print(f"Deployment failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error deploying messaging contract: {e}")
-            sys.exit(1)
-
-    def handle_messaging_state(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting messaging contract state from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/contracts/messaging/state", params=params, timeout=10)
-            if response.status_code == 200:
-                state = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(state, indent=2))
-                else:
-                    render_mapping("Messaging contract state:", state)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting contract state: {e}")
-            sys.exit(1)
-
-    def handle_messaging_topics(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting forum topics from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/messaging/topics", params=params, timeout=10)
-            if response.status_code == 200:
-                topics = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(topics, indent=2))
-                else:
-                    print("Forum topics:")
-                    if isinstance(topics, list):
-                        for topic in topics:
-                            print(f"  ID: {topic.get('topic_id', 'N/A')}, Title: {topic.get('title', 'N/A')}")
-                    else:
-                        render_mapping("Topics:", topics)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting topics: {e}")
-            sys.exit(1)
-
-    def handle_messaging_create_topic(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.title or not args.content:
-            print("Error: --title and --content are required")
-            sys.exit(1)
-        
-        # Get auth headers if wallet provided
-        headers = {}
-        if args.wallet:
-            password = read_password(args)
-            from keystore_auth import get_auth_headers
-            headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        topic_data = {
-            "title": args.title,
-            "content": args.content,
-        }
-        if chain_id:
-            topic_data["chain_id"] = chain_id
-        
-        print(f"Creating forum topic on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/messaging/topics/create", json=topic_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Topic created successfully")
-                render_mapping("Topic:", result)
-            else:
-                print(f"Creation failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error creating topic: {e}")
-            sys.exit(1)
-
-    def handle_messaging_messages(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.topic_id:
-            print("Error: --topic-id is required")
-            sys.exit(1)
-        
-        print(f"Getting messages for topic {args.topic_id} from {rpc_url}...")
-        try:
-            params = {"topic_id": args.topic_id}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/messaging/topics/{args.topic_id}/messages", params=params, timeout=10)
-            if response.status_code == 200:
-                messages = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(messages, indent=2))
-                else:
-                    print(f"Messages for topic {args.topic_id}:")
-                    if isinstance(messages, list):
-                        for msg in messages:
-                            print(f"  Message ID: {msg.get('message_id', 'N/A')}, Author: {msg.get('author', 'N/A')}")
-                    else:
-                        render_mapping("Messages:", messages)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting messages: {e}")
-            sys.exit(1)
-
-    def handle_messaging_post(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.topic_id or not args.content:
-            print("Error: --topic-id and --content are required")
-            sys.exit(1)
-        
-        # Get auth headers if wallet provided
-        headers = {}
-        if args.wallet:
-            password = read_password(args)
-            from keystore_auth import get_auth_headers
-            headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        message_data = {
-            "topic_id": args.topic_id,
-            "content": args.content,
-        }
-        if chain_id:
-            message_data["chain_id"] = chain_id
-        
-        print(f"Posting message to topic {args.topic_id} on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/messaging/messages/post", json=message_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Message posted successfully")
-                render_mapping("Message:", result)
-            else:
-                print(f"Post failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error posting message: {e}")
-            sys.exit(1)
-
-    def handle_messaging_vote(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.message_id or not args.vote:
-            print("Error: --message-id and --vote are required")
-            sys.exit(1)
-        
-        # Get auth headers if wallet provided
-        headers = {}
-        if args.wallet:
-            password = read_password(args)
-            from keystore_auth import get_auth_headers
-            headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        vote_data = {
-            "message_id": args.message_id,
-            "vote": args.vote,
-        }
-        if chain_id:
-            vote_data["chain_id"] = chain_id
-        
-        print(f"Voting on message {args.message_id} on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/vote", json=vote_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Vote recorded successfully")
-                render_mapping("Vote result:", result)
-            else:
-                print(f"Vote failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error voting on message: {e}")
-            sys.exit(1)
-
-    def handle_messaging_search(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.query:
-            print("Error: --query is required")
-            sys.exit(1)
-        
-        print(f"Searching messages for '{args.query}' on {rpc_url}...")
-        try:
-            params = {"query": args.query}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/messaging/messages/search", params=params, timeout=30)
-            if response.status_code == 200:
-                results = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(results, indent=2))
-                else:
-                    print(f"Search results for '{args.query}':")
-                    if isinstance(results, list):
-                        for msg in results:
-                            print(f"  Message ID: {msg.get('message_id', 'N/A')}, Topic: {msg.get('topic_id', 'N/A')}")
-                    else:
-                        render_mapping("Search results:", results)
-            else:
-                print(f"Search failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error searching messages: {e}")
-            sys.exit(1)
-
-    def handle_messaging_reputation(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.agent_id:
-            print("Error: --agent-id is required")
-            sys.exit(1)
-        
-        print(f"Getting reputation for agent {args.agent_id} from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/messaging/agents/{args.agent_id}/reputation", params=params, timeout=10)
-            if response.status_code == 200:
-                reputation = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(reputation, indent=2))
-                else:
-                    render_mapping(f"Agent {args.agent_id} reputation:", reputation)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting reputation: {e}")
-            sys.exit(1)
-
-    def handle_messaging_moderate(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.message_id or not args.action:
-            print("Error: --message-id and --action are required")
-            sys.exit(1)
-        
-        # Get auth headers if wallet provided
-        headers = {}
-        if args.wallet:
-            password = read_password(args)
-            from keystore_auth import get_auth_headers
-            headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        moderation_data = {
-            "message_id": args.message_id,
-            "action": args.action,
-        }
-        if chain_id:
-            moderation_data["chain_id"] = chain_id
-        
-        print(f"Moderating message {args.message_id} on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/messaging/messages/{args.message_id}/moderate", json=moderation_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Moderation action completed successfully")
-                render_mapping("Moderation result:", result)
-            else:
-                print(f"Moderation failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error moderating message: {e}")
-            sys.exit(1)
-
-    def handle_network_status(args):
-        snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-        print("Network status:")
-        print(f"  Connected nodes: {snapshot['connected_count']}")
-        for index, node in enumerate(snapshot["nodes"]):
-            label = "Local" if index == 0 else f"Peer {node['name']}"
-            health = "healthy" if node["healthy"] else "unreachable"
-            print(f"  {label}: {health}")
-        print(f"  Sync status: {snapshot['sync_status']}")
-
-    def handle_network_peers(args):
-        snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-        print("Network peers:")
-        for node in snapshot["nodes"]:
-            endpoint = urlparse(node["rpc_url"]).netloc
-            status = "Connected" if node["healthy"] else f"Unreachable ({node['error'] or 'unknown error'})"
-            print(f"  - {node['name']} ({endpoint}) - {status}")
-
-    def handle_network_sync(args):
-        snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-        print("Network sync status:")
-        print(f"  Status: {snapshot['sync_status']}")
-        for node in snapshot["nodes"]:
-            height = node["height"] if node["height"] is not None else "unknown"
-            print(f"  {node['name']} height: {height}")
-        local_timestamp = snapshot["nodes"][0].get("timestamp") if snapshot["nodes"] else None
-        print(f"  Last local block: {local_timestamp or 'unknown'}")
-
-    def handle_network_ping(args):
-        env_config = read_blockchain_env()
-        _, _, local_port = normalize_rpc_url(getattr(args, "rpc_url", default_rpc_url))
-        peer_rpc_port_value = env_config.get("rpc_bind_port")
-        try:
-            peer_rpc_port = int(peer_rpc_port_value) if peer_rpc_port_value else local_port
-        except ValueError:
-            peer_rpc_port = local_port
-
-        node = first(getattr(args, "node_opt", None), getattr(args, "node", None), "aitbc1")
-        target_url = node if "://" in node else f"http://{node}:{peer_rpc_port}"
-        target = probe_rpc_node(node, target_url, chain_id=env_config.get("chain_id") or None)
-
-        print(f"Ping: Node {node} {'reachable' if target['healthy'] else 'unreachable'}")
-        print(f"  Endpoint: {urlparse(target['rpc_url']).netloc}")
-        if target["latency_ms"] is not None:
-            print(f"  Latency: {target['latency_ms']}ms")
-        print(f"  Status: {'connected' if target['healthy'] else 'error'}")
-
-    def handle_network_propagate(args):
-        data = first(getattr(args, "data_opt", None), getattr(args, "data", None), "test-data")
-        snapshot = get_network_snapshot(getattr(args, "rpc_url", default_rpc_url))
-        print("Data propagation: Complete")
-        print(f"  Data: {data}")
-        print(f"  Nodes: {snapshot['connected_count']}/{len(snapshot['nodes'])} reachable")
-
-    def handle_network_force_sync(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.peer:
-            print("Error: --peer is required")
-            sys.exit(1)
-        
-        sync_data = {
-            "peer": args.peer,
-        }
-        if chain_id:
-            sync_data["chain_id"] = chain_id
-        
-        print(f"Forcing sync to peer {args.peer} on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/force-sync", json=sync_data, timeout=60)
-            if response.status_code == 200:
-                result = response.json()
-                print("Force sync initiated successfully")
-                render_mapping("Sync result:", result)
-            else:
-                print(f"Force sync failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error forcing sync: {e}")
-            sys.exit(1)
-
-    def handle_market_listings(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting marketplace listings from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/marketplace/listings", params=params, timeout=10)
-            if response.status_code == 200:
-                listings = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(listings, indent=2))
-                else:
-                    print("Marketplace listings:")
-                    if isinstance(listings, list):
-                        for listing in listings:
-                            print(f"  ID: {listing.get('listing_id', 'N/A')}, Type: {listing.get('item_type', 'N/A')}, Price: {listing.get('price', 'N/A')}")
-                    else:
-                        render_mapping("Listings:", listings)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting listings: {e}")
-            sys.exit(1)
-
-    def handle_market_create(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.wallet or not args.item_type or not args.price:
-            print("Error: --wallet, --type, and --price are required")
-            sys.exit(1)
-        
-        # Get auth headers
-        password = read_password(args)
-        from .keystore_auth import get_auth_headers
-        headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        listing_data = {
-            "wallet": args.wallet,
-            "item_type": args.item_type,
-            "price": args.price,
-            "description": getattr(args, "description", ""),
-        }
-        if chain_id:
-            listing_data["chain_id"] = chain_id
-        
-        print(f"Creating marketplace listing on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/marketplace/create", json=listing_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Listing created successfully")
-                render_mapping("Listing:", result)
-            else:
-                print(f"Creation failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error creating listing: {e}")
-            sys.exit(1)
-
-    def handle_market_get(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.listing_id:
-            print("Error: --listing-id is required")
-            sys.exit(1)
-        
-        print(f"Getting listing {args.listing_id} from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/marketplace/listing/{args.listing_id}", params=params, timeout=10)
-            if response.status_code == 200:
-                listing = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(listing, indent=2))
-                else:
-                    render_mapping(f"Listing {args.listing_id}:", listing)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting listing: {e}")
-            sys.exit(1)
-
-    def handle_market_delete(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.listing_id or not args.wallet:
-            print("Error: --listing-id and --wallet are required")
-            sys.exit(1)
-        
-        # Get auth headers
-        password = read_password(args)
-        from .keystore_auth import get_auth_headers
-        headers = get_auth_headers(args.wallet, password, args.password_file)
-        
-        delete_data = {
-            "listing_id": args.listing_id,
-            "wallet": args.wallet,
-        }
-        if chain_id:
-            delete_data["chain_id"] = chain_id
-        
-        print(f"Deleting listing {args.listing_id} on {rpc_url}...")
-        try:
-            response = requests.delete(f"{rpc_url}/rpc/marketplace/listing/{args.listing_id}", json=delete_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("Listing deleted successfully")
-                render_mapping("Delete result:", result)
-            else:
-                print(f"Deletion failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error deleting listing: {e}")
-            sys.exit(1)
-
-    def handle_ai_submit(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        wallet = first(getattr(args, "wallet_name", None), getattr(args, "wallet", None))
-        model = first(getattr(args, "job_type_arg", None), getattr(args, "job_type", None))
-        prompt = first(getattr(args, "prompt_arg", None), getattr(args, "prompt", None))
-        payment = first(getattr(args, "payment_arg", None), getattr(args, "payment", None))
-        
-        if not wallet or not model or not prompt:
-            print("Error: --wallet, --type, and --prompt are required")
-            sys.exit(1)
-        
-        # Get auth headers
-        password = read_password(args)
-        from .keystore_auth import get_auth_headers
-        headers = get_auth_headers(wallet, password, args.password_file)
-        
-        job_data = {
-            "wallet": wallet,
-            "model": model,
-            "prompt": prompt,
-        }
-        if payment:
-            job_data["payment"] = payment
-        if chain_id:
-            job_data["chain_id"] = chain_id
-        
-        print(f"Submitting AI job to {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("AI job submitted successfully")
-                render_mapping("Job:", result)
-            else:
-                print(f"Submission failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error submitting AI job: {e}")
-            sys.exit(1)
-
-    def handle_ai_jobs(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting AI jobs from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            if args.limit:
-                params["limit"] = args.limit
-            
-            response = requests.get(f"{rpc_url}/rpc/ai/jobs", params=params, timeout=10)
-            if response.status_code == 200:
-                jobs = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(jobs, indent=2))
-                else:
-                    print("AI jobs:")
-                    if isinstance(jobs, list):
-                        for job in jobs:
-                            print(f"  Job ID: {job.get('job_id', 'N/A')}, Model: {job.get('model', 'N/A')}, Status: {job.get('status', 'N/A')}")
-                    else:
-                        render_mapping("Jobs:", jobs)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting AI jobs: {e}")
-            sys.exit(1)
-
-    def handle_ai_job(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        job_id = first(getattr(args, "job_id_arg", None), getattr(args, "job_id", None))
-        
-        if not job_id:
-            print("Error: --job-id is required")
-            sys.exit(1)
-        
-        print(f"Getting AI job {job_id} from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/ai/job/{job_id}", params=params, timeout=10)
-            if response.status_code == 200:
-                job = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(job, indent=2))
-                else:
-                    render_mapping(f"Job {job_id}:", job)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting AI job: {e}")
-            sys.exit(1)
-
-    def handle_ai_cancel(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        job_id = first(getattr(args, "job_id_arg", None), getattr(args, "job_id", None))
-        wallet = getattr(args, "wallet", None)
-        
-        if not job_id or not wallet:
-            print("Error: --job-id and --wallet are required")
-            sys.exit(1)
-        
-        # Get auth headers
-        password = read_password(args)
-        from .keystore_auth import get_auth_headers
-        headers = get_auth_headers(wallet, password, args.password_file)
-        
-        cancel_data = {
-            "job_id": job_id,
-            "wallet": wallet,
-        }
-        if chain_id:
-            cancel_data["chain_id"] = chain_id
-        
-        print(f"Cancelling AI job {job_id} on {rpc_url}...")
-        try:
-            response = requests.post(f"{rpc_url}/rpc/ai/job/{job_id}/cancel", json=cancel_data, headers=headers, timeout=30)
-            if response.status_code == 200:
-                result = response.json()
-                print("AI job cancelled successfully")
-                render_mapping("Cancel result:", result)
-            else:
-                print(f"Cancellation failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error cancelling AI job: {e}")
-            sys.exit(1)
-
-    def handle_ai_stats(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting AI service statistics from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/ai/stats", params=params, timeout=10)
-            if response.status_code == 200:
-                stats = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(stats, indent=2))
-                else:
-                    render_mapping("AI service statistics:", stats)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting AI stats: {e}")
-            sys.exit(1)
-
-    def handle_mining_action(args):
-        result = mining_operations(args.mining_action, wallet=getattr(args, "wallet", None), rpc_url=getattr(args, "rpc_url", default_rpc_url))
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Mining {args.mining_action}:", result)
-
-    def handle_system_status(args):
-        print("System status: OK")
-        print(f"  Version: aitbc-cli v{cli_version}")
-        print("  Services: Running")
-        print("  Nodes: 2 connected")
-
-    def handle_analytics(args):
-        analytics_type = getattr(args, "type", "blocks")
-        limit = getattr(args, "limit", 10)
-        rpc_url = getattr(args, "rpc_url", default_rpc_url)
-        analytics = get_blockchain_analytics(analytics_type, limit, rpc_url=rpc_url)
-        if analytics:
-            print(f"Blockchain Analytics ({analytics['type']}):")
-            for key, value in analytics.items():
-                if key != "type":
-                    print(f"  {key}: {value}")
-        else:
-            sys.exit(1)
-
-    def handle_agent_action(args):
-        kwargs = {}
-        for name in ("name", "description", "verification", "max_execution_time", "max_cost_budget", "input_data", "wallet", "priority", "execution_id", "status", "agent", "message", "to", "content", "password", "password_file", "rpc_url"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        result = agent_operations(args.agent_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Agent {result['action']}:", result)
-
-    def handle_openclaw_action(args):
-        kwargs = {}
-        for name in ("agent_file", "wallet", "environment", "agent_id", "metrics", "price"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        market_action = first(getattr(args, "market_action", None), getattr(args, "market_action_opt", None))
-        if market_action:
-            kwargs["market_action"] = market_action
-        result = openclaw_operations(args.openclaw_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"OpenClaw {result['action']}:", result)
-
-    def handle_workflow_action(args):
-        kwargs = {}
-        for name in ("name", "template", "config_file", "params", "async_exec"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        result = workflow_operations(args.workflow_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Workflow {result['action']}:", result)
-
-    def handle_resource_action(args):
-        kwargs = {}
-        for name in ("type", "agent_id", "cpu", "memory", "duration"):
-            value = getattr(args, name, None)
-            if value not in (None, "", False):
-                kwargs[name] = value
-        result = resource_operations(args.resource_action, **kwargs)
-        if not result:
-            sys.exit(1)
-        render_mapping(f"Resource {result['action']}:", result)
-
-    def handle_simulate_action(args):
-        if args.simulate_command == "blockchain":
-            simulate_blockchain(args.blocks, args.transactions, args.delay)
-        elif args.simulate_command == "wallets":
-            simulate_wallets(args.wallets, args.balance, args.transactions, args.amount_range)
-        elif args.simulate_command == "price":
-            simulate_price(args.price, args.volatility, args.timesteps, args.delay)
-        elif args.simulate_command == "network":
-            simulate_network(args.nodes, args.network_delay, args.failure_rate)
-        elif args.simulate_command == "ai-jobs":
-            simulate_ai_jobs(args.jobs, args.models, args.duration_range)
-        else:
-            print(f"Unknown simulate command: {args.simulate_command}")
-            sys.exit(1)
-
-    def handle_account_get(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        if not args.address:
-            print("Error: --address is required")
-            sys.exit(1)
-        
-        print(f"Getting account {args.address} from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/account/{args.address}", params=params, timeout=10)
-            if response.status_code == 200:
-                account = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(account, indent=2))
-                else:
-                    render_mapping(f"Account {args.address}:", account)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting account: {e}")
-            sys.exit(1)
-
-    def handle_pool_hub_sla_metrics(args):
-        """Get SLA metrics for a miner or all miners"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("📊 SLA Metrics (test mode):")
-                print("⏱️  Uptime: 97.5%")
-                print("⚡ Response Time: 850ms")
-                print("✅ Job Completion Rate: 92.3%")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            miner_id = getattr(args, "miner_id", None)
-            
-            if miner_id:
-                response = requests.get(f"{pool_hub_url}/sla/metrics/{miner_id}", timeout=30)
-            else:
-                response = requests.get(f"{pool_hub_url}/sla/metrics", timeout=30)
-            
-            if response.status_code == 200:
-                metrics = response.json()
-                print("📊 SLA Metrics:")
-                for key, value in metrics.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Failed to get SLA metrics: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting SLA metrics: {e}")
-
-    def handle_pool_hub_sla_violations(args):
-        """Get SLA violations across all miners"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("⚠️  SLA Violations (test mode):")
-                print("  miner_001: response_time violation")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.get(f"{pool_hub_url}/sla/violations", timeout=30)
-            
-            if response.status_code == 200:
-                violations = response.json()
-                print("⚠️  SLA Violations:")
-                for v in violations:
-                    print(f"  {v}")
-            else:
-                print(f"❌ Failed to get violations: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting violations: {e}")
-
-    def handle_pool_hub_capacity_snapshots(args):
-        """Get capacity planning snapshots"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("📊 Capacity Snapshots (test mode):")
-                print("  Total Capacity: 1250 GPU")
-                print("  Available: 320 GPU")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.get(f"{pool_hub_url}/sla/capacity/snapshots", timeout=30)
-            
-            if response.status_code == 200:
-                snapshots = response.json()
-                print("📊 Capacity Snapshots:")
-                for s in snapshots:
-                    print(f"  {s}")
-            else:
-                print(f"❌ Failed to get snapshots: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting snapshots: {e}")
-
-    def handle_pool_hub_capacity_forecast(args):
-        """Get capacity forecast"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("🔮 Capacity Forecast (test mode):")
-                print("  Projected Capacity: 1400 GPU")
-                print("  Growth Rate: 12%")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.get(f"{pool_hub_url}/sla/capacity/forecast", timeout=30)
-            
-            if response.status_code == 200:
-                forecast = response.json()
-                print("🔮 Capacity Forecast:")
-                for key, value in forecast.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Failed to get forecast: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting forecast: {e}")
-
-    def handle_pool_hub_capacity_recommendations(args):
-        """Get scaling recommendations"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("💡 Capacity Recommendations (test mode):")
-                print("  Type: scale_up")
-                print("  Action: Add 50 GPU capacity")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.get(f"{pool_hub_url}/sla/capacity/recommendations", timeout=30)
-            
-            if response.status_code == 200:
-                recommendations = response.json()
-                print("💡 Capacity Recommendations:")
-                for r in recommendations:
-                    print(f"  {r}")
-            else:
-                print(f"❌ Failed to get recommendations: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting recommendations: {e}")
-
-    def handle_pool_hub_billing_usage(args):
-        """Get billing usage data"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("💰 Billing Usage (test mode):")
-                print("  Total GPU Hours: 45678")
-                print("  Total Cost: $12500.50")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.get(f"{pool_hub_url}/sla/billing/usage", timeout=30)
-            
-            if response.status_code == 200:
-                usage = response.json()
-                print("💰 Billing Usage:")
-                for key, value in usage.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Failed to get billing usage: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting billing usage: {e}")
-
-    def handle_pool_hub_billing_sync(args):
-        """Trigger billing sync with coordinator-api"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("🔄 Billing sync triggered (test mode)")
-                print("✅ Sync completed successfully")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.post(f"{pool_hub_url}/sla/billing/sync", timeout=60)
-            
-            if response.status_code == 200:
-                result = response.json()
-                print("🔄 Billing sync triggered")
-                print(f"✅ {result.get('message', 'Success')}")
-            else:
-                print(f"❌ Billing sync failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Error triggering billing sync: {e}")
-
-    def handle_pool_hub_collect_metrics(args):
-        """Trigger SLA metrics collection"""
-        try:
-            from commands.pool_hub import get_config as get_pool_hub_config
-            config = get_pool_hub_config()
-            
-            if args.test_mode:
-                print("📊 SLA metrics collection triggered (test mode)")
-                print("✅ Collection completed successfully")
-                return
-            
-            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-            response = requests.post(f"{pool_hub_url}/sla/metrics/collect", timeout=60)
-            
-            if response.status_code == 200:
-                result = response.json()
-                print("📊 SLA metrics collection triggered")
-                print(f"✅ {result.get('message', 'Success')}")
-            else:
-                print(f"❌ Metrics collection failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Error triggering metrics collection: {e}")
-
-    def handle_bridge_health(args):
-        """Health check for blockchain event bridge service"""
-        try:
-            from commands.blockchain_event_bridge import get_config as get_bridge_config
-            config = get_bridge_config()
-            
-            if args.test_mode:
-                print("🏥 Blockchain Event Bridge Health (test mode):")
-                print("✅ Status: healthy")
-                print("📦 Service: blockchain-event-bridge")
-                return
-            
-            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-            response = requests.get(f"{bridge_url}/health", timeout=10)
-            
-            if response.status_code == 200:
-                health = response.json()
-                print("🏥 Blockchain Event Bridge Health:")
-                for key, value in health.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Health check failed: {response.text}")
-        except Exception as e:
-            print(f"❌ Error checking health: {e}")
-
-    def handle_bridge_metrics(args):
-        """Get Prometheus metrics from blockchain event bridge service"""
-        try:
-            from commands.blockchain_event_bridge import get_config as get_bridge_config
-            config = get_bridge_config()
-            
-            if args.test_mode:
-                print("📊 Prometheus Metrics (test mode):")
-                print("  bridge_events_total: 103691")
-                print("  bridge_events_processed_total: 103691")
-                return
-            
-            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-            response = requests.get(f"{bridge_url}/metrics", timeout=10)
-            
-            if response.status_code == 200:
-                metrics = response.text
-                print("📊 Prometheus Metrics:")
-                print(metrics)
-            else:
-                print(f"❌ Failed to get metrics: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting metrics: {e}")
-
-    def handle_bridge_status(args):
-        """Get detailed status of blockchain event bridge service"""
-        try:
-            from commands.blockchain_event_bridge import get_config as get_bridge_config
-            config = get_bridge_config()
-            
-            if args.test_mode:
-                print("📊 Blockchain Event Bridge Status (test mode):")
-                print("✅ Status: running")
-                print("🔔 Subscriptions: blocks, transactions, contract_events")
-                return
-            
-            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-            response = requests.get(f"{bridge_url}/", timeout=10)
-            
-            if response.status_code == 200:
-                status = response.json()
-                print("📊 Blockchain Event Bridge Status:")
-                for key, value in status.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Failed to get status: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting status: {e}")
-
-    def handle_bridge_config(args):
-        """Show current configuration of blockchain event bridge service"""
-        try:
-            from commands.blockchain_event_bridge import get_config as get_bridge_config
-            config = get_bridge_config()
-            
-            if args.test_mode:
-                print("⚙️  Blockchain Event Bridge Configuration (test mode):")
-                print("🔗 Blockchain RPC URL: http://localhost:8006")
-                print("💬 Gossip Backend: redis")
-                return
-            
-            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-            response = requests.get(f"{bridge_url}/config", timeout=10)
-            
-            if response.status_code == 200:
-                service_config = response.json()
-                print("⚙️  Blockchain Event Bridge Configuration:")
-                for key, value in service_config.items():
-                    print(f"  {key}: {value}")
-            else:
-                print(f"❌ Failed to get config: {response.text}")
-        except Exception as e:
-            print(f"❌ Error getting config: {e}")
-
-    def handle_bridge_restart(args):
-        """Restart blockchain event bridge service (via systemd)"""
-        try:
-            if args.test_mode:
-                print("🔄 Blockchain event bridge restart triggered (test mode)")
-                print("✅ Restart completed successfully")
-                return
-            
-            result = subprocess.run(
-                ["sudo", "systemctl", "restart", "aitbc-blockchain-event-bridge"],
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            
-            if result.returncode == 0:
-                print("🔄 Blockchain event bridge restart triggered")
-                print("✅ Restart completed successfully")
-            else:
-                print(f"❌ Restart failed: {result.stderr}")
-        except subprocess.TimeoutExpired:
-            print("❌ Restart timeout - service may be starting")
-        except FileNotFoundError:
-            print("❌ systemctl not found - cannot restart service")
-        except Exception as e:
-            print(f"❌ Error restarting service: {e}")
+        blockchain_handlers.handle_blockchain_blocks_range(args, default_rpc_url, output_format)
 
     def handle_blockchain_transactions(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Querying transactions from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            if args.address:
-                params["address"] = args.address
-            if args.limit:
-                params["limit"] = args.limit
-            if args.offset:
-                params["offset"] = args.offset
-            
-            response = requests.get(f"{rpc_url}/rpc/transactions", params=params, timeout=10)
-            if response.status_code == 200:
-                transactions = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(transactions, indent=2))
-                else:
-                    print("Transactions:")
-                    if isinstance(transactions, list):
-                        for tx in transactions:
-                            print(f"  Hash: {tx.get('tx_hash', 'N/A')}, From: {tx.get('from', 'N/A')}, To: {tx.get('to', 'N/A')}")
-                    else:
-                        render_mapping("Transactions:", transactions)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error querying transactions: {e}")
-            sys.exit(1)
+        blockchain_handlers.handle_blockchain_transactions(args, default_rpc_url)
 
     def handle_blockchain_mempool(args):
-        rpc_url = args.rpc_url or default_rpc_url
-        chain_id = getattr(args, "chain_id", None)
-        
-        print(f"Getting pending transactions from {rpc_url}...")
-        try:
-            params = {}
-            if chain_id:
-                params["chain_id"] = chain_id
-            
-            response = requests.get(f"{rpc_url}/rpc/mempool", params=params, timeout=10)
-            if response.status_code == 200:
-                mempool = response.json()
-                if output_format(args) == "json":
-                    print(json.dumps(mempool, indent=2))
-                else:
-                    print("Pending transactions:")
-                    if isinstance(mempool, list):
-                        for tx in mempool:
-                            print(f"  Hash: {tx.get('tx_hash', 'N/A')}, From: {tx.get('from', 'N/A')}, To: {tx.get('to', 'N/A')}")
-                    else:
-                        render_mapping("Mempool:", mempool)
-            else:
-                print(f"Query failed: {response.status_code}")
-                print(f"Error: {response.text}")
-                sys.exit(1)
-        except Exception as e:
-            print(f"Error getting mempool: {e}")
-            sys.exit(1)
+        blockchain_handlers.handle_blockchain_mempool(args, default_rpc_url)
+
+    def handle_messaging_deploy(args):
+        messaging_handlers.handle_messaging_deploy(args, default_rpc_url, render_mapping)
+
+    def handle_messaging_state(args):
+        messaging_handlers.handle_messaging_state(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_messaging_topics(args):
+        messaging_handlers.handle_messaging_topics(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_messaging_create_topic(args):
+        messaging_handlers.handle_messaging_create_topic(args, default_rpc_url, read_password, render_mapping)
+
+    def handle_messaging_messages(args):
+        messaging_handlers.handle_messaging_messages(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_messaging_post(args):
+        messaging_handlers.handle_messaging_post(args, default_rpc_url, read_password, render_mapping)
+
+    def handle_messaging_vote(args):
+        messaging_handlers.handle_messaging_vote(args, default_rpc_url, read_password, render_mapping)
+
+    def handle_messaging_search(args):
+        messaging_handlers.handle_messaging_search(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_messaging_reputation(args):
+        messaging_handlers.handle_messaging_reputation(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_messaging_moderate(args):
+        messaging_handlers.handle_messaging_moderate(args, default_rpc_url, read_password, render_mapping)
+
+    def handle_network_status(args):
+        network_handlers.handle_network_status(args, default_rpc_url, get_network_snapshot)
+
+    def handle_network_peers(args):
+        network_handlers.handle_network_peers(args, default_rpc_url, get_network_snapshot)
+
+    def handle_network_sync(args):
+        network_handlers.handle_network_sync(args, default_rpc_url, get_network_snapshot)
+
+    def handle_network_ping(args):
+        network_handlers.handle_network_ping(args, default_rpc_url, read_blockchain_env, normalize_rpc_url, first, probe_rpc_node)
+
+    def handle_network_propagate(args):
+        network_handlers.handle_network_propagate(args, default_rpc_url, get_network_snapshot, first)
+
+    def handle_network_force_sync(args):
+        network_handlers.handle_network_force_sync(args, default_rpc_url, render_mapping)
+
+    def handle_market_listings(args):
+        market_handlers.handle_market_listings(args, default_coordinator_url, output_format, render_mapping)
+
+    def handle_market_create(args):
+        market_handlers.handle_market_create(args, default_coordinator_url, read_password, render_mapping)
+
+    def handle_market_get(args):
+        market_handlers.handle_market_get(args, default_rpc_url)
+
+    def handle_market_delete(args):
+        market_handlers.handle_market_delete(args, default_coordinator_url, read_password, render_mapping)
+
+    def handle_market_gpu_register(args):
+        market_handlers.handle_market_gpu_register(args, default_coordinator_url)
+
+    def handle_market_gpu_list(args):
+        market_handlers.handle_market_gpu_list(args, default_coordinator_url, output_format)
+
+    def handle_ai_submit(args):
+        ai_handlers.handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping)
+
+    def handle_ai_jobs(args):
+        ai_handlers.handle_ai_jobs(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_ai_job(args):
+        ai_handlers.handle_ai_job(args, default_rpc_url, output_format, render_mapping, first)
+
+    def handle_ai_cancel(args):
+        ai_handlers.handle_ai_cancel(args, default_rpc_url, read_password, render_mapping, first)
+
+    def handle_ai_stats(args):
+        ai_handlers.handle_ai_stats(args, default_rpc_url, output_format, render_mapping)
+
+    def handle_ai_service_list(args):
+        ai_handlers.handle_ai_service_list(args, ai_operations, render_mapping)
+
+    def handle_ai_service_status(args):
+        ai_handlers.handle_ai_service_status(args, ai_operations, render_mapping)
+
+    def handle_ai_service_test(args):
+        ai_handlers.handle_ai_service_test(args, ai_operations, render_mapping)
+
+    def handle_economics_action(args):
+        system_handlers.handle_economics_action(args, render_mapping)
+
+    def handle_cluster_action(args):
+        system_handlers.handle_cluster_action(args, render_mapping)
+
+    def handle_performance_action(args):
+        system_handlers.handle_performance_action(args, render_mapping)
+
+    def handle_security_action(args):
+        system_handlers.handle_security_action(args, render_mapping)
+
+    def handle_mining_action(args):
+        system_handlers.handle_mining_action(args, default_rpc_url, mining_operations)
+
+    def handle_system_status(args):
+        system_handlers.handle_system_status(args, cli_version)
+
+    def handle_analytics(args):
+        system_handlers.handle_analytics(args, default_rpc_url, get_blockchain_analytics)
+
+    def handle_agent_action(args):
+        system_handlers.handle_agent_action(args, agent_operations, render_mapping)
+
+    def handle_openclaw_action(args):
+        system_handlers.handle_openclaw_action(args, openclaw_operations, first, render_mapping)
+
+    def handle_workflow_action(args):
+        system_handlers.handle_workflow_action(args, workflow_operations, render_mapping)
+
+    def handle_resource_action(args):
+        system_handlers.handle_resource_action(args, resource_operations, render_mapping)
+
+    def handle_simulate_action(args):
+        system_handlers.handle_simulate_action(args, simulate_blockchain, simulate_wallets, simulate_price, simulate_network, simulate_ai_jobs)
+
+    def handle_account_get(args):
+        account_handlers.handle_account_get(args, default_rpc_url, output_format)
+
+    def handle_pool_hub_sla_metrics(args):
+        pool_hub_handlers.handle_pool_hub_sla_metrics(args)
+
+    def handle_pool_hub_sla_violations(args):
+        pool_hub_handlers.handle_pool_hub_sla_violations(args)
+
+    def handle_pool_hub_capacity_snapshots(args):
+        pool_hub_handlers.handle_pool_hub_capacity_snapshots(args)
+
+    def handle_pool_hub_capacity_forecast(args):
+        pool_hub_handlers.handle_pool_hub_capacity_forecast(args)
+
+    def handle_pool_hub_capacity_recommendations(args):
+        pool_hub_handlers.handle_pool_hub_capacity_recommendations(args)
+
+    def handle_pool_hub_billing_usage(args):
+        pool_hub_handlers.handle_pool_hub_billing_usage(args)
+
+    def handle_pool_hub_billing_sync(args):
+        pool_hub_handlers.handle_pool_hub_billing_sync(args)
+
+    def handle_pool_hub_collect_metrics(args):
+        pool_hub_handlers.handle_pool_hub_collect_metrics(args)
+
+    def handle_bridge_health(args):
+        bridge_handlers.handle_bridge_health(args)
+
+    def handle_bridge_metrics(args):
+        bridge_handlers.handle_bridge_metrics(args)
+
+    def handle_bridge_status(args):
+        bridge_handlers.handle_bridge_status(args)
+
+    def handle_bridge_config(args):
+        bridge_handlers.handle_bridge_config(args)
+
+    def handle_bridge_restart(args):
+        bridge_handlers.handle_bridge_restart(args)
 
     parser = argparse.ArgumentParser(
         description="AITBC CLI - Comprehensive Blockchain Management Tool",
@@ -2113,9 +800,35 @@ def run_cli(argv, core):
     market_parser.set_defaults(handler=lambda parsed, parser=market_parser: parser.print_help())
     market_subparsers = market_parser.add_subparsers(dest="market_action")
 
+    # GPU marketplace subcommands
+    market_gpu_parser = market_subparsers.add_parser("gpu", help="GPU marketplace operations")
+    market_gpu_parser.set_defaults(handler=lambda parsed, parser=market_gpu_parser: parser.print_help())
+    market_gpu_subparsers = market_gpu_parser.add_subparsers(dest="gpu_action")
+
+    market_gpu_register_parser = market_gpu_subparsers.add_parser("register", help="Register GPU on marketplace")
+    market_gpu_register_parser.add_argument("--name", help="GPU name/model")
+    market_gpu_register_parser.add_argument("--memory", type=int, help="GPU memory in GB")
+    market_gpu_register_parser.add_argument("--cuda-cores", type=int, help="Number of CUDA cores")
+    market_gpu_register_parser.add_argument("--compute-capability", help="Compute capability (e.g., 8.9)")
+    market_gpu_register_parser.add_argument("--price-per-hour", type=float, required=True, help="Price per hour in AIT")
+    market_gpu_register_parser.add_argument("--description", help="GPU description")
+    market_gpu_register_parser.add_argument("--miner-id", help="Miner ID")
+    market_gpu_register_parser.add_argument("--force", action="store_true", help="Force registration without hardware validation")
+    market_gpu_register_parser.add_argument("--coordinator-url", default=default_coordinator_url)
+    market_gpu_register_parser.set_defaults(handler=handle_market_gpu_register)
+
+    market_gpu_list_parser = market_gpu_subparsers.add_parser("list", help="List available GPUs")
+    market_gpu_list_parser.add_argument("--available", action="store_true", help="Show only available GPUs")
+    market_gpu_list_parser.add_argument("--price-max", type=float, help="Maximum price per hour")
+    market_gpu_list_parser.add_argument("--region", help="Filter by region")
+    market_gpu_list_parser.add_argument("--model", help="Filter by GPU model")
+    market_gpu_list_parser.add_argument("--limit", type=int, default=100, help="Maximum number of results")
+    market_gpu_list_parser.add_argument("--coordinator-url", default=default_coordinator_url)
+    market_gpu_list_parser.set_defaults(handler=handle_market_gpu_list)
+
     market_list_parser = market_subparsers.add_parser("list", help="List marketplace items")
     market_list_parser.add_argument("--chain-id", help="Chain ID")
-    market_list_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_list_parser.add_argument("--coordinator-url", default=default_coordinator_url)
     market_list_parser.set_defaults(handler=handle_market_listings)
 
     market_create_parser = market_subparsers.add_parser("create", help="Create a marketplace listing")
@@ -2126,7 +839,7 @@ def run_cli(argv, core):
     market_create_parser.add_argument("--password")
     market_create_parser.add_argument("--password-file")
     market_create_parser.add_argument("--chain-id", help="Chain ID")
-    market_create_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_create_parser.add_argument("--coordinator-url", default=default_coordinator_url)
     market_create_parser.set_defaults(handler=handle_market_create)
 
     market_search_parser = market_subparsers.add_parser("search", help="Search marketplace items")
@@ -2150,7 +863,7 @@ def run_cli(argv, core):
     market_delete_parser.add_argument("--password")
     market_delete_parser.add_argument("--password-file")
     market_delete_parser.add_argument("--chain-id", help="Chain ID")
-    market_delete_parser.add_argument("--rpc-url", default=default_rpc_url)
+    market_delete_parser.add_argument("--coordinator-url", default=default_coordinator_url)
     market_delete_parser.set_defaults(handler=handle_market_delete)
 
     market_buy_parser = market_subparsers.add_parser("buy", help="Buy from marketplace")
@@ -2205,6 +918,20 @@ def run_cli(argv, core):
     ai_status_parser.add_argument("--chain-id", help="Chain ID")
     ai_status_parser.add_argument("--rpc-url", default=default_rpc_url)
     ai_status_parser.set_defaults(handler=handle_ai_job)
+
+    ai_service_parser = ai_subparsers.add_parser("service", help="AI service management")
+    ai_service_subparsers = ai_service_parser.add_subparsers(dest="ai_service_action")
+
+    ai_service_list_parser = ai_service_subparsers.add_parser("list", help="List available AI services")
+    ai_service_list_parser.set_defaults(handler=handle_ai_service_list)
+
+    ai_service_status_parser = ai_service_subparsers.add_parser("status", help="Check AI service status")
+    ai_service_status_parser.add_argument("--name", help="Service name to check")
+    ai_service_status_parser.set_defaults(handler=handle_ai_service_status)
+
+    ai_service_test_parser = ai_service_subparsers.add_parser("test", help="Test AI service endpoint")
+    ai_service_test_parser.add_argument("--name", help="Service name to test")
+    ai_service_test_parser.set_defaults(handler=handle_ai_service_test)
 
     ai_results_parser = ai_subparsers.add_parser("results", help="Show AI job results")
     ai_results_parser.add_argument("job_id_arg", nargs="?")
@@ -2401,6 +1128,31 @@ def run_cli(argv, core):
     resource_benchmark_parser.add_argument("--type", choices=["cpu", "memory", "io", "all"], default="all")
     resource_benchmark_parser.set_defaults(handler=handle_resource_action, resource_action="benchmark")
 
+    resource_monitor_parser = resource_subparsers.add_parser("monitor", help="Monitor resource utilization")
+    resource_monitor_parser.add_argument("--interval", type=int, default=5, help="Monitoring interval in seconds")
+    resource_monitor_parser.add_argument("--duration", type=int, default=60, help="Monitoring duration in seconds")
+    resource_monitor_parser.set_defaults(handler=handle_resource_action, resource_action="monitor")
+
+    economics_parser = subparsers.add_parser("economics", help="Economic intelligence and modeling")
+    economics_parser.set_defaults(handler=lambda parsed, parser=economics_parser: parser.print_help())
+    economics_subparsers = economics_parser.add_subparsers(dest="economics_action")
+
+    economics_distributed_parser = economics_subparsers.add_parser("distributed", help="Distributed cost optimization")
+    economics_distributed_parser.add_argument("--cost-optimize", action="store_true")
+    economics_distributed_parser.set_defaults(handler=handle_economics_action)
+
+    economics_market_parser = economics_subparsers.add_parser("market", help="Market analysis")
+    economics_market_parser.add_argument("--analyze", action="store_true")
+    economics_market_parser.set_defaults(handler=handle_economics_action)
+
+    economics_trends_parser = economics_subparsers.add_parser("trends", help="Economic trends analysis")
+    economics_trends_parser.add_argument("--period")
+    economics_trends_parser.set_defaults(handler=handle_economics_action)
+
+    economics_optimize_parser = economics_subparsers.add_parser("optimize", help="Optimize economic strategy")
+    economics_optimize_parser.add_argument("--target", choices=["revenue", "cost", "all"], default="all")
+    economics_optimize_parser.set_defaults(handler=handle_economics_action)
+
     cluster_parser = subparsers.add_parser("cluster", help="Cluster management")
     cluster_parser.set_defaults(handler=lambda parsed, parser=cluster_parser: parser.print_help())
     cluster_subparsers = cluster_parser.add_subparsers(dest="cluster_action")
@@ -2411,11 +1163,11 @@ def run_cli(argv, core):
 
     cluster_sync_parser = cluster_subparsers.add_parser("sync", help="Sync cluster nodes")
     cluster_sync_parser.add_argument("--all", action="store_true")
-    cluster_sync_parser.set_defaults(handler=handle_network_sync)
+    cluster_sync_parser.set_defaults(handler=handle_cluster_action)
 
     cluster_balance_parser = cluster_subparsers.add_parser("balance", help="Balance workload across nodes")
     cluster_balance_parser.add_argument("--workload", action="store_true")
-    cluster_balance_parser.set_defaults(handler=handle_network_peers)
+    cluster_balance_parser.set_defaults(handler=handle_cluster_action)
 
     performance_parser = subparsers.add_parser("performance", help="Performance optimization")
     performance_parser.set_defaults(handler=lambda parsed, parser=performance_parser: parser.print_help())
@@ -2423,16 +1175,16 @@ def run_cli(argv, core):
 
     performance_benchmark_parser = performance_subparsers.add_parser("benchmark", help="Run performance benchmark")
     performance_benchmark_parser.add_argument("--suite", choices=["comprehensive", "quick", "custom"], default="comprehensive")
-    performance_benchmark_parser.set_defaults(handler=handle_system_status)
+    performance_benchmark_parser.set_defaults(handler=handle_performance_action)
 
     performance_optimize_parser = performance_subparsers.add_parser("optimize", help="Optimize performance")
     performance_optimize_parser.add_argument("--target", choices=["latency", "throughput", "all"], default="all")
-    performance_optimize_parser.set_defaults(handler=handle_system_status)
+    performance_optimize_parser.set_defaults(handler=handle_performance_action)
 
     performance_tune_parser = performance_subparsers.add_parser("tune", help="Tune system parameters")
     performance_tune_parser.add_argument("--parameters", action="store_true")
     performance_tune_parser.add_argument("--aggressive", action="store_true")
-    performance_tune_parser.set_defaults(handler=handle_system_status)
+    performance_tune_parser.set_defaults(handler=handle_performance_action)
 
     security_parser = subparsers.add_parser("security", help="Security audit and scanning")
     security_parser.set_defaults(handler=lambda parsed, parser=security_parser: parser.print_help())
@@ -2440,15 +1192,15 @@ def run_cli(argv, core):
 
     security_audit_parser = security_subparsers.add_parser("audit", help="Run security audit")
     security_audit_parser.add_argument("--comprehensive", action="store_true")
-    security_audit_parser.set_defaults(handler=handle_system_status)
+    security_audit_parser.set_defaults(handler=handle_security_action)
 
     security_scan_parser = security_subparsers.add_parser("scan", help="Scan for vulnerabilities")
     security_scan_parser.add_argument("--vulnerabilities", action="store_true")
-    security_scan_parser.set_defaults(handler=handle_system_status)
+    security_scan_parser.set_defaults(handler=handle_security_action)
 
     security_patch_parser = security_subparsers.add_parser("patch", help="Check for security patches")
     security_patch_parser.add_argument("--critical", action="store_true")
-    security_patch_parser.set_defaults(handler=handle_system_status)
+    security_patch_parser.set_defaults(handler=handle_security_action)
 
     compliance_parser = subparsers.add_parser("compliance", help="Compliance checking and reporting")
     compliance_parser.set_defaults(handler=lambda parsed, parser=compliance_parser: parser.print_help())

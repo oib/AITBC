@@ -2,6 +2,7 @@
 Fixed Agent Communication Tests
 Resolves async/await issues and deprecation warnings
 """
+import sys
 
 import pytest
 import asyncio

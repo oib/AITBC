@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
+import sys
 
 from blockchain_event_bridge.bridge import BlockchainEventBridge
 from blockchain_event_bridge.config import Settings

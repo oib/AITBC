@@ -2,6 +2,7 @@
 Basic integration tests for AITBC Coordinator API
 """
 
+import sys
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch

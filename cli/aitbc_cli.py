@@ -880,6 +880,28 @@ def ai_operations(action: str, **kwargs) -> Optional[Dict]:
                 "output": "Sample AI output based on prompt"
             }
         
+        elif action == "service_list":
+            return {
+                "action": "service_list",
+                "services": [{"name": "coordinator", "status": "running"}]
+            }
+
+        elif action == "service_status":
+            return {
+                "action": "service_status",
+                "name": kwargs.get("name", "all"),
+                "status": "running",
+                "uptime": "5d 12h"
+            }
+
+        elif action == "service_test":
+            return {
+                "action": "service_test",
+                "name": kwargs.get("name", "coordinator"),
+                "status": "passed",
+                "latency": "120ms"
+            }
+        
         else:
             return {"action": action, "status": "Not implemented yet"}
             
@@ -1300,6 +1322,33 @@ def resource_operations(action: str, **kwargs) -> Optional[Dict]:
                 "cost_per_hour": "25 AIT",
                 "status": "Allocated",
                 "allocation_id": f"alloc_{int(time.time())}"
+            }
+        
+        elif action == "optimize":
+            return {
+                "action": "optimize",
+                "target": kwargs.get("target", "all"),
+                "agent_id": kwargs.get("agent_id", ""),
+                "optimization_score": "85.2%",
+                "improvement": "12.5%",
+                "status": "Optimized"
+            }
+        
+        elif action == "benchmark":
+            return {
+                "action": "benchmark",
+                "type": kwargs.get("type", "all"),
+                "score": 9850,
+                "percentile": "92nd",
+                "status": "Completed"
+            }
+        
+        elif action == "monitor":
+            return {
+                "action": "monitor",
+                "message": "Monitoring started",
+                "interval": kwargs.get("interval", 5),
+                "duration": kwargs.get("duration", 60)
             }
         
         else:

@@ -2,6 +2,7 @@
 Tests for Staking Mechanism
 """
 
+import sys
 import pytest
 import time
 from decimal import Decimal

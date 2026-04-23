@@ -2,6 +2,7 @@
 Unit tests for coordinator API metrics collection and alert delivery.
 Tests MetricsCollector, AlertDispatcher, and build_live_metrics_payload
 without requiring full app startup or database.
+import sys
 """
 
 import asyncio

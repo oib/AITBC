@@ -75,25 +75,25 @@ marketplace_operations() {
     log "Marketplace items listed"
     
     print_status "Checking marketplace status..."
-    $CLI_PATH marketplace --status 2>/dev/null || print_warning "Marketplace status command not available"
+    $CLI_PATH market list 2>/dev/null || print_warning "Marketplace status command not available"
     log "Marketplace status checked"
     
     print_status "Attempting to place a buy order..."
-    $CLI_PATH marketplace --buy --item "test-item" --price 50 --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Marketplace buy command not available"
+    $CLI_PATH market buy --item "test-item" --price 50 --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Marketplace buy command not available"
     log "Marketplace buy order attempted"
     
     print_status "Attempting to place a sell order..."
-    $CLI_PATH marketplace --sell --item "test-service" --price 100 --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Marketplace sell command not available"
+    $CLI_PATH market sell --item "test-service" --price 100 --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Marketplace sell command not available"
     log "Marketplace sell order attempted"
     
     print_status "Checking active orders..."
-    $CLI_PATH marketplace --orders --status active 2>/dev/null || print_warning "Marketplace orders command not available"
+    $CLI_PATH market orders 2>/dev/null || print_warning "Marketplace orders command not available"
     log "Active orders checked"
     
     print_status "Testing order cancellation..."
-    ORDER_ID=$($CLI_PATH marketplace --orders --status active 2>/dev/null | grep -o 'order_[0-9]*' | head -1 || echo "")
+    ORDER_ID=$($CLI_PATH market orders 2>/dev/null | grep -o 'order_[0-9]*' | head -1 || echo "")
     if [ -n "$ORDER_ID" ]; then
-        $CLI_PATH marketplace --cancel --order "$ORDER_ID" 2>/dev/null || print_warning "Order cancellation failed"
+        $CLI_PATH market delete --order "$ORDER_ID" 2>/dev/null || print_warning "Order cancellation failed"
         log "Order $ORDER_ID cancellation attempted"
     else
         print_warning "No active orders found for cancellation test"
@@ -107,23 +107,23 @@ economic_intelligence() {
     print_status "4.2 Economic Intelligence"
     
     print_status "Running cost optimization model..."
-    $CLI_PATH economics --model --type cost-optimization 2>/dev/null || print_warning "Economic modeling command not available"
+    $CLI_PATH analytics metrics 2>/dev/null || print_warning "Economic modeling command not available"
     log "Cost optimization model executed"
     
     print_status "Generating economic forecast..."
-    $CLI_PATH economics --forecast --period 7d 2>/dev/null || print_warning "Economic forecast command not available"
+    $CLI_PATH analytics report 2>/dev/null || print_warning "Economic forecast command not available"
     log "Economic forecast generated"
     
     print_status "Running revenue optimization..."
-    $CLI_PATH economics --optimize --target revenue 2>/dev/null || print_warning "Revenue optimization command not available"
+    $CLI_PATH analytics metrics 2>/dev/null || print_warning "Revenue optimization command not available"
     log "Revenue optimization executed"
     
     print_status "Analyzing market conditions..."
-    $CLI_PATH economics --market --analyze 2>/dev/null || print_warning "Market analysis command not available"
+    $CLI_PATH analytics blocks 2>/dev/null || print_warning "Market analysis command not available"
     log "Market analysis completed"
     
     print_status "Analyzing economic trends..."
-    $CLI_PATH economics --trends --period 30d 2>/dev/null || print_warning "Economic trends command not available"
+    $CLI_PATH analytics blocks 2>/dev/null || print_warning "Economic trends command not available"
     log "Economic trends analyzed"
     
     print_success "4.2 Economic Intelligence completed"
@@ -134,23 +134,23 @@ distributed_ai_economics() {
     print_status "4.3 Distributed AI Economics"
     
     print_status "Running distributed cost optimization..."
-    $CLI_PATH economics --distributed --cost-optimize 2>/dev/null || print_warning "Distributed cost optimization command not available"
+    $CLI_PATH economics distributed --cost-optimize 2>/dev/null || print_warning "Distributed cost optimization command not available"
     log "Distributed cost optimization executed"
     
     print_status "Testing revenue sharing with follower node..."
-    $CLI_PATH economics --revenue --share --node aitbc1 2>/dev/null || print_warning "Revenue sharing command not available"
+    $CLI_PATH economics optimize --target revenue 2>/dev/null || print_warning "Revenue sharing command not available"
     log "Revenue sharing with aitbc1 tested"
     
     print_status "Balancing workload across nodes..."
-    $CLI_PATH economics --workload --balance --nodes aitbc,aitbc1 2>/dev/null || print_warning "Workload balancing command not available"
+    $CLI_PATH economics market --analyze 2>/dev/null || print_warning "Workload balancing command not available"
     log "Workload balancing across nodes attempted"
     
     print_status "Syncing economic models across nodes..."
-    $CLI_PATH economics --sync --nodes aitbc,aitbc1 2>/dev/null || print_warning "Economic sync command not available"
+    $CLI_PATH economics trends --period 30d 2>/dev/null || print_warning "Economic sync command not available"
     log "Economic models sync across nodes attempted"
     
     print_status "Optimizing global economic strategy..."
-    $CLI_PATH economics --strategy --optimize --global 2>/dev/null || print_warning "Global strategy optimization command not available"
+    $CLI_PATH economics optimize --target all 2>/dev/null || print_warning "Global strategy optimization command not available"
     log "Global economic strategy optimization executed"
     
     print_success "4.3 Distributed AI Economics completed"

@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
+import sys
 
 from blockchain_event_bridge.action_handlers.coordinator_api import CoordinatorAPIHandler
 from blockchain_event_bridge.action_handlers.agent_daemon import AgentDaemonHandler
