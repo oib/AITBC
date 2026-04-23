@@ -46,6 +46,11 @@ htmlcov/
 *.db-shm
 data/
 apps/blockchain-node/data/
+cli/config/
+dev/cache/logs/
+dev/config/
+dev/test-nodes/*/data/
+# Keep coordinator-api data directory (contains application code)
 !apps/coordinator-api/src/app/data/
 
 # ===================
