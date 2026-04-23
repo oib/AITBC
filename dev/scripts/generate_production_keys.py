@@ -24,4 +24,13 @@ def generate_production_keys():
 
 if __name__ == "__main__":
     keys = generate_production_keys()
-    print(json.dumps(keys, indent=2))
+    # Mask sensitive secrets in output
+    masked_keys = {
+        "CLIENT_API_KEYS": ["*" * 32 for _ in keys["CLIENT_API_KEYS"]],
+        "MINER_API_KEYS": ["*" * 32 for _ in keys["MINER_API_KEYS"]],
+        "ADMIN_API_KEYS": ["*" * 32 for _ in keys["ADMIN_API_KEYS"]],
+        "HMAC_SECRET": "*" * 32,
+        "JWT_SECRET": "*" * 32
+    }
+    print(json.dumps(masked_keys, indent=2))
+    print(f"\nActual keys saved to /etc/aitbc/.env (not shown here for security)")
