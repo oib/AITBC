@@ -2,6 +2,7 @@
 Tests for Multi-Validator PoA Consensus
 """
 
+import sys
 import pytest
 import asyncio
 from unittest.mock import Mock, patch

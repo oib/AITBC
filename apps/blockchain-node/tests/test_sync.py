@@ -2,6 +2,7 @@
 
 import hashlib
 import time
+import sys
 import pytest
 from datetime import datetime
 from contextlib import contextmanager

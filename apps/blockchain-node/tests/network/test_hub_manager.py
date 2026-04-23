@@ -2,6 +2,7 @@
 Tests for Hub Manager with Redis persistence
 """
 
+import sys
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch

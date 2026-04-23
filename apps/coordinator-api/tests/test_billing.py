@@ -2,6 +2,7 @@
 Tests for coordinator billing stubs: usage tracking, billing events, and tenant context.
 
 Uses lightweight in-memory mocks to avoid PostgreSQL/UUID dependencies.
+import sys
 """
 
 import asyncio

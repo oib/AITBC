@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 import asyncio
 import pytest
 from datetime import datetime, timedelta

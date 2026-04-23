@@ -2,6 +2,7 @@
 Integration Tests for Pool-Hub with Coordinator-API
 Tests the integration between pool-hub and coordinator-api's billing system.
 """
+import sys
 
 import pytest
 from datetime import datetime, timedelta

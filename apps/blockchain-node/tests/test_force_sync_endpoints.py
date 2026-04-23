@@ -2,6 +2,7 @@ import hashlib
 from contextlib import contextmanager
 from datetime import datetime
 
+import sys
 import pytest
 from sqlmodel import Session, SQLModel, create_engine, select
 

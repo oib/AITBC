@@ -2,6 +2,7 @@
 
 import pytest
 from unittest.mock import Mock, AsyncMock, patch
+import sys
 
 from blockchain_event_bridge.event_subscribers.contracts import ContractEventSubscriber
 

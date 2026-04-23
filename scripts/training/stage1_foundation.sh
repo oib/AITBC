@@ -123,7 +123,7 @@ basic_wallet_operations() {
     
     print_status "Creating training wallet..."
     if ! check_wallet "$WALLET_NAME"; then
-        if cli_cmd "wallet create $WALLET_NAME $WALLET_PASSWORD"; then
+        if cli_cmd "create --name $WALLET_NAME --password $WALLET_PASSWORD"; then
             print_success "Wallet $WALLET_NAME created successfully"
         else
             print_warning "Wallet creation may have failed or wallet already exists"

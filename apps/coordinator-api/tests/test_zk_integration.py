@@ -2,6 +2,7 @@
 
 Tests the end-to-end flow:
 1. Client submits a job with ZK proof requirement
+import sys
 2. Miner completes the job and generates a receipt
 3. Receipt is hashed and a ZK proof is generated (simulated)
 4. Proof is verified via the coordinator's confidential endpoint

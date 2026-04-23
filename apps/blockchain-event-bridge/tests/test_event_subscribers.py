@@ -2,6 +2,7 @@
 
 import pytest
 import asyncio
+import sys
 from unittest.mock import Mock, AsyncMock
 
 from blockchain_event_bridge.event_subscribers.blocks import BlockEventSubscriber

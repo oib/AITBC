@@ -136,10 +136,37 @@ async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depe
     """Register a GPU in the marketplace."""
     gpu_specs = request.get("gpu", {})
 
-    # Simple implementation - return success
+    # Create GPU registry record
     import uuid
+    from datetime import datetime
 
-    gpu_id = str(uuid.uuid4())
+    gpu_id = f"gpu_{uuid.uuid4().hex[:8]}"
+    
+    # Ensure miner_id is always provided
+    miner_id = gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
+    
+    # Map compute capability to cuda_version field
+    compute_capability = gpu_specs.get("compute_capability", "")
+    cuda_version = compute_capability if compute_capability else ""
+    
+    gpu_record = GPURegistry(
+        id=gpu_id,
+        miner_id=miner_id,
+        model=gpu_specs.get("name", "Unknown GPU"),
+        memory_gb=gpu_specs.get("memory_gb", 0),
+        cuda_version=cuda_version,
+        region="default",
+        price_per_hour=gpu_specs.get("price_per_hour", 0.05),
+        status="available",
+        capabilities=[],
+        average_rating=0.0,
+        total_reviews=0,
+        created_at=datetime.utcnow()
+    )
+    
+    session.add(gpu_record)
+    session.commit()
+    session.refresh(gpu_record)
 
     return {
         "gpu_id": gpu_id,

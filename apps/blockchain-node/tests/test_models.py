@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 from sqlmodel import Session
+import sys
 
 from aitbc_chain.models import Block, Receipt
 from aitbc_chain.models import Transaction as ChainTransaction

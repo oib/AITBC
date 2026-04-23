@@ -2,6 +2,7 @@
 Tests for Island Join functionality
 """
 
+import sys
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch, MagicMock
