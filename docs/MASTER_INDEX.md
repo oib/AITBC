@@ -2,29 +2,7 @@
 
 **Complete documentation catalog with quick access to all content**
 
-**Project Status**: ✅ **100% COMPLETED** (v0.3.2 - April 22, 2026)
-
----
-
-## 🎉 **PROJECT COMPLETION STATUS**
-
-### ✅ **All 9 Major Systems: 100% Complete**
-1. **System Architecture**: ✅ Complete FHS compliance and directory structure
-2. **Service Management**: ✅ Single marketplace service with clean architecture  
-3. **Basic Security**: ✅ Secure keystore and API key management
-4. **Agent Systems**: ✅ Multi-agent coordination with AI/ML integration
-5. **API Functionality**: ✅ 17/17 endpoints working (100%)
-6. **Test Suite**: ✅ Comprehensive testing with 100% success rate
-7. **Advanced Security**: ✅ JWT authentication, RBAC, rate limiting
-8. **Production Monitoring**: ✅ Prometheus metrics, alerting, SLA tracking
-9. **Type Safety**: ✅ MyPy strict checking with comprehensive coverage
-
-### 📊 **Final Statistics**
-- **Total Systems**: 9/9 Complete (100%)
-- **API Endpoints**: 17/17 Working (100%)
-- **Test Success Rate**: 100% (4/4 major test suites)
-- **Production Status**: ✅ Ready and operational
-- **Documentation**: ✅ Complete and updated
+**Last Updated**: April 23, 2026
 
 ---
 
@@ -39,87 +17,15 @@
 - **🧠 [AI Economics Masters Path](#-ai-economics-masters-learning-path)** - Advanced AI economics (4 topics)
 
 ### **📁 Documentation Categories**
-- **📦 [Applications Documentation](apps/README.md)** - All AITBC apps and services documentation
-- **🔧 [CLI Documentation](project/cli/CLI_DOCUMENTATION.md)** - Command-line interface reference and usage
+- **📦 [Applications Documentation](#-applications-documentation)** - All AITBC apps and services documentation
+- **🔧 [CLI Documentation](#cli-documentation)** - Command-line interface reference and usage
 - **🏠 [Main Documentation](#-main-documentation)**
 - **📖 [About Documentation](#-about-documentation)**
 - **🗂️ [Archive & History](#-archive--history)**
 - **✅ [Completed Projects](#-completed-projects)**
 - **🔗 [External Documentation](#-external-documentation)**
 - **🎯 [Topic-Specific Areas](#-topic-specific-areas)**
-
----
-
-## 🧠 **AI Economics Masters Learning Path**
-
-### **🎯 [AI Economics Masters Overview](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md)**
-**Prerequisites**: Advanced AI Teaching Plan completion | **Time**: 2-3 weeks total
-
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [📊 Distributed AI Job Economics](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md#phase-4-cross-node-ai-economics) | Cross-node cost optimization and revenue sharing | 1 week | 🎓🎓🎓 |
-| [💰 AI Marketplace Strategy](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md#ai-marketplace-strategy) | Dynamic pricing and competitive positioning | 1 week | 🎓🎓🎓 |
-| [📈 Advanced Economic Modeling](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md#advanced-economic-modeling) | Predictive economics and investment strategies | 1 week | 🎓🎓🎓🎓 |
-| [🏆 Performance Validation](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md#phase-5-advanced-ai-competency-certification) | Certification and economic intelligence | 3 days | 🎓🎓🎓🎓 |
-
-**🎯 Economic Intelligence Capabilities:**
-- **Distributed Economics**: Cross-node cost optimization and revenue sharing
-- **Marketplace Strategy**: Dynamic pricing and competitive positioning
-- **Investment Management**: Portfolio optimization and ROI tracking
-- **Economic Forecasting**: Predictive economics with >85% accuracy
-
-**🚀 Real-World Applications:**
-- **Medical Diagnosis AI**: Distributed economics with cost optimization
-- **Customer Feedback AI**: Marketplace strategy with dynamic pricing
-- **Investment Fund Management**: Portfolio optimization and ROI maximization
-
----
-
-## 👤 **Beginner Learning Path**
-
-### **🎯 [Beginner Overview](beginner/README.md)**
-**Prerequisites**: Basic computer skills | **Time**: 8-15 hours total
-
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [🚀 Getting Started](beginner/01_getting_started/) | First steps with AITBC | 1-2h | ⭐⭐ |
-| [📋 Project Overview](beginner/02_project/) | Understanding the project | 1-2h | ⭐⭐ |
-| [👛 Client Setup](beginner/03_clients/) | Using AITBC clients | 2-3h | ⭐⭐⭐ |
-| [⛏️ Mining Guide](beginner/04_miners/) | Mining and validation | 2-3h | ⭐⭐⭐ |
-| [💻 CLI Basics](beginner/05_cli/) | Command-line interface | 1-2h | ⭐⭐ |
-| [🔧 GitHub Guide](beginner/06_github_resolution/) | Working with GitHub | 1-2h | ⭐⭐ |
-
----
-
-## ⛓️ **Blockchain Features**
-
-### **🎯 [Blockchain Overview](blockchain/README.md)**
-**Prerequisites**: Basic blockchain knowledge | **Time**: 2-4 hours total
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| 🔄 Adaptive Sync | Tiered batch sizing for efficient initial sync (10K+ blocks: 500-1000 batch) | ✅ Implemented |
-| 💓 Hybrid Block Generation | Skip empty blocks with 60s heartbeat for consensus safety | ✅ Implemented |
-| 📊 Sync Modes | Initial sync, large gap, medium gap, steady-state detection | ✅ Implemented |
-| ⚡ Block Generation Modes | "always", "mempool-only", "hybrid" modes | ✅ Implemented |
-| 🤖 Auto Sync | Automatic bulk sync with configurable thresholds | ✅ Implemented |
-| 🔧 Force Sync | Manual trigger for blockchain synchronization | ✅ Implemented |
-| 📤 Export | Export blockchain data for backup/analysis | ✅ Implemented |
-| 📥 Import | Import blockchain data for node initialization/recovery | ✅ Implemented |
-
-### **📚 [Operational Features Documentation](blockchain/operational-features.md)**
-Detailed documentation for auto sync, force sync, export, and import operations.
-
-**🎯 Performance Improvements:**
-- **Initial Sync**: 2.9M blocks: 10 days → ~8 hours (120x improvement)
-- **Steady-State**: Unchanged (maintains 5s polling)
-- **Empty Block Reduction**: Hybrid mode skips empty blocks, forces heartbeat after 60s
-
-**🎯 Role-Based Paths:**
-- **End Users**: Getting Started → Clients → CLI
-- **Developers**: Getting Started → Project → CLI → GitHub
-- **Miners**: Getting Started → Clients → Miners
-- **Admins**: Getting Started → Project → CLI
+- **📋 [Releases](#-releases)** - Release notes and version history
 
 ---
 
@@ -181,88 +87,33 @@ Detailed documentation for auto sync, force sync, export, and import operations.
 
 ---
 
-## 🌉 **Intermediate Learning Path**
+## 🔧 **CLI Documentation**
 
-### **🎯 [Intermediate Overview](intermediate/README.md)**
-**Prerequisites**: Beginner completed | **Time**: 18-28 hours total
+### **🎯 [CLI Overview](project/cli/CLI_DOCUMENTATION.md)**
+**Complete command-line interface documentation**
 
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [📋 Strategic Planning](intermediate/01_planning/) | System planning strategies | 2-3h | ⭐⭐⭐ |
-| [🤖 AI Agents](intermediate/02_agents/) | Agent architecture and deployment | 3-4h | ⭐⭐⭐⭐ |
-| [👛 Agent SDK](intermediate/03_agent_sdk/) | Custom agent development | 3-4h | ⭐⭐⭐⭐ |
-| [⛓️ Cross-Chain](intermediate/04_cross_chain/) | Multi-chain operations | 3-4h | ⭐⭐⭐⭐ |
-| [👥 Developer Ecosystem](intermediate/05_developer_ecosystem/) | Development tools and workflows | 2-3h | ⭐⭐⭐ |
-| [🔍 Blockchain Explorer](intermediate/06_explorer/) | Blockchain analysis tools | 2-3h | ⭐⭐⭐ |
-| [🏪 Marketplace](intermediate/07_marketplace/) | Marketplace operations | 3-4h | ⭐⭐⭐⭐ |
-
-**🎯 Specialization Paths:**
-- **AI Engineers**: Agents → Agent SDK → Cross-chain → Marketplace
-- **Blockchain Specialists**: Cross-chain → Explorer → Marketplace → Planning
-- **Developers**: Planning → Agent SDK → Developer Ecosystem
-- **Architects**: Planning → Cross-chain → Developer Ecosystem → Agents
+| Section | Description |
+|---------|-------------|
+| [CLI Architecture](project/cli/CLI_DOCUMENTATION.md#architecture) | CLI structure and design |
+| [Command Groups](project/cli/CLI_DOCUMENTATION.md#command-groups) | Available command categories |
+| [Usage Examples](project/cli/CLI_DOCUMENTATION.md#usage-examples) | Common CLI operations |
+| [Configuration](project/cli/CLI_DOCUMENTATION.md#configuration) | CLI setup and config files |
 
 ---
 
-## 🚀 **Advanced Learning Path**
+## 📋 **Releases**
 
-### **🎯 [Advanced Overview](advanced/README.md)**
-**Prerequisites**: Intermediate completed | **Time**: 20-30 hours total
+### **🎯 [Release Notes](releases/)**
+**Complete release history and version information**
 
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [⛓️ Advanced Blockchain](advanced/01_blockchain/) | Deep blockchain concepts | 2-4h | ⭐⭐⭐⭐⭐ |
-| [📖 Reference Materials](advanced/02_reference/) | Comprehensive reference | 2-4h | ⭐⭐⭐⭐ |
-| [🏗️ System Architecture](advanced/03_architecture/) | Architecture and design patterns | 2-4h | ⭐⭐⭐⭐⭐ |
-| [🚀 Advanced Deployment](advanced/04_deployment/) | Production deployment strategies | 2-4h | ⭐⭐⭐⭐ |
-| [💻 Advanced Development](advanced/05_development/) | Advanced programming techniques | 2-4h | ⭐⭐⭐⭐ |
-| [🔒 Advanced Security](advanced/06_security/) | Security implementation | 2-4h | ⭐⭐⭐⭐⭐ |
-
-**🎯 Role-Based Paths:**
-- **Blockchain Developers**: Advanced Blockchain → Architecture → Security
-- **System Administrators**: Deployment → Security → Reference
-- **Software Engineers**: Architecture → Development → Reference
-- **DevOps Engineers**: Deployment → Architecture → Development
-
----
-
-## 🤖 **Agent SDK Learning Path**
-
-### **🎯 [Agent SDK Overview](agent-sdk/README.md)**
-**Prerequisites**: Basic Python knowledge | **Time**: 2-4 hours total
-
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [📱 Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | Comprehensive agent communication guide | 1-2h | ⭐⭐⭐ |
-| [🚀 Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md) | Get started in 5 minutes | 30m | ⭐ |
-| [📚 API Reference](agent-sdk/API_REFERENCE.md) | Complete API documentation | 1-2h | ⭐⭐⭐⭐ |
-
-**🎯 Agent Paths:**
-- **New Agents**: Quick Start → Communication Guide → API Reference
-- **Developing Agents**: Communication Guide → API Reference → Advanced Topics
-- **Agent Integrators**: API Reference → Communication Guide → Quick Start
-
----
-
-## 🎓 **Expert Learning Path**
-
-### **🎯 [Expert Overview](expert/README.md)**
-**Prerequisites**: Advanced + 5+ years experience | **Time**: 24-48 hours total
-
-| Topic | Description | Time | Difficulty |
-|-------|-------------|------|------------|
-| [🔍 Expert Issues](expert/01_issues/) | Advanced debugging and resolution | 4-8h | ⭐⭐⭐⭐⭐ |
-| [📋 Expert Tasks](expert/02_tasks/) | Complex task management | 4-8h | ⭐⭐⭐⭐⭐ |
-| [✅ Project Completion](expert/03_completion/) | Project delivery excellence | 3-4h | ⭐⭐⭐⭐ |
-| [📊 Phase Reports](expert/04_phase_reports/) | Advanced reporting and analytics | 3-4h | ⭐⭐⭐⭐ |
-| [📈 Expert Reports](expert/05_reports/) | Technical documentation excellence | 3-4h | ⭐⭐⭐⭐ |
-| [🔄 Expert Workflow](expert/06_workflow/) | Advanced workflow optimization | 4-8h | ⭐⭐⭐⭐⭐ |
-
-**🎯 Expert Paths:**
-- **System Architects**: Issues → Tasks → Workflow
-- **Data Analysts**: Phase Reports → Reports → Completion
-- **Project Managers**: Tasks → Completion → Reports
-- **DevOps Engineers**: Issues → Workflow → Tasks
+| Version | Date | Status | Key Features |
+|---------|------|--------|--------------|
+| [v0.3.2](releases/RELEASE_v0.3.2.md) | April 23, 2026 | ✅ Stable | Test infrastructure, CLI refactoring, CI/CD standardization |
+| [v0.3.1](releases/RELEASE_v0.3.1.md) | April 13, 2026 | ✅ Stable | Milestone tracking fix, test cleanup |
+| [v0.3.0](releases/RELEASE_v0.3.0.md) | March 30, 2026 | ✅ Stable | Multi-node sync, consensus improvements |
+| [v0.2.5](releases/RELEASE_v0.2.5.md) | March 30, 2026 | ✅ Stable | Enhanced monitoring, security hardening |
+| [v0.2.4](releases/RELEASE_v0.2.4.md) | March 15, 2026 | ✅ Stable | Exchange integration, marketplace improvements |
+| [v0.2.3](releases/RELEASE_v0.2.3.md) | March 1, 2026 | ✅ Stable | Initial production release |
 
 ---
 
@@ -380,73 +231,10 @@ All external documentation accessible from main docs directory:
 
 ---
 
-## 🔍 **Quick Reference**
+**� Welcome to AITBC Documentation!**
 
-### **🎯 Find What You Need:**
-
-| **I want to...** | **Go to...** | **Difficulty** |
-|------------------|-------------|----------------|
-| **Start learning** | [Beginner Guide](beginner/README.md) | ⭐⭐ |
-| **Develop on AITBC** | [Developer Path](beginner/README.md#-for-developers) | ⭐⭐⭐ |
-| **Run a miner** | [Mining Guide](beginner/04_miners/) | ⭐⭐⭐ |
-| **Understand architecture** | [Advanced Architecture](advanced/03_architecture/) | ⭐⭐⭐⭐⭐ |
-| **Build AI agents** | [Intermediate Agents](intermediate/02_agents/) | ⭐⭐⭐⭐ |
-| **Secure the system** | [Advanced Security](advanced/06_security/) | ⭐⭐⭐⭐⭐ |
-| **Expert troubleshooting** | [Expert Issues](expert/01_issues/) | ⭐⭐⭐⭐⭐ |
-| **Historical research** | [Archive](archive/README.md) | ⭐⭐⭐ |
-| **Project status** | [Completed Projects](completed/README.md) | ⭐⭐ |
-
-### **📊 Time Estimates:**
-- **Quick Start**: 2-4 hours (Beginner basics)
-- **Proficient User**: 15-25 hours (Beginner + Intermediate)
-- **Advanced Developer**: 35-55 hours (Beginner + Intermediate + Advanced)
-- **Expert Level**: 60-100+ hours (All levels + practice)
+This master index provides complete access to all AITBC documentation. For project status, learning paths, and getting started, see [README.md](README.md).
 
 ---
 
-## 🆘 **Help & Support**
-
-### **📚 Getting Help:**
-- **📖 Documentation Issues**: [Report Issues](https://github.com/oib/AITBC/issues)
-- **💬 Community Forum**: [AITBC Forum](https://forum.aitbc.net)
-- **🆘 Technical Support**: [AITBC Support](https://support.aitbc.net)
-- **📚 Learning Resources**: [Additional Help](beginner/README.md#-getting-help)
-
-### **🔍 Search Tips:**
-- **By Level**: Use learning paths for progressive learning
-- **By Topic**: Use topic-specific areas for focused learning
-- **By Role**: Use role-based paths for targeted learning
-- **By Time**: Use time estimates to plan learning
-
----
-
-## 📈 **Documentation Quality**
-
-### **🎯 Current Status: 10/10 (Perfect)**
-- **✅ Structure**: Excellent organization and navigation
-- **✅ Content**: Comprehensive coverage with learning paths
-- **✅ Accessibility**: Easy to find and access content
-- **✅ Cross-References**: Rich interconnections between topics
-- **✅ Standardization**: Consistent formatting and templates
-- **✅ User Experience**: Professional presentation throughout
-
-### **🎯 Target: 10/10 (Achieved)**
-- **Phase 1**: Content organization ✅ (Completed)
-- **Phase 2**: Cross-reference integration ✅ (Completed)
-- **Phase 3**: Standardization ✅ (Completed)
-- **Phase 4**: Enhanced discovery ✅ (Completed)
-- **Phase 5**: Multi-format support (Future)
-- **Phase 6**: Living documentation (Future)
-
----
-
-**🎉 Welcome to AITBC Documentation!**
-
-This master index provides complete access to all AITBC documentation. Choose your path and start learning today!
-
----
-
-*Last updated: 2026-04-22*
-*Quality Score: 10/10*
-*Total Topics: 25+ across 4 learning levels*
-*External Links: 5+ centralized access points*
+*Last updated: 2026-04-23*
