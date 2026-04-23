@@ -1,2 +1,0 @@
-{"timestamp": "2026-03-15T10:11:32.915234Z", "level": "INFO", "logger": "__main__", "message": "Starting blockchain node", "supported_chains": "aitbc-brother-chain"}
-{"timestamp": "2026-03-15T10:11:32.916861Z", "level": "INFO", "logger": "aitbc_chain.consensus.poa", "message": "Starting PoA proposer loop"}
