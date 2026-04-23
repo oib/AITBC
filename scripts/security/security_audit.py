@@ -641,12 +641,20 @@ def main():
     if results['critical_issues']:
         print(f"\n🚨 CRITICAL ISSUES:")
         for issue in results['critical_issues'][:5]:
-            print(f"  - {issue['type']}: {issue.get('message', 'N/A')}")
+            # Mask any sensitive data in messages
+            message = issue.get('message', 'N/A')
+            if any(keyword in message.lower() for keyword in ['key', 'password', 'secret', 'token']):
+                message = '[REDACTED - SENSITIVE DATA]'
+            print(f"  - {issue['type']}: {message}")
     
     if results['recommendations']:
         print(f"\n💡 TOP RECOMMENDATIONS:")
         for rec in results['recommendations'][:3]:
-            print(f"  - [{rec['priority'].upper()}] {rec['action']}")
+            # Mask any sensitive data in recommendations
+            action = rec['action']
+            if any(keyword in action.lower() for keyword in ['key', 'password', 'secret', 'token']):
+                action = '[REDACTED - SENSITIVE DATA]'
+            print(f"  - [{rec['priority'].upper()}] {action}")
     
     print(f"\n📄 Full report: {report_file}")
     

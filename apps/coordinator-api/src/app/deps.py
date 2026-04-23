@@ -18,7 +18,7 @@ def _validate_api_key(allowed_keys: list[str], api_key: str | None) -> str:
     import os
 
     if os.getenv("APP_ENV", "dev") == "dev":
-        print(f"DEBUG: Development mode - allowing API key '{api_key}'")
+        print(f"DEBUG: Development mode - allowing API key {'*' * 32 if api_key else 'None'}")  # Mask API key
         return api_key or "dev_key"
 
     allowed = {key.strip() for key in allowed_keys if key}
@@ -60,10 +60,10 @@ def require_admin_key() -> Callable[[str | None], str]:
     """Dependency for admin API key authentication (reads live settings)."""
 
     def validator(api_key: str | None = Header(default=None, alias="X-Api-Key")) -> str:
-        print(f"DEBUG: Received API key: {api_key}")
-        print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
+        print(f"DEBUG: Received API key: {'*' * 32 if api_key else 'None'}")  # Mask API key
+        print(f"DEBUG: Allowed admin keys: {'*' * 32 if settings.admin_api_keys else 'None'}")  # Mask keys
         result = _validate_api_key(settings.admin_api_keys, api_key)
-        print(f"DEBUG: Validation result: {result}")
+        print(f"DEBUG: Validation result: {'*' * 32 if result else 'None'}")  # Mask result
         return result
 
     return validator

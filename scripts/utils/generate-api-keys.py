@@ -75,7 +75,7 @@ def main():
     
     for i, key in enumerate(keys, 1):
         print(f"{i}. {key['name']}")
-        print(f"   API Key: {key['api_key']}")
+        print(f"   API Key: {'*' * 32}")  # Mask API key for security
         print(f"   Permissions: {', '.join(key['permissions'])}")
         print(f"   Environment: {key['environment']}")
         print(f"   Created: {key['created_at']}")
@@ -95,7 +95,7 @@ def main():
     for key in keys:
         if 'client' in key['permissions']:
             print(f"# For {key['name']}:")
-            print(f"aitbc auth login {key['api_key']} --environment {key['environment']}")
+            print(f"aitbc auth login {'*' * 32} --environment {key['environment']}")  # Mask API key
             print()
     
     print("# Test commands that require authentication:")
