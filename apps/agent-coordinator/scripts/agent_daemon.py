@@ -68,8 +68,8 @@ def decrypt_wallet(keystore_path: Path, password: str) -> bytes:
         else:
             salt = bytes.fromhex(kdfparams.get('salt', ''))
         
-        # Simple KDF: hash(password + salt) - matches scripts/utils/keystore.py
-        dk = hashlib.sha256(password.encode() + salt).digest()
+        # Use PBKDF2 for secure key derivation (100,000 iterations for security)
+        dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000, dklen=32)
         fernet_key = base64.urlsafe_b64encode(dk)
         
         f = Fernet(fernet_key)
