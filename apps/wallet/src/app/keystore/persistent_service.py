@@ -37,6 +37,8 @@ class PersistentKeystoreService:
 
     def __init__(self, db_path: Optional[Path] = None, encryption: Optional[EncryptionSuite] = None) -> None:
         self.db_path = db_path or Path("./data/keystore.db")
+        # Resolve path to prevent directory traversal attacks
+        self.db_path = self.db_path.resolve()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._encryption = encryption or EncryptionSuite()
         self._lock = threading.Lock()
