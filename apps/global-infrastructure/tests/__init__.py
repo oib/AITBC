@@ -1,0 +1,1 @@
+"""Global infrastructure service tests"""

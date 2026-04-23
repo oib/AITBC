@@ -2,6 +2,7 @@
 Comprehensive health endpoint tests for AITBC services
 
 Tests both internal service health and external marketplace health endpoints.
+import sys
 """
 
 import json

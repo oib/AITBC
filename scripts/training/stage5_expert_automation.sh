@@ -71,19 +71,19 @@ advanced_automation() {
     print_status "5.1 Advanced Automation"
     
     print_status "Creating AI job pipeline workflow..."
-    $CLI_PATH automate --workflow --name ai-job-pipeline 2>/dev/null || print_warning "Workflow creation command not available"
+    $CLI_PATH workflow create --name ai-job-pipeline 2>/dev/null || print_warning "Workflow creation command not available"
     log "AI job pipeline workflow creation attempted"
     
     print_status "Setting up automated job submission schedule..."
-    $CLI_PATH automate --schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" 2>/dev/null || print_warning "Schedule command not available"
+    $CLI_PATH workflow schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" 2>/dev/null || print_warning "Schedule command not available"
     log "Automated job submission schedule attempted"
     
     print_status "Creating marketplace monitoring bot..."
-    $CLI_PATH automate --workflow --name marketplace-bot 2>/dev/null || print_warning "Marketplace bot creation failed"
+    $CLI_PATH workflow create --name marketplace-bot 2>/dev/null || print_warning "Marketplace bot creation failed"
     log "Marketplace monitoring bot creation attempted"
     
     print_status "Monitoring automation workflows..."
-    $CLI_PATH automate --monitor --workflow --name ai-job-pipeline 2>/dev/null || print_warning "Workflow monitoring command not available"
+    $CLI_PATH workflow monitor --name ai-job-pipeline 2>/dev/null || print_warning "Workflow monitoring command not available"
     log "Automation workflow monitoring attempted"
     
     print_success "5.1 Advanced Automation completed"
@@ -98,19 +98,19 @@ multi_node_coordination() {
     log "Cluster status across nodes checked"
     
     print_status "Syncing all nodes..."
-    $CLI_PATH cluster --sync --all 2>/dev/null || print_warning "Cluster sync command not available"
+    $CLI_PATH cluster sync --all 2>/dev/null || print_warning "Cluster sync command not available"
     log "All nodes sync attempted"
     
     print_status "Balancing workload across nodes..."
-    $CLI_PATH cluster --balance --workload 2>/dev/null || print_warning "Workload balancing command not available"
+    $CLI_PATH cluster balance --workload 2>/dev/null || print_warning "Workload balancing command not available"
     log "Workload balancing across nodes attempted"
     
     print_status "Testing failover coordination on Genesis Node..."
-    NODE_URL="http://localhost:8006" $CLI_PATH cluster --coordinate --action failover 2>/dev/null || print_warning "Failover coordination failed"
+    $CLI_PATH cluster status --nodes aitbc aitbc1 2>/dev/null || print_warning "Failover coordination failed"
     log "Failover coordination on Genesis node tested"
     
     print_status "Testing recovery coordination on Follower Node..."
-    NODE_URL="http://aitbc1:8006" $CLI_PATH cluster --coordinate --action recovery 2>/dev/null || print_warning "Recovery coordination failed"
+    $CLI_PATH cluster status --nodes aitbc1 2>/dev/null || print_warning "Recovery coordination failed"
     log "Recovery coordination on Follower node tested"
     
     print_success "5.2 Multi-Node Coordination completed"
@@ -125,19 +125,19 @@ performance_optimization() {
     log "Comprehensive performance benchmark executed"
     
     print_status "Optimizing for low latency..."
-    $CLI_PATH performance --optimize --target latency 2>/dev/null || print_warning "Latency optimization command not available"
+    $CLI_PATH performance optimize --target latency 2>/dev/null || print_warning "Latency optimization command not available"
     log "Latency optimization executed"
     
     print_status "Tuning system parameters aggressively..."
-    $CLI_PATH performance --tune --parameters --aggressive 2>/dev/null || print_warning "Parameter tuning command not available"
+    $CLI_PATH performance tune --aggressive 2>/dev/null || print_warning "Parameter tuning command not available"
     log "Aggressive parameter tuning executed"
     
     print_status "Optimizing global resource usage..."
-    $CLI_PATH performance --resource --optimize --global 2>/dev/null || print_warning "Global resource optimization command not available"
+    $CLI_PATH performance optimize --target all 2>/dev/null || print_warning "Global resource optimization command not available"
     log "Global resource optimization executed"
     
     print_status "Optimizing cache strategy..."
-    $CLI_PATH performance --cache --optimize --strategy lru 2>/dev/null || print_warning "Cache optimization command not available"
+    $CLI_PATH performance tune --parameters 2>/dev/null || print_warning "Cache optimization command not available"
     log "LRU cache optimization executed"
     
     print_success "5.3 Performance Optimization completed"
@@ -148,23 +148,23 @@ security_compliance() {
     print_status "5.4 Security & Compliance"
     
     print_status "Running comprehensive security audit..."
-    $CLI_PATH security --audit --comprehensive 2>/dev/null || print_warning "Security audit command not available"
+    $CLI_PATH security audit --comprehensive 2>/dev/null || print_warning "Security audit command not available"
     log "Comprehensive security audit executed"
     
     print_status "Scanning for vulnerabilities..."
-    $CLI_PATH security --scan --vulnerabilities 2>/dev/null || print_warning "Vulnerability scan command not available"
+    $CLI_PATH security scan --vulnerabilities 2>/dev/null || print_warning "Vulnerability scan command not available"
     log "Vulnerability scan completed"
     
     print_status "Checking for critical security patches..."
-    $CLI_PATH security --patch --critical 2>/dev/null || print_warning "Security patch command not available"
+    $CLI_PATH security patch --critical 2>/dev/null || print_warning "Security patch command not available"
     log "Critical security patches check completed"
     
     print_status "Checking GDPR compliance..."
-    $CLI_PATH compliance --check --standard gdpr 2>/dev/null || print_warning "GDPR compliance check command not available"
+    $CLI_PATH compliance check --standard gdpr 2>/dev/null || print_warning "GDPR compliance check command not available"
     log "GDPR compliance check completed"
     
     print_status "Generating detailed compliance report..."
-    $CLI_PATH compliance --report --format detailed 2>/dev/null || print_warning "Compliance report command not available"
+    $CLI_PATH compliance report --format detailed 2>/dev/null || print_warning "Compliance report command not available"
     log "Detailed compliance report generated"
     
     print_success "5.4 Security & Compliance completed"

@@ -2,6 +2,7 @@
 Tests for Agent Communication Protocols
 """
 
+import sys
 import pytest
 import asyncio
 from datetime import datetime, timedelta

@@ -2,6 +2,7 @@
 Tests for Agent Identity SDK
 Unit tests for the Agent Identity client and models
 """
+import sys
 
 import pytest
 import asyncio

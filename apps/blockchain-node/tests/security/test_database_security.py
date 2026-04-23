@@ -2,6 +2,7 @@
 Security tests for database access restrictions.
 
 Tests that database manipulation is not possible without detection.
+import sys
 """
 
 import os

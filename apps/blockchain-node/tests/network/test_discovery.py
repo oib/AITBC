@@ -2,6 +2,7 @@
 Tests for P2P Discovery Service
 """
 
+import sys
 import pytest
 import asyncio
 from unittest.mock import Mock, patch
