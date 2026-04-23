@@ -344,3 +344,14 @@ production/logs/
 *.db-wal
 *.db-shm
 !*.example
+data/
+config/
+logs/
+production/data/
+production/logs/
+*.log
+*.log.*
+*.db
+*.db-wal
+*.db-shm
+!*.example
