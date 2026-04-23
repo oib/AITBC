@@ -39,6 +39,8 @@
 - **🧠 [AI Economics Masters Path](#-ai-economics-masters-learning-path)** - Advanced AI economics (4 topics)
 
 ### **📁 Documentation Categories**
+- **📦 [Applications Documentation](apps/README.md)** - All AITBC apps and services documentation
+- **🔧 [CLI Documentation](project/cli/CLI_DOCUMENTATION.md)** - Command-line interface reference and usage
 - **🏠 [Main Documentation](#-main-documentation)**
 - **📖 [About Documentation](#-about-documentation)**
 - **🗂️ [Archive & History](#-archive--history)**
@@ -87,11 +89,95 @@
 | [💻 CLI Basics](beginner/05_cli/) | Command-line interface | 1-2h | ⭐⭐ |
 | [🔧 GitHub Guide](beginner/06_github_resolution/) | Working with GitHub | 1-2h | ⭐⭐ |
 
+---
+
+## ⛓️ **Blockchain Features**
+
+### **🎯 [Blockchain Overview](blockchain/README.md)**
+**Prerequisites**: Basic blockchain knowledge | **Time**: 2-4 hours total
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 🔄 Adaptive Sync | Tiered batch sizing for efficient initial sync (10K+ blocks: 500-1000 batch) | ✅ Implemented |
+| 💓 Hybrid Block Generation | Skip empty blocks with 60s heartbeat for consensus safety | ✅ Implemented |
+| 📊 Sync Modes | Initial sync, large gap, medium gap, steady-state detection | ✅ Implemented |
+| ⚡ Block Generation Modes | "always", "mempool-only", "hybrid" modes | ✅ Implemented |
+| 🤖 Auto Sync | Automatic bulk sync with configurable thresholds | ✅ Implemented |
+| 🔧 Force Sync | Manual trigger for blockchain synchronization | ✅ Implemented |
+| 📤 Export | Export blockchain data for backup/analysis | ✅ Implemented |
+| 📥 Import | Import blockchain data for node initialization/recovery | ✅ Implemented |
+
+### **📚 [Operational Features Documentation](blockchain/operational-features.md)**
+Detailed documentation for auto sync, force sync, export, and import operations.
+
+**🎯 Performance Improvements:**
+- **Initial Sync**: 2.9M blocks: 10 days → ~8 hours (120x improvement)
+- **Steady-State**: Unchanged (maintains 5s polling)
+- **Empty Block Reduction**: Hybrid mode skips empty blocks, forces heartbeat after 60s
+
 **🎯 Role-Based Paths:**
 - **End Users**: Getting Started → Clients → CLI
 - **Developers**: Getting Started → Project → CLI → GitHub
 - **Miners**: Getting Started → Clients → Miners
 - **Admins**: Getting Started → Project → CLI
+
+---
+
+## 📦 **Applications Documentation**
+
+### **🎯 [Apps Overview](apps/README.md)**
+**Complete documentation for all AITBC applications and services**
+
+#### **Blockchain**
+- [Blockchain Node](apps/blockchain/blockchain-node.md) - Production-ready blockchain node with PoA consensus
+- [Blockchain Event Bridge](apps/blockchain/blockchain-event-bridge.md) - Event bridge for blockchain events
+- [Blockchain Explorer](apps/blockchain/blockchain-explorer.md) - Blockchain explorer and analytics
+
+#### **Coordinator**
+- [Coordinator API](apps/coordinator/coordinator-api.md) - Job coordination service
+- [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management
+
+#### **Agents**
+- [Agent Services](apps/agents/agent-services.md) - Agent bridge, compliance, protocols, registry, and trading
+- [AI Engine](apps/agents/ai-engine.md) - AI engine for autonomous agent operations
+
+#### **Exchange**
+- [Exchange](apps/exchange/exchange.md) - Cross-chain exchange and trading platform
+- [Exchange Integration](apps/exchange/exchange-integration.md) - Exchange integration services
+- [Trading Engine](apps/exchange/trading-engine.md) - Trading engine for order matching
+
+#### **Marketplace**
+- [Marketplace](apps/marketplace/marketplace.md) - GPU marketplace for compute resources
+- [Pool Hub](apps/marketplace/pool-hub.md) - Pool hub for resource pooling
+
+#### **Wallet**
+- [Wallet](apps/wallet/wallet.md) - Multi-chain wallet services
+
+#### **Infrastructure**
+- [Monitor](apps/infrastructure/monitor.md) - System monitoring and alerting
+- [Multi-Region Load Balancer](apps/infrastructure/multi-region-load-balancer.md) - Load balancing across regions
+- [Global Infrastructure](apps/infrastructure/global-infrastructure.md) - Global infrastructure management
+
+#### **Plugins**
+- [Plugin Analytics](apps/plugins/plugin-analytics.md) - Analytics plugin
+- [Plugin Marketplace](apps/plugins/plugin-marketplace.md) - Marketplace plugin
+- [Plugin Registry](apps/plugins/plugin-registry.md) - Plugin registry
+- [Plugin Security](apps/plugins/plugin-security.md) - Security plugin
+
+#### **Crypto**
+- [ZK Circuits](apps/crypto/zk-circuits.md) - Zero-knowledge circuits for privacy
+
+#### **Compliance**
+- [Compliance Service](apps/compliance/compliance-service.md) - Compliance checking and regulatory services
+
+#### **Mining**
+- [Miner](apps/mining/miner.md) - Mining and block validation services
+
+#### **Global AI**
+- [Global AI Agents](apps/global-ai/global-ai-agents.md) - Global AI agent coordination
+
+#### **Explorer**
+- [Simple Explorer](apps/explorer/simple-explorer.md) - Simple blockchain explorer
 
 ---
 

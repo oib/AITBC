@@ -1425,6 +1425,333 @@ def run_cli(argv, core):
             print(f"Error getting account: {e}")
             sys.exit(1)
 
+    def handle_pool_hub_sla_metrics(args):
+        """Get SLA metrics for a miner or all miners"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("📊 SLA Metrics (test mode):")
+                print("⏱️  Uptime: 97.5%")
+                print("⚡ Response Time: 850ms")
+                print("✅ Job Completion Rate: 92.3%")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            miner_id = getattr(args, "miner_id", None)
+            
+            if miner_id:
+                response = requests.get(f"{pool_hub_url}/sla/metrics/{miner_id}", timeout=30)
+            else:
+                response = requests.get(f"{pool_hub_url}/sla/metrics", timeout=30)
+            
+            if response.status_code == 200:
+                metrics = response.json()
+                print("📊 SLA Metrics:")
+                for key, value in metrics.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Failed to get SLA metrics: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting SLA metrics: {e}")
+
+    def handle_pool_hub_sla_violations(args):
+        """Get SLA violations across all miners"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("⚠️  SLA Violations (test mode):")
+                print("  miner_001: response_time violation")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.get(f"{pool_hub_url}/sla/violations", timeout=30)
+            
+            if response.status_code == 200:
+                violations = response.json()
+                print("⚠️  SLA Violations:")
+                for v in violations:
+                    print(f"  {v}")
+            else:
+                print(f"❌ Failed to get violations: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting violations: {e}")
+
+    def handle_pool_hub_capacity_snapshots(args):
+        """Get capacity planning snapshots"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("📊 Capacity Snapshots (test mode):")
+                print("  Total Capacity: 1250 GPU")
+                print("  Available: 320 GPU")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.get(f"{pool_hub_url}/sla/capacity/snapshots", timeout=30)
+            
+            if response.status_code == 200:
+                snapshots = response.json()
+                print("📊 Capacity Snapshots:")
+                for s in snapshots:
+                    print(f"  {s}")
+            else:
+                print(f"❌ Failed to get snapshots: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting snapshots: {e}")
+
+    def handle_pool_hub_capacity_forecast(args):
+        """Get capacity forecast"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("🔮 Capacity Forecast (test mode):")
+                print("  Projected Capacity: 1400 GPU")
+                print("  Growth Rate: 12%")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.get(f"{pool_hub_url}/sla/capacity/forecast", timeout=30)
+            
+            if response.status_code == 200:
+                forecast = response.json()
+                print("🔮 Capacity Forecast:")
+                for key, value in forecast.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Failed to get forecast: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting forecast: {e}")
+
+    def handle_pool_hub_capacity_recommendations(args):
+        """Get scaling recommendations"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("💡 Capacity Recommendations (test mode):")
+                print("  Type: scale_up")
+                print("  Action: Add 50 GPU capacity")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.get(f"{pool_hub_url}/sla/capacity/recommendations", timeout=30)
+            
+            if response.status_code == 200:
+                recommendations = response.json()
+                print("💡 Capacity Recommendations:")
+                for r in recommendations:
+                    print(f"  {r}")
+            else:
+                print(f"❌ Failed to get recommendations: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting recommendations: {e}")
+
+    def handle_pool_hub_billing_usage(args):
+        """Get billing usage data"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("💰 Billing Usage (test mode):")
+                print("  Total GPU Hours: 45678")
+                print("  Total Cost: $12500.50")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.get(f"{pool_hub_url}/sla/billing/usage", timeout=30)
+            
+            if response.status_code == 200:
+                usage = response.json()
+                print("💰 Billing Usage:")
+                for key, value in usage.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Failed to get billing usage: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting billing usage: {e}")
+
+    def handle_pool_hub_billing_sync(args):
+        """Trigger billing sync with coordinator-api"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("🔄 Billing sync triggered (test mode)")
+                print("✅ Sync completed successfully")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.post(f"{pool_hub_url}/sla/billing/sync", timeout=60)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print("🔄 Billing sync triggered")
+                print(f"✅ {result.get('message', 'Success')}")
+            else:
+                print(f"❌ Billing sync failed: {response.text}")
+        except Exception as e:
+            print(f"❌ Error triggering billing sync: {e}")
+
+    def handle_pool_hub_collect_metrics(args):
+        """Trigger SLA metrics collection"""
+        try:
+            from commands.pool_hub import get_config as get_pool_hub_config
+            config = get_pool_hub_config()
+            
+            if args.test_mode:
+                print("📊 SLA metrics collection triggered (test mode)")
+                print("✅ Collection completed successfully")
+                return
+            
+            pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
+            response = requests.post(f"{pool_hub_url}/sla/metrics/collect", timeout=60)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print("📊 SLA metrics collection triggered")
+                print(f"✅ {result.get('message', 'Success')}")
+            else:
+                print(f"❌ Metrics collection failed: {response.text}")
+        except Exception as e:
+            print(f"❌ Error triggering metrics collection: {e}")
+
+    def handle_bridge_health(args):
+        """Health check for blockchain event bridge service"""
+        try:
+            from commands.blockchain_event_bridge import get_config as get_bridge_config
+            config = get_bridge_config()
+            
+            if args.test_mode:
+                print("🏥 Blockchain Event Bridge Health (test mode):")
+                print("✅ Status: healthy")
+                print("📦 Service: blockchain-event-bridge")
+                return
+            
+            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
+            response = requests.get(f"{bridge_url}/health", timeout=10)
+            
+            if response.status_code == 200:
+                health = response.json()
+                print("🏥 Blockchain Event Bridge Health:")
+                for key, value in health.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Health check failed: {response.text}")
+        except Exception as e:
+            print(f"❌ Error checking health: {e}")
+
+    def handle_bridge_metrics(args):
+        """Get Prometheus metrics from blockchain event bridge service"""
+        try:
+            from commands.blockchain_event_bridge import get_config as get_bridge_config
+            config = get_bridge_config()
+            
+            if args.test_mode:
+                print("📊 Prometheus Metrics (test mode):")
+                print("  bridge_events_total: 103691")
+                print("  bridge_events_processed_total: 103691")
+                return
+            
+            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
+            response = requests.get(f"{bridge_url}/metrics", timeout=10)
+            
+            if response.status_code == 200:
+                metrics = response.text
+                print("📊 Prometheus Metrics:")
+                print(metrics)
+            else:
+                print(f"❌ Failed to get metrics: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting metrics: {e}")
+
+    def handle_bridge_status(args):
+        """Get detailed status of blockchain event bridge service"""
+        try:
+            from commands.blockchain_event_bridge import get_config as get_bridge_config
+            config = get_bridge_config()
+            
+            if args.test_mode:
+                print("📊 Blockchain Event Bridge Status (test mode):")
+                print("✅ Status: running")
+                print("🔔 Subscriptions: blocks, transactions, contract_events")
+                return
+            
+            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
+            response = requests.get(f"{bridge_url}/", timeout=10)
+            
+            if response.status_code == 200:
+                status = response.json()
+                print("📊 Blockchain Event Bridge Status:")
+                for key, value in status.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Failed to get status: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting status: {e}")
+
+    def handle_bridge_config(args):
+        """Show current configuration of blockchain event bridge service"""
+        try:
+            from commands.blockchain_event_bridge import get_config as get_bridge_config
+            config = get_bridge_config()
+            
+            if args.test_mode:
+                print("⚙️  Blockchain Event Bridge Configuration (test mode):")
+                print("🔗 Blockchain RPC URL: http://localhost:8006")
+                print("💬 Gossip Backend: redis")
+                return
+            
+            bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
+            response = requests.get(f"{bridge_url}/config", timeout=10)
+            
+            if response.status_code == 200:
+                service_config = response.json()
+                print("⚙️  Blockchain Event Bridge Configuration:")
+                for key, value in service_config.items():
+                    print(f"  {key}: {value}")
+            else:
+                print(f"❌ Failed to get config: {response.text}")
+        except Exception as e:
+            print(f"❌ Error getting config: {e}")
+
+    def handle_bridge_restart(args):
+        """Restart blockchain event bridge service (via systemd)"""
+        try:
+            if args.test_mode:
+                print("🔄 Blockchain event bridge restart triggered (test mode)")
+                print("✅ Restart completed successfully")
+                return
+            
+            result = subprocess.run(
+                ["sudo", "systemctl", "restart", "aitbc-blockchain-event-bridge"],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            
+            if result.returncode == 0:
+                print("🔄 Blockchain event bridge restart triggered")
+                print("✅ Restart completed successfully")
+            else:
+                print(f"❌ Restart failed: {result.stderr}")
+        except subprocess.TimeoutExpired:
+            print("❌ Restart timeout - service may be starting")
+        except FileNotFoundError:
+            print("❌ systemctl not found - cannot restart service")
+        except Exception as e:
+            print(f"❌ Error restarting service: {e}")
+
     def handle_blockchain_transactions(args):
         rpc_url = args.rpc_url or default_rpc_url
         chain_id = getattr(args, "chain_id", None)
@@ -2170,6 +2497,67 @@ def run_cli(argv, core):
     simulate_ai_jobs_parser.add_argument("--models", default="text-generation")
     simulate_ai_jobs_parser.add_argument("--duration-range", default="30-300")
     simulate_ai_jobs_parser.set_defaults(handler=handle_simulate_action)
+
+    pool_hub_parser = subparsers.add_parser("pool-hub", help="Pool hub management for SLA monitoring and billing")
+    pool_hub_parser.set_defaults(handler=lambda parsed, parser=pool_hub_parser: parser.print_help())
+    pool_hub_subparsers = pool_hub_parser.add_subparsers(dest="pool_hub_action")
+
+    pool_hub_sla_metrics_parser = pool_hub_subparsers.add_parser("sla-metrics", help="Get SLA metrics for miner or all miners")
+    pool_hub_sla_metrics_parser.add_argument("miner_id", nargs="?")
+    pool_hub_sla_metrics_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_sla_metrics_parser.set_defaults(handler=handle_pool_hub_sla_metrics)
+
+    pool_hub_sla_violations_parser = pool_hub_subparsers.add_parser("sla-violations", help="Get SLA violations")
+    pool_hub_sla_violations_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_sla_violations_parser.set_defaults(handler=handle_pool_hub_sla_violations)
+
+    pool_hub_capacity_snapshots_parser = pool_hub_subparsers.add_parser("capacity-snapshots", help="Get capacity planning snapshots")
+    pool_hub_capacity_snapshots_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_capacity_snapshots_parser.set_defaults(handler=handle_pool_hub_capacity_snapshots)
+
+    pool_hub_capacity_forecast_parser = pool_hub_subparsers.add_parser("capacity-forecast", help="Get capacity forecast")
+    pool_hub_capacity_forecast_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_capacity_forecast_parser.set_defaults(handler=handle_pool_hub_capacity_forecast)
+
+    pool_hub_capacity_recommendations_parser = pool_hub_subparsers.add_parser("capacity-recommendations", help="Get scaling recommendations")
+    pool_hub_capacity_recommendations_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_capacity_recommendations_parser.set_defaults(handler=handle_pool_hub_capacity_recommendations)
+
+    pool_hub_billing_usage_parser = pool_hub_subparsers.add_parser("billing-usage", help="Get billing usage data")
+    pool_hub_billing_usage_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_billing_usage_parser.set_defaults(handler=handle_pool_hub_billing_usage)
+
+    pool_hub_billing_sync_parser = pool_hub_subparsers.add_parser("billing-sync", help="Trigger billing sync with coordinator-api")
+    pool_hub_billing_sync_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_billing_sync_parser.set_defaults(handler=handle_pool_hub_billing_sync)
+
+    pool_hub_collect_metrics_parser = pool_hub_subparsers.add_parser("collect-metrics", help="Trigger SLA metrics collection")
+    pool_hub_collect_metrics_parser.add_argument("--test-mode", action="store_true")
+    pool_hub_collect_metrics_parser.set_defaults(handler=handle_pool_hub_collect_metrics)
+
+    bridge_parser = subparsers.add_parser("bridge", help="Blockchain event bridge management")
+    bridge_parser.set_defaults(handler=lambda parsed, parser=bridge_parser: parser.print_help())
+    bridge_subparsers = bridge_parser.add_subparsers(dest="bridge_action")
+
+    bridge_health_parser = bridge_subparsers.add_parser("health", help="Health check for blockchain event bridge service")
+    bridge_health_parser.add_argument("--test-mode", action="store_true")
+    bridge_health_parser.set_defaults(handler=handle_bridge_health)
+
+    bridge_metrics_parser = bridge_subparsers.add_parser("metrics", help="Get Prometheus metrics from blockchain event bridge service")
+    bridge_metrics_parser.add_argument("--test-mode", action="store_true")
+    bridge_metrics_parser.set_defaults(handler=handle_bridge_metrics)
+
+    bridge_status_parser = bridge_subparsers.add_parser("status", help="Get detailed status of blockchain event bridge service")
+    bridge_status_parser.add_argument("--test-mode", action="store_true")
+    bridge_status_parser.set_defaults(handler=handle_bridge_status)
+
+    bridge_config_parser = bridge_subparsers.add_parser("config", help="Show current configuration of blockchain event bridge service")
+    bridge_config_parser.add_argument("--test-mode", action="store_true")
+    bridge_config_parser.set_defaults(handler=handle_bridge_config)
+
+    bridge_restart_parser = bridge_subparsers.add_parser("restart", help="Restart blockchain event bridge service (via systemd)")
+    bridge_restart_parser.add_argument("--test-mode", action="store_true")
+    bridge_restart_parser.set_defaults(handler=handle_bridge_restart)
 
     parsed_args = parser.parse_args(normalize_legacy_args(list(sys.argv[1:] if argv is None else argv)))
     if not getattr(parsed_args, "command", None):
