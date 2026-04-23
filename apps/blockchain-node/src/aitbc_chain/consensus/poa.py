@@ -114,6 +114,13 @@ class PoAProposer:
             return
         self._logger.info("Starting PoA proposer loop", extra={"interval": self._config.interval_seconds})
         await self._ensure_genesis_block()
+
+        # Initialize last block timestamp from head block for heartbeat logic
+        head = self._fetch_chain_head()
+        if head is not None:
+            self._last_block_timestamp = head.timestamp
+            self._logger.info("Initialized last block timestamp from head", extra={"height": head.height})
+
         self._stop_event.clear()
         self._task = asyncio.create_task(self._run_loop())
 
