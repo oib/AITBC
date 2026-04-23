@@ -1,0 +1,199 @@
+# Blockchain Node (Brother Chain)
+
+Production-ready blockchain node for AITBC with fixed supply and secure key management.
+
+## Status
+
+✅ **Operational** — Core blockchain functionality implemented.
+
+### Capabilities
+- PoA consensus with single proposer
+- Transaction processing (TRANSFER, RECEIPT_CLAIM)
+- Gossip-based peer-to-peer networking (in-memory backend)
+- RESTful RPC API (`/rpc/*`)
+- Prometheus metrics (`/metrics`)
+- Health check endpoint (`/health`)
+- SQLite persistence with Alembic migrations
+- Multi-chain support (separate data directories per chain ID)
+
+## Architecture
+
+### Wallets & Supply
+- **Fixed supply**: All tokens minted at genesis; no further minting.
+- **Two wallets**:
+  - `aitbc1genesis` (treasury): holds the full initial supply (default 1 B AIT). This is the **cold storage** wallet; private key is encrypted in keystore.
+  - `aitbc1treasury` (spending): operational wallet for transactions; initially zero balance. Can receive funds from genesis wallet.
+- **Private keys** are stored in `keystore/*.json` using AES‑256‑GCM encryption. Password is stored in `keystore/.password` (mode 600).
+
+### Chain Configuration
+- **Chain ID**: `ait-mainnet` (production)
+- **Proposer**: The genesis wallet address is the block proposer and authority.
+- **Trusted proposers**: Only the genesis wallet is allowed to produce blocks.
+- **No admin endpoints**: The `/rpc/admin/mintFaucet` endpoint has been removed.
+
+## Quickstart (Production)
+
+### 1. Generate Production Keys & Genesis
+
+Run the setup script once to create the keystore, allocations, and genesis:
+
+```bash
+cd /opt/aitbc/apps/blockchain-node
+.venv/bin/python scripts/setup_production.py --chain-id ait-mainnet
+```
+
+This creates:
+- `keystore/aitbc1genesis.json` (treasury wallet)
+- `keystore/aitbc1treasury.json` (spending wallet)
+- `keystore/.password` (random strong password)
+- `data/ait-mainnet/allocations.json`
+- `data/ait-mainnet/genesis.json`
+
+**Important**: Back up the keystore directory and the `.password` file securely. Loss of these means loss of funds.
+
+### 2. Configure Environment
+
+Copy the provided production environment file:
+
+```bash
+cp .env.production .env
+```
+
+Edit `.env` if you need to adjust ports or paths. Ensure `chain_id=ait-mainnet` and `proposer_id` matches the genesis wallet address (the setup script sets it automatically in `.env.production`).
+
+### 3. Start the Node
+
+Use the production launcher:
+
+```bash
+bash scripts/mainnet_up.sh
+```
+
+This starts:
+- Blockchain node (PoA proposer)
+- RPC API on `http://127.0.0.1:8026`
+
+Press `Ctrl+C` to stop both.
+
+### Manual Startup (Alternative)
+
+```bash
+cd /opt/aitbc/apps/blockchain-node
+source .env.production  # or export the variables manually
+# Terminal 1: Node
+.venv/bin/python -m aitbc_chain.main
+# Terminal 2: RPC
+.venv/bin/bin/uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8026
+```
+
+## API Endpoints
+
+RPC API available at `http://127.0.0.1:8026/rpc`.
+
+### Blockchain
+- `GET /rpc/head` — Current chain head
+- `GET /rpc/blocks/{height}` — Get block by height
+- `GET /rpc/blocks-range?start=0&end=10` — Block range
+- `GET /rpc/info` — Chain information
+- `GET /rpc/supply` — Token supply (total & circulating)
+- `GET /rpc/validators` — List of authorities
+- `GET /rpc/state` — Full state dump
+
+### Transactions
+- `POST /rpc/sendTx` — Submit transaction (TRANSFER, RECEIPT_CLAIM)
+- `GET /rpc/transactions` — Latest transactions
+- `GET /rpc/tx/{tx_hash}` — Get transaction by hash
+- `POST /rpc/estimateFee` — Estimate fee
+
+### Accounts
+- `GET /rpc/getBalance/{address}` — Account balance
+- `GET /rpc/address/{address}` — Address details + txs
+- `GET /rpc/addresses` — List active addresses
+
+### Health & Metrics
+- `GET /health` — Health check
+- `GET /metrics` — Prometheus metrics
+
+*Note: Admin endpoints (`/rpc/admin/*`) are disabled in production.*
+
+## Multi‑Chain Support
+
+The node can run multiple chains simultaneously by setting `supported_chains` in `.env` as a comma‑separated list (e.g., `ait-mainnet,ait-testnet`). Each chain must have its own `data/<chain_id>/genesis.json` and (optionally) its own keystore. The proposer identity is shared across chains; for multi‑chain you may want separate proposer wallets per chain.
+
+## Keystore Management
+
+### Encrypted Keystore Format
+- Uses Web3 keystore format (AES‑256‑GCM + PBKDF2).
+- Password stored in `keystore/.password` (chmod 600).
+- Private keys are **never** stored in plaintext.
+
+### Changing the Password
+```bash
+# Use the keystore.py script to re‑encrypt with a new password
+.venv/bin/python scripts/keystore.py --name genesis --show --password <old> --new-password <new>
+```
+(Not yet implemented; currently you must manually decrypt and re‑encrypt.)
+
+### Adding a New Wallet
+```bash
+.venv/bin/python scripts/keystore.py --name mywallet --create
+```
+This appends a new entry to `allocations.json` if you want it to receive genesis allocation (edit the file and regenerate genesis).
+
+## Genesis & Supply
+
+- Genesis file is generated by `scripts/make_genesis.py`.
+- Supply is fixed: the sum of `allocations[].balance`.
+- No tokens can be minted after genesis (`mint_per_unit=0`).
+- To change the allocation distribution, edit `allocations.json` and regenerate genesis (requires consensus to reset chain).
+
+## Development / Devnet
+
+The old devnet (faucet model) has been removed. For local development, use the production setup with a throwaway keystore, or create a separate `ait-devnet` chain by providing your own `allocations.json` and running `scripts/make_genesis.py` manually.
+
+## Troubleshooting
+
+**Genesis missing**: Run `scripts/setup_production.py` first.
+
+**Proposer key not loaded**: Ensure `keystore/aitbc1genesis.json` exists and `keystore/.password` is readable. The node will log a warning but still run (block signing disabled until implemented).
+
+**Port already in use**: Change `rpc_bind_port` in `.env` and restart.
+
+**Database locked**: Delete `data/ait-mainnet/chain.db` and restart (only if you're sure no other node is using it).
+
+## Project Layout
+
+```
+blockchain-node/
+├── src/aitbc_chain/
+│   ├── app.py           # FastAPI app + routes
+│   ├── main.py          # Proposer loop + startup
+│   ├── config.py        # Settings from .env
+│   ├── database.py      # DB init + session mgmt
+│   ├── mempool.py       # Transaction mempool
+│   ├── gossip/          # P2P message bus
+│   ├── consensus/       # PoA proposer logic
+│   ├── rpc/             # RPC endpoints
+│   └── models.py        # SQLModel definitions
+├── data/
+│   └── ait-mainnet/
+│       ├── genesis.json # Generated by make_genesis.py
+│       └── chain.db     # SQLite database
+├── keystore/
+│   ├── aitbc1genesis.json
+│   ├── aitbc1treasury.json
+│   └── .password
+├── scripts/
+│   ├── make_genesis.py  # Genesis generator
+│   ├── setup_production.py  # One‑time production setup
+│   ├── mainnet_up.sh    # Production launcher
+│   └── keystore.py      # Keystore utilities
+└── .env.production      # Production environment template
+```
+
+## Security Notes
+
+- **Never** expose RPC API to the public internet without authentication (production should add mTLS or API keys).
+- Keep keystore and password backups offline.
+- The node runs as the current user; ensure file permissions restrict access to the `keystore/` and `data/` directories.
+- In a multi‑node network, use Redis gossip backend and configure `trusted_proposers` with all authority addresses.
