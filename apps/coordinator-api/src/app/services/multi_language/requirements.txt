@@ -7,7 +7,7 @@ Dependencies and requirements for multi-language support
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 pydantic>=2.5.0
-python-multipart>=0.0.6
+python-multipart>=0.0.25
 
 # Translation providers
 openai>=1.3.0
@@ -50,10 +50,10 @@ rich>=13.7.0
 tqdm>=4.66.0
 
 # Security
-cryptography>=41.0.0
+cryptography>=47.0.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 
 # Performance
-orjson>=3.9.0
+orjson>=3.11.9
 lz4>=4.3.0
