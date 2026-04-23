@@ -212,6 +212,20 @@ echo "Gitea-Runner: $(ssh gitea-runner 'cd /opt/aitbc && git rev-parse --short H
 ### 8. Push to GitHub (Milestone Only)
 ```bash
 # Only push to GitHub for milestones (releases, major features)
+# First verify local changes are pushed to Gitea
+LOCAL_HASH=$(git rev-parse HEAD)
+ORIGIN_HASH=$(git rev-parse origin/main)
+
+if [ "$LOCAL_HASH" != "$ORIGIN_HASH" ]; then
+    echo "❌ Local changes not pushed to Gitea"
+    echo "Local: $LOCAL_HASH"
+    echo "Origin: $ORIGIN_HASH"
+    echo "Push to Gitea first: git push origin main"
+    exit 1
+fi
+
+echo "✅ Local changes already pushed to Gitea"
+
 # Verify all three nodes are in sync before GitHub push
 GENESIS_HASH=$(git rev-parse HEAD)
 FOLLOWER_HASH=$(ssh aitbc1 'cd /opt/aitbc && git rev-parse HEAD')
