@@ -140,7 +140,7 @@ phase1_preflight_checks() {
     log_info "Checking AITBC services on localhost"
     health_check "localhost" "blockchain-node" "8006" || log_warning "Blockchain node on localhost may not be healthy"
     health_check "localhost" "coordinator-api" "8011" || log_warning "Coordinator API on localhost may not be healthy"
-    health_check "localhost" "blockchain-event-bridge" "8204" || log_warning "Blockchain event bridge on localhost may not be healthy"
+    # blockchain-event-bridge service not configured - skipping health check
     
     # Check AITBC services on gitea-runner
     log_info "Checking AITBC services on gitea-runner"
