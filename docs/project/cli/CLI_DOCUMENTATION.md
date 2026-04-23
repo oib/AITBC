@@ -1,49 +1,68 @@
 # AITBC CLI Documentation
 
-**Project Status**: ✅ **100% COMPLETED** (v0.3.0 - April 2, 2026)
+**Project Status**: ✅ **100% COMPLETED** (v0.4.0 - April 23, 2026)
 
 ## Overview
 
-The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the AITBC blockchain network, AI operations, marketplace interactions, agent workflows, and advanced economic intelligence operations. With the 100% project completion, the CLI now provides complete system management capabilities with enterprise-grade security, monitoring, and type safety.
+The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the AITBC blockchain network, AI operations, marketplace interactions, agent workflows, and advanced economic intelligence operations. With the unified command hierarchy, the CLI provides a clean, organized interface with enterprise-grade security, monitoring, and type safety.
 
-## 🎉 **100% Project Completion Status**
+## 🎉 **Unified Command Hierarchy**
 
-### **✅ All CLI Systems: Fully Operational**
-- **System Architecture Commands**: FHS compliance and directory management
-- **Service Management Commands**: Single marketplace service control
-- **Security Commands**: JWT authentication and API key management
-- **Agent System Commands**: Multi-agent coordination and AI/ML operations
-- **API Commands**: 17 endpoints with full functionality
-- **Test Commands**: Comprehensive test suite execution
-- **Monitoring Commands**: Prometheus metrics and alerting
-- **Type Safety Commands**: MyPy checking and validation
+### **✅ All CLI Groups: Fully Operational**
+- **Wallet Commands**: Create, list, balance, send, transactions, import, export, delete, rename, batch
+- **Blockchain Commands**: Info, analytics, multi-chain support
+- **Network Commands**: Status, peer management, sync monitoring
+- **Market Commands**: List, create, search, bid, accept-bid
+- **AI Commands**: Submit, status, results, parallel, ensemble, multimodal, fusion
+- **Mining Commands**: Start, stop, status
+- **System Commands**: Status, health checks, configuration
+- **Agent Commands**: Workflow execution, OpenClaw integration
+- **OpenClaw Commands**: Status, cross-node communication
+- **Workflow Commands**: Run, parameters, execution tracking
+- **Resource Commands**: Status, allocate, deallocate
+- **Simulate Commands**: Blockchain, wallets, price, network, AI jobs
 
-### **🚀 Production CLI Features**
-- **Authentication Management**: JWT token operations
-- **Service Control**: Start/stop/restart services
-- **Monitoring**: Real-time metrics and health checks
-- **Security**: API key generation and validation
-- **Testing**: Complete test suite execution
-- **System Status**: Comprehensive system health reporting
+### **🚀 Unified Command Structure**
 
-## 🚀 **New in v0.3.0: Complete System Integration**
+The CLI uses a nested command hierarchy for better organization:
 
-### **Enterprise Security Commands**
-- **JWT Authentication**: Token generation, validation, refresh
-- **RBAC Management**: Role assignment and permission control
-- **API Key Management**: Generation, validation, revocation
-- **Rate Limiting**: User-specific quota management
+```
+aitbc-cli <group> <action> [options]
+```
 
-### **Production Monitoring Commands**
-- **Metrics Collection**: Prometheus metrics retrieval
-- **Alert Management**: Rule configuration and notification setup
-- **SLA Monitoring**: Compliance tracking and reporting
-- **Health Monitoring**: System and service health checks
+**Public Top-Level Groups:**
+- `wallet` - Wallet management
+- `blockchain` - Blockchain operations
+- `network` - Network status and monitoring
+- `market` - Marketplace operations
+- `ai` - AI job operations
+- `mining` - Mining operations
+- `system` - System status and configuration
+- `agent` - Agent operations
+- `openclaw` - OpenClaw agent integration
+- `workflow` - Workflow execution
+- `resource` - Resource management
+- `simulate` - Simulation tools
 
-### **Type Safety Commands**
-- **MyPy Checking**: Strict type validation
-- **Coverage Reports**: Type coverage analysis
-- **Code Quality**: Formatting and linting
+### **🔄 Legacy Command Support**
+
+For backward compatibility, legacy flat commands are automatically normalized to the new structure:
+
+| Legacy Command | New Structure |
+|---------------|---------------|
+| `create` | `wallet create` |
+| `list` | `wallet list` |
+| `balance` | `wallet balance` |
+| `transactions` | `wallet transactions` |
+| `send` | `wallet send` |
+| `import` | `wallet import` |
+| `export` | `wallet export` |
+| `chain` | `blockchain info` |
+| `market-list` | `market list` |
+| `ai-submit` | `ai submit` |
+| `mine-start` | `mining start` |
+| `mine-stop` | `mining stop` |
+| `mine-status` | `mining status` |
 
 ## Installation
 
