@@ -21,7 +21,7 @@ asyncpg = "^0.29.0"
 aitbc-core = {path = "../../packages/py/aitbc-core"}
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
+pytest = ">=8.3.0"
 pytest-asyncio = "^0.23.0"
 
 [build-system]
