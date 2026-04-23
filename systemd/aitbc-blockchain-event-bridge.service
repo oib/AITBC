@@ -1,0 +1,33 @@
+[Unit]
+Description=AITBC Blockchain Event Bridge Service
+After=network.target aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc/apps/blockchain-event-bridge
+Environment="PATH=/opt/aitbc/apps/blockchain-event-bridge/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/etc/aitbc/blockchain-event-bridge.env
+
+# Poetry virtualenv
+ExecStart=/opt/aitbc/apps/blockchain-event-bridge/.venv/bin/uvicorn blockchain_event_bridge.main:app --host 127.0.0.1 --port 8204
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/aitbc
+ReadWritePaths=/var/log/aitbc
+
+# Resource limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
