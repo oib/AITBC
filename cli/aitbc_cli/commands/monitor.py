@@ -1,13 +1,20 @@
 """Monitoring and dashboard commands for AITBC CLI"""
 
 import click
-import httpx
 import json
 import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
 from ..utils import output, error, success, console
+
+# Import shared modules
+from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -37,17 +44,15 @@ def dashboard(ctx, refresh: int, duration: int):
 
             # Fetch system dashboard
             try:
-                with httpx.Client(timeout=5) as client:
-                    # Get dashboard data
-                    try:
-                        url = f"{config.coordinator_url}/api/v1/dashboard"
-                        resp = client.get(
-                            url,
-                            headers={"X-Api-Key": config.api_key or ""}
-                        )
-                        if resp.status_code == 200:
-                            dashboard = resp.json()
-                            console.print("[bold green]Dashboard Status:[/bold green] Online")
+                http_client = AITBCHTTPClient(base_url=config.coordinator_url, timeout=5)
+                # Get dashboard data
+                try:
+                    url = "/api/v1/dashboard"
+                    dashboard = http_http_client.get(
+                        url,
+                        headers={"X-Api-Key": config.api_key or ""}
+                    )
+                    console.print("[bold green]Dashboard Status:[/bold green] Online")
                             
                             # Overall status
                             overall_status = dashboard.get("overall_status", "unknown")
@@ -107,10 +112,10 @@ def metrics(ctx, period: str, export_path: Optional[str]):
     }
 
     try:
-        with httpx.Client(timeout=10) as client:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
             # Coordinator metrics
             try:
-                resp = client.get(
+                resp = http_client.get(
                     f"{config.coordinator_url}/status",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
@@ -124,7 +129,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
 
             # Job metrics
             try:
-                resp = client.get(
+                resp = http_client.get(
                     f"{config.coordinator_url}/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 100}
@@ -143,7 +148,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
 
             # Miner metrics
             try:
-                resp = client.get(
+                resp = http_client.get(
                     f"{config.coordinator_url}/miners",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
@@ -232,7 +237,7 @@ def alerts(ctx, action: str, name: Optional[str], alert_type: Optional[str],
             return
         if alert.get("webhook"):
             try:
-                with httpx.Client(timeout=10) as client:
+                http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
                     resp = client.post(alert["webhook"], json={
                         "alert": name,
                         "type": alert["type"],
@@ -267,9 +272,9 @@ def history(ctx, period: str):
     }
 
     try:
-        with httpx.Client(timeout=10) as client:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
             try:
-                resp = client.get(
+                resp = http_client.get(
                     f"{config.coordinator_url}/jobs",
                     headers={"X-Api-Key": config.api_key or ""},
                     params={"limit": 500}
@@ -352,7 +357,7 @@ def webhooks(ctx, action: str, name: Optional[str], url: Optional[str], events: 
             error(f"Webhook '{name}' not found")
             return
         try:
-            with httpx.Client(timeout=10) as client:
+            http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
                 resp = client.post(wh["url"], json={
                     "event": "test",
                     "source": "aitbc-cli",
