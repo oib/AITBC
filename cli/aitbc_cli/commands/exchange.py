@@ -590,23 +590,14 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
     
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
-            response = http_client.post(
-                f"{config.coordinator_url}/v1/exchange/create-pair",
-                json=pair_data,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                success(f"Trading pair '{pair}' created successfully!")
-                success(f"Pair ID: {result.get('pair_id')}")
-                output(result, ctx.obj['output_format'])
-            else:
-                error(f"Failed to create trading pair: {response.status_code}")
-                if response.text:
-                    error(f"Error details: {response.text}")
-    except Exception as e:
+        result = http_client.post("/exchange/create-pair", json=pair_data)
+        success(f"Trading pair '{pair}' created successfully!")
+        success(f"Pair ID: {result.get('pair_id')}")
+        output(result, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -629,23 +620,14 @@ def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
     
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
-            response = http_client.post(
-                f"{config.coordinator_url}/v1/exchange/start-trading",
-                json=trading_data,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                success(f"Trading started for pair '{pair}'!")
-                success(f"Order types: {', '.join(order_type)}")
-                output(result, ctx.obj['output_format'])
-            else:
-                error(f"Failed to start trading: {response.status_code}")
-                if response.text:
-                    error(f"Error details: {response.text}")
-    except Exception as e:
+        result = http_client.post("/exchange/start-trading", json=trading_data)
+        success(f"Trading started for pair '{pair}'!")
+        success(f"Order types: {', '.join(order_type)}")
+        output(result, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()

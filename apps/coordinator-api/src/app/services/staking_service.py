@@ -3,16 +3,16 @@ Staking Management Service
 Business logic for AI agent staking system with reputation-based yield farming
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from ..domain.bounty import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class StakingService:
