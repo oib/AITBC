@@ -328,7 +328,7 @@ async def release_gpu(gpu_id: str, session: Annotated[Session, Depends(get_sessi
             refund = booking.total_cost * 0.5
             booking.status = "cancelled"
         except AttributeError as e:
-            print(f"Warning: Booking missing attribute: {e}")
+            logger.warning(f"Booking missing attribute: {e}")
             refund = 0.0
 
     gpu.status = "available"

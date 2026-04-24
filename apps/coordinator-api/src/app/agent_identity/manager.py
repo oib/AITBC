@@ -84,7 +84,7 @@ class AgentIdentityManager:
                 )
             except Exception as e:
                 logger.error(f"Failed to create wallet for chain {chain_id}: {e}")
-                wallet_results.append({"chain_id": chain_id, "error": str(e), "success": False})
+                wallet_results.append({"chain_id": chain_id, "error": "Wallet creation failed", "success": False})
 
         return {
             "identity_id": identity.id,
@@ -123,7 +123,7 @@ class AgentIdentityManager:
                         migration_result["error"] = "Identity not found"
                 except Exception as e:
                     migration_result["wallet_created"] = False
-                    migration_result["wallet_error"] = str(e)
+                    migration_result["wallet_error"] = "Wallet creation failed"
             else:
                 migration_result["wallet_created"] = False
 
@@ -136,7 +136,7 @@ class AgentIdentityManager:
                 "from_chain": from_chain,
                 "to_chain": to_chain,
                 "migration_successful": False,
-                "error": str(e),
+                "error": "Migration failed",
             }
 
     async def sync_agent_reputation(self, agent_id: str) -> dict[str, Any]:
@@ -185,7 +185,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to sync reputation for agent {agent_id}: {e}")
-            return {"agent_id": agent_id, "sync_successful": False, "error": str(e)}
+            return {"agent_id": agent_id, "sync_successful": False, "error": "Sync failed"}
 
     async def get_agent_identity_summary(self, agent_id: str) -> dict[str, Any]:
         """Get comprehensive summary of agent identity"""
@@ -255,7 +255,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to get identity summary for agent {agent_id}: {e}")
-            return {"agent_id": agent_id, "error": str(e)}
+            return {"agent_id": agent_id, "error": "Failed to get summary"}
 
     async def update_agent_identity(self, agent_id: str, updates: dict[str, Any]) -> dict[str, Any]:
         """Update agent identity and related components"""
@@ -300,7 +300,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to update agent identity {agent_id}: {e}")
-            return {"agent_id": agent_id, "update_successful": False, "error": str(e)}
+            return {"agent_id": agent_id, "update_successful": False, "error": "Update failed"}
 
     async def deactivate_agent_identity(self, agent_id: str, reason: str = "") -> bool:
         """Deactivate an agent identity across all chains"""
@@ -418,7 +418,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to search agent identities: {e}")
-            return {"results": [], "total_count": 0, "error": str(e)}
+            return {"results": [], "total_count": 0, "error": "Search failed"}
 
     async def get_registry_health(self) -> dict[str, Any]:
         """Get health status of the identity registry"""
@@ -453,7 +453,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to get registry health: {e}")
-            return {"status": "error", "error": str(e), "timestamp": datetime.utcnow().isoformat()}
+            return {"status": "error", "error": "Health check failed", "timestamp": datetime.utcnow().isoformat()}
 
     async def export_agent_identity(self, agent_id: str, format: str = "json") -> dict[str, Any]:
         """Export agent identity data for backup or migration"""
@@ -484,7 +484,7 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to export agent identity {agent_id}: {e}")
-            return {"agent_id": agent_id, "export_successful": False, "error": str(e)}
+            return {"agent_id": agent_id, "export_successful": False, "error": "Export failed"}
 
     async def import_agent_identity(self, export_data: dict[str, Any]) -> dict[str, Any]:
         """Import agent identity data from backup or migration"""
@@ -545,4 +545,4 @@ class AgentIdentityManager:
 
         except Exception as e:
             logger.error(f"Failed to import agent identity: {e}")
-            return {"import_successful": False, "error": str(e)}
+            return {"import_successful": False, "error": "Import failed"}

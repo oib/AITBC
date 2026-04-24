@@ -99,7 +99,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
             "service": "marketplace-enhanced",
             "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -123,7 +123,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
                 "success_rate": "100%",
             }
         except Exception as e:
-            feature_tests["nft_minting"] = {"status": "fail", "error": str(e)}
+            feature_tests["nft_minting"] = {"status": "fail", "error": "Test failed"}
 
         # Test royalty calculations
         try:
@@ -134,7 +134,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
                 "supported_tiers": ["basic", "premium", "enterprise"],
             }
         except Exception as e:
-            feature_tests["royalty_calculation"] = {"status": "fail", "error": str(e)}
+            feature_tests["royalty_calculation"] = {"status": "fail", "error": "Test failed"}
 
         # Test license verification
         try:
@@ -145,7 +145,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
                 "validation_accuracy": "100%",
             }
         except Exception as e:
-            feature_tests["license_verification"] = {"status": "fail", "error": str(e)}
+            feature_tests["license_verification"] = {"status": "fail", "error": "Test failed"}
 
         # Test trading execution
         try:
@@ -156,7 +156,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
                 "success_rate": "100%",
             }
         except Exception as e:
-            feature_tests["trading_execution"] = {"status": "fail", "error": str(e)}
+            feature_tests["trading_execution"] = {"status": "fail", "error": "Test failed"}
 
         # Test analytics generation
         try:
@@ -167,7 +167,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
                 "accuracy": "98%",
             }
         except Exception as e:
-            feature_tests["analytics_generation"] = {"status": "fail", "error": str(e)}
+            feature_tests["analytics_generation"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
@@ -185,5 +185,5 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
             "service": "marketplace-enhanced",
             "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }

@@ -206,7 +206,7 @@ async def get_job_history(
             "offset": offset,
             "from_time": from_time,
             "to_time": to_time,
-            "error": str(e),
+            "error": "Failed to list jobs",
         }
 
 
@@ -246,7 +246,7 @@ async def get_blocks(
                     "error": f"Blockchain node unavailable: {response.status_code}",
                 }
     except Exception as e:
-        return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": f"Failed to fetch blocks: {str(e)}"}
+        return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
 
 
 # Temporary agent endpoints added to client router until agent router issue is resolved

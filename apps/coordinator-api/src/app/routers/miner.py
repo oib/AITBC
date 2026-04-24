@@ -172,7 +172,7 @@ async def list_miner_jobs(
         }
     except Exception as e:
         logger.error(f"Error listing miner jobs: {e}")
-        return {"jobs": [], "total": 0, "limit": limit, "offset": offset, "miner_id": miner_id, "error": str(e)}
+        return {"jobs": [], "total": 0, "limit": limit, "offset": offset, "miner_id": miner_id, "error": "Failed to list jobs"}
 
 
 @router.post("/miners/{miner_id}/earnings", summary="Get miner earnings")

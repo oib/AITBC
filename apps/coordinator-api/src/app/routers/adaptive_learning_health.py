@@ -98,7 +98,7 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
             "service": "adaptive-learning",
             "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -122,7 +122,8 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
                 "training_time": "0.08s",
             }
         except Exception as e:
-            algorithm_tests["q_learning"] = {"status": "fail", "error": str(e)}
+            logger.error(f"Q-Learning test failed: {e}")
+            algorithm_tests["q_learning"] = {"status": "fail", "error": "Test failed"}
 
         # Test Deep Q-Network
         try:
@@ -133,7 +134,8 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
                 "training_time": "0.15s",
             }
         except Exception as e:
-            algorithm_tests["deep_q_network"] = {"status": "fail", "error": str(e)}
+            logger.error(f"Deep Q-Network test failed: {e}")
+            algorithm_tests["deep_q_network"] = {"status": "fail", "error": "Test failed"}
 
         # Test Policy Gradient
         try:
@@ -144,7 +146,8 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
                 "training_time": "0.12s",
             }
         except Exception as e:
-            algorithm_tests["policy_gradient"] = {"status": "fail", "error": str(e)}
+            logger.error(f"Policy Gradient test failed: {e}")
+            algorithm_tests["policy_gradient"] = {"status": "fail", "error": "Test failed"}
 
         # Test Actor-Critic
         try:
@@ -155,7 +158,8 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
                 "training_time": "0.10s",
             }
         except Exception as e:
-            algorithm_tests["actor_critic"] = {"status": "fail", "error": str(e)}
+            logger.error(f"Actor-Critic test failed: {e}")
+            algorithm_tests["actor_critic"] = {"status": "fail", "error": "Test failed"}
 
         # Test safety constraints
         try:
@@ -166,7 +170,8 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
                 "action_space_validation": "pass",
             }
         except Exception as e:
-            safety_tests = {"error": str(e)}
+            logger.error(f"Safety tests failed: {e}")
+            safety_tests = {"error": "Safety check failed"}
 
         return {
             "status": "healthy",
@@ -192,5 +197,5 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
             "service": "adaptive-learning",
             "port": 8011,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }

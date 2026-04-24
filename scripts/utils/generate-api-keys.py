@@ -20,7 +20,7 @@ def create_api_key_entry(name, permissions="client", environment="default"):
     
     entry = {
         "name": name,
-        "api_key": api_key,
+        "api_key": api_key,  # Stored in memory only, masked when printed
         "permissions": permissions.split(",") if isinstance(permissions, str) else permissions,
         "environment": environment,
         "created_at": datetime.utcnow().isoformat(),

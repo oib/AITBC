@@ -76,12 +76,12 @@ class SecurityAudit:
                         self.results["warnings"].append(issue)
                         
             except Exception as e:
-                logger.error(f"Error in {category_name} check: {e}")
+                logger.error(f"Error in {category_name} check")
                 self.results["findings"].append({
                     "category": category_name,
                     "score": 0,
                     "weight": weight,
-                    "issues": [{"type": "check_error", "message": str(e), "severity": "critical"}]
+                    "issues": [{"type": "check_error", "message": "Check failed", "severity": "critical"}]
                 })
                 total_weight += weight
         
@@ -91,7 +91,7 @@ class SecurityAudit:
         # Generate recommendations
         self.generate_recommendations()
         
-        logger.info(f"Audit completed. Final score: {self.results['score']:.1f}/100")
+        logger.info("Audit completed")
         return self.results
         
     def check_file_permissions(self) -> Tuple[float, List[Dict]]:
@@ -196,7 +196,7 @@ class SecurityAudit:
                 })
                 score -= 5
         except Exception as e:
-            logger.warning(f"Could not check git for secrets: {e}")
+            logger.warning("Could not check git for secrets")
         
         # Check keystore encryption
         keystore_dir = self.project_root / "keystore"
@@ -653,7 +653,7 @@ def main():
             # Mask any sensitive data in recommendations
             action = rec['action']
             if any(keyword in action.lower() for keyword in ['key', 'password', 'secret', 'token']):
-                action = '[REDACTED - SENSITIVE DATA]'
+                action = '[REDACTED]'
             print(f"  - [{rec['priority'].upper()}] {action}")
     
     print(f"\n📄 Full report: {report_file}")

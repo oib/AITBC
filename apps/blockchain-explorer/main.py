@@ -9,6 +9,7 @@ import httpx
 import json
 import csv
 import io
+import re
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union
 from fastapi import FastAPI, HTTPException, Request, Query, Response
@@ -18,6 +19,32 @@ from pydantic import BaseModel, Field
 import uvicorn
 
 app = FastAPI(title="AITBC Blockchain Explorer", version="0.1.0")
+
+# Validation patterns for user inputs to prevent SSRF
+TX_HASH_PATTERN = re.compile(r'^[a-fA-F0-9]{64}$')  # 64-character hex string for transaction hash
+CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')  # Chain ID pattern
+
+
+def validate_tx_hash(tx_hash: str) -> bool:
+    """Validate transaction hash to prevent SSRF"""
+    if not tx_hash:
+        return False
+    # Check for path traversal or URL manipulation
+    if any(char in tx_hash for char in ['/', '\\', '..', '\n', '\r', '\t', '?', '&']):
+        return False
+    # Validate against hash pattern
+    return bool(TX_HASH_PATTERN.match(tx_hash))
+
+
+def validate_chain_id(chain_id: str) -> bool:
+    """Validate chain ID to prevent SSRF"""
+    if not chain_id:
+        return False
+    # Check for path traversal or URL manipulation
+    if any(char in chain_id for char in ['/', '\\', '..', '\n', '\r', '\t', '?', '&']):
+        return False
+    # Validate against chain ID pattern
+    return bool(CHAIN_ID_PATTERN.match(chain_id))
 
 @app.get("/api/chains")
 def list_chains():
@@ -911,6 +938,9 @@ async def get_chain_head(chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
 
 async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
     """Get transaction by hash from specified chain"""
+    if not validate_tx_hash(tx_hash) or not validate_chain_id(chain_id):
+        print(f"Invalid tx_hash or chain_id format")
+        return {}
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:
@@ -924,6 +954,9 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> Dict[s
 
 async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> Dict[str, Any]:
     """Get a specific block by height from specified chain"""
+    if not validate_chain_id(chain_id):
+        print(f"Invalid chain_id format")
+        return {}
     try:
         rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
         async with httpx.AsyncClient() as client:

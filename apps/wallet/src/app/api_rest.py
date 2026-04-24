@@ -303,6 +303,13 @@ def create_chain_wallet(
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletCreateResponse:
     """Create a wallet in a specific blockchain chain"""
+    # Validate chain_id to prevent path traversal
+    import re
+    CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
+    
+    if not CHAIN_ID_PATTERN.match(chain_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
+    
     _enforce_limit("wallet-create", http_request)
     
     try:
@@ -344,6 +351,13 @@ def unlock_chain_wallet(
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletUnlockResponse:
     """Unlock a wallet in a specific blockchain chain"""
+    # Validate chain_id to prevent path traversal
+    import re
+    CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
+    
+    if not CHAIN_ID_PATTERN.match(chain_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
+    
     _enforce_limit("wallet-unlock", http_request, wallet_id)
     
     success = wallet_service.unlock_wallet(chain_id, wallet_id, request.password)
@@ -362,6 +376,13 @@ def sign_chain_payload(
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletSignResponse:
     """Sign a payload with a wallet in a specific blockchain chain"""
+    # Validate chain_id to prevent path traversal
+    import re
+    CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
+    
+    if not CHAIN_ID_PATTERN.match(chain_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
+    
     _enforce_limit("wallet-sign", http_request, wallet_id)
     
     try:
@@ -389,6 +410,13 @@ def migrate_wallet(
     wallet_service: ChainAwareWalletService = Depends(get_chain_aware_wallet_service)
 ) -> WalletMigrationResponse:
     """Migrate a wallet from one chain to another"""
+    # Validate chain_ids to prevent path traversal
+    import re
+    CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{3,30}$')
+    
+    if not CHAIN_ID_PATTERN.match(request.source_chain_id) or not CHAIN_ID_PATTERN.match(request.target_chain_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid chain_id format")
+    
     _enforce_limit("wallet-migrate", http_request)
     
     success = wallet_service.migrate_wallet_between_chains(
