@@ -6,19 +6,18 @@ Service for managing agent wallets across multiple blockchain networks.
 
 from __future__ import annotations
 
-import logging
-
 # In a real scenario, these would be proper cryptographic key generation utilities
 import secrets
 
 from sqlalchemy import select
 from sqlmodel import Session
 
+from aitbc import get_logger
 from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.wallet import AgentWallet, TokenBalance, TransactionStatus, WalletTransaction
 from ..schemas.wallet import TransactionRequest, WalletCreate
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class WalletService:
