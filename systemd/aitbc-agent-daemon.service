@@ -12,16 +12,7 @@ WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py \
-    --wallet temp-agent \
-    --address ait1d18e286fc0c12888aca94732b5507c8787af71a5 \
-    --password-file /var/lib/aitbc/keystore/.agent_daemon_password \
-    --keystore-dir /var/lib/aitbc/keystore \
-    --db-path /var/lib/aitbc/data/chain.db \
-    --rpc-url http://localhost:8006 \
-    --poll-interval 2 \
-    --reply-message pong \
-    --trigger-message ping
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-agent-daemon-wrapper.py
 
 Restart=always
 RestartSec=10

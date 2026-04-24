@@ -14,7 +14,7 @@ EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/marketplace/scripts/marketplace.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-marketplace-wrapper.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
