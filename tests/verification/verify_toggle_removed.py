@@ -3,8 +3,8 @@
 Verify that the data mode toggle button is removed from the explorer
 """
 
-import requests
 import re
+import requests
 
 def main():
     print("🔍 Verifying Data Mode Toggle is Removed")

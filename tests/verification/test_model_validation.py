@@ -41,6 +41,14 @@ test_data = {
 print("Test data:")
 print(test_data)
 
+# Validate address and hash using aitbc validators
+try:
+    validate_address(test_data["proposer"])
+    validate_hash(test_data["hash"])
+    print("✅ Address and hash validation passed")
+except Exception as e:
+    print(f"⚠️  Validation warning: {e}")
+
 try:
     request = BlockImportRequest(**test_data)
     print("\n✅ Request validated successfully!")

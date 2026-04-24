@@ -6,8 +6,8 @@ Tests all functionality including validation, conflicts, and transaction import
 
 import json
 import hashlib
-import requests
 from datetime import datetime
+from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
@@ -25,10 +25,11 @@ def test_block_import_complete():
     print("=" * 60)
     
     results = []
+    client = AITBCHTTPClient()
     
     # Test 1: Invalid height (0)
     print("\n[TEST 1] Invalid height (0)...")
-    response = requests.post(
+    response = client.post(
         f"{BASE_URL}/importBlock",
         json={
             "height": 0,
