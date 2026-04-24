@@ -87,7 +87,7 @@ fi
     with open('/tmp/aitbc-monitoring/monitor.sh', 'w') as f:
         f.write(monitoring_script)
     
-    os.chmod('/tmp/aitbc-monitoring/monitor.sh', 0o755)
+    os.chmod('/tmp/aitbc-monitoring/monitor.sh', 0o700)
     
     # Create systemd service for monitoring
     monitoring_service = f"""[Unit]

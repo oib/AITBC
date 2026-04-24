@@ -730,13 +730,21 @@ async def login(login_data: Dict[str, str]):
         
         # In a real implementation, verify credentials against database
         # For demo, we'll create a simple user
-        if username == "admin" and password == "admin123":
+        import os
+        
+        demo_users = {
+            "admin": os.getenv("DEMO_ADMIN_PASSWORD", "admin123"),
+            "operator": os.getenv("DEMO_OPERATOR_PASSWORD", "operator123"),
+            "user": os.getenv("DEMO_USER_PASSWORD", "user123")
+        }
+        
+        if username == "admin" and password == demo_users["admin"]:
             user_id = "admin_001"
             role = Role.ADMIN
-        elif username == "operator" and password == "operator123":
+        elif username == "operator" and password == demo_users["operator"]:
             user_id = "operator_001"
             role = Role.OPERATOR
-        elif username == "user" and password == "user123":
+        elif username == "user" and password == demo_users["user"]:
             user_id = "user_001"
             role = Role.USER
         else:

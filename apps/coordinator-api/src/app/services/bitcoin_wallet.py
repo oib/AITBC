@@ -139,4 +139,8 @@ def get_wallet_info() -> dict[str, any]:
 if __name__ == "__main__":
     # Test the wallet integration
     info = get_wallet_info()
-    print(json.dumps(info, indent=2))
+    # Mask sensitive data before printing
+    masked_info = info.copy()
+    if 'config' in masked_info and 'rpc_password' in masked_info['config']:
+        masked_info['config']['rpc_password'] = '***'
+    print(json.dumps(masked_info, indent=2))

@@ -42,7 +42,7 @@ async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityM
         )
         return JSONResponse(content=result, status_code=201)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])
@@ -56,7 +56,7 @@ async def get_agent_identity(agent_id: str, manager: AgentIdentityManager = Depe
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.put("/identities/{agent_id}", response_model=dict[str, Any])
@@ -72,7 +72,7 @@ async def update_agent_identity(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/{agent_id}/deactivate", response_model=dict[str, Any])
@@ -89,7 +89,7 @@ async def deactivate_agent_identity(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 # Cross-Chain Mapping Endpoints
@@ -111,7 +111,7 @@ async def register_cross_chain_identity(
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.get("/identities/{agent_id}/cross-chain/mapping", response_model=list[CrossChainMappingResponse])
@@ -139,7 +139,7 @@ async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager =
             for m in mappings
         ]
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.put("/identities/{agent_id}/cross-chain/{chain_id}", response_model=dict[str, Any])
@@ -169,7 +169,7 @@ async def update_cross_chain_mapping(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/{agent_id}/cross-chain/{chain_id}/verify", response_model=dict[str, Any])
@@ -203,7 +203,7 @@ async def verify_cross_chain_identity(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/{agent_id}/migrate", response_model=dict[str, Any])
@@ -217,7 +217,7 @@ async def migrate_agent_identity(
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 # Wallet Management Endpoints
@@ -243,7 +243,7 @@ async def create_agent_wallet(
             "created_at": wallet.created_at.isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/balance", response_model=dict[str, Any])
@@ -258,7 +258,7 @@ async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentit
             "timestamp": datetime.utcnow().isoformat(),
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.post("/identities/{agent_id}/wallets/{chain_id}/transactions", response_model=dict[str, Any])
@@ -274,7 +274,7 @@ async def execute_wallet_transaction(
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/transactions", response_model=list[dict[str, Any]])
@@ -290,7 +290,7 @@ async def get_wallet_transaction_history(
         history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit, offset)
         return history
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.get("/identities/{agent_id}/wallets", response_model=dict[str, Any])
@@ -323,7 +323,7 @@ async def get_all_agent_wallets(agent_id: str, manager: AgentIdentityManager = D
             "statistics": stats,
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 # Search and Discovery Endpoints
@@ -353,7 +353,7 @@ async def search_agent_identities(
         )
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])
@@ -363,7 +363,7 @@ async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = D
         result = await manager.sync_agent_reputation(agent_id)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 # Utility Endpoints
@@ -376,7 +376,7 @@ async def get_registry_health(manager: AgentIdentityManager = Depends(get_identi
         result = await manager.get_registry_health()
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.get("/registry/statistics", response_model=dict[str, Any])
@@ -386,7 +386,7 @@ async def get_registry_statistics(manager: AgentIdentityManager = Depends(get_id
         result = await manager.registry.get_registry_statistics()
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.get("/chains/supported", response_model=list[dict[str, Any]])
@@ -396,7 +396,7 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
         chains = manager.wallet_adapter.get_supported_chains()
         return chains
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
@@ -409,7 +409,7 @@ async def export_agent_identity(
         result = await manager.export_agent_identity(agent_id, format_type)
         return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/import", response_model=dict[str, Any])
@@ -419,7 +419,7 @@ async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdent
         result = await manager.import_agent_identity(export_data)
         return result
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Failed to create agent identity")
 
 
 @router.post("/registry/cleanup-expired", response_model=dict[str, Any])
@@ -429,7 +429,7 @@ async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(
         cleaned_count = await manager.registry.cleanup_expired_verifications()
         return {"cleaned_verifications": cleaned_count, "timestamp": datetime.utcnow().isoformat()}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.post("/identities/batch-verify", response_model=list[dict[str, Any]])
@@ -441,7 +441,7 @@ async def batch_verify_identities(
         results = await manager.registry.batch_verify_identities(verifications)
         return results
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.get("/identities/{agent_id}/resolve/{chain_id}", response_model=dict[str, Any])
@@ -456,7 +456,7 @@ async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIde
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")
 
 
 @router.get("/address/{chain_address}/resolve/{chain_id}", response_model=dict[str, Any])
@@ -473,4 +473,4 @@ async def resolve_address_to_agent(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Operation failed")

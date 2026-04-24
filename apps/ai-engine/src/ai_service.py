@@ -107,7 +107,7 @@ async def analyze_market(request: AnalysisRequest):
             "timestamp": datetime.utcnow()
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Analysis failed"}
 
 @app.post("/api/ai/trade")
 async def execute_ai_trade(request: TradingRequest):
@@ -121,7 +121,7 @@ async def execute_ai_trade(request: TradingRequest):
             "timestamp": datetime.utcnow()
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/predict/{symbol}")
 async def predict_market(symbol: str):
@@ -139,7 +139,7 @@ async def predict_market(symbol: str):
             "timestamp": datetime.utcnow()
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/dashboard")
 async def get_ai_dashboard():
@@ -172,7 +172,7 @@ async def get_ai_dashboard():
             "timestamp": datetime.utcnow()
         }
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        return {"status": "error", "message": "Analysis failed"}
 
 @app.get("/api/ai/status")
 async def get_ai_status():

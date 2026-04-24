@@ -84,9 +84,9 @@ async def create_cross_chain_marketplace_offer(
         return offer
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Bad request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating cross-chain offer: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating cross-chain offer")
 
 
 @router.get("/offers/cross-chain", response_model=list[dict[str, Any]])
@@ -117,7 +117,7 @@ async def get_integrated_marketplace_offers(
         return offers
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting integrated offers: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting integrated offers")
 
 
 @router.get("/offers/{offer_id}/cross-chain-details", response_model=dict[str, Any])
@@ -164,7 +164,7 @@ async def get_cross_chain_offer_details(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting cross-chain offer details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain offer details")
 
 
 @router.post("/offers/{offer_id}/optimize-pricing", response_model=dict[str, Any])
@@ -189,9 +189,9 @@ async def optimize_offer_pricing(
         return optimization
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Bad request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error optimizing offer pricing: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error optimizing offer pricing")
 
 
 # Cross-Chain Transaction Endpoints
@@ -238,9 +238,9 @@ async def execute_cross_chain_transaction(
         return transaction
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Bad request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error executing cross-chain transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error executing cross-chain transaction")
 
 
 @router.get("/transactions/cross-chain", response_model=list[dict[str, Any]])
@@ -298,7 +298,7 @@ async def get_cross_chain_transactions(
         return cross_chain_transactions
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting cross-chain transactions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain transactions")
 
 
 # Analytics and Monitoring Endpoints
@@ -320,7 +320,7 @@ async def get_cross_chain_analytics(
         return analytics
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting cross-chain analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting cross-chain analytics")
 
 
 @router.get("/analytics/marketplace-integration", response_model=dict[str, Any])
@@ -354,7 +354,7 @@ async def get_marketplace_integration_analytics(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting marketplace integration analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting marketplace integration analytics")
 
 
 # Configuration and Status Endpoints
@@ -398,7 +398,7 @@ async def get_integration_status(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting integration status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting integration status")
 
 
 @router.get("/config", response_model=dict[str, Any])
@@ -467,7 +467,7 @@ async def get_integration_config(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting integration config: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting integration config")
 
 
 @router.post("/config/update", response_model=dict[str, Any])
@@ -496,9 +496,9 @@ async def update_integration_config(
         }
 
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Bad request")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating integration config: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating integration config")
 
 
 # Health and Diagnostics Endpoints
@@ -519,7 +519,7 @@ async def get_integration_health(
             health_status["services"]["marketplace_service"] = "healthy"
         except Exception as e:
             health_status["services"]["marketplace_service"] = "unhealthy"
-            health_status["issues"].append(f"Marketplace service error: {str(e)}")
+            health_status["issues"].append("Marketplace service error")
 
         # Check region manager
         try:
@@ -528,7 +528,7 @@ async def get_integration_health(
             health_status["metrics"]["active_regions"] = len(regions)
         except Exception as e:
             health_status["services"]["region_manager"] = "unhealthy"
-            health_status["issues"].append(f"Region manager error: {str(e)}")
+            health_status["issues"].append("Region manager error")
 
         # Check bridge service
         if integration_service.bridge_service:
@@ -538,7 +538,7 @@ async def get_integration_health(
                 health_status["metrics"]["bridge_requests"] = stats["total_requests"]
             except Exception as e:
                 health_status["services"]["bridge_service"] = "unhealthy"
-                health_status["issues"].append(f"Bridge service error: {str(e)}")
+                health_status["issues"].append("Bridge service error")
 
         # Check transaction manager
         if integration_service.tx_manager:
@@ -548,7 +548,7 @@ async def get_integration_health(
                 health_status["metrics"]["transactions"] = stats["total_transactions"]
             except Exception as e:
                 health_status["services"]["transaction_manager"] = "unhealthy"
-                health_status["issues"].append(f"Transaction manager error: {str(e)}")
+                health_status["issues"].append("Transaction manager error")
 
         # Determine overall status
         if health_status["issues"]:
@@ -559,7 +559,7 @@ async def get_integration_health(
         return health_status
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting integration health: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting integration health")
 
 
 @router.post("/diagnostics/run", response_model=dict[str, Any])
@@ -582,14 +582,14 @@ async def run_integration_diagnostics(
                 await integration_service.marketplace_service.get_global_offers(limit=1)
                 diagnostics["results"]["services"]["marketplace_service"] = {"status": "healthy", "offers_accessible": True}
             except Exception as e:
-                diagnostics["results"]["services"]["marketplace_service"] = {"status": "unhealthy", "error": str(e)}
+                diagnostics["results"]["services"]["marketplace_service"] = {"status": "unhealthy", "error": "Service error"}
 
             # Test region manager
             try:
                 regions = await integration_service.region_manager._get_active_regions()
                 diagnostics["results"]["services"]["region_manager"] = {"status": "healthy", "active_regions": len(regions)}
             except Exception as e:
-                diagnostics["results"]["services"]["region_manager"] = {"status": "unhealthy", "error": str(e)}
+                diagnostics["results"]["services"]["region_manager"] = {"status": "unhealthy", "error": "Service error"}
 
         if diagnostic_type == "full" or diagnostic_type == "cross-chain":
             # Test cross-chain functionality
@@ -600,14 +600,15 @@ async def run_integration_diagnostics(
                     stats = await integration_service.bridge_service.get_bridge_statistics(1)
                     diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "healthy", "statistics": stats}
                 except Exception as e:
-                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "unhealthy", "error": str(e)}
+                    diagnostics["results"]["cross_chain"]["bridge_service"] = {"status": "unhealthy", "error": "Service error"}
 
             if integration_service.tx_manager:
                 try:
                     stats = await integration_service.tx_manager.get_transaction_statistics(1)
                     diagnostics["results"]["cross_chain"]["transaction_manager"] = {"status": "healthy", "statistics": stats}
                 except Exception as e:
-                    diagnostics["results"]["cross_chain"]["transaction_manager"] = {"status": "unhealthy", "error": str(e)}
+                    logger.error(f"Transaction manager error: {e}")
+                    diagnostics["results"]["cross_chain"]["transaction_manager"] = {"status": "unhealthy", "error": "Service error"}
 
         if diagnostic_type == "full" or diagnostic_type == "performance":
             # Test performance
@@ -624,4 +625,4 @@ async def run_integration_diagnostics(
         return diagnostics
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error running diagnostics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error running diagnostics")

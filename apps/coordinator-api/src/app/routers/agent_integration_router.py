@@ -54,14 +54,14 @@ async def create_deployment_config(
             workflow_id=workflow_id, deployment_name=deployment_name, deployment_config=deployment_config
         )
 
-        logger.info(f"Deployment config created: {config.id} by {current_user}")
+        logger.info("Deployment config created by %s", current_user)
         return config
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to create deployment config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to create deployment config: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to create deployment config")
 
 
 @router.get("/deployments/configs", response_model=list[AgentDeploymentConfig])
