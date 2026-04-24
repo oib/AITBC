@@ -56,29 +56,29 @@ find /opt/aitbc -name "data" -o -name "config" -o -name "logs" 2>/dev/null || ec
 # Analyze code for incorrect path references using ripgrep
 echo "=== 2. CODE PATH ANALYSIS ==="
 
-# Find repository data references
-echo "Repository Data References:"
+# Find repository data references (incorrect paths)
+echo "Repository Data References (incorrect):"
 rg -l "/opt/aitbc/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository data references"
 
-# Find repository config references
-echo "Repository Config References:"
+# Find repository config references (incorrect paths)
+echo "Repository Config References (incorrect):"
 rg -l "/opt/aitbc/config" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository config references"
 
-# Find repository log references
-echo "Repository Log References:"
+# Find repository log references (incorrect paths)
+echo "Repository Log References (incorrect):"
 rg -l "/opt/aitbc/logs" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No repository log references"
 
-# Find production data references
-echo "Production Data References:"
-rg -l "/opt/aitbc/production/data" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production data references"
+# Find FHS-compliant data references
+echo "FHS Data References (correct):"
+rg -l "/var/lib/aitbc/data" --type py /opt/aitbc/ 2>/dev/null || echo "ℹ️  No FHS data references"
 
-# Find production config references
-echo "Production Config References:"
-rg -l "/opt/aitbc/production/.env" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production config references"
+# Find FHS-compliant config references
+echo "FHS Config References (correct):"
+rg -l "/etc/aitbc" --type py /opt/aitbc/ 2>/dev/null || echo "ℹ️  No FHS config references"
 
-# Find production log references
-echo "Production Log References:"
-rg -l "/opt/aitbc/production/logs" --type py /opt/aitbc/ 2>/dev/null || echo "✅ No production log references"
+# Find FHS-compliant log references
+echo "FHS Log References (correct):"
+rg -l "/var/log/aitbc" --type py /opt/aitbc/ 2>/dev/null || echo "ℹ️  No FHS log references"
 ```
 
 #### 1.3 SystemD Service Analysis
