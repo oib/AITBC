@@ -2,7 +2,8 @@
 
 import subprocess
 
-import requests
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
 
 
 def handle_bridge_health(args):
@@ -18,15 +19,14 @@ def handle_bridge_health(args):
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-        response = requests.get(f"{bridge_url}/health", timeout=10)
+        http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
+        health = http_client.get("/health")
         
-        if response.status_code == 200:
-            health = response.json()
-            print("🏥 Blockchain Event Bridge Health:")
-            for key, value in health.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Health check failed: {response.text}")
+        print("🏥 Blockchain Event Bridge Health:")
+        for key, value in health.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Health check failed: {e}")
     except Exception as e:
         print(f"❌ Error checking health: {e}")
 
@@ -44,14 +44,13 @@ def handle_bridge_metrics(args):
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-        response = requests.get(f"{bridge_url}/metrics", timeout=10)
+        http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
+        metrics = http_client.get("/metrics", return_response=True)
         
-        if response.status_code == 200:
-            metrics = response.text
-            print("📊 Prometheus Metrics:")
-            print(metrics)
-        else:
-            print(f"❌ Failed to get metrics: {response.text}")
+        print("📊 Prometheus Metrics:")
+        print(metrics.text)
+    except NetworkError as e:
+        print(f"❌ Failed to get metrics: {e}")
     except Exception as e:
         print(f"❌ Error getting metrics: {e}")
 
@@ -69,15 +68,14 @@ def handle_bridge_status(args):
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-        response = requests.get(f"{bridge_url}/", timeout=10)
+        http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
+        status = http_client.get("/")
         
-        if response.status_code == 200:
-            status = response.json()
-            print("📊 Blockchain Event Bridge Status:")
-            for key, value in status.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Failed to get status: {response.text}")
+        print("📊 Blockchain Event Bridge Status:")
+        for key, value in status.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Failed to get status: {e}")
     except Exception as e:
         print(f"❌ Error getting status: {e}")
 
@@ -95,15 +93,14 @@ def handle_bridge_config(args):
             return
         
         bridge_url = getattr(config, "bridge_url", "http://localhost:8204")
-        response = requests.get(f"{bridge_url}/config", timeout=10)
+        http_client = AITBCHTTPClient(base_url=bridge_url, timeout=10)
+        service_config = http_client.get("/config")
         
-        if response.status_code == 200:
-            service_config = response.json()
-            print("⚙️  Blockchain Event Bridge Configuration:")
-            for key, value in service_config.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Failed to get config: {response.text}")
+        print("⚙️  Blockchain Event Bridge Configuration:")
+        for key, value in service_config.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Failed to get config: {e}")
     except Exception as e:
         print(f"❌ Error getting config: {e}")
 

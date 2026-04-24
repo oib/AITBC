@@ -1,6 +1,7 @@
 """Pool hub SLA and capacity management handlers."""
 
-import requests
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
 
 
 def handle_pool_hub_sla_metrics(args):
@@ -10,27 +11,26 @@ def handle_pool_hub_sla_metrics(args):
         config = get_pool_hub_config()
         
         if args.test_mode:
-            print("📊 SLA Metrics (test mode):")
-            print("⏱️  Uptime: 97.5%")
-            print("⚡ Response Time: 850ms")
-            print("✅ Job Completion Rate: 92.3%")
+            print(" SLA Metrics (test mode):")
+            print("  Uptime: 97.5%")
+            print("  Response Time: 850ms")
+            print("  Job Completion Rate: 92.3%")
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
         miner_id = getattr(args, "miner_id", None)
         
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
         if miner_id:
-            response = requests.get(f"{pool_hub_url}/sla/metrics/{miner_id}", timeout=30)
+            metrics = http_client.get(f"/sla/metrics/{miner_id}")
         else:
-            response = requests.get(f"{pool_hub_url}/sla/metrics", timeout=30)
+            metrics = http_client.get("/sla/metrics")
         
-        if response.status_code == 200:
-            metrics = response.json()
-            print("📊 SLA Metrics:")
-            for key, value in metrics.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Failed to get SLA metrics: {response.text}")
+        print(" SLA Metrics:")
+        for key, value in metrics.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Failed to get SLA metrics: {e}")
     except Exception as e:
         print(f"❌ Error getting SLA metrics: {e}")
 
@@ -47,15 +47,14 @@ def handle_pool_hub_sla_violations(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.get(f"{pool_hub_url}/sla/violations", timeout=30)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
+        violations = http_client.get("/sla/violations")
         
-        if response.status_code == 200:
-            violations = response.json()
-            print("⚠️  SLA Violations:")
-            for v in violations:
-                print(f"  {v}")
-        else:
-            print(f"❌ Failed to get violations: {response.text}")
+        print("⚠️  SLA Violations:")
+        for v in violations:
+            print(f"  {v}")
+    except NetworkError as e:
+        print(f"❌ Failed to get violations: {e}")
     except Exception as e:
         print(f"❌ Error getting violations: {e}")
 
@@ -73,15 +72,14 @@ def handle_pool_hub_capacity_snapshots(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.get(f"{pool_hub_url}/sla/capacity/snapshots", timeout=30)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
+        snapshots = http_client.get("/sla/capacity/snapshots")
         
-        if response.status_code == 200:
-            snapshots = response.json()
-            print("📊 Capacity Snapshots:")
-            for s in snapshots:
-                print(f"  {s}")
-        else:
-            print(f"❌ Failed to get snapshots: {response.text}")
+        print("📊 Capacity Snapshots:")
+        for s in snapshots:
+            print(f"  {s}")
+    except NetworkError as e:
+        print(f"❌ Failed to get snapshots: {e}")
     except Exception as e:
         print(f"❌ Error getting snapshots: {e}")
 
@@ -99,15 +97,14 @@ def handle_pool_hub_capacity_forecast(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.get(f"{pool_hub_url}/sla/capacity/forecast", timeout=30)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
+        forecast = http_client.get("/sla/capacity/forecast")
         
-        if response.status_code == 200:
-            forecast = response.json()
-            print("🔮 Capacity Forecast:")
-            for key, value in forecast.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Failed to get forecast: {response.text}")
+        print("🔮 Capacity Forecast:")
+        for key, value in forecast.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Failed to get forecast: {e}")
     except Exception as e:
         print(f"❌ Error getting forecast: {e}")
 
@@ -125,15 +122,14 @@ def handle_pool_hub_capacity_recommendations(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.get(f"{pool_hub_url}/sla/capacity/recommendations", timeout=30)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
+        recommendations = http_client.get("/sla/capacity/recommendations")
         
-        if response.status_code == 200:
-            recommendations = response.json()
-            print("💡 Capacity Recommendations:")
-            for r in recommendations:
-                print(f"  {r}")
-        else:
-            print(f"❌ Failed to get recommendations: {response.text}")
+        print("💡 Capacity Recommendations:")
+        for r in recommendations:
+            print(f"  {r}")
+    except NetworkError as e:
+        print(f"❌ Failed to get recommendations: {e}")
     except Exception as e:
         print(f"❌ Error getting recommendations: {e}")
 
@@ -151,15 +147,14 @@ def handle_pool_hub_billing_usage(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.get(f"{pool_hub_url}/sla/billing/usage", timeout=30)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=30)
+        usage = http_client.get("/sla/billing/usage")
         
-        if response.status_code == 200:
-            usage = response.json()
-            print("💰 Billing Usage:")
-            for key, value in usage.items():
-                print(f"  {key}: {value}")
-        else:
-            print(f"❌ Failed to get billing usage: {response.text}")
+        print("💰 Billing Usage:")
+        for key, value in usage.items():
+            print(f"  {key}: {value}")
+    except NetworkError as e:
+        print(f"❌ Failed to get billing usage: {e}")
     except Exception as e:
         print(f"❌ Error getting billing usage: {e}")
 
@@ -176,14 +171,13 @@ def handle_pool_hub_billing_sync(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.post(f"{pool_hub_url}/sla/billing/sync", timeout=60)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
+        result = http_client.post("/sla/billing/sync")
         
-        if response.status_code == 200:
-            result = response.json()
-            print("🔄 Billing sync triggered")
-            print(f"✅ {result.get('message', 'Success')}")
-        else:
-            print(f"❌ Billing sync failed: {response.text}")
+        print("🔄 Billing sync triggered")
+        print(f"✅ {result.get('message', 'Success')}")
+    except NetworkError as e:
+        print(f"❌ Billing sync failed: {e}")
     except Exception as e:
         print(f"❌ Error triggering billing sync: {e}")
 
@@ -200,13 +194,12 @@ def handle_pool_hub_collect_metrics(args):
             return
         
         pool_hub_url = getattr(config, "pool_hub_url", "http://localhost:8012")
-        response = requests.post(f"{pool_hub_url}/sla/metrics/collect", timeout=60)
+        http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=60)
+        result = http_client.post("/sla/metrics/collect")
         
-        if response.status_code == 200:
-            result = response.json()
-            print("📊 SLA metrics collection triggered")
-            print(f"✅ {result.get('message', 'Success')}")
-        else:
-            print(f"❌ Metrics collection failed: {response.text}")
+        print("📊 SLA metrics collection triggered")
+        print(f"✅ {result.get('message', 'Success')}")
+    except NetworkError as e:
+        print(f"❌ Metrics collection failed: {e}")
     except Exception as e:
         print(f"❌ Error triggering metrics collection: {e}")

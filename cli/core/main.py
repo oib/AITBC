@@ -10,6 +10,7 @@ from pathlib import Path
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
 from aitbc_cli.commands.exchange_island import exchange_island
+from aitbc_cli.commands.wallet import wallet
 
 # Force version to 0.2.2
 __version__ = "0.2.2"
@@ -147,6 +148,7 @@ cli.add_command(system)
 cli.add_command(version)
 cli.add_command(gpu)
 cli.add_command(exchange_island)
+cli.add_command(wallet)
 
 if __name__ == '__main__':
     cli()

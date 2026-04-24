@@ -13,6 +13,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
+from aitbc.paths import get_keystore_path
 from cryptography.fernet import Fernet
 
 
@@ -72,14 +73,14 @@ def get_private_key(address: str, password: Optional[str] = None,
             with open(password_file) as f:
                 pass_password = f.read().strip()
         if not pass_password:
-            pw_file = Path("/var/lib/aitbc/keystore/.password")
+            pw_file = get_keystore_path(".password")
             if pw_file.exists():
                 pass_password = pw_file.read_text().strip()
     
     if not pass_password:
         raise ValueError(
             "No password provided. Set KEYSTORE_PASSWORD, pass --password, "
-            "or create /var/lib/aitbc/keystore/.password"
+            "or create a .password file in the keystore directory"
         )
     
     # Load and decrypt keystore
