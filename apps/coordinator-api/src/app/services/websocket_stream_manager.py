@@ -7,7 +7,6 @@ bounded queues, and event loop protection for multi-modal fusion.
 
 import asyncio
 import json
-import logging
 import time
 import uuid
 import weakref
@@ -19,7 +18,9 @@ from typing import Any
 from websockets.exceptions import ConnectionClosed
 from websockets.server import WebSocketServerProtocol
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class StreamStatus(Enum):

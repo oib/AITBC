@@ -8,15 +8,14 @@ import asyncio
 import csv
 import io
 import json
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ReportType(StrEnum):
