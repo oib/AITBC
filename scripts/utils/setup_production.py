@@ -39,7 +39,7 @@ def main():
 
     # 1. Keystore directory and password
     run(f"mkdir -p {KEYS_DIR}")
-    run(f"chown -R aitbc:aitbc {KEYS_DIR}")
+    run(f"chown -R root:root {KEYS_DIR}")
     
     # SECURITY FIX: Use environment variable instead of hardcoded password
     if not PASSWORD_FILE.exists():
