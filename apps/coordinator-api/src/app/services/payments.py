@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from __future__ import annotations
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
-
 logger = get_logger(__name__)
 
 from ..domain.payment import JobPayment, PaymentEscrow
@@ -114,35 +113,36 @@ class PaymentService:
     async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
         """Create an escrow for Bitcoin payments (exchange only)"""
         try:
-            async with httpx.AsyncClient() as client:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
                 # Call wallet daemon to create escrow
-                response = await client.post(
+                escrow_data = client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/create",
                     json={"amount": float(payment.amount), "currency": payment.currency, "timeout_seconds": 3600},  # 1 hour
                 )
+                payment.escrow_address = escrow_data["address"]
+                payment.status = "escrowed"
+                payment.escrowed_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
 
-                if response.status_code == 200:
-                    escrow_data = response.json()
-                    payment.escrow_address = escrow_data["address"]
-                    payment.status = "escrowed"
-                    payment.escrowed_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
+                # Create escrow record
+                escrow = PaymentEscrow(
+                    payment_id=payment.id,
+                    amount=payment.amount,
+                    currency=payment.currency,
+                    address=escrow_data["address"],
+                    expires_at=datetime.utcnow() + timedelta(hours=1),
+                )
+                if escrow is not None:
+                    self.session.add(escrow)
 
-                    # Create escrow record
-                    escrow = PaymentEscrow(
-                        payment_id=payment.id,
-                        amount=payment.amount,
-                        currency=payment.currency,
-                        address=escrow_data["address"],
-                        expires_at=datetime.utcnow() + timedelta(hours=1),
-                    )
-                    if escrow is not None:
-                        self.session.add(escrow)
-
-                    self.session.commit()
-                    logger.info(f"Created Bitcoin escrow for payment {payment.id}")
-                else:
-                    logger.error(f"Failed to create Bitcoin escrow: {response.text}")
+                self.session.commit()
+                logger.info(f"Created Bitcoin escrow for payment {payment.id}")
+            except NetworkError as e:
+                logger.error(f"Failed to create Bitcoin escrow: {e}")
+                payment.status = "failed"
+                payment.updated_at = datetime.utcnow()
+                self.session.commit()
 
         except Exception as e:
             logger.error(f"Error creating Bitcoin escrow: {e}")
@@ -161,37 +161,35 @@ class PaymentService:
             return False
 
         try:
-            async with httpx.AsyncClient() as client:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
                 # Call wallet daemon to release escrow
-                response = await client.post(
+                release_data = client.post(
                     f"{self.wallet_base_url}/api/v1/escrow/release",
                     json={"address": payment.escrow_address, "reason": reason or "Job completed successfully"},
                 )
+                payment.status = "released"
+                payment.released_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                payment.transaction_hash = release_data.get("transaction_hash")
 
-                if response.status_code == 200:
-                    release_data = response.json()
-                    payment.status = "released"
-                    payment.released_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
-                    payment.transaction_hash = release_data.get("transaction_hash")
+                # Update escrow record
+                escrow = (
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
+                    .scalars()
+                    .first()
+                )
 
-                    # Update escrow record
-                    escrow = (
-                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
-                        .scalars()
-                        .first()
-                    )
+                if escrow:
+                    escrow.is_released = True
+                    escrow.released_at = datetime.utcnow()
 
-                    if escrow:
-                        escrow.is_released = True
-                        escrow.released_at = datetime.utcnow()
-
-                    self.session.commit()
-                    logger.info(f"Released payment {payment_id} for job {job_id}")
-                    return True
-                else:
-                    logger.error(f"Failed to release payment: {response.text}")
-                    return False
+                self.session.commit()
+                logger.info(f"Released payment {payment_id} for job {job_id}")
+                return True
+            except NetworkError as e:
+                logger.error(f"Failed to release payment: {e}")
+                return False
 
         except Exception as e:
             logger.error(f"Error releasing payment: {e}")
@@ -208,9 +206,10 @@ class PaymentService:
             return False
 
         try:
-            async with httpx.AsyncClient() as client:
+            client = AITBCHTTPClient(timeout=30.0)
+            try:
                 # Call wallet daemon to refund
-                response = await client.post(
+                refund_data = client.post(
                     f"{self.wallet_base_url}/api/v1/refund",
                     json={
                         "payment_id": payment_id,
@@ -219,31 +218,28 @@ class PaymentService:
                         "reason": reason,
                     },
                 )
+                payment.status = "refunded"
+                payment.refunded_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                payment.refund_transaction_hash = refund_data.get("transaction_hash")
 
-                if response.status_code == 200:
-                    refund_data = response.json()
-                    payment.status = "refunded"
-                    payment.refunded_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
-                    payment.refund_transaction_hash = refund_data.get("transaction_hash")
+                # Update escrow record
+                escrow = (
+                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
+                    .scalars()
+                    .first()
+                )
 
-                    # Update escrow record
-                    escrow = (
-                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
-                        .scalars()
-                        .first()
-                    )
+                if escrow:
+                    escrow.is_refunded = True
+                    escrow.refunded_at = datetime.utcnow()
 
-                    if escrow:
-                        escrow.is_refunded = True
-                        escrow.refunded_at = datetime.utcnow()
-
-                    self.session.commit()
-                    logger.info(f"Refunded payment {payment_id} for job {job_id}")
-                    return True
-                else:
-                    logger.error(f"Failed to refund payment: {response.text}")
-                    return False
+                self.session.commit()
+                logger.info(f"Refunded payment {payment_id} for job {job_id}")
+                return True
+            except NetworkError as e:
+                logger.error(f"Failed to refund payment: {e}")
+                return False
 
         except Exception as e:
             logger.error(f"Error refunding payment: {e}")
