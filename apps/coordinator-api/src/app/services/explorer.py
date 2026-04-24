@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from datetime import datetime
 
-import httpx
 from sqlmodel import Session, select
 
+from aitbc import AITBCHTTPClient, NetworkError
 from ..config import settings
 from ..domain import Job, JobReceipt
 from ..schemas import (
@@ -42,23 +42,18 @@ class ExplorerService:
         # Fetch real blockchain data via /rpc/head and /rpc/blocks-range
         rpc_base = settings.blockchain_rpc_url.rstrip("/")
         try:
-            with httpx.Client(timeout=10.0) as client:
-                head_resp = client.get(f"{rpc_base}/rpc/head")
-                if head_resp.status_code == 404:
-                    return BlockListResponse(items=[], next_offset=None)
-                head_resp.raise_for_status()
-                head = head_resp.json()
+            client = AITBCHTTPClient(timeout=10.0)
+            try:
+                head = client.get(f"{rpc_base}/rpc/head")
                 height = head.get("height", 0)
                 start = max(0, height - offset - limit + 1)
                 end = height - offset
                 if start > end:
                     return BlockListResponse(items=[], next_offset=None)
-                range_resp = client.get(
+                rpc_data = client.get(
                     f"{rpc_base}/rpc/blocks-range",
                     params={"start": start, "end": end},
                 )
-                range_resp.raise_for_status()
-                rpc_data = range_resp.json()
                 raw_blocks = rpc_data.get("blocks", [])
                 # Node returns ascending by height; explorer expects newest first
                 raw_blocks = list(reversed(raw_blocks))
@@ -78,6 +73,8 @@ class ExplorerService:
                     )
                 next_offset = offset + len(items) if len(items) == limit else None
                 return BlockListResponse(items=items, next_offset=next_offset)
+            except NetworkError as e:
+                return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             # Fallback to fake data if RPC is unavailable
             print(f"Warning: Failed to fetch blocks from RPC: {e}, falling back to fake data")
