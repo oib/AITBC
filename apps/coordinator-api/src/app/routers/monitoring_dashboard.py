@@ -97,7 +97,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Failed to generate monitoring dashboard: {e}")
         return {
-            "error": str(e),
+            "error": "Failed to generate dashboard",
             "timestamp": datetime.utcnow().isoformat(),
             "services": SERVICES,
             "overall_status": "error",
@@ -136,7 +136,7 @@ async def services_summary() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to generate services summary: {e}")
-        return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+        return {"error": "Failed to generate summary", "timestamp": datetime.utcnow().isoformat()}
 
 
 @router.get("/dashboard/metrics", tags=["monitoring"], summary="System Metrics")
@@ -184,7 +184,7 @@ async def system_metrics() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to collect system metrics: {e}")
-        return {"error": str(e), "timestamp": datetime.utcnow().isoformat()}
+        return {"error": "Failed to collect metrics", "timestamp": datetime.utcnow().isoformat()}
 
 
 async def collect_all_health_data() -> dict[str, Any]:

@@ -96,7 +96,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
             "service": "openclaw-enhanced",
             "port": 8007,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -120,7 +120,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
                 "success_rate": "100%",
             }
         except Exception as e:
-            feature_tests["agent_orchestration"] = {"status": "fail", "error": str(e)}
+            feature_tests["agent_orchestration"] = {"status": "fail", "error": "Test failed"}
 
         # Test edge deployment
         try:
@@ -131,7 +131,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
                 "geographic_coverage": "global",
             }
         except Exception as e:
-            feature_tests["edge_deployment"] = {"status": "fail", "error": str(e)}
+            feature_tests["edge_deployment"] = {"status": "fail", "error": "Test failed"}
 
         # Test hybrid execution
         try:
@@ -142,7 +142,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
                 "cost_reduction": "40%",
             }
         except Exception as e:
-            feature_tests["hybrid_execution"] = {"status": "fail", "error": str(e)}
+            feature_tests["hybrid_execution"] = {"status": "fail", "error": "Test failed"}
 
         # Test ecosystem development
         try:
@@ -153,7 +153,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
                 "documentation": "comprehensive",
             }
         except Exception as e:
-            feature_tests["ecosystem_development"] = {"status": "fail", "error": str(e)}
+            feature_tests["ecosystem_development"] = {"status": "fail", "error": "Test failed"}
 
         # Check edge computing status
         edge_status = await check_edge_computing_status()
@@ -179,7 +179,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
             "service": "openclaw-enhanced",
             "port": 8007,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }
 
 
@@ -209,4 +209,4 @@ async def check_edge_computing_status() -> dict[str, Any]:
         }
 
     except Exception as e:
-        return {"available": False, "error": str(e)}
+        return {"available": False, "error": "Edge check failed"}

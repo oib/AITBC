@@ -1002,6 +1002,21 @@ async def force_sync(peer_data: dict) -> Dict[str, Any]:
          if not peer_url:
              raise HTTPException(status_code=400, detail="peer_url is required")
 
+         # Validate peer_url to prevent SSRF
+         import re
+         from urllib.parse import urlparse
+
+         parsed = urlparse(peer_url)
+         if not parsed.scheme or parsed.scheme not in ['http', 'https']:
+             raise HTTPException(status_code=400, detail="Invalid URL scheme")
+         
+         # Block private/internal IPs
+         hostname = parsed.hostname
+         if hostname:
+             # Block localhost and private IP ranges
+             if hostname in ['localhost', '127.0.0.1', '::1'] or hostname.startswith('192.168.') or hostname.startswith('10.') or hostname.startswith('172.16.'):
+                 raise HTTPException(status_code=400, detail="Invalid peer URL")
+
          import requests
 
          response = requests.get(f"{peer_url}/rpc/export-chain", timeout=30)

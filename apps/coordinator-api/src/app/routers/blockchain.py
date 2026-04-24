@@ -34,7 +34,7 @@ async def blockchain_status():
                 return {"status": "error", "error": f"RPC returned {response.status_code}"}
     except Exception as e:
         logger.error(f"Blockchain status error: {e}")
-        return {"status": "error", "error": str(e)}
+        return {"status": "error", "error": "Failed to get blockchain status"}
 
 
 @router.get("/sync-status")
@@ -70,7 +70,7 @@ async def blockchain_sync_status():
         logger.error(f"Blockchain sync status error: {e}")
         return {
             "status": "error",
-            "error": str(e),
+            "error": "Failed to get sync status",
             "syncing": False,
             "current_height": 0,
             "target_height": 0,

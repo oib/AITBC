@@ -101,6 +101,11 @@ def create_mock_trades():
 class ExchangeAPIHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         """Handle GET requests"""
+        # Validate path to prevent SSRF
+        if not self.path or self.path.startswith(('//', '\\\\', '..')):
+            self.send_error(400, "Invalid path")
+            return
+        
         if self.path == '/api/health':
             self.health_check()
         elif self.path.startswith('/api/trades/recent'):

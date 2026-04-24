@@ -83,7 +83,7 @@ async def create_enhanced_wallet(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating wallet")
 
 
 @router.get("/wallets/{wallet_address}/balance", response_model=dict[str, Any])
@@ -106,7 +106,7 @@ async def get_wallet_balance(
         return balance_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting balance: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting balance")
 
 
 @router.post("/wallets/{wallet_address}/transactions", response_model=dict[str, Any])
@@ -145,7 +145,7 @@ async def execute_wallet_transaction(
         return transaction_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error executing transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error executing transaction")
 
 
 @router.get("/wallets/{wallet_address}/transactions", response_model=list[dict[str, Any]])
@@ -174,7 +174,7 @@ async def get_wallet_transaction_history(
         return transactions
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting transaction history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting transaction history")
 
 
 @router.post("/wallets/{wallet_address}/sign", response_model=dict[str, Any])
@@ -196,7 +196,7 @@ async def sign_message(
         return signature_data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error signing message: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error signing message")
 
 
 @router.post("/wallets/verify-signature", response_model=dict[str, Any])
@@ -221,7 +221,7 @@ async def verify_signature(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error verifying signature: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error verifying signature")
 
 
 # Cross-Chain Bridge Endpoints
@@ -264,7 +264,7 @@ async def create_bridge_request(
         return bridge_request
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating bridge request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating bridge request")
 
 
 @router.get("/bridge/request/{bridge_request_id}", response_model=dict[str, Any])
@@ -281,7 +281,7 @@ async def get_bridge_request_status(bridge_request_id: str, session: Session = D
         return status
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting bridge request status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting bridge request status")
 
 
 @router.post("/bridge/request/{bridge_request_id}/cancel", response_model=dict[str, Any])
@@ -300,7 +300,7 @@ async def cancel_bridge_request(
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cancelling bridge request: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error cancelling bridge request")
 
 
 @router.get("/bridge/statistics", response_model=dict[str, Any])
@@ -319,7 +319,7 @@ async def get_bridge_statistics(
         return stats
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting bridge statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting bridge statistics")
 
 
 @router.get("/bridge/liquidity-pools", response_model=list[dict[str, Any]])
@@ -336,7 +336,7 @@ async def get_liquidity_pools(session: Session = Depends(get_session)) -> list[d
         return pools
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting liquidity pools: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting liquidity pools")
 
 
 # Multi-Chain Transaction Manager Endpoints
@@ -391,7 +391,7 @@ async def submit_transaction(
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error submitting transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error submitting transaction")
 
 
 @router.get("/transactions/{transaction_id}", response_model=dict[str, Any])
@@ -412,7 +412,7 @@ async def get_transaction_status(transaction_id: str, session: Session = Depends
         return status
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting transaction status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting transaction status")
 
 
 @router.post("/transactions/{transaction_id}/cancel", response_model=dict[str, Any])
@@ -433,7 +433,7 @@ async def cancel_transaction(transaction_id: str, reason: str, session: Session 
         return result
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error cancelling transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error cancelling transaction")
 
 
 @router.get("/transactions/history", response_model=list[dict[str, Any]])
@@ -475,7 +475,7 @@ async def get_transaction_history(
         return history
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting transaction history: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting transaction history")
 
 
 @router.get("/transactions/statistics", response_model=dict[str, Any])
@@ -500,7 +500,7 @@ async def get_transaction_statistics(
         return stats
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting transaction statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting transaction statistics")
 
 
 @router.post("/transactions/optimize-routing", response_model=dict[str, Any])
@@ -530,7 +530,7 @@ async def optimize_transaction_routing(
         return optimization
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error optimizing routing: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error optimizing routing")
 
 
 # Configuration and Status Endpoints
@@ -550,7 +550,7 @@ async def get_supported_chains() -> list[dict[str, Any]]:
         return chain_info
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting supported chains: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting supported chains")
 
 
 @router.get("/chains/{chain_id}/info", response_model=dict[str, Any])
@@ -572,7 +572,7 @@ async def get_chain_info(chain_id: int, session: Session = Depends(get_session))
         return chain_info
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting chain info: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting chain info")
 
 
 @router.get("/health", response_model=dict[str, Any])
@@ -610,7 +610,7 @@ async def get_cross_chain_health(session: Session = Depends(get_session)) -> dic
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting health status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting health status")
 
 
 @router.get("/config", response_model=dict[str, Any])
@@ -679,4 +679,4 @@ async def get_cross_chain_config(session: Session = Depends(get_session)) -> dic
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting configuration: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting configuration")

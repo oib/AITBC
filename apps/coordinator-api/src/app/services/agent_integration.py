@@ -258,7 +258,7 @@ class AgentIntegrationManager:
             return integration_result
 
         except Exception as e:
-            logger.error(f"ZK integration failed for execution {execution_id}: {e}")
+            logger.error("ZK integration failed: %s", e)
             await self.auditor.log_event(
                 AuditEventType.VERIFICATION_FAILED,
                 execution_id=execution_id,

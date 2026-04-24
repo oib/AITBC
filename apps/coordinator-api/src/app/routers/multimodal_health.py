@@ -82,7 +82,7 @@ async def multimodal_health(session: Annotated[Session, Depends(get_session)]) -
             "service": "multimodal-agent",
             "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -102,28 +102,28 @@ async def multimodal_deep_health(session: Annotated[Session, Depends(get_session
             # Mock text processing test
             modality_tests["text"] = {"status": "pass", "processing_time": "0.02s", "accuracy": "92%"}
         except Exception as e:
-            modality_tests["text"] = {"status": "fail", "error": str(e)}
+            modality_tests["text"] = {"status": "fail", "error": "Test failed"}
 
         # Test image processing
         try:
             # Mock image processing test
             modality_tests["image"] = {"status": "pass", "processing_time": "0.15s", "accuracy": "87%"}
         except Exception as e:
-            modality_tests["image"] = {"status": "fail", "error": str(e)}
+            modality_tests["image"] = {"status": "fail", "error": "Test failed"}
 
         # Test audio processing
         try:
             # Mock audio processing test
             modality_tests["audio"] = {"status": "pass", "processing_time": "0.22s", "accuracy": "89%"}
         except Exception as e:
-            modality_tests["audio"] = {"status": "fail", "error": str(e)}
+            modality_tests["audio"] = {"status": "fail", "error": "Test failed"}
 
         # Test video processing
         try:
             # Mock video processing test
             modality_tests["video"] = {"status": "pass", "processing_time": "0.35s", "accuracy": "85%"}
         except Exception as e:
-            modality_tests["video"] = {"status": "fail", "error": str(e)}
+            modality_tests["video"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
@@ -141,5 +141,5 @@ async def multimodal_deep_health(session: Annotated[Session, Depends(get_session
             "service": "multimodal-agent",
             "port": 8002,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }

@@ -87,7 +87,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
             "service": "gpu-multimodal",
             "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -113,7 +113,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
                 "memory_usage": "2.1GB",
             }
         except Exception as e:
-            cuda_tests["cross_modal_attention"] = {"status": "fail", "error": str(e)}
+            cuda_tests["cross_modal_attention"] = {"status": "fail", "error": "Test failed"}
 
         # Test multi-modal fusion
         try:
@@ -126,7 +126,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
                 "memory_usage": "1.8GB",
             }
         except Exception as e:
-            cuda_tests["multi_modal_fusion"] = {"status": "fail", "error": str(e)}
+            cuda_tests["multi_modal_fusion"] = {"status": "fail", "error": "Test failed"}
 
         # Test feature extraction
         try:
@@ -139,7 +139,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
                 "memory_usage": "2.5GB",
             }
         except Exception as e:
-            cuda_tests["feature_extraction"] = {"status": "fail", "error": str(e)}
+            cuda_tests["feature_extraction"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy" if gpu_info["available"] else "degraded",
@@ -162,7 +162,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
             "service": "gpu-multimodal",
             "port": 8010,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }
 
 
@@ -198,4 +198,4 @@ async def check_gpu_availability() -> dict[str, Any]:
         return {"available": False, "error": "GPU not detected or nvidia-smi failed"}
 
     except Exception as e:
-        return {"available": False, "error": str(e)}
+        return {"available": False, "error": "GPU check failed"}

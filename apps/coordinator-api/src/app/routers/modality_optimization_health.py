@@ -87,7 +87,7 @@ async def modality_optimization_health(session: Annotated[Session, Depends(get_s
             "service": "modality-optimization",
             "port": 8004,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Health check failed",
         }
 
 
@@ -109,7 +109,7 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
                 "accuracy_retention": "97%",
             }
         except Exception as e:
-            optimization_tests["text"] = {"status": "fail", "error": str(e)}
+            optimization_tests["text"] = {"status": "fail", "error": "Test failed"}
 
         # Test image optimization
         try:
@@ -120,7 +120,7 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
                 "accuracy_retention": "94%",
             }
         except Exception as e:
-            optimization_tests["image"] = {"status": "fail", "error": str(e)}
+            optimization_tests["image"] = {"status": "fail", "error": "Test failed"}
 
         # Test audio optimization
         try:
@@ -131,7 +131,7 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
                 "accuracy_retention": "96%",
             }
         except Exception as e:
-            optimization_tests["audio"] = {"status": "fail", "error": str(e)}
+            optimization_tests["audio"] = {"status": "fail", "error": "Test failed"}
 
         # Test video optimization
         try:
@@ -142,7 +142,7 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
                 "accuracy_retention": "93%",
             }
         except Exception as e:
-            optimization_tests["video"] = {"status": "fail", "error": str(e)}
+            optimization_tests["video"] = {"status": "fail", "error": "Test failed"}
 
         return {
             "status": "healthy",
@@ -162,5 +162,5 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
             "service": "modality-optimization",
             "port": 8004,
             "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
+            "error": "Deep health check failed",
         }

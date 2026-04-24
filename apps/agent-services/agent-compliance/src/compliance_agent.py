@@ -6,11 +6,14 @@ Automated compliance and regulatory monitoring agent
 
 import asyncio
 import json
+import logging
 import time
 from typing import Dict, Any, List
 from datetime import datetime
 import sys
 import os
+
+logger = logging.getLogger(__name__)
 
 # Add parent directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../..'))
@@ -39,13 +42,13 @@ class ComplianceAgent:
             
             if success:
                 self.is_running = True
-                print(f"Compliance agent {self.agent_id} started successfully")
+                logger.info(f"Compliance agent {self.agent_id} started successfully")
                 return True
             else:
-                print(f"Failed to start compliance agent {self.agent_id}")
+                logger.warning(f"Failed to start compliance agent {self.agent_id}")
                 return False
         except Exception as e:
-            print(f"Error starting compliance agent: {e}")
+            logger.error(f"Error starting compliance agent: {e}")
             return False
     
     async def stop(self) -> bool:
@@ -53,7 +56,7 @@ class ComplianceAgent:
         self.is_running = False
         success = await self.bridge.stop_agent(self.agent_id)
         if success:
-            print(f"Compliance agent {self.agent_id} stopped successfully")
+            logger.info(f"Compliance agent {self.agent_id} stopped successfully")
         return success
     
     async def run_compliance_loop(self):
@@ -65,7 +68,7 @@ class ComplianceAgent:
                 
                 await asyncio.sleep(self.check_interval)
             except Exception as e:
-                print(f"Error in compliance loop: {e}")
+                logger.error(f"Error in compliance loop: {e}")
                 await asyncio.sleep(30)  # Wait before retrying
     
     async def _perform_compliance_check(self, entity_id: str) -> None:
@@ -84,23 +87,23 @@ class ComplianceAgent:
                 compliance_result = result["result"]
                 await self._handle_compliance_result(entity_id, compliance_result)
             else:
-                print(f"Compliance check failed for {entity_id}: {result}")
+                logger.warning(f"Compliance check failed for {entity_id}: {result}")
         
         except Exception as e:
-            print(f"Error performing compliance check for {entity_id}: {e}")
+            logger.error(f"Error performing compliance check for {entity_id}: {e}")
     
     async def _handle_compliance_result(self, entity_id: str, result: Dict[str, Any]) -> None:
         """Handle compliance check result"""
         status = result.get("status", "unknown")
         
         if status == "passed":
-            print(f"✅ Compliance check passed for {entity_id}")
+            logger.info(f"Compliance check passed for {entity_id}")
         elif status == "failed":
-            print(f"❌ Compliance check failed for {entity_id}")
+            logger.warning(f"Compliance check failed for {entity_id}")
             # Trigger alert or further investigation
             await self._trigger_compliance_alert(entity_id, result)
         else:
-            print(f"⚠️ Compliance check inconclusive for {entity_id}")
+            logger.warning(f"Compliance check inconclusive for {entity_id}")
     
     async def _trigger_compliance_alert(self, entity_id: str, result: Dict[str, Any]) -> None:
         """Trigger compliance alert"""
@@ -113,7 +116,7 @@ class ComplianceAgent:
         }
         
         # In a real implementation, this would send to alert system
-        print(f"🚨 COMPLIANCE ALERT: {json.dumps(alert_data, indent=2)}")
+        logger.warning(f"COMPLIANCE ALERT: {json.dumps(alert_data)}")
     
     async def get_status(self) -> Dict[str, Any]:
         """Get agent status"""

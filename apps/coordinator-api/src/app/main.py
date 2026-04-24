@@ -502,7 +502,7 @@ def create_app() -> FastAPI:
             }
         except Exception as e:
             logger.error("Readiness check failed", extra={"error": str(e)})
-            return JSONResponse(status_code=503, content={"status": "not ready", "error": str(e)})
+            return JSONResponse(status_code=503, content={"status": "not ready", "error": "Service not ready"})
 
     return app
 

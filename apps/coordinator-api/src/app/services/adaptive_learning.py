@@ -384,7 +384,7 @@ class AdaptiveLearningService:
             }
 
         except Exception as e:
-            logger.error(f"Failed to create learning environment {environment_id}: {e}")
+            logger.error("Failed to create learning environment: %s", e)
             raise
 
     async def create_learning_agent(
@@ -407,7 +407,7 @@ class AdaptiveLearningService:
             }
 
         except Exception as e:
-            logger.error(f"Failed to create learning agent {agent_id}: {e}")
+            logger.error("Failed to create learning agent: %s", e)
             raise
 
     async def train_agent(self, agent_id: str, environment_id: str, training_config: dict[str, Any]) -> dict[str, Any]:

@@ -85,7 +85,7 @@ async def detailed_health():
             }
         }
     except Exception as e:
-        return {"status": "error", "error": str(e)}
+        return {"status": "error", "error": "Failed to get status"}
 
 
 if __name__ == "__main__":
