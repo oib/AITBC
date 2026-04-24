@@ -8,7 +8,7 @@ import hashlib
 import subprocess
 from datetime import datetime
 import time
-from aitbc import AITBCHTTPClient, NetworkErroration
+from aitbc import AITBCHTTPClient, NetworkError
 
 # Test configuration
 NODES = {
