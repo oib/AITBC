@@ -54,8 +54,8 @@ def run_cli_test():
     # Test 3: CLI blockchain command
     print("\n3. Testing CLI blockchain command...")
     try:
-        result = run_command("blockchain", "block", "--number", "1")
-        
+        result = run_command("blockchain", "block", "1")
+
         if result.returncode == 0 and "Block #1" in result.stdout:
             print("✅ CLI blockchain command working")
         else:
