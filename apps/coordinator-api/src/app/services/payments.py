@@ -5,14 +5,11 @@ from sqlalchemy.orm import Session
 
 """Payment service for job payments"""
 
-import logging
 from datetime import datetime, timedelta
 
 from __future__ import annotations
 
-import httpx
-
-from aitbc import get_logger
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 logger = get_logger(__name__)
 
@@ -71,41 +68,43 @@ class PaymentService:
         """Create an escrow for AITBC token payments"""
         try:
             # For AITBC tokens, we use the token contract escrow
-            async with httpx.AsyncClient() as client:
-                # Call exchange API to create token escrow
-                response = await client.post(
-                    f"{self.exchange_base_url}/api/v1/token/escrow/create",
-                    json={
-                        "amount": float(payment.amount),
-                        "currency": payment.currency,
-                        "job_id": payment.job_id,
-                        "timeout_seconds": 3600,  # 1 hour
-                    },
-                )
+            client = AITBCHTTPClient(timeout=10.0)
+            # Call exchange API to create token escrow
+            response = client.post(
+                f"{self.exchange_base_url}/api/v1/token/escrow/create",
+                json={
+                    "amount": float(payment.amount),
+                    "currency": payment.currency,
+                    "job_id": payment.job_id,
+                    "timeout_seconds": 3600,  # 1 hour
+                },
+            )
 
-                if response.status_code == 200:
-                    escrow_data = response.json()
-                    payment.escrow_address = escrow_data.get("escrow_id")
-                    payment.status = "escrowed"
-                    payment.escrowed_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
+            escrow_data = response
+            payment.escrow_address = escrow_data.get("escrow_id")
+            payment.status = "escrowed"
+            payment.escrowed_at = datetime.utcnow()
+            payment.updated_at = datetime.utcnow()
 
-                    # Create escrow record
-                    escrow = PaymentEscrow(
-                        payment_id=payment.id,
-                        amount=payment.amount,
-                        currency=payment.currency,
-                        address=escrow_data.get("escrow_id"),
-                        expires_at=datetime.utcnow() + timedelta(hours=1),
-                    )
-                    if escrow is not None:
-                        self.session.add(escrow)
+            # Create escrow record
+            escrow = PaymentEscrow(
+                payment_id=payment.id,
+                amount=payment.amount,
+                currency=payment.currency,
+                address=escrow_data.get("escrow_id"),
+                expires_at=datetime.utcnow() + timedelta(hours=1),
+            )
+            if escrow is not None:
+                self.session.add(escrow)
 
-                    self.session.commit()
-                    logger.info(f"Created AITBC token escrow for payment {payment.id}")
-                else:
-                    logger.error(f"Failed to create token escrow: {response.text}")
+            self.session.commit()
+            logger.info(f"Created AITBC token escrow for payment {payment.id}")
 
+        except NetworkError as e:
+            logger.error(f"Failed to create token escrow: {e}")
+            payment.status = "failed"
+            payment.updated_at = datetime.utcnow()
+            self.session.commit()
         except Exception as e:
             logger.error(f"Error creating token escrow: {e}")
             payment.status = "failed"
