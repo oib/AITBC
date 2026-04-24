@@ -57,7 +57,7 @@ async def register_developer(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error registering developer: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error registering developer")
 
 
 @router.get("/profile/{wallet_address}", response_model=dict[str, Any])
@@ -89,7 +89,7 @@ async def get_developer_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting developer profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting developer profile")
 
 
 @router.put("/profile/{wallet_address}", response_model=dict[str, Any])
@@ -115,7 +115,7 @@ async def update_developer_profile(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating developer profile: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error updating developer profile")
 
 
 @router.get("/leaderboard", response_model=list[dict[str, Any]])
@@ -145,7 +145,7 @@ async def get_leaderboard(
         ]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting leaderboard: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting leaderboard")
 
 
 @router.get("/stats/{wallet_address}", response_model=dict[str, Any])
@@ -163,7 +163,7 @@ async def get_developer_stats(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting developer stats: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting developer stats")
 
 
 # Bounty Management Endpoints
@@ -191,7 +191,7 @@ async def create_bounty(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating bounty: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating bounty")
 
 
 @router.get("/bounties", response_model=list[dict[str, Any]])
@@ -224,7 +224,7 @@ async def list_bounties(
         ]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error listing bounties: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error listing bounties")
 
 
 @router.get("/bounties/{bounty_id}", response_model=dict[str, Any])
@@ -242,7 +242,7 @@ async def get_bounty_details(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting bounty details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting bounty details")
 
 
 @router.post("/bounties/{bounty_id}/submit", response_model=dict[str, Any])
@@ -271,7 +271,7 @@ async def submit_bounty_solution(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error submitting bounty solution: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error submitting bounty solution")
 
 
 @router.get("/bounties/my-submissions", response_model=list[dict[str, Any]])
@@ -304,7 +304,7 @@ async def get_my_submissions(
         ]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting submissions: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting submissions")
 
 
 @router.post("/bounties/{bounty_id}/review", response_model=dict[str, Any])
@@ -340,7 +340,7 @@ async def review_bounty_submission(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error reviewing submission: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error reviewing submission")
 
 
 @router.get("/bounties/stats", response_model=dict[str, Any])
@@ -354,7 +354,7 @@ async def get_bounty_statistics(
         return stats
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting bounty statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting bounty statistics")
 
 
 # Certification Management Endpoints
@@ -384,7 +384,7 @@ async def grant_certification(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error granting certification: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error granting certification")
 
 
 @router.get("/certifications/{wallet_address}", response_model=list[dict[str, Any]])
@@ -420,7 +420,7 @@ async def get_developer_certifications(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting certifications: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting certifications")
 
 
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
@@ -446,7 +446,7 @@ async def verify_certification(certification_id: str, session: Session = Depends
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error verifying certification: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error verifying certification")
 
 
 @router.get("/certifications/types", response_model=list[dict[str, Any]])
@@ -484,7 +484,7 @@ async def get_certification_types() -> list[dict[str, Any]]:
         return certification_types
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting certification types: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting certification types")
 
 
 # Regional Hub Management Endpoints
@@ -515,7 +515,7 @@ async def create_regional_hub(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating regional hub: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating regional hub")
 
 
 @router.get("/hubs", response_model=list[dict[str, Any]])
@@ -542,7 +542,7 @@ async def get_regional_hubs(
         ]
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting regional hubs: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting regional hubs")
 
 
 @router.get("/hubs/{hub_id}/developers", response_model=list[dict[str, Any]])
@@ -572,7 +572,7 @@ async def get_hub_developers(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting hub developers: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting hub developers")
 
 
 # Staking & Rewards Endpoints
@@ -586,6 +586,22 @@ async def stake_on_developer(
 ) -> dict[str, Any]:
     """Stake AITBC tokens on a developer"""
 
+    # Validate addresses to prevent SSRF
+    import re
+    ADDRESS_PATTERN = re.compile(r'^[a-zA-Z0-9]{20,50}$')
+    
+    def validate_address(addr: str) -> bool:
+        if not addr:
+            return False
+        if any(char in addr for char in ['/', '\\', '..', '\n', '\r', '\t']):
+            return False
+        if addr.startswith(('http://', 'https://', 'ftp://')):
+            return False
+        return bool(ADDRESS_PATTERN.match(addr))
+    
+    if not validate_address(staker_address) or not validate_address(developer_address):
+        raise HTTPException(status_code=400, detail="Invalid address format")
+
     try:
         staking_info = await dev_service.stake_on_developer(staker_address, developer_address, amount)
 
@@ -594,7 +610,7 @@ async def stake_on_developer(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error staking on developer: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error staking on developer")
 
 
 @router.get("/staking/{address}", response_model=dict[str, Any])
@@ -610,7 +626,7 @@ async def get_staking_info(
         return staking_info
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting staking info: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting staking info")
 
 
 @router.post("/unstake", response_model=dict[str, Any])
@@ -627,7 +643,7 @@ async def unstake_tokens(
         return unstake_info
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error unstaking tokens: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error unstaking tokens")
 
 
 @router.get("/rewards/{address}", response_model=dict[str, Any])
@@ -643,7 +659,7 @@ async def get_rewards(
         return rewards
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting rewards: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting rewards")
 
 
 @router.post("/claim-rewards", response_model=dict[str, Any])
@@ -661,7 +677,7 @@ async def claim_rewards(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error claiming rewards: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error claiming rewards")
 
 
 @router.get("/staking-stats", response_model=dict[str, Any])
@@ -687,7 +703,7 @@ async def get_staking_statistics(session: Session = Depends(get_session)) -> dic
         return stats
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting staking statistics: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting staking statistics")
 
 
 # Platform Analytics Endpoints
@@ -734,7 +750,7 @@ async def get_platform_overview(
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting platform overview: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting platform overview")
 
 
 @router.get("/health", response_model=dict[str, Any])
@@ -773,4 +789,4 @@ async def get_platform_health(session: Session = Depends(get_session)) -> dict[s
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error getting platform health: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting platform health")

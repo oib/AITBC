@@ -95,15 +95,16 @@ async def create_test_miner(
 
 @router.get("/test-key", summary="Test API key validation")
 async def test_key(api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:  # type: ignore[arg-type]
-    print(f"DEBUG: Received API key: {api_key}")
-    print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
+    masked_key = api_key[:8] + "..." if api_key else "None"
+    logger.debug(f"Received API key: {masked_key}")
+    logger.debug(f"Allowed admin keys count: {len(settings.admin_api_keys)}")
 
     if not api_key or api_key not in settings.admin_api_keys:
-        print("DEBUG: API key validation failed!")
+        logger.debug("API key validation failed!")
         raise HTTPException(status_code=401, detail="invalid api key")
 
-    print("DEBUG: API key validation successful!")
-    return {"message": "API key is valid", "key": api_key}
+    logger.debug("API key validation successful!")
+    return {"message": "API key is valid", "key": masked_key}
 
 
 @router.get("/stats", summary="Get coordinator stats")
@@ -113,13 +114,13 @@ async def get_stats(
     request: Request, session: Annotated[Session, Depends(get_session)], api_key: str = Header(default=None, alias="X-Api-Key")
 ) -> dict[str, int]:  # type: ignore[arg-type]
     # Temporary debug: bypass dependency and validate directly
-    print(f"DEBUG: Received API key: {api_key}")
-    print(f"DEBUG: Allowed admin keys: {settings.admin_api_keys}")
+    logger.debug("API key validation check")
+    logger.debug("Allowed admin keys count: %d", len(settings.admin_api_keys))
 
     if not api_key or api_key not in settings.admin_api_keys:
         raise HTTPException(status_code=401, detail="invalid api key")
 
-    print("DEBUG: API key validation successful!")
+    logger.debug("API key validation successful!")
 
     JobService(session)
     from sqlmodel import func, select
@@ -248,7 +249,7 @@ async def get_system_status(
         logger.error(f"Failed to get system status: {e}")
         return {
             "status": "error",
-            "error": str(e),
+            "error": "Failed to get system status",
         }
 
 
@@ -285,8 +286,8 @@ async def create_agent_network(network_data: dict):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to create agent network: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to create agent network: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to create agent network")
 
 
 @router.get("/agents/executions/{execution_id}/receipt")

@@ -5,6 +5,7 @@ Simple AITBC Blockchain Explorer - Demonstrating the issues described in the ana
 
 import asyncio
 import httpx
+import re
 from datetime import datetime
 from typing import Dict, Any, Optional
 from fastapi import FastAPI, HTTPException
@@ -15,6 +16,20 @@ app = FastAPI(title="Simple AITBC Explorer", version="0.1.0")
 
 # Configuration
 BLOCKCHAIN_RPC_URL = "http://localhost:8025"
+
+# Validation patterns for user inputs to prevent SSRF
+TX_HASH_PATTERN = re.compile(r'^[a-fA-F0-9]{64}$')  # 64-character hex string for transaction hash
+
+
+def validate_tx_hash(tx_hash: str) -> bool:
+    """Validate transaction hash to prevent SSRF"""
+    if not tx_hash:
+        return False
+    # Check for path traversal or URL manipulation
+    if any(char in tx_hash for char in ['/', '\\', '..', '\n', '\r', '\t', '?', '&']):
+        return False
+    # Validate against hash pattern
+    return bool(TX_HASH_PATTERN.match(tx_hash))
 
 # HTML Template with the problematic frontend
 HTML_TEMPLATE = """
@@ -170,6 +185,9 @@ async def get_chain_head():
 @app.get("/api/blocks/{height}")
 async def get_block(height: int):
     """Get block by height"""
+    # Validate height is non-negative and reasonable
+    if height < 0 or height > 10000000:
+        return {"height": height, "hash": "", "timestamp": None, "transactions": []}
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/blocks/{height}")
@@ -182,6 +200,8 @@ async def get_block(height: int):
 @app.get("/api/transactions/{tx_hash}")
 async def get_transaction(tx_hash: str):
     """Get transaction by hash - Problem 1: This endpoint was missing"""
+    if not validate_tx_hash(tx_hash):
+        return {"hash": tx_hash, "from": "unknown", "to": "unknown", "amount": 0, "timestamp": None}
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")

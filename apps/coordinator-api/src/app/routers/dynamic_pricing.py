@@ -709,4 +709,5 @@ async def pricing_health_check(
         }
 
     except Exception as e:
-        return {"status": "unhealthy", "timestamp": datetime.utcnow().isoformat(), "error": str(e)}
+        logger.error(f"Dynamic pricing health check failed: {e}")
+        return {"status": "unhealthy", "timestamp": datetime.utcnow().isoformat(), "error": "Health check failed"}

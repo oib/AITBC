@@ -375,7 +375,7 @@ class GlobalMarketplaceService:
 
         except Exception as e:
             logger.error(f"Error getting region health for {region_code}: {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Failed to get region health"}
 
     async def _get_recent_analytics(self, region: str, hours: int = 24) -> dict[str, Any]:
         """Get recent analytics for a region"""

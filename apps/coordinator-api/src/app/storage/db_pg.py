@@ -40,7 +40,7 @@ def get_pg_connection():
         host=parsed.hostname or "localhost",
         database=parsed.path[1:] if parsed.path else "aitbc_coordinator",
         user=parsed.username or "aitbc_user",
-        password=parsed.password or "aitbc_password",
+        password=parsed.password,
         port=parsed.port or 5432,
         cursor_factory=RealDictCursor,
     )

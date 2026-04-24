@@ -120,7 +120,7 @@ class EnhancedErrorHandler:
             # Python 3.13 provides better error messages
             error_detail = {
                 "type": "validation_error",
-                "message": str(exc),
+                "message": "Validation failed",
                 "errors": exc.errors() if hasattr(exc, "errors") else [],
                 "timestamp": time.time(),
                 "path": request.url.path,
@@ -134,7 +134,7 @@ class EnhancedErrorHandler:
             # Enhanced error logging
             error_detail = {
                 "type": "internal_error",
-                "message": str(exc),
+                "message": "Internal error occurred",
                 "timestamp": time.time(),
                 "path": request.url.path,
                 "method": request.method,

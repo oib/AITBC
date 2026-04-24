@@ -121,7 +121,7 @@ MIN_FEE=0
 GOSSIP_BACKEND=memory
 """
     NODE_ENV.write_text(env_content)
-    os.chmod(NODE_ENV, 0o644)
+    os.chmod(NODE_ENV, 0o600)
     print(f"[+] Updated {NODE_ENV}")
 
     # 6. Restart services

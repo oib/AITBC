@@ -583,7 +583,7 @@ class AdvancedReinforcementLearningEngine:
         # Start training process
         asyncio.create_task(self.train_rl_agent(session, config_id))
 
-        logger.info(f"Created RL agent {config_id} with algorithm {algorithm}")
+        logger.info("Created RL agent with algorithm %s", algorithm)
         return rl_config
 
     async def train_rl_agent(self, session: Session, config_id: str) -> dict[str, Any]:
@@ -1340,7 +1340,7 @@ class MarketplaceStrategyOptimizer:
             }
 
         except Exception as e:
-            logger.error(f"Error deploying strategy {config_id}: {str(e)}")
+            logger.error("Error deploying strategy: %s", e)
             raise
 
     def simulate_deployment_performance(
