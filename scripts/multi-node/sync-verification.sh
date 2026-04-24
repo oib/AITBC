@@ -14,9 +14,8 @@ LOG_FILE="${LOG_DIR}/sync-verification.log"
 
 # Node Configuration
 NODES=(
-    "aitbc:198.51.100.93"
+    "aitbc:localhost"
     "aitbc1:198.51.100.40"
-    "aitbc2:198.51.100.98"
 )
 
 RPC_PORT=8006
