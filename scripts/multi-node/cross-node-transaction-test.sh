@@ -14,7 +14,6 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 NODES=(
     "aitbc:10.1.223.93"
     "aitbc1:10.1.223.40"
-    "aitbc2:10.1.223.98"
 )
 
 RPC_PORT=8006
@@ -74,7 +73,13 @@ create_test_wallet() {
 # Get wallet address
 get_wallet_address() {
     local wallet_name="$1"
-    ${CLI_PATH} wallet address --name "${wallet_name}" 2>/dev/null || echo ""
+    # Try different wallet address command syntaxes
+    local address=$(${CLI_PATH} wallet address --name "${wallet_name}" 2>/dev/null || echo "")
+    if [ -z "$address" ]; then
+        # Try alternative syntax
+        address=$(${CLI_PATH} wallet list --name "${wallet_name}" 2>/dev/null | grep -o "ait1[a-z0-9]*" | head -1 || echo "")
+    fi
+    echo "$address"
 }
 
 # Get wallet balance
