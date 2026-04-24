@@ -6,18 +6,18 @@ from sqlalchemy.orm import Session
 Router to create marketplace offers from registered miners
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import Session, select
 
+from aitbc import get_logger
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer, Miner
 from ..schemas import MarketplaceOfferView
 from ..storage import get_session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["marketplace-offers"])
 

@@ -4,7 +4,6 @@ from typing import Annotated
 GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
-import logging
 import statistics
 from datetime import datetime, timedelta
 from typing import Any
@@ -16,12 +15,13 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlmodel import col, func, select
 
+from aitbc import get_logger
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..services.market_data_collector import MarketDataCollector
 from ..storage import get_session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(tags=["marketplace-gpu"])
 

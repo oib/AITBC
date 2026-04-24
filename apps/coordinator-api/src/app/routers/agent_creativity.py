@@ -7,13 +7,14 @@ Agent Creativity API Endpoints
 REST API for agent creativity enhancement, ideation, and cross-domain synthesis
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.agent_performance import CreativeCapability
 from ..services.creative_capabilities_service import (

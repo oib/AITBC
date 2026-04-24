@@ -9,17 +9,17 @@ import sys
 from datetime import datetime
 from typing import Any
 
-import logging
-
 import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+
+from aitbc import get_logger
 
 from ..services.openclaw_enhanced import OpenClawEnhancedService
 from ..storage import get_session
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @router.get("/health", tags=["health"], summary="OpenClaw Enhanced Service Health")

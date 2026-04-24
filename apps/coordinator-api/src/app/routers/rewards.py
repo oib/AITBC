@@ -7,14 +7,15 @@ Reward System API Endpoints
 REST API for agent rewards, incentives, and performance-based earnings
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.rewards import AgentRewardProfile, RewardStatus, RewardTier, RewardType
 from ..services.reward_service import RewardEngine

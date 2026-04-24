@@ -742,6 +742,9 @@ def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR
         except Exception as e:
             print(f"Error: {e}")
             return []
+    except Exception as e:
+        print(f"Error: {e}")
+        return []
 
 
 def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
@@ -808,12 +811,11 @@ def get_network_status(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get network status and health"""
     try:
         # Get head block
-        head_response = requests.get(f"{rpc_url}/rpc/head")
-        if head_response.status_code == 200:
-            return head_response.json()
-        else:
-            print(f"Error getting network status: {head_response.text}")
-            return None
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        return http_client.get("/rpc/head")
+    except NetworkError as e:
+        print(f"Error getting network status: {e}")
+        return None
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -824,17 +826,16 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
     try:
         if analytics_type == "blocks":
             # Get recent blocks analytics
-            response = requests.get(f"{rpc_url}/rpc/head")
-            if response.status_code == 200:
-                head = response.json()
-                return {
-                    "type": "blocks",
-                    "current_height": head.get("height", 0),
-                    "latest_block": head.get("hash", ""),
-                    "timestamp": head.get("timestamp", ""),
-                    "tx_count": head.get("tx_count", 0),
-                    "status": "Active"
-                }
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            head = http_client.get("/rpc/head")
+            return {
+                "type": "blocks",
+                "current_height": head.get("height", 0),
+                "latest_block": head.get("hash", ""),
+                "timestamp": head.get("timestamp", ""),
+                "tx_count": head.get("tx_count", 0),
+                "status": "Active"
+            }
         
         elif analytics_type == "supply":
             # Get total supply info
@@ -980,12 +981,9 @@ def mining_operations(action: str, **kwargs) -> Optional[Dict]:
         if action == "status":
             # Query actual blockchain status from RPC
             try:
-                response = requests.get(f"{rpc_url}/rpc/head", timeout=5)
-                if response.status_code == 200:
-                    head_data = response.json()
-                    actual_height = head_data.get('height', 0)
-                else:
-                    actual_height = 0
+                http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+                head_data = http_client.get("/rpc/head")
+                actual_height = head_data.get('height', 0)
             except Exception:
                 actual_height = 0
             
@@ -1001,12 +999,9 @@ def mining_operations(action: str, **kwargs) -> Optional[Dict]:
         elif action == "rewards":
             # Query actual blockchain height for reward calculation
             try:
-                response = requests.get(f"{rpc_url}/rpc/head", timeout=5)
-                if response.status_code == 200:
-                    head_data = response.json()
-                    actual_height = head_data.get('height', 0)
-                else:
-                    actual_height = 0
+                http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+                head_data = http_client.get("/rpc/head")
+                actual_height = head_data.get('height', 0)
             except Exception:
                 actual_height = 0
             
@@ -1441,12 +1436,11 @@ def get_network_status(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get network status and health"""
     try:
         # Get head block
-        head_response = requests.get(f"{rpc_url}/rpc/head")
-        if head_response.status_code == 200:
-            return head_response.json()
-        else:
-            print(f"Error getting network status: {head_response.text}")
-            return None
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        return http_client.get("/rpc/head")
+    except NetworkError as e:
+        print(f"Error getting network status: {e}")
+        return None
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -1457,17 +1451,16 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
     try:
         if analytics_type == "blocks":
             # Get recent blocks analytics
-            response = requests.get(f"{rpc_url}/rpc/head")
-            if response.status_code == 200:
-                head = response.json()
-                return {
-                    "type": "blocks",
-                    "current_height": head.get("height", 0),
-                    "latest_block": head.get("hash", ""),
-                    "timestamp": head.get("timestamp", ""),
-                    "tx_count": head.get("tx_count", 0),
-                    "status": "Active"
-                }
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            head = http_client.get("/rpc/head")
+            return {
+                "type": "blocks",
+                "current_height": head.get("height", 0),
+                "latest_block": head.get("hash", ""),
+                "timestamp": head.get("timestamp", ""),
+                "tx_count": head.get("tx_count", 0),
+                "status": "Active"
+            }
         
         elif analytics_type == "supply":
             # Get total supply info

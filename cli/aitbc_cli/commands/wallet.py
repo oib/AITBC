@@ -1,7 +1,6 @@
 """Wallet commands for AITBC CLI"""
 
 import click
-import httpx
 import json
 import os
 import shutil
@@ -11,6 +10,15 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 from ..utils import output, error, success
 import getpass
+
+# Import shared modules
+from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
+from aitbc.constants import KEYSTORE_DIR
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 def encrypt_value(value: str, password: str) -> str:
@@ -523,16 +531,13 @@ def balance(ctx):
     # Try to get balance from blockchain if available
     if config:
         try:
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{config.coordinator_url.replace('/api', '')}/rpc/balance/{wallet_data['address']}",
-                    timeout=5,
-                )
-
-                if response.status_code == 200:
-                    blockchain_balance = response.json().get("balance", 0)
-                    output(
-                        {
+            http_client = AITBCHTTPClient(
+                base_url=config.coordinator_url.replace('/api', ''),
+                timeout=5
+            )
+            blockchain_balance = http_client.get(f"/rpc/balance/{wallet_data['address']}")
+            output(
+                {
                             "wallet": wallet_name,
                             "address": wallet_data["address"],
                             "local_balance": wallet_data.get("balance", 0),
@@ -737,27 +742,25 @@ def send(ctx, to_address: str, amount: float, description: Optional[str]):
     # Try to send via blockchain
     if config:
         try:
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{config.coordinator_url.replace('/api', '')}/rpc/transactions",
-                    json={
-                        "from": wallet_data["address"],
-                        "to": to_address,
-                        "amount": amount,
-                        "description": description or "",
-                    },
-                    headers={"X-Api-Key": getattr(config, "api_key", "") or ""},
-                )
+            http_client = AITBCHTTPClient(
+                base_url=config.coordinator_url.replace('/api', ''),
+                timeout=30,
+                headers={"X-Api-Key": getattr(config, "api_key", "") or ""}
+            )
+            result = http_client.post(
+                "/rpc/transactions",
+                json={
+                    "from": wallet_data["address"],
+                    "to": to_address,
+                    "amount": amount,
+                    "description": description or "",
+                }
+            )
 
-                if response.status_code == 201:
-                    tx = response.json()
-                    # Update local wallet
-                    transaction = {
-                        "type": "send",
-                        "amount": -amount,
-                        "to_address": to_address,
-                        "tx_hash": tx.get("hash"),
-                        "description": description or "",
+            if result:
+                success(f"Transaction sent: {result.get('transaction_hash', 'N/A')}")
+                output(result, ctx.obj.get("output_format", "table"))
+                return
                         "timestamp": datetime.now().isoformat(),
                     }
 

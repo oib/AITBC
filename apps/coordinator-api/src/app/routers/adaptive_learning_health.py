@@ -5,7 +5,6 @@ Adaptive Learning Service Health Check Router
 Provides health monitoring for reinforcement learning frameworks
 """
 
-import logging
 import sys
 from datetime import datetime
 from typing import Any
@@ -14,10 +13,11 @@ import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from ..services.adaptive_learning import AdaptiveLearningService
 from ..storage import get_session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter()
 
