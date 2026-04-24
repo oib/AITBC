@@ -4,11 +4,11 @@ Cross-node blockchain feature tests
 Tests new blockchain features across aitbc and aitbc1 nodes
 """
 
-import requests
 import hashlib
 import subprocess
 from datetime import datetime
 import time
+from aitbc import AITBCHTTPClient, NetworkErroration
 
 # Test configuration
 NODES = {
@@ -35,12 +35,11 @@ def compute_block_hash(height, parent_hash, timestamp):
 
 def get_node_head(node_key):
     """Get the current head block from a node"""
-    url = f"{NODES[node_key]['rpc_url']}/head"
+    client = AITBCHTTPClient(timeout=10)
     try:
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except Exception as e:
+        url = f"{NODES[node_key]['rpc_url']}/head"
+        return client.get(url)
+    except NetworkError as e:
         print(f"Error getting head from {node_key}: {e}")
         return None
 
@@ -120,24 +119,27 @@ def test_cross_node_block_sync():
     timestamp = datetime.utcnow().isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
-    response = requests.post(
-        f"{NODES['aitbc']['rpc_url']}/importBlock",
-        json={
-            "height": height,
-            "hash": valid_hash,
-            "parent_hash": parent_hash,
-            "proposer": "cross-node-test",
-            "timestamp": timestamp,
-            "tx_count": 0,
-            "chain_id": CHAIN_ID
-        }
-    )
-    
-    if response.status_code == 200 and response.json().get("success"):
-        print(f"✅ Block imported on aitbc: height={height}, hash={valid_hash}")
-    else:
-        print(f"❌ Failed to import block on aitbc: {response.status_code}")
-        print(f"Response: {response.text}")
+    client = AITBCHTTPClient(timeout=10)
+    try:
+        result = client.post(
+            f"{NODES['aitbc']['rpc_url']}/importBlock",
+            json={
+                "height": height,
+                "hash": valid_hash,
+                "parent_hash": parent_hash,
+                "proposer": "cross-node-test",
+                "timestamp": timestamp,
+                "tx_count": 0,
+                "chain_id": CHAIN_ID
+            }
+        )
+        if result.get("success"):
+            print(f"✅ Block imported on aitbc: height={height}, hash={valid_hash}")
+        else:
+            print(f"❌ Failed to import block on aitbc")
+            return False
+    except NetworkError as e:
+        print(f"❌ Failed to import block on aitbc: {e}")
         return False
     
     # Wait for gossip propagation
@@ -151,9 +153,8 @@ def test_cross_node_block_sync():
         
         # Try to get the specific block from aitbc1
         try:
-            response = requests.get(f"{NODES['aitbc1']['rpc_url']}/blocks/{height}", timeout=10)
-            if response.status_code == 200:
-                block_data = response.json()
+            block_data = AITBCHTTPClient(timeout=10).get(f"{NODES['aitbc1']['rpc_url']}/blocks/{height}")
+            if block_data:
                 print(f"✅ Block synced to aitbc1: height={block_data.get('height')}, hash={block_data.get('hash')}")
                 return True
             else:
@@ -175,13 +176,12 @@ def test_cross_node_block_range():
     for node_key in NODES:
         url = f"{NODES[node_key]['rpc_url']}/blocks-range"
         try:
-            response = requests.get(url, params={"start": 0, "end": 5}, timeout=10)
-            response.raise_for_status()
-            blocks = response.json().get("blocks", [])
+            response = AITBCHTTPClient(timeout=10).get(url, params={"start": 0, "end": 5})
+            blocks = response.get("blocks", []) if response else []
             print(f"{NODES[node_key]['name']}: returned {len(blocks)} blocks in range 0-5")
             assert len(blocks) >= 1, \
                 f"Node {node_key} returned no blocks"
-        except Exception as e:
+        except NetworkError as e:
             print(f"❌ Error getting block range from {node_key}: {e}")
             return False
     
@@ -195,15 +195,13 @@ def test_cross_node_connectivity():
     print("=" * 60)
     
     for node_key in NODES:
-        url = f"{NODES[node_key]['rpc_url']}/head"
+        client = AITBCHTTPClient(timeout=10)
         try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            head = response.json()
+            head = client.get(f"{NODES[node_key]['rpc_url']}/head")
             print(f"{NODES[node_key]['name']}: reachable, height={head.get('height')}")
             assert head.get("height") is not None, \
                 f"Node {node_key} did not return valid head"
-        except Exception as e:
+        except NetworkError as e:
             print(f"❌ Error connecting to {node_key}: {e}")
             return False
     

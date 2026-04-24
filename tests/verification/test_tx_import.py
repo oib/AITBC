@@ -5,7 +5,7 @@ Test transaction import specifically
 
 import json
 import hashlib
-import requests
+from aitbc import AITBCHTTPClient, NetworkError
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
@@ -22,8 +22,8 @@ def test_transaction_import():
     print("=" * 40)
     
     # Get current head
-    response = requests.get(f"{BASE_URL}/head")
-    head = response.json()
+    client = AITBCHTTPClient()
+    head = client.get(f"{BASE_URL}/head")
     print(f"Current head: height={head['height']}")
     
     # Create a new block with one transaction
