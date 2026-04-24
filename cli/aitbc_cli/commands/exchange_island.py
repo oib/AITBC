@@ -101,42 +101,31 @@ def buy(ctx, ait_amount: float, quote_currency: str, max_price: Optional[float])
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=buy_order_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    success(f"Buy order created successfully!")
-                    success(f"Order ID: {order_id}")
-                    success(f"Buying {ait_amount} AIT with {quote_currency}")
-                    
-                    if max_price:
-                        success(f"Max price: {max_price:.8f} {quote_currency}/AIT")
-                    
-                    order_info = {
-                        "Order ID": order_id,
-                        "Pair": pair,
-                        "Side": "BUY",
-                        "Amount": f"{ait_amount} AIT",
-                        "Max Price": f"{max_price:.8f} {quote_currency}/AIT" if max_price else "Market",
-                        "Status": "open",
-                        "User": user_id[:16] + "...",
-                        "Island": island_id[:16] + "..."
-                    }
-                    
-                    output(order_info, ctx.obj.get('output_format', 'table'))
-                else:
-                    error(f"Failed to submit transaction: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=buy_order_data)
+            success(f"Buy order created successfully!")
+            success(f"Order ID: {order_id}")
+            success(f"Buying {ait_amount} AIT with {quote_currency}")
+            
+            if max_price:
+                success(f"Max price: {max_price:.8f} {quote_currency}/AIT")
+            
+            order_info = {
+                "Order ID": order_id,
+                "Pair": pair,
+                "Side": "BUY",
+                "Amount": f"{ait_amount} AIT",
+                "Max Price": f"{max_price:.8f} {quote_currency}/AIT" if max_price else "Market",
+                "Status": "open",
+                "User": user_id[:16] + "...",
+                "Island": island_id[:16] + "..."
+            }
+            output(order_info, ctx.obj.get('output_format', 'table'))
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
+            raise click.Abort()
+        except Exception as e:
+            error(f"Error submitting transaction: {e}")
             raise click.Abort()
 
     except Exception as e:
