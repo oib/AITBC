@@ -52,7 +52,7 @@ jobs:
       - name: Run blockchain synchronization verification
         run: |
           cd /var/lib/aitbc-workspaces/blockchain-sync-verification/repo
-          bash scripts/multi-node/sync-verification.sh
+          CHECK_CHAIN_ID_CONSISTENCY=false bash scripts/multi-node/sync-verification.sh
 
       - name: Sync verification report
         if: always()

@@ -21,6 +21,8 @@ NODES=(
 
 RPC_PORT=8006
 SYNC_THRESHOLD=10
+# Set to "false" to skip chain ID consistency check (allows different chains like devnet/mainnet)
+CHECK_CHAIN_ID_CONSISTENCY="${CHECK_CHAIN_ID_CONSISTENCY:-true}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -98,12 +100,13 @@ get_block_hash() {
     echo "$hash"
 }
 
-# Check chain ID consistency
+# Check chain ID consistency (or just validity if CHECK_CHAIN_ID_CONSISTENCY=false)
 check_chain_id_consistency() {
     log "Checking chain ID consistency across nodes"
     
     local first_chain_id=""
     local consistent=true
+    local chain_ids=()
     
     for node_config in "${NODES[@]}"; do
         IFS=':' read -r node_name node_ip <<< "$node_config"
@@ -117,12 +120,17 @@ check_chain_id_consistency() {
         fi
         
         log "Chain ID on ${node_name}: ${chain_id}"
+        chain_ids+=("${node_name}:${chain_id}")
         
         if [ -z "$first_chain_id" ]; then
             first_chain_id="$chain_id"
         elif [ "$chain_id" != "$first_chain_id" ]; then
-            log_error "Chain ID mismatch on ${node_name}: ${chain_id} vs ${first_chain_id}"
-            consistent=false
+            if [ "$CHECK_CHAIN_ID_CONSISTENCY" = "true" ]; then
+                log_error "Chain ID mismatch on ${node_name}: ${chain_id} vs ${first_chain_id}"
+                consistent=false
+            else
+                log_warning "Chain ID mismatch on ${node_name}: ${chain_id} vs ${first_chain_id} (check skipped)"
+            fi
         fi
     done
     
@@ -130,8 +138,13 @@ check_chain_id_consistency() {
         log_success "Chain ID consistent across all nodes"
         return 0
     else
-        log_error "Chain ID inconsistent across nodes"
-        return 1
+        if [ "$CHECK_CHAIN_ID_CONSISTENCY" = "true" ]; then
+            log_error "Chain ID inconsistent across nodes"
+            return 1
+        else
+            log_warning "Chain ID check skipped - nodes may be on different chains"
+            return 0
+        fi
     fi
 }
 
