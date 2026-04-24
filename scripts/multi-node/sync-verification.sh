@@ -14,7 +14,7 @@ LOG_FILE="${LOG_DIR}/sync-verification.log"
 
 # Node Configuration
 NODES=(
-    "aitbc:localhost"
+    "aitbc:10.1.223.93"
     "aitbc1:10.1.223.40"
 )
 
