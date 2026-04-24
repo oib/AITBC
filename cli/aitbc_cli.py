@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """
 AITBC CLI - Comprehensive Blockchain Management Tool
+"""
+import sys
+from pathlib import Path
+
+# Add /opt/aitbc to Python path for shared modules
+sys.path.insert(0, str(Path("/opt/aitbc")))
+
+"""
 Complete command-line interface for AITBC blockchain operations including:
 - Wallet management
 - Transaction processing  
@@ -28,10 +36,22 @@ from cryptography.hazmat.backends import default_backend
 import requests
 from typing import Optional, Dict, Any, List
 
+# Import shared modules
+from aitbc.constants import KEYSTORE_DIR, BLOCKCHAIN_RPC_PORT, DATA_DIR
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError, ValidationError, ConfigurationError
+from aitbc.aitbc_logging import get_logger
+from aitbc.paths import get_keystore_path, ensure_dir
+from aitbc.validation import validate_address, validate_url
+
+# Initialize logger
+logger = get_logger(__name__)
+
 # Default paths
 CLI_VERSION = "2.1.0"
-DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
-DEFAULT_RPC_URL = "http://localhost:8006"
+DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
+DEFAULT_RPC_URL = f"http://localhost:{BLOCKCHAIN_RPC_PORT}"
+DEFAULT_WALLET_DAEMON_URL = "http://localhost:8003"
 
 def decrypt_private_key(keystore_path: Path, password: str) -> str:
     """Decrypt private key from keystore file.
@@ -151,9 +171,23 @@ def create_wallet(name: str, password: str, keystore_dir: Path = DEFAULT_KEYSTOR
 
 
 def send_transaction(from_wallet: str, to_address: str, amount: float, fee: float, 
-                   password: str, keystore_dir: Path = None, 
+                   password: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR, 
                    rpc_url: str = DEFAULT_RPC_URL) -> Optional[str]:
     """Send transaction from one wallet to another"""
+    
+    # Validate recipient address
+    try:
+        validate_address(to_address)
+    except ValidationError as e:
+        logger.error(f"Invalid recipient address: {e}")
+        print(f"Error: Invalid recipient address: {e}")
+        return None
+    
+    # Validate amount
+    if amount <= 0:
+        logger.error(f"Invalid amount: {amount} must be positive")
+        print("Error: Amount must be positive")
+        return None
     
     # Ensure keystore_dir is a Path object
     if keystore_dir is None:
@@ -183,23 +217,24 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
     # Get chain_id from RPC health endpoint
     chain_id = "ait-testnet"  # Default
     try:
-        health_response = requests.get(f"{rpc_url}/health", timeout=5)
-        if health_response.status_code == 200:
-            health_data = health_response.json()
-            supported_chains = health_data.get("supported_chains", [])
-            if supported_chains:
-                chain_id = supported_chains[0]
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+        health_data = http_client.get("/health")
+        supported_chains = health_data.get("supported_chains", [])
+        if supported_chains:
+            chain_id = supported_chains[0]
+    except NetworkError:
+        pass
     except Exception:
         pass
     
     # Get actual nonce from blockchain
+    actual_nonce = 0
     try:
-        nonce_response = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5)
-        if nonce_response.status_code == 200:
-            account_data = nonce_response.json()
-            actual_nonce = account_data.get("nonce", 0)
-        else:
-            actual_nonce = 0
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+        account_data = http_client.get(f"/rpc/account/{sender_address}")
+        actual_nonce = account_data.get("nonce", 0)
+    except NetworkError:
+        actual_nonce = 0
     except Exception:
         actual_nonce = 0
     
@@ -221,25 +256,27 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
     
     # Submit to blockchain
     try:
-        response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction)
-        if response.status_code == 200:
-            result = response.json()
-            tx_hash = result.get("transaction_hash")
-            print(f"Transaction submitted: {tx_hash}")
-            return tx_hash
-        else:
-            print(f"Error submitting transaction: {response.text}")
-            return None
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.post("/rpc/transaction", json=transaction)
+        tx_hash = result.get("transaction_hash")
+        print(f"Transaction submitted: {tx_hash}")
+        logger.info(f"Transaction submitted: {tx_hash} from {from_wallet} to {to_address}")
+        return tx_hash
+    except NetworkError as e:
+        logger.error(f"Network error submitting transaction: {e}")
+        print(f"Error submitting transaction: {e}")
+        return None
     except Exception as e:
+        logger.error(f"Error submitting transaction: {e}")
         print(f"Error: {e}")
         return None
 
 
 def import_wallet(wallet_name: str, private_key_hex: str, password: str, 
-                  keystore_dir: Path = DEFAULT_KEYSTORE_DIR) -> Optional[str]:
+                  keystore_dir: Path = KEYSTORE_DIR) -> Optional[str]:
     """Import wallet from private key"""
     try:
-        keystore_dir.mkdir(parents=True, exist_ok=True)
+        ensure_dir(keystore_dir)
         
         # Validate and convert private key
         try:
@@ -289,6 +326,7 @@ def import_wallet(wallet_name: str, private_key_hex: str, password: str,
         
         print(f"Wallet imported: {wallet_name}")
         print(f"Address: {address}")
+        logger.info(f"Imported wallet: {wallet_name} with address {address}")
         print(f"Keystore: {keystore_path}")
         
         return address
@@ -349,9 +387,37 @@ def rename_wallet(old_name: str, new_name: str, keystore_dir: Path = DEFAULT_KEY
         return False
 
 
-def list_wallets(keystore_dir: Path = DEFAULT_KEYSTORE_DIR) -> list:
+def list_wallets(keystore_dir: Path = KEYSTORE_DIR, 
+                 use_daemon: bool = True,
+                 daemon_url: str = DEFAULT_WALLET_DAEMON_URL) -> list:
     """List all wallets"""
     wallets = []
+    
+    # Try to use wallet daemon first
+    if use_daemon:
+        try:
+            http_client = AITBCHTTPClient(base_url=daemon_url, timeout=5)
+            data = http_client.get("/v1/wallets")
+            wallet_list = data.get("items", data.get("wallets", []))
+            for wallet_data in wallet_list:
+                wallets.append({
+                    "name": wallet_data.get("wallet_name", ""),
+                    "address": wallet_data.get("address", ""),
+                    "public_key": wallet_data.get("public_key", ""),
+                    "source": "daemon"
+                })
+            logger.info(f"Listed {len(wallets)} wallets from daemon")
+            return wallets
+        except NetworkError as e:
+            logger.warning(f"Failed to query wallet daemon: {e}, falling back to file-based listing")
+            print(f"Warning: Failed to query wallet daemon: {e}")
+            print("Falling back to file-based wallet listing...")
+        except Exception as e:
+            logger.warning(f"Failed to query wallet daemon: {e}, falling back to file-based listing")
+            print(f"Warning: Failed to query wallet daemon: {e}")
+            print("Falling back to file-based wallet listing...")
+    
+    # Fallback to file-based wallet listing
     if keystore_dir.exists():
         for wallet_file in keystore_dir.glob("*.json"):
             try:
@@ -360,15 +426,16 @@ def list_wallets(keystore_dir: Path = DEFAULT_KEYSTORE_DIR) -> list:
                 wallets.append({
                     "name": wallet_file.stem,
                     "address": data["address"],
-                    "file": str(wallet_file)
+                    "file": str(wallet_file),
+                    "source": "file"
                 })
             except Exception:
                 pass
+    logger.info(f"Listed {len(wallets)} wallets from file-based fallback")
     return wallets
 
 
-def send_batch_transactions(transactions: List[Dict], password: str, 
-                          keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
+def send_batch_transactions(transactions: List[Dict[str, Any]], password: str,
                           rpc_url: str = DEFAULT_RPC_URL) -> List[Optional[str]]:
     """Send multiple transactions in batch"""
     results = []
@@ -423,11 +490,11 @@ def estimate_transaction_fee(from_wallet: str, to_address: str, amount: float,
         }
         
         # Get fee estimation from RPC (if available)
-        response = requests.post(f"{rpc_url}/rpc/estimateFee", json=test_tx)
-        if response.status_code == 200:
-            fee_data = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+            fee_data = http_client.post("/rpc/estimateFee", json=test_tx)
             return fee_data.get("estimated_fee", 10.0)
-        else:
+        except NetworkError:
             # Fallback to default fee
             return 10.0
     except Exception as e:
@@ -438,28 +505,21 @@ def estimate_transaction_fee(from_wallet: str, to_address: str, amount: float,
 def get_transaction_status(tx_hash: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get detailed transaction status"""
     try:
-        response = requests.get(f"{rpc_url}/rpc/transaction/{tx_hash}")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error getting transaction status: {response.text}")
-            return None
-    except Exception as e:
-        print(f"Error: {e}")
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        return http_client.get(f"/rpc/transaction/{tx_hash}")
+    except NetworkError as e:
+        print(f"Error getting transaction status: {e}")
         return None
 
 
 def get_pending_transactions(rpc_url: str = DEFAULT_RPC_URL) -> List[Dict]:
     """Get pending transactions in mempool"""
     try:
-        response = requests.get(f"{rpc_url}/rpc/pending")
-        if response.status_code == 200:
-            return response.json().get("transactions", [])
-        else:
-            print(f"Error getting pending transactions: {response.text}")
-            return []
-    except Exception as e:
-        print(f"Error: {e}")
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        data = http_client.get("/rpc/pending")
+        return data.get("transactions", [])
+    except NetworkError as e:
+        print(f"Error getting pending transactions: {e}")
         return []
 
 
@@ -484,16 +544,19 @@ def start_mining(wallet_name: str, threads: int = 1, keystore_dir: Path = DEFAUL
             "enabled": True
         }
         
-        response = requests.post(f"{rpc_url}/rpc/mining/start", json=mining_config)
-        if response.status_code == 200:
-            result = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            result = http_client.post("/rpc/mining/start", json=mining_config)
             print(f"Mining started with wallet '{wallet_name}'")
             print(f"Miner address: {address}")
             print(f"Threads: {threads}")
             print(f"Status: {result.get('status', 'started')}")
-            return True
-        else:
-            print(f"Error starting mining: {response.text}")
+            return result
+        except NetworkError as e:
+            print(f"Error starting mining: {e}")
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
             return False
     except Exception as e:
         print(f"Error: {e}")
@@ -503,15 +566,14 @@ def start_mining(wallet_name: str, threads: int = 1, keystore_dir: Path = DEFAUL
 def stop_mining(rpc_url: str = DEFAULT_RPC_URL) -> bool:
     """Stop mining"""
     try:
-        response = requests.post(f"{rpc_url}/rpc/mining/stop")
-        if response.status_code == 200:
-            result = response.json()
-            print(f"Mining stopped")
-            print(f"Status: {result.get('status', 'stopped')}")
-            return True
-        else:
-            print(f"Error stopping mining: {response.text}")
-            return False
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.post("/rpc/mining/stop")
+        print(f"Mining stopped")
+        print(f"Status: {result.get('status', 'stopped')}")
+        return True
+    except NetworkError as e:
+        print(f"Error stopping mining: {e}")
+        return False
     except Exception as e:
         print(f"Error: {e}")
         return False
@@ -520,26 +582,22 @@ def stop_mining(rpc_url: str = DEFAULT_RPC_URL) -> bool:
 def get_mining_status(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     """Get mining status and statistics"""
     try:
-        response = requests.get(f"{rpc_url}/rpc/mining/status")
-        if response.status_code == 200:
-            return response.json()
-        else:
-            print(f"Error getting mining status: {response.text}")
-            return None
-    except Exception as e:
-        print(f"Error: {e}")
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        return http_client.get("/rpc/mining/status")
+    except NetworkError as e:
+        print(f"Error getting mining status: {e}")
         return None
 
 
 def get_marketplace_listings(rpc_url: str = DEFAULT_RPC_URL) -> List[Dict]:
     """Get marketplace listings"""
     try:
-        response = requests.get(f"{rpc_url}/rpc/marketplace/listings")
-        if response.status_code == 200:
-            return response.json().get("listings", [])
-        else:
-            print(f"Error getting marketplace listings: {response.text}")
-            return []
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        data = http_client.get("/rpc/marketplace/listings")
+        return data.get("listings", [])
+    except NetworkError as e:
+        print(f"Error getting marketplace listings: {e}")
+        return []
     except Exception as e:
         print(f"Error: {e}")
         return []
@@ -569,17 +627,15 @@ def create_marketplace_listing(wallet_name: str, item_type: str, price: float,
             "description": description
         }
         
-        response = requests.post(f"{rpc_url}/rpc/marketplace/create", json=listing_data)
-        if response.status_code == 200:
-            result = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            result = http_client.post("/rpc/marketplace/create", json=listing_data)
             listing_id = result.get("listing_id")
             print(f"Marketplace listing created")
             print(f"Listing ID: {listing_id}")
-            print(f"Item: {item_type}")
-            print(f"Price: {price} AIT")
-            return listing_id
-        else:
-            print(f"Error creating listing: {response.text}")
+            return result
+        except NetworkError as e:
+            print(f"Error creating marketplace listing: {e}")
             return None
     except Exception as e:
         print(f"Error: {e}")
@@ -609,17 +665,20 @@ def submit_ai_job(wallet_name: str, job_type: str, prompt: str, payment: float,
             "payment": payment
         }
         
-        response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data)
-        if response.status_code == 200:
-            result = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            result = http_client.post("/rpc/ai/submit", json=job_data)
             job_id = result.get("job_id")
             print(f"AI job submitted")
             print(f"Job ID: {job_id}")
             print(f"Type: {job_type}")
             print(f"Payment: {payment} AIT")
             return job_id
-        else:
-            print(f"Error submitting AI job: {response.text}")
+        except NetworkError as e:
+            print(f"Error submitting AI job: {e}")
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
             return None
     except Exception as e:
         print(f"Error: {e}")
@@ -1064,23 +1123,19 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                 # Get chain_id from RPC health endpoint
                 chain_id = "ait-testnet"  # Default
                 try:
-                    health_response = requests.get(f"{rpc_url}/health", timeout=5)
-                    if health_response.status_code == 200:
-                        health_data = health_response.json()
-                        supported_chains = health_data.get("supported_chains", [])
-                        if supported_chains:
-                            chain_id = supported_chains[0]
+                    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+                    health_data = http_client.get("/health")
+                    supported_chains = health_data.get("supported_chains", [])
+                    if supported_chains:
+                        chain_id = supported_chains[0]
                 except Exception:
                     pass
                 
                 # Get actual nonce from blockchain
                 try:
-                    nonce_response = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5)
-                    if nonce_response.status_code == 200:
-                        account_data = nonce_response.json()
-                        actual_nonce = account_data.get("nonce", 0)
-                    else:
-                        actual_nonce = 0
+                    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+                    account_data = http_client.get(f"/rpc/account/{sender_address}")
+                    actual_nonce = account_data.get("nonce", 0)
                 except Exception:
                     actual_nonce = 0
                 
@@ -1102,28 +1157,22 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                 tx["public_key"] = pub_hex
                 
                 # Submit transaction
-                response = requests.post(f"{rpc_url}/rpc/transaction", json=tx)
-                if response.status_code == 200:
-                    result = response.json()
+                try:
+                    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+                    result = http_client.post("/rpc/transaction", json=tx)
                     print(f"Message sent successfully")
                     print(f"From: {sender_address}")
                     print(f"To: {agent}")
-                    print(f"Message: {message}")
-                    print(f"Transaction Hash: {result.get('transaction_hash', 'N/A')}")
-                    return {
-                        "action": "message",
-                        "status": "sent",
-                        "transaction_hash": result.get('transaction_hash'),
-                        "from": sender_address,
-                        "to": agent,
-                        "message": message
-                    }
-                else:
-                    print(f"Error sending message: {response.text}")
+                    print(f"Content: {message}")
+                    return result
+                except NetworkError as e:
+                    print(f"Error sending message: {e}")
                     return None
-                    
+                except Exception as e:
+                    print(f"Error sending message: {e}")
+                    return None
             except Exception as e:
-                print(f"Error sending message: {e}")
+                print(f"Error: {e}")
                 return None
         
         elif action == "messages":
@@ -2478,6 +2527,7 @@ def legacy_main():
                 print("Block info unavailable")
     
     elif args.command == "wallet":
+        daemon_url = getattr(args, 'daemon_url', DEFAULT_WALLET_DAEMON_URL)
         if args.wallet_action == "backup":
             print(f"Wallet backup: {args.name}")
             print(f"  Backup created: /var/lib/aitbc/backups/{args.name}_$(date +%Y%m%d).json")
@@ -2496,16 +2546,59 @@ def legacy_main():
                 print(f"  Sync status: completed")
                 print(f"  Last sync: $(date)")
         elif args.wallet_action == "balance":
+            # Use wallet daemon for balance queries
             if args.all:
-                print("All wallet balances:")
-                print("  genesis: 10000 AIT")
-                print("  aitbc1: 5000 AIT")
-                print("  openclaw-trainee: 100 AIT")
+                try:
+                    http_client = AITBCHTTPClient(base_url=daemon_url, timeout=5)
+                    data = http_client.get("/v1/wallets")
+                    wallet_list = data.get("items", data.get("wallets", []))
+                    print("All wallet balances:")
+                    for wallet in wallet_list:
+                        wallet_name = wallet.get("wallet_name", "unknown")
+                        wallet_address = wallet.get("address", "")
+                        # Query balance for each wallet
+                        try:
+                            balance_data = http_client.get(f"/v1/wallets/{wallet_name}/balance")
+                            balance = balance_data.get("balance", 0)
+                            print(f"  {wallet_name}: {balance} AIT")
+                        except NetworkError:
+                            print(f"  {wallet_name}: balance unavailable")
+                        except Exception:
+                            print(f"  {wallet_name}: balance query failed")
+                except NetworkError as e:
+                    print(f"Warning: Failed to query wallet daemon: {e}")
+                    print("Falling back to mock balances:")
+                    print("  genesis: 10000 AIT")
+                    print("  aitbc1: 5000 AIT")
+                    print("  openclaw-trainee: 100 AIT")
+                except Exception as e:
+                    print(f"Warning: Failed to query wallet daemon: {e}")
+                    print("Falling back to mock balances:")
+                    print("  genesis: 10000 AIT")
+                    print("  aitbc1: 5000 AIT")
+                    print("  openclaw-trainee: 100 AIT")
             elif args.name:
-                print(f"Wallet: {args.name}")
-                print(f"Address: ait1{args.name[:8]}...")
-                print(f"Balance: 100 AIT")
-                print(f"Nonce: 0")
+                try:
+                    http_client = AITBCHTTPClient(base_url=daemon_url, timeout=5)
+                    balance_data = http_client.get(f"/v1/wallets/{args.name}/balance")
+                    balance = balance_data.get("balance", 0)
+                    print(f"Wallet: {args.name}")
+                    print(f"Balance: {balance} AIT")
+                    print(f"Nonce: 0")
+                except NetworkError as e:
+                    print(f"Warning: Failed to query wallet daemon: {e}")
+                    print(f"Falling back to mock balance:")
+                    print(f"Wallet: {args.name}")
+                    print(f"Address: ait1{args.name[:8]}...")
+                    print(f"Balance: 100 AIT")
+                    print(f"Nonce: 0")
+                except Exception as e:
+                    print(f"Warning: Failed to query wallet daemon: {e}")
+                    print(f"Falling back to mock balance:")
+                    print(f"Wallet: {args.name}")
+                    print(f"Address: ait1{args.name[:8]}...")
+                    print(f"Balance: 100 AIT")
+                    print(f"Nonce: 0")
             else:
                 print("Error: --name or --all required")
                 sys.exit(1)
