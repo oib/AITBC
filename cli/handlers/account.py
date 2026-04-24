@@ -3,7 +3,8 @@
 import json
 import sys
 
-import requests
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
 
 
 def handle_account_get(args, default_rpc_url, output_format):
@@ -21,17 +22,15 @@ def handle_account_get(args, default_rpc_url, output_format):
         if chain_id:
             params["chain_id"] = chain_id
         
-        response = requests.get(f"{rpc_url}/rpc/account/{args.address}", params=params, timeout=10)
-        if response.status_code == 200:
-            account = response.json()
-            if output_format(args) == "json":
-                print(json.dumps(account, indent=2))
-            else:
-                render_mapping(f"Account {args.address}:", account)
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        account = http_client.get(f"/rpc/account/{args.address}", params=params)
+        if output_format(args) == "json":
+            print(json.dumps(account, indent=2))
         else:
-            print(f"Query failed: {response.status_code}")
-            print(f"Error: {response.text}")
-            sys.exit(1)
+            render_mapping(f"Account {args.address}:", account)
+    except NetworkError as e:
+        print(f"Error getting account: {e}")
+        sys.exit(1)
     except Exception as e:
         print(f"Error getting account: {e}")
         sys.exit(1)

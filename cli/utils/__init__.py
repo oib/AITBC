@@ -14,7 +14,10 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeElapsedColumn
 import json
 import yaml
-from tabulate import tabulate
+try:
+    from tabulate import tabulate
+except ImportError:
+    tabulate = None
 
 
 console = Console()

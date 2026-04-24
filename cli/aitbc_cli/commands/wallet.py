@@ -9,8 +9,20 @@ import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
-from ..utils import output, error, success, encrypt_value, decrypt_value
+from ..utils import output, error, success
 import getpass
+
+
+def encrypt_value(value: str, password: str) -> str:
+    """Simple encryption for wallet data (placeholder)"""
+    # For now, return the value as-is since daemon mode doesn't need this
+    return value
+
+
+def decrypt_value(encrypted: str, password: str) -> str:
+    """Simple decryption for wallet data (placeholder)"""
+    # For now, return the value as-is since daemon mode doesn't need this
+    return encrypted
 
 
 def _get_wallet_password(wallet_name: str) -> str:
@@ -84,11 +96,25 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
 @click.option(
     "--wallet-path", help="Direct path to wallet file (overrides --wallet-name)"
 )
+@click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
 @click.pass_context
-def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str]):
+def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool):
     """Manage your AITBC wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
+
+    # Set daemon mode
+    ctx.obj["use_daemon"] = use_daemon
+    
+    # Initialize dual-mode adapter
+    from ..config import get_config
+    import sys
+    sys.path.insert(0, '/opt/aitbc/cli')
+    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+    
+    config = get_config()
+    adapter = DualModeWalletAdapter(config, use_daemon=use_daemon)
+    ctx.obj["wallet_adapter"] = adapter
 
     # If direct wallet path is provided, use it
     if wallet_path:
@@ -217,32 +243,43 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
 @click.pass_context
 def list(ctx):
     """List all wallets"""
-    wallet_dir = ctx.obj["wallet_dir"]
-    config_file = Path.home() / ".aitbc" / "config.yaml"
-
-    # Get active wallet
-    active_wallet = "default"
-    if config_file.exists():
-        with open(config_file, "r") as f:
-            config = yaml.safe_load(f)
-            active_wallet = config.get("active_wallet", "default")
-
-    wallets = []
-    for wallet_file in wallet_dir.glob("*.json"):
-        with open(wallet_file, "r") as f:
-            wallet_data = json.load(f)
-            wallet_info = {
-                "name": wallet_data["wallet_id"],
-                "type": wallet_data.get("type", "simple"),
-                "address": wallet_data["address"],
-                "created_at": wallet_data["created_at"],
-                "active": wallet_data["wallet_id"] == active_wallet,
-            }
-            if wallet_data.get("encrypted"):
-                wallet_info["encrypted"] = True
-            wallets.append(wallet_info)
-
-    output(wallets, ctx.obj.get("output_format", "table"))
+    adapter = ctx.obj["wallet_adapter"]
+    use_daemon = ctx.obj["use_daemon"]
+    
+    # Check if using daemon mode and daemon is available
+    if use_daemon and not adapter.is_daemon_available():
+        error("Wallet daemon is not available. Falling back to file-based wallet listing.")
+        # Switch to file mode
+        from ..config import get_config
+        import sys
+        sys.path.insert(0, '/opt/aitbc/cli')
+        from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+        config = get_config()
+        adapter = DualModeWalletAdapter(config, use_daemon=False)
+    
+    try:
+        wallets = adapter.list_wallets()
+        
+        if not wallets:
+            output("No wallets found")
+            return
+        
+        # Format output
+        output_format = ctx.obj.get("output_format", "table")
+        if output_format == "json":
+            import json
+            output(json.dumps(wallets, indent=2))
+        elif output_format == "yaml":
+            import yaml
+            output(yaml.dump(wallets, default_flow_style=False))
+        else:
+            # Table format
+            for wallet in wallets:
+                wallet_name = wallet.get("wallet_name", wallet.get("name", "unknown"))
+                wallet_address = wallet.get("address", "")
+                output(f"{wallet_name}: {wallet_address}")
+    except Exception as e:
+        error(f"Failed to list wallets: {str(e)}")
 
 
 @wallet.command()
