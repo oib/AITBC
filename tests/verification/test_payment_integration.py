@@ -5,11 +5,10 @@ Tests job creation with payments, escrow, release, and refund flows
 """
 
 import asyncio
-import httpx
 import json
 from datetime import datetime
 from typing import Dict, Any
-from aitbc import get_logger
+from aitbc import get_logger, AITBCHTTPClient
 
 # Configure logging
 logger = get_logger(__name__)
