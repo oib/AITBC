@@ -649,20 +649,13 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
     
     try:
         http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
-            response = http_client.get(
-                f"{config.coordinator_url}/v1/exchange/pairs",
-                params=params,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                pairs = response.json()
-                success("Trading pairs:")
-                output(pairs, ctx.obj['output_format'])
-            else:
-                error(f"Failed to list trading pairs: {response.status_code}")
-    except Exception as e:
+        pairs = http_client.get("/exchange/pairs", params=params)
+        success("Trading pairs:")
+        output(pairs, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
