@@ -1,24 +1,19 @@
 [Unit]
 Description=AITBC Blockchain Event Bridge Service
 After=network.target aitbc-blockchain-node.service
-Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
-WorkingDirectory=/opt/aitbc/apps/blockchain-event-bridge
-Environment="PATH=/opt/aitbc/apps/blockchain-event-bridge/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-EnvironmentFile=/etc/aitbc/blockchain-event-bridge.env
-
-# Poetry virtualenv
-ExecStart=/opt/aitbc/apps/blockchain-event-bridge/.venv/bin/uvicorn blockchain_event_bridge.main:app --host 127.0.0.1 --port 8204
-
-# Restart policy
+User=root
+Group=root
+WorkingDirectory=/opt/aitbc
+EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-blockchain-event-bridge-wrapper.py
 Restart=always
-RestartSec=10
-
-# Security
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

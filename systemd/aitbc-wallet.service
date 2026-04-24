@@ -7,11 +7,10 @@ Wants=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/wallet
-Environment=PYTHONPATH=/opt/aitbc/apps/wallet/src:/opt/aitbc/packages/py/aitbc-crypto/src:/opt/aitbc/packages/py/aitbc-sdk/src
+WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/wallet/simple_daemon.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-wallet-wrapper.py
 KillMode=mixed
 TimeoutStopSec=5
 PrivateTmp=false
