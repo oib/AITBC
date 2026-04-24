@@ -5,11 +5,11 @@ Agent Integration and Deployment API Router for Verifiable AI Agent Orchestratio
 Provides REST API endpoints for production deployment and integration management
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

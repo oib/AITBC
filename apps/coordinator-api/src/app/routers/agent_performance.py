@@ -7,14 +7,15 @@ Advanced Agent Performance API Endpoints
 REST API for meta-learning, resource optimization, and performance enhancement
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.agent_performance import (
     AgentCapability,

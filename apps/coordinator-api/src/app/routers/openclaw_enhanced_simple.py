@@ -7,10 +7,11 @@ OpenClaw Enhanced API Router - Simplified Version
 REST API endpoints for OpenClaw integration features
 """
 
-import logging
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field

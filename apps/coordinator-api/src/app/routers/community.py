@@ -7,13 +7,14 @@ Community and Developer Ecosystem API Endpoints
 REST API for managing OpenClaw developer profiles, SDKs, solutions, and hackathons
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.community import (
     AgentSolution,

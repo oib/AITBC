@@ -7,9 +7,9 @@ OpenClaw Integration Enhancement API Router - Phase 6.6
 REST API endpoints for advanced agent orchestration, edge computing integration, and ecosystem development
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 

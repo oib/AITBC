@@ -1,17 +1,13 @@
-
-
 """
 Marketplace Performance Optimization API Endpoints
 REST API for managing distributed processing, GPU optimization, caching, and scaling
 """
 
-import logging
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel, Field
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 import os
 import sys

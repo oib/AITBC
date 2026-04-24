@@ -7,14 +7,15 @@ P2P Trading Protocol API Endpoints
 REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.trading import (
     NegotiationStatus,

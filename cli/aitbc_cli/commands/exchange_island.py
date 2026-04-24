@@ -17,6 +17,14 @@ from ..utils.island_credentials import (
     get_island_id, get_island_name
 )
 
+# Import shared modules
+from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
+
+# Initialize logger
+logger = get_logger(__name__)
+
 
 # Supported trading pairs
 SUPPORTED_PAIRS = ['AIT/BTC', 'AIT/ETH']

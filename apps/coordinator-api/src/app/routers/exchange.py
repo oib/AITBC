@@ -2,7 +2,6 @@
 Bitcoin Exchange Router for AITBC
 """
 
-import logging
 import time
 import uuid
 from datetime import datetime
@@ -12,7 +11,9 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 limiter = Limiter(key_func=get_remote_address)

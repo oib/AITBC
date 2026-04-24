@@ -7,11 +7,11 @@ Agent Security API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for security management and auditing
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
