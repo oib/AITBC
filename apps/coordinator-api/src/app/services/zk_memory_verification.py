@@ -10,15 +10,15 @@ from __future__ import annotations
 
 import hashlib
 import json
-import logging
 
 from fastapi import HTTPException
 from sqlmodel import Session
 
+from aitbc import get_logger
 from ..blockchain.contract_interactions import ContractInteractionService
 from ..domain.decentralized_memory import AgentMemoryNode
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ZKMemoryVerificationService:

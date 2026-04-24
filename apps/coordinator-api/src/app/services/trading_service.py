@@ -3,12 +3,13 @@ Agent-to-Agent Trading Protocol Service
 Implements P2P trading, matching, negotiation, and settlement systems
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, or_, select
 

@@ -3,11 +3,12 @@ Agent Reputation and Trust Service
 Implements reputation management, trust score calculations, and economic profiling
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, and_, func, select
 
