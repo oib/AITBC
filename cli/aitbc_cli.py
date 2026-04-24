@@ -700,17 +700,17 @@ def get_balance(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR,
             address = wallet_data['address']
             
             # Get balance from RPC
-            response = requests.get(f"{rpc_url}/rpc/getBalance/{address}")
-            if response.status_code == 200:
-                balance_data = response.json()
+            try:
+                http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+                balance_data = http_client.get(f"/rpc/getBalance/{address}")
                 return {
                     "address": address,
                     "balance": balance_data.get("balance", 0),
                     "nonce": balance_data.get("nonce", 0),
                     "wallet_name": wallet_name
                 }
-            else:
-                print(f"Error getting balance: {response.text}")
+            except NetworkError as e:
+                print(f"Error getting balance: {e}")
                 return None
         except Exception as e:
             print(f"Error: {e}")
@@ -732,16 +732,16 @@ def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR
         address = wallet_data['address']
         
         # Get transactions from RPC
-        response = requests.get(f"{rpc_url}/rpc/transactions?address={address}&limit={limit}")
-        if response.status_code == 200:
-            tx_data = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            tx_data = http_client.get(f"/rpc/transactions?address={address}&limit={limit}")
             return tx_data.get("transactions", [])
-        else:
-            print(f"Error getting transactions: {response.text}")
+        except NetworkError as e:
+            print(f"Error getting transactions: {e}")
             return []
-    except Exception as e:
-        print(f"Error: {e}")
-        return []
+        except Exception as e:
+            print(f"Error: {e}")
+            return []
 
 
 def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
@@ -758,17 +758,20 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Di
         address = wallet_data["address"]
         
         # Get account info from RPC
-        response = requests.get(f"{rpc_url}/rpc/account/{address}?chain_id=ait-testnet")
-        if response.status_code == 200:
-            account_info = response.json()
+        try:
+            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            account_info = http_client.get(f"/rpc/account/{address}?chain_id=ait-testnet")
             return {
                 "wallet_name": wallet_name,
                 "address": address,
                 "balance": account_info["balance"],
                 "nonce": account_info["nonce"]
             }
-        else:
-            print(f"Error getting balance: {response.text}")
+        except NetworkError as e:
+            print(f"Error getting balance: {e}")
+            return None
+        except Exception as e:
+            print(f"Error: {e}")
             return None
     except Exception as e:
         print(f"Error: {e}")
@@ -780,22 +783,22 @@ def get_chain_info(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     try:
         result = {}
         # Get chain metadata from health endpoint
-        health_response = requests.get(f"{rpc_url}/health")
-        if health_response.status_code == 200:
-            health = health_response.json()
-            chains = health.get('supported_chains', [])
-            result['chain_id'] = chains[0] if chains else 'ait-mainnet'
-            result['supported_chains'] = ', '.join(chains) if chains else 'ait-mainnet'
-            result['proposer_id'] = health.get('proposer_id', '')
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        health = http_client.get("/health")
+        chains = health.get('supported_chains', [])
+        result['chain_id'] = chains[0] if chains else 'ait-mainnet'
+        result['supported_chains'] = ', '.join(chains) if chains else 'ait-mainnet'
+        result['proposer_id'] = health.get('proposer_id', '')
         # Get head block for height
-        head_response = requests.get(f"{rpc_url}/rpc/head")
-        if head_response.status_code == 200:
-            head = head_response.json()
-            result['height'] = head.get('height', 0)
-            result['hash'] = head.get('hash', "")
-            result['timestamp'] = head.get('timestamp', 'N/A')
-            result['tx_count'] = head.get('tx_count', 0)
+        head = http_client.get("/rpc/head")
+        result['height'] = head.get('height', 0)
+        result['hash'] = head.get('hash', "")
+        result['timestamp'] = head.get('timestamp', 'N/A')
+        result['tx_count'] = head.get('tx_count', 0)
         return result if result else None
+    except NetworkError as e:
+        print(f"Error: {e}")
+        return None
     except Exception as e:
         print(f"Error: {e}")
         return None
@@ -1413,22 +1416,22 @@ def get_chain_info(rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
     try:
         result = {}
         # Get chain metadata from health endpoint
-        health_response = requests.get(f"{rpc_url}/health")
-        if health_response.status_code == 200:
-            health = health_response.json()
-            chains = health.get('supported_chains', [])
-            result['chain_id'] = chains[0] if chains else 'ait-mainnet'
-            result['supported_chains'] = ', '.join(chains) if chains else 'ait-mainnet'
-            result['proposer_id'] = health.get('proposer_id', '')
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        health = http_client.get("/health")
+        chains = health.get('supported_chains', [])
+        result['chain_id'] = chains[0] if chains else 'ait-mainnet'
+        result['supported_chains'] = ', '.join(chains) if chains else 'ait-mainnet'
+        result['proposer_id'] = health.get('proposer_id', '')
         # Get head block for height
-        head_response = requests.get(f"{rpc_url}/rpc/head")
-        if head_response.status_code == 200:
-            head = head_response.json()
-            result['height'] = head.get('height', 0)
-            result['hash'] = head.get('hash', "")
-            result['timestamp'] = head.get('timestamp', 'N/A')
-            result['tx_count'] = head.get('tx_count', 0)
+        head = http_client.get("/rpc/head")
+        result['height'] = head.get('height', 0)
+        result['hash'] = head.get('hash', "")
+        result['timestamp'] = head.get('timestamp', 'N/A')
+        result['tx_count'] = head.get('tx_count', 0)
         return result if result else None
+    except NetworkError as e:
+        print(f"Error: {e}")
+        return None
     except Exception as e:
         print(f"Error: {e}")
         return None

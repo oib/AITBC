@@ -6,11 +6,10 @@ After=network.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/aitbc/apps/agent-services/agent-registry/src
-Environment=PYTHONPATH=/opt/aitbc
+WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python app.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-agent-registry-wrapper.py
 Restart=always
 RestartSec=10
 
