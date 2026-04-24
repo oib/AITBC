@@ -6,8 +6,8 @@ Requires=aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=aitbc
-Group=aitbc
+User=root
+Group=root
 WorkingDirectory=/opt/aitbc
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
