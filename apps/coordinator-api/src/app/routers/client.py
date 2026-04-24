@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Annotated
 
@@ -5,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
+
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 from ..config import settings
 from ..custom_types import JobState
@@ -14,6 +18,8 @@ from ..services import JobService
 from ..services.payments import PaymentService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
+
+logger = get_logger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["client"])

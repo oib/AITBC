@@ -7,12 +7,13 @@ AI Agent API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for agent workflow management and execution
 """
 
-import logging
 from datetime import datetime
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

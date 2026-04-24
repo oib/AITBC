@@ -2,17 +2,16 @@
 Cache monitoring and management endpoints
 """
 
-import logging
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from aitbc import get_logger
 from ..config import settings
 from ..deps import require_admin_key
 from ..utils.cache_management import clear_cache, get_cache_stats, warm_cache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 limiter = Limiter(key_func=get_remote_address)

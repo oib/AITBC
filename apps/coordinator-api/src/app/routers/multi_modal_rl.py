@@ -7,14 +7,15 @@ Multi-Modal Fusion and Advanced RL API Endpoints
 REST API for multi-modal agent fusion and advanced reinforcement learning
 """
 
-import logging
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.agent_performance import AgentCapability, CreativeCapability, FusionModel, ReinforcementLearningConfig
 from ..services.advanced_reinforcement_learning import (

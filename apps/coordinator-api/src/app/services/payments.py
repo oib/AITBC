@@ -8,14 +8,17 @@ from sqlalchemy.orm import Session
 import logging
 from datetime import datetime, timedelta
 
+from __future__ import annotations
+
 import httpx
-from sqlmodel import select
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.payment import JobPayment, PaymentEscrow
 from ..schemas import JobPaymentCreate, JobPaymentView
 from ..storage import get_session
-
-logger = logging.getLogger(__name__)
 
 
 class PaymentService:

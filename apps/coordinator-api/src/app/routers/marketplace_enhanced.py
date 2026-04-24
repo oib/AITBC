@@ -7,9 +7,9 @@ Enhanced Marketplace API Router - Phase 6.5
 REST API endpoints for advanced marketplace features including royalties, licensing, and analytics
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 

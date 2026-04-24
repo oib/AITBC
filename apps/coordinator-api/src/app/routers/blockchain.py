@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-import logging
-
 from fastapi import APIRouter
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+logger = get_logger(__name__)
 
 
 router = APIRouter(tags=["blockchain"])
@@ -14,65 +14,43 @@ router = APIRouter(tags=["blockchain"])
 async def blockchain_status():
     """Get blockchain status."""
     try:
-        import httpx
-
         from ..config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/head", timeout=5.0)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "status": "connected",
-                    "height": data.get("height", 0),
-                    "hash": data.get("hash", ""),
-                    "timestamp": data.get("timestamp", ""),
-                    "tx_count": data.get("tx_count", 0),
-                }
-            else:
-                return {"status": "error", "error": f"RPC returned {response.status_code}"}
-    except Exception as e:
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/head")
+        return {
+            "status": "connected",
+            "height": response.get("height", 0),
+            "hash": response.get("hash", ""),
+            "timestamp": response.get("timestamp", ""),
+            "tx_count": response.get("tx_count", 0),
+        }
+    except NetworkError as e:
         logger.error(f"Blockchain status error: {e}")
-        return {"status": "error", "error": "Failed to get blockchain status"}
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
 
 
 @router.get("/sync-status")
 async def blockchain_sync_status():
     """Get blockchain synchronization status."""
     try:
-        import httpx
-
         from ..config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/syncStatus", timeout=5.0)
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    "status": "syncing" if data.get("syncing", False) else "synced",
-                    "current_height": data.get("current_height", 0),
-                    "target_height": data.get("target_height", 0),
-                    "sync_percentage": data.get("sync_percentage", 100.0),
-                    "last_block": data.get("last_block", {}),
-                }
-            else:
-                return {
-                    "status": "error",
-                    "error": f"RPC returned {response.status_code}",
-                    "syncing": False,
-                    "current_height": 0,
-                    "target_height": 0,
-                    "sync_percentage": 0.0,
-                }
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/syncStatus")
+        if response.get("syncing", False):
+            return {
+                "status": "syncing",
+                "current_block": response.get("current_block", 0),
+                "highest_block": response.get("highest_block", 0),
+            }
+        else:
+            return {"status": "synced", "block": response.get("current_block", 0)}
+    except NetworkError as e:
+        logger.error(f"Blockchain sync status error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
     except Exception as e:
         logger.error(f"Blockchain sync status error: {e}")
-        return {
-            "status": "error",
-            "error": "Failed to get sync status",
-            "syncing": False,
-            "current_height": 0,
-            "target_height": 0,
-            "sync_percentage": 0.0,
-        }
+        return {"status": "error", "error": "Failed to get sync status"}
