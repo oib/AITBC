@@ -19,14 +19,13 @@ def compute_block_hash(height, parent_hash, timestamp):
 
 def test_block_import():
     """Test the block import endpoint with various scenarios"""
-    import requests
     
     print("Testing Block Import Endpoint")
     print("=" * 50)
     
     # Get current head to work with existing blockchain
-    response = requests.get(f"{BASE_URL}/head")
-    head = response.json()
+    client = AITBCHTTPClient()
+    head = client.get(f"{BASE_URL}/head")
     print(f"Current head: height={head['height']}, hash={head['hash']}")
     
     # Use very high heights to avoid conflicts with existing chain

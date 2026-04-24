@@ -7,13 +7,12 @@ Tests job creation with payments, escrow, release, and refund flows
 import asyncio
 import httpx
 import json
-import logging
 from datetime import datetime
 from typing import Dict, Any
+from aitbc import get_logger
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Configuration - Using localhost as we're testing from the server
 COORDINATOR_URL = "http://127.0.0.1:8000/v1"
