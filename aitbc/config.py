@@ -41,12 +41,6 @@ class BaseAITBCConfig(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log format string"
     )
-    
-    class Config:
-        """Pydantic configuration"""
-        env_file = str(ENV_FILE)
-        env_file_encoding = "utf-8"
-        case_sensitive = False
 
 
 class AITBCConfig(BaseAITBCConfig):
