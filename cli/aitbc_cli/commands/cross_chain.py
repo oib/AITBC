@@ -1,12 +1,19 @@
 """Cross-chain trading commands for AITBC CLI"""
 
 import click
-import httpx
 import json
 from typing import Optional
 from tabulate import tabulate
 from ..config import get_config
 from ..utils import success, error, output
+
+# Import shared modules
+from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -27,7 +34,7 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
+        with AITBCHTTPClient() as client:
             # Get rates from cross-chain exchange
             response = client.get(
                 f"http://localhost:8001/api/v1/cross-chain/rates",
@@ -96,7 +103,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
     if not min_amount:
         # Get rate first
         try:
-            with httpx.Client() as client:
+            with AITBCHTTPClient() as client:
                 response = client.get(
                     f"http://localhost:8001/api/v1/cross-chain/rates",
                     timeout=10
@@ -123,26 +130,19 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
     }
     
     try:
-        with httpx.Client() as client:
-            response = client.post(
-                f"http://localhost:8001/api/v1/cross-chain/swap",
-                json=swap_data,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                swap_result = response.json()
-                success("Cross-chain swap created successfully!")
-                output({
-                    "Swap ID": swap_result.get('swap_id'),
-                    "From Chain": swap_result.get('from_chain'),
-                    "To Chain": swap_result.get('to_chain'),
-                    "Amount": swap_result.get('amount'),
-                    "Expected Amount": swap_result.get('expected_amount'),
-                    "Rate": swap_result.get('rate'),
-                    "Total Fees": swap_result.get('total_fees'),
-                    "Status": swap_result.get('status')
-                }, ctx.obj['output_format'])
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1/cross-chain", timeout=30)
+        swap_result = http_client.post("/swap", json=swap_data)
+        success("Cross-chain swap created successfully!")
+        output({
+            "Swap ID": swap_result.get('swap_id'),
+            "From Chain": swap_result.get('from_chain'),
+            "To Chain": swap_result.get('to_chain'),
+            "Amount": swap_result.get('amount'),
+            "Expected Amount": swap_result.get('expected_amount'),
+            "Rate": swap_result.get('rate'),
+            "Total Fees": swap_result.get('total_fees'),
+            "Status": swap_result.get('status')
+        }, ctx.obj['output_format'])
                 
                 # Show swap ID for tracking
                 success(f"Track swap with: aitbc cross-chain status {swap_result.get('swap_id')}")
@@ -160,34 +160,44 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
 def status(ctx, swap_id: str):
     """Check cross-chain swap status"""
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/swap/{swap_id}",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                swap_data = response.json()
-                success(f"Swap Status: {swap_data.get('status', 'unknown')}")
-                
-                # Display swap details
-                details = {
-                    "Swap ID": swap_data.get('swap_id'),
-                    "From Chain": swap_data.get('from_chain'),
-                    "To Chain": swap_data.get('to_chain'),
-                    "From Token": swap_data.get('from_token'),
-                    "To Token": swap_data.get('to_token'),
-                    "Amount": swap_data.get('amount'),
-                    "Expected Amount": swap_data.get('expected_amount'),
-                    "Actual Amount": swap_data.get('actual_amount'),
-                    "Status": swap_data.get('status'),
-                    "Created At": swap_data.get('created_at'),
-                    "Completed At": swap_data.get('completed_at'),
-                    "Bridge Fee": swap_data.get('bridge_fee'),
-                    "From Tx Hash": swap_data.get('from_tx_hash'),
-                    "To Tx Hash": swap_data.get('to_tx_hash')
-                }
-                
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        swap_data = http_client.get(f"/cross-chain/swap/{swap_id}")
+        success(f"Swap Status: {swap_data.get('status', 'unknown')}")
+        
+        # Display swap details
+        details = {
+            "Swap ID": swap_data.get('swap_id'),
+            "From Chain": swap_data.get('from_chain'),
+            "To Chain": swap_data.get('to_chain'),
+            "From Token": swap_data.get('from_token'),
+            "To Token": swap_data.get('to_token'),
+            "Amount": swap_data.get('amount'),
+            "Expected Amount": swap_data.get('expected_amount'),
+            "Actual Amount": swap_data.get('actual_amount'),
+            "Status": swap_data.get('status'),
+            "Created At": swap_data.get('created_at'),
+            "Completed At": swap_data.get('completed_at'),
+            "Bridge Fee": swap_data.get('bridge_fee'),
+            "From Tx Hash": swap_data.get('from_tx_hash'),
+            "To Tx Hash": swap_data.get('to_tx_hash')
+        }
+        
+        output(details, ctx.obj['output_format'])
+        
+        # Show additional status info
+        if swap_data.get('status') == 'completed':
+            success("✅ Swap completed successfully!")
+        elif swap_data.get('status') == 'failed':
+            error("❌ Swap failed")
+            if swap_data.get('error_message'):
+                error(f"Error: {swap_data['error_message']}")
+        elif swap_data.get('status') == 'pending':
+            success("⏳ Swap is pending...")
+        elif swap_data.get('status') == 'executing':
+            success("🔄 Swap is executing...")
+        elif swap_data.get('status') == 'refunded':
+            success("💰 Swap was refunded")
+    except NetworkError as e:
                 output(details, ctx.obj['output_format'])
                 
                 # Show additional status info
@@ -223,19 +233,12 @@ def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
         params['status'] = status
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/swaps",
-                params=params,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                swaps_data = response.json()
-                swaps = swaps_data.get('swaps', [])
-                
-                if swaps:
-                    success(f"Found {len(swaps)} cross-chain swaps:")
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        swaps_data = http_client.get("/cross-chain/swaps", params=params)
+        swaps = swaps_data.get('swaps', [])
+        
+        if swaps:
+            success(f"Found {len(swaps)} cross-chain swaps:")
                     
                     # Create table
                     swap_table = []
@@ -295,23 +298,16 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
     }
     
     try:
-        with httpx.Client() as client:
-            response = client.post(
-                f"http://localhost:8001/api/v1/cross-chain/bridge",
-                json=bridge_data,
-                timeout=30
-            )
-            
-            if response.status_code == 200:
-                bridge_result = response.json()
-                success("Cross-chain bridge created successfully!")
-                output({
-                    "Bridge ID": bridge_result.get('bridge_id'),
-                    "Source Chain": bridge_result.get('source_chain'),
-                    "Target Chain": bridge_result.get('target_chain'),
-                    "Token": bridge_result.get('token'),
-                    "Amount": bridge_result.get('amount'),
-                    "Bridge Fee": bridge_result.get('bridge_fee'),
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=30)
+        bridge_result = http_client.post("/cross-chain/bridge", json=bridge_data)
+        success("Cross-chain bridge created successfully!")
+        output({
+            "Bridge ID": bridge_result.get('bridge_id'),
+            "Source Chain": bridge_result.get('source_chain'),
+            "Target Chain": bridge_result.get('target_chain'),
+            "Token": bridge_result.get('token'),
+            "Amount": bridge_result.get('amount'),
+            "Bridge Fee": bridge_result.get('bridge_fee'),
                     "Status": bridge_result.get('status')
                 }, ctx.obj['output_format'])
                 
@@ -331,15 +327,9 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
 def bridge_status(ctx, bridge_id: str):
     """Check cross-chain bridge status"""
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/bridge/{bridge_id}",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                bridge_data = response.json()
-                success(f"Bridge Status: {bridge_data.get('status', 'unknown')}")
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        bridge_data = http_client.get(f"/cross-chain/bridge/{bridge_id}")
+        success(f"Bridge Status: {bridge_data.get('status', 'unknown')}")
                 
                 # Display bridge details
                 details = {
@@ -383,7 +373,7 @@ def bridge_status(ctx, bridge_id: str):
 def pools(ctx):
     """Show cross-chain liquidity pools"""
     try:
-        with httpx.Client() as client:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
             response = client.get(
                 f"http://localhost:8001/api/v1/cross-chain/pools",
                 timeout=10
@@ -426,7 +416,7 @@ def pools(ctx):
 def stats(ctx):
     """Show cross-chain trading statistics"""
     try:
-        with httpx.Client() as client:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
             response = client.get(
                 f"http://localhost:8001/api/v1/cross-chain/stats",
                 timeout=10

@@ -7,13 +7,17 @@ Decentralized Governance API Endpoints
 REST API for OpenClaw DAO voting, proposals, and governance analytics
 """
 
-import logging
+from __future__ import annotations
+
+from fastapi import APIRouter, Depends, HTTPException
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
-
-logger = logging.getLogger(__name__)
 
 from ..domain.governance import (
     GovernanceProfile,

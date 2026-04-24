@@ -1,7 +1,6 @@
 """Exchange integration commands for AITBC CLI"""
 
 import click
-import httpx
 import json
 import os
 from pathlib import Path
@@ -9,6 +8,14 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 from ..utils import output, error, success, warning
 from ..config import get_config
+
+# Import shared modules
+from aitbc.aitbc_logging import get_logger
+from aitbc.http_client import AITBCHTTPClient
+from aitbc.exceptions import NetworkError
+
+# Initialize logger
+logger = get_logger(__name__)
 
 
 @click.group()
@@ -368,20 +375,14 @@ def status(ctx, exchange_name: str):
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/v1/exchange/rates",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                rates_data = response.json()
-                success("Current exchange rates:")
-                output(rates_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get exchange rates: {response.status_code}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        rates_data = http_client.get(f"/exchange/rates")
+        success("Current exchange rates:")
+        output(rates_data, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -410,55 +411,36 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
     
     # Get exchange rates to calculate missing amount
     try:
-        with httpx.Client() as client:
-            rates_response = client.get(
-                f"{config.coordinator_url}/v1/exchange/rates",
-                timeout=10
-            )
-            
-            if rates_response.status_code != 200:
-                error("Failed to get exchange rates")
-                return
-            
-            rates = rates_response.json()
-            btc_to_aitbc = rates.get('btc_to_aitbc', 100000)
-            
-            # Calculate missing amount
-            if aitbc_amount and not btc_amount:
-                btc_amount = aitbc_amount / btc_to_aitbc
-            elif btc_amount and not aitbc_amount:
-                aitbc_amount = btc_amount * btc_to_aitbc
-            
-            # Prepare payment request
-            payment_data = {
-                "user_id": user_id or "cli_user",
-                "aitbc_amount": aitbc_amount,
-                "btc_amount": btc_amount
-            }
-            
-            if notes:
-                payment_data["notes"] = notes
-            
-            # Create payment
-            response = client.post(
-                f"{config.coordinator_url}/v1/exchange/create-payment",
-                json=payment_data,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                payment = response.json()
-                success(f"Payment created: {payment.get('payment_id')}")
-                success(f"Send {btc_amount:.8f} BTC to: {payment.get('payment_address')}")
-                success(f"Expires at: {payment.get('expires_at')}")
-                output(payment, ctx.obj['output_format'])
-            else:
-                error(f"Failed to create payment: {response.status_code}")
-                if response.text:
-                    error(f"Error details: {response.text}")
-                    
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        rates = http_client.get("/exchange/rates")
+        btc_to_aitbc = rates.get('btc_to_aitbc', 100000)
+        
+        # Calculate missing amount
+        if aitbc_amount and not btc_amount:
+            btc_amount = aitbc_amount / btc_to_aitbc
+        elif btc_amount and not aitbc_amount:
+            aitbc_amount = btc_amount * btc_to_aitbc
+        
+        # Prepare payment request
+        payment_data = {
+            "user_id": user_id or "cli_user",
+            "aitbc_amount": aitbc_amount,
+            "btc_amount": btc_amount
+        }
+        
+        if notes:
+            payment_data["notes"] = notes
+        
+        # Create payment
+        payment = http_client.post("/exchange/create-payment", json=payment_data)
+        success(f"Payment created: {payment.get('payment_id')}")
+        success(f"Send {btc_amount:.8f} BTC to: {payment.get('payment_address')}")
+        success(f"Expires at: {payment.get('expires_at')}")
+        output(payment, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -469,31 +451,25 @@ def payment_status(ctx, payment_id: str):
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/v1/exchange/payment-status/{payment_id}",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                status_data = response.json()
-                status = status_data.get('status', 'unknown')
-                
-                if status == 'confirmed':
-                    success(f"Payment {payment_id} is confirmed!")
-                    success(f"AITBC amount: {status_data.get('aitbc_amount', 0)}")
-                elif status == 'pending':
-                    success(f"Payment {payment_id} is pending confirmation")
-                elif status == 'expired':
-                    error(f"Payment {payment_id} has expired")
-                else:
-                    success(f"Payment {payment_id} status: {status}")
-                
-                output(status_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get payment status: {response.status_code}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        status_data = http_client.get(f"/exchange/payment-status/{payment_id}")
+        status = status_data.get('status', 'unknown')
+        
+        if status == 'confirmed':
+            success(f"Payment {payment_id} is confirmed!")
+            success(f"AITBC amount: {status_data.get('aitbc_amount', 0)}")
+        elif status == 'pending':
+            success(f"Payment {payment_id} is pending confirmation")
+        elif status == 'expired':
+            error(f"Payment {payment_id} has expired")
+        else:
+            success(f"Payment {payment_id} status: {status}")
+        
+        output(status_data, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -503,20 +479,14 @@ def market_stats(ctx):
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/v1/exchange/market-stats",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                stats = response.json()
-                success("Exchange market statistics:")
-                output(stats, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get market stats: {response.status_code}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        stats = http_client.get("/exchange/market-stats")
+        success("Exchange market statistics:")
+        output(stats, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.group()
@@ -532,20 +502,14 @@ def balance(ctx):
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/exchange/wallet/balance",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                balance_data = response.json()
-                success("Bitcoin wallet balance:")
-                output(balance_data, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get wallet balance: {response.status_code}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        balance_data = http_client.get("/exchange/wallet/balance")
+        success("Bitcoin wallet balance:")
+        output(balance_data, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @wallet.command()
@@ -555,20 +519,14 @@ def info(ctx):
     config = ctx.obj['config']
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
-                f"{config.coordinator_url}/exchange/wallet/info",
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                wallet_info = response.json()
-                success("Bitcoin wallet information:")
-                output(wallet_info, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get wallet info: {response.status_code}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        wallet_info = http_client.get("/exchange/wallet/info")
+        success("Bitcoin wallet information:")
+        output(wallet_info, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -591,24 +549,15 @@ def register(ctx, name: str, api_key: str, api_secret: Optional[str], sandbox: b
         exchange_data["api_secret"] = api_secret
     
     try:
-        with httpx.Client() as client:
-            response = client.post(
-                f"{config.coordinator_url}/v1/exchange/register",
-                json=exchange_data,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                success(f"Exchange '{name}' registered successfully!")
-                success(f"Exchange ID: {result.get('exchange_id')}")
-                output(result, ctx.obj['output_format'])
-            else:
-                error(f"Failed to register exchange: {response.status_code}")
-                if response.text:
-                    error(f"Error details: {response.text}")
-    except Exception as e:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        result = http_client.post("/exchange/register", json=exchange_data)
+        success(f"Exchange '{name}' registered successfully!")
+        success(f"Exchange ID: {result.get('exchange_id')}")
+        output(result, ctx.obj['output_format'])
+    except NetworkError as e:
         error(f"Network error: {e}")
+    except Exception as e:
+        error(f"Error: {e}")
 
 
 @exchange.command()
@@ -640,8 +589,8 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
         pair_data["max_order_size"] = max_order_size
     
     try:
-        with httpx.Client() as client:
-            response = client.post(
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+            response = http_client.post(
                 f"{config.coordinator_url}/v1/exchange/create-pair",
                 json=pair_data,
                 timeout=10
@@ -679,8 +628,8 @@ def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
         trading_data["exchange"] = exchange
     
     try:
-        with httpx.Client() as client:
-            response = client.post(
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+            response = http_client.post(
                 f"{config.coordinator_url}/v1/exchange/start-trading",
                 json=trading_data,
                 timeout=10
@@ -717,8 +666,8 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
         params["status"] = status
     
     try:
-        with httpx.Client() as client:
-            response = client.get(
+        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+            response = http_client.get(
                 f"{config.coordinator_url}/v1/exchange/pairs",
                 params=params,
                 timeout=10

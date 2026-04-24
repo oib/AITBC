@@ -1,4 +1,3 @@
-import logging
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -7,6 +6,7 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
+from aitbc import get_logger
 from ..config import settings
 from ..deps import get_miner_id, require_miner_key
 from ..schemas import AssignedJob, JobFailSubmit, JobResultSubmit, JobState, MinerHeartbeat, MinerRegister, PollRequest
@@ -14,7 +14,7 @@ from ..services import JobService, MinerService
 from ..services.receipts import ReceiptService
 from ..storage import get_session
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 limiter = Limiter(key_func=get_remote_address)

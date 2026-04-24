@@ -1,4 +1,5 @@
-import logging
+from __future__ import annotations
+
 from datetime import datetime
 from typing import Annotated
 
@@ -8,14 +9,15 @@ from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
+from aitbc import get_logger
+
 from ..config import settings
 from ..deps import require_admin_key
 from ..services import JobService, MinerService
 from ..storage import get_session
 from ..utils.cache import cached, get_cache_config
 
-logger = logging.getLogger(__name__)
-
+logger = get_logger(__name__)
 
 limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/admin", tags=["admin"])
