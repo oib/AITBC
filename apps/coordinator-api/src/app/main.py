@@ -30,8 +30,13 @@ from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app
 from prometheus_client.core import CollectorRegistry
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+
+# RateLimitExceeded is now defined in slowapi directly, not in slowapi.errors
+try:
+    from slowapi.errors import RateLimitExceeded
+except ImportError:
+    from slowapi import RateLimitExceeded
 
 from .config import settings
 from .utils.alerting import alert_dispatcher
