@@ -23,8 +23,8 @@ LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/stress-test.log"
 
 # Stress Test Configuration
-STRESS_WALLET_NAME="stress-test-wallet"
-STRESS_WALLET_PASSWORD="stress123456"
+STRESS_WALLET_NAME="${STRESS_WALLET_NAME:-genesis}"  # Use existing genesis wallet instead of creating new one
+STRESS_WALLET_PASSWORD="${STRESS_WALLET_PASSWORD:-}"  # Genesis wallet may not need password
 TRANSACTION_COUNT=${TRANSACTION_COUNT:-100}
 TRANSACTION_RATE=${TRANSACTION_RATE:-1}  # transactions per second
 TARGET_TPS=${TARGET_TPS:-10}
@@ -61,8 +61,14 @@ log_warning() {
     echo -e "${YELLOW}$@${NC}"
 }
 
-# Create stress test wallet
+# Create stress test wallet (skip if using existing wallet)
 create_stress_wallet() {
+    # If using existing wallet (genesis), skip creation
+    if [ "${STRESS_WALLET_NAME}" = "genesis" ]; then
+        log "Using existing genesis wallet: ${STRESS_WALLET_NAME}"
+        return 0
+    fi
+    
     log "Creating stress test wallet: ${STRESS_WALLET_NAME}"
     
     # Remove existing wallet if it exists
@@ -164,8 +170,14 @@ verify_consensus() {
     fi
 }
 
-# Clean up stress test wallet
+# Clean up stress test wallet (skip if using existing wallet)
 cleanup_wallet() {
+    # If using existing wallet (genesis), skip deletion
+    if [ "${STRESS_WALLET_NAME}" = "genesis" ]; then
+        log "Using existing genesis wallet, skipping deletion"
+        return 0
+    fi
+    
     log "Cleaning up stress test wallet: ${STRESS_WALLET_NAME}"
     ${CLI_PATH} wallet delete --name "${STRESS_WALLET_NAME}" --yes >> "${LOG_FILE}" 2>&1 || true
     log_success "Stress test wallet deleted"
