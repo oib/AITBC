@@ -37,7 +37,7 @@ class CombinedService:
         app = create_app()
         config = uvicorn.Config(
             app,
-            host="0.0.0.0",
+            host="0.0.0.0",  # nosec B104 - binding to all interfaces is intentional for blockchain node
             port=8005,
             log_level="info"
         )
