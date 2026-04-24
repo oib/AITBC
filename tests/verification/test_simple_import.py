@@ -5,7 +5,7 @@ Simple test for block import endpoint without transactions
 
 import json
 import hashlib
-import requests
+from aitbc import AITBCHTTPClient, NetworkError
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
@@ -22,8 +22,8 @@ def test_simple_block_import():
     print("=" * 40)
     
     # Get current head
-    response = requests.get(f"{BASE_URL}/head")
-    head = response.json()
+    client = AITBCHTTPClient()
+    head = client.get(f"{BASE_URL}/head")
     print(f"Current head: height={head['height']}, hash={head['hash']}")
     
     # Create a new block

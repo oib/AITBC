@@ -5,7 +5,7 @@ Minimal test to debug transaction import
 
 import json
 import hashlib
-import requests
+from aitbc import AITBCHTTPClient, NetworkError
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
 CHAIN_ID = "ait-mainnet"
@@ -19,8 +19,8 @@ def test_minimal():
     """Test with minimal data"""
     
     # Get current head
-    response = requests.get(f"{BASE_URL}/head")
-    head = response.json()
+    client = AITBCHTTPClient()
+    head = client.get(f"{BASE_URL}/head")
     
     # Create a new block
     height = head["height"] + 1
@@ -58,9 +58,8 @@ def test_minimal():
         test_block["transactions"] = [{"tx_hash": "0xtest", "sender": "0xtest", "recipient": "0xtest", "payload": {}}]
         
         print("\nTesting with one transaction...")
-        response = requests.post(f"{BASE_URL}/importBlock", json=test_block)
-        print(f"Status: {response.status_code}")
-        print(f"Response: {response.json()}")
+        response = client.post(f"{BASE_URL}/importBlock", json=test_block)
+        print(f"Response: {response}")
 
 if __name__ == "__main__":
     test_minimal()

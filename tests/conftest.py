@@ -12,6 +12,12 @@ from unittest.mock import Mock
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# Add aitbc package to sys.path for centralized utilities
+sys.path.insert(0, str(project_root / "aitbc"))
+
+# Import aitbc utilities for conftest
+from aitbc import get_data_path, get_log_path
+
 # Add necessary source paths
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-crypto" / "src"))
@@ -44,8 +50,9 @@ sys.path.insert(0, str(project_root / "apps" / "coordinator-api"))
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"
-os.environ["AUDIT_LOG_DIR"] = str(project_root / "logs" / "audit")
+os.environ["AUDIT_LOG_DIR"] = str(get_log_path() / "audit")
 os.environ["TEST_DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["DATA_DIR"] = str(get_data_path())
 
 # Mock missing optional dependencies
 sys.modules['slowapi'] = Mock()

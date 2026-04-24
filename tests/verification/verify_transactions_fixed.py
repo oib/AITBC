@@ -3,7 +3,7 @@
 Verify that transactions are now showing properly on the explorer
 """
 
-import requests
+from aitbc import AITBCHTTPClient, NetworkError
 
 def main():
     print("🔍 Verifying Transactions Display on AITBC Explorer")
@@ -12,9 +12,9 @@ def main():
     # Check API
     print("\n1. API Check:")
     try:
-        response = requests.get("https://aitbc.bubuit.net/api/explorer/transactions")
-        if response.status_code == 200:
-            data = response.json()
+        client = AITBCHTTPClient()
+        data = client.get("https://aitbc.bubuit.net/api/explorer/transactions")
+        if data:
             print(f"   ✅ API returns {len(data['items'])} transactions")
             
             # Count by status
@@ -27,8 +27,8 @@ def main():
             for status, count in status_counts.items():
                 print(f"   • {status}: {count}")
         else:
-            print(f"   ❌ API failed: {response.status_code}")
-    except Exception as e:
+            print(f"   ❌ API failed")
+    except NetworkError as e:
         print(f"   ❌ Error: {e}")
     
     # Check main explorer page

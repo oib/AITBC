@@ -7,13 +7,12 @@ Tests job creation with payments, escrow, release, and refund flows
 import asyncio
 import httpx
 import json
-import logging
 from datetime import datetime
 from typing import Dict, Any
+from aitbc import get_logger
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Configuration
 COORDINATOR_URL = "https://aitbc.bubuit.net/api"
@@ -22,7 +21,7 @@ MINER_KEY = "${MINER_API_KEY}"
 
 class PaymentIntegrationTest:
     def __init__(self):
-        self.client = httpx.Client(timeout=30.0)
+        self.client = AITBCHTTPClient(timeout=30.0)
         self.job_id = None
         self.payment_id = None
         
