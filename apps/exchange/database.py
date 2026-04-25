@@ -7,10 +7,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import StaticPool
+from aitbc.constants import DATA_DIR
 from models import Base
 
 # Database configuration
-DATABASE_URL = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db")
+DATABASE_URL = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db")
 
 # Create engine
 if DATABASE_URL.startswith("sqlite"):
