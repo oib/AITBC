@@ -14,9 +14,17 @@ from ..core.marketplace import (
 from ..utils import output, error, success
 
 @click.group()
-def marketplace():
+@click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
+@click.pass_context
+def marketplace(ctx, chain_id: Optional[str]):
     """Global chain marketplace commands"""
-    pass
+    ctx.ensure_object(dict)
+    
+    # Handle chain_id with auto-detection
+    from ..utils.chain_id import get_chain_id
+    config = load_multichain_config()
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
+    ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
 
 @marketplace.command()
 @click.argument('chain_id')

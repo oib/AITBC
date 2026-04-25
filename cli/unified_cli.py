@@ -536,6 +536,7 @@ def run_cli(argv, core):
     wallet_balance_parser.add_argument("--name", dest="wallet_name_opt", help=argparse.SUPPRESS)
     wallet_balance_parser.add_argument("--all", action="store_true")
     wallet_balance_parser.add_argument("--rpc-url", default=default_rpc_url)
+    wallet_balance_parser.add_argument("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     wallet_balance_parser.set_defaults(handler=handle_wallet_balance)
 
     wallet_transactions_parser = wallet_subparsers.add_parser("transactions", help="Show wallet transactions")

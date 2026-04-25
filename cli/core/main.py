@@ -102,6 +102,11 @@ def version():
     help="API key for authentication"
 )
 @click.option(
+    "--chain-id",
+    default=None,
+    help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)"
+)
+@click.option(
     "--output",
     default="table",
     type=click.Choice(["table", "json", "yaml", "csv"]),
@@ -119,7 +124,7 @@ def version():
     help="Enable debug mode"
 )
 @click.pass_context
-def cli(ctx, url, api_key, output, verbose, debug):
+def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     """AITBC CLI - Command Line Interface for AITBC Network
     
     Manage jobs, mining, wallets, blockchain operations, marketplaces, and AI
@@ -142,6 +147,11 @@ def cli(ctx, url, api_key, output, verbose, debug):
     ctx.obj['output'] = output
     ctx.obj['verbose'] = verbose
     ctx.obj['debug'] = debug
+    
+    # Handle chain_id with auto-detection
+    from aitbc_cli.utils.chain_id import get_chain_id, get_default_chain_id
+    default_rpc_url = url.replace('/api', '') if url else 'http://localhost:8006'
+    ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
 
 # Add commands to CLI
 cli.add_command(system)
