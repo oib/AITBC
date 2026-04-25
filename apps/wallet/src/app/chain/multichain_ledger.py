@@ -12,11 +12,11 @@ import threading
 import json
 from datetime import datetime
 from dataclasses import dataclass, asdict
-import logging
 
+from aitbc import get_logger
 from .manager import ChainManager, ChainConfig
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

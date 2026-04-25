@@ -7,15 +7,15 @@ isolation, and management across different blockchain networks.
 
 from typing import Dict, List, Optional, Any
 from pathlib import Path
-import logging
 from datetime import datetime
 
+from aitbc import get_logger
 from .manager import ChainManager, ChainConfig, ChainStatus
 from .multichain_ledger import MultiChainLedgerAdapter, ChainWalletMetadata
 from ..keystore.persistent_service import PersistentKeystoreService
 from ..security import wipe_buffer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ChainAwareWalletService:
