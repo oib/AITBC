@@ -3,9 +3,9 @@ Enhanced Marketplace Service - Simplified Version for Deployment
 Basic marketplace enhancement features compatible with existing domain models
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any

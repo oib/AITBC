@@ -4,7 +4,6 @@ Automatic language detection for multi-language support
 """
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from enum import Enum
 
@@ -13,7 +12,9 @@ import langdetect
 from langdetect.lang_detect_exception import LangDetectException
 from polyglot.detect import Detector
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class DetectionMethod(Enum):

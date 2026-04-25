@@ -6,6 +6,7 @@ Provides environment-based adapter selection and consolidated settings.
 
 import os
 
+from aitbc.constants import DATA_DIR, LOG_DIR
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,7 +28,7 @@ class DatabaseConfig(BaseSettings):
 
         # Default SQLite path - consistent with blockchain-node pattern
         if self.adapter == "sqlite":
-            return "sqlite:////var/lib/aitbc/data/coordinator.db"
+            return f"sqlite:///{DATA_DIR}/data/coordinator.db"
 
         # Default PostgreSQL connection string
         return f"{self.adapter}://localhost:5432/coordinator"
@@ -44,7 +45,7 @@ class Settings(BaseSettings):
     app_env: str = "dev"
     app_host: str = "127.0.0.1"
     app_port: int = 8011
-    audit_log_dir: str = "/var/log/aitbc/audit"
+    audit_log_dir: str = str(LOG_DIR / "audit")
 
     # Database
     database: DatabaseConfig = DatabaseConfig()
@@ -196,7 +197,7 @@ class Settings(BaseSettings):
         if self.database.url:
             return self.database.url
         # Default SQLite path - consistent with blockchain-node pattern
-        return "sqlite:////var/lib/aitbc/data/coordinator.db"
+        return f"sqlite:///{DATA_DIR}/data/coordinator.db"
 
     @database_url.setter
     def database_url(self, value: str):

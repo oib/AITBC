@@ -3,9 +3,9 @@ OpenClaw Enhanced Service - Simplified Version for Deployment
 Basic OpenClaw integration features compatible with existing infrastructure
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from datetime import datetime
 from enum import StrEnum
 from typing import Any

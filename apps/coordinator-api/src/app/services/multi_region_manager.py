@@ -4,15 +4,15 @@ Geographic load balancing, data residency compliance, and disaster recovery
 """
 
 import asyncio
-import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class RegionStatus(StrEnum):

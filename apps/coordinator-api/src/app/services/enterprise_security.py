@@ -3,7 +3,6 @@ Enterprise Security Framework - Phase 6.2 Implementation
 Zero-trust architecture with HSM integration and advanced security controls
 """
 
-import logging
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -15,7 +14,9 @@ import cryptography
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class SecurityLevel(StrEnum):

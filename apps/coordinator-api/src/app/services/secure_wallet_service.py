@@ -5,7 +5,7 @@ Implements proper Ethereum cryptography and secure key storage
 
 from __future__ import annotations
 
-import logging
+from aitbc import get_logger
 from datetime import datetime
 
 from sqlalchemy import select
@@ -23,7 +23,7 @@ from .wallet_crypto import (
     verify_keypair_consistency,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SecureWalletService:

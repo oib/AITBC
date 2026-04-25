@@ -5,7 +5,6 @@ Collects real-time market data from various sources for pricing calculations
 
 import asyncio
 import json
-import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -14,7 +13,9 @@ from typing import Any
 
 import websockets
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class DataSource(StrEnum):

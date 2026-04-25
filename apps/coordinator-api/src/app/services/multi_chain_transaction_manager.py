@@ -4,7 +4,6 @@ Advanced transaction management system for cross-chain operations with routing, 
 """
 
 import asyncio
-import logging
 from collections import defaultdict
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -12,7 +11,9 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session
 

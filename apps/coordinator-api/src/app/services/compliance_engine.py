@@ -3,14 +3,15 @@ Enterprise Compliance Engine - Phase 6.2 Implementation
 GDPR, CCPA, SOC 2, and regulatory compliance automation
 """
 
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ComplianceFramework(StrEnum):

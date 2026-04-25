@@ -7,9 +7,9 @@ Provides liquidity pool management, token swapping, and dynamic fee adjustment.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session

@@ -3,14 +3,15 @@ Advanced Load Balancing - Phase 6.4 Implementation
 Intelligent traffic distribution with AI-powered auto-scaling and performance optimization
 """
 
-import logging
 import statistics
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class LoadBalancingAlgorithm(StrEnum):

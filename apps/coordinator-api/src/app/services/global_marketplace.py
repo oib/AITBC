@@ -9,12 +9,13 @@ Global Marketplace Services
 Core services for global marketplace operations, multi-region support, and cross-chain integration
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

@@ -7,13 +7,14 @@ import os
 import sys
 import time
 import json
-import logging
 import asyncio
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 import threading
 import multiprocessing
+
+from aitbc import get_logger
 
 # Try to import pycuda, fallback if not available
 try:

@@ -4,12 +4,13 @@ Implements meta-learning, resource optimization, and performance enhancement for
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
