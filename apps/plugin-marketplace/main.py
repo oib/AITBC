@@ -5,7 +5,6 @@ Provides web interface and marketplace functionality for plugins
 
 import asyncio
 import json
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -14,9 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="AITBC Plugin Marketplace",
