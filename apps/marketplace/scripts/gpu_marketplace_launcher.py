@@ -6,15 +6,11 @@ GPU Marketplace Launcher for AITBC Production
 import os
 import sys
 import subprocess
-import logging
 from pathlib import Path
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 def main():
     """Main GPU marketplace launcher function"""

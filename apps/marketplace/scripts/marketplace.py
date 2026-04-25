@@ -6,19 +6,15 @@ Marketplace Service for AITBC Production
 import os
 import sys
 import time
-import logging
 from pathlib import Path
+
+from aitbc import get_logger
 
 # Add paths
 sys.path.insert(0, '/opt/aitbc/apps/marketplace/src')
 sys.path.insert(0, '/opt/aitbc/apps/coordinator-api/src')
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def main():
     """Main marketplace service function"""
