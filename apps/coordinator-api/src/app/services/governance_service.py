@@ -4,13 +4,13 @@ Implements the OpenClaw DAO, voting mechanisms, and proposal lifecycle
 Enhanced with multi-jurisdictional support and regional governance
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Any
 
+from aitbc import get_logger
 from sqlmodel import Session, select
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from ..domain.governance import (
     DaoTreasury,

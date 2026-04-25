@@ -9,9 +9,10 @@ Specialized optimization for text, image, audio, video, tabular, and graph data
 """
 
 import asyncio
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 from datetime import datetime
 from enum import StrEnum
 from typing import Any

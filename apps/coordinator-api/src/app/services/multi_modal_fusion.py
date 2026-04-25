@@ -14,8 +14,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

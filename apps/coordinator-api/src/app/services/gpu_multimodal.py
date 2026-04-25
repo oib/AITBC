@@ -9,12 +9,12 @@ Advanced GPU optimization for cross-modal attention mechanisms
 Phase 5.2: System Optimization and Performance Enhancement
 """
 
-import logging
+from aitbc import get_logger
 
 import torch
 import torch.nn.functional as F
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 import time
 from datetime import datetime
 from typing import Any

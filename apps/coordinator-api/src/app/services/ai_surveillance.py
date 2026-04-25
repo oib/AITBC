@@ -5,7 +5,6 @@ Implements ML-based pattern recognition, behavioral analysis, and predictive ris
 """
 
 import asyncio
-import logging
 import random
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -16,8 +15,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
+from aitbc import get_logger
 logger = logging.getLogger(__name__)
 
 

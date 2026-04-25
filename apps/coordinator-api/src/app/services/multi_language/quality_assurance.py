@@ -4,7 +4,6 @@ Quality assessment and validation for translation results
 """
 
 import asyncio
-import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -17,7 +16,9 @@ import spacy
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.translate.bleu_score import SmoothingFunction, sentence_bleu
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class QualityMetric(Enum):

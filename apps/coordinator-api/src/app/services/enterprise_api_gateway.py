@@ -4,7 +4,6 @@ Multi-tenant API routing and management for enterprise clients
 Port: 8010
 """
 
-import logging
 import secrets
 import time
 from datetime import datetime, timedelta
@@ -18,7 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..domain.multitenant import Tenant, TenantApiKey, TenantQuota
 from ..exceptions import QuotaExceededError, TenantError

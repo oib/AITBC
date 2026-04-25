@@ -16,7 +16,9 @@ from uuid import uuid4
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 from .websocket_stream_manager import MessageType, StreamConfig, stream_manager
 
 

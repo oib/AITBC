@@ -5,17 +5,15 @@ Detects market manipulation, unusual trading patterns, and suspicious activities
 """
 
 import asyncio
-import logging
+import numpy as np
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-import numpy as np
+from aitbc import get_logger
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AlertLevel(StrEnum):

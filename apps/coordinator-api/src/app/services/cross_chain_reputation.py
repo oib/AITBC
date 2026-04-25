@@ -4,9 +4,10 @@ Implements portable reputation scores across multiple blockchain networks
 """
 
 import asyncio
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta

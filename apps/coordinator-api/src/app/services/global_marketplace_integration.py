@@ -3,12 +3,13 @@ Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities
 """
 
-import logging
 from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

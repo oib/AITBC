@@ -6,7 +6,6 @@ Connects with actual KYC/AML service providers for compliance verification
 
 import asyncio
 import hashlib
-import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -14,9 +13,9 @@ from typing import Any
 
 import aiohttp
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class KYCProvider(StrEnum):

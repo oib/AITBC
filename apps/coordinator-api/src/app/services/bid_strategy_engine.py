@@ -4,9 +4,10 @@ Implements intelligent bidding algorithms for GPU rental negotiations
 """
 
 import asyncio
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum

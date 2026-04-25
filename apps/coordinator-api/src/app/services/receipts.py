@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from datetime import datetime
 from secrets import token_hex
 from typing import Any
