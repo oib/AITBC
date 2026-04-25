@@ -1,12 +1,13 @@
 import json
-import logging
 import os
 from collections import deque
 from datetime import datetime, timedelta
 from typing import Any
 from urllib import error, request
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class AlertDispatcher:

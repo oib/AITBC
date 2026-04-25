@@ -6,7 +6,6 @@ Provides SQLite and PostgreSQL support with connection pooling.
 
 from __future__ import annotations
 
-import logging
 from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager, contextmanager
 
@@ -17,7 +16,9 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import QueuePool
 from sqlmodel import SQLModel
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..config import settings
 

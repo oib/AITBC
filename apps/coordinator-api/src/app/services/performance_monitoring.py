@@ -4,7 +4,6 @@ Real-time performance tracking and optimization recommendations
 """
 
 import json
-import logging
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -12,6 +11,7 @@ from typing import Any
 
 import psutil
 import torch
+
 from aitbc import get_logger
 
 logger = get_logger(__name__)
