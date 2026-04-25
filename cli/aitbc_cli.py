@@ -1975,6 +1975,28 @@ def legacy_main():
     system_parser = subparsers.add_parser("system", help="System status and information")
     system_parser.add_argument("--status", action="store_true", help="Show system status")
     
+    # Genesis command with subcommands
+    genesis_parser = subparsers.add_parser("genesis", help="Genesis block and wallet generation")
+    genesis_subparsers = genesis_parser.add_subparsers(dest="genesis_action", help="Genesis actions")
+    
+    # Genesis init
+    genesis_init_parser = genesis_subparsers.add_parser("init", help="Initialize genesis block and wallet")
+    genesis_init_parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID for genesis")
+    genesis_init_parser.add_argument("--create-wallet", action="store_true", help="Create genesis wallet with secure random key")
+    genesis_init_parser.add_argument("--password", help="Wallet password (auto-generated if not provided)")
+    genesis_init_parser.add_argument("--proposer", help="Proposer address (defaults to genesis wallet)")
+    genesis_init_parser.add_argument("--force", action="store_true", help="Force overwrite existing genesis")
+    genesis_init_parser.add_argument("--register-service", action="store_true", help="Register genesis wallet with wallet service")
+    genesis_init_parser.add_argument("--service-url", default="http://localhost:8003", help="Wallet service URL")
+    
+    # Genesis verify
+    genesis_verify_parser = genesis_subparsers.add_parser("verify", help="Verify genesis block and wallet configuration")
+    genesis_verify_parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID to verify")
+    
+    # Genesis info
+    genesis_info_parser = genesis_subparsers.add_parser("info", help="Show genesis block information")
+    genesis_info_parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID to show info for")
+    
     # Blockchain command with subcommands
     blockchain_parser = subparsers.add_parser("blockchain", help="Blockchain operations")
     blockchain_subparsers = blockchain_parser.add_subparsers(dest="blockchain_action", help="Blockchain actions")
@@ -2490,6 +2512,153 @@ def legacy_main():
         else:
             print("System operation completed")
     
+    elif args.command == "genesis":
+        import subprocess
+        import sys
+        from pathlib import Path
+        
+        script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
+        
+        if not script_path.exists():
+            print(f"Error: Genesis generation script not found: {script_path}")
+            sys.exit(1)
+        
+        if args.genesis_action == "init":
+            cmd = [sys.executable, str(script_path), "--chain-id", getattr(args, 'chain_id', 'ait-mainnet')]
+            
+            if hasattr(args, 'create_wallet') and args.create_wallet:
+                cmd.append("--create-wallet")
+            if hasattr(args, 'password') and args.password:
+                cmd.extend(["--password", args.password])
+            if hasattr(args, 'proposer') and args.proposer:
+                cmd.extend(["--proposer", args.proposer])
+            if hasattr(args, 'force') and args.force:
+                cmd.append("--force")
+            if hasattr(args, 'register_service') and args.register_service:
+                cmd.append("--register-service")
+                if hasattr(args, 'service_url') and args.service_url:
+                    cmd.extend(["--service-url", args.service_url])
+            
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                print(result.stdout)
+                if result.stderr:
+                    print(result.stderr)
+            except subprocess.CalledProcessError as e:
+                print(f"Error: Genesis generation failed: {e.stderr}")
+                sys.exit(1)
+        
+        elif args.genesis_action == "verify":
+            import json
+            import sqlite3
+            
+            chain_id = getattr(args, 'chain_id', 'ait-mainnet')
+            
+            # Check genesis config file
+            genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
+            if not genesis_path.exists():
+                print(f"Error: Genesis config not found: {genesis_path}")
+                sys.exit(1)
+            
+            try:
+                with open(genesis_path) as f:
+                    genesis_data = json.load(f)
+                
+                print(f"✓ Genesis config found: {genesis_path}")
+                print(f"  Chain ID: {genesis_data.get('chain_id')}")
+                print(f"  Genesis Hash: {genesis_data.get('block', {}).get('hash')}")
+                print(f"  Proposer: {genesis_data.get('block', {}).get('proposer')}")
+                print(f"  Allocations: {len(genesis_data.get('allocations', []))}")
+            except Exception as e:
+                print(f"Error: Failed to read genesis config: {e}")
+                sys.exit(1)
+            
+            # Check database
+            db_path = Path("/var/lib/aitbc/data/chain.db")
+            if not db_path.exists():
+                print(f"Error: Database not found: {db_path}")
+                sys.exit(1)
+            
+            try:
+                conn = sqlite3.connect(str(db_path))
+                cursor = conn.cursor()
+                
+                cursor.execute("SELECT * FROM block WHERE height=0 AND chain_id=?", (chain_id,))
+                genesis_block = cursor.fetchone()
+                
+                if genesis_block:
+                    print(f"✓ Genesis block found in database")
+                    print(f"  Height: {genesis_block[1]}")
+                    print(f"  Hash: {genesis_block[2]}")
+                    print(f"  Proposer: {genesis_block[4]}")
+                else:
+                    print(f"Error: Genesis block not found in database for chain {chain_id}")
+                
+                cursor.execute("SELECT COUNT(*) FROM account WHERE chain_id=?", (chain_id,))
+                account_count = cursor.fetchone()[0]
+                
+                if account_count > 0:
+                    print(f"✓ Found {account_count} accounts in database")
+                else:
+                    print(f"Error: No accounts found in database for chain {chain_id}")
+                
+                conn.close()
+            except Exception as e:
+                print(f"Error: Failed to verify database: {e}")
+                sys.exit(1)
+            
+            # Check genesis wallet
+            wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
+            if wallet_path.exists():
+                print(f"✓ Genesis wallet found: {wallet_path}")
+                try:
+                    with open(wallet_path) as f:
+                        wallet_data = json.load(f)
+                    print(f"  Address: {wallet_data.get('address')}")
+                    print(f"  Public Key: {wallet_data.get('public_key')[:16]}..." if wallet_data.get('public_key') else "N/A")
+                except Exception as e:
+                    print(f"Error: Failed to read genesis wallet: {e}")
+            else:
+                print(f"Error: Genesis wallet not found: {wallet_path}")
+        
+        elif args.genesis_action == "info":
+            import json
+            
+            chain_id = getattr(args, 'chain_id', 'ait-mainnet')
+            genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
+            
+            if not genesis_path.exists():
+                print(f"Error: Genesis config not found: {genesis_path}")
+                sys.exit(1)
+            
+            try:
+                with open(genesis_path) as f:
+                    genesis_data = json.load(f)
+                
+                block = genesis_data.get("block", {})
+                allocations = genesis_data.get("allocations", [])
+                
+                print(f"Genesis Information for {chain_id}:")
+                print(f"  Chain ID: {genesis_data.get('chain_id')}")
+                print(f"  Block Height: {block.get('height')}")
+                print(f"  Block Hash: {block.get('hash')}")
+                print(f"  Parent Hash: {block.get('parent_hash')}")
+                print(f"  Proposer: {block.get('proposer')}")
+                print(f"  Timestamp: {block.get('timestamp')}")
+                print(f"  Transaction Count: {block.get('tx_count')}")
+                print(f"  Total Allocations: {len(allocations)}")
+                print(f"\n  Top Allocations:")
+                for i, alloc in enumerate(allocations[:5], 1):
+                    print(f"    {i}. {alloc.get('address')}: {alloc.get('balance')} AIT")
+                
+            except Exception as e:
+                print(f"Error: Failed to read genesis info: {e}")
+                sys.exit(1)
+        
+        else:
+            print(f"Error: Unknown genesis action: {args.genesis_action}")
+            sys.exit(1)
+    
     elif args.command == "blockchain":
         rpc_url = getattr(args, 'rpc_url', DEFAULT_RPC_URL)
         if args.blockchain_action == "info":
@@ -2722,8 +2891,22 @@ def legacy_main():
 
 
 def main(argv=None):
+    # Handle genesis commands directly to avoid unified_cli import issues
+    if argv is None:
+        argv = sys.argv[1:]
+    
+    if len(argv) > 0 and argv[0] == "genesis":
+        # Use the standalone genesis CLI
+        import subprocess
+        genesis_cli_path = Path("/opt/aitbc/cli/genesis_cli.py")
+        if genesis_cli_path.exists():
+            result = subprocess.run([sys.executable, str(genesis_cli_path)] + argv[1:])
+            return result.returncode
+        else:
+            print("Error: Genesis CLI not found at /opt/aitbc/cli/genesis_cli.py")
+            return 1
+    
     from unified_cli import run_cli
-
     return run_cli(argv, globals())
 
 
