@@ -30,6 +30,9 @@ class CLIConfig(BaseAITBCConfig):
     wallet_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default=f"http://localhost:{BLOCKCHAIN_RPC_PORT}", description="Blockchain RPC URL")
     
+    # Chain configuration
+    chain_id: str = Field(default="ait-mainnet", description="Default chain ID for multichain operations")
+    
     # Authentication
     api_key: Optional[str] = Field(default=None, description="API key for authentication")
     
