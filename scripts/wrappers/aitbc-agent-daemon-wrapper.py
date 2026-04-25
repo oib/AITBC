@@ -17,7 +17,7 @@ from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR, KEYSTORE
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/agent-coordinator/scripts:{REPO_DIR}"
+os.environ["PYTHONPATH"] = f"{REPO_DIR}:{REPO_DIR}/packages/py/aitbc-agent-sdk/src:{REPO_DIR}/apps/agent-coordinator/scripts:{REPO_DIR}"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
