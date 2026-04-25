@@ -18,9 +18,7 @@ from ..utils.island_credentials import (
 )
 
 # Import shared modules
-from aitbc.aitbc_logging import get_logger
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -314,49 +312,6 @@ def orderbook(ctx, pair: str, limit: int):
     except Exception as e:
         error(f"Error fetching order book: {str(e)}")
         raise click.Abort()
-                                "Amount": f"{order.get('amount', 0):.4f} AIT",
-                                "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                                "User": order.get('user_id', '')[:16] + "...",
-                                "Order": order.get('order_id', '')[:16] + "..."
-                            })
-                        
-                        output(asks_data, ctx.obj.get('output_format', 'table'), title=f"Sell Orders (Asks) - {pair}")
-                    
-                    # Display buy orders (bids)
-                    if buy_orders:
-                        bids_data = []
-                        for order in buy_orders[:limit]:
-                            bids_data.append({
-                                "Price": f"{order.get('max_price', 0):.8f}",
-                                "Amount": f"{order.get('amount', 0):.4f} AIT",
-                                "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
-                                "User": order.get('user_id', '')[:16] + "...",
-                                "Order": order.get('order_id', '')[:16] + "..."
-                            })
-                        
-                        output(bids_data, ctx.obj.get('output_format', 'table'), title=f"Buy Orders (Bids) - {pair}")
-                    
-                    # Calculate spread if both exist
-                    if sell_orders and buy_orders:
-                        best_ask = sell_orders[0].get('min_price', 0)
-                        best_bid = buy_orders[0].get('max_price', 0)
-                        spread = best_ask - best_bid
-                        if best_bid > 0:
-                            spread_pct = (spread / best_bid) * 100
-                            info(f"Spread: {spread:.8f} ({spread_pct:.4f}%)")
-                            info(f"Best Bid: {best_bid:.8f} {pair.split('/')[1]}/AIT")
-                            info(f"Best Ask: {best_ask:.8f} {pair.split('/')[1]}/AIT")
-                        
-                else:
-                    error(f"Failed to query blockchain: {response.status_code}")
-                    raise click.Abort()
-        except Exception as e:
-            error(f"Network error querying blockchain: {e}")
-            raise click.Abort()
-
-    except Exception as e:
-        error(f"Error viewing order book: {str(e)}")
-        raise click.Abort()
 
 
 @exchange_island.command()
@@ -371,7 +326,6 @@ def rates(ctx):
 
         # Query blockchain for exchange orders to calculate rates
         try:
-            import httpx
             rates_data = []
             
             for pair in SUPPORTED_PAIRS:
@@ -383,44 +337,28 @@ def rates(ctx):
                     'limit': 100
                 }
 
-                with httpx.Client() as client:
-                    response = client.get(
-                        f"{rpc_endpoint}/transactions",
-                        params=params,
-                        timeout=10
-                    )
-                    
-                    if response.status_code == 200:
-                        orders = response.json()
-                        
-                        # Calculate rates from order book
-                        buy_orders = [o for o in orders if o.get('side') == 'buy']
-                        sell_orders = [o for o in orders if o.get('side') == 'sell']
-                        
-                        # Get best bid and ask
-                        best_bid = max([o.get('max_price', 0) for o in buy_orders]) if buy_orders else 0
-                        best_ask = min([o.get('min_price', float('inf')) for o in sell_orders]) if sell_orders else 0
-                        
-                        # Calculate mid price
-                        mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float('inf') else 0
-                        
-                        rates_data.append({
-                            "Pair": pair,
-                            "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
-                            "Best Ask": f"{best_ask:.8f}" if best_ask < float('inf') else "N/A",
-                            "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
-                            "Buy Orders": len(buy_orders),
-                            "Sell Orders": len(sell_orders)
-                        })
-                    else:
-                        rates_data.append({
-                            "Pair": pair,
-                            "Best Bid": "Error",
-                            "Best Ask": "Error",
-                            "Mid Price": "Error",
-                            "Buy Orders": 0,
-                            "Sell Orders": 0
-                        })
+                http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+                orders = http_client.get("/transactions", params=params)
+                
+                # Calculate rates from order book
+                buy_orders = [o for o in orders if o.get('side') == 'buy']
+                sell_orders = [o for o in orders if o.get('side') == 'sell']
+                
+                # Get best bid and ask
+                best_bid = max([o.get('max_price', 0) for o in buy_orders]) if buy_orders else 0
+                best_ask = min([o.get('min_price', float('inf')) for o in sell_orders]) if sell_orders else 0
+                
+                # Calculate mid price
+                mid_price = (best_bid + best_ask) / 2 if best_bid > 0 and best_ask < float('inf') else 0
+                
+                rates_data.append({
+                    "Pair": pair,
+                    "Best Bid": f"{best_bid:.8f}" if best_bid > 0 else "N/A",
+                    "Best Ask": f"{best_ask:.8f}" if best_ask < float('inf') else "N/A",
+                    "Mid Price": f"{mid_price:.8f}" if mid_price > 0 else "N/A",
+                    "Buy Orders": len(buy_orders),
+                    "Sell Orders": len(sell_orders)
+                })
             
             output(rates_data, ctx.obj.get('output_format', 'table'), title="Exchange Rates")
 
@@ -448,7 +386,6 @@ def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str])
 
         # Query blockchain for exchange orders
         try:
-            import httpx
             params = {
                 'transaction_type': 'exchange',
                 'island_id': island_id
@@ -460,39 +397,29 @@ def orders(ctx, user: Optional[str], status: Optional[str], pair: Optional[str])
             if pair:
                 params['pair'] = pair
 
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{rpc_endpoint}/transactions",
-                    params=params,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    orders = response.json()
-                    
-                    if not orders:
-                        info("No exchange orders found")
-                        return
-                    
-                    # Format output
-                    orders_data = []
-                    for order in orders:
-                        orders_data.append({
-                            "Order ID": order.get('order_id', '')[:20] + "...",
-                            "Pair": order.get('pair'),
-                            "Side": order.get('side', '').upper(),
-                            "Amount": f"{order.get('amount', 0):.4f} AIT",
-                            "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}" if order.get('max_price') or order.get('min_price') else "Market",
-                            "Status": order.get('status'),
-                            "User": order.get('user_id', '')[:16] + "...",
-                            "Created": order.get('created_at', '')[:19]
-                        })
-                    
-                    output(orders_data, ctx.obj.get('output_format', 'table'), title=f"Exchange Orders ({island_id[:16]}...)")
-                else:
-                    error(f"Failed to query blockchain: {response.status_code}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            orders = http_client.get("/transactions", params=params)
+            
+            if not orders:
+                info("No exchange orders found")
+                return
+            
+            # Format output
+            orders_data = []
+            for order in orders:
+                orders_data.append({
+                    "Order ID": order.get('order_id', '')[:20] + "...",
+                    "Pair": order.get('pair'),
+                    "Side": order.get('side', '').upper(),
+                    "Amount": f"{order.get('amount', 0):.4f} AIT",
+                    "Price": f"{order.get('max_price', order.get('min_price', 0)):.8f}" if order.get('max_price') or order.get('min_price') else "Market",
+                    "Status": order.get('status'),
+                    "User": order.get('user_id', '')[:16] + "...",
+                    "Created": order.get('created_at', '')[:19]
+                })
+            
+            output(orders_data, ctx.obj.get('output_format', 'table'), title=f"Exchange Orders ({island_id[:16]}...)")
+        except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
 
@@ -544,22 +471,10 @@ def cancel(ctx, order_id: str):
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=cancel_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    success(f"Order {order_id} cancelled successfully!")
-                else:
-                    error(f"Failed to cancel order: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=cancel_data)
+            success(f"Order {order_id} cancelled successfully!")
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
 

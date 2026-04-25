@@ -3,13 +3,14 @@ Compute Provider Agent - for agents that provide computational resources
 """
 
 import asyncio
-import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 from .agent import Agent, AgentCapabilities
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass
