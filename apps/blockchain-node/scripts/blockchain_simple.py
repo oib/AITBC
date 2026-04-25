@@ -5,19 +5,15 @@ Blockchain Node Service for AITBC Production
 
 import os
 import sys
-import logging
 from pathlib import Path
+
+from aitbc import get_logger, DATA_DIR, CONFIG_DIR
 
 # Add the blockchain app to Python path
 sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/src')
 sys.path.insert(0, '/opt/aitbc/apps/blockchain-node/scripts')
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def main():
     """Main blockchain service function"""
@@ -26,9 +22,9 @@ def main():
     try:
         # Set environment variables
         os.environ.setdefault('PYTHONPATH', '/opt/aitbc/apps/blockchain-node/src')
-        os.environ.setdefault('BLOCKCHAIN_DATA_DIR', '/var/lib/aitbc/data/blockchain')
-        os.environ.setdefault('BLOCKCHAIN_CONFIG_DIR', '/etc/aitbc')
-        os.environ.setdefault('BLOCKCHAIN_LOG_DIR', '/var/log/aitbc/production/blockchain')
+        os.environ.setdefault('BLOCKCHAIN_DATA_DIR', str(DATA_DIR / 'data/blockchain'))
+        os.environ.setdefault('BLOCKCHAIN_CONFIG_DIR', str(CONFIG_DIR))
+        os.environ.setdefault('BLOCKCHAIN_LOG_DIR', str(LOG_DIR / 'production/blockchain'))
         
         # Try to import and run the actual blockchain node
         logger.info("Attempting to start blockchain node...")
