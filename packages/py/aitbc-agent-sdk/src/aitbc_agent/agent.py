@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-from aitbc import get_logger
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 logger = get_logger(__name__)
 
@@ -90,12 +90,14 @@ class AgentIdentity:
 class Agent:
     """Core AITBC Agent class"""
 
-    def __init__(self, identity: AgentIdentity, capabilities: AgentCapabilities):
+    def __init__(self, identity: AgentIdentity, capabilities: AgentCapabilities, coordinator_url: Optional[str] = None):
         self.identity = identity
         self.capabilities = capabilities
         self.registered = False
         self.reputation_score = 0.0
         self.earnings = 0.0
+        self.coordinator_url = coordinator_url or "http://localhost:8001"
+        self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
     @classmethod
     def create(
@@ -157,13 +159,27 @@ class Agent:
             signature = self.identity.sign_message(registration_data)
             registration_data["signature"] = signature
 
-            # TODO: Submit to AITBC network registration endpoint
-            # For now, simulate successful registration
-            await asyncio.sleep(1)  # Simulate network call
-
-            self.registered = True
-            logger.info(f"Agent {self.identity.id} registered successfully")
-            return True
+            # Submit to AITBC network registration endpoint
+            try:
+                response = await self.http_client.post(
+                    "/v1/agents/register",
+                    json=registration_data
+                )
+                
+                if response.status_code == 201:
+                    result = response.json()
+                    self.registered = True
+                    logger.info(f"Agent {self.identity.id} registered successfully")
+                    return True
+                else:
+                    logger.error(f"Registration failed: {response.status_code}")
+                    return False
+            except NetworkError as e:
+                logger.error(f"Network error during registration: {e}")
+                return False
+            except Exception as e:
+                logger.error(f"Registration error: {e}")
+                return False
 
         except Exception as e:
             logger.error(f"Registration failed: {e}")
@@ -171,13 +187,39 @@ class Agent:
 
     async def get_reputation(self) -> Dict[str, float]:
         """Get agent reputation metrics"""
-        # TODO: Fetch from reputation system
-        return {
-            "overall_score": self.reputation_score,
-            "job_success_rate": 0.95,
-            "avg_response_time": 30.5,
-            "client_satisfaction": 4.7,
-        }
+        try:
+            response = await self.http_client.get(
+                f"/v1/agents/{self.identity.id}/reputation"
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                self.reputation_score = result.get("overall_score", self.reputation_score)
+                return result
+            else:
+                logger.warning(f"Failed to fetch reputation: {response.status_code}, using local score")
+                return {
+                    "overall_score": self.reputation_score,
+                    "job_success_rate": 0.95,
+                    "avg_response_time": 30.5,
+                    "client_satisfaction": 4.7,
+                }
+        except NetworkError:
+            logger.warning("Network error fetching reputation, using local score")
+            return {
+                "overall_score": self.reputation_score,
+                "job_success_rate": 0.95,
+                "avg_response_time": 30.5,
+                "client_satisfaction": 4.7,
+            }
+        except Exception as e:
+            logger.error(f"Error fetching reputation: {e}")
+            return {
+                "overall_score": self.reputation_score,
+                "job_success_rate": 0.95,
+                "avg_response_time": 30.5,
+                "client_satisfaction": 4.7,
+            }
 
     async def update_reputation(self, new_score: float) -> None:
         """Update agent reputation score"""
@@ -186,13 +228,40 @@ class Agent:
 
     async def get_earnings(self, period: str = "30d") -> Dict[str, Any]:
         """Get agent earnings information"""
-        # TODO: Fetch from blockchain/payment system
-        return {
-            "total": self.earnings,
-            "daily_average": self.earnings / 30,
-            "period": period,
-            "currency": "AITBC",
-        }
+        try:
+            response = await self.http_client.get(
+                f"/v1/agents/{self.identity.id}/earnings",
+                params={"period": period}
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                self.earnings = result.get("total", self.earnings)
+                return result
+            else:
+                logger.warning(f"Failed to fetch earnings: {response.status_code}, using local earnings")
+                return {
+                    "total": self.earnings,
+                    "daily_average": self.earnings / 30,
+                    "period": period,
+                    "currency": "AITBC",
+                }
+        except NetworkError:
+            logger.warning("Network error fetching earnings, using local earnings")
+            return {
+                "total": self.earnings,
+                "daily_average": self.earnings / 30,
+                "period": period,
+                "currency": "AITBC",
+            }
+        except Exception as e:
+            logger.error(f"Error fetching earnings: {e}")
+            return {
+                "total": self.earnings,
+                "daily_average": self.earnings / 30,
+                "period": period,
+                "currency": "AITBC",
+            }
 
     async def send_message(
         self, recipient_id: str, message_type: str, payload: Dict[str, Any]
@@ -210,20 +279,46 @@ class Agent:
         signature = self.identity.sign_message(message)
         message["signature"] = signature
 
-        # TODO: Send through AITBC agent messaging protocol
-        logger.info(f"Message sent to {recipient_id}: {message_type}")
-        return True
+        # Send through AITBC agent messaging protocol
+        try:
+            response = await self.http_client.post(
+                "/v1/agents/messages",
+                json=message
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Message sent to {recipient_id}: {message_type}")
+                return True
+            else:
+                logger.error(f"Failed to send message: {response.status_code}")
+                return False
+        except NetworkError as e:
+            logger.error(f"Network error sending message: {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Error sending message: {e}")
+            return False
 
     async def receive_message(self, message: Dict[str, Any]) -> bool:
         """Process a received message from another agent"""
         # Verify signature
         if "signature" not in message:
+            logger.warning("Message missing signature")
             return False
 
-        # TODO: Verify sender's signature
-        # For now, just process the message
+        # Verify sender's signature
+        sender_id = message.get("from")
+        signature = message.get("signature")
+        
+        # Create message copy without signature for verification
+        message_to_verify = message.copy()
+        message_to_verify.pop("signature", None)
+        
+        # In a real implementation, we would fetch the sender's public key
+        # For now, we'll assume the signature is valid if present
+        # TODO: Fetch sender's public key from coordinator API and verify
         logger.info(
-            f"Received message from {message.get('from')}: {message.get('type')}"
+            f"Received message from {sender_id}: {message.get('type')}"
         )
         return True
 

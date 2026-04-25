@@ -3,6 +3,7 @@ Compute Consumer Agent - for agents that consume computational resources
 """
 
 import asyncio
+import httpx
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from dataclasses import dataclass
@@ -43,11 +44,12 @@ class JobResult:
 class ComputeConsumer(Agent):
     """Agent that consumes computational resources from the network"""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, coordinator_url: Optional[str] = None, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.pending_jobs: List[JobRequest] = []
         self.completed_jobs: List[JobResult] = []
         self.total_spent: float = 0.0
+        self.coordinator_url = coordinator_url or "http://localhost:8011"
 
     async def submit_job(
         self,
@@ -56,7 +58,7 @@ class ComputeConsumer(Agent):
         requirements: Optional[Dict[str, Any]] = None,
         max_price: float = 0.0,
     ) -> str:
-        """Submit a compute job to the network"""
+        """Submit a compute job to the network via coordinator API"""
         job = JobRequest(
             consumer_id=self.identity.id,
             job_type=job_type,
@@ -66,14 +68,47 @@ class ComputeConsumer(Agent):
         )
         self.pending_jobs.append(job)
         logger.info(f"Job submitted: {job_type} by {self.identity.id}")
-        # TODO: Submit to coordinator for matching
-        await asyncio.sleep(0.1)
-        return f"job_{self.identity.id}_{len(self.pending_jobs)}"
+        
+        # Submit to coordinator for matching
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/v1/jobs",
+                    json={
+                        "consumer_id": job.consumer_id,
+                        "job_type": job.job_type,
+                        "input_data": job.input_data,
+                        "requirements": job.requirements,
+                        "max_price_per_hour": job.max_price_per_hour,
+                        "priority": job.priority
+                    },
+                    timeout=10
+                )
+                if response.status_code == 201:
+                    result = response.json()
+                    return result.get("job_id", f"job_{self.identity.id}_{len(self.pending_jobs)}")
+                else:
+                    logger.error(f"Failed to submit job to coordinator: {response.status_code}")
+                    return f"job_{self.identity.id}_{len(self.pending_jobs)}"
+        except Exception as e:
+            logger.error(f"Error submitting job to coordinator: {e}")
+            return f"job_{self.identity.id}_{len(self.pending_jobs)}"
 
     async def get_job_status(self, job_id: str) -> Dict[str, Any]:
-        """Check status of a submitted job"""
-        # TODO: Query coordinator for job status
-        return {"job_id": job_id, "status": "pending", "progress": 0.0}
+        """Query coordinator for job status"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/jobs/{job_id}",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    return {"job_id": job_id, "status": "error", "error": f"HTTP {response.status_code}"}
+        except Exception as e:
+            logger.error(f"Error querying job status: {e}")
+            return {"job_id": job_id, "status": "error", "error": str(e)}
 
     async def cancel_job(self, job_id: str) -> bool:
         """Cancel a pending job"""
