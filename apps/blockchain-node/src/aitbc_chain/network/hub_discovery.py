@@ -4,13 +4,14 @@ DNS-based hub discovery for federated mesh with hardcoded fallback
 """
 
 import asyncio
-import logging
 import socket
 import json
 from typing import List, Optional, Tuple, Dict
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

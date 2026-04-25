@@ -4,14 +4,15 @@ Manages island membership, multi-island support, and island operations for feder
 """
 
 import asyncio
-import logging
 import uuid
 from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import time
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class IslandStatus(Enum):
