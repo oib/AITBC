@@ -4,12 +4,13 @@ Handles STUN-based public endpoint discovery for P2P mesh networks
 """
 
 import asyncio
-import logging
 import socket
 from typing import Optional, Tuple, List
 from dataclasses import dataclass
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

@@ -5,20 +5,19 @@ Runs both the main blockchain node, P2P placeholder service, and HTTP RPC server
 """
 
 import asyncio
-import logging
 import sys
 from pathlib import Path
 
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from aitbc import get_logger
 from aitbc_chain.main import BlockchainNode, _run as run_node
 from aitbc_chain.config import settings
 from aitbc_chain.app import create_app
 import uvicorn
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class CombinedService:
     def __init__(self):

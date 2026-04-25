@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 import uuid
 
+from aitbc.constants import DATA_DIR, KEYSTORE_DIR
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,7 +25,7 @@ class ChainSettings(BaseSettings):
 
     chain_id: str = ""
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
-    db_path: Path = Path("/var/lib/aitbc/data/chain.db")
+    db_path: Path = DATA_DIR / "data" / "chain.db"
 
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
     rpc_bind_port: int = 8080
@@ -70,6 +71,11 @@ class ChainSettings(BaseSettings):
 
     # Sync settings
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
+    genesis_candidates = [
+        str(DATA_DIR / 'data' / 'genesis.json'),
+        f"{DATA_DIR}/data/{chain_id}/genesis.json",
+        f'{DATA_DIR}/data/ait-mainnet/genesis.json',
+    ]
     max_reorg_depth: int = 10  # max blocks to reorg on conflict
     sync_validate_signatures: bool = True  # validate proposer signatures on import
     
@@ -113,8 +119,8 @@ class ChainSettings(BaseSettings):
     redis_url: str = "redis://localhost:6379"  # Redis connection URL
 
     # Keystore for proposer private key (future block signing)
-    keystore_path: Path = Path("/var/lib/aitbc/keystore")
-    keystore_password_file: Path = Path("/var/lib/aitbc/keystore/.password")
+    keystore_path: Path = KEYSTORE_DIR
+    keystore_password_file: Path = KEYSTORE_DIR / ".password"
 
 
 settings = ChainSettings()

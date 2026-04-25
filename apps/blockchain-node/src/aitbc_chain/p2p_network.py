@@ -6,7 +6,6 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 
 import asyncio
 import json
-import logging
 from .config import settings
 from .mempool import get_mempool, compute_tx_hash
 from .network.nat_traversal import NATTraversalService
@@ -14,7 +13,9 @@ from .network.island_manager import IslandManager
 from .network.hub_manager import HubManager
 from typing import Dict, Any, Optional, Set, Tuple, List
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class P2PNetworkService:
     def __init__(self, host: str, port: int, node_id: str, peers: str = "", stun_servers: List[str] = None,
