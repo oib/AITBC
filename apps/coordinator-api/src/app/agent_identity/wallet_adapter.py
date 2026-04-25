@@ -3,13 +3,14 @@ Multi-Chain Wallet Adapter Implementation
 Provides blockchain-agnostic wallet interface for agents
 """
 
-import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

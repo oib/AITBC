@@ -3,13 +3,14 @@ Basic Metrics Collection Module
 Collects and tracks system and application metrics for monitoring
 """
 
-import logging
 import os
 import resource
 from datetime import datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class MetricsCollector:

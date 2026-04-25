@@ -3,12 +3,13 @@ Caching strategy for expensive queries
 """
 
 import hashlib
-import logging
 from datetime import datetime, timedelta
 from functools import wraps
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class CacheManager:

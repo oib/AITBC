@@ -3,11 +3,12 @@ Settlement hooks for coordinator API integration
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from ..models.job import Job
 from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
