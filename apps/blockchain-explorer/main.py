@@ -10,7 +10,7 @@ import csv
 import io
 import re
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, List
 import os
 
 from fastapi import FastAPI, HTTPException, Query
