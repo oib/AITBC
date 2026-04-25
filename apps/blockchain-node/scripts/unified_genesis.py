@@ -193,49 +193,60 @@ def save_genesis_json(genesis_block: Dict, allocations: List[Dict], genesis_path
 
 def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db_path: Path):
     """Initialize blockchain database with genesis data"""
+    import sqlite3
+    
     try:
-        engine = create_engine(f"sqlite:///{db_path}")
-        with Session(engine) as session:
-            # Check if genesis already exists
-            existing = session.exec(
-                select(Block).where(Block.height == 0).where(Block.chain_id == genesis_block["chain_id"])
-            ).first()
-            
-            if existing:
-                print(f"⚠️  Genesis block already exists in database")
-                return False
-            
-            # Create genesis block
-            block = Block(
-                height=genesis_block["height"],
-                hash=genesis_block["hash"],
-                parent_hash=genesis_block["parent_hash"],
-                proposer=genesis_block["proposer"],
-                timestamp=datetime.fromisoformat(genesis_block["timestamp"]),
-                tx_count=genesis_block["tx_count"],
-                chain_id=genesis_block["chain_id"],
-                state_root=genesis_block["state_root"]
+        conn = sqlite3.connect(str(db_path))
+        cursor = conn.cursor()
+        
+        # Check if genesis block already exists
+        cursor.execute("SELECT * FROM block WHERE height=0 AND chain_id=?", (genesis_block["chain_id"],))
+        existing = cursor.fetchone()
+        
+        if existing:
+            print(f"⚠️  Genesis block already exists in database")
+            return False
+        
+        # Create genesis block
+        cursor.execute(
+            """INSERT INTO block (height, hash, parent_hash, proposer, timestamp, tx_count, chain_id, state_root) 
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                genesis_block["height"],
+                genesis_block["hash"],
+                genesis_block["parent_hash"],
+                genesis_block["proposer"],
+                genesis_block["timestamp"],
+                genesis_block["tx_count"],
+                genesis_block["chain_id"],
+                genesis_block.get("state_root", "0x00")
             )
-            session.add(block)
-            
-            # Create genesis accounts
-            for alloc in allocations:
-                account = Account(
-                    chain_id=genesis_block["chain_id"],
-                    address=alloc["address"],
-                    balance=alloc["balance"],
-                    nonce=alloc["nonce"],
-                    updated_at=datetime.utcnow()
+        )
+        
+        # Create genesis accounts
+        for alloc in allocations:
+            cursor.execute(
+                """INSERT INTO account (chain_id, address, balance, nonce, updated_at) 
+                   VALUES (?, ?, ?, ?, ?)""",
+                (
+                    genesis_block["chain_id"],
+                    alloc["address"],
+                    alloc["balance"],
+                    alloc["nonce"],
+                    datetime.utcnow().isoformat()
                 )
-                session.add(account)
+            )
+        
+        conn.commit()
+        print(f"✅ Genesis initialized in database: {db_path}")
+        return True
             
-            session.commit()
-            print(f"✅ Genesis initialized in database: {db_path}")
-            return True
-            
-    except Exception as e:
+    except sqlite3.Error as e:
         print(f"❌ Error initializing genesis in database: {e}")
         return False
+    finally:
+        if 'conn' in locals():
+            conn.close()
 
 
 def register_wallet_with_service(wallet_address: str, wallet_data: Dict, service_url: str = "http://localhost:8003"):
