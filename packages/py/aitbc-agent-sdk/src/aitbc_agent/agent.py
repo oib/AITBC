@@ -4,7 +4,6 @@ Core Agent class for AITBC network participation
 
 import asyncio
 import json
-import logging
 import uuid
 from datetime import datetime
 from typing import Dict, List, Optional, Any
@@ -14,7 +13,9 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

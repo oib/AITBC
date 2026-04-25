@@ -10,8 +10,7 @@ from typing import Dict, Any, Optional, List
 from pathlib import Path
 from dataclasses import dataclass
 
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import AITBCHTTPClient, NetworkError
 
 from utils import error, success
 from config import Config

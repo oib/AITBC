@@ -1,7 +1,6 @@
 """Pool hub SLA and capacity management handlers."""
 
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import AITBCHTTPClient, NetworkError
 
 
 def handle_pool_hub_sla_metrics(args):
