@@ -7,8 +7,10 @@ from psycopg2.extras import RealDictCursor
 import json
 from decimal import Decimal
 
+from aitbc.constants import DATA_DIR
+
 # Database configurations
-SQLITE_DB = "/var/lib/aitbc/data/coordinator.db"
+SQLITE_DB = str(DATA_DIR / "data/coordinator.db")
 PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_coordinator",

@@ -4,7 +4,6 @@ Simple AITBC Blockchain Explorer - Demonstrating the issues described in the ana
 """
 
 import asyncio
-import httpx
 import re
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -12,7 +11,14 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 import uvicorn
 
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+
 app = FastAPI(title="Simple AITBC Explorer", version="0.1.0")
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Configuration
 BLOCKCHAIN_RPC_URL = "http://localhost:8025"
@@ -174,12 +180,12 @@ HTML_TEMPLATE = """
 async def get_chain_head():
     """Get current chain head"""
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/head")
-            if response.status_code == 200:
-                return response.json()
-    except Exception as e:
-        print(f"Error getting chain head: {e}")
+        client = AsyncAITBCHTTPClient(base_url=BLOCKCHAIN_RPC_URL, timeout=10)
+        response = await client.async_get("/rpc/head")
+        if response:
+            return response
+    except NetworkError as e:
+        logger.error(f"Error getting chain head: {e}")
     return {"height": 0, "hash": "", "timestamp": None}
 
 @app.get("/api/blocks/{height}")
@@ -189,12 +195,12 @@ async def get_block(height: int):
     if height < 0 or height > 10000000:
         return {"height": height, "hash": "", "timestamp": None, "transactions": []}
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/blocks/{height}")
-            if response.status_code == 200:
-                return response.json()
-    except Exception as e:
-        print(f"Error getting block {height}: {e}")
+        client = AsyncAITBCHTTPClient(base_url=BLOCKCHAIN_RPC_URL, timeout=10)
+        response = await client.async_get(f"/rpc/blocks/{height}")
+        if response:
+            return response
+    except NetworkError as e:
+        logger.error(f"Error getting block: {e}")
     return {"height": height, "hash": "", "timestamp": None, "transactions": []}
 
 @app.get("/api/transactions/{tx_hash}")
@@ -203,26 +209,21 @@ async def get_transaction(tx_hash: str):
     if not validate_tx_hash(tx_hash):
         return {"hash": tx_hash, "from": "unknown", "to": "unknown", "amount": 0, "timestamp": None}
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{BLOCKCHAIN_RPC_URL}/rpc/tx/{tx_hash}")
-            if response.status_code == 200:
-                tx_data = response.json()
-                # Problem 2: Map RPC schema to UI schema
-                return {
-                    "hash": tx_data.get("tx_hash", tx_hash),  # tx_hash -> hash
-                    "from": tx_data.get("sender", "unknown"),   # sender -> from
-                    "to": tx_data.get("recipient", "unknown"),  # recipient -> to
-                    "amount": tx_data.get("payload", {}).get("value", "0"),  # payload.value -> amount
-                    "fee": tx_data.get("payload", {}).get("fee", "0"),        # payload.fee -> fee
-                    "timestamp": tx_data.get("created_at"),     # created_at -> timestamp
-                    "block_height": tx_data.get("block_height", "pending")
-                }
-            elif response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Transaction not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"Error getting transaction {tx_hash}: {e}")
+        client = AsyncAITBCHTTPClient(base_url=BLOCKCHAIN_RPC_URL, timeout=10)
+        response = await client.async_get(f"/rpc/tx/{tx_hash}")
+        if response:
+            # Problem 2: Map RPC schema to UI schema
+            return {
+                "hash": response.get("tx_hash", tx_hash),  # tx_hash -> hash
+                "from": response.get("sender", "unknown"),   # sender -> from
+                "to": response.get("recipient", "unknown"),  # recipient -> to
+                "amount": response.get("payload", {}).get("value", "0"),  # payload.value -> amount
+                "fee": response.get("payload", {}).get("fee", "0"),        # payload.fee -> fee
+                "timestamp": response.get("created_at"),     # created_at -> timestamp
+                "block_height": response.get("block_height", "pending")
+            }
+    except NetworkError as e:
+        logger.error(f"Error getting transaction {tx_hash}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to fetch transaction: {str(e)}")
 
 # Missing: @app.get("/api/transactions/{tx_hash}") - THIS IS THE PROBLEM
