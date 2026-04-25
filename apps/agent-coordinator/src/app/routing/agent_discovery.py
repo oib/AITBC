@@ -4,7 +4,6 @@ Agent Discovery and Registration System for AITBC Agent Coordination
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Set, Callable, Any
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -14,10 +13,11 @@ from enum import Enum
 import redis.asyncio as redis
 from pydantic import BaseModel, Field
 
+from aitbc import get_logger
 from ..protocols.message_types import DiscoveryMessage, create_discovery_message
 from ..protocols.communication import AgentMessage, MessageType
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AgentStatus(str, Enum):
     """Agent status enumeration"""
