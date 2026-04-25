@@ -7,19 +7,13 @@ with multi-chain support.
 """
 
 import uvicorn
-import logging
 from pathlib import Path
 
+from aitbc import get_logger
 from app.main import app
 from app.settings import settings
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 def main():
     """Main entry point for the wallet daemon"""
