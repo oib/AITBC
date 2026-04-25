@@ -211,7 +211,7 @@ from .events import (
     EventAggregator,
     EventRouter,
 )
-from .queue import (
+from .queue_manager import (
     Job,
     JobStatus,
     JobPriority,
