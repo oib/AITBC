@@ -89,7 +89,7 @@ jobs:
           # Tests
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
-            export PYTHONPATH="$WORKSPACE/repo:$PYTHONPATH"
+            export PYTHONPATH="$PWD/src:$WORKSPACE/repo:$PYTHONPATH"
             venv/bin/python -m pytest tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
