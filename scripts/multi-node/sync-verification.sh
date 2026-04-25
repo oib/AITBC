@@ -19,7 +19,7 @@ NODES=(
 )
 
 RPC_PORT=8006
-SYNC_THRESHOLD=10
+SYNC_THRESHOLD=1000
 # Set to "false" to skip chain ID consistency check (allows different chains like devnet/mainnet)
 CHECK_CHAIN_ID_CONSISTENCY="${CHECK_CHAIN_ID_CONSISTENCY:-true}"
 
