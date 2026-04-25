@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Optional, ClassVar
 import uuid
 
 from aitbc.constants import DATA_DIR, KEYSTORE_DIR
@@ -71,7 +71,7 @@ class ChainSettings(BaseSettings):
 
     # Sync settings
     trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
-    genesis_candidates = [
+    genesis_candidates: ClassVar[list[str]] = [
         str(DATA_DIR / 'data' / 'genesis.json'),
         f"{DATA_DIR}/data/{chain_id}/genesis.json",
         f'{DATA_DIR}/data/ait-mainnet/genesis.json',
