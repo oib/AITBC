@@ -79,6 +79,10 @@ jobs:
             venv/bin/python -m pip install -q -r requirements.txt
           fi
 
+          # Verify package installation
+          echo "=== Installed packages ==="
+          venv/bin/python -m pip list | grep -i aitbc || true
+
           # Linting
           echo "=== Linting ==="
           if [[ -d "src" ]]; then
