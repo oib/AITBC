@@ -9,6 +9,7 @@ Full production setup:
 """
 
 import os
+import secrets
 import subprocess
 import sys
 from pathlib import Path
@@ -42,21 +43,20 @@ def main():
     run(f"chown -R root:root {KEYS_DIR}")
     
     # SECURITY FIX: Use environment variable instead of hardcoded password
-    if not PASSWORD_FILE.exists():
-        password = os.environ.get("AITBC_KEYSTORE_PASSWORD")
-        if not password:
-            # Generate secure random password if not provided
-            run(f"openssl rand -hex 32 > {PASSWORD_FILE}")
-            run(f"chmod 600 {PASSWORD_FILE}")
-        else:
-            # Use provided password from environment
-            PASSWORD_FILE.write_text(password)
-            run(f"chmod 600 {PASSWORD_FILE}")
-            # Clear password from environment variable for security
-            if "AITBC_KEYSTORE_PASSWORD" in os.environ:
-                del os.environ["AITBC_KEYSTORE_PASSWORD"]
-    
-    os.environ["KEYSTORE_PASSWORD"] = PASSWORD_FILE.read_text().strip()
+    # Avoid writing password to disk when provided via environment variable
+    password = os.environ.get("AITBC_KEYSTORE_PASSWORD")
+    if not password:
+        # Generate secure random password if not provided
+        run(f"openssl rand -hex 32 > {PASSWORD_FILE}")
+        run(f"chmod 600 {PASSWORD_FILE}")
+        password = PASSWORD_FILE.read_text().strip()
+    else:
+        # Use provided password from environment without writing to disk
+        # Clear password from environment variable for security
+        if "AITBC_KEYSTORE_PASSWORD" in os.environ:
+            del os.environ["AITBC_KEYSTORE_PASSWORD"]
+
+    os.environ["KEYSTORE_PASSWORD"] = password
 
     # 2. Generate keystores
     print("\n=== Generating keystore for aitbc1genesis ===")
