@@ -42,6 +42,7 @@ from aitbc import (
     AITBCHTTPClient, NetworkError, ValidationError, ConfigurationError,
     get_logger, get_keystore_path, ensure_dir, validate_address, validate_url
 )
+from aitbc.paths import get_blockchain_data_path, get_data_path
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -1188,8 +1189,9 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                 sys.path.insert(0, "/opt/aitbc/apps/blockchain-node/src")
                 from sqlmodel import create_engine, Session, select
                 from aitbc_chain.models import Transaction
-                
-                engine = create_engine("sqlite:////var/lib/aitbc/data/ait-mainnet/chain.db")
+
+                chain_db_path = get_blockchain_data_path("ait-mainnet") / "chain.db"
+                engine = create_engine(f"sqlite:///{chain_db_path}")
                 with Session(engine) as session:
                     # Query transactions where recipient is the agent
                     txs = session.exec(
@@ -2525,11 +2527,13 @@ def legacy_main():
         daemon_url = getattr(args, 'daemon_url', DEFAULT_WALLET_DAEMON_URL)
         if args.wallet_action == "backup":
             print(f"Wallet backup: {args.name}")
-            print(f"  Backup created: /var/lib/aitbc/backups/{args.name}_$(date +%Y%m%d).json")
+            backup_path = get_data_path("backups")
+            print(f"  Backup created: {backup_path}/{args.name}_$(date +%Y%m%d).json")
             print(f"  Status: completed")
         elif args.wallet_action == "export":
             print(f"Wallet export: {args.name}")
-            print(f"  Export file: /var/lib/aitbc/exports/{args.name}_private.json")
+            export_path = get_data_path("exports")
+            print(f"  Export file: {export_path}/{args.name}_private.json")
             print(f"  Status: completed")
         elif args.wallet_action == "sync":
             if args.all:
@@ -2602,12 +2606,14 @@ def legacy_main():
     
     elif args.command == "wallet-backup":
         print(f"Wallet backup: {args.name}")
-        print(f"  Backup created: /var/lib/aitbc/backups/{args.name}_$(date +%Y%m%d).json")
+        backup_path = get_data_path("backups")
+        print(f"  Backup created: {backup_path}/{args.name}_$(date +%Y%m%d).json")
         print(f"  Status: completed")
-    
+
     elif args.command == "wallet-export":
         print(f"Wallet export: {args.name}")
-        print(f"  Export file: /var/lib/aitbc/exports/{args.name}_private.json")
+        export_path = get_data_path("exports")
+        print(f"  Export file: {export_path}/{args.name}_private.json")
         print(f"  Status: completed")
     
     elif args.command == "wallet-sync":

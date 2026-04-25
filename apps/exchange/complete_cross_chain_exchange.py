@@ -7,7 +7,6 @@ Multi-chain trading with cross-chain swaps and bridging
 import sqlite3
 import json
 import asyncio
-import httpx
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
@@ -17,7 +16,14 @@ import os
 import uuid
 import hashlib
 
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+
 app = FastAPI(title="AITBC Complete Cross-Chain Exchange", version="3.0.0")
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Database configuration
 DB_PATH = os.path.join(os.path.dirname(__file__), "exchange_multichain.db")
@@ -368,10 +374,10 @@ async def health_check():
         
         if chain_info["status"] == "active" and chain_info["blockchain_url"]:
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(f"{chain_info['blockchain_url']}/health", timeout=5.0)
-                    chain_status[chain_id]["connected"] = response.status_code == 200
-            except:
+                client = AsyncAITBCHTTPClient(base_url=chain_info['blockchain_url'], timeout=5)
+                response = await client.async_get("/health")
+                chain_status[chain_id]["connected"] = response is not None
+            except NetworkError:
                 pass
     
     return {

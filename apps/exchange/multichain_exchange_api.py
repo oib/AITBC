@@ -7,7 +7,6 @@ Complete multi-chain trading with chain isolation
 import sqlite3
 import json
 import asyncio
-import httpx
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from fastapi import FastAPI, HTTPException, Query, BackgroundTasks
@@ -15,7 +14,14 @@ from pydantic import BaseModel, Field
 import uvicorn
 import os
 
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
+
 app = FastAPI(title="AITBC Multi-Chain Exchange", version="2.0.0")
+
+# Initialize logger
+logger = get_logger(__name__)
 
 # Database configuration
 DB_PATH = os.path.join(os.path.dirname(__file__), "exchange_multichain.db")
@@ -145,10 +151,10 @@ async def verify_chain_transaction(chain_id: str, tx_hash: str) -> bool:
         return False
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{chain_info['blockchain_url']}/api/v1/transactions/{tx_hash}")
-            return response.status_code == 200
-    except:
+        client = AsyncAITBCHTTPClient(base_url=chain_info['blockchain_url'], timeout=5)
+        response = await client.async_get(f"/api/v1/transactions/{tx_hash}")
+        return response is not None
+    except NetworkError:
         return False
 
 async def submit_chain_transaction(chain_id: str, order_data: Dict) -> Optional[str]:
@@ -161,16 +167,13 @@ async def submit_chain_transaction(chain_id: str, order_data: Dict) -> Optional[
         return None
     
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                f"{chain_info['blockchain_url']}/api/v1/transactions",
-                json=order_data
-            )
-            if response.status_code == 200:
-                return response.json().get("tx_hash")
-    except Exception as e:
-        print(f"Chain transaction error: {e}")
-    
+        client = AsyncAITBCHTTPClient(base_url=chain_info['blockchain_url'], timeout=10)
+        response = await client.async_post("/api/v1/transactions", json=order_data)
+        if response:
+            return response.get("tx_hash")
+    except NetworkError as e:
+        logger.error(f"Chain transaction error: {e}")
+
     return None
 
 # API Endpoints
@@ -188,10 +191,10 @@ async def health_check():
         
         if chain_info["status"] == "active" and chain_info["blockchain_url"]:
             try:
-                async with httpx.AsyncClient() as client:
-                    response = await client.get(f"{chain_info['blockchain_url']}/health", timeout=5.0)
-                    chain_status[chain_id]["connected"] = response.status_code == 200
-            except:
+                client = AsyncAITBCHTTPClient(base_url=chain_info['blockchain_url'], timeout=5)
+                response = await client.async_get("/health")
+                chain_status[chain_id]["connected"] = response is not None
+            except NetworkError:
                 pass
     
     return {

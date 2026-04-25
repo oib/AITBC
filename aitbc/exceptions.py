@@ -42,3 +42,18 @@ class ValidationError(AITBCError):
 class BridgeError(AITBCError):
     """Base exception for bridge errors"""
     pass
+
+
+class RetryError(AITBCError):
+    """Raised when retry attempts are exhausted"""
+    pass
+
+
+class CircuitBreakerOpenError(AITBCError):
+    """Raised when circuit breaker is open and requests are rejected"""
+    pass
+
+
+class RateLimitError(AITBCError):
+    """Raised when rate limit is exceeded"""
+    pass

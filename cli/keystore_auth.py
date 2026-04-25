@@ -42,8 +42,10 @@ def decrypt_private_key(keystore_data: Dict[str, Any], password: str) -> str:
     return decrypted.decode()
 
 
-def load_keystore(address: str, keystore_dir: Path | str = "/var/lib/aitbc/keystore") -> Dict[str, Any]:
+def load_keystore(address: str, keystore_dir: Path | str = None) -> Dict[str, Any]:
     """Load keystore file for a given address."""
+    if keystore_dir is None:
+        keystore_dir = get_keystore_path()
     keystore_dir = Path(keystore_dir)
     keystore_file = keystore_dir / f"{address}.json"
     
