@@ -6,11 +6,12 @@ Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
 
 import asyncio
 import json
-import logging
 import time
 from typing import Dict, Any, Optional, List
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 # Import settings for configuration
 try:
