@@ -8,6 +8,8 @@ import os
 import pickle
 from typing import Any
 
+from aitbc import REPO_DIR
+
 # Safe classes whitelist: builtins and common types
 SAFE_MODULES = {
     "builtins": {
@@ -40,8 +42,8 @@ def _initialize_allowed_origins():
     # 1. All site-packages directories that are under the application venv
     for entry in os.sys.path:
         if "site-packages" in entry and os.path.isdir(entry):
-            # Only include if it's inside /opt/aitbc/apps/coordinator-api/.venv or similar
-            if "/opt/aitbc" in entry:  # restrict to our app directory
+            # Only include if it's inside the AITBC repository
+            if str(REPO_DIR) in entry:  # restrict to our app directory
                 _ALLOWED_ORIGINS.add(os.path.realpath(entry))
     # 2. Standard library paths (typically without site-packages)
     # We'll allow any origin that resolves to a .py file outside site-packages and not in user dirs
@@ -95,14 +97,14 @@ def _lock_sys_path():
     if isinstance(sys.path, list):
         trusted = []
         for p in sys.path:
-            # Keep site-packages under /opt/aitbc (our venv)
-            if "site-packages" in p and "/opt/aitbc" in p:
+            # Keep site-packages under REPO_DIR (our venv)
+            if "site-packages" in p and str(REPO_DIR) in p:
                 trusted.append(p)
             # Keep stdlib paths (no site-packages, under /usr/lib/python)
             elif "site-packages" not in p and ("/usr/lib/python" in p or "/usr/local/lib/python" in p):
                 trusted.append(p)
             # Keep our application directory
-            elif p.startswith("/opt/aitbc/apps/coordinator-api"):
+            elif p.startswith(str(REPO_DIR / "apps" / "coordinator-api")):
                 trusted.append(p)
         sys.path = trusted
 
