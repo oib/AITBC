@@ -226,22 +226,27 @@ async def get_blocks(
 ) -> dict:  # type: ignore[arg-type]
     """Get recent blockchain blocks"""
     try:
-        import httpx
-
         # Query the local blockchain node for blocks
-        with httpx.Client() as client:
-            response = client.get(
-                "http://10.1.223.93:8082/rpc/blocks-range", params={"start": offset, "end": offset + limit}, timeout=5
+        client = AITBCHTTPClient(timeout=5.0)
+        try:
+            blocks_data = client.get(
+                "http://10.1.223.93:8082/rpc/blocks-range", params={"start": offset, "end": offset + limit}
             )
-
-            if response.status_code == 200:
-                blocks_data = response.json()
-                return {
-                    "blocks": blocks_data.get("blocks", []),
-                    "total": blocks_data.get("total", 0),
-                    "limit": limit,
-                    "offset": offset,
-                }
+            return {
+                "blocks": blocks_data.get("blocks", []),
+                "total": blocks_data.get("total", 0),
+                "limit": limit,
+                "offset": offset,
+            }
+        except NetworkError as e:
+            logger.error(f"Failed to fetch blocks: {e}")
+            return {
+                "blocks": [],
+                "total": 0,
+                "limit": limit,
+                "offset": offset,
+                "error": "Failed to fetch blocks",
+            }
             else:
                 # Fallback to empty response if blockchain node is unavailable
                 return {

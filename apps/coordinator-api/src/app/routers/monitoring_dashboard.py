@@ -191,24 +191,25 @@ async def collect_all_health_data() -> dict[str, Any]:
     """Collect health data from all enhanced services"""
     health_data = {}
 
-    async with httpx.AsyncClient(timeout=5.0) as client:
-        tasks = []
+    client = AITBCHTTPClient(timeout=5.0)
+    tasks = []
 
-        for service_id, service_info in SERVICES.items():
-            task = check_service_health(client, service_id, service_info)
-            tasks.append(task)
+    for service_id, service_info in SERVICES.items():
+        task = check_service_health(client, service_id, service_info)
+        tasks.append(task)
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        for i, (service_id, service_info) in enumerate(SERVICES.items()):
-            result = results[i]
-            if isinstance(result, Exception):
-                health_data[service_id] = {
-                    "status": "unhealthy",
-                    "error": str(result),
-                    "timestamp": datetime.utcnow().isoformat(),
-                }
-            else:
+    for i, (service_id, service_info) in enumerate(SERVICES.items()):
+        result = results[i]
+        if isinstance(result, Exception):
+            health_data[service_id] = {
+                "status": "unhealthy",
+                "error": str(result),
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+        else:
+            health_data[service_id] = result
 
     return health_data
 
