@@ -283,8 +283,12 @@ class PoAProposer:
                     )
                     
                     if not success:
-                        self._logger.warning(f"[PROPOSE] Failed to apply transaction {tx.tx_hash}: {error_msg}")
+                        self._logger.error(f"[PROPOSE] Failed to apply transaction {tx.tx_hash}: {error_msg}")
                         continue
+
+                    # Commit the balance changes immediately after successful state transition
+                    session.commit()
+                    self._logger.info(f"[PROPOSE] Committed balance changes for tx {tx.tx_hash}")
 
                     # Check if transaction already exists in database
                     existing_tx = session.exec(
