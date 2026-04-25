@@ -247,15 +247,6 @@ async def get_blocks(
                 "offset": offset,
                 "error": "Failed to fetch blocks",
             }
-            else:
-                # Fallback to empty response if blockchain node is unavailable
-                return {
-                    "blocks": [],
-                    "total": 0,
-                    "limit": limit,
-                    "offset": offset,
-                    "error": f"Blockchain node unavailable: {response.status_code}",
-                }
     except Exception as e:
         return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
 
