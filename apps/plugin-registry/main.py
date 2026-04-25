@@ -5,7 +5,6 @@ Handles plugin registration, discovery, versioning, and security validation
 
 import asyncio
 import json
-import logging
 import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,9 +12,9 @@ from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="AITBC Plugin Registry",
