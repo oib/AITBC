@@ -8,11 +8,12 @@ import threading
 from datetime import datetime, timedelta
 from typing import Dict, Any, List, Optional
 from collections import defaultdict, deque
-import logging
 from dataclasses import dataclass, field
 import json
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 @dataclass
 class MetricValue:

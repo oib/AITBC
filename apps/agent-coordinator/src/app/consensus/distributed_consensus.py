@@ -4,7 +4,6 @@ Implements various consensus algorithms for distributed decision making
 """
 
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, field
@@ -14,7 +13,9 @@ import uuid
 import hashlib
 import statistics
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 @dataclass
 class ConsensusProposal:

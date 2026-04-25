@@ -6,12 +6,12 @@ Implements JWT and API key authentication middleware
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, List, Optional
-import logging
 from functools import wraps
 
+from aitbc import get_logger
 from .jwt_handler import jwt_handler, api_key_manager
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Security schemes
 security = HTTPBearer(auto_error=False)

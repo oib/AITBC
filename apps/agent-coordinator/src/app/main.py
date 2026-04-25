@@ -3,11 +3,12 @@ Main FastAPI Application for AITBC Agent Coordinator
 """
 
 import asyncio
-import logging
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import uuid
+
+from aitbc import get_logger
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, status, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,11 +31,7 @@ from .monitoring.prometheus_metrics import metrics_registry, performance_monitor
 from .monitoring.alerting import alert_manager, SLAMonitor
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Global variables
 agent_registry: Optional[AgentRegistry] = None

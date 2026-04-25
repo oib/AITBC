@@ -4,7 +4,6 @@ Message Types and Routing System for AITBC Agent Coordination
 
 import asyncio
 import json
-import logging
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field
@@ -14,7 +13,9 @@ import hashlib
 from pydantic import BaseModel, Field, validator
 from .communication import AgentMessage, MessageType, Priority
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class MessageStatus(str, Enum):
     """Message processing status"""
