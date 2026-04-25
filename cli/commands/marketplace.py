@@ -266,8 +266,10 @@ def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, t
         address = wallet_data["address"]
         
         # Get wallet balance from blockchain
+        from aitbc_cli.utils.chain_id import get_chain_id
         rpc_url = config.get('rpc_url', 'http://localhost:8006')
-        balance_response = httpx.Client().get(f"{rpc_url}/rpc/account/{address}?chain_id=ait-testnet", timeout=5)
+        chain_id = get_chain_id(rpc_url)
+        balance_response = httpx.Client().get(f"{rpc_url}/rpc/account/{address}?chain_id={chain_id}", timeout=5)
         if balance_response.status_code != 200:
             error(f"Failed to get wallet balance")
             return
@@ -285,7 +287,7 @@ def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, t
             "value": amount,
             "fee": 1,
             "nonce": balance_data["nonce"],
-            "chain_id": "ait-testnet",
+            "chain_id": chain_id,
             "payload": {
                 "type": "marketplace_payment",
                 "booking_id": booking_id,
