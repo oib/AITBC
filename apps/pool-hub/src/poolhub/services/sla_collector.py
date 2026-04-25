@@ -4,11 +4,11 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 """
 
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
+from aitbc import get_logger
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session
 
@@ -23,7 +23,7 @@ from ..models import (
     CapacitySnapshot,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SLACollector:
@@ -369,7 +369,7 @@ class SLACollectorScheduler:
 
     def __init__(self, sla_collector: SLACollector):
         self.sla_collector = sla_collector
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.running = False
 
     async def start(self, collection_interval_seconds: int = 300):
