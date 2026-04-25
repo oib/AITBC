@@ -108,6 +108,7 @@ from .monitoring import (
     PerformanceTimer,
     HealthChecker,
 )
+from .data_layer import DataLayer, MockDataGenerator, RealDataFetcher, get_data_layer
 from .crypto import (
     derive_ethereum_address,
     sign_transaction_hash,
@@ -344,6 +345,11 @@ __all__ = [
     "vacuum_database",
     "get_table_info",
     "table_exists",
+    # Data layer
+    "DataLayer",
+    "MockDataGenerator",
+    "RealDataFetcher",
+    "get_data_layer",
     # Monitoring
     "MetricsCollector",
     "PerformanceTimer",
