@@ -153,7 +153,7 @@ check_block_sync() {
     
     local heights=()
     local max_height=0
-    local min_height=999999
+    local min_height=999999999
     
     for node_config in "${NODES[@]}"; do
         IFS=':' read -r node_name node_ip <<< "$node_config"
@@ -276,7 +276,7 @@ main() {
         local max_height=0
         local max_node=""
         local max_ip=""
-        local min_height=999999
+        local min_height=999999999
         local min_node=""
         local min_ip=""
         
