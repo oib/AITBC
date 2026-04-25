@@ -3,12 +3,13 @@
 
 import sqlite3
 from datetime import datetime
+from aitbc.constants import DATA_DIR
 
 def seed_initial_price():
     """Create initial trades to establish market price"""
     
     import os
-    db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+    db_path = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db").replace("sqlite://///", "")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     
