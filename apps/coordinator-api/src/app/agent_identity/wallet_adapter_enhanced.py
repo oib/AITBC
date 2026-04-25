@@ -12,7 +12,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from aitbc import get_logger
+from aitbc import get_logger, derive_ethereum_address, sign_transaction_hash, verify_signature, encrypt_private_key, Web3Client
 
 logger = get_logger(__name__)
 
@@ -174,6 +174,8 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     def __init__(self, chain_id: int, rpc_url: str, security_level: SecurityLevel = SecurityLevel.MEDIUM):
         super().__init__(chain_id, ChainType.ETHEREUM, rpc_url, security_level)
         self.chain_id = chain_id
+        # Initialize Web3 client for blockchain operations
+        self._web3_client = Web3Client(rpc_url)
 
     async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:
         """Create a new Ethereum wallet with enhanced security"""
@@ -446,25 +448,36 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
     # Private helper methods
     async def _derive_address_from_private_key(self, private_key: str) -> str:
         """Derive Ethereum address from private key"""
-        # This would use actual Ethereum cryptography
-        # For now, return a mock address
-        return f"0x{hashlib.sha256(private_key.encode()).hexdigest()[:40]}"
+        try:
+            return derive_ethereum_address(private_key)
+        except Exception as e:
+            logger.error(f"Failed to derive address from private key: {e}")
+            raise
 
     async def _encrypt_private_key(self, private_key: str, security_config: dict[str, Any]) -> str:
         """Encrypt private key with security configuration"""
-        # This would use actual encryption
-        # For now, return mock encrypted key
-        return f"encrypted_{hashlib.sha256(private_key.encode()).hexdigest()}"
+        try:
+            password = security_config.get("encryption_password", "default_password")
+            return encrypt_private_key(private_key, password)
+        except Exception as e:
+            logger.error(f"Failed to encrypt private key: {e}")
+            raise
 
     async def _get_eth_balance(self, address: str) -> str:
         """Get ETH balance in wei"""
-        # Mock implementation
-        return "1000000000000000000"  # 1 ETH in wei
+        try:
+            return self._web3_client.get_eth_balance(address)
+        except Exception as e:
+            logger.error(f"Failed to get ETH balance: {e}")
+            raise
 
     async def _get_token_balance(self, address: str, token_address: str) -> dict[str, Any]:
         """Get ERC-20 token balance"""
-        # Mock implementation
-        return {"balance": "100000000000000000000", "decimals": 18, "symbol": "TOKEN"}  # 100 tokens
+        try:
+            return self._web3_client.get_token_balance(address, token_address)
+        except Exception as e:
+            logger.error(f"Failed to get token balance: {e}")
+            raise
 
     async def _create_erc20_transfer(
         self, from_address: str, to_address: str, token_address: str, amount: int
@@ -493,78 +506,116 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
 
     async def _get_gas_price(self) -> int:
         """Get current gas price"""
-        # Mock implementation
-        return 20000000000  # 20 Gwei in wei
+        try:
+            return self._web3_client.get_gas_price()
+        except Exception as e:
+            logger.error(f"Failed to get gas price: {e}")
+            raise
 
     async def _get_gas_price_gwei(self) -> float:
         """Get current gas price in Gwei"""
-        gas_price_wei = await self._get_gas_price()
-        return gas_price_wei / 10**9
+        try:
+            return self._web3_client.get_gas_price_gwei()
+        except Exception as e:
+            logger.error(f"Failed to get gas price in Gwei: {e}")
+            raise
 
     async def _get_nonce(self, address: str) -> int:
         """Get transaction nonce for address"""
-        # Mock implementation
-        return 0
+        try:
+            return self._web3_client.get_nonce(address)
+        except Exception as e:
+            logger.error(f"Failed to get nonce: {e}")
+            raise
 
     async def _sign_transaction(self, transaction_data: dict[str, Any], from_address: str) -> str:
         """Sign transaction"""
-        # Mock implementation
-        return f"0xsigned_{hashlib.sha256(str(transaction_data).encode()).hexdigest()}"
+        try:
+            # Get the transaction hash
+            from eth_account import Account
+            # Remove 0x prefix if present
+            if from_address.startswith("0x"):
+                from_address = from_address[2:]
+            
+            account = Account.from_key(from_address)
+            
+            # Build transaction dict for signing
+            tx_dict = {
+                'nonce': int(transaction_data.get('nonce', 0), 16),
+                'gasPrice': int(transaction_data.get('gasPrice', 0), 16),
+                'gas': int(transaction_data.get('gas', 0), 16),
+                'to': transaction_data.get('to'),
+                'value': int(transaction_data.get('value', '0x0'), 16),
+                'data': transaction_data.get('data', '0x'),
+                'chainId': transaction_data.get('chainId', 1)
+            }
+            
+            signed_tx = account.sign_transaction(tx_dict)
+            return signed_tx.raw_transaction.hex()
+        except ImportError:
+            raise ImportError("eth-account is required for transaction signing. Install with: pip install eth-account")
+        except Exception as e:
+            logger.error(f"Failed to sign transaction: {e}")
+            raise
 
     async def _send_raw_transaction(self, signed_transaction: str) -> str:
         """Send raw transaction"""
-        # Mock implementation
-        return f"0x{hashlib.sha256(signed_transaction.encode()).hexdigest()}"
+        try:
+            return self._web3_client.send_raw_transaction(signed_transaction)
+        except Exception as e:
+            logger.error(f"Failed to send raw transaction: {e}")
+            raise
 
     async def _get_transaction_receipt(self, tx_hash: str) -> dict[str, Any] | None:
         """Get transaction receipt"""
-        # Mock implementation
-        return {
-            "status": 1,
-            "blockNumber": "0x12345",
-            "blockHash": "0xabcdef",
-            "gasUsed": "0x5208",
-            "effectiveGasPrice": "0x4a817c800",
-            "logs": [],
-        }
+        try:
+            return self._web3_client.get_transaction_receipt(tx_hash)
+        except Exception as e:
+            logger.error(f"Failed to get transaction receipt: {e}")
+            raise
 
     async def _get_transaction_by_hash(self, tx_hash: str) -> dict[str, Any]:
         """Get transaction by hash"""
-        # Mock implementation
-        return {"from": "0xsender", "to": "0xreceiver", "value": "0xde0b6b3a7640000", "data": "0x"}  # 1 ETH in wei
+        try:
+            return self._web3_client.get_transaction_by_hash(tx_hash)
+        except Exception as e:
+            logger.error(f"Failed to get transaction by hash: {e}")
+            raise
 
     async def _estimate_gas_call(self, call_data: dict[str, Any]) -> str:
         """Estimate gas for call"""
-        # Mock implementation
-        return "0x5208"  # 21000 in hex
+        try:
+            gas_estimate = self._web3_client.estimate_gas(call_data)
+            return hex(gas_estimate)
+        except Exception as e:
+            logger.error(f"Failed to estimate gas: {e}")
+            raise
 
     async def _get_wallet_transactions(
         self, address: str, limit: int, offset: int, from_block: int | None, to_block: int | None
     ) -> list[dict[str, Any]]:
         """Get wallet transactions"""
-        # Mock implementation
-        return [
-            {
-                "hash": f"0x{hashlib.sha256(f'tx_{i}'.encode()).hexdigest()}",
-                "from": address,
-                "to": f"0x{hashlib.sha256(f'to_{i}'.encode()).hexdigest()[:40]}",
-                "value": "0xde0b6b3a7640000",
-                "blockNumber": f"0x{12345 + i}",
-                "timestamp": datetime.utcnow().timestamp(),
-                "gasUsed": "0x5208",
-            }
-            for i in range(min(limit, 10))
-        ]
+        try:
+            return self._web3_client.get_wallet_transactions(address, limit)
+        except Exception as e:
+            logger.error(f"Failed to get wallet transactions: {e}")
+            raise
 
     async def _sign_hash(self, message_hash: str, private_key: str) -> str:
         """Sign a hash with private key"""
-        # Mock implementation
-        return f"0x{hashlib.sha256(f'{message_hash}{private_key}'.encode()).hexdigest()}"
+        try:
+            return sign_transaction_hash(message_hash, private_key)
+        except Exception as e:
+            logger.error(f"Failed to sign hash: {e}")
+            raise
 
     async def _verify_signature(self, message_hash: str, signature: str, address: str) -> bool:
         """Verify a signature"""
-        # Mock implementation
-        return True
+        try:
+            return verify_signature(message_hash, signature, address)
+        except Exception as e:
+            logger.error(f"Failed to verify signature: {e}")
+            return False
 
 
 class PolygonWalletAdapter(EthereumWalletAdapter):

@@ -1048,19 +1048,15 @@ async def search_transactions(
             response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return []
             else:
-                # Return mock data for demonstration
-                return [
-                    {
-                        "hash": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-                        "type": tx_type or "transfer",
-                        "from": "0xabcdef1234567890abcdef1234567890abcdef1234",
-                        "to": "0x1234567890abcdef1234567890abcdef12345678",
-                        "amount": "1.5",
-                        "fee": "0.001",
-                        "timestamp": datetime.now().isoformat()
-                    }
-                ]
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to fetch transactions from blockchain RPC: {response.text}"
+                )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
@@ -1095,17 +1091,15 @@ async def search_blocks(
             response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
             if response.status_code == 200:
                 return response.json()
+            elif response.status_code == 404:
+                return []
             else:
-                # Return mock data for demonstration
-                return [
-                    {
-                        "height": 12345,
-                        "hash": "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-                        "validator": validator or "0x1234567890abcdef1234567890abcdef12345678",
-                        "tx_count": min_tx or 5,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                ]
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
+                )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 

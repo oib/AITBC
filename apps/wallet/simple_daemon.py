@@ -16,6 +16,8 @@ from pathlib import Path
 import os
 import sys
 
+from aitbc.constants import KEYSTORE_DIR
+
 # Add CLI utils to path
 sys.path.insert(0, '/opt/aitbc/cli')
 
@@ -23,7 +25,7 @@ sys.path.insert(0, '/opt/aitbc/cli')
 app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 
 # Configuration
-KEYSTORE_PATH = Path("/var/lib/aitbc/keystore")
+KEYSTORE_PATH = KEYSTORE_DIR
 BLOCKCHAIN_RPC_URL = "http://localhost:8006"
 CHAIN_ID = "ait-mainnet"
 
