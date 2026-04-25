@@ -5,7 +5,6 @@ Handles plugin security scanning, vulnerability detection, and validation
 
 import asyncio
 import json
-import logging
 import subprocess
 import tempfile
 import os
@@ -15,9 +14,9 @@ from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="AITBC Plugin Security Service",
