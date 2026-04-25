@@ -196,6 +196,7 @@ class TransactionRequest(BaseModel):
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
     sig: Optional[str] = Field(default=None, description="Signature payload")
+    value: Optional[int] = Field(default=None, description="Transaction value (amount to transfer)")
 
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
@@ -293,6 +294,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     from ..mempool import get_mempool
      
     try:
+        _logger.info(f"Received transaction request: sender={tx_data.sender}, value={tx_data.value}, payload={tx_data.payload}")
         mempool = get_mempool()
         chain_id = get_chain_id(None)
 
@@ -309,9 +311,16 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
             "signature": tx_data.sig
         }
         
+        _logger.info(f"Initial tx_data_dict amount: {tx_data_dict['amount']}")
+        
         # If value is provided at top level, use it instead of payload.amount
         if hasattr(tx_data, 'value') and tx_data.value is not None:
+            _logger.info(f"Using top-level value: {tx_data.value}")
             tx_data_dict["amount"] = tx_data.value
+        else:
+            _logger.info(f"No top-level value, using payload amount: {tx_data_dict['amount']}")
+        
+        _logger.info(f"Final tx_data_dict amount: {tx_data_dict['amount']}")
         
         tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)
