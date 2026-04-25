@@ -1,10 +1,11 @@
 """Agent daemon action handler for triggering autonomous agent responses."""
 
-import httpx
-import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AgentDaemonHandler:
@@ -12,22 +13,20 @@ class AgentDaemonHandler:
 
     def __init__(self, blockchain_rpc_url: str) -> None:
         self.blockchain_rpc_url = blockchain_rpc_url.rstrip("/")
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: Optional[AsyncAITBCHTTPClient] = None
 
-    async def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
-            self._client = httpx.AsyncClient(
+            self._client = AsyncAITBCHTTPClient(
                 base_url=self.blockchain_rpc_url,
-                timeout=30.0,
+                timeout=30
             )
         return self._client
 
     async def close(self) -> None:
         """Close HTTP client."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     async def handle_transaction(self, tx_data: Dict[str, Any]) -> None:
         """Handle a transaction that may require agent daemon response."""
