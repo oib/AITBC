@@ -10,13 +10,11 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
-import logging
 
+from aitbc import get_logger
 from real_exchange_integration import exchange_manager, ExchangeStatus, ExchangeHealth
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class FailoverStrategy(str, Enum):
     """Failover strategies"""
