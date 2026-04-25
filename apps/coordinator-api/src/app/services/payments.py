@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Annotated
 
 from fastapi import Depends
@@ -6,8 +8,6 @@ from sqlalchemy.orm import Session
 """Payment service for job payments"""
 
 from datetime import datetime, timedelta
-
-from __future__ import annotations
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
 logger = get_logger(__name__)
