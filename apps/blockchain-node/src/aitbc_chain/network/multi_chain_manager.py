@@ -4,14 +4,15 @@ Manages parallel bilateral/micro-chains running alongside the default chain
 """
 
 import asyncio
-import logging
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 import time
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ChainType(Enum):
