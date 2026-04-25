@@ -4,7 +4,6 @@ Implements machine learning models, neural networks, and intelligent decision ma
 """
 
 import asyncio
-import logging
 import numpy as np
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
@@ -14,7 +13,9 @@ import json
 import uuid
 import statistics
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 @dataclass
 class MLModel:

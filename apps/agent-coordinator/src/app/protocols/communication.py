@@ -4,7 +4,6 @@ Multi-Agent Communication Protocols for AITBC Agent Coordination
 
 import asyncio
 import json
-import logging
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
@@ -13,7 +12,9 @@ import uuid
 import websockets
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class MessageType(str, Enum):
     """Message types for agent communication"""

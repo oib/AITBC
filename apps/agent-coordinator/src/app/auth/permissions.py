@@ -6,9 +6,10 @@ Implements RBAC with roles, permissions, and access control
 from enum import Enum
 from typing import Dict, List, Set, Any
 from dataclasses import dataclass
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class Permission(Enum):
     """System permissions enumeration"""
