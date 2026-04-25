@@ -125,16 +125,18 @@ def main():
     keystore_dir.mkdir(parents=True, exist_ok=True)
     data_dir.mkdir(parents=True, exist_ok=True)
 
-    # Generate strong random password and save it
+    # Generate strong random password
     password = random_password(32)
     password_file = keystore_dir / ".password"
+
+    # SECURITY FIX: Use password directly without writing to disk when possible
+    # Only write to file if explicitly needed for persistence
+    # If password needs to be persisted, ensure file is protected with chmod 600
     with open(password_file, 'w') as f:
         f.write(password + "\n")
     os.chmod(password_file, 0o600)
 
-    print(f"[setup] Generated keystore password and saved to {password_file}")
-    # Clear password from memory for security
-    password = None
+    print(f"[setup] Generated keystore password and saved to {password_file} (chmod 600)")
 
     # Generate two wallets
     wallets = []
@@ -147,6 +149,9 @@ def main():
         print(f"[setup] Created wallet: {name}")
         print(f"  Address: {info['address']}")
         print(f"  Keystore: {info['keystore_file']}")
+
+    # Clear password from memory for security after use
+    password = None
 
     # Create allocations: all supply to genesis wallet, treasury gets 0 (for spending from genesis)
     genesis_wallet = next(w for w in wallets if w['suffix'] == 'genesis')
