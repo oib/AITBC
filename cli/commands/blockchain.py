@@ -37,8 +37,10 @@ def blocks(ctx, limit: int, from_height: Optional[int], chain_id: str, all_chain
         config = ctx.obj['config']
         
         if all_chains:
-            # Query all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_blocks = {}
             
             for chain in chains:
@@ -148,7 +150,10 @@ def block(ctx, block_hash: str, chain_id: str, all_chains: bool):
         
         if all_chains:
             # Search for block across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             block_results = {}
             
             for chain in chains:
@@ -246,7 +251,10 @@ def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
     try:
         if all_chains:
             # Search for transaction across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             tx_results = {}
             
             for chain in chains:
@@ -328,7 +336,10 @@ def status(ctx, node: int, chain_id: str, all_chains: bool):
     try:
         if all_chains:
             # Get status across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_status = {}
             
             for chain in chains:
@@ -420,7 +431,10 @@ def sync_status(ctx, chain_id: str, all_chains: bool):
     try:
         if all_chains:
             # Get sync status across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_sync_status = {}
             
             for chain in chains:
@@ -505,7 +519,10 @@ def peers(ctx, chain_id: str, all_chains: bool):
         
         if all_chains:
             # Get peers across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_peers = {}
             
             for chain in chains:
@@ -594,7 +611,10 @@ def info(ctx, chain_id: str, all_chains: bool):
         
         if all_chains:
             # Get info across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_info = {}
             
             for chain in chains:
@@ -690,7 +710,10 @@ def supply(ctx, chain_id: str, all_chains: bool):
         
         if all_chains:
             # Get supply across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_supply = {}
             
             for chain in chains:
@@ -773,7 +796,10 @@ def validators(ctx, chain_id: str, all_chains: bool):
         
         if all_chains:
             # Get validators across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_validators = {}
             
             for chain in chains:
@@ -959,7 +985,10 @@ def balance(ctx, address, chain_id, all_chains):
         
         if all_chains:
             # Query all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             balances = {}
             
             with httpx.Client() as client:
@@ -1180,7 +1209,10 @@ def state(ctx, chain_id: str, all_chains: bool):
     try:
         if all_chains:
             # Get state across all available chains
-            chains = ['ait-devnet', 'ait-testnet']  # TODO: Get from chain registry
+            # Query all available chains from chain registry
+            from cli.config.chains import get_chain_registry
+            registry = get_chain_registry()
+            chains = registry.get_chain_ids()
             all_state = {}
             
             for chain in chains:

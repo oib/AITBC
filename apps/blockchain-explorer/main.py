@@ -4,19 +4,27 @@ AITBC Blockchain Explorer - Enhanced Version
 Advanced web interface with search, analytics, and export capabilities
 """
 
-import asyncio
 import httpx
 import json
 import csv
 import io
 import re
 from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Any, Union
-from fastapi import FastAPI, HTTPException, Request, Query, Response
-from fastapi.responses import HTMLResponse, StreamingResponse
-from fastapi.staticfiles import StaticFiles
+from typing import Optional
+import os
+
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
+
+# Import data layer for toggle between mock and real data
+try:
+    from aitbc import get_data_layer
+    USE_DATA_LAYER = True
+except ImportError:
+    USE_DATA_LAYER = False
 
 app = FastAPI(title="AITBC Blockchain Explorer", version="0.1.0")
 
@@ -1025,36 +1033,46 @@ async def search_transactions(
 ):
     """Advanced transaction search"""
     try:
-        # Build query parameters for blockchain node
-        params = {}
-        if address:
-            params["address"] = address
-        if amount_min:
-            params["amount_min"] = amount_min
-        if amount_max:
-            params["amount_max"] = amount_max
-        if tx_type:
-            params["type"] = tx_type
-        if since:
-            params["since"] = since
-        if until:
-            params["until"] = until
-        params["limit"] = limit
-        params["offset"] = offset
-        params["chain_id"] = chain_id
-        
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 404:
-                return []
-            else:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Failed to fetch transactions from blockchain RPC: {response.text}"
-                )
+        if USE_DATA_LAYER:
+            # Use data layer with toggle support
+            data_layer = get_data_layer()
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            return await data_layer.get_transactions(
+                address, amount_min, amount_max, tx_type, since, until,
+                limit, offset, chain_id, rpc_url
+            )
+        else:
+            # Original implementation without data layer
+            # Build query parameters
+            params = {}
+            if address:
+                params["address"] = address
+            if amount_min:
+                params["amount_min"] = amount_min
+            if amount_max:
+                params["amount_max"] = amount_max
+            if tx_type:
+                params["type"] = tx_type
+            if since:
+                params["since"] = since
+            if until:
+                params["until"] = until
+            params["limit"] = limit
+            params["offset"] = offset
+            params["chain_id"] = chain_id
+            
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{rpc_url}/rpc/search/transactions", params=params)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
+                    return []
+                else:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Failed to fetch transactions from blockchain RPC: {response.text}"
+                    )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
@@ -1072,32 +1090,40 @@ async def search_blocks(
 ):
     """Advanced block search"""
     try:
-        # Build query parameters
-        params = {}
-        if validator:
-            params["validator"] = validator
-        if since:
-            params["since"] = since
-        if until:
-            params["until"] = until
-        if min_tx:
-            params["min_tx"] = min_tx
-        params["limit"] = limit
-        params["offset"] = offset
-        params["chain_id"] = chain_id
-        
-        rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 404:
-                return []
-            else:
-                raise HTTPException(
-                    status_code=response.status_code,
-                    detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
-                )
+        if USE_DATA_LAYER:
+            # Use data layer with toggle support
+            data_layer = get_data_layer()
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            return await data_layer.get_blocks(
+                validator, since, until, min_tx, limit, offset, chain_id, rpc_url
+            )
+        else:
+            # Original implementation without data layer
+            params = {}
+            if validator:
+                params["validator"] = validator
+            if since:
+                params["since"] = since
+            if until:
+                params["until"] = until
+            if min_tx:
+                params["min_tx"] = min_tx
+            params["limit"] = limit
+            params["offset"] = offset
+            params["chain_id"] = chain_id
+            
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(chain_id, BLOCKCHAIN_RPC_URLS[DEFAULT_CHAIN])
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{rpc_url}/rpc/search/blocks", params=params)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
+                    return []
+                else:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Failed to fetch blocks from blockchain RPC: {response.text}"
+                    )
     except httpx.RequestError as e:
         raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
@@ -1105,42 +1131,31 @@ async def search_blocks(
 
 @app.get("/api/analytics/overview")
 async def analytics_overview(period: str = "24h"):
-    """Get analytics overview"""
+    """Get analytics overview from blockchain RPC"""
     try:
-        # Generate mock analytics data
-        now = datetime.now()
-        
-        if period == "1h":
-            labels = [f"{i:02d}:{(i*5)%60:02d}" for i in range(12)]
-            volume_values = [10 + i * 2 for i in range(12)]
-            activity_values = [5 + i for i in range(12)]
-        elif period == "24h":
-            labels = [f"{i:02d}:00" for i in range(0, 24, 2)]
-            volume_values = [50 + i * 5 for i in range(12)]
-            activity_values = [20 + i * 3 for i in range(12)]
-        elif period == "7d":
-            labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-            volume_values = [500, 600, 550, 700, 800, 650, 750]
-            activity_values = [200, 250, 220, 300, 350, 280, 320]
-        else:  # 30d
-            labels = [f"Week {i+1}" for i in range(4)]
-            volume_values = [3000, 3500, 3200, 3800]
-            activity_values = [1200, 1400, 1300, 1500]
-        
-        return {
-            "total_transactions": "1,234",
-            "transaction_volume": "5,678.90 AITBC",
-            "active_addresses": "89",
-            "avg_block_time": "2.1s",
-            "volume_data": {
-                "labels": labels,
-                "values": volume_values
-            },
-            "activity_data": {
-                "labels": labels,
-                "values": activity_values
-            }
-        }
+        if USE_DATA_LAYER:
+            # Use data layer with toggle support
+            data_layer = get_data_layer()
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
+            return await data_layer.get_analytics_overview(period, rpc_url)
+        else:
+            # Original implementation without data layer
+            rpc_url = BLOCKCHAIN_RPC_URLS.get(DEFAULT_CHAIN)
+            params = {"period": period}
+            
+            async with httpx.AsyncClient() as client:
+                response = await client.get(f"{rpc_url}/rpc/analytics/overview", params=params)
+                if response.status_code == 200:
+                    return response.json()
+                elif response.status_code == 404:
+                    raise HTTPException(status_code=501, detail="Analytics endpoint not available on blockchain RPC")
+                else:
+                    raise HTTPException(
+                        status_code=response.status_code,
+                        detail=f"Failed to fetch analytics from blockchain RPC: {response.text}"
+                    )
+    except httpx.RequestError as e:
+        raise HTTPException(status_code=503, detail=f"Blockchain RPC unavailable: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Analytics failed: {str(e)}")
 
