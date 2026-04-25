@@ -2,8 +2,7 @@
 
 import subprocess
 
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import AITBCHTTPClient, NetworkError
 
 
 def handle_bridge_health(args):

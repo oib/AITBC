@@ -4,9 +4,9 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
 
-import httpx
 import base64
 
+from aitbc import AITBCHTTPClient, NetworkError
 from aitbc_crypto.signing import ReceiptVerifier
 
 
@@ -83,8 +83,8 @@ class CoordinatorReceiptClient:
         self.max_retries = max_retries
         self.backoff_seconds = backoff_seconds
 
-    def _client(self) -> httpx.Client:
-        return httpx.Client(
+    def _client(self) -> AITBCHTTPClient:
+        return AITBCHTTPClient(
             base_url=self.base_url,
             timeout=self.timeout,
             headers={"X-Api-Key": self.api_key},
@@ -187,9 +187,9 @@ class CoordinatorReceiptClient:
         attempt = 0
         while True:
             try:
-                with self._client() as client:
-                    response = client.request(method=method, url=url, params=params)
-            except httpx.HTTPError:
+                client = self._client()
+                response = client.request(method=method, url=url, params=params)
+            except NetworkError:
                 if attempt >= self.max_retries:
                     raise
                 attempt += 1

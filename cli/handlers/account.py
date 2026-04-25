@@ -3,8 +3,7 @@
 import json
 import sys
 
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import AITBCHTTPClient, NetworkError
 
 
 def handle_account_get(args, default_rpc_url, output_format):

@@ -8,9 +8,7 @@ from ..config import get_config
 from ..utils import success, error, output
 
 # Import shared modules
-from aitbc.aitbc_logging import get_logger
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 # Initialize logger
 logger = get_logger(__name__)
