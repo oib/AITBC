@@ -1,10 +1,11 @@
 """Batch processing for aggregated operations."""
 
 import asyncio
-import logging
 from typing import Any, Dict, List
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class BatchProcessor:

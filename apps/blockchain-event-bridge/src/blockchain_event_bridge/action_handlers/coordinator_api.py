@@ -1,10 +1,11 @@
 """Coordinator API action handler for triggering OpenClaw agent actions."""
 
-import httpx
-import logging
 from typing import Any, Dict, List, Optional
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class CoordinatorAPIHandler:
@@ -13,27 +14,25 @@ class CoordinatorAPIHandler:
     def __init__(self, base_url: str, api_key: Optional[str] = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        self._client: Optional[httpx.AsyncClient] = None
+        headers = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._client: Optional[AsyncAITBCHTTPClient] = None
+        self._headers = headers
 
-    async def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
-            headers = {}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
-
-            self._client = httpx.AsyncClient(
+            self._client = AsyncAITBCHTTPClient(
                 base_url=self.base_url,
-                headers=headers,
-                timeout=30.0,
+                headers=self._headers,
+                timeout=30
             )
         return self._client
 
     async def close(self) -> None:
         """Close HTTP client."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     async def handle_block(self, block_data: Dict[str, Any], transactions: List[Dict[str, Any]]) -> None:
         """Handle a new block by triggering coordinator API actions."""
@@ -69,12 +68,11 @@ class CoordinatorAPIHandler:
 
             if job_id:
                 # Notify coordinator about new AI job
-                response = await client.post(f"/v1/ai-jobs/{job_id}/notify", json=tx_data)
-                response.raise_for_status()
+                await client.async_post(f"/v1/ai-jobs/{job_id}/notify", json=tx_data)
                 logger.info(f"Successfully notified coordinator about AI job {job_id}")
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error triggering AI job processing: {e}")
+        except NetworkError as e:
+            logger.error(f"Network error triggering AI job processing: {e}")
         except Exception as e:
             logger.error(f"Error triggering AI job processing: {e}", exc_info=True)
 
@@ -89,15 +87,14 @@ class CoordinatorAPIHandler:
 
             if recipient:
                 # Notify coordinator about agent message
-                response = await client.post(
+                await client.async_post(
                     f"/v1/agents/{recipient}/message",
                     json={"transaction": tx_data, "payload": payload}
                 )
-                response.raise_for_status()
                 logger.info(f"Successfully notified coordinator about message to {recipient}")
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error triggering agent message processing: {e}")
+        except NetworkError as e:
+            logger.error(f"Network error triggering agent message processing: {e}")
         except Exception as e:
             logger.error(f"Error triggering agent message processing: {e}", exc_info=True)
 
@@ -112,14 +109,13 @@ class CoordinatorAPIHandler:
 
             if listing_id:
                 # Update marketplace state
-                response = await client.post(
+                await client.async_post(
                     f"/v1/marketplace/{listing_id}/sync",
                     json={"transaction": tx_data}
                 )
-                response.raise_for_status()
                 logger.info(f"Successfully updated marketplace listing {listing_id}")
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error triggering marketplace update: {e}")
+        except NetworkError as e:
+            logger.error(f"Network error triggering marketplace update: {e}")
         except Exception as e:
             logger.error(f"Error triggering marketplace update: {e}", exc_info=True)
