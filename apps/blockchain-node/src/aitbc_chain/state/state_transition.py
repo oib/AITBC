@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 
 from sqlmodel import Session, select
+from sqlalchemy import select, text
 from datetime import datetime
 
 from ..models import Account, Transaction, Receipt
@@ -165,6 +166,7 @@ class StateTransition:
         Returns:
             Tuple of (success, error_message)
         """
+        logger.info(f"apply_transaction called for tx {tx_hash}, tx_data keys: {list(tx_data.keys())}")
         # Validate first
         is_valid, error_msg = self.validate_transaction(session, chain_id, tx_data, tx_hash)
         if not is_valid:
@@ -198,7 +200,7 @@ class StateTransition:
             else:
                 tx_type = "TRANSFER"
         
-        # Apply balance changes
+        # Apply balance changes using explicit SQL UPDATE
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
         
@@ -209,12 +211,20 @@ class StateTransition:
             total_cost = value + fee
             recipient_account = session.get(Account, (chain_id, recipient_addr))
         
-        sender_account.balance -= total_cost
-        sender_account.nonce += 1
+        # Use explicit SQL UPDATE to ensure persistence
+        logger.info(f"Updating sender balance: {sender_addr} -= {total_cost}")
+        session.execute(
+            text("UPDATE account SET balance = balance - :total_cost, nonce = nonce + 1 WHERE chain_id = :chain_id AND address = :sender_addr"),
+            {"total_cost": total_cost, "chain_id": chain_id, "sender_addr": sender_addr}
+        )
         
         # For MESSAGE transactions, skip recipient balance change
         if tx_type != "MESSAGE":
-            recipient_account.balance += value
+            logger.info(f"Updating recipient balance: {recipient_addr} += {value}")
+            session.execute(
+                text("UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :recipient_addr"),
+                {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr}
+            )
         
         # For RECEIPT_CLAIM transactions, mint reward and update receipt status
         if tx_type == "RECEIPT_CLAIM":
