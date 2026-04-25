@@ -301,13 +301,17 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
         tx_data_dict = {
             "from": tx_data.sender,
             "to": tx_data.payload.get("to"),  # Get to from payload (required field)
-            "amount": tx_data.payload.get("amount", 0),  # Get amount from payload
+            "amount": tx_data.payload.get("amount", 0),  # Get amount from payload (fallback)
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
             "type": tx_data.type,
             "signature": tx_data.sig
         }
+        
+        # If value is provided at top level, use it instead of payload.amount
+        if hasattr(tx_data, 'value') and tx_data.value is not None:
+            tx_data_dict["amount"] = tx_data.value
         
         tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)
