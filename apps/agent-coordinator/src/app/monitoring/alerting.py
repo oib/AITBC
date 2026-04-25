@@ -4,13 +4,14 @@ Implements comprehensive alerting with multiple channels and SLA monitoring
 """
 
 import asyncio
-import logging
 import smtplib
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
 import json
+
+from aitbc import get_logger
 
 # Try to import email modules, handle gracefully if not available
 try:
@@ -24,7 +25,7 @@ except ImportError:
 
 import requests
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class AlertSeverity(Enum):
     """Alert severity levels"""

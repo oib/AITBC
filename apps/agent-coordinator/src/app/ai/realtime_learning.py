@@ -4,7 +4,6 @@ Implements adaptive learning, predictive analytics, and intelligent optimization
 """
 
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
@@ -13,7 +12,9 @@ import json
 import statistics
 import uuid
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 @dataclass
 class LearningExperience:

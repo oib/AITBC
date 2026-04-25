@@ -4,7 +4,6 @@ Load Balancer for Agent Distribution and Task Assignment
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Tuple, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -13,11 +12,12 @@ import statistics
 import uuid
 from collections import defaultdict, deque
 
+from aitbc import get_logger
 from .agent_discovery import AgentRegistry, AgentInfo, AgentStatus, AgentType
 from ..protocols.message_types import TaskMessage, create_task_message
 from ..protocols.communication import AgentMessage, MessageType, Priority
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class LoadBalancingStrategy(str, Enum):
     """Load balancing strategies"""
