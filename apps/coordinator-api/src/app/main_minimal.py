@@ -2,7 +2,7 @@
 Minimal Main Application - Only includes existing routers plus enhanced ones
 """
 
-import logging
+from aitbc import get_logger
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +22,7 @@ from .routers.marketplace_offers import router as marketplace_offers
 from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .storage import init_db
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def create_app() -> FastAPI:

@@ -1,7 +1,6 @@
 """PostgreSQL database module for Coordinator API"""
 
 import json
-import logging
 from collections.abc import Generator
 from typing import Any
 
@@ -11,7 +10,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import Session, sessionmaker
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 from datetime import datetime
 
 from .config_pg import settings

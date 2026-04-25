@@ -7,7 +7,6 @@ per-stream backpressure handling and GPU provider flow control.
 
 import asyncio
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from enum import Enum

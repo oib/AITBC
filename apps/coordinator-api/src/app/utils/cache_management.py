@@ -2,11 +2,11 @@
 Cache management utilities for endpoints
 """
 
-import logging
+from aitbc import get_logger
 
 from ..utils.cache import cache_manager, cleanup_expired_cache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def invalidate_cache_pattern(pattern: str):

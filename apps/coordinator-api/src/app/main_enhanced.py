@@ -2,7 +2,7 @@
 Enhanced Main Application - Adds new enhanced routers to existing AITBC Coordinator API
 """
 
-import logging
+from aitbc import get_logger
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,7 +31,7 @@ from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
 from .routers.partners import router as partners
 from .storage import init_db
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from .storage.db import init_db
 
 

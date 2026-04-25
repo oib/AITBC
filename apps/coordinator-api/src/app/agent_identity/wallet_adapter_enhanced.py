@@ -5,7 +5,6 @@ Production-ready wallet adapter for cross-chain operations with advanced securit
 
 import hashlib
 import json
-import logging
 import secrets
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -13,8 +12,9 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
 
+logger = get_logger(__name__)
 
 from ..domain.agent_identity import ChainType
 
