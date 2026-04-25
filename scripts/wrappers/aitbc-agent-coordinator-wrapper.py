@@ -30,7 +30,7 @@ exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
     "uvicorn",
-    "src.app.main:app",
+    "app.main:app",
     "--host",
     "0.0.0.0",
     "--port",
