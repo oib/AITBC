@@ -125,7 +125,7 @@ class AITBCHTTPClient:
         if params:
             import hashlib
             param_str = str(sorted(params.items()))
-            return f"{url}:{hashlib.md5(param_str.encode()).hexdigest()}"
+            return f"{url}:{hashlib.sha256(param_str.encode()).hexdigest()}"
         return url
     
     def _get_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
@@ -568,7 +568,7 @@ class AsyncAITBCHTTPClient:
         if params:
             import hashlib
             param_str = str(sorted(params.items()))
-            return f"{url}:{hashlib.md5(param_str.encode()).hexdigest()}"
+            return f"{url}:{hashlib.sha256(param_str.encode()).hexdigest()}"
         return url
     
     def _get_cache(self, cache_key: str) -> Optional[Dict[str, Any]]:
