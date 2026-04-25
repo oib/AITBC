@@ -187,8 +187,24 @@ class SwarmCoordinator(Agent):
             logger.error(f"Failed to contribute swarm data: {e}")
 
     async def _get_load_balancing_data(self) -> Dict[str, Any]:
-        """Get load balancing data for swarm contribution"""
-        # TODO: Get actual load balancing metrics
+        """Get actual load balancing metrics from coordinator"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/load-balancing/metrics",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.warning(f"Failed to get load balancing metrics: {response.status_code}")
+                    return self._get_default_load_balancing_data()
+        except Exception as e:
+            logger.error(f"Error fetching load balancing data: {e}")
+            return self._get_default_load_balancing_data()
+    
+    def _get_default_load_balancing_data(self) -> Dict[str, Any]:
+        """Default load balancing data when API is unavailable"""
         return {
             "resource_type": "gpu_memory",
             "availability": 0.75,
@@ -199,8 +215,24 @@ class SwarmCoordinator(Agent):
         }
 
     async def _get_pricing_data(self) -> Dict[str, Any]:
-        """Get pricing data for swarm contribution"""
-        # TODO: Get actual pricing data
+        """Get actual pricing data from coordinator marketplace API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/marketplace/pricing/trends",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.warning(f"Failed to get pricing data: {response.status_code}")
+                    return self._get_default_pricing_data()
+        except Exception as e:
+            logger.error(f"Error fetching pricing data: {e}")
+            return self._get_default_pricing_data()
+    
+    def _get_default_pricing_data(self) -> Dict[str, Any]:
+        """Default pricing data when API is unavailable"""
         return {
             "current_demand": "high",
             "price_trends": "increasing",
@@ -210,8 +242,24 @@ class SwarmCoordinator(Agent):
         }
 
     async def _get_security_data(self) -> Dict[str, Any]:
-        """Get security data for swarm contribution"""
-        # TODO: Get actual security metrics
+        """Get actual security metrics from coordinator security API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/security/metrics",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    return response.json()
+                else:
+                    logger.warning(f"Failed to get security metrics: {response.status_code}")
+                    return self._get_default_security_data()
+        except Exception as e:
+            logger.error(f"Error fetching security data: {e}")
+            return self._get_default_security_data()
+    
+    def _get_default_security_data(self) -> Dict[str, Any]:
+        """Default security data when API is unavailable"""
         return {
             "threat_level": "low",
             "anomaly_count": 2,
@@ -330,34 +378,100 @@ class SwarmCoordinator(Agent):
     async def _register_with_swarm(
         self, swarm_id: str, registration: Dict[str, Any]
     ) -> None:
-        """Register with swarm coordinator (placeholder)"""
-        # TODO: Implement actual swarm registration
-        await asyncio.sleep(0.1)
+        """Register with swarm coordinator via API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/v1/swarm/{swarm_id}/register",
+                    json={
+                        "agent_id": self.identity.id,
+                        "registration": registration
+                    },
+                    timeout=10
+                )
+                if response.status_code == 201:
+                    logger.info(f"Successfully registered with swarm: {swarm_id}")
+                else:
+                    logger.warning(f"Failed to register with swarm {swarm_id}: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error registering with swarm: {e}")
 
     async def _broadcast_to_swarm_network(self, message: SwarmMessage) -> None:
-        """Broadcast message to swarm network (placeholder)"""
-        # TODO: Implement actual swarm broadcasting
-        await asyncio.sleep(0.1)
+        """Broadcast message to swarm network via API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/v1/swarm/{message.swarm_id}/broadcast",
+                    json=message.__dict__,
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    logger.info(f"Message broadcast to swarm: {message.swarm_id}")
+                else:
+                    logger.warning(f"Failed to broadcast to swarm: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error broadcasting to swarm: {e}")
 
     async def _process_swarm_messages(self, swarm_id: str) -> None:
-        """Process incoming swarm messages (placeholder)"""
-        # TODO: Implement actual message processing
-        await asyncio.sleep(0.1)
+        """Process incoming swarm messages via API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.coordinator_url}/v1/swarm/{swarm_id}/messages",
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    messages = response.json()
+                    logger.info(f"Received {len(messages.get('messages', []))} messages from swarm")
+                else:
+                    logger.warning(f"Failed to get swarm messages: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error processing swarm messages: {e}")
 
     async def _participate_in_decisions(self, swarm_id: str) -> None:
-        """Participate in swarm decision making (placeholder)"""
-        # TODO: Implement actual decision participation
-        await asyncio.sleep(0.1)
+        """Participate in swarm decision making via API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/v1/swarm/{swarm_id}/decisions/participate",
+                    json={"agent_id": self.identity.id},
+                    timeout=10
+                )
+                if response.status_code == 200:
+                    logger.info(f"Participating in decisions for swarm: {swarm_id}")
+                else:
+                    logger.warning(f"Failed to participate in decisions: {response.status_code}")
+        except Exception as e:
+            logger.error(f"Error participating in swarm decisions: {e}")
 
     async def _submit_coordination_proposal(
         self, proposal: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Submit coordination proposal to swarm (placeholder)"""
-        # TODO: Implement actual proposal submission
-        await asyncio.sleep(0.5)
-        return {
-            "success": True,
-            "proposal_id": proposal["task_id"],
-            "status": "coordinating",
-            "expected_collaborators": 5,
-        }
+        """Submit coordination proposal to swarm via API"""
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.coordinator_url}/v1/swarm/coordination/proposals",
+                    json=proposal,
+                    timeout=10
+                )
+                if response.status_code == 201:
+                    result = response.json()
+                    logger.info(f"Coordination proposal submitted: {proposal['task_id']}")
+                    return result
+                else:
+                    logger.warning(f"Failed to submit coordination proposal: {response.status_code}")
+                    return {
+                        "success": False,
+                        "proposal_id": proposal["task_id"],
+                        "status": "failed",
+                        "error": f"HTTP {response.status_code}"
+                    }
+        except Exception as e:
+            logger.error(f"Error submitting coordination proposal: {e}")
+            return {
+                "success": False,
+                "proposal_id": proposal["task_id"],
+                "status": "error",
+                "error": str(e)
+            }

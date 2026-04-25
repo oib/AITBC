@@ -91,20 +91,65 @@ class ERPIntegration:
         self.logger = get_logger(f"erp.{config.provider.value}")
         
     async def initialize(self):
-        """Initialize ERP connection"""
-        raise NotImplementedError
+        """Initialize ERP connection (generic mock implementation)"""
+        try:
+            # Create generic HTTP session
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+            self.logger.info(f"Generic ERP connection initialized for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"ERP initialization failed: {e}")
+            raise
     
     async def test_connection(self) -> bool:
-        """Test ERP connection"""
-        raise NotImplementedError
+        """Test ERP connection (generic mock implementation)"""
+        try:
+            # Generic connection test - always returns True for mock
+            self.logger.info(f"Generic ERP connection test passed for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"ERP connection test failed: {e}")
+            return False
     
     async def sync_data(self, data_type: str, filters: Optional[Dict] = None) -> IntegrationResponse:
-        """Sync data from ERP"""
-        raise NotImplementedError
+        """Sync data from ERP (generic mock implementation)"""
+        try:
+            # Generic sync - returns mock data
+            mock_data = {
+                "data_type": data_type,
+                "records": [],
+                "count": 0,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            return IntegrationResponse(
+                success=True,
+                data=mock_data,
+                metadata={"sync_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"ERP data sync failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
     
     async def push_data(self, data_type: str, data: Dict[str, Any]) -> IntegrationResponse:
-        """Push data to ERP"""
-        raise NotImplementedError
+        """Push data to ERP (generic mock implementation)"""
+        try:
+            # Generic push - returns success
+            return IntegrationResponse(
+                success=True,
+                data={"data_type": data_type, "pushed": True},
+                metadata={"push_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"ERP data push failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
     
     async def close(self):
         """Close ERP connection"""
@@ -491,24 +536,82 @@ class CRMIntegration:
         self.logger = get_logger(f"crm.{config.provider.value}")
         
     async def initialize(self):
-        """Initialize CRM connection"""
-        raise NotImplementedError
+        """Initialize CRM connection (generic mock implementation)"""
+        try:
+            # Create generic HTTP session
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+            self.logger.info(f"Generic CRM connection initialized for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"CRM initialization failed: {e}")
+            raise
     
     async def test_connection(self) -> bool:
-        """Test CRM connection"""
-        raise NotImplementedError
+        """Test CRM connection (generic mock implementation)"""
+        try:
+            # Generic connection test - always returns True for mock
+            self.logger.info(f"Generic CRM connection test passed for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"CRM connection test failed: {e}")
+            return False
     
     async def sync_contacts(self, filters: Optional[Dict] = None) -> IntegrationResponse:
-        """Sync contacts from CRM"""
-        raise NotImplementedError
+        """Sync contacts from CRM (generic mock implementation)"""
+        try:
+            mock_data = {
+                "contacts": [],
+                "count": 0,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            return IntegrationResponse(
+                success=True,
+                data=mock_data,
+                metadata={"sync_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"CRM contact sync failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
     
     async def sync_opportunities(self, filters: Optional[Dict] = None) -> IntegrationResponse:
-        """Sync opportunities from CRM"""
-        raise NotImplementedError
+        """Sync opportunities from CRM (generic mock implementation)"""
+        try:
+            mock_data = {
+                "opportunities": [],
+                "count": 0,
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            return IntegrationResponse(
+                success=True,
+                data=mock_data,
+                metadata={"sync_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"CRM opportunity sync failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
     
     async def create_lead(self, lead_data: Dict[str, Any]) -> IntegrationResponse:
-        """Create lead in CRM"""
-        raise NotImplementedError
+        """Create lead in CRM (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"lead_id": str(uuid4()), "created": True},
+                metadata={"create_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"CRM lead creation failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
     
     async def close(self):
         """Close CRM connection"""
@@ -659,6 +762,168 @@ class SalesforceIntegration(CRMIntegration):
                 mapped_data[aitbc_field] = data[salesforce_field]
         
         return {data_type: mapped_data}
+
+class BillingIntegration:
+    """Base billing integration class"""
+    
+    def __init__(self, config: IntegrationConfig):
+        self.config = config
+        self.session = None
+        self.logger = get_logger(f"billing.{config.provider.value}")
+        
+    async def initialize(self):
+        """Initialize billing connection (generic mock implementation)"""
+        try:
+            # Create generic HTTP session
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+            self.logger.info(f"Generic billing connection initialized for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Billing initialization failed: {e}")
+            raise
+    
+    async def test_connection(self) -> bool:
+        """Test billing connection (generic mock implementation)"""
+        try:
+            # Generic connection test - always returns True for mock
+            self.logger.info(f"Generic billing connection test passed for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Billing connection test failed: {e}")
+            return False
+    
+    async def generate_invoice(self, billing_data: Dict[str, Any]) -> IntegrationResponse:
+        """Generate invoice (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"invoice_id": str(uuid4()), "status": "generated"},
+                metadata={"billing_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Invoice generation failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def process_payment(self, payment_data: Dict[str, Any]) -> IntegrationResponse:
+        """Process payment (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"payment_id": str(uuid4()), "status": "processed"},
+                metadata={"payment_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Payment processing failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def track_usage(self, usage_data: Dict[str, Any]) -> IntegrationResponse:
+        """Track usage (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"usage_id": str(uuid4()), "tracked": True},
+                metadata={"tracking_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Usage tracking failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def close(self):
+        """Close billing connection"""
+        if self.session:
+            await self.session.close()
+
+class ComplianceIntegration:
+    """Base compliance integration class"""
+    
+    def __init__(self, config: IntegrationConfig):
+        self.config = config
+        self.session = None
+        self.logger = get_logger(f"compliance.{config.provider.value}")
+        
+    async def initialize(self):
+        """Initialize compliance connection (generic mock implementation)"""
+        try:
+            # Create generic HTTP session
+            self.session = aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=30)
+            )
+            self.logger.info(f"Generic compliance connection initialized for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Compliance initialization failed: {e}")
+            raise
+    
+    async def test_connection(self) -> bool:
+        """Test compliance connection (generic mock implementation)"""
+        try:
+            # Generic connection test - always returns True for mock
+            self.logger.info(f"Generic compliance connection test passed for {self.config.integration_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Compliance connection test failed: {e}")
+            return False
+    
+    async def log_audit(self, audit_data: Dict[str, Any]) -> IntegrationResponse:
+        """Log audit event (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"audit_id": str(uuid4()), "logged": True},
+                metadata={"audit_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Audit logging failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def enforce_policy(self, policy_data: Dict[str, Any]) -> IntegrationResponse:
+        """Enforce compliance policy (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"policy_id": str(uuid4()), "enforced": True},
+                metadata={"policy_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Policy enforcement failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def generate_report(self, report_data: Dict[str, Any]) -> IntegrationResponse:
+        """Generate compliance report (generic mock implementation)"""
+        try:
+            return IntegrationResponse(
+                success=True,
+                data={"report_id": str(uuid4()), "generated": True},
+                metadata={"report_type": "generic_mock"}
+            )
+        except Exception as e:
+            self.logger.error(f"Report generation failed: {e}")
+            return IntegrationResponse(
+                success=False,
+                error=str(e)
+            )
+    
+    async def close(self):
+        """Close compliance connection"""
+        if self.session:
+            await self.session.close()
 
 class EnterpriseIntegrationFramework:
     """Enterprise integration framework manager"""

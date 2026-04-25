@@ -126,19 +126,41 @@ class MultiChainManager:
         
         self.chains[chain_id] = chain
         
-        # Start the chain (placeholder - actual implementation would start blockchain node)
+        # Start the chain (Ethereum implementation)
         try:
-            # TODO: Implement actual chain startup
-            # This would involve:
-            # - Creating database
-            # - Starting RPC server
-            # - Starting P2P service
-            # - Initializing consensus
+            # Create database directory and file
+            db_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Initialize Ethereum chain state
+            from aitbc_chain.database import BlockchainDB
+            chain_db = BlockchainDB(str(db_path))
+            chain_db.initialize()
+            
+            # Start RPC server on allocated port
+            from aitbc_chain.rpc import RPCServer
+            rpc_server = RPCServer(rpc_port, chain_db)
+            await rpc_server.start()
+            
+            # Start P2P service on allocated port
+            from aitbc_chain.p2p import P2PService
+            p2p_service = P2PService(p2p_port, chain_id)
+            await p2p_service.start()
+            
+            # Initialize Ethereum consensus
+            from aitbc_chain.consensus import EthereumConsensus
+            consensus = EthereumConsensus(chain_db)
+            await consensus.initialize()
+            
+            # Store references in chain instance for later cleanup
+            chain._rpc_server = rpc_server
+            chain._p2p_service = p2p_service
+            chain._consensus = consensus
+            chain._chain_db = chain_db
             
             chain.status = ChainStatus.RUNNING
             chain.started_at = time.time()
             
-            logger.info(f"Started chain {chain_id} (type: {chain_type.value}, rpc: {rpc_port}, p2p: {p2p_port})")
+            logger.info(f"Started Ethereum chain {chain_id} (type: {chain_type.value}, rpc: {rpc_port}, p2p: {p2p_port})")
             return True
             
         except Exception as e:
@@ -166,17 +188,26 @@ class MultiChainManager:
         chain.status = ChainStatus.STOPPING
         
         try:
-            # TODO: Implement actual chain shutdown
-            # This would involve:
-            # - Stopping RPC server
-            # - Stopping P2P service
-            # - Closing database connections
-            # - Stopping consensus
+            # Stop RPC server
+            if hasattr(chain, '_rpc_server'):
+                await chain._rpc_server.stop()
+            
+            # Stop P2P service
+            if hasattr(chain, '_p2p_service'):
+                await chain._p2p_service.stop()
+            
+            # Stop consensus
+            if hasattr(chain, '_consensus'):
+                await chain._consensus.stop()
+            
+            # Close database connections
+            if hasattr(chain, '_chain_db'):
+                chain._chain_db.close()
             
             chain.status = ChainStatus.STOPPED
             chain.stopped_at = time.time()
             
-            logger.info(f"Stopped chain {chain_id}")
+            logger.info(f"Stopped Ethereum chain {chain_id}")
             return True
             
         except Exception as e:
@@ -199,9 +230,7 @@ class MultiChainManager:
     
     def sync_chain(self, chain_id: str) -> bool:
         """
-        Sync a specific chain
-        
-        Note: This is a placeholder for future implementation
+        Sync a specific chain (Ethereum implementation)
         """
         if chain_id not in self.chains:
             logger.warning(f"Chain {chain_id} does not exist")
@@ -213,9 +242,34 @@ class MultiChainManager:
             logger.warning(f"Chain {chain_id} is not running")
             return False
         
-        # TODO: Implement chain sync
-        logger.info(f"Sync placeholder for chain {chain_id}")
-        return True
+        try:
+            # Get chain states from all chains
+            chain_states = {}
+            for cid, ch in self.chains.items():
+                if ch.status == ChainStatus.RUNNING and hasattr(ch, '_chain_db'):
+                    chain_states[cid] = ch._chain_db.get_latest_block_number()
+            
+            # Resolve conflicts using longest-chain rule (Ethereum consensus)
+            if chain_states:
+                max_block_chain = max(chain_states, key=chain_states.get)
+                target_block = chain_states[max_block_chain]
+                
+                # Sync target chain to the highest block
+                if chain_id != max_block_chain:
+                    if hasattr(chain, '_chain_db'):
+                        chain._chain_db.sync_to_block(target_block)
+                        logger.info(f"Synced chain {chain_id} to block {target_block}")
+            
+            # Broadcast sync status to network
+            if hasattr(chain, '_p2p_service'):
+                chain._p2p_service.broadcast_sync_status(chain_id, chain_states.get(chain_id, 0))
+            
+            logger.info(f"Sync completed for chain {chain_id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to sync chain {chain_id}: {e}")
+            return False
     
     async def start(self):
         """Start multi-chain manager"""

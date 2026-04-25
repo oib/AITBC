@@ -3,12 +3,13 @@ Compute Provider Agent - for agents that provide computational resources
 """
 
 import asyncio
+import httpx
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from .agent import Agent, AgentCapabilities
 
-from aitbc import get_logger
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
 
 logger = get_logger(__name__)
 
@@ -43,7 +44,7 @@ class JobExecution:
 class ComputeProvider(Agent):
     """Agent that provides computational resources"""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, coordinator_url: Optional[str] = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.current_offers: List[ResourceOffer] = []
         self.active_jobs: List[JobExecution] = []
@@ -51,6 +52,8 @@ class ComputeProvider(Agent):
         self.utilization_rate: float = 0.0
         self.pricing_model: Dict[str, Any] = {}
         self.dynamic_pricing: Dict[str, Any] = {}
+        self.coordinator_url = coordinator_url or "http://localhost:8001"
+        self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
     @classmethod
     def create_provider(
@@ -291,23 +294,149 @@ class ComputeProvider(Agent):
             "current_offers": len(self.current_offers),
         }
 
-    async def _submit_to_marketplace(self, offer: ResourceOffer) -> None:
-        """Submit resource offer to marketplace (placeholder)"""
-        # TODO: Implement actual marketplace submission
-        await asyncio.sleep(0.1)
+    async def _submit_to_marketplace(self, offer: ResourceOffer) -> str:
+        """Submit resource offer to marketplace"""
+        try:
+            offer_data = {
+                "provider_id": offer.provider_id,
+                "compute_type": offer.compute_type,
+                "gpu_memory": offer.gpu_memory,
+                "supported_models": offer.supported_models,
+                "price_per_hour": offer.price_per_hour,
+                "availability_schedule": offer.availability_schedule,
+                "max_concurrent_jobs": offer.max_concurrent_jobs,
+                "quality_guarantee": offer.quality_guarantee,
+            }
+            
+            response = await self.http_client.post(
+                "/v1/marketplace/offers",
+                json=offer_data
+            )
+            
+            if response.status_code == 201:
+                result = response.json()
+                offer_id = result.get("offer_id")
+                logger.info(f"Offer submitted successfully: {offer_id}")
+                return offer_id
+            else:
+                logger.error(f"Failed to submit offer: {response.status_code}")
+                raise NetworkError(f"Marketplace submission failed: {response.status_code}")
+        except NetworkError:
+            raise
+        except Exception as e:
+            logger.error(f"Error submitting to marketplace: {e}")
+            raise
 
     async def _update_marketplace_offer(self, offer: ResourceOffer) -> None:
-        """Update existing marketplace offer (placeholder)"""
-        # TODO: Implement actual marketplace update
-        await asyncio.sleep(0.1)
+        """Update existing marketplace offer"""
+        try:
+            offer_data = {
+                "provider_id": offer.provider_id,
+                "compute_type": offer.compute_type,
+                "gpu_memory": offer.gpu_memory,
+                "supported_models": offer.supported_models,
+                "price_per_hour": offer.price_per_hour,
+                "availability_schedule": offer.availability_schedule,
+                "max_concurrent_jobs": offer.max_concurrent_jobs,
+                "quality_guarantee": offer.quality_guarantee,
+            }
+            
+            response = await self.http_client.put(
+                f"/v1/marketplace/offers/{offer.provider_id}",
+                json=offer_data
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"Offer updated successfully: {offer.provider_id}")
+            else:
+                logger.error(f"Failed to update offer: {response.status_code}")
+                raise NetworkError(f"Marketplace update failed: {response.status_code}")
+        except NetworkError:
+            raise
+        except Exception as e:
+            logger.error(f"Error updating marketplace offer: {e}")
+            raise
 
     @classmethod
     def assess_capabilities(cls) -> Dict[str, Any]:
         """Assess available computational capabilities"""
-        # TODO: Implement actual capability assessment
-        return {
-            "gpu_memory": 24,
-            "supported_models": ["llama3.2", "mistral", "deepseek"],
-            "performance_score": 0.95,
-            "max_concurrent_jobs": 3,
+        import subprocess
+        import re
+        
+        capabilities = {
+            "gpu_memory": 0,
+            "supported_models": [],
+            "performance_score": 0.0,
+            "max_concurrent_jobs": 1,
+            "gpu_count": 0,
+            "compute_capability": "unknown",
         }
+        
+        try:
+            # Try to detect GPU using nvidia-smi
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=memory.total,name,compute_cap", "--format=csv,noheader"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                gpu_lines = result.stdout.strip().split("\n")
+                capabilities["gpu_count"] = len(gpu_lines)
+                
+                total_memory = 0
+                for line in gpu_lines:
+                    parts = line.split(", ")
+                    if len(parts) >= 3:
+                        # Parse memory (e.g., "8192 MiB")
+                        memory_str = parts[0].strip()
+                        memory_match = re.search(r'(\d+)', memory_str)
+                        if memory_match:
+                            total_memory += int(memory_match.group(1))
+                        
+                        # Get compute capability
+                        capabilities["compute_capability"] = parts[2].strip()
+                
+                capabilities["gpu_memory"] = total_memory
+                capabilities["max_concurrent_jobs"] = min(len(gpu_lines), 4)
+                
+                # Estimate performance score based on GPU memory and compute capability
+                if total_memory >= 24000:
+                    capabilities["performance_score"] = 0.95
+                elif total_memory >= 16000:
+                    capabilities["performance_score"] = 0.85
+                elif total_memory >= 8000:
+                    capabilities["performance_score"] = 0.75
+                else:
+                    capabilities["performance_score"] = 0.65
+                
+                # Determine supported models based on GPU memory
+                if total_memory >= 24000:
+                    capabilities["supported_models"] = ["llama3.2", "mistral", "deepseek", "gpt-j", "bloom"]
+                elif total_memory >= 16000:
+                    capabilities["supported_models"] = ["llama3.2", "mistral", "deepseek"]
+                elif total_memory >= 8000:
+                    capabilities["supported_models"] = ["llama3.2", "mistral"]
+                else:
+                    capabilities["supported_models"] = ["llama3.2"]
+                
+                logger.info(f"GPU capabilities detected: {capabilities}")
+            else:
+                logger.warning("nvidia-smi not available, using CPU-only capabilities")
+                capabilities["supported_models"] = ["llama3.2-quantized"]
+                capabilities["performance_score"] = 0.3
+                capabilities["max_concurrent_jobs"] = 1
+                
+        except (subprocess.TimeoutExpired, FileNotFoundError) as e:
+            logger.warning(f"GPU detection failed: {e}, using CPU-only capabilities")
+            capabilities["supported_models"] = ["llama3.2-quantized"]
+            capabilities["performance_score"] = 0.3
+            capabilities["max_concurrent_jobs"] = 1
+        except Exception as e:
+            logger.error(f"Error assessing capabilities: {e}")
+            capabilities["supported_models"] = ["llama3.2-quantized"]
+            capabilities["performance_score"] = 0.3
+            capabilities["max_concurrent_jobs"] = 1
+        
+        return capabilities
