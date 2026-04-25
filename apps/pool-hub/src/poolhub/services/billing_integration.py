@@ -4,11 +4,11 @@ Integrates pool-hub usage data with coordinator-api's billing system.
 """
 
 import asyncio
-import logging
 from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
-import httpx
+
+from aitbc import get_logger, AsyncAITBCHTTPClient, NetworkError
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from ..models import Miner, ServiceConfig, MatchRequest, MatchResult, Feedback
 from ..settings import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BillingIntegration:
@@ -30,7 +30,7 @@ class BillingIntegration:
         self.coordinator_api_key = getattr(
             settings, "coordinator_api_key", None
         )
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
 
         # Resource type mappings
         self.resource_type_mapping = {
@@ -231,39 +231,39 @@ class BillingIntegration:
         if self.coordinator_api_key:
             headers["Authorization"] = f"Bearer {self.coordinator_api_key}"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=billing_event, headers=headers)
-            response.raise_for_status()
+        client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
+        response = await client.async_post("/api/billing/usage", json=billing_event)
 
-            return response.json()
+        if response:
+            return response
+        else:
+            raise NetworkError("Failed to send billing event")
 
     async def get_billing_metrics(
         self, tenant_id: Optional[str] = None, hours: int = 24
     ) -> Dict[str, Any]:
         """Get billing metrics from coordinator-api"""
 
-        url = f"{self.coordinator_billing_url}/api/billing/metrics"
-
-        params = {"hours": hours}
-        if tenant_id:
-            params["tenant_id"] = tenant_id
-
         headers = {}
         if self.coordinator_api_key:
             headers["Authorization"] = f"Bearer {self.coordinator_api_key}"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, params=params, headers=headers)
-            response.raise_for_status()
+        client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
+        params = {"hours": hours}
+        if tenant_id:
+            params["tenant_id"] = tenant_id
 
-            return response.json()
+        response = await client.async_get("/api/billing/metrics", params=params)
+
+        if response:
+            return response
+        else:
+            raise NetworkError("Failed to get billing metrics")
 
     async def trigger_invoice_generation(
         self, tenant_id: str, period_start: datetime, period_end: datetime
     ) -> Dict[str, Any]:
         """Trigger invoice generation in coordinator-api"""
-
-        url = f"{self.coordinator_billing_url}/api/billing/invoice"
 
         payload = {
             "tenant_id": tenant_id,
@@ -275,11 +275,13 @@ class BillingIntegration:
         if self.coordinator_api_key:
             headers["Authorization"] = f"Bearer {self.coordinator_api_key}"
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(url, json=payload, headers=headers)
-            response.raise_for_status()
+        client = AsyncAITBCHTTPClient(base_url=self.coordinator_billing_url, headers=headers, timeout=30)
+        response = await client.async_post("/api/billing/invoice", json=payload)
 
-            return response.json()
+        if response:
+            return response
+        else:
+            raise NetworkError("Failed to trigger invoice generation")
 
 
 class BillingIntegrationScheduler:
@@ -287,7 +289,7 @@ class BillingIntegrationScheduler:
 
     def __init__(self, billing_integration: BillingIntegration):
         self.billing_integration = billing_integration
-        self.logger = logging.getLogger(__name__)
+        self.logger = get_logger(__name__)
         self.running = False
 
     async def start(self, sync_interval_hours: int = 1):
