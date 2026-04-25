@@ -4,18 +4,18 @@ Multi-language support for marketplace listings and content
 """
 
 import asyncio
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
 
+from aitbc import get_logger
 from .language_detector import LanguageDetector
 from .quality_assurance import TranslationQualityChecker
 from .translation_cache import TranslationCache
 from .translation_engine import TranslationEngine, TranslationRequest, TranslationResponse
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ListingType(Enum):

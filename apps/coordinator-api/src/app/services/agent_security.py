@@ -5,9 +5,10 @@ Implements comprehensive security, auditing, and trust establishment for agent e
 
 import hashlib
 import json
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 from datetime import datetime
 from enum import StrEnum
 from typing import Any

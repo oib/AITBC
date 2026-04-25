@@ -5,7 +5,6 @@ Redis-based caching for translation results to improve performance
 
 import hashlib
 import json
-import logging
 import pickle
 import time
 from dataclasses import asdict, dataclass
@@ -14,10 +13,11 @@ from typing import Any
 import redis.asyncio as redis
 from redis.asyncio import Redis
 
+from aitbc import get_logger
 from ...services.secure_pickle import safe_loads
 from .translation_engine import TranslationProvider, TranslationResponse
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @dataclass

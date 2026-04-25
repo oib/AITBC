@@ -3,13 +3,13 @@ Community and Developer Ecosystem Services
 Services for managing OpenClaw developer tools, SDKs, and third-party solutions
 """
 
-import logging
 from datetime import datetime
 from typing import Any
 
+from aitbc import get_logger
 from sqlmodel import Session, select
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from uuid import uuid4
 
 from ..domain.community import (

@@ -7,8 +7,8 @@ Service for offloading agent vector databases and knowledge graphs to IPFS/Filec
 from __future__ import annotations
 
 import hashlib
-import logging
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 
@@ -19,7 +19,7 @@ from ..schemas.decentralized_memory import MemoryNodeCreate
 # In a real environment, this would use a library like ipfshttpclient or a service like Pinata/Web3.Storage
 # For this implementation, we will mock the interactions to demonstrate the architecture.
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class IPFSAdapterService:

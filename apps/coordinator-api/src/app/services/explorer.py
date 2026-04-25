@@ -258,12 +258,9 @@ class ExplorerService:
         """Get transaction details by hash from blockchain RPC"""
         rpc_base = settings.blockchain_rpc_url.rstrip("/")
         try:
-            with httpx.Client(timeout=10.0) as client:
-                resp = client.get(f"{rpc_base}/rpc/tx/{tx_hash}")
-                if resp.status_code == 404:
-                    return {"error": "Transaction not found", "hash": tx_hash}
-                resp.raise_for_status()
-                tx_data = resp.json()
+            client = AITBCHTTPClient(timeout=10.0)
+            try:
+                tx_data = client.get(f"{rpc_base}/rpc/tx/{tx_hash}")
 
                 # Map RPC schema to UI-compatible format
                 return {
@@ -277,6 +274,11 @@ class ExplorerService:
                     "status": "confirmed",
                     "raw": tx_data,  # Include raw data for debugging
                 }
+            except NetworkError as e:
+                # Handle 404 or network errors
+                if "404" in str(e) or "not found" in str(e).lower():
+                    return {"error": "Transaction not found", "hash": tx_hash}
+                return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
         except Exception as e:
             print(f"Warning: Failed to fetch transaction {tx_hash} from RPC: {e}")
             return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}

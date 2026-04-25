@@ -6,9 +6,9 @@ Service for managing the developer ecosystem, bounties, certifications, and regi
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 

@@ -6,7 +6,6 @@ Integrates enhanced RL, multi-modal fusion, and GPU optimization
 Port: 8009
 """
 
-import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -17,7 +16,9 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from .advanced_learning import AdvancedLearningService
 from .advanced_reinforcement_learning import AdvancedReinforcementLearningEngine

@@ -5,7 +5,6 @@ ERP, CRM, and business system connectors for enterprise clients
 
 import asyncio
 import json
-import logging
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -16,7 +15,9 @@ from uuid import uuid4
 import aiohttp
 from pydantic import BaseModel, Field, validator
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 

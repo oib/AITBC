@@ -5,12 +5,13 @@ Implements comprehensive real-time monitoring and analytics for the AITBC market
 
 import time
 import asyncio
-import logging
 from typing import Dict, List, Optional, Any, collections
 from datetime import datetime, timedelta
 import collections
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class TimeSeriesData:
     """Efficient in-memory time series data structure for real-time metrics"""

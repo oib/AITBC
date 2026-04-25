@@ -3,9 +3,9 @@ Agent Integration and Deployment Framework for Verifiable AI Agent Orchestration
 Integrates agent orchestration with existing ML ZK proof system and provides deployment tools
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from datetime import datetime
 from enum import StrEnum
 from typing import Any

@@ -3,9 +3,9 @@ Task Decomposition Service for OpenClaw Autonomous Economics
 Implements intelligent task splitting and sub-task management
 """
 
-import logging
+from aitbc import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum

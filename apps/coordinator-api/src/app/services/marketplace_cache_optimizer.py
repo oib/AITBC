@@ -6,14 +6,15 @@ Implements advanced caching, indexing, and data optimization for the AITBC marke
 import json
 import time
 import hashlib
-import logging
 from typing import Dict, List, Optional, Any, Union, Set
 from collections import OrderedDict
 from datetime import datetime
 
 import redis.asyncio as redis
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class LFU_LRU_Cache:
     """Hybrid Least-Frequently/Least-Recently Used Cache for in-memory optimization"""
