@@ -4,13 +4,14 @@ Swarm Coordinator - for agents participating in collective intelligence
 
 import asyncio
 import json
-import logging
 from typing import Dict, List, Optional, Any  # noqa: F401
 from datetime import datetime
 from dataclasses import dataclass
 from .agent import Agent
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

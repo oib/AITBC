@@ -18,6 +18,12 @@ from ..utils.island_credentials import (
     get_island_id, get_island_name
 )
 
+# Import shared modules
+from aitbc import get_logger, AITBCHTTPClient, NetworkError
+
+# Initialize logger
+logger = get_logger(__name__)
+
 
 @click.group()
 def gpu():
@@ -100,38 +106,25 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=offer_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    success(f"GPU offer created successfully!")
-                    success(f"Offer ID: {offer_id}")
-                    success(f"Total Price: {total_price:.2f} AIT")
-                    
-                    offer_info = {
-                        "Offer ID": offer_id,
-                        "GPU Count": gpu_count,
-                        "Price per GPU": f"{price_per_gpu:.4f} AIT/hour",
-                        "Duration": f"{duration_hours} hours",
-                        "Total Price": f"{total_price:.2f} AIT",
-                        "Status": "active",
-                        "Provider Node": provider_node_id[:16] + "...",
-                        "Island": island_id[:16] + "..."
-                    }
-                    
-                    output(offer_info, ctx.obj.get('output_format', 'table'))
-                else:
-                    error(f"Failed to submit transaction: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=offer_data)
+            success(f"GPU offer created successfully!")
+            success(f"Offer ID: {offer_id}")
+            success(f"Total Price: {total_price:.2f} AIT")
+            
+            offer_info = {
+                "Offer ID": offer_id,
+                "GPU Count": gpu_count,
+                "Price per GPU": f"{price_per_gpu:.4f} AIT/hour",
+                "Duration": f"{duration_hours} hours",
+                "Total Price": f"{total_price:.2f} AIT",
+                "Status": "active",
+                "Provider Node": provider_node_id[:16] + "...",
+                "Island": island_id[:16] + "..."
+            }
+            
+            output(offer_info, ctx.obj.get('output_format', 'table'))
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
 
@@ -213,38 +206,25 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/v1/transactions",
-                    json=bid_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    success(f"GPU bid created successfully!")
-                    success(f"Bid ID: {bid_id}")
-                    success(f"Max Total Price: {max_total_price:.2f} AIT")
-                    
-                    bid_info = {
-                        "Bid ID": bid_id,
-                        "GPU Count": gpu_count,
-                        "Max Price per GPU": f"{max_price:.4f} AIT/hour",
-                        "Duration": f"{duration_hours} hours",
-                        "Max Total Price": f"{max_total_price:.2f} AIT",
-                        "Status": "pending",
-                        "Bidder Node": bidder_node_id[:16] + "...",
-                        "Island": island_id[:16] + "..."
-                    }
-                    
-                    output(bid_info, ctx.obj.get('output_format', 'table'))
-                else:
-                    error(f"Failed to submit transaction: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/v1/transactions", json=bid_data)
+            success(f"GPU bid created successfully!")
+            success(f"Bid ID: {bid_id}")
+            success(f"Max Total Price: {max_total_price:.2f} AIT")
+            
+            bid_info = {
+                "Bid ID": bid_id,
+                "GPU Count": gpu_count,
+                "Max Price per GPU": f"{max_price:.4f} AIT/hour",
+                "Duration": f"{duration_hours} hours",
+                "Max Total Price": f"{max_total_price:.2f} AIT",
+                "Status": "pending",
+                "Bidder Node": bidder_node_id[:16] + "...",
+                "Island": island_id[:16] + "..."
+            }
+            
+            output(bid_info, ctx.obj.get('output_format', 'table'))
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
 
@@ -268,7 +248,6 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
 
         # Query blockchain for GPU marketplace transactions
         try:
-            import httpx
             params = {
                 'transaction_type': 'gpu_marketplace',
                 'island_id': island_id
@@ -280,54 +259,44 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
             if type != 'all':
                 params['action'] = type
 
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{rpc_endpoint}/transactions",
-                    params=params,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    transactions = response.json()
-                    
-                    if not transactions:
-                        info("No GPU marketplace transactions found")
-                        return
-                    
-                    # Format output
-                    market_data = []
-                    for tx in transactions:
-                        action = tx.get('action')
-                        if action == 'offer':
-                            market_data.append({
-                                "ID": tx.get('offer_id', tx.get('transaction_id', 'N/A'))[:20] + "...",
-                                "Type": "OFFER",
-                                "GPU Count": tx.get('gpu_count'),
-                                "Price": f"{tx.get('price_per_gpu', 0):.4f} AIT/h",
-                                "Duration": f"{tx.get('duration_hours')}h",
-                                "Total": f"{tx.get('total_price', 0):.2f} AIT",
-                                "Status": tx.get('status'),
-                                "Provider": tx.get('provider_node_id', '')[:16] + "...",
-                                "Created": tx.get('created_at', '')[:19]
-                            })
-                        elif action == 'bid':
-                            market_data.append({
-                                "ID": tx.get('bid_id', tx.get('transaction_id', 'N/A'))[:20] + "...",
-                                "Type": "BID",
-                                "GPU Count": tx.get('gpu_count'),
-                                "Max Price": f"{tx.get('max_price_per_gpu', 0):.4f} AIT/h",
-                                "Duration": f"{tx.get('duration_hours')}h",
-                                "Max Total": f"{tx.get('max_total_price', 0):.2f} AIT",
-                                "Status": tx.get('status'),
-                                "Bidder": tx.get('bidder_node_id', '')[:16] + "...",
-                                "Created": tx.get('created_at', '')[:19]
-                            })
-                    
-                    output(market_data, ctx.obj.get('output_format', 'table'), title=f"GPU Marketplace ({island_id[:16]}...)")
-                else:
-                    error(f"Failed to query blockchain: {response.status_code}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            transactions = http_client.get("/transactions", params=params)
+            
+            if not transactions:
+                info("No GPU marketplace transactions found")
+                return
+            
+            # Format output
+            market_data = []
+            for tx in transactions:
+                action = tx.get('action')
+                if action == 'offer':
+                    market_data.append({
+                        "ID": tx.get('offer_id', tx.get('transaction_id', 'N/A'))[:20] + "...",
+                        "Type": "OFFER",
+                        "GPU Count": tx.get('gpu_count'),
+                        "Price": f"{tx.get('price_per_gpu', 0):.4f} AIT/h",
+                        "Duration": f"{tx.get('duration_hours')}h",
+                        "Total": f"{tx.get('total_price', 0):.2f} AIT",
+                        "Status": tx.get('status'),
+                        "Provider": tx.get('provider_node_id', '')[:16] + "...",
+                        "Created": tx.get('created_at', '')[:19]
+                    })
+                elif action == 'bid':
+                    market_data.append({
+                        "ID": tx.get('bid_id', tx.get('transaction_id', 'N/A'))[:20] + "...",
+                        "Type": "BID",
+                        "GPU Count": tx.get('gpu_count'),
+                        "Max Price": f"{tx.get('max_price_per_gpu', 0):.4f} AIT/h",
+                        "Duration": f"{tx.get('duration_hours')}h",
+                        "Max Total": f"{tx.get('max_total_price', 0):.2f} AIT",
+                        "Status": tx.get('status'),
+                        "Bidder": tx.get('bidder_node_id', '')[:16] + "...",
+                        "Created": tx.get('created_at', '')[:19]
+                    })
+            
+            output(market_data, ctx.obj.get('output_format', 'table'), title=f"GPU Marketplace ({island_id[:16]}...)")
+        except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
 
@@ -390,22 +359,10 @@ def cancel(ctx, order_id: str):
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=cancel_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    success(f"Order {order_id} cancelled successfully!")
-                else:
-                    error(f"Failed to cancel order: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=cancel_data)
+            success(f"Order {order_id} cancelled successfully!")
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
 
@@ -463,22 +420,10 @@ def accept(ctx, bid_id: str):
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=accept_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    success(f"Bid {bid_id} accepted successfully!")
-                else:
-                    error(f"Failed to accept bid: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=accept_data)
+            success(f"Bid {bid_id} accepted successfully!")
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
 
@@ -500,64 +445,53 @@ def status(ctx, order_id: str):
 
         # Query blockchain for the order
         try:
-            import httpx
             params = {
                 'transaction_type': 'gpu_marketplace',
                 'island_id': island_id,
                 'order_id': order_id
             }
 
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{rpc_endpoint}/transactions",
-                    params=params,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    transactions = response.json()
-                    
-                    if not transactions:
-                        error(f"Order {order_id} not found")
-                        raise click.Abort()
-                    
-                    tx = transactions[0]
-                    action = tx.get('action')
-                    
-                    order_info = {
-                        "Order ID": order_id,
-                        "Type": action.upper(),
-                        "Status": tx.get('status'),
-                        "Created": tx.get('created_at'),
-                    }
-                    
-                    if action == 'offer':
-                        order_info.update({
-                            "GPU Count": tx.get('gpu_count'),
-                            "Price per GPU": f"{tx.get('price_per_gpu', 0):.4f} AIT/h",
-                            "Duration": f"{tx.get('duration_hours')}h",
-                            "Total Price": f"{tx.get('total_price', 0):.2f} AIT",
-                            "Provider": tx.get('provider_node_id', '')[:16] + "..."
-                        })
-                    elif action == 'bid':
-                        order_info.update({
-                            "GPU Count": tx.get('gpu_count'),
-                            "Max Price": f"{tx.get('max_price_per_gpu', 0):.4f} AIT/h",
-                            "Duration": f"{tx.get('duration_hours')}h",
-                            "Max Total": f"{tx.get('max_total_price', 0):.2f} AIT",
-                            "Bidder": tx.get('bidder_node_id', '')[:16] + "..."
-                        })
-                    
-                    if 'accepted_at' in tx:
-                        order_info["Accepted"] = tx['accepted_at']
-                    if 'cancelled_at' in tx:
-                        order_info["Cancelled"] = tx['cancelled_at']
-                    
-                    output(order_info, ctx.obj.get('output_format', 'table'), title=f"Order Status: {order_id}")
-                else:
-                    error(f"Failed to query blockchain: {response.status_code}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            transactions = http_client.get("/transactions", params=params)
+            
+            if not transactions:
+                error(f"Order {order_id} not found")
+                raise click.Abort()
+            
+            tx = transactions[0]
+            action = tx.get('action')
+            
+            order_info = {
+                "Order ID": order_id,
+                "Type": action.upper(),
+                "Status": tx.get('status'),
+                "Created": tx.get('created_at'),
+            }
+            
+            if action == 'offer':
+                order_info.update({
+                    "GPU Count": tx.get('gpu_count'),
+                    "Price per GPU": f"{tx.get('price_per_gpu', 0):.4f} AIT/h",
+                    "Duration": f"{tx.get('duration_hours')}h",
+                    "Total Price": f"{tx.get('total_price', 0):.2f} AIT",
+                    "Provider": tx.get('provider_node_id', '')[:16] + "..."
+                })
+            elif action == 'bid':
+                order_info.update({
+                    "GPU Count": tx.get('gpu_count'),
+                    "Max Price": f"{tx.get('max_price_per_gpu', 0):.4f} AIT/h",
+                    "Duration": f"{tx.get('duration_hours')}h",
+                    "Max Total": f"{tx.get('max_total_price', 0):.2f} AIT",
+                    "Bidder": tx.get('bidder_node_id', '')[:16] + "..."
+                })
+            
+            if 'accepted_at' in tx:
+                order_info["Accepted"] = tx['accepted_at']
+            if 'cancelled_at' in tx:
+                order_info["Cancelled"] = tx['cancelled_at']
+            
+            output(order_info, ctx.obj.get('output_format', 'table'), title=f"Order Status: {order_id}")
+        except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
 
@@ -578,96 +512,79 @@ def match(ctx):
 
         # Query blockchain for open offers and bids
         try:
-            import httpx
             params = {
                 'transaction_type': 'gpu_marketplace',
                 'island_id': island_id,
                 'status': 'active'
             }
 
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{rpc_endpoint}/transactions",
-                    params=params,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    transactions = response.json()
-                    
-                    # Separate offers and bids
-                    offers = []
-                    bids = []
-                    
-                    for tx in transactions:
-                        if tx.get('action') == 'offer':
-                            offers.append(tx)
-                        elif tx.get('action') == 'bid':
-                            bids.append(tx)
-                    
-                    if not offers or not bids:
-                        info("No active offers or bids to match")
-                        return
-                    
-                    # Sort offers by price (lowest first)
-                    offers.sort(key=lambda x: x.get('price_per_gpu', float('inf')))
-                    # Sort bids by price (highest first)
-                    bids.sort(key=lambda x: x.get('max_price_per_gpu', 0), reverse=True)
-                    
-                    # Match bids with offers
-                    matches = []
-                    for bid in bids:
-                        for offer in offers:
-                            # Check if bid price >= offer price
-                            if bid.get('max_price_per_gpu', 0) >= offer.get('price_per_gpu', float('inf')):
-                                # Check if GPU count matches
-                                if bid.get('gpu_count') == offer.get('gpu_count'):
-                                    # Check if duration matches
-                                    if bid.get('duration_hours') == offer.get('duration_hours'):
-                                        # Create match transaction
-                                        match_data = {
-                                            'type': 'gpu_marketplace',
-                                            'action': 'match',
-                                            'bid_id': bid.get('bid_id'),
-                                            'offer_id': offer.get('offer_id'),
-                                            'bidder_node_id': bid.get('bidder_node_id'),
-                                            'provider_node_id': offer.get('provider_node_id'),
-                                            'gpu_count': bid.get('gpu_count'),
-                                            'matched_price': offer.get('price_per_gpu'),
-                                            'duration_hours': bid.get('duration_hours'),
-                                            'total_price': offer.get('total_price'),
-                                            'status': 'matched',
-                                            'matched_at': datetime.now().isoformat(),
-                                            'island_id': island_id,
-                                            'chain_id': get_chain_id()
-                                        }
-                                        
-                                        # Submit match transaction
-                                        match_response = client.post(
-                                            f"{rpc_endpoint}/transaction",
-                                            json=match_data,
-                                            timeout=10
-                                        )
-                                        
-                                        if match_response.status_code == 200:
-                                            matches.append({
-                                                "Bid ID": bid.get('bid_id')[:16] + "...",
-                                                "Offer ID": offer.get('offer_id')[:16] + "...",
-                                                "GPU Count": bid.get('gpu_count'),
-                                                "Matched Price": f"{offer.get('price_per_gpu', 0):.4f} AIT/h",
-                                                "Total Price": f"{offer.get('total_price', 0):.2f} AIT",
-                                                "Duration": f"{bid.get('duration_hours')}h"
-                                            })
-                    
-                    if matches:
-                        success(f"Matched {len(matches)} GPU orders!")
-                        output(matches, ctx.obj.get('output_format', 'table'), title="GPU Order Matches")
-                    else:
-                        info("No matching orders found")
-                else:
-                    error(f"Failed to query blockchain: {response.status_code}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            transactions = http_client.get("/transactions", params=params)
+            
+            # Separate offers and bids
+            offers = []
+            bids = []
+            
+            for tx in transactions:
+                if tx.get('action') == 'offer':
+                    offers.append(tx)
+                elif tx.get('action') == 'bid':
+                    bids.append(tx)
+            
+            if not offers or not bids:
+                info("No active offers or bids to match")
+                return
+            
+            # Sort offers by price (lowest first)
+            offers.sort(key=lambda x: x.get('price_per_gpu', float('inf')))
+            # Sort bids by price (highest first)
+            bids.sort(key=lambda x: x.get('max_price_per_gpu', 0), reverse=True)
+            
+            # Match bids with offers
+            matches = []
+            for bid in bids:
+                for offer in offers:
+                    # Check if bid price >= offer price
+                    if bid.get('max_price_per_gpu', 0) >= offer.get('price_per_gpu', float('inf')):
+                        # Check if GPU count matches
+                        if bid.get('gpu_count') == offer.get('gpu_count'):
+                            # Check if duration matches
+                            if bid.get('duration_hours') == offer.get('duration_hours'):
+                                # Create match transaction
+                                match_data = {
+                                    'type': 'gpu_marketplace',
+                                    'action': 'match',
+                                    'bid_id': bid.get('bid_id'),
+                                    'offer_id': offer.get('offer_id'),
+                                    'bidder_node_id': bid.get('bidder_node_id'),
+                                    'provider_node_id': offer.get('provider_node_id'),
+                                    'gpu_count': bid.get('gpu_count'),
+                                    'matched_price': offer.get('price_per_gpu'),
+                                    'duration_hours': bid.get('duration_hours'),
+                                    'total_price': offer.get('total_price'),
+                                    'status': 'matched',
+                                    'matched_at': datetime.now().isoformat(),
+                                    'island_id': island_id,
+                                    'chain_id': get_chain_id()
+                                }
+                                
+                                # Submit match transaction
+                                match_result = http_client.post("/transaction", json=match_data)
+                                matches.append({
+                                    "Bid ID": bid.get('bid_id')[:16] + "...",
+                                    "Offer ID": offer.get('offer_id')[:16] + "...",
+                                    "GPU Count": bid.get('gpu_count'),
+                                    "Matched Price": f"{offer.get('price_per_gpu', 0):.4f} AIT/h",
+                                    "Total Price": f"{offer.get('total_price', 0):.2f} AIT",
+                                    "Duration": f"{bid.get('duration_hours')}h"
+                                })
+            
+            if matches:
+                success(f"Matched {len(matches)} GPU orders!")
+                output(matches, ctx.obj.get('output_format', 'table'), title="GPU Order Matches")
+            else:
+                info("No matching orders found")
+        except NetworkError as e:
             error(f"Network error querying blockchain: {e}")
             raise click.Abort()
 

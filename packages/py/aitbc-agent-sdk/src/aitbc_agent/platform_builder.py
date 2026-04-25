@@ -2,14 +2,15 @@
 Platform Builder - factory for constructing AITBC agent platform configurations
 """
 
-import logging
 from typing import Dict, List, Any, Optional
 from .agent import Agent, AgentCapabilities, AgentIdentity
 from .compute_provider import ComputeProvider
 from .compute_consumer import ComputeConsumer
 from .swarm_coordinator import SwarmCoordinator
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class PlatformBuilder:

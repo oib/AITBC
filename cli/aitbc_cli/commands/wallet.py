@@ -12,10 +12,7 @@ from ..utils import output, error, success
 import getpass
 
 # Import shared modules
-from aitbc.aitbc_logging import get_logger
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.exceptions import NetworkError
-from aitbc.constants import KEYSTORE_DIR
+from aitbc import get_logger, AITBCHTTPClient, NetworkError, KEYSTORE_DIR
 
 # Initialize logger
 logger = get_logger(__name__)
