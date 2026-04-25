@@ -5,6 +5,8 @@ import os
 import sys
 from pathlib import Path
 
+from aitbc.constants import DATA_DIR
+
 # Add the src directory to the path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
@@ -16,7 +18,7 @@ from decimal import Decimal
 import json
 
 # Database configurations
-SQLITE_DB = "/var/lib/aitbc/data/coordinator.db"
+SQLITE_DB = str(DATA_DIR / "data/coordinator.db")
 PG_CONFIG = {
     "host": "localhost",
     "database": "aitbc_coordinator",
