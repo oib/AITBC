@@ -9,12 +9,13 @@ from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import random
+from aitbc.constants import DATA_DIR
 
 # Database setup
 def get_db_path():
     """Get database path and ensure directory exists"""
     import os
-    db_path = os.getenv("EXCHANGE_DATABASE_URL", "sqlite:////var/lib/aitbc/data/exchange/exchange.db").replace("sqlite:///", "")
+    db_path = os.getenv("EXCHANGE_DATABASE_URL", f"sqlite:///{DATA_DIR}/data/exchange/exchange.db").replace("sqlite://///", "")
     
     # Create directory if it doesn't exist
     db_dir = os.path.dirname(db_path)
