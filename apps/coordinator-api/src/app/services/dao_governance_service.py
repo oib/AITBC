@@ -6,9 +6,9 @@ Service for managing multi-jurisdictional DAOs, regional councils, and global tr
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 

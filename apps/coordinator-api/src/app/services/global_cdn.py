@@ -5,7 +5,6 @@ Content delivery network optimization with edge computing and caching
 
 import asyncio
 import gzip
-import logging
 import time
 import zlib
 from dataclasses import dataclass, field
@@ -14,7 +13,9 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class CDNProvider(StrEnum):

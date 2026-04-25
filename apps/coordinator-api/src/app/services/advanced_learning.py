@@ -4,9 +4,10 @@ Implements meta-learning, federated learning, and continuous model improvement
 """
 
 import asyncio
-import logging
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass
 from datetime import datetime

@@ -5,12 +5,13 @@ Implements predictive and reactive auto-scaling of marketplace resources based o
 
 import time
 import asyncio
-import logging
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 import math
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class ScalingPolicy:
     """Configuration for scaling behavior"""

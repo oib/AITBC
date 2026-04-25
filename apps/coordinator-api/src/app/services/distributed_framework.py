@@ -6,14 +6,15 @@ Implements a scalable, fault-tolerant framework for distributed AI agent tasks a
 import asyncio
 import uuid
 import time
-import logging
 import json
 import hashlib
 from typing import Dict, List, Optional, Any, Callable, Awaitable
 from datetime import datetime
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 class TaskStatus(str, Enum):
     PENDING = "pending"

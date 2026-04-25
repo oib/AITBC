@@ -5,7 +5,6 @@ Core translation orchestration service for AITBC platform
 
 import asyncio
 import hashlib
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
@@ -14,7 +13,9 @@ import deepl
 import google.cloud.translate_v2 as translate
 import openai
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class TranslationProvider(Enum):

@@ -7,9 +7,9 @@ Enables bridging of assets between different blockchain networks.
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime, timedelta
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session

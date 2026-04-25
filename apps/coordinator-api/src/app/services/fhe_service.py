@@ -1,10 +1,11 @@
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

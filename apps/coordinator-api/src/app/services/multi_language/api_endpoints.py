@@ -4,10 +4,10 @@ REST API endpoints for translation and language detection services
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 
+from aitbc import get_logger
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
@@ -17,7 +17,7 @@ from .quality_assurance import TranslationQualityChecker
 from .translation_cache import TranslationCache
 from .translation_engine import TranslationEngine, TranslationRequest
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 # Pydantic models for API requests/responses

@@ -7,10 +7,10 @@ Service for managing trustless cross-chain atomic swaps between agents.
 from __future__ import annotations
 
 import hashlib
-import logging
 import secrets
 from datetime import datetime, timedelta
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 

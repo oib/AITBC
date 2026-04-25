@@ -6,9 +6,9 @@ Service for managing cross-agent knowledge sharing and collaborative model train
 
 from __future__ import annotations
 
-import logging
 from datetime import datetime
 
+from aitbc import get_logger
 from fastapi import HTTPException
 from sqlmodel import Session, select
 

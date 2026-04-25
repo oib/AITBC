@@ -5,7 +5,6 @@ Phase 5.1: Advanced AI Capabilities Enhancement
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
@@ -15,7 +14,9 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 

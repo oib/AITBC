@@ -4,7 +4,6 @@ Implements sophisticated pricing algorithms based on real-time market conditions
 """
 
 import asyncio
-import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -12,7 +11,9 @@ from typing import Any
 
 import numpy as np
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class PricingStrategy(StrEnum):
