@@ -1,8 +1,9 @@
 """Main FastAPI application for blockchain event bridge."""
 
 import asyncio
-import logging
 from contextlib import asynccontextmanager
+
+from aitbc.aitbc_logging import get_logger
 
 from fastapi import FastAPI
 from prometheus_client import make_asgi_app
@@ -16,7 +17,7 @@ from .metrics import (
     actions_failed_total,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 bridge_instance: BlockchainEventBridge | None = None
 

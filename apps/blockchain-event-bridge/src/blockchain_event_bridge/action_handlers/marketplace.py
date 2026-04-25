@@ -1,10 +1,11 @@
 """Marketplace action handler for triggering marketplace state updates."""
 
-import httpx
-import logging
 from typing import Any, Dict, List
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class MarketplaceHandler:
@@ -13,27 +14,25 @@ class MarketplaceHandler:
     def __init__(self, coordinator_api_url: str, api_key: str | None = None) -> None:
         self.base_url = coordinator_api_url.rstrip("/")
         self.api_key = api_key
-        self._client: httpx.AsyncClient | None = None
+        headers = {}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        self._client: AsyncAITBCHTTPClient | None = None
+        self._headers = headers
 
-    async def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
-            headers = {}
-            if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
-
-            self._client = httpx.AsyncClient(
+            self._client = AsyncAITBCHTTPClient(
                 base_url=self.base_url,
-                headers=headers,
-                timeout=30.0,
+                headers=self._headers,
+                timeout=30
             )
         return self._client
 
     async def close(self) -> None:
         """Close HTTP client."""
-        if self._client:
-            await self._client.aclose()
-            self._client = None
+        self._client = None
 
     async def handle_block(self, block_data: Dict[str, Any], transactions: List[Dict[str, Any]]) -> None:
         """Handle a new block by updating marketplace state."""
@@ -69,16 +68,15 @@ class MarketplaceHandler:
             client = await self._get_client()
 
             # Send batch of marketplace transactions for processing
-            response = await client.post(
+            result = await client.async_post(
                 "/v1/marketplace/sync",
                 json={"transactions": transactions}
             )
-            response.raise_for_status()
 
             logger.info(f"Successfully synced {len(transactions)} marketplace transactions")
 
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error syncing marketplace state: {e}")
+        except NetworkError as e:
+            logger.error(f"Network error syncing marketplace state: {e}")
         except Exception as e:
             logger.error(f"Error syncing marketplace state: {e}", exc_info=True)
 
