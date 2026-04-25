@@ -194,8 +194,9 @@ def test_iter_receipts_handles_pagination(monkeypatch, sample_payload: Dict[str,
 
 
 def test_request_retries_on_transient(monkeypatch, sample_payload: Dict[str, object]) -> None:
+    from aitbc import NetworkError
     responses: List[object] = [
-        httpx.ReadTimeout("timeout"),
+        NetworkError("timeout"),
         _DummyResponse(429, {}),
         _DummyResponse(200, {}),
     ]
