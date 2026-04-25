@@ -17,7 +17,7 @@ from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/blockchain-explorer"
+os.environ["PYTHONPATH"] = f"{REPO_DIR}:{REPO_DIR}/apps/blockchain-explorer"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
