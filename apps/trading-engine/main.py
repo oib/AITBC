@@ -5,7 +5,6 @@ Handles order matching, trade execution, and settlement
 
 import asyncio
 import json
-import logging
 from collections import defaultdict, deque
 from datetime import datetime
 from pathlib import Path
@@ -14,9 +13,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
