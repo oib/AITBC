@@ -5,7 +5,6 @@ Phase 5.1: Advanced AI Capabilities Enhancement
 """
 
 import asyncio
-import logging
 from datetime import datetime
 from typing import Any
 from uuid import uuid4

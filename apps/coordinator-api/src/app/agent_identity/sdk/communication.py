@@ -8,15 +8,15 @@ for forum-like agent interactions using the blockchain messaging contract.
 import asyncio
 import hashlib
 import json
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
+from aitbc import get_logger
 from .client import AgentIdentityClient
 from .models import AgentIdentity, AgentWallet
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 @dataclass
 class ForumTopic:

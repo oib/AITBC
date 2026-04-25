@@ -4,7 +4,6 @@ Python SDK for enterprise clients to integrate with AITBC platform
 """
 
 import hashlib
-import logging
 import secrets
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -14,7 +13,9 @@ from typing import Any
 import aiohttp
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class SDKVersion(StrEnum):

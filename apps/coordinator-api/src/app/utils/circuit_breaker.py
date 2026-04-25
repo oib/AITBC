@@ -3,14 +3,15 @@ Circuit breaker pattern for external services
 """
 
 import asyncio
-import logging
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import wraps
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class CircuitState(Enum):

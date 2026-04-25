@@ -87,11 +87,11 @@ try:
 except ImportError:
     ml_zk_proofs = None
     print("WARNING: ML ZK proofs router not available (missing dependencies)")
-import logging
+from aitbc import get_logger
 
 from .exceptions import AITBCError, ErrorResponse
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 from contextlib import asynccontextmanager
 
 from .storage.db import init_db
