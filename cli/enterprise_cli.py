@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
 import getpass
+from aitbc.paths import get_keystore_path
 
 # Default paths
-DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
+DEFAULT_KEYSTORE_DIR = get_keystore_path()
 DEFAULT_RPC_URL = "http://localhost:8006"
 
 def get_password(password_arg: str = None, password_file: str = None) -> str:

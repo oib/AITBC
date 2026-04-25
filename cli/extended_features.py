@@ -2,8 +2,9 @@ import json
 import os
 import time
 import uuid
+from aitbc.paths import get_data_path
 
-STATE_FILE = "/var/lib/aitbc/data/cli_extended_state.json"
+STATE_FILE = str(get_data_path("data/cli_extended_state.json"))
 
 def load_state():
     if os.path.exists(STATE_FILE):
@@ -82,10 +83,10 @@ def handle_extended_command(command, args, kwargs):
         result["nodes_reached"] = 2
         
     elif command == "wallet_backup":
-        result["path"] = f"/var/lib/aitbc/backups/{kwargs.get('name')}.backup"
-        
+        result["path"] = f"{get_data_path('backups')}/{kwargs.get('name')}.backup"
+
     elif command == "wallet_export":
-        result["path"] = f"/var/lib/aitbc/exports/{kwargs.get('name')}.key"
+        result["path"] = f"{get_data_path('exports')}/{kwargs.get('name')}.key"
         
     elif command == "wallet_sync":
         result["status"] = "Wallets synchronized"
@@ -275,7 +276,7 @@ def handle_extended_command(command, args, kwargs):
         
     elif command == "compliance_report":
         result["format"] = kwargs.get("format")
-        result["path"] = "/var/lib/aitbc/reports/compliance.pdf"
+        result["path"] = f"{get_data_path('reports')}/compliance.pdf"
         
     elif command == "script_run":
         result["file"] = kwargs.get("file")

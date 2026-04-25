@@ -2,6 +2,7 @@
 
 import json
 import sys
+from aitbc.paths import get_data_path
 
 
 def handle_wallet_create(args, create_wallet, read_password, first):
@@ -140,7 +141,8 @@ def handle_wallet_backup(args, first):
         print("Error: Wallet name is required")
         sys.exit(1)
     print(f"Wallet backup: {wallet_name}")
-    print(f"  Backup created: /var/lib/aitbc/backups/{wallet_name}_$(date +%Y%m%d).json")
+    backup_path = get_data_path("backups")
+    print(f"  Backup created: {backup_path}/{wallet_name}_$(date +%Y%m%d).json")
     print("  Status: completed")
 
 
