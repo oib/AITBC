@@ -24,7 +24,7 @@ from ..domain.developer_platform import (
 from ..schemas.developer_platform import BountyCreate, BountySubmissionCreate, CertificationGrant, DeveloperCreate
 from ..services.blockchain import get_balance, mint_tokens
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DeveloperPlatformService:
