@@ -112,6 +112,7 @@ def _normalize_transaction_data(tx_data: Dict[str, Any], chain_id: str) -> Dict[
         "from": sender.strip(),
         "to": recipient.strip(),
         "amount": amount,
+        "value": amount,  # Add value field for state transition compatibility
         "fee": fee,
         "nonce": nonce,
         "payload": payload,
