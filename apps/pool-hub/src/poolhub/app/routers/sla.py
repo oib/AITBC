@@ -3,11 +3,11 @@ SLA and Billing API Endpoints for Pool-Hub
 Provides endpoints for SLA metrics, capacity planning, and billing integration.
 """
 
-import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 from decimal import Decimal
 
+from aitbc import get_logger
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -17,7 +17,7 @@ from ..services.sla_collector import SLACollector
 from ..services.billing_integration import BillingIntegration
 from ..models import SLAMetric, SLAViolation, CapacitySnapshot
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/sla", tags=["SLA"])
 
