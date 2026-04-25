@@ -198,44 +198,29 @@ def sell(ctx, ait_amount: float, quote_currency: str, min_price: Optional[float]
 
         # Submit transaction to blockchain
         try:
-            import httpx
-            with httpx.Client() as client:
-                response = client.post(
-                    f"{rpc_endpoint}/transaction",
-                    json=sell_order_data,
-                    timeout=10
-                )
-                
-                if response.status_code == 200:
-                    result = response.json()
-                    success(f"Sell order created successfully!")
-                    success(f"Order ID: {order_id}")
-                    success(f"Selling {ait_amount} AIT for {quote_currency}")
-                    
-                    if min_price:
-                        success(f"Min price: {min_price:.8f} {quote_currency}/AIT")
-                    
-                    order_info = {
-                        "Order ID": order_id,
-                        "Pair": pair,
-                        "Side": "SELL",
-                        "Amount": f"{ait_amount} AIT",
-                        "Min Price": f"{min_price:.8f} {quote_currency}/AIT" if min_price else "Market",
-                        "Status": "open",
-                        "User": user_id[:16] + "...",
-                        "Island": island_id[:16] + "..."
-                    }
-                    
-                    output(order_info, ctx.obj.get('output_format', 'table'))
-                else:
-                    error(f"Failed to submit transaction: {response.status_code}")
-                    if response.text:
-                        error(f"Error details: {response.text}")
-                    raise click.Abort()
-        except Exception as e:
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            result = http_client.post("/transaction", json=sell_order_data)
+            success(f"Sell order created successfully!")
+            success(f"Order ID: {order_id}")
+            success(f"Selling {ait_amount} AIT for {quote_currency}")
+            
+            if min_price:
+                success(f"Min price: {min_price:.8f} {quote_currency}/AIT")
+            
+            order_info = {
+                "Order ID": order_id,
+                "Pair": pair,
+                "Side": "SELL",
+                "Amount": f"{ait_amount} AIT",
+                "Min Price": f"{min_price:.8f} {quote_currency}/AIT" if min_price else "Market",
+                "Status": "open",
+                "User": user_id[:16] + "...",
+                "Island": island_id[:16] + "..."
+            }
+            output(order_info, ctx.obj.get('output_format', 'table'))
+        except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
             raise click.Abort()
-
     except Exception as e:
         error(f"Error creating sell order: {str(e)}")
         raise click.Abort()
@@ -255,7 +240,6 @@ def orderbook(ctx, pair: str, limit: int):
 
         # Query blockchain for exchange orders
         try:
-            import httpx
             params = {
                 'transaction_type': 'exchange',
                 'island_id': island_id,
@@ -264,41 +248,72 @@ def orderbook(ctx, pair: str, limit: int):
                 'limit': limit * 2  # Get both buys and sells
             }
 
-            with httpx.Client() as client:
-                response = client.get(
-                    f"{rpc_endpoint}/transactions",
-                    params=params,
-                    timeout=10
-                )
+            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            transactions = http_client.get("/transactions", params=params)
+                    
+            # Separate buy and sell orders
+            buy_orders = []
+            sell_orders = []
+            
+            for order in transactions:
+                if order.get('side') == 'buy':
+                    buy_orders.append(order)
+                elif order.get('side') == 'sell':
+                    sell_orders.append(order)
+            
+            # Sort buy orders by price descending (highest first)
+            buy_orders.sort(key=lambda x: x.get('max_price', 0), reverse=True)
+            # Sort sell orders by price ascending (lowest first)
+            sell_orders.sort(key=lambda x: x.get('min_price', float('inf')))
+            
+            if not buy_orders and not sell_orders:
+                info(f"No open orders for {pair}")
+                return
+            
+            # Display sell orders (asks)
+            if sell_orders:
+                asks_data = []
+                for order in sell_orders[:limit]:
+                    asks_data.append({
+                        "Price": f"{order.get('min_price', 0):.8f}",
+                        "Amount": f"{order.get('amount', 0):.4f} AIT",
+                        "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                        "User": order.get('user_id', '')[:16] + "...",
+                        "Order": order.get('order_id', '')[:16] + "..."
+                    })
                 
-                if response.status_code == 200:
-                    orders = response.json()
-                    
-                    # Separate buy and sell orders
-                    buy_orders = []
-                    sell_orders = []
-                    
-                    for order in orders:
-                        if order.get('side') == 'buy':
-                            buy_orders.append(order)
-                        elif order.get('side') == 'sell':
-                            sell_orders.append(order)
-                    
-                    # Sort buy orders by price descending (highest first)
-                    buy_orders.sort(key=lambda x: x.get('max_price', 0), reverse=True)
-                    # Sort sell orders by price ascending (lowest first)
-                    sell_orders.sort(key=lambda x: x.get('min_price', float('inf')))
-                    
-                    if not buy_orders and not sell_orders:
-                        info(f"No open orders for {pair}")
-                        return
-                    
-                    # Display sell orders (asks)
-                    if sell_orders:
-                        asks_data = []
-                        for order in sell_orders[:limit]:
-                            asks_data.append({
-                                "Price": f"{order.get('min_price', 0):.8f}",
+                output(asks_data, ctx.obj.get('output_format', 'table'), title=f"Sell Orders (Asks) - {pair}")
+            
+            # Display buy orders (bids)
+            if buy_orders:
+                bids_data = []
+                for order in buy_orders[:limit]:
+                    bids_data.append({
+                        "Price": f"{order.get('max_price', 0):.8f}",
+                        "Amount": f"{order.get('amount', 0):.4f} AIT",
+                        "Total": f"{order.get('max_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
+                        "User": order.get('user_id', '')[:16] + "...",
+                        "Order": order.get('order_id', '')[:16] + "..."
+                    })
+                
+                output(bids_data, ctx.obj.get('output_format', 'table'), title=f"Buy Orders (Bids) - {pair}")
+            
+            # Calculate spread if both exist
+            if sell_orders and buy_orders:
+                best_ask = sell_orders[0].get('min_price', 0)
+                best_bid = buy_orders[0].get('max_price', 0)
+                spread = best_ask - best_bid
+                if best_bid > 0:
+                    spread_pct = (spread / best_bid) * 100
+                    info(f"Spread: {spread:.8f} ({spread_pct:.4f}%)")
+                    info(f"Best Bid: {best_bid:.8f} {pair.split('/')[1]}/AIT")
+                    info(f"Best Ask: {best_ask:.8f} {pair.split('/')[1]}/AIT")
+        except NetworkError as e:
+            error(f"Network error fetching order book: {e}")
+            raise click.Abort()
+    except Exception as e:
+        error(f"Error fetching order book: {str(e)}")
+        raise click.Abort()
                                 "Amount": f"{order.get('amount', 0):.4f} AIT",
                                 "Total": f"{order.get('min_price', 0) * order.get('amount', 0):.8f} {pair.split('/')[1]}",
                                 "User": order.get('user_id', '')[:16] + "...",
