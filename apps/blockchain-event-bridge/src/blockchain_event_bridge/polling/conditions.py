@@ -1,10 +1,11 @@
 """Condition-based polling for batch operations."""
 
 import asyncio
-import logging
 from typing import Any, Dict
 
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 
 class ConditionPoller:

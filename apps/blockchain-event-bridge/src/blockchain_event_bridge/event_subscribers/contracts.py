@@ -1,10 +1,11 @@
 """Contract event subscriber for smart contract event monitoring."""
 
 import asyncio
-import logging
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-import httpx
+from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import NetworkError
 
 from ..config import Settings
 from ..metrics import event_queue_size
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ContractEventSubscriber:
@@ -23,7 +24,7 @@ class ContractEventSubscriber:
         self.settings = settings
         self._running = False
         self._bridge: "BlockchainEventBridge | None" = None
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: Optional[AsyncAITBCHTTPClient] = None
 
         # Contract addresses from configuration
         self.contract_addresses: Dict[str, str] = {
@@ -67,12 +68,12 @@ class ContractEventSubscriber:
         """Set the bridge instance for event handling."""
         self._bridge = bridge
 
-    async def _get_client(self) -> httpx.AsyncClient:
+    async def _get_client(self) -> AsyncAITBCHTTPClient:
         """Get or create HTTP client."""
         if self._client is None:
-            self._client = httpx.AsyncClient(
+            self._client = AsyncAITBCHTTPClient(
                 base_url=self.settings.blockchain_rpc_url,
-                timeout=30.0,
+                timeout=30
             )
         return self._client
 
@@ -107,14 +108,14 @@ class ContractEventSubscriber:
         """Initialize block tracking from current chain height."""
         try:
             client = await self._get_client()
-            response = await client.get("/head")
-            if response.status_code == 200:
-                head_data = response.json()
-                current_height = head_data.get("height", 0)
-                for contract in self.contract_addresses:
-                    if self.contract_addresses[contract]:
-                        self.last_processed_blocks[contract] = current_height
-                logger.info(f"Initialized block tracking at height {current_height}")
+            head_data = await client.async_get("/head")
+            current_height = head_data.get("height", 0)
+            for contract in self.contract_addresses:
+                if self.contract_addresses[contract]:
+                    self.last_processed_blocks[contract] = current_height
+            logger.info(f"Initialized block tracking at height {current_height}")
+        except NetworkError as e:
+            logger.error(f"Network error initializing block tracking: {e}")
         except Exception as e:
             logger.error(f"Error initializing block tracking: {e}")
 
@@ -128,17 +129,12 @@ class ContractEventSubscriber:
 
             try:
                 # Get current chain height
-                response = await client.get("/head")
-                if response.status_code != 200:
-                    logger.error(f"Failed to get chain head: {response.status_code}")
-                    continue
-
-                head_data = response.json()
+                head_data = await client.async_get("/head")
                 current_height = head_data.get("height", 0)
                 last_height = self.last_processed_blocks.get(contract_name, current_height - 100)
 
                 # Query events for this contract
-                logs_response = await client.post(
+                logs_data = await client.async_post(
                     "/eth_getLogs",
                     json={
                         "address": contract_address,
@@ -148,11 +144,6 @@ class ContractEventSubscriber:
                     }
                 )
 
-                if logs_response.status_code != 200:
-                    logger.error(f"Failed to get logs for {contract_name}: {logs_response.status_code}")
-                    continue
-
-                logs_data = logs_response.json()
                 logs = logs_data.get("logs", [])
 
                 if logs:
@@ -165,6 +156,8 @@ class ContractEventSubscriber:
                 # Update last processed block
                 self.last_processed_blocks[contract_name] = current_height
 
+            except NetworkError as e:
+                logger.error(f"Network error polling events for {contract_name}: {e}")
             except Exception as e:
                 logger.error(f"Error polling events for {contract_name}: {e}", exc_info=True)
 
@@ -215,9 +208,5 @@ class ContractEventSubscriber:
     async def stop(self) -> None:
         """Stop the contract event subscriber."""
         self._running = False
-
-        if self._client:
-            await self._client.aclose()
-            self._client = None
-
+        self._client = None
         logger.info("Contract event subscriber stopped")

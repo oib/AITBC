@@ -1,8 +1,9 @@
 """Core bridge logic for blockchain event to OpenClaw agent trigger mapping."""
 
 import asyncio
-import logging
 from typing import Any, Dict, Optional
+
+from aitbc.aitbc_logging import get_logger
 
 from .config import Settings
 from .event_subscribers.blocks import BlockEventSubscriber
@@ -20,7 +21,7 @@ from .metrics import (
     action_execution_duration_seconds,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BlockchainEventBridge:
