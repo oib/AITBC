@@ -299,7 +299,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
         # _normalize_transaction_data expects "from", not "sender"
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.payload.get("to", tx_data.sender),  # Get to from payload or default to sender
+            "to": tx_data.payload.get("to"),  # Get to from payload (required field)
             "amount": tx_data.payload.get("amount", 0),  # Get amount from payload
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
