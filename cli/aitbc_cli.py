@@ -214,18 +214,9 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
         print(f"Error decrypting wallet: {e}")
         return None
     
-    # Get chain_id from RPC health endpoint
-    chain_id = "ait-testnet"  # Default
-    try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
-        health_data = http_client.get("/health")
-        supported_chains = health_data.get("supported_chains", [])
-        if supported_chains:
-            chain_id = supported_chains[0]
-    except NetworkError:
-        pass
-    except Exception:
-        pass
+    # Get chain_id from RPC health endpoint or use override
+    from aitbc_cli.utils.chain_id import get_chain_id, get_default_chain_id
+    chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     
     # Get actual nonce from blockchain
     actual_nonce = 0
@@ -747,9 +738,13 @@ def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR
         return []
 
 
-def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Dict]:
+def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL, chain_id_override: str = None) -> Optional[Dict]:
     """Get wallet balance"""
     try:
+        # Get chain_id from RPC health endpoint or use override
+        from aitbc_cli.utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=chain_id_override, timeout=5)
+        
         # Get wallet address
         wallet_path = DEFAULT_KEYSTORE_DIR / f"{wallet_name}.json"
         if not wallet_path.exists():
@@ -763,7 +758,7 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL) -> Optional[Di
         # Get account info from RPC
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-            account_info = http_client.get(f"/rpc/account/{address}?chain_id=ait-testnet")
+            account_info = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
             return {
                 "wallet_name": wallet_name,
                 "address": address,
@@ -1118,13 +1113,18 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                     format=serialization.PublicFormat.Raw
                 ).hex()
                 
-                # Get chain_id from RPC health endpoint
-                chain_id = "ait-testnet"  # Default
+                # Get chain_id from RPC health endpoint or use provided chain_id
+                chain_id_from_rpc = kwargs.get('chain_id', 'ait-mainnet')
+                # Auto-detect if not provided
+                if not kwargs.get('chain_id'):
+                    from aitbc_cli.utils.chain_id import get_chain_id
+                    chain_id_from_rpc = get_chain_id(rpc_url)
                 try:
                     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
                     health_data = http_client.get("/health")
                     supported_chains = health_data.get("supported_chains", [])
                     if supported_chains:
+                        chain_id_from_rpc = supported_chains[0]
                         chain_id = supported_chains[0]
                 except Exception:
                     pass
@@ -1811,6 +1811,7 @@ def simulate_ai_jobs(jobs: int, models: str, duration_range: str) -> Dict:
 
 def legacy_main():
     parser = argparse.ArgumentParser(description="AITBC CLI - Comprehensive Blockchain Management Tool")
+    parser.add_argument("--chain-id", default=None, help="Chain ID (auto-detected from blockchain node if not provided)")
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
     
     # Create wallet command
@@ -2016,6 +2017,7 @@ def legacy_main():
     wallet_balance_parser = wallet_subparsers.add_parser("balance", help="Wallet balance")
     wallet_balance_parser.add_argument("--name", help="Wallet name")
     wallet_balance_parser.add_argument("--all", action="store_true", help="Show all balances")
+    wallet_balance_parser.add_argument("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
     
     # All balances command (keep for backward compatibility)
     all_balances_parser = subparsers.add_parser("all-balances", help="Show all wallet balances")
@@ -2139,6 +2141,10 @@ def legacy_main():
     ai_jobs_sim_parser.add_argument("--duration-range", default="30-300", help="Job duration range in seconds (min-max)")
     
     args = parser.parse_args()
+    
+    # Handle chain_id with auto-detection
+    from aitbc_cli.utils.chain_id import get_chain_id
+    chain_id = get_chain_id(DEFAULT_RPC_URL, override=args.chain_id)
     
     if args.command == "create":
         # Get password
@@ -2312,6 +2318,7 @@ def legacy_main():
             kwargs['execution_id'] = args.execution_id
         if hasattr(args, 'status') and args.status:
             kwargs['status'] = args.status
+        kwargs['chain_id'] = chain_id
         
         result = agent_operations(args.agent_action, **kwargs)
         if result:

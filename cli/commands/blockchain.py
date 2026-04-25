@@ -17,12 +17,19 @@ import os
 
 
 @click.group()
+@click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
-def blockchain(ctx):
+def blockchain(ctx, chain_id: Optional[str]):
     """Query blockchain information and status"""
     # Set role for blockchain commands
     ctx.ensure_object(dict)
     ctx.parent.detected_role = 'blockchain'
+    
+    # Handle chain_id with auto-detection
+    from aitbc_cli.utils.chain_id import get_chain_id
+    config = ctx.obj.get('config')
+    default_rpc_url = _get_node_endpoint(ctx)
+    ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
 
 
 @blockchain.command()

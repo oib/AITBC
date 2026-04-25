@@ -102,14 +102,21 @@ def _load_wallet(wallet_path: Path, wallet_name: str) -> Dict[str, Any]:
     "--wallet-path", help="Direct path to wallet file (overrides --wallet-name)"
 )
 @click.option("--use-daemon", is_flag=True, default=True, help="Use wallet daemon for operations")
+@click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
 @click.pass_context
-def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool):
+def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool, chain_id: Optional[str]):
     """Manage your AITBC wallets and transactions"""
     # Ensure wallet object exists
     ctx.ensure_object(dict)
 
     # Set daemon mode
     ctx.obj["use_daemon"] = use_daemon
+    
+    # Handle chain_id with auto-detection
+    from ..utils.chain_id import get_chain_id
+    config = get_config()
+    default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
+    ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
     
     # Initialize dual-mode adapter
     from ..config import get_config
@@ -532,7 +539,8 @@ def balance(ctx):
                 base_url=config.coordinator_url.replace('/api', ''),
                 timeout=5
             )
-            blockchain_balance = http_client.get(f"/rpc/balance/{wallet_data['address']}")
+            chain_id = ctx.obj.get("chain_id", "ait-mainnet")
+            blockchain_balance = http_client.get(f"/rpc/balance/{wallet_data['address']}?chain_id={chain_id}")
             output(
                 {
                             "wallet": wallet_name,
