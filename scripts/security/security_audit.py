@@ -76,7 +76,7 @@ class SecurityAudit:
                         self.results["warnings"].append(issue)
                         
             except Exception as e:
-                logger.error(f"Error in {category_name} check")
+                logger.error(f"Error in {category_name} check: {type(e).__name__}")
                 self.results["findings"].append({
                     "category": category_name,
                     "score": 0,
@@ -124,7 +124,7 @@ class SecurityAudit:
                             })
                             score -= 1
             except Exception as e:
-                logger.warning(f"Could not check {pattern}: {e}")
+                logger.warning(f"Could not check {pattern}: {type(e).__name__}")
         
         # Check for world-writable files
         try:
@@ -142,7 +142,7 @@ class SecurityAudit:
                 })
                 score -= min(5, len(writable_files))
         except Exception as e:
-            logger.warning(f"Could not check world-writable files: {e}")
+            logger.warning(f"Could not check world-writable files: {type(e).__name__}")
         
         return max(0, score), issues
         
@@ -325,7 +325,7 @@ class SecurityAudit:
                         })
                         score -= 1
             except Exception as e:
-                logger.warning(f"Could not analyze dependencies: {e}")
+                logger.warning(f"Could not analyze dependencies: {type(e).__name__}")
         
         # Check for poetry.lock or requirements.txt
         lock_files = ["poetry.lock", "requirements.txt"]
