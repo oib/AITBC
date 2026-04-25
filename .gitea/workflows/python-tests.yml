@@ -52,7 +52,7 @@ jobs:
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --mode copy \
-            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust"
+            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings"
           echo "✅ Python environment ready"
 
       - name: Run linting
