@@ -5,7 +5,6 @@ Handles real exchange connections and trading operations
 
 import asyncio
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, List, Optional
@@ -13,9 +12,9 @@ import aiohttp
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="AITBC Exchange Integration Service",
