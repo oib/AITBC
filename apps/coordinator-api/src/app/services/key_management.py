@@ -468,3 +468,114 @@ class AccessDeniedError(KeyManagementError):
     """Raised when access is denied"""
 
     pass
+
+
+class MockHSMStorage(KeyStorageBackend):
+    """Mock HSM storage for development/testing"""
+    
+    def __init__(self):
+        self._keys = {}  # In-memory key storage
+        self._audit_key = None
+        self._rotation_logs = []
+        self._revoked_keys = set()
+        self.logger = get_logger("mock_hsm")
+    
+    async def store_key_pair(self, key_pair: KeyPair) -> bool:
+        """Store key pair in mock HSM"""
+        try:
+            self._keys[key_pair.participant_id] = key_pair
+            self.logger.info(f"Stored key pair for {key_pair.participant_id} in mock HSM")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to store key pair in mock HSM: {e}")
+            return False
+    
+    async def get_key_pair(self, participant_id: str) -> KeyPair | None:
+        """Get key pair from mock HSM"""
+        return self._keys.get(participant_id)
+    
+    def get_key_pair_sync(self, participant_id: str) -> KeyPair | None:
+        """Synchronous get key pair"""
+        return self._keys.get(participant_id)
+    
+    async def store_audit_key(self, key_pair: KeyPair) -> bool:
+        """Store audit key in mock HSM"""
+        try:
+            self._audit_key = key_pair
+            self.logger.info("Stored audit key in mock HSM")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to store audit key in mock HSM: {e}")
+            return False
+    
+    async def get_audit_key(self) -> KeyPair | None:
+        """Get audit key from mock HSM"""
+        return self._audit_key
+    
+    async def list_participants(self) -> list[str]:
+        """List all participants in mock HSM"""
+        return list(self._keys.keys())
+    
+    async def revoke_keys(self, participant_id: str, reason: str) -> bool:
+        """Revoke keys in mock HSM"""
+        try:
+            if participant_id in self._keys:
+                del self._keys[participant_id]
+                self._revoked_keys.add(participant_id)
+                self.logger.info(f"Revoked keys for {participant_id} in mock HSM: {reason}")
+                return True
+            return False
+        except Exception as e:
+            self.logger.error(f"Failed to revoke keys in mock HSM: {e}")
+            return False
+    
+    async def log_rotation(self, rotation_log: KeyRotationLog) -> bool:
+        """Log key rotation in mock HSM"""
+        try:
+            self._rotation_logs.append(rotation_log)
+            self.logger.info(f"Logged rotation for {rotation_log.participant_id} in mock HSM")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to log rotation in mock HSM: {e}")
+            return False
+
+
+class HSMProviderInterface:
+    """Mock HSM provider interface for development/testing"""
+    
+    def __init__(self):
+        self._connected = False
+        self._stored_keys = {}
+        self.logger = get_logger("hsm_provider")
+    
+    async def connect_to_hsm(self) -> bool:
+        """Mock connection to HSM"""
+        try:
+            self._connected = True
+            self.logger.info("Mock HSM connection established")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to connect to mock HSM: {e}")
+            return False
+    
+    async def store_key_in_hsm(self, key_id: str, key_data: bytes) -> bool:
+        """Mock store key in HSM"""
+        try:
+            if not self._connected:
+                raise Exception("HSM not connected")
+            self._stored_keys[key_id] = key_data
+            self.logger.info(f"Stored key {key_id} in mock HSM")
+            return True
+        except Exception as e:
+            self.logger.error(f"Failed to store key in mock HSM: {e}")
+            return False
+    
+    async def retrieve_from_hsm(self, key_id: str) -> bytes | None:
+        """Mock retrieve key from HSM"""
+        try:
+            if not self._connected:
+                raise Exception("HSM not connected")
+            return self._stored_keys.get(key_id)
+        except Exception as e:
+            self.logger.error(f"Failed to retrieve key from mock HSM: {e}")
+            return None
