@@ -18,9 +18,11 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
+from aitbc.constants import KEYSTORE_DIR, DATA_DIR
+
 # Default configuration
-DEFAULT_KEYSTORE_DIR = Path("/var/lib/aitbc/keystore")
-DEFAULT_DB_PATH = "/var/lib/aitbc/data/ait-mainnet/chain.db"
+DEFAULT_KEYSTORE_DIR = KEYSTORE_DIR
+DEFAULT_DB_PATH = str(DATA_DIR / "data/ait-mainnet/chain.db")
 DEFAULT_RPC_URL = "http://localhost:8006"
 DEFAULT_POLL_INTERVAL = 2
 
