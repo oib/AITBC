@@ -22,7 +22,7 @@ Comprehensive analysis confirms core wallet operations are fully functional and 
 1) **Smoke integration checks**: Run end-to-end CLI sanity tests across exchange, oracle, and market-making commands; file any regressions.
 2) **Automated health check**: Schedule nightly run of master planning cleanup + doc health check to keep `docs/10_plan` marker-free and docs indexed.
 3) **Docs visibility**: Publish the new `DOCUMENTATION_INDEX.md` and category READMEs to the team; ensure links from the roadmap.
-4) **Archive sync**: Verify `docs/completed/` mirrors recent moves; remove any stragglers left in `docs/10_plan`.
+4) **Archive sync**: Verify `docs/archive/completed/` mirrors recent moves; remove any stragglers left in `docs/10_plan`.
 5) **Monitoring alert sanity**: Confirm monitoring alerts for exchange/oracle services trigger and resolve correctly with test incidents.
 
 Previous focus areas for Q2 2026 - **NOW COMPLETED**:

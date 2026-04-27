@@ -17,7 +17,7 @@
 - **🏠 [Documentation Home](../README.md)** - Main docs entry point
 - **📚 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
 - **📖 [About Documentation](../about/README.md)** - Standards and compliance context
-- **✅ [Completed Projects](../completed/README.md)** - Completion tracking and summaries
+- **✅ [Completed Projects](../archive/completed/README.md)** - Completion tracking and summaries
 
 ---
 

@@ -44,7 +44,19 @@ The archive is organized by content categories for easy access:
 - **Topics**: Completed phases, 2026-02 issues, port migrations, other resolved issues
 - **Relevance**: Expert-level task completion history
 
-### **📚 General** (`/general/`)
+### **� Completed** (`/completed/`)
+- **Content**: Completed work and implemented plans
+- **Files**: 8 subdirectories
+- **Topics**: Backend, CLI, core planning, implementation, infrastructure, maintenance, security, summaries
+- **Relevance**: Project completion history
+
+### **📑 Summaries** (`/summaries/`)
+- **Content**: Task completion summaries and handoffs
+- **Files**: 42 documents
+- **Topics**: CLI fixes, testing, OpenClaw, project organization, WebSocket backpressure
+- **Relevance**: Task completion tracking
+
+### **� General** (`/general/`)
 - **Content**: General project documentation
 - **Files**: 16 documents
 - **Topics**: Milestone tracking, current issues, comprehensive archives
@@ -104,26 +116,28 @@ The archive is organized by content categories for easy access:
 ## 📊 **Archive Statistics:**
 
 ```
-Total Files: 106+ documents
-Total Categories: 8 categories
-Largest Category: Expert (completed_phases: 22 files)
+Total Files: 156+ documents
+Total Categories: 10 categories
+Largest Category: Summaries (42 files)
 Smallest Category: Backend (3 files)
-Average Files per Category: 13.3 files
+Average Files per Category: 15.6 files
 ```
 
 ### **File Distribution:**
+- **Summaries**: 42 files (26.9%)
+- **Completed**: 8 subdirectories (50+ files total)
 - **Expert**: 4 subdirectories (41+ files total)
   - completed_phases: 22 files
   - 2026-02-issues: 10 files
   - other-issues: 5 files
   - port-migrations: 4 files
-- **General**: 16 files (15.1%)
-- **CLI**: 16 files (15.1%)
-- **Infrastructure**: 10 files (9.4%)
-- **Security**: 7 files (6.6%)
-- **Analytics**: 6 files (5.7%)
-- **Core Planning**: 5 files (4.7%)
-- **Backend**: 3 files (2.8%)
+- **General**: 16 files (10.3%)
+- **CLI**: 16 files (10.3%)
+- **Infrastructure**: 10 files (6.4%)
+- **Security**: 7 files (4.5%)
+- **Analytics**: 6 files (3.8%)
+- **Core Planning**: 5 files (3.2%)
+- **Backend**: 3 files (1.9%)
 
 ---
 
