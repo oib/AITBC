@@ -240,7 +240,6 @@ install_services() {
         "aitbc-exchange-api.service"
         "aitbc-blockchain-node.service"
         "aitbc-blockchain-rpc.service"
-        "aitbc-gpu.service"
         "aitbc-marketplace.service"
         "aitbc-openclaw.service"
         "aitbc-ai.service"
@@ -390,7 +389,6 @@ setup_autostart() {
     systemctl enable aitbc-exchange-api.service
     systemctl enable aitbc-blockchain-node.service
     systemctl enable aitbc-blockchain-rpc.service
-    systemctl enable aitbc-gpu.service
     systemctl enable aitbc-marketplace.service
     systemctl enable aitbc-openclaw.service
     systemctl enable aitbc-ai.service

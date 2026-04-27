@@ -16,7 +16,7 @@ LOG_FILE="${LOG_DIR}/multi-node-health.log"
 NODES=(
     "aitbc:198.51.100.93"
     "aitbc1:198.51.100.40"
-    "aitbc2:198.51.100.98"
+    "aitbc2:gitea-runner"
 )
 
 RPC_PORT=8006

@@ -142,78 +142,11 @@ EOF
 
 echo "✅ Marketplace service upgraded to production-grade"
 
-# Step 3: Upgrade GPU service
-echo -e "${CYAN}🖥️  Step 3: Upgrade GPU Service${NC}"
+# Step 3: GPU service unified into marketplace service
+echo -e "${CYAN}🖥️  Step 3: GPU Service${NC}"
 echo "=============================="
-
-# Backup original service
-cp /opt/aitbc/systemd/aitbc-gpu.service /opt/aitbc/systemd/aitbc-gpu.service.backup
-
-# Create production-grade GPU service
-cat > /opt/aitbc/systemd/aitbc-gpu.service << 'EOF'
-[Unit]
-Description=AITBC Production GPU Marketplace Service
-After=network.target aitbc-marketplace.service nvidia-persistenced.service
-Wants=aitbc-marketplace.service nvidia-persistenced.service
-
-[Service]
-Type=simple
-User=root
-Group=root
-WorkingDirectory=/opt/aitbc
-Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
-Environment=GPU_MARKETPLACE_PORT=8003
-Environment=PYTHONPATH=/opt/aitbc/production/services
-EnvironmentFile=/opt/aitbc/production/.env
-
-# GPU access
-DeviceAllow=/dev/nvidia* rw
-DevicePolicy=auto
-
-# Production execution
-ExecStart=/opt/aitbc/venv/bin/python -c "
-import sys
-sys.path.insert(0, '/opt/aitbc/production/services')
-from marketplace import ProductionMarketplace
-import uvicorn
-import os
-
-app = ProductionMarketplace().app
-uvicorn.run(app, host='0.0.0.0', port=int(os.getenv('GPU_MARKETPLACE_PORT', 8003)))
-"
-ExecReload=/bin/kill -HUP $MAINPID
-KillMode=mixed
-TimeoutStopSec=10
-
-# Production reliability
-Restart=always
-RestartSec=5
-StartLimitBurst=5
-StartLimitIntervalSec=60
-
-# Production logging
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=aitbc-gpu-marketplace-production
-
-# Production security
-NoNewPrivileges=true
-ProtectSystem=strict
-ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
-
-# Production performance
-LimitNOFILE=65536
-LimitNPROC=4096
-MemoryMax=2G
-CPUQuota=75%
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-echo "✅ GPU service upgraded to production-grade"
+echo "ℹ️  GPU marketplace functionality unified into aitbc-marketplace.service (port 8007)"
+echo "✅ GPU service handling included in marketplace service upgrade"
 
 # Step 4: Create production monitoring service
 echo -e "${CYAN}📊 Step 4: Create Production Monitoring${NC}"
@@ -307,7 +240,6 @@ systemctl daemon-reload
 echo "Enabling production services..."
 systemctl enable aitbc-blockchain-node.service
 systemctl enable aitbc-marketplace.service
-systemctl enable aitbc-gpu.service
 systemctl enable aitbc-production-monitor.service
 
 echo "✅ SystemD services reloaded and enabled"
@@ -321,21 +253,18 @@ systemctl start aitbc-blockchain-node.service
 sleep 2
 systemctl start aitbc-marketplace.service
 sleep 2
-systemctl start aitbc-gpu.service
-sleep 2
 systemctl start aitbc-production-monitor.service
 
 # Check service status
 echo "Checking service status..."
 systemctl status aitbc-blockchain-node.service --no-pager -l | head -10
 systemctl status aitbc-marketplace.service --no-pager -l | head -10
-systemctl status aitbc-gpu.service --no-pager -l | head -10
 
 # Test service endpoints
 echo "Testing service endpoints..."
 sleep 5
 curl -s http://localhost:8002/health | head -5 || echo "Marketplace service not ready"
-curl -s http://localhost:8003/health | head -5 || echo "GPU marketplace service not ready"
+curl -s http://localhost:8007/health | head -5 || echo "Marketplace GPU endpoint not ready"
 
 # Step 7: Deploy to aitbc1
 echo -e "${CYAN}🚀 Step 7: Deploy to aitbc1${NC}"
@@ -346,29 +275,24 @@ echo "Copying production services to aitbc1..."
 scp -r /opt/aitbc/production aitbc1:/opt/aitbc/
 scp /opt/aitbc/systemd/aitbc-blockchain-node.service aitbc1:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-marketplace.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-gpu.service aitbc1:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-production-monitor.service aitbc1:/opt/aitbc/systemd/
 
 # Update services for aitbc1 node
 echo "Configuring services for aitbc1..."
 ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-blockchain-node.service"
 ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-marketplace.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-gpu.service"
 ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-production-monitor.service"
 
 # Update ports for aitbc1
 ssh aitbc1 "sed -i 's/MARKETPLACE_PORT=8002/MARKETPLACE_PORT=8004/g' /opt/aitbc/systemd/aitbc-marketplace.service"
-ssh aitbc1 "sed -i 's/GPU_MARKETPLACE_PORT=8003/GPU_MARKETPLACE_PORT=8005/g' /opt/aitbc/systemd/aitbc-gpu.service"
 
 # Deploy and start services on aitbc1
 echo "Starting services on aitbc1..."
 ssh aitbc1 "systemctl daemon-reload"
-ssh aitbc1 "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-gpu.service aitbc-production-monitor.service"
+ssh aitbc1 "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-production-monitor.service"
 ssh aitbc1 "systemctl start aitbc-blockchain-node.service"
 sleep 3
 ssh aitbc1 "systemctl start aitbc-marketplace.service"
-sleep 3
-ssh aitbc1 "systemctl start aitbc-gpu.service"
 sleep 3
 ssh aitbc1 "systemctl start aitbc-production-monitor.service"
 
@@ -380,7 +304,7 @@ ssh aitbc1 "systemctl status aitbc-marketplace.service --no-pager -l | head -5"
 # Test aitbc1 endpoints
 echo "Testing aitbc1 endpoints..."
 ssh aitbc1 "curl -s http://localhost:8004/health | head -5" || echo "aitbc1 marketplace not ready"
-ssh aitbc1 "curl -s http://localhost:8005/health | head -5" || echo "aitbc1 GPU marketplace not ready"
+ssh aitbc1 "curl -s http://localhost:8008/health | head -5" || echo "aitbc1 marketplace GPU endpoint not ready"
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION SYSTEMD SERVICES UPGRADED!${NC}"
@@ -388,8 +312,7 @@ echo "======================================"
 echo ""
 echo "✅ Upgraded Services:"
 echo "   • aitbc-blockchain-node.service (Production blockchain)"
-echo "   • aitbc-marketplace.service (Production marketplace)"
-echo "   • aitbc-gpu.service (Production GPU marketplace)"
+echo "   • aitbc-marketplace.service (Production marketplace with GPU support)"
 echo "   • aitbc-production-monitor.service (Production monitoring)"
 echo ""
 echo "✅ Production Features:"
@@ -398,16 +321,17 @@ echo "   • Production logging and monitoring"
 echo "   • Resource limits and security"
 echo "   • Automatic restart and recovery"
 echo "   • Multi-node deployment"
+echo "   • GPU marketplace unified into marketplace service"
 echo ""
 echo "✅ Service Endpoints:"
 echo "   • aitbc (localhost):"
 echo "     - Blockchain: SystemD managed"
 echo "     - Marketplace: http://localhost:8002"
-echo "     - GPU Marketplace: http://localhost:8003"
+echo "     - Marketplace GPU: http://localhost:8007"
 echo "   • aitbc1 (remote):"
 echo "     - Blockchain: SystemD managed"
 echo "     - Marketplace: http://aitbc1:8004"
-echo "     - GPU Marketplace: http://aitbc1:8005"
+echo "     - Marketplace GPU: http://aitbc1:8008"
 echo ""
 echo "✅ Monitoring:"
 echo "   • SystemD journal: journalctl -u aitbc-*"
