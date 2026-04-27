@@ -47,7 +47,6 @@ This checklist tracks the current remediation target:
 - [x] `backend/README.md`
 - [x] `beginner/README.md`
 - [x] `blockchain/README.md`
-- [x] `completed/README.md`
 - [x] `contracts/README.md`
 - [x] `deployment/README.md`
 - [x] `development/README.md`
@@ -69,7 +68,6 @@ This checklist tracks the current remediation target:
 - [x] `releases/README.md`
 - [x] `reports/README.md`
 - [x] `security/README.md`
-- [x] `summaries/README.md`
 - [x] `trail/README.md`
 - [x] `website/README.md`
 - [x] `workflows/README.md`
@@ -103,11 +101,11 @@ This checklist tracks the current remediation target:
 
 ## ✅ **Cross-Link Checks**
 
-- [ ] Root docs point at the current hierarchy, not obsolete paths
-- [ ] Beginner, project, and app landing pages point at each other where appropriate
-- [ ] About pages link back to the template standard and the audit checklist
-- [ ] Release notes link from the master index and release index
-- [ ] Policy and governance documents cross-reference each other cleanly
+- [x] Root docs point at the current hierarchy, not obsolete paths
+- [x] Beginner, project, and app landing pages point at each other where appropriate
+- [x] About pages link back to the template standard and the audit checklist
+- [x] Release notes link from the master index and release index
+- [x] Policy and governance documents cross-reference each other cleanly
 
 ---
 
@@ -124,8 +122,11 @@ This checklist tracks the current remediation target:
 
 - Historical content stays in place unless it is clearly duplicated or misleading.
 - The goal is discoverability and consistency, not flattening every directory.
-- The following directories now have landing pages added in this pass: `about/`, `deployment/`, `development/`, `guides/`, `governance/`, `mobile/`, `nodes/`, `policies/`, `reference/`, `releases/`, `reports/`, `summaries/`, `trail/`, and `workflows/`.
+- The following directories now have landing pages added in this pass: `about/`, `deployment/`, `development/`, `guides/`, `governance/`, `mobile/`, `nodes/`, `policies/`, `reference/`, `releases/`, `reports/`, `trail/`, and `workflows/`.
 - The project and apps landing pages now include template-compliant related resources and quality metrics sections.
+- Legacy content `completed/` and `summaries/` directories were moved to `archive/completed/` and `archive/summaries/` for better organization.
+- Cross-link fixes applied: main README.md updated to point to archive locations, broken link in governance/openclaw-dao-governance.md removed.
+- MASTER_INDEX.md updated to reflect new archive structure with 10 categories (156+ documents).
 - Any future docs area should either include a README index or be documented here as an intentional exception.
 
 ---
