@@ -2,7 +2,7 @@
 
 **Complete documentation catalog with quick access to all content**
 
-**Last Updated**: April 23, 2026
+**Last Updated**: April 27, 2026
 
 ---
 
@@ -124,11 +124,13 @@
 - **📊 Content**: Project status, navigation guide, organization
 - **🔗 Links**: All documentation sections and external resources
 
-### **📖 [About Documentation](about/)**
+### **📖 [About Documentation](about/README.md)**
 Documentation about the documentation system itself:
 
 | File | Purpose |
 |------|---------|
+| [📖 About Index](about/README.md) | Overview of the documentation standards hub |
+| [✅ Compliance Audit](about/DOCUMENTATION_COMPLIANCE_AUDIT.md) | Current remediation checklist |
 | [📊 Organization Analysis](about/DOCS_ORGANIZATION_ANALYSIS.md) | Structure analysis and quality assessment |
 | [🎯 10/10 Roadmap](about/DOCS_10_10_ROADMAP.md) | Path to perfect documentation quality |
 | [🗂️ Archive Structure Fix](about/ARCHIVE_STRUCTURE_FIX.md) | Archive reorganization documentation |
@@ -143,6 +145,15 @@ Documentation about the documentation system itself:
 | [📱 Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md) | Comprehensive agent communication guide |
 | [🚀 Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md) | Get started in 5 minutes |
 | [📚 API Reference](agent-sdk/API_REFERENCE.md) | Complete API documentation |
+
+### **🤖 [Agent Integration Assets](11_agents/)**
+**Canonical agent API spec and manifest bundle:**
+
+| File | Purpose |
+|------|---------|
+| [📘 Agent Index](11_agents/README.md) | Landing page for the agent API spec and manifest assets |
+| [📄 Agent API Spec](11_agents/agent-api-spec.json) | API contract for registry, marketplace, and swarm coordination |
+| [🧾 Agent Manifest](11_agents/agent-manifest.json) | Canonical agent types, prerequisites, and quick commands |
 
 ---
 
@@ -183,15 +194,15 @@ Documentation about the documentation system itself:
 ## 🔗 **External Documentation (Symlinks)**
 
 ### **📚 Centralized External Access**
-All external documentation accessible from main docs directory:
+External documentation and symlink targets accessible from the main docs directory:
 
 | Link | Target | Content |
 |------|--------|---------|
 | [💻 CLI Technical](cli-technical/) | `/cli/docs/` | CLI technical documentation |
-| [📜 Contracts](contracts/) | `/contracts/docs/` | Smart contract documentation |
 | [🧪 Testing](testing/) | `/tests/docs/` | Test documentation |
-| [🌐 Website](website/) | `/website/docs/` | Website documentation |
 | [⛓️ Blockchain Node](blockchain/node/) | `/apps/blockchain-node/docs/` | Blockchain node docs |
+
+Contract, node, and website documentation now live in local docs indexes under `contracts/`, `nodes/`, and `website/`.
 
 ---
 
@@ -201,18 +212,30 @@ All external documentation accessible from main docs directory:
 
 | Area | Description | Status |
 |------|-------------|--------|
-| [🔒 Security](security/) | Security best practices and implementation | Active |
-| [🏛️ Governance](governance/) | Governance and policy documentation | Active |
-| [📋 Policies](policies/) | Project policies and procedures | Active |
-| [🔧 Infrastructure](infrastructure/) | System infrastructure documentation | Active |
-| [📊 Analytics](analytics/) | Data analytics and AI documentation | Active |
-| [📱 Mobile](mobile/) | Mobile application documentation | Active |
-| [🔄 Exchange](exchange/) | Exchange system documentation | Active |
-| [🛠️ Development](development/) | Development workflow documentation | Active |
-| [🚀 Deployment](deployment/) | Deployment guides and procedures | Active |
-| [📝 Implementation](implementation/) | Implementation details and guides | Active |
-| [🔧 Maintenance](maintenance/) | Maintenance procedures and guides | Active |
-| [👥 Project](project/) | Project information and coordination | Active |
+| [📖 Guides](guides/README.md) | Documentation authoring and usage guides | Active |
+| [🔒 Security](security/README.md) | Security best practices and implementation | Active |
+| [🏛️ Governance](governance/README.md) | Governance and policy documentation | Active |
+| [📋 Policies](policies/README.md) | Project policies and procedures | Active |
+| [🔧 Infrastructure](infrastructure/README.md) | System infrastructure documentation | Active |
+| [📊 Analytics](analytics/README.md) | Data analytics and AI documentation | Active |
+| [📱 Mobile](mobile/README.md) | Mobile application documentation | Active |
+| [🔄 Exchange](exchange/README.md) | Exchange system documentation | Active |
+| [🛠️ Development](development/README.md) | Development workflow documentation | Active |
+| [🚀 Deployment](deployment/README.md) | Deployment guides and procedures | Active |
+| [📝 Implementation](implementation/README.md) | Implementation details and guides | Active |
+| [🔧 Maintenance](maintenance/README.md) | Maintenance procedures and guides | Active |
+| [📜 Contracts](contracts/) | ZK verification and smart contract documentation | Active |
+| [🖧 Nodes](nodes/) | Node operations notes and command references | Active |
+| [📦 Packages](packages/README.md) | Language-specific packages and SDKs | Active |
+| [📖 Reference](reference/README.md) | Compact lookup and reference docs | Active |
+| [📋 Releases](releases/README.md) | Release notes and version history | Active |
+| [📊 Reports](reports/README.md) | Status, quality, and completion reports | Active |
+| [📑 Summaries](summaries/README.md) | Outcome summaries and handoffs | Active |
+| [🧵 Trail](trail/README.md) | Operational breadcrumbs and success notes | Active |
+| [🧩 OpenClaw](openclaw/README.md) | OpenClaw agent integration documentation | Active |
+| [🌐 Website](website/) | Rendered documentation site assets | Active |
+| [🔄 Workflows](workflows/README.md) | Documentation workflow outcomes | Active |
+| [👥 Project](project/README.md) | Project information and coordination | Active |
 
 #### **📋 [Project Documentation](project/)**
 **Core project documentation and implementation guides:**
@@ -226,15 +249,14 @@ All external documentation accessible from main docs directory:
 | [✅ Completion](project/completion/) | 1 file | 100% project completion summary |
 | [🔧 Workspace](project/workspace/) | 1 file | Workspace strategy and organization |
 
-| [📈 Summaries](summaries/) | Project summaries and reports | Active |
-| [🔄 Workflows](workflows/) | Development and operational workflows | Active |
+See the `Summaries` and `Workflows` entries above for the current top-level navigation paths.
 
 ---
 
-**� Welcome to AITBC Documentation!**
+**🎉 Welcome to AITBC Documentation!**
 
 This master index provides complete access to all AITBC documentation. For project status, learning paths, and getting started, see [README.md](README.md).
 
 ---
 
-*Last updated: 2026-04-23*
+*Last updated: 2026-04-27*

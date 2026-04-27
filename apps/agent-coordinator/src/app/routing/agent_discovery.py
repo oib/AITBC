@@ -2,6 +2,8 @@
 Agent Discovery and Registration System for AITBC Agent Coordination
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 from typing import Dict, List, Optional, Set, Callable, Any
@@ -10,7 +12,10 @@ from datetime import datetime, timedelta
 import uuid
 import hashlib
 from enum import Enum
-import redis.asyncio as redis
+try:
+    import redis.asyncio as redis
+except ImportError:  # pragma: no cover - optional dependency for runtime agent registry
+    redis = None
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger

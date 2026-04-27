@@ -3,8 +3,6 @@ JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management
 """
 
-import jwt
-import bcrypt
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, List
 import secrets
@@ -24,6 +22,8 @@ class JWTHandler:
         
     def generate_token(self, payload: Dict[str, Any], expires_delta: timedelta = None) -> Dict[str, Any]:
         """Generate JWT token with specified payload"""
+        import jwt
+
         try:
             if expires_delta:
                 expire = datetime.utcnow() + expires_delta
@@ -54,6 +54,8 @@ class JWTHandler:
     
     def generate_refresh_token(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Generate refresh token for token renewal"""
+        import jwt
+
         try:
             expire = datetime.utcnow() + self.refresh_expiry
             
@@ -78,6 +80,8 @@ class JWTHandler:
     
     def validate_token(self, token: str) -> Dict[str, Any]:
         """Validate JWT token and return payload"""
+        import jwt
+
         try:
             # Decode and validate token
             payload = jwt.decode(
@@ -143,6 +147,8 @@ class JWTHandler:
     
     def decode_token_without_validation(self, token: str) -> Dict[str, Any]:
         """Decode token without expiration validation (for debugging)"""
+        import jwt
+
         try:
             payload = jwt.decode(
                 token, 
@@ -168,6 +174,8 @@ class PasswordManager:
     @staticmethod
     def hash_password(password: str) -> Dict[str, Any]:
         """Hash password using bcrypt"""
+        import bcrypt
+
         try:
             # Generate salt and hash password
             salt = bcrypt.gensalt()
@@ -185,9 +193,10 @@ class PasswordManager:
     
     @staticmethod
     def verify_password(password: str, hashed_password: str) -> Dict[str, Any]:
-        """Verify password against hashed password"""
+        """Verify password against hash"""
         try:
-            # Check password
+            import bcrypt
+
             hashed_bytes = hashed_password.encode('utf-8')
             password_bytes = password.encode('utf-8')
             

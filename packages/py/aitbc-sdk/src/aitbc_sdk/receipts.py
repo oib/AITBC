@@ -6,7 +6,8 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, cast
 
 import base64
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc.exceptions import NetworkError
+from aitbc.http_client import AITBCHTTPClient
 from aitbc_crypto.signing import ReceiptVerifier
 
 
