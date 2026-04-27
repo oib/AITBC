@@ -683,7 +683,7 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="AITBC Direct TCP P2P Mesh Network")
-    parser.add_argument("--host", default="0.0.0.0", help="Bind host")
+    parser.add_argument("--host", default=settings.p2p_bind_host, help="Bind host")
     parser.add_argument("--port", type=int, default=7070, help="Bind port")
     parser.add_argument("--node-id", default="", help="Node identifier (defaults to settings.p2p_node_id)")
     parser.add_argument("--peers", default="", help="Comma separated list of initial peers to dial (ip:port)")
