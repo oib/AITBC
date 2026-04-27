@@ -94,6 +94,15 @@ jobs:
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
             export PYTHONPATH="$PWD/src:$WORKSPACE/repo:$PYTHONPATH"
+            echo "=== Debug Info ==="
+            echo "PWD: $PWD"
+            echo "PYTHONPATH: $PYTHONPATH"
+            echo "Package name: ${{ matrix.package.name }}"
+            echo "=== Package Installation Status ==="
+            venv/bin/python -m pip show aitbc-core || echo "aitbc-core not installed"
+            echo "=== Import Test ==="
+            venv/bin/python -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
+            echo "=== Running Tests ==="
             venv/bin/python -m pytest tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
