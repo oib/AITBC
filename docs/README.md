@@ -101,8 +101,7 @@
 ├── intermediate/                   # Bridge to advanced
 ├── advanced/                       # Deep technical content
 ├── expert/                         # Specialized expertise
-├── archive/                        # Historical documents
-├── completed/                      # Finished projects
+├── archive/                        # Historical documents (includes completed/ and summaries/)
 ├── contracts/                      # Smart contract verification docs
 ├── website/                        # Rendered website documentation assets
 ├── nodes/                          # Node operations notes and commands
@@ -112,7 +111,6 @@
 ├── reference/                      # Compact lookup/reference docs
 ├── releases/                       # Versioned release notes
 ├── reports/                        # Status, quality, and completion reports
-├── summaries/                      # Outcome summaries and handoffs
 ├── trail/                          # Operational breadcrumbs and success notes
 ├── workflows/                      # Documentation workflow outcomes
 ```
@@ -200,12 +198,12 @@ Files are now organized with systematic prefixes based on reading level:
 - **✅ Compliance Audit**: [Docs Compliance Checklist](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)
 - **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
 - **🗂️ Archive Guide**: [Archive Organization](archive/README.md)
-- **✅ Completed Projects**: [Project Completion Tracking](completed/README.md)
+- **✅ Completed Projects**: [Project Completion Tracking](archive/completed/README.md)
 - **🚀 Deployment**: [Deployment Documentation](deployment/README.md)
 - **📖 Reference**: [Reference Documentation](reference/README.md)
 - **📋 Releases**: [Release Notes](releases/README.md)
 - **📊 Reports**: [Reports Documentation](reports/README.md)
-- **📑 Summaries**: [Summaries Documentation](summaries/README.md)
+- **📑 Summaries**: [Summaries Documentation](archive/summaries/README.md)
 - **🧵 Trail**: [Trail Documentation](trail/README.md)
 - **🔄 Workflows**: [Workflows Documentation](workflows/README.md)
 
@@ -255,8 +253,8 @@ Files are now organized with systematic prefixes based on reading level:
 
 ### 📊 **Project Documentation:**
 - **📋 Project Overview**: [Project Documentation](project/) - Project information
-- **✅ Completed Work**: [Completed Projects](completed/) - Finished tasks
-- **📈 Summaries**: [Project Summaries](summaries/) - Project summaries
+- **✅ Completed Work**: [Completed Projects](archive/completed/) - Finished tasks
+- **📈 Summaries**: [Project Summaries](archive/summaries/) - Project summaries
 - **🔄 Workflows**: [Workflows](workflows/) - Development workflows
 
 ### 🆘 **Help & Support:**

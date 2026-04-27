@@ -83,21 +83,21 @@ This checklist tracks the current remediation target:
 ## ✅ **Priority Document Checks**
 
 ### Core docs entry points
-- [ ] `docs/README.md` has `Level`, `Prerequisites`, `Estimated Time`, `Last Updated`, `Version`
-- [ ] `docs/README.md` has a navigation path and breadcrumb
-- [ ] `docs/README.md` links to `MASTER_INDEX.md` and the core learning paths
-- [ ] `docs/beginner/README.md` has standardized metadata and cross-links
-- [ ] `docs/intermediate/README.md` has standardized metadata and cross-links
-- [ ] `docs/advanced/README.md` has standardized metadata and cross-links
-- [ ] `docs/expert/README.md` has standardized metadata and cross-links
+- [x] `docs/README.md` has `Level`, `Prerequisites`, `Estimated Time`, `Last Updated`, `Version`
+- [x] `docs/README.md` has a navigation path and breadcrumb
+- [x] `docs/README.md` links to `MASTER_INDEX.md` and the core learning paths
+- [x] `docs/beginner/README.md` has standardized metadata and cross-links
+- [x] `docs/intermediate/README.md` has standardized metadata and cross-links
+- [x] `docs/advanced/README.md` has standardized metadata and cross-links
+- [x] `docs/expert/README.md` has standardized metadata and cross-links
 - [x] `docs/project/README.md` has standardized metadata and cross-links
 - [x] `docs/apps/README.md` has standardized metadata and cross-links
-- [ ] `docs/about/README.md` links to the template standard and audit checklist
+- [x] `docs/about/README.md` links to the template standard and audit checklist
 
 ### Historical or special content
-- [ ] `docs/archive/README.md` clearly marks archive content as historical
-- [ ] `docs/completed/README.md` clearly marks completed work as historical
-- [ ] `docs/implementation/README.md` remains intentionally lightweight until a future cleanup pass
+- [x] `docs/archive/README.md` clearly marks archive content as historical
+- [x] `docs/archive/completed/README.md` clearly marks completed work as historical
+- [x] `docs/implementation/README.md` remains intentionally lightweight until a future cleanup pass
 
 ---
 
