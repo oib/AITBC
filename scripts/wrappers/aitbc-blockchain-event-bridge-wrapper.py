@@ -25,6 +25,9 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
-    "app.main"
+    "uvicorn",
+    "blockchain_event_bridge.main:app",
+    "--host", os.getenv("bind_host", "0.0.0.0"),
+    "--port", os.getenv("bind_port", "8204"),
 ]
 os.execvp(exec_cmd[0], exec_cmd)

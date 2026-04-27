@@ -29,6 +29,7 @@ from .auth.middleware import get_current_user, require_permissions, require_role
 from .auth.permissions import permission_manager, Permission, Role
 from .monitoring.prometheus_metrics import metrics_registry, performance_monitor
 from .monitoring.alerting import alert_manager, SLAMonitor
+from .config import settings
 
 # Configure logging
 logger = get_logger(__name__)
@@ -1465,8 +1466,8 @@ def main():
     """Main function to run the application"""
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
-        port=9001,
+        host=settings.host,
+        port=settings.port,
         reload=True,
         log_level="info"
     )
