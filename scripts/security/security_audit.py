@@ -76,6 +76,7 @@ class SecurityAudit:
                         self.results["warnings"].append(issue)
                         
             except Exception as e:
+                # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
                 logger.error(f"Error in {category_name} check: {type(e).__name__}")
                 self.results["findings"].append({
                     "category": category_name,
