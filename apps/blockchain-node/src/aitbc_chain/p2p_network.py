@@ -6,6 +6,7 @@ Handles decentralized peer-to-peer mesh communication between blockchain nodes
 
 import asyncio
 import json
+import logging
 from .config import settings
 from .mempool import get_mempool, compute_tx_hash
 from .network.nat_traversal import NATTraversalService
