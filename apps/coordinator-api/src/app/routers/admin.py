@@ -25,10 +25,14 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 @router.get("/debug-settings", summary="Debug settings")
 async def debug_settings() -> dict:  # type: ignore[arg-type]
+    # SECURITY FIX: Mask API keys before returning to prevent clear-text exposure
+    def mask_keys(keys: list[str]) -> list[str]:
+        return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
+    
     return {
-        "admin_api_keys": settings.admin_api_keys,
-        "client_api_keys": settings.client_api_keys,
-        "miner_api_keys": settings.miner_api_keys,
+        "admin_api_keys": mask_keys(settings.admin_api_keys),
+        "client_api_keys": mask_keys(settings.client_api_keys),
+        "miner_api_keys": mask_keys(settings.miner_api_keys),
         "app_env": settings.app_env,
     }
 
@@ -91,8 +95,9 @@ async def create_test_miner(
         }
 
     except Exception as e:
-        logger.error(f"Failed to create test miner: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
+        logger.error("Failed to create test miner")
+        raise HTTPException(status_code=500, detail="Failed to create test miner")
 
 
 @router.get("/test-key", summary="Test API key validation")
@@ -248,7 +253,8 @@ async def get_system_status(
         }
 
     except Exception as e:
-        logger.error(f"Failed to get system status: {e}")
+        # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
+        logger.error("Failed to get system status")
         return {
             "status": "error",
             "error": "Failed to get system status",
@@ -288,7 +294,8 @@ async def create_agent_network(network_data: dict):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Failed to create agent network: %s", e)
+        # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
+        logger.error("Failed to create agent network")
         raise HTTPException(status_code=500, detail="Failed to create agent network")
 
 
@@ -322,5 +329,6 @@ async def get_execution_receipt(execution_id: str):
         return receipt_data
 
     except Exception as e:
-        logger.error(f"Failed to get execution receipt: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
+        logger.error("Failed to get execution receipt")
+        raise HTTPException(status_code=500, detail="Failed to get execution receipt")
