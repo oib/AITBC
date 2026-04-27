@@ -29,7 +29,7 @@ exec_cmd = [
     "--address", "ait1d18e286fc0c12888aca94732b5507c8787af71a5",
     "--password-file", str(KEYSTORE_DIR / ".agent_daemon_password"),
     "--keystore-dir", str(KEYSTORE_DIR),
-    "--db-path", str(DATA_DIR / "chain.db"),
+    "--db-path", "/var/lib/aitbc/data/chain.db",
     "--rpc-url", "http://localhost:8006",
     "--poll-interval", "2",
     "--reply-message", "pong",
