@@ -90,21 +90,31 @@ jobs:
           systemctl daemon-reload
           echo "✅ Systemd daemon reloaded"
 
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found to enable/start"
+          fi
+
           # Enable services
           echo "=== Enabling services ==="
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-node aitbc-blockchain-rpc aitbc-adaptive-learning; do
-            if systemctl list-unit-files | grep -q "$svc.service"; then
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
               systemctl enable "$svc" 2>/dev/null || echo "  ⚠️ $svc enable failed"
-              echo "  ✅ $svc enabled"
+              echo "  ✅ $svc enable attempted"
             else
               echo "  ⚠️ $svc service file not found"
             fi
           done
 
-          # Start core services that should be running
-          echo "=== Starting core services ==="
-          for svc in aitbc-blockchain-node aitbc-blockchain-rpc aitbc-exchange-api; do
-            if systemctl list-unit-files | grep -q "$svc.service"; then
+          # Start services
+          echo "=== Starting services ==="
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
               systemctl start "$svc" 2>/dev/null || echo "  ⚠️ $svc start failed"
               echo "  ✅ $svc start attempted"
             else
@@ -114,8 +124,21 @@ jobs:
 
       - name: Service status check
         run: |
+          cd /var/lib/aitbc-workspaces/systemd-sync/repo
           echo "=== AITBC Service Status ==="
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-node aitbc-blockchain-rpc aitbc-adaptive-learning; do
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found"
+            exit 0
+          fi
+
+          for svc in "${services[@]}"; do
             status=$(systemctl is-active "$svc" 2>/dev/null) || status="not-found"
             enabled=$(systemctl is-enabled "$svc" 2>/dev/null) || enabled="not-found"
             printf "  %-35s active=%-10s enabled=%s\n" "$svc" "$status" "$enabled"
