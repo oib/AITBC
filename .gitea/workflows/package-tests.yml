@@ -93,7 +93,8 @@ jobs:
           # Tests
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
-            export PYTHONPATH="$PWD/src:$WORKSPACE/repo:$PYTHONPATH"
+            # SECURITY FIX: Don't set PYTHONPATH - rely on editable package install
+            # This avoids namespace conflicts with the main aitbc package
             echo "=== Debug Info ==="
             echo "PWD: $PWD"
             echo "PYTHONPATH: $PYTHONPATH"
@@ -102,6 +103,8 @@ jobs:
             venv/bin/python -m pip show aitbc-core || echo "aitbc-core not installed"
             echo "=== Import Test ==="
             venv/bin/python -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
+            echo "=== Test Import ==="
+            venv/bin/python -c "from aitbc.logging import StructuredLogFormatter; print('Import successful')" || echo "Import failed"
             echo "=== Running Tests ==="
             venv/bin/python -m pytest tests/ -q --tb=short
           else
