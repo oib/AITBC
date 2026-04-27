@@ -33,8 +33,8 @@ AITBC v0.3.0 marks the **100% completion** of the entire project with all 9 majo
 - **Search Integration**: Ripgrep advanced search capabilities
 
 ### **⚙️ Service Management (100%)**
-- **Single Marketplace Service**: `aitbc-gpu.service` implementation
-- **Service Consolidation**: Duplicate service elimination
+- **Single Marketplace Service**: GPU functionality unified into `aitbc-marketplace.service`
+- **Service Consolidation**: Duplicate GPU service elimination
 - **Path Corrections**: All services using `/opt/aitbc/services`
 - **Environment Consolidation**: `/etc/aitbc/production.env`
 - **Blockchain Service**: Functionality restored and operational
