@@ -67,7 +67,7 @@ apps/blockchain-explorer/main.py                          # Port 8004
 
 ### AI/Agent/GPU Services
 ```bash
-/etc/systemd/system/aitbc-gpu.service                       # Port 8010
+# GPU functionality unified into aitbc-marketplace.service (port 8007)
 /etc/systemd/system/aitbc-learning.service                  # Port 8011
 apps/agent-services/agent-coordinator/src/coordinator.py   # Port 8012
 apps/agent-services/agent-registry/src/app.py             # Port 8013

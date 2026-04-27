@@ -44,7 +44,7 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 
 **🔧 Systemd Services Updated:**
 ```bash
-/etc/systemd/system/aitbc-gpu.service      # Port 8010
+# GPU functionality unified into aitbc-marketplace.service (port 8007)
 /etc/systemd/system/aitbc-multimodal.service           # Port 8011
 /etc/systemd/system/aitbc-modality-optimization.service # Port 8012
 /etc/systemd/system/aitbc-learning.service     # Port 8013
