@@ -361,7 +361,10 @@ class TenantManagementService:
         # Generate secure key
         key_id = f"ak_{secrets.token_urlsafe(16)}"
         api_key = f"ask_{secrets.token_urlsafe(32)}"
-        key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+        # SECURITY FIX: Use HMAC with secret key instead of plain sha256 for API key hashing
+        import hmac
+        secret_key = os.environ.get("API_KEY_HASH_SECRET", "default-secret-change-in-production")
+        key_hash = hmac.new(secret_key.encode(), api_key.encode(), hashlib.sha256).hexdigest()
         key_prefix = api_key[:8]
 
         # Create API key record

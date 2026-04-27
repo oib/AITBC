@@ -36,9 +36,19 @@ class PersistentKeystoreService:
     """Persistent keystore with database storage and proper encryption"""
 
     def __init__(self, db_path: Optional[Path] = None, encryption: Optional[EncryptionSuite] = None) -> None:
-        self.db_path = db_path or Path("./data/keystore.db")
-        # Resolve path to prevent directory traversal attacks
-        self.db_path = self.db_path.resolve()
+        # SECURITY FIX: Validate path is within allowed directory to prevent directory traversal
+        default_path = Path("./data/keystore.db").resolve()
+        if db_path is None:
+            self.db_path = default_path
+        else:
+            self.db_path = Path(db_path).resolve()
+            # Ensure the resolved path is within the current working directory or data directory
+            # This prevents directory traversal attacks
+            cwd = Path.cwd().resolve()
+            if not (str(self.db_path).startswith(str(cwd)) or 
+                    str(self.db_path).startswith(str(cwd / "data"))):
+                raise ValueError(f"Invalid database path: {self.db_path}. Path must be within {cwd} or {cwd / 'data'}")
+        
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._encryption = encryption or EncryptionSuite()
         self._lock = threading.Lock()
