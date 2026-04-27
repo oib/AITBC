@@ -56,12 +56,27 @@ jobs:
       - name: Start services
         if: github.event_name != 'pull_request'
         run: |
+          cd /var/lib/aitbc-workspaces/integration-tests/repo
           echo "Starting AITBC services..."
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
-            if systemctl is-active --quiet "$svc" 2>/dev/null; then
-              echo "✅ $svc already running"
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found to start"
+          fi
+
+          for svc in "${services[@]}"; do
+            if systemctl list-unit-files | grep -q "^$svc.service"; then
+              if systemctl is-active --quiet "$svc" 2>/dev/null; then
+                echo "✅ $svc already running"
+              else
+                systemctl start "$svc" 2>/dev/null && echo "✅ $svc started" || echo "⚠️ $svc failed to start"
+              fi
             else
-              systemctl start "$svc" 2>/dev/null && echo "✅ $svc started" || echo "⚠️ $svc not available"
+              echo "⚠️ $svc service file not found"
             fi
             sleep 1
           done
@@ -147,8 +162,21 @@ jobs:
       - name: Service status report
         if: always()
         run: |
+          cd /var/lib/aitbc-workspaces/integration-tests/repo
           echo "=== Service Status ==="
-          for svc in aitbc-coordinator-api aitbc-exchange-api aitbc-wallet aitbc-blockchain-rpc aitbc-blockchain-node aitbc-agent-coordinator; do
+
+          mapfile -t services < <(
+            find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
+            sed 's/\.service$//' |
+            sort
+          )
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "⚠️ No aitbc service files found"
+            exit 0
+          fi
+
+          for svc in "${services[@]}"; do
             status=$(systemctl is-active "$svc" 2>/dev/null) || status="inactive"
             echo "  $svc: $status"
           done
