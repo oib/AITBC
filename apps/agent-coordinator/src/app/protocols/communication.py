@@ -9,7 +9,6 @@ from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 import uuid
-import websockets
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
@@ -338,6 +337,8 @@ class WebSocketHandler:
         
     async def handle_connection(self, websocket, agent_id: str):
         """Handle WebSocket connection from agent"""
+        import websockets
+
         self.websocket_connections[agent_id] = websocket
         logger.info(f"WebSocket connection established for agent {agent_id}")
         

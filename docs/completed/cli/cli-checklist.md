@@ -1216,7 +1216,7 @@ aitbc blockchain faucet <address>
 
 ---
 
-## � Configuration System
+## ⚙️ Configuration System
 
 ### Role-Based Configuration (✅ IMPLEMENTED)
 
@@ -1270,7 +1270,7 @@ aitbc client submit --api-key "custom_key" --type "test"
 
 ---
 
-## �📝 Notes
+## 📝 Notes
 
 1. **Command Availability**: Some commands may require specific backend services
    or configurations

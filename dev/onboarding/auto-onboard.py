@@ -231,7 +231,7 @@ class AgentOnboarder:
             sys.path.append('/home/oib/windsurf/aitbc/packages/py/aitbc-agent-sdk')
             
             if agent_type == 'compute_provider':
-                from aitbc_agent import ComputeProvider
+                from aitbc_agent.compute_provider import ComputeProvider
                 agent = ComputeProvider.register(
                     agent_name=f"auto-provider-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
                     capabilities={
@@ -243,7 +243,7 @@ class AgentOnboarder:
                 )
                 
             elif agent_type == 'compute_consumer':
-                from aitbc_agent import ComputeConsumer
+                from aitbc_agent.compute_consumer import ComputeConsumer
                 agent = ComputeConsumer.create(
                     agent_name=f"auto-consumer-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
                     capabilities={
@@ -253,7 +253,7 @@ class AgentOnboarder:
                 )
                 
             elif agent_type == 'platform_builder':
-                from aitbc_agent import PlatformBuilder
+                from aitbc_agent.platform_builder import PlatformBuilder
                 agent = PlatformBuilder.create(
                     agent_name=f"auto-builder-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
                     capabilities={
@@ -262,7 +262,7 @@ class AgentOnboarder:
                 )
                 
             elif agent_type == 'swarm_coordinator':
-                from aitbc_agent import SwarmCoordinator
+                from aitbc_agent.swarm_coordinator import SwarmCoordinator
                 agent = SwarmCoordinator.create(
                     agent_name=f"auto-coordinator-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
                     capabilities={

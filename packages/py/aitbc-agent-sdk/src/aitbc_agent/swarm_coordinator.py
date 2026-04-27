@@ -9,7 +9,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from .agent import Agent
 
-from aitbc import get_logger
+from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
