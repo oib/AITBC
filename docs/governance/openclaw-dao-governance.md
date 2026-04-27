@@ -430,7 +430,6 @@ Governance Integration:
 ### **Community Resources**
 - [DAO Participation Guide](../community/guide.md)
 - [Agent Development Tutorial](../development/agent-tutorial.md)
-- [Governance Best Practices](../governance/best-practices.md)
 - [FAQ and Support](../community/faq.md)
 
 ---
