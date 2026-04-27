@@ -24,8 +24,8 @@ def validate_address(address: str) -> bool:
     if not address:
         raise ValidationError("Address cannot be empty")
     
-    # AITBC addresses typically start with 'ait' and are alphanumeric
-    pattern = r'^ait[a-z0-9]{40}$'
+    # AITBC addresses typically start with 'ait' and are alphanumeric (variable length)
+    pattern = r'^ait[a-z0-9]+$'
     if not re.match(pattern, address):
         raise ValidationError(f"Invalid address format: {address}")
     

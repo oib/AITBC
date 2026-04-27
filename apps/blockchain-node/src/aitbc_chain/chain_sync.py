@@ -6,6 +6,7 @@ Keeps blockchain nodes synchronized by sharing blocks via P2P and Redis gossip
 
 import asyncio
 import json
+import logging
 import time
 from typing import Dict, Any, Optional, List
 

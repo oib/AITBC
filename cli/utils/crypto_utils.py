@@ -123,11 +123,15 @@ def validate_multisig_transaction(tx_data: Dict) -> Tuple[bool, str]:
         if field not in tx_data:
             return False, f"Missing required field: {field}"
     
-    # Validate address format
-    try:
-        to_checksum_address(tx_data["to"])
-    except Exception:
-        return False, "Invalid recipient address format"
+    # Validate address format (AITBC addresses start with 'ait')
+    to_address = tx_data["to"]
+    if not to_address.startswith("ait"):
+        return False, "Invalid recipient address format: must start with 'ait'"
+    if len(to_address) < 50 or len(to_address) > 70:
+        return False, "Invalid recipient address format: invalid length"
+    # Check that the rest is hex-like (after 'ait' prefix)
+    if not all(c.lower() in '0123456789abcdef' for c in to_address[3:]):
+        return False, "Invalid recipient address format: invalid characters"
     
     # Validate amount
     try:
