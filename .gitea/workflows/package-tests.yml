@@ -104,9 +104,13 @@ jobs:
             echo "=== Import Test ==="
             venv/bin/python -c "import sys; print('Python paths:'); [print(p) for p in sys.path]"
             echo "=== Test Import ==="
-            venv/bin/python -c "from aitbc.logging import StructuredLogFormatter; print('Import successful')" || echo "Import failed"
+            if [[ "${{ matrix.package.name }}" == "aitbc-core" ]]; then
+              venv/bin/python -c "from aitbc.logging import StructuredLogFormatter; print('Import successful')" || echo "Import failed"
+            else
+              echo "Skipping aitbc.logging import check for ${{ matrix.package.name }}"
+            fi
             echo "=== Running Tests ==="
-            venv/bin/python -m pytest --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short
+            venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short
           else
             echo "⚠️ No tests directory found"
           fi
