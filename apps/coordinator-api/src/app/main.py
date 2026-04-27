@@ -104,8 +104,12 @@ async def lifespan(app: FastAPI):
 
     try:
         # Initialize database
-        init_db()
-        logger.info("Database initialized successfully")
+        try:
+            init_db()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.warning(f"Database initialization failed (non-fatal): {e}")
+            # Continue startup even if init_db fails
 
         # Warmup database connections
         logger.info("Warming up database connections...")

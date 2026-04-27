@@ -10,6 +10,7 @@ Group=root
 WorkingDirectory=/opt/aitbc/apps/exchange
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
+Environment="PYTHONPATH=/opt/aitbc"
 ExecStart=/opt/aitbc/venv/bin/python simple_exchange_api.py --port 8001
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
