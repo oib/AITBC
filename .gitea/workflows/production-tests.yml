@@ -73,6 +73,22 @@ jobs:
           cd /var/lib/aitbc-workspaces/production-tests/repo
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
 
+          echo "Ensuring default port 9001 is available..."
+          pkill -f "uvicorn app.main:app" 2>/dev/null || true
+          if command -v lsof >/dev/null 2>&1; then
+            pids=$(lsof -tiTCP:9001 -sTCP:LISTEN || true)
+            if [ -n "$pids" ]; then
+              echo "⚠️ Port 9001 already in use by PID(s): $pids; terminating"
+              kill $pids 2>/dev/null || true
+              sleep 2
+            fi
+            if lsof -tiTCP:9001 -sTCP:LISTEN >/dev/null 2>&1; then
+              echo "❌ Port 9001 is still in use; aborting startup"
+              lsof -iTCP:9001 -sTCP:LISTEN || true
+              exit 1
+            fi
+          fi
+
           # Start agent coordinator in background
           nohup env PYTHONUNBUFFERED=1 venv/bin/uvicorn app.main:app \
             --host 0.0.0.0 \
