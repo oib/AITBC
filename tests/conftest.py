@@ -16,7 +16,7 @@ sys.path.insert(0, str(project_root))
 sys.path.insert(0, str(project_root / "aitbc"))
 
 # Import aitbc utilities for conftest
-from aitbc import DATA_DIR, LOG_DIR
+from aitbc.constants import DATA_DIR, LOG_DIR
 
 # Import new testing utilities
 from aitbc.testing import MockFactory, TestDataGenerator, MockResponse, MockDatabase, MockCache

@@ -2,7 +2,7 @@
 
 **Purpose**: Historical documentation and completed work  
 **Status**: Organized and accessible  
-**Last Updated**: 2026-03-26  
+**Last Updated**: 2026-04-27  
 
 ## 🎯 **Archive Overview**
 
@@ -37,6 +37,12 @@ The archive is organized by content categories for easy access:
 - **Files**: 5 documents
 - **Topics**: Requirements validation, next steps planning
 - **Relevance**: Project planning history
+
+### **🧠 Expert** (`/expert/`)
+- **Content**: Expert-level issues and completed phases
+- **Files**: 4 subdirectories
+- **Topics**: Completed phases, 2026-02 issues, port migrations, other resolved issues
+- **Relevance**: Expert-level task completion history
 
 ### **📚 General** (`/general/`)
 - **Content**: General project documentation
@@ -98,21 +104,26 @@ The archive is organized by content categories for easy access:
 ## 📊 **Archive Statistics:**
 
 ```
-Total Files: 65 documents
-Total Categories: 7 categories
-Largest Category: General (16 files)
+Total Files: 106+ documents
+Total Categories: 8 categories
+Largest Category: Expert (completed_phases: 22 files)
 Smallest Category: Backend (3 files)
-Average Files per Category: 9.3 files
+Average Files per Category: 13.3 files
 ```
 
 ### **File Distribution:**
-- **General**: 16 files (24.6%)
-- **CLI**: 16 files (24.6%)
-- **Infrastructure**: 10 files (15.4%)
-- **Security**: 7 files (10.8%)
-- **Analytics**: 6 files (9.2%)
-- **Core Planning**: 5 files (7.7%)
-- **Backend**: 3 files (4.6%)
+- **Expert**: 4 subdirectories (41+ files total)
+  - completed_phases: 22 files
+  - 2026-02-issues: 10 files
+  - other-issues: 5 files
+  - port-migrations: 4 files
+- **General**: 16 files (15.1%)
+- **CLI**: 16 files (15.1%)
+- **Infrastructure**: 10 files (9.4%)
+- **Security**: 7 files (6.6%)
+- **Analytics**: 6 files (5.7%)
+- **Core Planning**: 5 files (4.7%)
+- **Backend**: 3 files (2.8%)
 
 ---
 

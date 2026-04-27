@@ -3,11 +3,13 @@
 **Level**: Expert  
 **Prerequisites**: Advanced knowledge of AITBC ecosystem  
 **Estimated Time**: 4-8 hours per topic  
+**Last Updated**: 2026-04-27  
+**Version**: 1.1 (April 2026 Update - docs compliance remediation)
 
 ## 🧭 **Navigation Path:**
-**� [Documentation Home](../README.md)** → **🎓 Expert** → *You are here*
+**🏠 [Documentation Home](../README.md)** → **🎓 Expert** → *You are here*
 
-** breadcrumb**: Home → Expert → Overview
+**breadcrumb**: Home → Expert → Overview
 
 ---
 
@@ -15,6 +17,7 @@
 - **🌉 Previous Level**: [Advanced Documentation](../advanced/README.md) - Deep technical content
 - **📚 Archive Research**: [Archive Documentation](../archive/README.md) - Historical research materials
 - **✅ Completed Projects**: [Completed Projects](../completed/README.md) - Project completion tracking
+- **📖 Documentation Standards**: [About Documentation](../about/README.md) - Template guidance and audit checklist
 - **📋 Project Info**: [Project Documentation](../project/) - Project overview
 
 **Related Topics:**
@@ -251,7 +254,7 @@ This is where true mastery happens. Challenge yourself, push boundaries, and con
 
 ---
 
-*Last updated: 2026-03-26*  
+*Last updated: 2026-04-27*  
 *Level: Expert*  
 *Total estimated time: 24-48 hours*  
 *Prerequisites: Advanced AITBC knowledge + 5+ years experience*

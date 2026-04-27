@@ -55,18 +55,41 @@ jobs:
             targets=(
               *.md
               docs/*.md
+              docs/about/**/*.md
               docs/11_agents/**/*.md
               docs/agent-sdk/**/*.md
+              docs/advanced/**/*.md
+              docs/analytics/**/*.md
+              docs/apps/**/*.md
+              docs/archive/**/*.md
+              docs/backend/**/*.md
+              docs/beginner/**/*.md
               docs/blockchain/**/*.md
+              docs/completed/**/*.md
+              docs/contracts/**/*.md
               docs/deployment/**/*.md
               docs/development/**/*.md
+              docs/exchange/**/*.md
+              docs/expert/**/*.md
               docs/general/**/*.md
               docs/governance/**/*.md
+              docs/guides/**/*.md
               docs/implementation/**/*.md
               docs/infrastructure/**/*.md
+              docs/intermediate/**/*.md
+              docs/mobile/**/*.md
+              docs/nodes/**/*.md
+              docs/maintenance/**/*.md
               docs/openclaw/**/*.md
               docs/policies/**/*.md
+              docs/reference/**/*.md
+              docs/releases/**/*.md
+              docs/reports/**/*.md
+              docs/project/**/*.md
               docs/security/**/*.md
+              docs/summaries/**/*.md
+              docs/trail/**/*.md
+              docs/website/**/*.md
               docs/workflows/**/*.md
             )
 
@@ -74,7 +97,7 @@ jobs:
               echo "⚠️ No curated Markdown targets matched"
             else
               echo "Curated advisory scope: ${#targets[@]} Markdown files"
-              echo "Excluded high-noise areas: about, advanced, archive, backend, beginner, completed, expert, intermediate, project, reports, summaries, trail"
+              echo "Included the docs home, about hub, learning paths, and the top-level operational hubs added during remediation"
               markdownlint "${targets[@]}" --ignore "node_modules/**" || echo "⚠️ Markdown linting warnings in curated docs scope"
             fi
           else
@@ -86,13 +109,96 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/docs-validation/repo
           echo "=== Documentation Structure ==="
-          for f in docs/README.md docs/MASTER_INDEX.md; do
+          required_files=(
+            docs/README.md
+            docs/MASTER_INDEX.md
+            docs/about/README.md
+            docs/11_agents/README.md
+            docs/advanced/README.md
+            docs/analytics/README.md
+            docs/agent-sdk/README.md
+            docs/apps/README.md
+            docs/archive/README.md
+            docs/backend/README.md
+            docs/beginner/README.md
+            docs/completed/README.md
+            docs/blockchain/README.md
+            docs/contracts/README.md
+            docs/deployment/README.md
+            docs/development/README.md
+            docs/exchange/README.md
+            docs/expert/README.md
+            docs/general/README.md
+            docs/guides/README.md
+            docs/governance/README.md
+            docs/implementation/README.md
+            docs/infrastructure/README.md
+            docs/intermediate/README.md
+            docs/maintenance/README.md
+            docs/mobile/README.md
+            docs/nodes/README.md
+            docs/openclaw/README.md
+            docs/packages/README.md
+            docs/policies/README.md
+            docs/project/README.md
+            docs/reference/README.md
+            docs/releases/README.md
+            docs/reports/README.md
+            docs/security/README.md
+            docs/summaries/README.md
+            docs/trail/README.md
+            docs/website/README.md
+            docs/workflows/README.md
+          )
+
+          for f in "${required_files[@]}"; do
             if [[ -f "$f" ]]; then
-              echo "  ✅ $f exists"
+              echo "  $f exists"
             else
+              echo "  $f missing"
               echo "  ❌ $f missing"
+              exit 1
             fi
           done
+
+      - name: Validate priority docs metadata
+        run: |
+          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          echo "=== Priority Documentation Metadata ==="
+
+          priority_docs=(
+            docs/README.md
+            docs/MASTER_INDEX.md
+            docs/beginner/README.md
+            docs/intermediate/README.md
+            docs/expert/README.md
+          )
+
+          required_markers=(
+            "## 🧭 **Navigation Path:**"
+            "## 🎯 **See Also:**"
+            "**Level**:"
+            "**Prerequisites**:"
+            "**Estimated Time**:"
+            "**Last Updated**:"
+            "**Version**:"
+          )
+
+          for f in "${priority_docs[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "  ❌ $f missing"
+              exit 1
+            fi
+
+            for marker in "${required_markers[@]}"; do
+              if ! grep -qF "$marker" "$f"; then
+                echo "  ❌ $f missing required marker: $marker"
+                exit 1
+              fi
+            done
+          done
+
+          echo "✅ Priority documentation metadata validated"
 
       - name: Documentation stats
         if: always()
