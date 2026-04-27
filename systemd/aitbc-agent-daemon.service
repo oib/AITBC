@@ -18,6 +18,7 @@ Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=AgentDaemon
 
 # Security settings
 NoNewPrivileges=true
