@@ -137,6 +137,8 @@ def main():
     os.chmod(password_file, 0o600)
 
     print(f"[setup] Generated keystore password and saved to {password_file} (chmod 600)")
+    # Clear password from memory for security
+    password = None
 
     # Generate two wallets
     wallets = []
@@ -149,9 +151,6 @@ def main():
         print(f"[setup] Created wallet: {name}")
         print(f"  Address: {info['address']}")
         print(f"  Keystore: {info['keystore_file']}")
-
-    # Clear password from memory for security after use
-    password = None
 
     # Create allocations: all supply to genesis wallet, treasury gets 0 (for spending from genesis)
     genesis_wallet = next(w for w in wallets if w['suffix'] == 'genesis')
