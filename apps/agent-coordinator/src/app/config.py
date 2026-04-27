@@ -4,7 +4,12 @@ Configuration Management for AITBC Agent Coordinator
 
 import os
 from typing import Dict, Any, Optional
-from pydantic import BaseSettings, Field
+from pydantic import Field
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ImportError:
+    from pydantic import BaseSettings  # type: ignore
+    SettingsConfigDict = None
 from enum import Enum
 
 class Environment(str, Enum):
@@ -24,6 +29,13 @@ class LogLevel(str, Enum):
 
 class Settings(BaseSettings):
     """Application settings"""
+
+    if SettingsConfigDict is not None:
+        model_config = SettingsConfigDict(
+            env_file=".env",
+            env_file_encoding="utf-8",
+            case_sensitive=False,
+        )
     
     # Application settings
     app_name: str = "AITBC Agent Coordinator"
@@ -80,10 +92,11 @@ class Settings(BaseSettings):
     task_batch_size: int = 10
     load_balancer_cache_size: int = 1000
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    if SettingsConfigDict is None:
+        class Config:
+            env_file = ".env"
+            env_file_encoding = "utf-8"
+            case_sensitive = False
 
 # Global settings instance
 settings = Settings()
