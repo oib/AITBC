@@ -9,6 +9,17 @@
 - [Adding gitea-runner as Third Blockchain Node (aitbc2)](adding_gitea_runner_as_third_node.md) - Complete guide for adding a third node to the AITBC blockchain network, including configuration steps, issues encountered, and verification procedures.
 - [Blockchain Synchronization Issues and Fixes](blockchain_synchronization_issues_and_fixes.md) - Documentation of synchronization issues between AITBC nodes and their resolutions.
 
+## Multi-Node Blockchain Workflows
+
+Comprehensive Windsurf workflows for multi-node blockchain deployment and operations:
+
+- **[Core Setup](../../.windsurf/workflows/multi-node-blockchain-setup-core.md)** - Prerequisites, environment configuration, and basic node setup
+- **[Operations](../../.windsurf/workflows/multi-node-blockchain-operations.md)** - Daily operations, monitoring, and troubleshooting
+- **[Advanced Features](../../.windsurf/workflows/multi-node-blockchain-advanced.md)** - Smart contracts, security testing, and performance optimization
+- **[Marketplace Testing](../../.windsurf/workflows/multi-node-blockchain-marketplace.md)** - GPU provider testing, transaction tracking, and verification procedures
+- **[Production Deployment](../../.windsurf/workflows/multi-node-blockchain-production.md)** - Security hardening, monitoring, and scaling strategies
+- **[Reference](../../.windsurf/workflows/multi-node-blockchain-reference.md)** - Configuration overview, verification commands, and best practices
+
 ## Transaction Types
 
 The AITBC blockchain supports the following transaction types:
