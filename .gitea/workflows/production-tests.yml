@@ -46,7 +46,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio pytest-timeout requests pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic pydantic-settings python-dotenv httpx cryptography"
+            --extra-packages "pytest pytest-asyncio pytest-timeout requests httpx pyjwt fastapi uvicorn[standard] redis bcrypt websockets numpy psutil prometheus-client celery aiohttp pydantic pydantic-settings python-dotenv cryptography"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
