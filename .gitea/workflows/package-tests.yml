@@ -93,8 +93,9 @@ jobs:
           # Tests
           echo "=== Tests ==="
           if [[ -d "tests" ]]; then
-            # SECURITY FIX: Don't set PYTHONPATH - rely on editable package install
-            # This avoids namespace conflicts with the main aitbc package
+            # Make package src first, then repo root for shared imports (e.g. `from aitbc import ...`)
+            # Combined with `-c /dev/null`, this avoids monorepo pytest.ini path conflicts.
+            export PYTHONPATH="$PWD/src:$WORKSPACE/repo:$PYTHONPATH"
             echo "=== Debug Info ==="
             echo "PWD: $PWD"
             echo "PYTHONPATH: $PYTHONPATH"
