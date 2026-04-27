@@ -67,6 +67,7 @@ jobs:
               docs/blockchain/**/*.md
               docs/completed/**/*.md
               docs/contracts/**/*.md
+              docs/cli-technical/README.md
               docs/deployment/**/*.md
               docs/development/**/*.md
               docs/exchange/**/*.md
@@ -89,6 +90,7 @@ jobs:
               docs/security/**/*.md
               docs/summaries/**/*.md
               docs/trail/**/*.md
+              docs/testing/README.md
               docs/website/**/*.md
               docs/workflows/**/*.md
             )
@@ -119,11 +121,13 @@ jobs:
             docs/agent-sdk/README.md
             docs/apps/README.md
             docs/archive/README.md
+            docs/archive/completed/README.md
+            docs/archive/summaries/README.md
             docs/backend/README.md
             docs/beginner/README.md
-            docs/completed/README.md
             docs/blockchain/README.md
             docs/contracts/README.md
+            docs/cli-technical/README.md
             docs/deployment/README.md
             docs/development/README.md
             docs/exchange/README.md
@@ -145,8 +149,8 @@ jobs:
             docs/releases/README.md
             docs/reports/README.md
             docs/security/README.md
-            docs/summaries/README.md
             docs/trail/README.md
+            docs/testing/README.md
             docs/website/README.md
             docs/workflows/README.md
           )
@@ -161,6 +165,27 @@ jobs:
             fi
           done
 
+      - name: Validate master index structure
+        run: |
+          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          echo "=== Master Index Structure ==="
+
+          master_index_markers=(
+            "## 📦 **Applications Documentation**"
+            "## 🏠 **Main Documentation**"
+            "## 🔗 **External Documentation (Symlinks)**"
+            "## 🎯 **Topic-Specific Areas**"
+          )
+
+          for marker in "${master_index_markers[@]}"; do
+            if ! grep -qF "$marker" docs/MASTER_INDEX.md; then
+              echo "  ❌ docs/MASTER_INDEX.md missing required marker: $marker"
+              exit 1
+            fi
+          done
+
+          echo "✅ Master index structure validated"
+
       - name: Validate priority docs metadata
         run: |
           cd /var/lib/aitbc-workspaces/docs-validation/repo
@@ -168,10 +193,14 @@ jobs:
 
           priority_docs=(
             docs/README.md
-            docs/MASTER_INDEX.md
+            docs/about/README.md
             docs/beginner/README.md
             docs/intermediate/README.md
             docs/expert/README.md
+            docs/project/README.md
+            docs/apps/README.md
+            docs/cli-technical/README.md
+            docs/testing/README.md
           )
 
           required_markers=(

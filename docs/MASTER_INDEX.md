@@ -160,11 +160,14 @@ Documentation about the documentation system itself:
 ## 🗂️ **Archive & History**
 
 ### **📚 [Archive Documentation](archive/README.md)**
-**65 historical documents** organized in 7 categories:
+**156+ historical documents** organized in 10 categories:
 
 | Category | Files | Content |
 |----------|-------|---------|
-| [📊 Analytics](archive/analytics/) | 6 files | AI agent communication analysis |
+| [📑 Summaries](archive/summaries/) | 42 files | Task completion summaries and handoffs |
+| [� Completed](archive/completed/) | 8 subdirectories | Completed work and implemented plans |
+| [🧠 Expert](archive/expert/) | 4 subdirectories | Expert-level issues and completed phases |
+| [� Analytics](archive/analytics/) | 6 files | AI agent communication analysis |
 | [🔧 Backend](archive/backend/) | 3 files | Backend system documentation |
 | [💻 CLI](archive/cli/) | 16 files | CLI implementation and testing |
 | [📋 Core Planning](archive/core_planning/) | 5 files | Planning and requirements |
@@ -176,18 +179,18 @@ Documentation about the documentation system itself:
 
 ## ✅ **Completed Projects**
 
-### **📋 [Completed Projects](completed/README.md)**
-**Project tracking and completion documentation:**
+### **📋 [Completed Projects](archive/completed/README.md)**
+**Project tracking and completion documentation (now in archive):**
 
 | Category | Focus | Status |
 |----------|-------|--------|
-| [🔧 Backend](completed/backend/) | Backend implementations | Production-ready |
-| [💻 CLI](completed/cli/) | CLI enhancements | Integrated |
-| [📋 Core Planning](completed/core_planning/) | Architecture work | Implemented |
-| [🏗️ Infrastructure](completed/infrastructure/) | Infrastructure projects | Operational |
-| [🔒 Security](completed/security/) | Security initiatives | Deployed |
-| [📊 Summaries](completed/summaries/) | Project overviews | Documentation complete |
-| [🛠️ Maintenance](completed/maintenance/) | System improvements | Validated |
+| [🔧 Backend](archive/completed/backend/) | Backend implementations | Production-ready |
+| [💻 CLI](archive/completed/cli/) | CLI enhancements | Integrated |
+| [📋 Core Planning](archive/completed/core_planning/) | Architecture work | Implemented |
+| [🏗️ Infrastructure](archive/completed/infrastructure/) | Infrastructure projects | Operational |
+| [🔒 Security](archive/completed/security/) | Security initiatives | Deployed |
+| [📊 Summaries](archive/completed/summaries/) | Project overviews | Documentation complete |
+| [🛠️ Maintenance](archive/completed/maintenance/) | System improvements | Validated |
 
 ---
 
@@ -230,7 +233,6 @@ Contract, node, and website documentation now live in local docs indexes under `
 | [📖 Reference](reference/README.md) | Compact lookup and reference docs | Active |
 | [📋 Releases](releases/README.md) | Release notes and version history | Active |
 | [📊 Reports](reports/README.md) | Status, quality, and completion reports | Active |
-| [📑 Summaries](summaries/README.md) | Outcome summaries and handoffs | Active |
 | [🧵 Trail](trail/README.md) | Operational breadcrumbs and success notes | Active |
 | [🧩 OpenClaw](openclaw/README.md) | OpenClaw agent integration documentation | Active |
 | [🌐 Website](website/) | Rendered documentation site assets | Active |
