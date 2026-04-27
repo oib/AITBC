@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from aitbc_sdk import SignatureValidation
+from aitbc_sdk.receipts import SignatureValidation
 
 from pydantic import BaseModel
 

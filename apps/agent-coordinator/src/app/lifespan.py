@@ -5,10 +5,6 @@ from aitbc import get_logger
 from fastapi import FastAPI
 
 from . import state
-from .protocols.communication import CommunicationManager
-from .protocols.message_types import MessageProcessor
-from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
-from .routing.load_balancer import LoadBalancer, LoadBalancingStrategy, TaskDistributor
 
 logger = get_logger(__name__)
 
@@ -16,6 +12,11 @@ logger = get_logger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting AITBC Agent Coordinator...")
+
+    from .protocols.communication import CommunicationManager
+    from .protocols.message_types import MessageProcessor
+    from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
+    from .routing.load_balancer import LoadBalancer, LoadBalancingStrategy, TaskDistributor
 
     state.agent_registry = AgentRegistry()
     await state.agent_registry.start()

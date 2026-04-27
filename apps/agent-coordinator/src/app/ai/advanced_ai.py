@@ -3,8 +3,13 @@ Advanced AI/ML Integration for AITBC Agent Coordinator
 Implements machine learning models, neural networks, and intelligent decision making
 """
 
+from __future__ import annotations
+
 import asyncio
-import numpy as np
+try:
+    import numpy as np
+except ImportError:  # pragma: no cover - optional dependency for runtime AI features
+    np = None
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field

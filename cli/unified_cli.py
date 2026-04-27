@@ -790,9 +790,16 @@ def handle_bridge_restart(args):
     bridge_handlers.handle_bridge_restart(args)
 
 def main(argv=None):
-    from aitbc_cli import main as cli_main
+    import importlib.util
+    from pathlib import Path
 
-    return cli_main(argv)
+    cli_path = Path(__file__).with_name("aitbc_cli.py")
+    spec = importlib.util.spec_from_file_location("aitbc_cli_script_entry", cli_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Unable to load CLI entrypoint from {cli_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.main(argv)
 
 
 if __name__ == "__main__":

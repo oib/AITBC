@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-from .protocols.communication import CommunicationManager
-from .protocols.message_types import MessageProcessor
-from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
-from .routing.load_balancer import LoadBalancer, TaskDistributor
+if TYPE_CHECKING:
+    from .protocols.communication import CommunicationManager
+    from .protocols.message_types import MessageProcessor
+    from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
+    from .routing.load_balancer import LoadBalancer, TaskDistributor
 
 agent_registry: Optional[AgentRegistry] = None
 discovery_service: Optional[AgentDiscoveryService] = None

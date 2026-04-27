@@ -11,7 +11,7 @@ from pathlib import Path
 # Add aitbc to path
 sys.path.insert(0, str(Path("/opt/aitbc")))
 
-from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR
+from aitbc.constants import DATA_DIR, ENV_FILE, LOG_DIR, NODE_ENV_FILE, REPO_DIR
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)

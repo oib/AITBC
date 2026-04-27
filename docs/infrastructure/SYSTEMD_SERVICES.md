@@ -40,7 +40,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 - `aitbc-marketplace.service` - Marketplace
 - `aitbc-multimodal.service` - Multimodal processing
 
-## � Current Port Mapping
+## 🧭 Current Port Mapping
 
 ### Active Services (as of 2026-03-29)
 ```bash
@@ -59,7 +59,7 @@ Blockchain RPC ← Blockchain Node (with P2P)
 Adaptive Learning → Coordinator API
 ```
 
-## �� Service Management Commands
+## 🛠️ Service Management Commands
 
 ### Basic Operations
 ```bash

@@ -3,17 +3,20 @@
 **Level**: Intermediate  
 **Prerequisites**: Beginner AITBC knowledge completed  
 **Estimated Time**: 2-4 hours per topic  
+**Last Updated**: 2026-04-27  
+**Version**: 1.1 (April 2026 Update - docs compliance remediation)
 
 ## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../README.md)** → **� Intermediate** → *You are here*
+**🏠 [Documentation Home](../README.md)** → **🌉 Intermediate** → *You are here*
 
-** breadcrumb**: Home → Intermediate → Overview
+**breadcrumb**: Home → Intermediate → Overview
 
 ---
 
-## �🎯 **See Also:**
+## 🎯 **See Also:**
 - **🎯 Previous Level**: [Beginner Documentation](../beginner/README.md) - Foundation knowledge
 - **🚀 Next Level**: [Advanced Documentation](../advanced/README.md) - Deep technical content
+- **📖 Documentation Standards**: [About Documentation](../about/README.md) - Template guidance and audit checklist
 - **📋 Project Info**: [Project Documentation](../project/) - Project overview
 - **🤖 AI Focus**: [Analytics Documentation](../analytics/) - AI and analytics
 
@@ -290,7 +293,7 @@ You've mastered the basics, now it's time to become an AITBC power user. These i
 
 ---
 
-*Last updated: 2026-03-26*  
+*Last updated: 2026-04-27*  
 *Level: Intermediate*  
 *Total estimated time: 18-28 hours*  
 *Prerequisites: All beginner topics completed*

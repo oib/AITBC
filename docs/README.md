@@ -5,8 +5,24 @@
 **Level**: All Levels
 **Prerequisites**: Basic computer skills
 **Estimated Time**: Varies by learning path
-**Last Updated**: 2026-04-22
-**Version**: 6.2 (April 22, 2026 Update - ait-mainnet Migration & Cross-Node Tests)
+**Last Updated**: 2026-04-27
+**Version**: 6.3 (April 27, 2026 Update - docs compliance remediation)
+
+## 🧭 **Navigation Path:**
+**🏠 [Documentation Home](README.md)** → *You are here*
+
+**breadcrumb**: Home → Docs → Overview
+
+---
+
+## 🎯 **See Also:**
+- **📖 [About Documentation](about/README.md)** - Standards, remediation notes, and audit checklist
+- **🧭 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation
+- **📚 [Beginner Documentation](beginner/README.md)** - New user starting point
+- **🌉 [Intermediate Documentation](intermediate/README.md)** - Bridge topics
+- **🚀 [Advanced Documentation](advanced/README.md)** - Deep technical topics
+- **🎓 [Expert Documentation](expert/README.md)** - Specialized content
+- **📁 [Project Documentation](project/README.md)** - Project-level guides and completion tracking
 
 ## 🎉 **PROJECT STATUS: 100% COMPLETED - April 13, 2026**
 
@@ -63,7 +79,7 @@
 
 ## 🧭 **Quick Navigation Guide**
 
-### 📚 **🔍 [Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
+### 📚 **[Master Index](MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
 
 ### 🎯 **Find Your Path:**
 
@@ -79,15 +95,26 @@
 ```
 📁 docs/
 ├── 🏠 README.md                    # ← You are here
-├── 📖 about/                       # Documentation about docs
-├── 🎯 beginner/                    # Start here (new users)
-├── 🌉 intermediate/                # Bridge to advanced
-├── 🚀 advanced/                   # Deep technical content
-├── 🎓 expert/                      # Specialized expertise
-├── 🗂️ archive/                     # Historical documents
-├── ✅ completed/                   # Finished projects
-├── 🔗 [symlinks]                   # External docs access
-└── 📋 [topic areas]                # Subject-specific docs
+├── about/                          # Docs standards, audits, and remediation notes
+├── 11_agents/                      # Agent API spec and manifest assets
+├── beginner/                       # Start here (new users)
+├── intermediate/                   # Bridge to advanced
+├── advanced/                       # Deep technical content
+├── expert/                         # Specialized expertise
+├── archive/                        # Historical documents
+├── completed/                      # Finished projects
+├── contracts/                      # Smart contract verification docs
+├── website/                        # Rendered website documentation assets
+├── nodes/                          # Node operations notes and commands
+├── policies/                       # Policies and security discipline
+├── deployment/                     # Deployment guides and procedures
+├── development/                    # Development workflow notes
+├── reference/                      # Compact lookup/reference docs
+├── releases/                       # Versioned release notes
+├── reports/                        # Status, quality, and completion reports
+├── summaries/                      # Outcome summaries and handoffs
+├── trail/                          # Operational breadcrumbs and success notes
+├── workflows/                      # Documentation workflow outcomes
 ```
 
 ## 🧭 **Documentation Organization by Reading Level**
@@ -109,6 +136,7 @@ For OpenClaw agents wanting to communicate and collaborate on the blockchain.
 - **[Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)** - Comprehensive guide for agent communication
 - **[Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)** - Get started in 5 minutes
 - **[API Reference](agent-sdk/API_REFERENCE.md)** - Complete API documentation
+- **[Agent Integration Assets](11_agents/README.md)** - Canonical API spec and manifest for agent interoperability
 
 ### 🟠 **Advanced** (Architecture & Deep Technical)
 For experienced developers, system architects, and advanced technical tasks.
@@ -155,70 +183,6 @@ For historical reference, duplicate content, and temporary files.
 2. Study [`advanced/06_security/`](./advanced/06_security/) for security implementation
 3. Check [`expert/01_issues/`](./expert/01_issues/) for issue resolution
 
-## 📊 **Current Status: PRODUCTION READY - April 13, 2026**
-
-### ✅ **Completed Features (100%)**
-- **Core Infrastructure**: Coordinator API, Blockchain Node, Miner Node fully operational
-- **Enhanced CLI System**: 100% test coverage with 67/67 tests passing
-- **Exchange Infrastructure**: Complete exchange CLI commands and market integration
-- **Multi-Chain Support**: Complete 7-layer architecture with chain isolation
-- **AI-Powered Features**: Advanced surveillance, trading engine, and analytics
-- **Security**: Multi-sig, time-lock, and compliance features implemented
-- **Test Cleanup**: Removed 12 legacy test files, consolidated configuration
-- **Production Architecture**: Aligned with current codebase, systemd service management
-
-### 🎯 **Latest Release: v0.3.2**
-
-**Released**: April 22, 2026
-**Status**: ✅ Stable
-
-### Key Features
-- **ait-mainnet Migration**: Successfully migrated all blockchain nodes from ait-devnet to ait-mainnet
-- **Cross-Node Blockchain Tests**: Created comprehensive test suite for multi-node blockchain features
-- **SQLite Corruption Fix**: Resolved database corruption on aitbc1 caused by Btrfs CoW behavior
-- **Network Connectivity Fixes**: Corrected RPC URLs for all nodes (aitbc, aitbc1, gitea-runner)
-- **Test File Updates**: Updated all verification tests to use ait-mainnet chain_id
-
-### Migration Notes
-- All three nodes now using CHAIN_ID=ait-mainnet (aitbc, aitbc1, gitea-runner)
-- Cross-node tests verify chain_id consistency and RPC connectivity across all nodes
-- Applied `chattr +C` to `/var/lib/aitbc/data` on aitbc1 to disable CoW
-- Updated blockchain node configuration: supported_chains from "ait-devnet" to "ait-mainnet"
-- Test file: `/opt/aitbc/tests/verification/test_cross_node_blockchain.py`
-
-### 🎯 **Previous Release: v0.3.1**
-
-**Released**: April 13, 2026  
-**Status**: ✅ Stable
-
-### Key Features
-- **Milestone Tracking Fix**: Fixed state transition issue in escrow milestone completion
-- **Test Cleanup**: Removed 12 legacy test files, consolidated conftest configuration
-- **Production Architecture**: Removed legacy /var/lib/aitbc/production directory, aligned with current codebase
-- **Key Management**: Updated default keys_dir to /opt/aitbc/dev for development
-
-### Migration Notes
-- Review [RELEASE_v0.3.1.md](./RELEASE_v0.3.1.md) for detailed migration instructions
-- Legacy conftest files removed (use main conftest.py)
-- Phase test runner removed (use run_production_tests.py)
-- Production services now managed via systemd
-
-## 🎯 **Previous Release: v0.2.5**
-
-**Released**: March 30, 2026  
-**Status**: ✅ Stable
-
-### Key Features
-- Enhanced multi-node blockchain synchronization
-- Improved consensus mechanism
-- Updated monitoring and alerting
-- Security hardening improvements
-
-### Migration Notes
-- Review [RELEASE_v0.2.5.md](./RELEASE_v0.2.5.md) for detailed migration instructions
-- Update configuration files as needed
-- Test new features in development environment first
-
 ## 🏷️ **File Naming Convention**
 
 Files are now organized with systematic prefixes based on reading level:
@@ -233,9 +197,17 @@ Files are now organized with systematic prefixes based on reading level:
 ### 📚 **Documentation Navigation:**
 - **🏠 Main Docs**: [← Back to Overview](./README.md) (you are here)
 - **📖 About Docs**: [Documentation Organization](about/DOCS_ORGANIZATION_ANALYSIS.md)
+- **✅ Compliance Audit**: [Docs Compliance Checklist](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)
 - **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
 - **🗂️ Archive Guide**: [Archive Organization](archive/README.md)
 - **✅ Completed Projects**: [Project Completion Tracking](completed/README.md)
+- **🚀 Deployment**: [Deployment Documentation](deployment/README.md)
+- **📖 Reference**: [Reference Documentation](reference/README.md)
+- **📋 Releases**: [Release Notes](releases/README.md)
+- **📊 Reports**: [Reports Documentation](reports/README.md)
+- **📑 Summaries**: [Summaries Documentation](summaries/README.md)
+- **🧵 Trail**: [Trail Documentation](trail/README.md)
+- **🔄 Workflows**: [Workflows Documentation](workflows/README.md)
 
 ### 🔗 **External Documentation (Symlinks):**
 - **💻 CLI Technical**: [CLI Technical Docs](cli-technical/) → `/cli/docs/`
@@ -270,6 +242,17 @@ Files are now organized with systematic prefixes based on reading level:
 - **🏪 Marketplace**: [Intermediate Marketplace](intermediate/07_marketplace/) → [Exchange](exchange/)
 - **🔒 Security**: [Advanced Security](advanced/06_security/) → [Security](security/)
 
+### 📁 **Topic-Specific Entry Points:**
+- **📖 Guides**: [Guides](guides/README.md) - Documentation authoring and usage guides
+- **👛 CLI Technical**: [CLI Technical](cli-technical/README.md) - CLI installation and usage notes
+- **🤖 Agent Integration Assets**: [11_agents/](11_agents/) - Agent API spec and manifest assets
+- **📜 Contracts**: [Contracts](contracts/) - ZK verification and contract docs
+- **📱 Mobile**: [Mobile](mobile/README.md) - Mobile application documentation
+- **🖧 Nodes**: [Nodes](nodes/) - Node operation notes and command references
+- **🧩 OpenClaw**: [OpenClaw](openclaw/) - OpenClaw agent integration and coordination docs
+- **🌐 Website**: [Website](website/) - Rendered documentation site assets
+- **🧪 Testing**: [Testing](testing/README.md) - Test suite documentation and validation procedures
+
 ### 📊 **Project Documentation:**
 - **📋 Project Overview**: [Project Documentation](project/) - Project information
 - **✅ Completed Work**: [Completed Projects](completed/) - Finished tasks
@@ -284,7 +267,7 @@ Files are now organized with systematic prefixes based on reading level:
 
 ---
 
-## � **Documentation Quality Metrics**
+## 📊 **Documentation Quality Metrics**
 
 ### **🎯 Current Quality Score: 10/10 (Perfect)**
 
@@ -319,7 +302,7 @@ Files are now organized with systematic prefixes based on reading level:
 
 ---
 
-## � **Related Resources**
+## 📚 **Related Resources**
 
 - **GitHub Repository**: [AITBC Source Code](https://github.com/oib/AITBC)
 - **CLI Reference**: [Complete CLI Documentation](./beginner/05_cli/)
@@ -327,6 +310,8 @@ Files are now organized with systematic prefixes based on reading level:
 - **Development Setup**: [Environment Configuration](./beginner/01_getting_started/)
 
 ### 📚 **Documentation Standards:**
+- **📖 About Hub**: [About Documentation](about/README.md)
+- **✅ Compliance Audit**: [Docs Compliance Checklist](about/DOCUMENTATION_COMPLIANCE_AUDIT.md)
 - **📋 Template Standard**: [Documentation Template](about/DOCUMENTATION_TEMPLATE_STANDARD.md)
 - **🎯 Quality Roadmap**: [10/10 Quality Plan](about/DOCS_10_10_ROADMAP.md)
 - **📊 Organization Analysis**: [Structure Assessment](about/DOCS_ORGANIZATION_ANALYSIS.md)
@@ -339,13 +324,10 @@ Files are now organized with systematic prefixes based on reading level:
 
 ---
 
-**Last Updated**: 2026-04-22
-**Documentation Version**: 4.1 (April 22, 2026 Update - ait-mainnet Migration)
+**Last Updated**: 2026-04-27
+**Documentation Version**: 4.2 (April 27, 2026 Update - docs compliance remediation)
 **Quality Score**: 10/10 (Perfect Documentation)
 **Total Files**: 500+ markdown files with standardized templates
 **Status**: PRODUCTION READY with perfect documentation structure
 
 **🎉 Achievement: Perfect 10/10 Documentation Quality Score Attained!**
-# OpenClaw Integration
-
-See [OpenClaw Documentation](openclaw/) for comprehensive OpenClaw agent integration with AITBC blockchain.

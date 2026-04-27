@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import List, Optional
 
-from aitbc_sdk import (
+from aitbc_sdk.receipts import (
     CoordinatorReceiptClient,
     ReceiptVerification,
     SignatureValidation,
