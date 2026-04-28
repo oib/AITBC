@@ -81,6 +81,20 @@ class OllamaTaskRequest(BaseModel):
     parameters: dict[str, Any] = {}
 
 
+class GPUBuyRequest(BaseModel):
+    buyer_id: str
+    gpu_id: str
+    duration_hours: float
+    payment_method: str = "blockchain"
+
+
+class GPUSellRequest(BaseModel):
+    seller_id: str
+    gpu_id: str
+    listing_price: float
+    description: Optional[str] = ""
+
+
 class PaymentRequest(BaseModel):
     from_wallet: str
     to_wallet: str
