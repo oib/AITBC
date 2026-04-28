@@ -62,6 +62,7 @@ def get_engine() -> Engine:
 
 # Import only essential models for database initialization
 # This avoids loading all domain models which causes 2+ minute startup delays
+from ..domain import Job, GPUBooking, JobPayment
 
 
 def init_db() -> Engine:
