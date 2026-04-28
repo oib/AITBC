@@ -6,11 +6,13 @@ and daemon-based wallet operations, allowing seamless switching between modes.
 
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Union
 from datetime import datetime
 
-from .wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
+sys.path.insert(0, "/opt/aitbc/cli")
+from utils.wallet_daemon_client import WalletDaemonClient, WalletInfo, WalletBalance, ChainInfo, WalletMigrationResult
 from config import Config
 from utils import error, success, output
 

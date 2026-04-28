@@ -1,12 +1,15 @@
 """Wallet Daemon Client for AITBC CLI
 
-This module provides a client for communicating with the AITBC wallet daemon,
-supporting both REST and JSON-RPC APIs for wallet operations.
+This module provides a client for interacting with the AITBC wallet daemon.
 """
 
+import sys
 import json
-import base64
 from typing import Dict, Any, Optional, List
+from datetime import datetime
+
+sys.path.insert(0, "/opt/aitbc/cli")
+from config import Config
 from pathlib import Path
 from dataclasses import dataclass
 
