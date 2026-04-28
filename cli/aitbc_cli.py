@@ -1141,14 +1141,16 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
                     actual_nonce = 0
                 
                 tx = {
-                    "type": "transfer",
+                    "type": "TRANSFER",
+                    "chain_id": chain_id,
                     "from": sender_address,
-                    "to": agent,
-                    "amount": 0,
-                    "fee": 10,
                     "nonce": actual_nonce,
-                    "payload": message,
-                    "chain_id": chain_id
+                    "fee": 10,
+                    "payload": {
+                        "recipient": agent,
+                        "amount": 0,
+                        "message": message
+                    }
                 }
                 
                 # Sign transaction
