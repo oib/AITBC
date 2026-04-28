@@ -209,7 +209,7 @@ class TransactionRequest(BaseModel):
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
-    sig: Optional[str] = Field(default=None, description="Signature payload")
+    sig: Optional[str] = Field(alias="signature", default=None, description="Signature payload")
     value: Optional[int] = Field(default=None, description="Transaction value (amount to transfer)")
     amount: Optional[int] = Field(default=None, description="Transaction amount (alternative to value)")
 
