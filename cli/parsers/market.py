@@ -81,7 +81,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_buy_parser.add_argument("--wallet", required=True)
         market_buy_parser.add_argument("--password")
         market_buy_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        market_buy_parser.set_defaults(handler=ctx.handle_market_listings)  # Placeholder
+        market_buy_parser.set_defaults(handler=ctx.handle_market_buy)
     
         market_sell_parser = market_subparsers.add_parser("sell", help="Sell on marketplace")
         market_sell_parser.add_argument("--item", required=True)
