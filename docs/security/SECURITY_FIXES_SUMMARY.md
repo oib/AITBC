@@ -68,6 +68,63 @@
 - Vulnerabilities found but ignored due to unpinned requirements (>= version ranges)
 - This is expected behavior for development dependencies
 
+### Phase 5: Secrets Management Hardening (April 28, 2026)
+
+#### Credential System Implementation
+- **Created credential directory**: `/etc/aitbc/credentials/` with 700 permissions
+- **Generated secure secrets**:
+  - API_KEY_HASH_SECRET (64-byte hex)
+  - keystore_password (64-byte hex)
+  - proposer_id (copied from .env)
+- **All credential files**: 600 permissions (root read/write only)
+
+#### Runtime Secret Loading
+- **Created load-keystore-secrets.sh**: Loads secrets at service startup
+- **Runtime directory**: `/run/aitbc/secrets/` (tmpfs, cleared on reboot)
+- **Systemd integration**: Services use ExecStartPre to load secrets
+- **Services updated**:
+  - aitbc-blockchain-node.service
+  - aitbc-blockchain-rpc.service
+  - aitbc-wallet.service
+  - aitbc-coordinator-api.service
+
+#### Insecure Default Removal
+- **Removed API_KEY_HASH_SECRET default** from:
+  - tenant_context.py (line 155)
+  - tenant_management.py (line 366)
+- **Now required**: Services fail if API_KEY_HASH_SECRET not set
+- **Error handling**: HTTP 500 error with clear message
+
+#### Keystore Permission Fixes
+- **Fixed permissions**: All files in /var/lib/aitbc/keystore/ now 600
+- **Directory permissions**: 700 on keystore and subdirectories
+- **Files fixed**:
+  - .agent_daemon_password (was 644)
+  - genesis.json.backup (was 644)
+  - .password (was 640)
+  - All *.json files (some were 644)
+
+#### Setup Script Updates
+- **Updated /opt/aitbc/scripts/setup.sh**:
+  - Added credential directory creation
+  - Added setup_credentials() function
+  - Generates secure secrets during installation
+  - Uses link-systemd.sh for service installation
+- **Updated /opt/aitbc/scripts/utils/setup_production.py**:
+  - Removed clear text password storage
+  - Uses credential system for keystore password
+  - Password stored in /etc/aitbc/credentials/keystore_password
+
+#### Documentation Updates
+- **Updated /var/lib/aitbc/keystore/README.md**:
+  - Documented credential system
+  - Added security notes
+  - Added script references
+- **Updated setup script output**:
+  - Added credential directory information
+  - Added security notes
+  - Added load-secrets command
+
 ## Security Best Practices Implemented
 
 ### Logging Security
@@ -142,11 +199,24 @@
 ### Scripts
 - scripts/utils/generate-api-keys.py
 - scripts/security/security_audit.py
+- scripts/utils/load-keystore-secrets.sh (new)
+- scripts/utils/setup-credentials.py (new)
+- scripts/utils/setup_production.py (updated)
+- scripts/setup.sh (updated)
+
+### Systemd Services
+- systemd/aitbc-blockchain-node.service (updated)
+- systemd/aitbc-blockchain-rpc.service (updated)
+- systemd/aitbc-wallet.service (updated)
+- systemd/aitbc-coordinator-api.service (updated)
 
 ### Infrastructure
 - .github/workflows/codeql.yml
 - .github/codeql/suppressions.yml
 - .gitignore
+- /etc/aitbc/.env (updated)
+- /etc/aitbc/credentials/ (new directory)
+- /var/lib/aitbc/keystore/README.md (updated)
 
 ## Security Metrics
 
@@ -165,6 +235,14 @@
 - Hardcoded credentials: 0 remaining
 - Print statements: 0 remaining (replaced with logger)
 - Log injection: 9 key instances fixed, remaining 289 are low-risk
+
+### Phase 5: Secrets Management Hardening (April 28, 2026)
+- Credential system: Implemented with 600/700 permissions
+- Insecure defaults: Removed (API_KEY_HASH_SECRET now required)
+- Keystore permissions: All files now 600 (was mixed 644/640)
+- Clear text passwords: Removed from setup_production.py
+- Runtime secret loading: Implemented via systemd ExecStartPre
+- Setup script: Updated to generate secure credentials automatically
 
 ### Reduction
 - Exploitable vulnerabilities: 100% reduction
@@ -191,8 +269,11 @@
 5. Use environment variables for configuration
 6. Use logger instead of print statements
 7. Run CodeQL before committing security-sensitive changes
+8. Use credential system for secrets (600 permissions)
+9. Never use insecure default values for secrets
+10. Load secrets at runtime via systemd ExecStartPre
 
 ---
 **Status**: Comprehensive security remediation completed ✅
-**Date**: April 24, 2026
+**Date**: April 28, 2026 (Phase 5: Secrets Management Hardening)
 **Next Review**: May 2026 (monthly dependency updates recommended)
