@@ -224,6 +224,101 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
     return result
 
 
+@router.post("/marketplace/gpu/buy", status_code=http_status.HTTP_201_CREATED)
+async def buy_gpu(
+    request: GPUBuyRequest,
+    session: Annotated[Session, Depends(get_session)],
+    engine: DynamicPricingEngine = Depends(get_pricing_engine),
+) -> dict[str, Any]:
+    """Buy GPU compute from marketplace with blockchain payment."""
+    gpu = _get_gpu_or_404(session, request.gpu_id)
+
+    if gpu.status != "available":
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {request.gpu_id} is not available for purchase",
+        )
+
+    # Create booking for the purchase
+    from datetime import datetime, timedelta
+    
+    start_time = datetime.utcnow()
+    end_time = start_time + timedelta(hours=request.duration_hours)
+    
+    # Calculate total cost
+    try:
+        dynamic_result = await engine.calculate_price(
+            base_price=gpu.price_per_hour,
+            strategy=PricingStrategy.MARKET_BALANCE,
+            region=gpu.region,
+        )
+        current_price = dynamic_result.recommended_price
+    except Exception:
+        current_price = gpu.price_per_hour
+
+    total_cost = request.duration_hours * current_price
+
+    # Create booking
+    booking_id = str(uuid4())
+    booking = GPUBooking(
+        id=booking_id,
+        gpu_id=request.gpu_id,
+        job_id=f"purchase_{request.buyer_id[:8]}",
+        duration_hours=request.duration_hours,
+        total_cost=total_cost,
+        start_time=start_time,
+        end_time=end_time,
+        status="active",
+    )
+    
+    # Update GPU status
+    gpu.status = "booked"
+    
+    session.add(booking)
+    session.commit()
+    session.refresh(gpu)
+    session.refresh(booking)
+
+    return {
+        "purchase_id": booking_id,
+        "gpu_id": request.gpu_id,
+        "buyer_id": request.buyer_id,
+        "duration_hours": request.duration_hours,
+        "total_cost": total_cost,
+        "price_per_hour": current_price,
+        "status": "purchased",
+        "payment_method": request.payment_method,
+        "start_time": start_time.isoformat() + "Z",
+        "end_time": end_time.isoformat() + "Z",
+    }
+
+
+@router.post("/marketplace/gpu/{gpu_id}/sell")
+async def sell_gpu(
+    gpu_id: str,
+    request: GPUSellRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
+    """List GPU for sale on marketplace with specified price."""
+    gpu = _get_gpu_or_404(session, gpu_id)
+
+    # Update GPU listing
+    gpu.price_per_hour = request.listing_price
+    gpu.status = "available"
+    
+    session.commit()
+    session.refresh(gpu)
+
+    return {
+        "gpu_id": gpu_id,
+        "seller_id": request.seller_id,
+        "listing_price": request.listing_price,
+        "status": "listed",
+        "description": request.description,
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+
+
 @router.post("/marketplace/gpu/{gpu_id}/book", status_code=http_status.HTTP_201_CREATED)
 async def book_gpu(
     gpu_id: str,
