@@ -143,6 +143,9 @@ class BroadcastGossipBackend(GossipBackend):
         _increment_publication("gossip_broadcast_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"BroadcastGossipBackend.subscribe called for topic: {topic}, running={self._running}")
         if not self._running:
             raise RuntimeError("Broadcast backend not started")
 
