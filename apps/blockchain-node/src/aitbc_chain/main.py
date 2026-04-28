@@ -129,8 +129,10 @@ class BlockchainNode:
         
         async def process_blocks():
             last_bulk_sync_time = 0
+            logger.info("Block processing task started")
             while True:
                 try:
+                    logger.info(f"Waiting for block from gossip queue...")
                     block_data = await block_sub.queue.get()
                     logger.info(f"Received block from gossip")
                     if isinstance(block_data, str):
@@ -184,6 +186,7 @@ class BlockchainNode:
                 except Exception as exc:
                     logger.error(f"Error processing block from gossip: {exc}")
                     
+        logger.info("Creating block processing task")
         asyncio.create_task(process_blocks())
         logger.info("Gossip subscribers setup completed")
 
