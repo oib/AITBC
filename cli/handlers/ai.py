@@ -94,19 +94,24 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     transaction["signature"] = signature.hex()
     
     job_data = {
-        "wallet": sender_address,
-        "model": model,
-        "prompt": prompt,
-        "transaction": transaction
+        "task_data": {
+            "agent_id": sender_address,
+            "task_type": model,
+            "parameters": {
+                "prompt": prompt
+            }
+        }
     }
     if payment:
-        job_data["payment"] = payment
+        job_data["task_data"]["payment"] = payment
     if chain_id:
-        job_data["chain_id"] = chain_id
+        job_data["task_data"]["chain_id"] = chain_id
     
-    print(f"Submitting AI job to {rpc_url}...")
+    # Submit to Agent Coordinator instead of blockchain RPC
+    coordinator_url = "http://localhost:9001"
+    print(f"Submitting AI job to {coordinator_url}...")
     try:
-        response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, timeout=30)
+        response = requests.post(f"{coordinator_url}/tasks/submit", json=job_data, timeout=30)
         if response.status_code == 200:
             result = response.json()
             print("AI job submitted successfully")
