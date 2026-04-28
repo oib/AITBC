@@ -21,10 +21,13 @@ logger = get_logger(__name__)
 class P2PNetworkService:
     def __init__(self, host: str, port: int, node_id: str, peers: str = "", stun_servers: List[str] = None,
                  island_id: str = "", island_name: str = "default", is_hub: bool = False,
-                 island_chain_id: str = ""):
+                 island_chain_id: str = "", chain_id: str = ""):
         self.host = host
         self.port = port
         self.node_id = node_id
+        
+        # Chain configuration
+        self.chain_id = chain_id or island_chain_id or "ait-mainnet"
         
         # Island configuration
         self.island_id = island_id
@@ -74,6 +77,7 @@ class P2PNetworkService:
         logger.info(f"Island ID: {self.island_id}")
         logger.info(f"Island Name: {self.island_name}")
         logger.info(f"Is Hub: {self.is_hub}")
+        logger.info(f"Chain ID: {self.chain_id}")
         
         # Initialize island manager
         if self.island_id:
@@ -289,6 +293,7 @@ class P2PNetworkService:
                 'type': 'handshake',
                 'node_id': self.node_id,
                 'listen_port': self.port,
+                'chain_id': self.chain_id,
                 'island_id': self.island_id,
                 'island_name': self.island_name,
                 'is_hub': self.is_hub,
@@ -384,6 +389,7 @@ class P2PNetworkService:
                 'type': 'handshake',
                 'node_id': self.node_id,
                 'listen_port': self.port,
+                'chain_id': self.chain_id,
                 'island_id': self.island_id,
                 'island_name': self.island_name,
                 'is_hub': self.is_hub,
@@ -613,6 +619,7 @@ class P2PNetworkService:
                 'type': 'handshake',
                 'node_id': node_id,
                 'listen_port': self.port,
+                'chain_id': self.chain_id,
                 'island_id': island_id,
                 'island_name': island_name,
                 'is_hub': self.is_hub,
