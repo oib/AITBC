@@ -284,102 +284,28 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
         sys.exit(1)
 
 
-def handle_market_buy(args, default_rpc_url, read_password, render_mapping):
-    """Handle marketplace buy command with blockchain transaction."""
-    rpc_url = getattr(args, 'rpc_url', default_rpc_url)
+def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
+    """Handle marketplace buy command via coordinator API."""
+    coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
     
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
         sys.exit(1)
     
-    # Get password for signing
-    password = read_password(args)
-    if not password:
-        print("Error: Password is required for signing")
-        sys.exit(1)
-    
-    # Load wallet and get address
-    from pathlib import Path
-    import json
-    from cryptography.hazmat.primitives.asymmetric import ed25519
-    
-    keystore_dir = Path("/var/lib/aitbc/keystore")
-    sender_keystore = keystore_dir / f"{args.wallet}.json"
-    
-    if not sender_keystore.exists():
-        print(f"Error: Wallet '{args.wallet}' not found")
-        sys.exit(1)
-    
-    with open(sender_keystore) as f:
-        sender_data = json.load(f)
-    sender_address = sender_data['address']
-    
-    # Decrypt private key for signing
-    try:
-        sys.path.insert(0, "/opt/aitbc/cli")
-        from aitbc_cli import decrypt_private_key
-        private_key_hex = decrypt_private_key(sender_keystore, password)
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
-    except Exception as e:
-        print(f"Error decrypting wallet: {e}")
-        sys.exit(1)
-    
-    # Get chain_id
-    try:
-        from sys.path import insert
-        insert(0, "/opt/aitbc")
-        from aitbc_cli.utils.chain_id import get_chain_id
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
-        chain_id = "ait-testnet"
-    
-    # Get actual nonce from blockchain
-    actual_nonce = 0
-    try:
-        account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
-        actual_nonce = account_data.get("nonce", 0)
-    except Exception:
-        actual_nonce = 0
-    
-    # Get GPU listing details
-    try:
-        coordinator_url = "http://localhost:8000"
-        gpu_response = requests.get(f"{coordinator_url}/v1/marketplace/gpu/{args.item}", timeout=10)
-        if gpu_response.status_code == 200:
-            gpu_data = gpu_response.json()
-            price = int(gpu_data.get('price_per_hour', 0) * 1000000)  # Convert to AIT
-        else:
-            price = 1000000  # Default price
-    except Exception:
-        price = 1000000  # Default price
-    
-    # Create transaction with marketplace purchase payload
-    transaction = {
-        "type": "TRANSFER",
-        "chain_id": chain_id,
-        "from": sender_address,
-        "nonce": actual_nonce,
-        "fee": 10,
-        "payload": {
-            "recipient": gpu_data.get('owner_address', 'ait0000000000000000000000000000000000000000'),
-            "amount": price,
-            "item_id": args.item,
-            "action": "buy"
-        }
+    # Submit purchase to coordinator API (no blockchain transaction needed for now)
+    purchase_data = {
+        "item_id": args.item,
+        "wallet": args.wallet,
+        "action": "buy"
     }
     
-    # Sign transaction
-    message = json.dumps(transaction, sort_keys=True).encode()
-    signature = private_key.sign(message)
-    transaction["signature"] = signature.hex()
-    
-    print(f"Submitting purchase transaction to {rpc_url}...")
+    print(f"Submitting purchase to {coordinator_url}...")
     try:
-        response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction, timeout=30)
-        if response.status_code == 200:
+        response = requests.post(f"{coordinator_url}/v1/marketplace/buy", json=purchase_data, timeout=30)
+        if response.status_code in (200, 201):
             result = response.json()
-            print("Purchase transaction submitted successfully")
-            render_mapping("Transaction:", result)
+            print("Purchase submitted successfully")
+            render_mapping("Purchase:", result)
         else:
             print(f"Purchase failed: {response.status_code}")
             print(f"Error: {response.text}")
