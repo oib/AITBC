@@ -51,6 +51,7 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
             from cryptography.hazmat.primitives.ciphers.aead import AESGCM
             from cryptography.hazmat.backends import default_backend
 
+            logger.info(f"Attempting to decrypt keystore file: {kf.name}")
             crypto = data["crypto"]
             kdfparams = crypto["kdfparams"]
             salt = bytes.fromhex(kdfparams["salt"])
@@ -68,8 +69,10 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
             private_bytes = aesgcm.decrypt(nonce, ciphertext, None)
             # Verify it's ed25519
             priv_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_bytes)
+            logger.info(f"Successfully decrypted keystore file: {kf.name}")
             return private_bytes
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to decrypt keystore file {kf.name}: {e}")
             continue
     return None
 
