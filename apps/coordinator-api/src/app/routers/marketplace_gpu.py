@@ -299,7 +299,7 @@ async def sell_gpu(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """List GPU for sale on marketplace with specified price."""
-    gpu = _get_gpu_or_404(session, gpu_id)
+    gpu = _get_gpu_or_404(session, request.gpu_id)
 
     # Update GPU listing
     gpu.price_per_hour = request.listing_price
@@ -309,7 +309,7 @@ async def sell_gpu(
     session.refresh(gpu)
 
     return {
-        "gpu_id": gpu_id,
+        "gpu_id": request.gpu_id,
         "seller_id": request.seller_id,
         "listing_price": request.listing_price,
         "status": "listed",
