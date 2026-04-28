@@ -28,7 +28,7 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
                         for listing in listings:
                             print(f"  - ID: {listing.get('id', 'N/A')}")
                             print(f"    Model: {listing.get('model', 'N/A')}")
-                            print(f"    Price: ${listing.get('price_per_hour', 0)}/hour")
+                            print(f"    Price: {listing.get('price_per_hour', 0)} AIT/hour")
                             print(f"    Status: {listing.get('status', 'N/A')}")
                     else:
                         print("  No GPU listings found")
