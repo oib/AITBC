@@ -241,7 +241,17 @@ class BlockchainNode:
     def _start_proposers(self) -> None:
         chains_str = getattr(settings, 'supported_chains', settings.chain_id)
         chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        
+        # Get chains that should produce blocks (if specified, otherwise all supported chains)
+        production_chains_str = getattr(settings, 'block_production_chains', chains_str)
+        production_chains = [c.strip() for c in production_chains_str.split(",") if c.strip()]
+        
         for chain_id in chains:
+            # Only start proposer if chain is in production chains
+            if chain_id not in production_chains:
+                logger.info(f"Skipping block production for chain {chain_id} (not in block_production_chains)")
+                continue
+                
             if chain_id in self._proposers:
                 continue
 
