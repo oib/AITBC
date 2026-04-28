@@ -16,10 +16,13 @@ from sqlalchemy.orm import Session
 from sqlmodel import col, func, select
 
 from aitbc import get_logger
+from ..custom_types import Constraints
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+from ..domain.job import Job
+from ..schemas import JobCreate, JobPaymentCreate
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
-from ..services.market_data_collector import MarketDataCollector
-from ..storage import get_session
+from ..services.jobs import JobService
+from ..services.payments import PaymentService
 
 logger = get_logger(__name__)
 
