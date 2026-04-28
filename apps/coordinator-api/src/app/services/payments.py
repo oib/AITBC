@@ -23,7 +23,7 @@ class PaymentService:
     def __init__(self, session: Annotated[Session, Depends(get_session)]):
         self.session = session
         self.wallet_base_url = "http://127.0.0.1:20000"  # Wallet daemon URL
-        self.exchange_base_url = "http://127.0.0.1:23000"  # Exchange API URL
+        self.exchange_base_url = "http://127.0.0.1:8001"  # Exchange API URL
 
     async def create_payment(self, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
