@@ -19,7 +19,7 @@ ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/monitor/monitor.py
 Restart=always
 RestartSec=5
 StartLimitBurst=5
-StartLimitIntervalSec=60
+StartLimitInterval=60
 
 # Production logging
 StandardOutput=journal
