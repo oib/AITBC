@@ -196,7 +196,7 @@ def handle_market_gpu_register(args, default_coordinator_url):
         sys.exit(1)
     
     if not args.price_per_hour:
-        print("Error: --price-per-hour is required")
+        print("Error: --price-per-hour is required (in AIT coins)")
         sys.exit(1)
     
     # Build GPU specs
