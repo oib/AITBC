@@ -319,36 +319,29 @@ async def get_block(height: int, chain_id: str = None) -> Dict[str, Any]:
 async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     """Submit a new transaction to the mempool"""
     from ..mempool import get_mempool
-     
+
     try:
-        _logger.info(f"Received transaction request: sender={tx_data.sender}, payload={tx_data.payload}")
         mempool = get_mempool()
         chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
-        to_field = tx_data.payload.get("recipient") or tx_data.payload.get("to")
-        amount_field = tx_data.payload.get("amount", tx_data.payload.get("value", 0))
-        
-        _logger.info(f"Extracted to_field: {to_field}, amount_field: {amount_field}")
-        
+        # Model validator already normalized payload, so use 'to' directly from payload
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": to_field,
-            "amount": amount_field,
+            "to": tx_data.payload.get("to"),  # Model validator sets this from recipient/to
+            "amount": tx_data.payload.get("amount", tx_data.payload.get("value", 0)),
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
             "type": tx_data.type,
             "signature": tx_data.sig
         }
-        
-        _logger.info(f"tx_data_dict['to']: {tx_data_dict['to']}")
-        
+
         tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
-         
+
         return {
             "success": True,
             "transaction_hash": tx_hash,
