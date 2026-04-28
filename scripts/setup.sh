@@ -90,9 +90,13 @@ setup_runtime_directories() {
     directories=(
         "/var/lib/aitbc"
         "/var/lib/aitbc/keystore"
+        "/var/lib/aitbc/keystore/config"
+        "/var/lib/aitbc/keystore/passwords"
         "/var/lib/aitbc/data"
         "/var/log/aitbc"
         "/etc/aitbc"
+        "/etc/aitbc/credentials"
+        "/run/aitbc/secrets"
     )
     
     for dir in "${directories[@]}"; do
@@ -103,16 +107,24 @@ setup_runtime_directories() {
     # Set permissions
     chmod 755 /var/lib/aitbc
     chmod 700 /var/lib/aitbc/keystore  # Secure keystore
+    chmod 700 /var/lib/aitbc/keystore/config
+    chmod 700 /var/lib/aitbc/keystore/passwords
     chmod 755 /var/lib/aitbc/data
     chmod 755 /var/log/aitbc
     chmod 755 /etc/aitbc
+    chmod 700 /etc/aitbc/credentials  # Secure credentials
+    chmod 700 /run/aitbc/secrets  # Runtime secrets (tmpfs)
     
     # Set ownership
     chown root:root /var/lib/aitbc
     chown root:root /var/lib/aitbc/keystore
+    chown root:root /var/lib/aitbc/keystore/config
+    chown root:root /var/lib/aitbc/keystore/passwords
     chown root:root /var/lib/aitbc/data
     chown root:root /var/log/aitbc
     chown root:root /etc/aitbc
+    chown root:root /etc/aitbc/credentials
+    chown root:root /run/aitbc/secrets
     
     # Disable Btrfs CoW on data directory to prevent SQLite corruption
     # SQLite expects overwrite-in-place behavior, which conflicts with CoW
@@ -124,9 +136,13 @@ setup_runtime_directories() {
     # Create README files
     echo "# AITBC Runtime Data Directory" > /var/lib/aitbc/README.md
     echo "# Keystore for blockchain keys (SECURE)" > /var/lib/aitbc/keystore/README.md
+    echo "# Encrypted configuration secrets" > /var/lib/aitbc/keystore/config/README.md
+    echo "# Encrypted password storage" > /var/lib/aitbc/keystore/passwords/README.md
     echo "# Application databases" > /var/lib/aitbc/data/README.md
     echo "# Application logs" > /var/log/aitbc/README.md
     echo "# AITBC Configuration Files" > /etc/aitbc/README.md
+    echo "# Secure credential storage (600 permissions)" > /etc/aitbc/credentials/README.md
+    echo "# Runtime secrets (tmpfs, cleared on reboot)" > /run/aitbc/secrets/README.md
     
     success "Runtime directories setup completed"
 }
@@ -200,6 +216,43 @@ EOF
     success "Node identities setup completed"
 }
 
+# Setup secure credentials
+setup_credentials() {
+    log "Setting up secure credentials..."
+
+    # Generate secure secrets if they don't exist
+    if [ ! -f "/etc/aitbc/credentials/api_hash_secret" ]; then
+        python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/api_hash_secret
+        chmod 600 /etc/aitbc/credentials/api_hash_secret
+        log "Generated API_KEY_HASH_SECRET"
+    else
+        log "API_KEY_HASH_SECRET already exists"
+    fi
+
+    if [ ! -f "/etc/aitbc/credentials/keystore_password" ]; then
+        python3 -c "import secrets; print(secrets.token_hex(32))" > /etc/aitbc/credentials/keystore_password
+        chmod 600 /etc/aitbc/credentials/keystore_password
+        log "Generated keystore password"
+    else
+        log "Keystore password already exists"
+    fi
+
+    # Copy proposer_id from .env to credentials
+    if [ -f "/etc/aitbc/.env" ] && grep -q "^proposer_id=" /etc/aitbc/.env; then
+        grep "^proposer_id=" /etc/aitbc/.env | cut -d'=' -f2 > /etc/aitbc/credentials/proposer_id
+        chmod 600 /etc/aitbc/credentials/proposer_id
+        log "Copied proposer_id to credentials"
+    fi
+
+    # Add API_KEY_HASH_SECRET to .env if not present
+    if [ -f "/etc/aitbc/.env" ] && ! grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/.env; then
+        echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> /etc/aitbc/.env
+        log "Added API_KEY_HASH_SECRET to .env"
+    fi
+
+    success "Secure credentials setup completed"
+}
+
 # Setup Python virtual environments
 setup_venvs() {
     log "Setting up Python virtual environments..."
@@ -232,38 +285,45 @@ setup_venvs() {
 # Install systemd services
 install_services() {
     log "Installing systemd services..."
-    
-    # Install core services
-    services=(
-        "aitbc-wallet.service"
-        "aitbc-coordinator-api.service"
-        "aitbc-exchange-api.service"
-        "aitbc-blockchain-node.service"
-        "aitbc-blockchain-rpc.service"
-        "aitbc-marketplace.service"
-        "aitbc-openclaw.service"
-        "aitbc-ai.service"
-        "aitbc-learning.service"
-        "aitbc-explorer.service"
-        "aitbc-web-ui.service"
-        "aitbc-agent-coordinator.service"
-        "aitbc-agent-registry.service"
-        "aitbc-multimodal.service"
-        "aitbc-modality-optimization.service"
-    )
-    
-    for service in "${services[@]}"; do
-        if [ -f "/opt/aitbc/systemd/$service" ]; then
-            log "Installing $service..."
-            ln -sf "/opt/aitbc/systemd/$service" /etc/systemd/system/
-        else
-            warning "Service file not found: $service"
-        fi
-    done
-    
-    # Reload systemd
-    systemctl daemon-reload
-    
+
+    # Use link-systemd.sh script for consistent service linking
+    if [ -f "/opt/aitbc/scripts/utils/link-systemd.sh" ]; then
+        log "Using link-systemd.sh to install services..."
+        /opt/aitbc/scripts/utils/link-systemd.sh
+    else
+        warning "link-systemd.sh not found, using manual installation..."
+        # Install core services
+        services=(
+            "aitbc-wallet.service"
+            "aitbc-coordinator-api.service"
+            "aitbc-exchange-api.service"
+            "aitbc-blockchain-node.service"
+            "aitbc-blockchain-rpc.service"
+            "aitbc-marketplace.service"
+            "aitbc-openclaw.service"
+            "aitbc-ai.service"
+            "aitbc-learning.service"
+            "aitbc-explorer.service"
+            "aitbc-web-ui.service"
+            "aitbc-agent-coordinator.service"
+            "aitbc-agent-registry.service"
+            "aitbc-multimodal.service"
+            "aitbc-modality-optimization.service"
+        )
+
+        for service in "${services[@]}"; do
+            if [ -f "/opt/aitbc/systemd/$service" ]; then
+                log "Installing $service..."
+                ln -sf "/opt/aitbc/systemd/$service" /etc/systemd/system/
+            else
+                warning "Service file not found: $service"
+            fi
+        done
+
+        # Reload systemd
+        systemctl daemon-reload
+    fi
+
     success "Systemd services installed"
 }
 
@@ -406,18 +466,19 @@ setup_autostart() {
 # Main function
 main() {
     log "Starting AITBC setup..."
-    
+
     check_root
     check_prerequisites
     clone_repo
     setup_runtime_directories
     setup_node_identities
+    setup_credentials
     setup_venvs
     install_services
     create_health_check
     start_services
     setup_autostart
-    
+
     success "AITBC setup completed!"
     echo ""
     echo "Service Information:"
@@ -430,11 +491,19 @@ main() {
     echo "  Data: /var/lib/aitbc/data/"
     echo "  Logs: /var/lib/aitbc/logs/"
     echo "  Config: /etc/aitbc/"
+    echo "  Credentials: /etc/aitbc/credentials/ (600 permissions)"
+    echo "  Runtime secrets: /run/aitbc/secrets/ (tmpfs)"
     echo ""
     echo "Management Commands:"
     echo "  Health check: /opt/aitbc/health-check.sh"
+    echo "  Load secrets: /opt/aitbc/scripts/utils/load-keystore-secrets.sh"
     echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange-api"
     echo "  View logs: journalctl -u aitbc-wallet -f"
+    echo ""
+    echo "Security Notes:"
+    echo "  - Secrets stored in /etc/aitbc/credentials/ with 600 permissions"
+    echo "  - Services load secrets at runtime via systemd ExecStartPre"
+    echo "  - API_KEY_HASH_SECRET required (no insecure default)"
 }
 
 # Run main function
