@@ -212,6 +212,8 @@ class TransactionRequest(BaseModel):
     sig: Optional[str] = Field(alias="signature", default=None, description="Signature payload")
     value: Optional[int] = Field(default=None, description="Transaction value (amount to transfer)")
     amount: Optional[int] = Field(default=None, description="Transaction amount (alternative to value)")
+    
+    model_config = {"populate_by_name": True}
 
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
