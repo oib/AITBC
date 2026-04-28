@@ -205,7 +205,7 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 class TransactionRequest(BaseModel):
     type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
     sender: str = Field(alias="from")  # Accept both "sender" and "from"
-    to: Optional[str] = Field(default=None, description="Recipient address (required for TRANSFER)")
+    to: str = Field(description="Recipient address (required for TRANSFER)")
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
