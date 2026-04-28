@@ -311,9 +311,13 @@ async def buy_gpu(
         from ..schemas import JobCreate, JobPaymentCreate
         from ..services.jobs import JobService
         from ..services.payments import PaymentService
+        from sqlmodel import Session as SQLModelSession
         
-        # Create AI job for GPU compute using the main session
-        job_service = JobService(session)
+        # Create a new session for job creation to ensure it persists
+        job_session = SQLModelSession(bind=session.bind)
+        
+        # Create AI job for GPU compute
+        job_service = JobService(job_session)
         job_create = JobCreate(
             payload={
                 "type": "gpu_compute",
@@ -333,12 +337,14 @@ async def buy_gpu(
         )
         job = job_service.create_job(client_id=request.buyer_id, req=job_create)
         job_id = job.id
+        job_session.close()
         
         logger.info(f"Created job {job.id} for GPU purchase {booking_id}")
 
         # Create payment for the job (separate transaction)
         try:
-            payment_service = PaymentService(session)
+            payment_session = SQLModelSession(bind=session.bind)
+            payment_service = PaymentService(payment_session)
             payment_create = JobPaymentCreate(
                 job_id=job.id,
                 amount=total_cost,
@@ -349,6 +355,7 @@ async def buy_gpu(
             payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
             payment_id = payment.id
             payment_status = payment.status
+            payment_session.close()
             
             logger.info(f"Created payment {payment.id} for job {job.id}")
         except Exception as e:
