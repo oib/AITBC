@@ -292,16 +292,14 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
         print("Error: --item and --wallet are required")
         sys.exit(1)
 
-    # Submit purchase to coordinator API
+    # Submit purchase to coordinator API using existing book endpoint
     purchase_data = {
-        "buyer_id": args.wallet,
-        "duration_hours": 1.0,
-        "payment_method": "blockchain"
+        "duration_hours": 1.0
     }
 
     print(f"Submitting purchase to {coordinator_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/{args.item}/buy", json=purchase_data, timeout=30)
+        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/{args.item}/book", json=purchase_data, timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")
