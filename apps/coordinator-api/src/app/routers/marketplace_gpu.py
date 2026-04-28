@@ -22,6 +22,7 @@ from ..domain.job import Job
 from ..schemas import JobCreate, JobPaymentCreate
 from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrategy, ResourceType
 from ..services.jobs import JobService
+from ..services.market_data_collector import MarketDataCollector
 from ..services.payments import PaymentService
 
 logger = get_logger(__name__)
