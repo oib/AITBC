@@ -149,11 +149,6 @@ def init_db(chain_id: str = "") -> None:
             except OSError:
                 pass
 
-# Restricted engine access - only for internal use
-def get_engine():
-    """Get database engine (restricted access)"""
-    return _engine_internal
-
 # Backward compatibility - expose engine for escrow routes (to be removed in Phase 1.3)
 # TODO: Remove this in Phase 1.3 when escrow routes are updated
 engine = _engine_internal
