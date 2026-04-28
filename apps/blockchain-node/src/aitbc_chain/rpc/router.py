@@ -205,11 +205,13 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 class TransactionRequest(BaseModel):
     type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
     sender: str = Field(alias="from")  # Accept both "sender" and "from"
+    to: str = Field(description="Recipient address")
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
     sig: Optional[str] = Field(default=None, description="Signature payload")
     value: Optional[int] = Field(default=None, description="Transaction value (amount to transfer)")
+    amount: Optional[int] = Field(default=None, description="Transaction amount (alternative to value)")
 
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
