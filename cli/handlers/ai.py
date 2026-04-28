@@ -20,15 +20,82 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print("Error: --wallet, --type, and --prompt are required")
         sys.exit(1)
     
-    # Get auth headers
+    # Get password for signing
     password = read_password(args)
-    from keystore_auth import get_auth_headers
-    headers = get_auth_headers(wallet, password, args.password_file)
+    if not password:
+        print("Error: Password is required for signing")
+        sys.exit(1)
+    
+    # Get auth headers using correct decryption
+    from pathlib import Path
+    import json
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    
+    keystore_dir = Path("/var/lib/aitbc/keystore")
+    sender_keystore = keystore_dir / f"{wallet}.json"
+    
+    if not sender_keystore.exists():
+        print(f"Error: Wallet '{wallet}' not found")
+        sys.exit(1)
+    
+    # Decrypt private key using the correct method
+    try:
+        sys.path.insert(0, "/opt/aitbc/cli")
+        from aitbc_cli import decrypt_private_key
+        private_key_hex = decrypt_private_key(sender_keystore, password)
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+    except Exception as e:
+        print(f"Error decrypting wallet: {e}")
+        sys.exit(1)
+    
+    # Get sender address
+    with open(sender_keystore) as f:
+        sender_data = json.load(f)
+    sender_address = sender_data['address']
+    
+    # Get chain_id
+    try:
+        from sys.path import insert
+        insert(0, "/opt/aitbc")
+        from aitbc_cli.utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        chain_id = "ait-testnet"
+    
+    # Get actual nonce from blockchain
+    actual_nonce = 0
+    try:
+        account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
+        actual_nonce = account_data.get("nonce", 0)
+    except Exception:
+        actual_nonce = 0
+    
+    # Create transaction with AI job payload
+    transaction = {
+        "type": "TRANSFER",
+        "chain_id": chain_id,
+        "from": sender_address,
+        "nonce": actual_nonce,
+        "fee": 10,
+        "payload": {
+            "recipient": "ait0000000000000000000000000000000000000000",  # AI service address
+            "amount": payment if payment else 50,
+            "job_type": model,
+            "prompt": prompt
+        }
+    }
+    
+    # Sign transaction
+    import json
+    message = json.dumps(transaction, sort_keys=True).encode()
+    signature = private_key.sign(message)
+    transaction["signature"] = signature.hex()
     
     job_data = {
-        "wallet": wallet,
+        "wallet": sender_address,
         "model": model,
         "prompt": prompt,
+        "transaction": transaction
     }
     if payment:
         job_data["payment"] = payment
@@ -37,7 +104,7 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     
     print(f"Submitting AI job to {rpc_url}...")
     try:
-        response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, headers=headers, timeout=30)
+        response = requests.post(f"{rpc_url}/rpc/ai/submit", json=job_data, timeout=30)
         if response.status_code == 200:
             result = response.json()
             print("AI job submitted successfully")
