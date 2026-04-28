@@ -6,10 +6,35 @@ This document describes the blockchain synchronization issues discovered between
 
 ## Network Configuration
 
-- **Genesis Node (aitbc1)**: `10.1.223.40:8006`
-- **Follower Node (aitbc)**: `10.1.223.93:8006`
+- **Leader Node (aitbc)**: `10.1.223.93:8006` - Produces blocks, should NOT run chain-sync service
+- **Follower Node (aitbc1)**: `10.1.223.40:8006` - Imports blocks from leader, runs chain-sync service
 - **RPC Port**: `8006` on both nodes
 - **Database Location**: `/var/lib/aitbc/data/ait-mainnet/chain.db`
+
+## Service Configuration Requirements
+
+### Chain-Sync Service
+The `aitbc-blockchain-sync` service should **only run on follower nodes**, not on the leader node.
+
+**Why**: The chain-sync service imports blocks from a remote RPC endpoint. When running on the leader node:
+- It would try to import blocks it just created locally
+- This causes hash conflict warnings in the RPC logs
+- It's redundant since the leader already has all blocks
+- It creates unnecessary load on the system
+
+**Configuration**:
+- **Leader (aitbc)**: `aitbc-blockchain-sync` service should be **disabled**
+- **Followers (aitbc1, gitea-runner)**: `aitbc-blockchain-sync` service should be **enabled**
+
+**How to disable on leader node**:
+```bash
+systemctl disable --now aitbc-blockchain-sync
+```
+
+**How to enable on follower node**:
+```bash
+systemctl enable --now aitbc-blockchain-sync
+```
 
 ## Issues Identified
 
@@ -394,6 +419,6 @@ ssh aitbc1 'journalctl -u aitbc-blockchain-node -f'
 
 ---
 
-**Last Updated**: 2026-04-10
-**Version**: 1.0
+**Last Updated**: 2026-04-28
+**Version**: 1.1
 **Status**: Active Issues Documented
