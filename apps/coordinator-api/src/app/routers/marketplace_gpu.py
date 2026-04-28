@@ -224,20 +224,19 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
     return result
 
 
-@router.post("/marketplace/gpu/{gpu_id}/purchase")
+@router.post("/marketplace/gpu/purchase")
 async def buy_gpu(
-    gpu_id: str,
     request: GPUBuyRequest,
     session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
 ) -> dict[str, Any]:
     """Buy GPU compute from marketplace with blockchain payment."""
-    gpu = _get_gpu_or_404(session, gpu_id)
+    gpu = _get_gpu_or_404(session, request.gpu_id)
 
     if gpu.status != "available":
         raise HTTPException(
             status_code=http_status.HTTP_409_CONFLICT,
-            detail=f"GPU {gpu_id} is not available for purchase",
+            detail=f"GPU {request.gpu_id} is not available for purchase",
         )
 
     # Create booking for the purchase
@@ -263,7 +262,7 @@ async def buy_gpu(
     booking_id = str(uuid4())
     booking = GPUBooking(
         id=booking_id,
-        gpu_id=gpu_id,
+        gpu_id=request.gpu_id,
         job_id=f"purchase_{request.buyer_id[:8]}",
         duration_hours=request.duration_hours,
         total_cost=total_cost,
@@ -282,7 +281,7 @@ async def buy_gpu(
 
     return {
         "purchase_id": booking_id,
-        "gpu_id": gpu_id,
+        "gpu_id": request.gpu_id,
         "buyer_id": request.buyer_id,
         "duration_hours": request.duration_hours,
         "total_cost": total_cost,
@@ -294,14 +293,13 @@ async def buy_gpu(
     }
 
 
-@router.post("/marketplace/gpu/{gpu_id}/list_for_sale")
+@router.post("/marketplace/gpu/list_for_sale")
 async def sell_gpu(
-    gpu_id: str,
     request: GPUSellRequest,
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """List GPU for sale on marketplace with specified price."""
-    gpu = _get_gpu_or_404(session, gpu_id)
+    gpu = _get_gpu_or_404(session, request.gpu_id)
 
     # Update GPU listing
     gpu.price_per_hour = request.listing_price
@@ -311,7 +309,7 @@ async def sell_gpu(
     session.refresh(gpu)
 
     return {
-        "gpu_id": gpu_id,
+        "gpu_id": request.gpu_id,
         "seller_id": request.seller_id,
         "listing_price": request.listing_price,
         "status": "listed",
