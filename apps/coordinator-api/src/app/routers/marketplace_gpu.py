@@ -24,6 +24,7 @@ from ..services.dynamic_pricing_engine import DynamicPricingEngine, PricingStrat
 from ..services.jobs import JobService
 from ..services.market_data_collector import MarketDataCollector
 from ..services.payments import PaymentService
+from ..storage import get_session
 
 logger = get_logger(__name__)
 
