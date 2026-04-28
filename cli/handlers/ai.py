@@ -72,27 +72,6 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     except Exception:
         actual_nonce = 0
     
-    # Create transaction with AI job payload
-    transaction = {
-        "type": "TRANSFER",
-        "chain_id": chain_id,
-        "from": sender_address,
-        "nonce": actual_nonce,
-        "fee": 10,
-        "payload": {
-            "recipient": "ait0000000000000000000000000000000000000000",  # AI service address
-            "amount": payment if payment else 50,
-            "job_type": model,
-            "prompt": prompt
-        }
-    }
-    
-    # Sign transaction
-    import json
-    message = json.dumps(transaction, sort_keys=True).encode()
-    signature = private_key.sign(message)
-    transaction["signature"] = signature.hex()
-    
     job_data = {
         "task_data": {
             "agent_id": sender_address,
