@@ -205,7 +205,7 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 class TransactionRequest(BaseModel):
     type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
     sender: str = Field(alias="from")  # Accept both "sender" and "from"
-    recipient: str = Field(alias="to")  # Accept both "recipient" and "to"
+    recipient: str = Field(description="Recipient address (required for TRANSFER)")
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
@@ -221,9 +221,9 @@ class TransactionRequest(BaseModel):
             raise ValueError(f"unsupported transaction type: {normalized}. Valid types: {valid_types}")
         self.type = normalized
         
-        # Require 'to' field for TRANSFER transactions
-        if self.type == "TRANSFER" and not self.to:
-            raise ValueError("'to' field is required for TRANSFER transactions")
+        # Require 'recipient' field for TRANSFER transactions
+        if self.type == "TRANSFER" and not self.recipient:
+            raise ValueError("'recipient' field is required for TRANSFER transactions")
         
         return self
 
@@ -311,7 +311,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     from ..mempool import get_mempool
      
     try:
-        _logger.info(f"Received transaction request: sender={tx_data.sender}, to={tx_data.to}, value={tx_data.value}, payload={tx_data.payload}")
+        _logger.info(f"Received transaction request: sender={tx_data.sender}, recipient={tx_data.recipient}, value={tx_data.value}, payload={tx_data.payload}")
         mempool = get_mempool()
         chain_id = get_chain_id(None)
 
@@ -319,7 +319,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
         # Use top-level fields if available, otherwise fall back to payload
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.to if tx_data.to else tx_data.payload.get("to"),
+            "to": tx_data.recipient if tx_data.recipient else tx_data.payload.get("to"),
             "amount": tx_data.amount if tx_data.amount else tx_data.payload.get("amount", tx_data.value or 0),
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
@@ -328,8 +328,8 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
             "signature": tx_data.sig
         }
         
-        _logger.info(f"tx_data.to: {tx_data.to}, tx_data_dict['to']: {tx_data_dict['to']}")
-        _logger.info(f"tx_data.to is None: {tx_data.to is None}")
+        _logger.info(f"tx_data.recipient: {tx_data.recipient}, tx_data_dict['to']: {tx_data_dict['to']}")
+        _logger.info(f"tx_data.recipient is None: {tx_data.recipient is None}")
         _logger.info(f"tx_data.payload.get('to') is None: {tx_data.payload.get('to') is None}")
         
         _logger.info(f"Initial tx_data_dict amount: {tx_data_dict['amount']}")
