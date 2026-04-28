@@ -249,7 +249,7 @@ async def buy_gpu(
     session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
 ) -> dict[str, Any]:
-    """Buy GPU compute from marketplace with blockchain payment and AI job scheduling."""
+    """Buy GPU compute from marketplace with blockchain payment."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
 
     if gpu.status != "available":
@@ -277,51 +277,13 @@ async def buy_gpu(
 
     total_cost = request.duration_hours * current_price
 
-    # Create AI job for GPU compute
-    job_service = JobService(session)
-    job_create = JobCreate(
-        payload={
-            "type": "gpu_compute",
-            "gpu_id": request.gpu_id,
-            "task": "general_compute",
-            "duration_hours": request.duration_hours,
-        },
-        constraints=Constraints(
-            gpu=gpu.model,
-            region=gpu.region,
-            min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
-            max_price=current_price * 1.1,  # Allow 10% price variance
-        ),
-        ttl_seconds=int(request.duration_hours * 3600),
-        payment_amount=total_cost,
-        payment_currency="AITBC",
-    )
-    job = job_service.create_job(client_id=request.buyer_id, req=job_create)
-
-    # Create payment for the job
-    payment_service = PaymentService(session)
-    payment_create = JobPaymentCreate(
-        job_id=job.id,
-        amount=total_cost,
-        currency="AITBC",
-        payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
-        escrow_timeout_seconds=int(request.duration_hours * 3600),
-    )
-    payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
-
-    # Update job with payment reference
-    job.payment_id = payment.id
-    job.payment_status = payment.status
-    session.add(job)
-    session.commit()
-
-    # Create booking linked to the job
+    # Create booking
     booking_id = str(uuid4())
     booking = GPUBooking(
         id=booking_id,
         gpu_id=request.gpu_id,
         client_id=request.buyer_id,
-        job_id=job.id,
+        job_id=f"purchase_{request.buyer_id[:8]}",
         duration_hours=request.duration_hours,
         total_cost=total_cost,
         start_time=start_time,
@@ -341,14 +303,11 @@ async def buy_gpu(
         "purchase_id": booking_id,
         "gpu_id": request.gpu_id,
         "buyer_id": request.buyer_id,
-        "job_id": job.id,
-        "payment_id": payment.id,
         "duration_hours": request.duration_hours,
         "total_cost": total_cost,
         "price_per_hour": current_price,
         "status": "purchased",
         "payment_method": request.payment_method,
-        "payment_status": payment.status,
         "start_time": start_time.isoformat() + "Z",
         "end_time": end_time.isoformat() + "Z",
     }
