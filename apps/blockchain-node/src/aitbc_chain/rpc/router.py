@@ -220,12 +220,11 @@ class TransactionRequest(BaseModel):
         if normalized not in valid_types:
             raise ValueError(f"unsupported transaction type: {normalized}. Valid types: {valid_types}")
         self.type = normalized
-        return self
-
-    @model_validator(mode="after")
-    def validate_transfer_fields(self) -> "TransactionRequest":  # type: ignore[override]
+        
+        # Require 'to' field for TRANSFER transactions
         if self.type == "TRANSFER" and not self.to:
-            raise ValueError("transaction.to is required for TRANSFER transactions")
+            raise ValueError("'to' field is required for TRANSFER transactions")
+        
         return self
 
 
