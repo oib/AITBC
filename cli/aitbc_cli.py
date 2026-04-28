@@ -235,7 +235,7 @@ def send_transaction(from_wallet: str, to_address: str, amount: float, fee: floa
         "type": "TRANSFER",
         "chain_id": chain_id,
         "from": sender_address,
-        "to": to_address,
+        "recipient": to_address,
         "amount": int(amount),
         "fee": int(fee),
         "nonce": actual_nonce,
