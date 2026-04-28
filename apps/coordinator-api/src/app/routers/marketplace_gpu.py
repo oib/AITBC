@@ -291,10 +291,11 @@ async def buy_gpu(
         status="active",
     )
     
-    # Update GPU status
+    # Update GPU status to booked
     gpu.status = "booked"
     
     session.add(booking)
+    session.add(gpu)
     session.commit()
     session.refresh(gpu)
     session.refresh(booking)
