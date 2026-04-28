@@ -203,6 +203,8 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 
 
 class TransactionRequest(BaseModel):
+    model_config = {"populate_by_name": True}
+    
     type: str = Field(description="Transaction type, e.g. TRANSFER or RECEIPT_CLAIM")
     sender: str = Field(alias="from")
     nonce: int
