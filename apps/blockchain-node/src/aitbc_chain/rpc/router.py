@@ -211,6 +211,7 @@ class TransactionRequest(BaseModel):
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
     sig: Optional[str] = Field(default=None, description="Signature payload")
+    chain_id: Optional[str] = None
 
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
