@@ -224,7 +224,7 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
     return result
 
 
-@router.post("/marketplace/gpu/buy", status_code=http_status.HTTP_201_CREATED)
+@router.post("/marketplace/gpu/buy")
 async def buy_gpu(
     request: GPUBuyRequest,
     session: Annotated[Session, Depends(get_session)],
@@ -293,7 +293,7 @@ async def buy_gpu(
     }
 
 
-@router.post("/v1/marketplace/gpu/{gpu_id}/sell")
+@router.post("/marketplace/gpu/{gpu_id}/sell")
 async def sell_gpu(
     gpu_id: str,
     request: GPUSellRequest,
