@@ -92,7 +92,12 @@ class BlockchainNode:
 
     async def _setup_gossip_subscribers(self) -> None:
         logger.info("Setting up gossip subscribers")
-        # Transactions
+        
+        # Parse supported chains
+        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
+        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        
+        # Transactions (single topic for all chains)
         try:
             tx_sub = await gossip_broker.subscribe("transactions")
             logger.info("Successfully subscribed to transactions topic")
@@ -119,75 +124,74 @@ class BlockchainNode:
                     
         asyncio.create_task(process_txs())
 
-        # Blocks
-        try:
-            block_sub = await gossip_broker.subscribe("blocks")
-            logger.info("Successfully subscribed to blocks topic")
-        except Exception as e:
-            logger.error(f"Failed to subscribe to blocks: {e}")
-            return
-        
-        async def process_blocks():
-            last_bulk_sync_time = 0
-            logger.info("Block processing task started")
-            while True:
-                try:
-                    logger.info(f"Waiting for block from gossip queue...")
-                    block_data = await block_sub.queue.get()
-                    logger.info(f"Received block from gossip")
-                    if isinstance(block_data, str):
-                        import json
-                        block_data = json.loads(block_data)
-                    chain_id = block_data.get("chain_id", settings.chain_id)
-                    logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
-                    sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
-                    res = sync.import_block(block_data, transactions=block_data.get("transactions"))
-                    logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
-                    
-                    # Automatic bulk sync on gap detection
-                    if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
-                        # Parse gap size from reason string
+        # Blocks (chain-specific topics for each chain)
+        for chain_id in chains:
+            try:
+                block_topic = f"blocks.{chain_id}"
+                block_sub = await gossip_broker.subscribe(block_topic)
+                logger.info(f"Successfully subscribed to {block_topic} topic")
+                
+                async def process_blocks_for_chain(chain_id=chain_id):
+                    last_bulk_sync_time = 0
+                    logger.info(f"Block processing task started for chain {chain_id}")
+                    while True:
                         try:
-                            reason_parts = res.reason.split(":")
-                            our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
-                            received_height = int(reason_parts[2].strip().replace("received: ", "").replace(")", ""))
-                            gap_size = received_height - our_height
+                            block_data = await block_sub.queue.get()
+                            logger.info(f"Received block from gossip for chain {chain_id}")
+                            if isinstance(block_data, str):
+                                import json
+                                block_data = json.loads(block_data)
+                            logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
+                            sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
+                            res = sync.import_block(block_data, transactions=block_data.get("transactions"))
+                            logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
                             
-                            if gap_size > settings.auto_sync_threshold:
-                                current_time = asyncio.get_event_loop().time()
-                                time_since_last_sync = current_time - last_bulk_sync_time
-                                
-                                if time_since_last_sync >= settings.min_bulk_sync_interval:
-                                    logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync")
+                            # Automatic bulk sync on gap detection
+                            if not res.accepted and "Gap detected" in res.reason and settings.auto_sync_enabled:
+                                # Parse gap size from reason string
+                                try:
+                                    reason_parts = res.reason.split(":")
+                                    our_height = int(reason_parts[1].strip().split(",")[0].replace("our height: ", ""))
+                                    received_height = int(reason_parts[2].strip().replace("received: ", "").replace(")", ""))
+                                    gap_size = received_height - our_height
                                     
-                                    # Get source URL from block metadata if available
-                                    source_url = block_data.get("source_url")
-                                    if not source_url:
-                                        # Fallback to default peer RPC URL
-                                        source_url = settings.default_peer_rpc_url
-                                    
-                                    if source_url:
-                                        try:
-                                            imported = await sync.bulk_import_from(source_url)
-                                            logger.info(f"Bulk sync completed: {imported} blocks imported")
-                                            last_bulk_sync_time = current_time
+                                    if gap_size > settings.auto_sync_threshold:
+                                        current_time = asyncio.get_event_loop().time()
+                                        time_since_last_sync = current_time - last_bulk_sync_time
+                                        
+                                        if time_since_last_sync >= settings.min_bulk_sync_interval:
+                                            logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync")
                                             
-                                            # Retry block import after bulk sync
-                                            res = sync.import_block(block_data, transactions=block_data.get("transactions"))
-                                            logger.info(f"Retry import result: accepted={res.accepted}, reason={res.reason}")
-                                        except Exception as sync_exc:
-                                            logger.error(f"Automatic bulk sync failed: {sync_exc}")
-                                    else:
-                                        logger.warning("No source URL available for bulk sync")
-                                else:
-                                    logger.info(f"Skipping bulk sync, too recent ({time_since_last_sync:.0f}s ago)")
-                        except (ValueError, IndexError) as parse_exc:
-                            logger.error(f"Failed to parse gap size from reason: {res.reason}, error: {parse_exc}")
-                except Exception as exc:
-                    logger.error(f"Error processing block from gossip: {exc}")
+                                            # Get source URL from block metadata if available
+                                            source_url = block_data.get("source_url")
+                                            if not source_url:
+                                                # Fallback to default peer RPC URL
+                                                source_url = settings.default_peer_rpc_url
+                                            
+                                            if source_url:
+                                                try:
+                                                    imported = await sync.bulk_import_from(source_url)
+                                                    logger.info(f"Bulk sync completed: {imported} blocks imported")
+                                                    last_bulk_sync_time = current_time
+                                                    
+                                                    # Retry block import after bulk sync
+                                                    res = sync.import_block(block_data, transactions=block_data.get("transactions"))
+                                                    logger.info(f"Retry import result: accepted={res.accepted}, reason={res.reason}")
+                                                except Exception as sync_exc:
+                                                    logger.error(f"Automatic bulk sync failed: {sync_exc}")
+                                            else:
+                                                logger.warning("No source URL available for bulk sync")
+                                        else:
+                                            logger.info(f"Skipping bulk sync, too recent ({time_since_last_sync:.0f}s ago)")
+                                except (ValueError, IndexError) as parse_exc:
+                                    logger.error(f"Failed to parse gap size from reason: {res.reason}, error: {parse_exc}")
+                        except Exception as exc:
+                            logger.error(f"Error processing block from gossip for chain {chain_id}: {exc}")
+                
+                asyncio.create_task(process_blocks_for_chain(chain_id))
+            except Exception as e:
+                logger.error(f"Failed to subscribe to blocks.{chain_id}: {e}")
                     
-        logger.info("Creating block processing task")
-        asyncio.create_task(process_blocks())
         logger.info("Gossip subscribers setup completed")
 
     async def start(self) -> None:
@@ -202,7 +206,16 @@ class BlockchainNode:
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
         
-        init_db()
+        # Parse supported chains
+        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
+        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        logger.info(f"Initializing databases for chains: {chains}")
+        
+        # Initialize database for each supported chain
+        for chain_id in chains:
+            init_db(chain_id)
+            logger.info(f"Initialized database for chain: {chain_id}")
+        
         init_mempool(
             backend=settings.mempool_backend,
             db_path=str(settings.db_path.parent / "mempool.db"),

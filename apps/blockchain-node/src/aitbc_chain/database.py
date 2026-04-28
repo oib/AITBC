@@ -17,6 +17,27 @@ from .models import Block, Transaction, Account, Receipt, Escrow  # noqa: F401
 # Database encryption key (in production, this should come from HSM or secure key storage)
 _DB_ENCRYPTION_KEY = os.environ.get("AITBC_DB_KEY", "default_encryption_key_change_in_production")
 
+# Registry of chain-specific database engines
+_engines: dict[str, object] = {}
+_default_chain_id: str = ""
+
+def get_engine(chain_id: str = "") -> object:
+    """Get database engine for a specific chain.
+    
+    Args:
+        chain_id: Chain ID to get engine for. If empty, uses default chain.
+    
+    Returns:
+        SQLAlchemy engine for the chain.
+    """
+    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    
+    if resolved_chain_id not in _engines:
+        db_path = settings.get_db_path(resolved_chain_id)
+        _engines[resolved_chain_id] = create_engine(f"sqlite:///{db_path}", echo=False)
+    
+    return _engines[resolved_chain_id]
+
 # Standard SQLite with file-based encryption via file permissions
 _db_path = settings.db_path
 _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
@@ -70,33 +91,53 @@ def _secure_session_scope() -> Session:
 
 # Public session scope wrapper with validation
 @contextmanager
-def session_scope() -> Session:
-    """Public session scope with application-layer validation"""
-    with _secure_session_scope() as session:
+def session_scope(chain_id: str = "") -> Session:
+    """Public session scope with application-layer validation
+    
+    Args:
+        chain_id: Chain ID to use for database connection. If empty, uses default chain.
+    """
+    # Get chain-specific engine
+    engine = get_engine(chain_id)
+    
+    with Session(engine) as session:
         yield session
 
 # Internal engine reference (not exposed)
 _engine_internal = _engine
 
-def init_db() -> None:
-    """Initialize database with file-based encryption"""
-    settings.db_path.parent.mkdir(parents=True, exist_ok=True)
+def init_db(chain_id: str = "") -> None:
+    """Initialize database with file-based encryption
+    
+    Args:
+        chain_id: Chain ID to initialize. If empty, uses default chain.
+    """
+    resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    db_path = settings.get_db_path(resolved_chain_id)
+    
+    # Create database directory with chain_id subdirectory
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Get or create chain-specific engine
+    engine = get_engine(resolved_chain_id)
+    
     try:
-        SQLModel.metadata.create_all(_engine)
+        SQLModel.metadata.create_all(engine)
     except Exception as e:
         # If tables already exist, that's okay
         if "already exists" not in str(e):
             raise
+    
     # Set permissive file permissions on database file to handle filesystem restrictions
-    if settings.db_path.exists():
+    if db_path.exists():
         try:
-            os.chmod(settings.db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # Read/write for all
+            os.chmod(db_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)  # Read/write for all
         except OSError:
             # Ignore permission errors (e.g., read-only filesystem in containers)
             pass
         # Also set permissions on WAL files if they exist
-        wal_shm = settings.db_path.with_suffix('.db-shm')
-        wal_wal = settings.db_path.with_suffix('.db-wal')
+        wal_shm = db_path.with_suffix('.db-shm')
+        wal_wal = db_path.with_suffix('.db-wal')
         if wal_shm.exists():
             try:
                 os.chmod(wal_shm, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IWGRP | stat.S_IROTH | stat.S_IWOTH)

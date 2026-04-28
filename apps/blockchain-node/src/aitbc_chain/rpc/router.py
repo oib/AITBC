@@ -10,7 +10,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import select, delete
 
-from ..database import session_scope
+from ..database import session_scope, get_engine
 from ..gossip import gossip_broker
 from ..mempool import get_mempool
 from ..metrics import metrics_registry
@@ -45,8 +45,14 @@ def get_chain_id(chain_id: str = None) -> str:
     """Get chain_id from parameter or use default from settings"""
     if chain_id is None:
         from ..config import settings
-        return settings.chain_id
+        return settings.chain_id or "ait-mainnet"
     return chain_id
+
+def validate_chain_id(chain_id: str) -> bool:
+    """Validate that chain_id is in supported_chains list"""
+    from ..config import settings
+    supported_chains = [c.strip() for c in settings.supported_chains.split(",")]
+    return chain_id in supported_chains
 
 def get_supported_chains() -> List[str]:
     from ..config import settings
@@ -54,6 +60,13 @@ def get_supported_chains() -> List[str]:
     if not chains and settings.chain_id:
         return [settings.chain_id]
     return chains
+
+def get_chain_db(chain_id: str = None):
+    """Get chain-specific database engine"""
+    resolved_chain_id = get_chain_id(chain_id)
+    if not validate_chain_id(resolved_chain_id):
+        raise HTTPException(status_code=400, detail=f"Chain {resolved_chain_id} not in supported_chains")
+    return get_engine(resolved_chain_id)
 
 def _normalize_transaction_data(tx_data: Dict[str, Any], chain_id: str) -> Dict[str, Any]:
     sender = tx_data.get("from")
@@ -225,15 +238,11 @@ class EstimateFeeRequest(BaseModel):
 @router.get("/head", summary="Get current chain head")
 async def get_head(chain_id: str = None) -> Dict[str, Any]:
     """Get current chain head"""
-    from ..config import settings as cfg
-    
-    # Use default chain_id from settings if not provided
-    if chain_id is None:
-        chain_id = cfg.chain_id
+    chain_id = get_chain_id(chain_id)
     
     metrics_registry.increment("rpc_get_head_total")
     start = time.perf_counter()
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         result = session.exec(select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)).first()
         if result is None:
             metrics_registry.increment("rpc_get_head_not_found_total")
@@ -252,9 +261,10 @@ async def get_head(chain_id: str = None) -> Dict[str, Any]:
 async def get_block(height: int, chain_id: str = None) -> Dict[str, Any]:
     """Get block by height"""
     chain_id = get_chain_id(chain_id)
+    
     metrics_registry.increment("rpc_get_block_total")
     start = time.perf_counter()
-    with session_scope() as session:
+    with session_scope(chain_id) as session:
         block = session.exec(
             select(Block).where(Block.chain_id == chain_id).where(Block.height == height)
         ).first()
@@ -689,7 +699,7 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
             elif timestamp is None:
                 timestamp = datetime.utcnow()
 
-            with session_scope() as session:
+            with session_scope(chain_id) as session:
                 # Check for hash conflicts across chains
                 block_hash = block_data["hash"]
                 existing_block = session.execute(
