@@ -73,6 +73,11 @@ def handle_wallet_transactions(args, get_transactions, output_format, first):
 
 def handle_wallet_send(args, send_transaction, read_password, first):
     """Handle wallet send command."""
+    import sys
+    sys.path.insert(0, "/opt/aitbc/cli")
+    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+    from config import Config
+
     from_wallet = first(getattr(args, "from_wallet_arg", None), getattr(args, "from_wallet", None))
     to_address = first(getattr(args, "to_address_arg", None), getattr(args, "to_address", None))
     amount_value = first(getattr(args, "amount_arg", None), getattr(args, "amount", None))
@@ -104,7 +109,7 @@ def handle_wallet_send(args, send_transaction, read_password, first):
 
         if result.get('success'):
             print("Transaction sent successfully")
-            render_mapping("Transaction:", result)
+            print(f"Transaction hash: {result.get('transaction_hash')}")
         else:
             print(f"Transaction failed: {result.get('error', 'Unknown error')}")
             sys.exit(1)

@@ -286,8 +286,10 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace buy command via coordinator API using dual-mode wallet adapter."""
-    from ..utils.dual_mode_wallet_adapter import DualModeWalletAdapter
-    from ..config import Config
+    import sys
+    sys.path.insert(0, "/opt/aitbc/cli")
+    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+    from config import Config
 
     coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
 
@@ -314,14 +316,13 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
     # Submit purchase to coordinator API
     purchase_data = {
         "buyer_id": args.wallet,
-        "gpu_id": args.item,
         "duration_hours": 1.0,
         "payment_method": "blockchain"
     }
 
     print(f"Submitting purchase to {coordinator_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/purchase", json=purchase_data, timeout=30)
+        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/{args.item}/buy", json=purchase_data, timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")
