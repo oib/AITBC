@@ -302,7 +302,7 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
 
     print(f"Submitting purchase to {coordinator_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/buy", json=purchase_data, timeout=30)
+        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/purchase", json=purchase_data, timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")
