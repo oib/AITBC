@@ -26,7 +26,8 @@ except ImportError:
 class ChainSyncService:
     def __init__(self, redis_url: str, node_id: str, rpc_port: int = 8006, leader_host: str = None,
                  source_host: str = "127.0.0.1", source_port: int = None,
-                 import_host: str = "127.0.0.1", import_port: int = None):
+                 import_host: str = "127.0.0.1", import_port: int = None,
+                 chain_id: str = ""):
         self.redis_url = redis_url
         self.node_id = node_id
         self.rpc_port = rpc_port  # kept for backward compat (local poll if source_port None)
@@ -35,6 +36,7 @@ class ChainSyncService:
         self.source_port = source_port or rpc_port
         self.import_host = import_host
         self.import_port = import_port or rpc_port
+        self.chain_id = chain_id or getattr(settings, 'chain_id', '') or "ait-mainnet"
         self._stop_event = asyncio.Event()
         self._redis = None
         self._receiver_ready = asyncio.Event()
@@ -79,7 +81,7 @@ class ChainSyncService:
         try:
             async with session.get(
                 f"http://{self.import_host}:{self.import_port}/rpc/head",
-                params={"chain_id": settings.chain_id},
+                params={"chain_id": self.chain_id},
             ) as resp:
                 if resp.status == 200:
                     head_data = await resp.json()
@@ -108,7 +110,7 @@ class ChainSyncService:
                         last_broadcast_height = await self._get_import_head_height(session)
                         logger.info(f"Initialized sync baseline at height {last_broadcast_height} for node {self.node_id}")
 
-                    async with session.get(f"http://{self.source_host}:{self.source_port}/rpc/head") as resp:
+                    async with session.get(f"http://{self.source_host}:{self.source_port}/rpc/head", params={"chain_id": self.chain_id}) as resp:
                         if resp.status == 200:
                             head_data = await resp.json()
                             current_height = head_data.get('height', 0)

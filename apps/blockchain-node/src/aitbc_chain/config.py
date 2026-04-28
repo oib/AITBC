@@ -27,6 +27,21 @@ class ChainSettings(BaseSettings):
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
     db_path: Path = DATA_DIR / "data" / "chain.db"
 
+    def get_db_path(self, chain_id: str = "") -> Path:
+        """Get database path for a specific chain.
+        
+        Args:
+            chain_id: Chain ID to get path for. If empty, uses self.chain_id or default.
+        
+        Returns:
+            Path to chain-specific database file.
+        """
+        # Resolve chain_id: parameter > settings > default
+        resolved_chain_id = chain_id or self.chain_id or "ait-mainnet"
+        
+        # Build chain-specific path: DATA_DIR/data/{chain_id}/chain.db
+        return DATA_DIR / "data" / resolved_chain_id / "chain.db"
+
     rpc_bind_host: str = "0.0.0.0"  # nosec B104: intentional for distributed blockchain
     rpc_bind_port: int = 8080
 

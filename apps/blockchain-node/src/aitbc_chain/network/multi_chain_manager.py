@@ -108,11 +108,12 @@ class MultiChainManager:
             logger.warning("Cannot start default chain (already running)")
             return False
         
-        # Allocate ports
-        rpc_port, p2p_port = self._allocate_ports()
+        # Allocate ports (shared ports - no separate allocation)
+        rpc_port = self.base_rpc_port
+        p2p_port = self.base_p2p_port
         
-        # Create database path
-        db_path = self.base_db_path.parent / f"chain_{chain_id}.db"
+        # Create database path with subdirectory structure
+        db_path = self.base_db_path.parent / chain_id / "chain.db"
         
         # Create chain instance
         chain = ChainInstance(
