@@ -44,14 +44,22 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
         import base64
+        import traceback
         
         with open(sender_keystore) as f:
             keystore_data = json.load(f)
         
         crypto = keystore_data.get('crypto', {})
+        if not crypto:
+            raise ValueError("No crypto section in keystore")
+            
         cipherparams = crypto.get('cipherparams', {})
         salt = bytes.fromhex(cipherparams.get('salt', ''))
         ciphertext = bytes.fromhex(crypto.get('ciphertext', ''))
+        nonce = bytes.fromhex(cipherparams.get('nonce', ''))
+        
+        if not salt or not ciphertext or not nonce:
+            raise ValueError("Missing required crypto parameters")
         
         # Derive key using PBKDF2
         kdf = PBKDF2HMAC(
@@ -64,13 +72,14 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         
         # Decrypt using AES-256-GCM
         aesgcm = AESGCM(key)
-        nonce = bytes.fromhex(cipherparams.get('nonce', ''))
         decrypted = aesgcm.decrypt(nonce, ciphertext, None)
         private_key_hex = decrypted.hex()
         
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         print(f"Error decrypting wallet: {e}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
     
     # Get sender address
