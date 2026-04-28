@@ -83,96 +83,34 @@ def handle_wallet_send(args, send_transaction, read_password, first):
     if not from_wallet or not to_address or amount_value is None:
         print("Error: From wallet, destination, and amount are required")
         sys.exit(1)
-    
-    if not password:
-        print("Error: Password is required for signing transaction")
-        sys.exit(1)
-    
-    # Use default fee if not specified
-    fee = getattr(args, "fee", 10)
-    if fee is None:
-        fee = 10
-    
-    # Use direct RPC call with decrypted private key
-    from pathlib import Path
-    import json
-    from cryptography.hazmat.primitives.asymmetric import ed25519
-    
-    keystore_dir = Path("/var/lib/aitbc/keystore")
-    sender_keystore = keystore_dir / f"{from_wallet}.json"
-    
-    if not sender_keystore.exists():
-        print(f"Error: Wallet '{from_wallet}' not found")
-        sys.exit(1)
-    
-    with open(sender_keystore) as f:
-        sender_data = json.load(f)
-    
-    sender_address = sender_data['address']
-    
-    # Decrypt private key for signing
+
+    # Load config
     try:
-        sys.path.insert(0, "/opt/aitbc/cli")
-        import importlib.util
-        spec = importlib.util.spec_from_file_location('aitbc_cli_module', '/opt/aitbc/cli/aitbc_cli.py')
-        aitbc_cli_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(aitbc_cli_module)
-        private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
-    except Exception as e:
-        print(f"Error decrypting wallet: {e}")
-        sys.exit(1)
-    
-    # Get RPC URL
-    rpc_url = getattr(args, "rpc_url", "http://localhost:8006")
-    
-    # Get chain_id
-    try:
-        from sys.path import insert
-        insert(0, "/opt/aitbc")
-        from aitbc_cli.utils.chain_id import get_chain_id
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        config = Config()
     except Exception:
-        chain_id = "ait-testnet"
-    
-    # Get actual nonce from blockchain
-    actual_nonce = 0
+        config = None
+
+    # Use dual-mode adapter (daemon first, fallback to file)
+    adapter = DualModeWalletAdapter(config, use_daemon=True)
+
     try:
-        import requests
-        account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
-        actual_nonce = account_data.get("nonce", 0)
-    except Exception:
-        actual_nonce = 0
-    
-    # Create transaction with modern payload format
-    transaction = {
-        "type": "TRANSFER",
-        "chain_id": chain_id,
-        "from": sender_address,
-        "nonce": actual_nonce,
-        "fee": int(fee),
-        "payload": {
-            "recipient": to_address,
-            "amount": int(amount_value)
-        }
-    }
-    
-    # Sign transaction
-    message = json.dumps(transaction, sort_keys=True).encode()
-    signature = private_key.sign(message)
-    transaction["signature"] = signature.hex()
-    
-    # Submit to blockchain
-    try:
-        result = requests.post(f"{rpc_url}/rpc/transaction", json=transaction, timeout=30).json()
-        tx_hash = result.get("transaction_hash")
+        result = adapter.send_transaction(
+            wallet_name=from_wallet,
+            to_address=to_address,
+            amount=float(amount_value),
+            password=password,
+            description=getattr(args, 'description', '')
+        )
+
+        if result.get('success'):
+            print("Transaction sent successfully")
+            render_mapping("Transaction:", result)
+        else:
+            print(f"Transaction failed: {result.get('error', 'Unknown error')}")
+            sys.exit(1)
     except Exception as e:
-        print(f"Error submitting transaction: {e}")
+        print(f"Error sending transaction: {e}")
         sys.exit(1)
-    
-    if not tx_hash:
-        sys.exit(1)
-    print(f"Transaction hash: {tx_hash}")
 
 
 def handle_wallet_import(args, import_wallet, read_password, first):
