@@ -33,13 +33,16 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
     Otherwise, return the first key found.
     """
     if not keystore_dir.exists():
+        logger.warning(f"Keystore directory not found: {keystore_dir}")
         return None
     for kf in keystore_dir.glob("*.json"):
         try:
             with open(kf) as f:
                 data = json.load(f)
             addr = data.get("address")
+            logger.info(f"Checking keystore file: {kf.name}, address: {addr}")
             if target_address and addr != target_address:
+                logger.info(f"Address mismatch: {addr} != {target_address}")
                 continue
             # Decrypt
             from cryptography.hazmat.primitives.asymmetric import ed25519
