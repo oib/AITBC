@@ -59,6 +59,7 @@ class ChainSettings(BaseSettings):
 
     # Block production toggle (set false on followers)
     enable_block_production: bool = True
+    block_production_chains: str = ""  # Comma-separated list of chains to produce blocks for (empty = all supported chains)
 
     # Block production limits
     max_block_size_bytes: int = 1_000_000  # 1 MB
