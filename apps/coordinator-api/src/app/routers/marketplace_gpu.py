@@ -293,7 +293,7 @@ async def buy_gpu(
     }
 
 
-@router.post("/marketplace/gpu/list_for_sale")
+@router.post("/marketplace/gpu/sell")
 async def sell_gpu(
     request: GPUSellRequest,
     session: Annotated[Session, Depends(get_session)],
