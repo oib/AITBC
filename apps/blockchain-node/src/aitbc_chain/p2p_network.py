@@ -242,20 +242,26 @@ class P2PNetworkService:
                 # Find if we are already connected to a peer with this host/ip by inbound connections
                 # This prevents two nodes from endlessly redialing each other's listen ports
                 already_connected_ip = False
+                logger.debug(f"Checking if already connected to {host}, active connections: {len(self.active_connections)}")
                 for node_id, writer in self.active_connections.items():
                     peer_ip = writer.get_extra_info('peername')[0]
+                    logger.debug(f"Checking peer {node_id} with IP {peer_ip} against host {host}")
                     # Handle hostname resolution for common node names
                     if peer_ip == host:
                         already_connected_ip = True
+                        logger.debug(f"Match: peer_ip == host ({peer_ip} == {host})")
                         break
                     elif host == "aitbc" and peer_ip == "10.1.223.93":
                         already_connected_ip = True
+                        logger.debug(f"Match: aitbc hostname resolved to {peer_ip}")
                         break
                     elif host == "aitbc1" and peer_ip.startswith("10.1.223."):
                         already_connected_ip = True
+                        logger.debug(f"Match: aitbc1 hostname resolved to {peer_ip}")
                         break
                     elif host == "gitea-runner" and peer_ip == "10.1.223.98":
                         already_connected_ip = True
+                        logger.debug(f"Match: gitea-runner hostname resolved to {peer_ip}")
                         break
                          
                 if already_connected_ip:
