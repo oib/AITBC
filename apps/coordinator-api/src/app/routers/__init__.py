@@ -1,6 +1,12 @@
 """Router modules for the coordinator API."""
 
-from .admin import router as admin
+# Skip optional routers with missing dependencies
+try:
+    from .admin import router as admin
+except ImportError:
+    admin = None
+    print("WARNING: Admin router not available (missing slowapi)")
+
 from .agent_identity import router as agent_identity
 from .blockchain import router as blockchain
 from .cache_management import router as cache_management

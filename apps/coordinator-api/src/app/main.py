@@ -56,7 +56,6 @@ from .routers import (
     global_marketplace_integration,
     governance_enhanced,
     marketplace,
-    marketplace_gpu,
     marketplace_offers,
     miner,
     payments,
@@ -64,6 +63,14 @@ from .routers import (
     users,
     web_vitals,
 )
+
+# Skip optional routers with missing dependencies
+try:
+    from .routers.admin import router as admin
+except ImportError:
+    admin = None
+    print("WARNING: Admin router not available (missing slowapi)")
+from .routers.marketplace_gpu import router as marketplace_gpu
  
 # Skip optional routers with missing dependencies
 try:
