@@ -287,21 +287,22 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace buy command via coordinator API."""
     coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
-    
+
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
         sys.exit(1)
-    
-    # Submit purchase to coordinator API (no blockchain transaction needed for now)
+
+    # Submit purchase to coordinator API
     purchase_data = {
-        "item_id": args.item,
-        "wallet": args.wallet,
-        "action": "buy"
+        "buyer_id": args.wallet,
+        "gpu_id": args.item,
+        "duration_hours": 1.0,
+        "payment_method": "blockchain"
     }
-    
+
     print(f"Submitting purchase to {coordinator_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/buy", json=purchase_data, timeout=30)
+        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/buy", json=purchase_data, timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")
