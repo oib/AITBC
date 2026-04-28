@@ -357,6 +357,8 @@ async def buy_gpu(
         booking.job_id = job.id
         session.add(booking)
         session.commit()
+        
+        logger.info(f"Successfully created job {job.id} and payment {payment.id} for GPU purchase {booking_id}")
     except Exception as e:
         logger.error(f"Failed to create job/payment for GPU purchase: {e}")
         # Continue without job/payment - the purchase is still valid
