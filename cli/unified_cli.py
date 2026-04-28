@@ -408,6 +408,9 @@ def run_cli(argv, core):
     def handle_market_gpu_list(args):
         market_handlers.handle_market_gpu_list(args, default_coordinator_url, output_format)
 
+    def handle_market_buy(args):
+        market_handlers.handle_market_buy(args, default_rpc_url, read_password, render_mapping)
+
     def handle_ai_submit(args):
         ai_handlers.handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping)
 
