@@ -312,7 +312,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     from ..mempool import get_mempool
      
     try:
-        _logger.info(f"Received transaction request: sender={tx_data.sender}, value={tx_data.value}, payload={tx_data.payload}")
+        _logger.info(f"Received transaction request: sender={tx_data.sender}, to={tx_data.to}, value={tx_data.value}, payload={tx_data.payload}")
         mempool = get_mempool()
         chain_id = get_chain_id(None)
 
