@@ -724,101 +724,94 @@ def address(ctx):
 @wallet.command()
 @click.argument("to_address")
 @click.argument("amount", type=float)
-@click.option("--description", help="Transaction description")
+@click.option("--fee", type=float, default=10, help="Transaction fee")
+@click.option("--password", help="Wallet password for signing")
+@click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
-def send(ctx, to_address: str, amount: float, description: Optional[str]):
+def send(ctx, to_address: str, amount: float, fee: float, password: Optional[str], rpc_url: Optional[str]):
     """Send AITBC to another address"""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
-    config = ctx.obj.get("config")
 
     if not wallet_path.exists():
         error(f"Wallet '{wallet_name}' not found")
         return
 
     wallet_data = _load_wallet(wallet_path, wallet_name)
+    sender_address = wallet_data["address"]
 
-    balance = wallet_data.get("balance", 0)
-    if balance < amount:
-        error(f"Insufficient balance. Available: {balance}, Required: {amount}")
-        ctx.exit(1)
+    # Get RPC URL from context or parameter
+    if not rpc_url:
+        from ..config import get_config
+        config = get_config()
+        rpc_url = getattr(config, 'blockchain_rpc_url', 'http://localhost:8006')
+
+    # Get chain_id from RPC
+    try:
+        from ..utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+    except Exception:
+        chain_id = "ait-testnet"
+
+    # Get actual nonce from blockchain
+    actual_nonce = 0
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+        account_data = http_client.get(f"/rpc/account/{sender_address}")
+        actual_nonce = account_data.get("nonce", 0)
+    except Exception:
+        actual_nonce = 0
+
+    # Get private key for signing
+    try:
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+        private_key_hex = wallet_data.get("private_key")
+        if not private_key_hex:
+            error("Wallet does not contain private key")
+            return
+
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+    except Exception as e:
+        error(f"Error loading private key: {e}")
         return
 
-    # Try to send via blockchain
-    if config:
-        try:
-            http_client = AITBCHTTPClient(
-                base_url=config.coordinator_url.replace('/api', ''),
-                timeout=30,
-                headers={"X-Api-Key": getattr(config, "api_key", "") or ""}
-            )
-            result = http_client.post(
-                "/rpc/transactions",
-                json={
-                    "from": wallet_data["address"],
-                    "to": to_address,
-                    "amount": amount,
-                    "description": description or "",
-                }
-            )
-
-            if result:
-                success(f"Transaction sent: {result.get('transaction_hash', 'N/A')}")
-                output(result, ctx.obj.get("output_format", "table"))
-                return
-                        "timestamp": datetime.now().isoformat(),
-                    }
-
-                    wallet_data["transactions"].append(transaction)
-                    wallet_data["balance"] = balance - amount
-
-                    with open(wallet_path, "w") as f:
-                        json.dump(wallet_data, f, indent=2)
-
-                    success(f"Sent {amount} AITBC to {to_address}")
-                    output(
-                        {
-                            "wallet": wallet_name,
-                            "tx_hash": tx.get("hash"),
-                            "amount": amount,
-                            "to": to_address,
-                            "new_balance": wallet_data["balance"],
-                        },
-                        ctx.obj.get("output_format", "table"),
-                    )
-                    return
-        except Exception as e:
-            error(f"Network error: {e}")
-
-    # Fallback: just record locally
+    # Create transaction with modern payload format
     transaction = {
-        "type": "send",
-        "amount": -amount,
-        "to_address": to_address,
-        "description": description or "",
-        "timestamp": datetime.now().isoformat(),
-        "pending": True,
+        "type": "TRANSFER",
+        "chain_id": chain_id,
+        "from": sender_address,
+        "nonce": actual_nonce,
+        "fee": int(fee),
+        "payload": {
+            "recipient": to_address,
+            "amount": int(amount)
+        }
     }
 
-    wallet_data["transactions"].append(transaction)
-    wallet_data["balance"] = balance - amount
+    # Sign transaction
+    import json
+    message = json.dumps(transaction, sort_keys=True).encode()
+    signature = private_key.sign(message)
+    transaction["signature"] = signature.hex()
 
-    # Save wallet with encryption
-    password = None
-    if wallet_data.get("encrypted"):
-        password = _get_wallet_password(wallet_name)
-    _save_wallet(wallet_path, wallet_data, password)
-
-    output(
-        {
-            "wallet": wallet_name,
-            "amount": amount,
+    # Submit to blockchain
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        result = http_client.post("/rpc/transaction", json=transaction)
+        tx_hash = result.get("transaction_hash")
+        success(f"Transaction submitted: {tx_hash}")
+        output({
+            "transaction_hash": tx_hash,
+            "from": sender_address,
             "to": to_address,
-            "new_balance": wallet_data["balance"],
-            "note": "Transaction recorded locally (pending blockchain confirmation)",
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+            "amount": amount,
+            "fee": fee,
+            "chain_id": chain_id
+        }, ctx.obj.get("output_format", "table"))
+        return tx_hash
+    except Exception as e:
+        error(f"Error submitting transaction: {e}")
+        return None
 
 
 @wallet.command()
