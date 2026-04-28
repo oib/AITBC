@@ -203,30 +203,35 @@ def _serialize_receipt(receipt: Receipt) -> Dict[str, Any]:
 
 
 class TransactionRequest(BaseModel):
-    model_config = {"populate_by_name": True}
-    
-    type: str = Field(description="Transaction type, e.g. TRANSFER, RECEIPT_CLAIM, GPU_MARKETPLACE, EXCHANGE, MESSAGE")
-    sender: str = Field(alias="from")  # Accept both "sender" and "from"
-    recipient: str = Field(validation_alias="to", description="Recipient address (required for TRANSFER)")
+    type: str = Field(description="Transaction type, e.g. TRANSFER or RECEIPT_CLAIM")
+    sender: str
     nonce: int
     fee: int = Field(ge=0)
     payload: Dict[str, Any]
-    sig: Optional[str] = Field(validation_alias="signature", default=None, description="Signature payload")
-    value: Optional[int] = Field(default=None, description="Transaction value (amount to transfer)")
-    amount: Optional[int] = Field(default=None, description="Transaction amount (alternative to value)")
+    sig: Optional[str] = Field(default=None, description="Signature payload")
 
     @model_validator(mode="after")
     def normalize_type(self) -> "TransactionRequest":  # type: ignore[override]
         normalized = self.type.upper()
-        valid_types = {"TRANSFER", "RECEIPT_CLAIM", "GPU_MARKETPLACE", "EXCHANGE", "MESSAGE"}
-        if normalized not in valid_types:
-            raise ValueError(f"unsupported transaction type: {normalized}. Valid types: {valid_types}")
+        if normalized not in {"TRANSFER", "RECEIPT_CLAIM"}:
+            raise ValueError(f"unsupported transaction type: {self.type}")
         self.type = normalized
-        
-        # Require 'recipient' field for TRANSFER transactions
-        if self.type == "TRANSFER" and not self.recipient:
-            raise ValueError("'recipient' field is required for TRANSFER transactions")
-        
+
+        # Support both payload shapes during migration:
+        # - {"recipient": "...", "amount": ...}
+        # - {"to": "...", "value": ...}
+        if self.type == "TRANSFER":
+            recipient = self.payload.get("recipient") or self.payload.get("to")
+            if not recipient:
+                raise ValueError("transfer payload requires 'recipient' (or legacy 'to')")
+            self.payload["recipient"] = recipient
+            self.payload.setdefault("to", recipient)
+
+            if "amount" not in self.payload and "value" in self.payload:
+                self.payload["amount"] = self.payload["value"]
+            if "value" not in self.payload and "amount" in self.payload:
+                self.payload["value"] = self.payload["amount"]
+
         return self
 
 
@@ -313,16 +318,15 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
     from ..mempool import get_mempool
      
     try:
-        _logger.info(f"Received transaction request: sender={tx_data.sender}, recipient={tx_data.recipient}, value={tx_data.value}, payload={tx_data.payload}")
+        _logger.info(f"Received transaction request: sender={tx_data.sender}, payload={tx_data.payload}")
         mempool = get_mempool()
         chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
-        # Use top-level fields if available, otherwise fall back to payload
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.recipient,
-            "amount": tx_data.amount if tx_data.amount else tx_data.payload.get("amount", tx_data.value or 0),
+            "to": tx_data.payload.get("recipient") or tx_data.payload.get("to"),
+            "amount": tx_data.payload.get("amount", tx_data.payload.get("value", 0)),
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
@@ -330,19 +334,7 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
             "signature": tx_data.sig
         }
         
-        _logger.info(f"tx_data.recipient: {tx_data.recipient}, tx_data_dict['to']: {tx_data_dict['to']}")
-        _logger.info(f"tx_data.recipient is None: {tx_data.recipient is None}")
-        
-        _logger.info(f"Initial tx_data_dict amount: {tx_data_dict['amount']}")
-        
-        # If value is provided at top level, use it instead of payload.amount
-        if hasattr(tx_data, 'value') and tx_data.value is not None:
-            _logger.info(f"Using top-level value: {tx_data.value}")
-            tx_data_dict["amount"] = tx_data.value
-        else:
-            _logger.info(f"No top-level value, using payload amount: {tx_data_dict['amount']}")
-        
-        _logger.info(f"Final tx_data_dict amount: {tx_data_dict['amount']}")
+        _logger.info(f"tx_data_dict['to']: {tx_data_dict['to']}")
         
         tx_data_dict = _normalize_transaction_data(tx_data_dict, chain_id)
         _validate_transaction_admission(tx_data_dict, mempool)
