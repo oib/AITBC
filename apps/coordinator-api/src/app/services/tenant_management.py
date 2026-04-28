@@ -363,7 +363,9 @@ class TenantManagementService:
         api_key = f"ask_{secrets.token_urlsafe(32)}"
         # SECURITY FIX: Use HMAC with secret key instead of plain sha256 for API key hashing
         import hmac
-        secret_key = os.environ.get("API_KEY_HASH_SECRET", "default-secret-change-in-production")
+        secret_key = os.environ.get("API_KEY_HASH_SECRET")
+        if not secret_key:
+            raise ValueError("API_KEY_HASH_SECRET environment variable not set")
         key_hash = hmac.new(secret_key.encode(), api_key.encode(), hashlib.sha256).hexdigest()
         key_prefix = api_key[:8]
 
