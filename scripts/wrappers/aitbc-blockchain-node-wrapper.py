@@ -25,6 +25,6 @@ os.environ["LOG_DIR"] = str(LOG_DIR)
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
-    "aitbc_chain.combined_main"
+    "aitbc_chain.main"
 ]
 os.execvp(exec_cmd[0], exec_cmd)
