@@ -38,18 +38,6 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print(f"Error: Wallet '{wallet}' not found")
         sys.exit(1)
     
-    # Decrypt private key for signing (using same method as wallet handler)
-    try:
-        sys.path.insert(0, "/opt/aitbc/cli")
-        from aitbc_cli import decrypt_private_key
-        private_key_hex = decrypt_private_key(sender_keystore, password)
-        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
-    except Exception as e:
-        print(f"Error decrypting wallet: {e}")
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
-    
     # Get sender address
     with open(sender_keystore) as f:
         sender_data = json.load(f)
@@ -72,6 +60,8 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     except Exception:
         actual_nonce = 0
     
+    # Submit directly to Agent Coordinator (no blockchain transaction needed)
+    coordinator_url = "http://localhost:9001"
     job_data = {
         "task_data": {
             "agent_id": sender_address,
@@ -86,8 +76,6 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     if chain_id:
         job_data["task_data"]["chain_id"] = chain_id
     
-    # Submit to Agent Coordinator instead of blockchain RPC
-    coordinator_url = "http://localhost:9001"
     print(f"Submitting AI job to {coordinator_url}...")
     try:
         response = requests.post(f"{coordinator_url}/tasks/submit", json=job_data, timeout=30)
