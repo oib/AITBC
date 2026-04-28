@@ -72,7 +72,7 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
             logger.info(f"Successfully decrypted keystore file: {kf.name}")
             return private_bytes
         except Exception as e:
-            logger.warning(f"Failed to decrypt keystore file {kf.name}: {e}")
+            logger.warning(f"Failed to decrypt keystore file {kf.name}: {type(e).__name__}: {str(e)}")
             continue
     return None
 
