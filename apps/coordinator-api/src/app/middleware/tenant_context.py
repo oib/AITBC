@@ -152,7 +152,12 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
         # SECURITY FIX: Use HMAC with a secret key instead of plain sha256 for API key hashing
         # This prevents rainbow table attacks and provides better security
         import hmac
-        secret_key = os.environ.get("API_KEY_HASH_SECRET", "default-secret-change-in-production")
+        secret_key = os.environ.get("API_KEY_HASH_SECRET")
+        if not secret_key:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="API_KEY_HASH_SECRET environment variable not set"
+            )
         key_hash = hmac.new(secret_key.encode(), api_key.encode(), hashlib.sha256).hexdigest()
 
         db = next(get_db())

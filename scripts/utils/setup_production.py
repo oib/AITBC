@@ -42,14 +42,21 @@ def main():
     run(f"mkdir -p {KEYS_DIR}")
     run(f"chown -R root:root {KEYS_DIR}")
     
-    # SECURITY FIX: Use environment variable instead of hardcoded password
-    # Avoid writing password to disk - pass directly to keystore script
+    # SECURITY FIX: Use credential system instead of writing password to disk
+    # Password is stored in /etc/aitbc/credentials/keystore_password with 600 permissions
     password = os.environ.get("AITBC_KEYSTORE_PASSWORD")
     if not password:
-        # Generate secure random password if not provided
-        password = secrets.token_hex(32)
-        PASSWORD_FILE.write_text(password)
-        run(f"chmod 600 {PASSWORD_FILE}")
+        # Read from credential file if not provided
+        cred_file = Path("/etc/aitbc/credentials/keystore_password")
+        if cred_file.exists():
+            password = cred_file.read_text().strip()
+        else:
+            # Generate secure random password and store in credentials
+            password = secrets.token_hex(32)
+            cred_file.parent.mkdir(parents=True, exist_ok=True)
+            cred_file.write_text(password)
+            os.chmod(cred_file, 0o600)
+            print(f"[INFO] Password stored in {cred_file} with 600 permissions")
     else:
         # Use provided password from environment without writing to disk
         # Clear password from environment variable for security

@@ -8,6 +8,8 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
+EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 UnsetEnvironment=enable_block_production ENABLE_BLOCK_PRODUCTION

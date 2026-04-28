@@ -195,7 +195,7 @@ class PoAProposer:
             if block_generation_mode == "mempool-only":
                 # Strict mempool-only mode: skip if empty
                 if mempool_size == 0:
-                    self._logger.info(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id}, mode=mempool-only)")
+                    self._logger.debug(f"[PROPOSE] Skipping block proposal: mempool is empty (chain={self._config.chain_id}, mode=mempool-only)")
                     metrics_registry.increment("sync_empty_blocks_skipped_total")
                     return False
             elif block_generation_mode == "hybrid":
@@ -203,7 +203,7 @@ class PoAProposer:
                 if self._last_block_timestamp:
                     time_since_last_block = (datetime.utcnow() - self._last_block_timestamp).total_seconds()
                     if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
-                        self._logger.info(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
+                        self._logger.debug(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
                         metrics_registry.increment("sync_empty_blocks_skipped_total")
                         return False
                     elif mempool_size == 0 and time_since_last_block >= max_empty_block_interval:
@@ -212,7 +212,7 @@ class PoAProposer:
                         metrics_registry.observe("sync_time_since_last_block_seconds", time_since_last_block)
                 elif mempool_size == 0:
                     # No previous block timestamp, skip (will be set after genesis)
-                    self._logger.info(f"[PROPOSE] Skipping block proposal: no previous block timestamp (chain={self._config.chain_id}, mode=hybrid)")
+                    self._logger.debug(f"[PROPOSE] Skipping block proposal: no previous block timestamp (chain={self._config.chain_id}, mode=hybrid)")
                     metrics_registry.increment("sync_empty_blocks_skipped_total")
                     return False
 

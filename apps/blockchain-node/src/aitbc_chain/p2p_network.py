@@ -696,7 +696,6 @@ def main():
     )
     
     try:
-        from .config import settings
         from .mempool import init_mempool
         import pathlib
         
