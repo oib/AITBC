@@ -323,10 +323,15 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
         chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
+        to_field = tx_data.payload.get("recipient") or tx_data.payload.get("to")
+        amount_field = tx_data.payload.get("amount", tx_data.payload.get("value", 0))
+        
+        _logger.info(f"Extracted to_field: {to_field}, amount_field: {amount_field}")
+        
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.payload.get("recipient") or tx_data.payload.get("to"),
-            "amount": tx_data.payload.get("amount", tx_data.payload.get("value", 0)),
+            "to": to_field,
+            "amount": amount_field,
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
