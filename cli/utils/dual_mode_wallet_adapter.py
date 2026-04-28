@@ -20,20 +20,14 @@ from utils import error, success, output
 class DualModeWalletAdapter:
     """Adapter supporting both file-based and daemon-based wallet operations"""
     
-    def __init__(self, config: Config, use_daemon: bool = False, chain_id: Optional[str] = None):
+    def __init__(self, config=None, use_daemon: bool = False, chain_id: Optional[str] = None):
         self.config = config
         self.use_daemon = use_daemon
         self.chain_id = chain_id
         self.wallet_dir = Path.home() / ".aitbc" / "wallets"
         self.wallet_dir.mkdir(parents=True, exist_ok=True)
         
-        # Auto-detect chain_id if not provided
-        if not self.chain_id:
-            from aitbc_cli.utils.chain_id import get_chain_id
-            default_rpc_url = config.blockchain_rpc_url if hasattr(config, 'blockchain_rpc_url') else 'http://localhost:8006'
-            self.chain_id = get_chain_id(default_rpc_url)
-        
-        if use_daemon:
+        if use_daemon and config:
             self.daemon_client = WalletDaemonClient(config)
         else:
             self.daemon_client = None

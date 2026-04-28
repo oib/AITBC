@@ -28,54 +28,14 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     keystore_dir = Path("/var/lib/aitbc/keystore")
     sender_keystore = keystore_dir / f"{wallet}.json"
     
-    if not sender_keystore.exists():
-        print(f"Error: Wallet '{wallet}' not found")
-        sys.exit(1)
-    
-    with open(sender_keystore) as f:
-        sender_data = json.load(f)
-    sender_address = sender_data['address']
-    
-    # Get chain_id
-    try:
-        from sys.path import insert
-        insert(0, "/opt/aitbc")
-        from aitbc_cli.utils.chain_id import get_chain_id
-        chain_id = get_chain_id(coordinator_url, override=None, timeout=5)
-    except Exception:
-        chain_id = "ait-testnet"
-    
-    # Get actual nonce from blockchain
-    actual_nonce = 0
-    try:
-        account_data = requests.get(f"{coordinator_url}/rpc/account/{sender_address}", timeout=5).json()
-        actual_nonce = account_data.get("nonce", 0)
-    except Exception:
-        pass
+    coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
 
+    # Build AI job request
     job_data = {
-        "model": model,
-        "prompt": prompt,
-        "payment": payment,
-        "chain_id": chain_id,
-        "nonce": actual_nonce,
+        "model": getattr(args, 'model', 'llama2'),
+        "prompt": getattr(args, 'prompt', ''),
+        "parameters": getattr(args, 'parameters', {})
     }
-
-    # If wallet specified, use dual-mode adapter for payment
-    wallet_name = getattr(args, 'wallet', None)
-    if wallet_name:
-        try:
-            config = Config()
-            adapter = DualModeWalletAdapter(config, use_daemon=True)
-            
-            # Get wallet balance via daemon first
-            balance_info = adapter.get_wallet_balance(wallet_name)
-            if balance_info:
-                print(f"Wallet balance (daemon): {balance_info.get('balance', 0)} AIT")
-            else:
-                print("Could not get balance from daemon, trying file-based...")
-        except Exception as e:
-            print(f"Note: Wallet daemon not available ({e}), will proceed without payment verification")
 
     print(f"Submitting AI job to {coordinator_url}...")
     try:

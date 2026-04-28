@@ -73,11 +73,10 @@ def handle_wallet_transactions(args, get_transactions, output_format, first):
 
 def handle_wallet_send(args, send_transaction, read_password, first):
     """Handle wallet send command."""
-    import sys
-    sys.path.insert(0, "/opt/aitbc/cli")
-    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
-    from config import Config
-
+    from pathlib import Path
+    import json
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+    
     from_wallet = first(getattr(args, "from_wallet_arg", None), getattr(args, "from_wallet", None))
     to_address = first(getattr(args, "to_address_arg", None), getattr(args, "to_address", None))
     amount_value = first(getattr(args, "amount_arg", None), getattr(args, "amount", None))
@@ -88,33 +87,102 @@ def handle_wallet_send(args, send_transaction, read_password, first):
     if not from_wallet or not to_address or amount_value is None:
         print("Error: From wallet, destination, and amount are required")
         sys.exit(1)
-
-    # Load config
+    
+    if not password:
+        print("Error: Password is required for signing transaction")
+        sys.exit(1)
+    
+    # Use default fee if not specified
+    fee = getattr(args, "fee", 10)
+    if fee is None:
+        fee = 10
+    
+    # Use direct RPC call with decrypted private key
+    keystore_dir = Path("/var/lib/aitbc/keystore")
+    sender_keystore = keystore_dir / f"{from_wallet}.json"
+    
+    if not sender_keystore.exists():
+        print(f"Error: Wallet '{from_wallet}' not found")
+        sys.exit(1)
+    
+    with open(sender_keystore) as f:
+        sender_data = json.load(f)
+    
+    sender_address = sender_data['address']
+    
+    # Decrypt private key for signing
     try:
-        config = Config()
+        sys.path.insert(0, "/opt/aitbc/cli")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location('aitbc_cli_module', '/opt/aitbc/cli/aitbc_cli.py')
+        aitbc_cli_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(aitbc_cli_module)
+        private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
+        private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
+    except Exception as e:
+        print(f"Error decrypting wallet: {e}")
+        sys.exit(1)
+    
+    # Get RPC URL
+    rpc_url = getattr(args, "rpc_url", "http://localhost:8006")
+    
+    # Get chain_id
+    try:
+        from sys.path import insert
+        insert(0, "/opt/aitbc")
+        from aitbc_cli.utils.chain_id import get_chain_id
+        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
     except Exception:
-        config = None
-
-    # Use dual-mode adapter (daemon first, fallback to file)
-    adapter = DualModeWalletAdapter(config, use_daemon=True)
-
+        chain_id = "ait-testnet"
+    
+    # Get actual nonce from blockchain
+    actual_nonce = 0
     try:
-        result = adapter.send_transaction(
-            wallet_name=from_wallet,
-            to_address=to_address,
-            amount=float(amount_value),
-            password=password,
-            description=getattr(args, 'description', '')
-        )
-
-        if result.get('success'):
-            print("Transaction sent successfully")
-            print(f"Transaction hash: {result.get('transaction_hash')}")
+        account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
+        actual_nonce = account_data.get("nonce", 0)
+    except Exception:
+        actual_nonce = 0
+    
+    # Build transaction with modern payload format
+    transaction_payload = {
+        "type": "TRANSFER",
+        "from": sender_address,
+        "to": to_address,
+        "amount": int(float(amount_value)),
+        "fee": fee,
+        "nonce": actual_nonce,
+        "payload": {
+            "recipient": to_address,
+            "amount": int(float(amount_value))
+        },
+        "chain_id": chain_id
+    }
+    
+    # Sign transaction
+    message = json.dumps(transaction_payload, sort_keys=True).encode()
+    signature = private_key.sign(message)
+    signature_hex = signature.hex()
+    
+    transaction_payload["signature"] = signature_hex
+    
+    # Submit transaction
+    try:
+        response = requests.post(f"{rpc_url}/rpc/transaction", json=transaction_payload, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("success"):
+                print("Transaction sent successfully")
+                print(f"Transaction hash: {result.get('transaction_hash')}")
+            else:
+                print(f"Transaction failed: {result.get('message', 'Unknown error')}")
+                sys.exit(1)
         else:
-            print(f"Transaction failed: {result.get('error', 'Unknown error')}")
+            print(f"Error submitting transaction: {response.status_code}")
+            print(f"Error: {response.text}")
             sys.exit(1)
     except Exception as e:
-        print(f"Error sending transaction: {e}")
+        print(f"Error submitting transaction: {e}")
         sys.exit(1)
 
 
