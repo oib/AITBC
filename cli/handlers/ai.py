@@ -50,34 +50,37 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     try:
         account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
         actual_nonce = account_data.get("nonce", 0)
-    except Exception:
-        actual_nonce = 0
-    
-    # Submit directly to Agent Coordinator (no blockchain transaction needed)
-    coordinator_url = "http://localhost:9001"
     job_data = {
-        "task_data": {
-            "agent_id": sender_address,
-            "task_type": model,
-            "parameters": {
-                "prompt": prompt
-            }
-        }
+        "model": getattr(args, 'model', 'llama2'),
+        "prompt": getattr(args, 'prompt', ''),
+        "parameters": getattr(args, 'parameters', {})
     }
-    if payment:
-        job_data["task_data"]["payment"] = payment
-    if chain_id:
-        job_data["task_data"]["chain_id"] = chain_id
-    
+
+    # If wallet specified, use dual-mode adapter for payment
+    wallet_name = getattr(args, 'wallet', None)
+    if wallet_name:
+        try:
+            config = Config()
+            adapter = DualModeWalletAdapter(config, use_daemon=True)
+            
+            # Get wallet balance via daemon first
+            balance_info = adapter.get_wallet_balance(wallet_name)
+            if balance_info:
+                print(f"Wallet balance (daemon): {balance_info.get('balance', 0)} AIT")
+            else:
+                print("Could not get balance from daemon, trying file-based...")
+        except Exception as e:
+            print(f"Note: Wallet daemon not available ({e}), will proceed without payment verification")
+
     print(f"Submitting AI job to {coordinator_url}...")
     try:
         response = requests.post(f"{coordinator_url}/tasks/submit", json=job_data, timeout=30)
-        if response.status_code == 200:
+        if response.status_code in (200, 201):
             result = response.json()
             print("AI job submitted successfully")
             render_mapping("Job:", result)
         else:
-            print(f"Submission failed: {response.status_code}")
+            print(f"Job submission failed: {response.status_code}")
             print(f"Error: {response.text}")
             sys.exit(1)
     except Exception as e:
