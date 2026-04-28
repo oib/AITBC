@@ -38,43 +38,11 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print(f"Error: Wallet '{wallet}' not found")
         sys.exit(1)
     
-    # Decrypt private key using the correct method
+    # Decrypt private key for signing (using same method as wallet handler)
     try:
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        import base64
-        import traceback
-        
-        with open(sender_keystore) as f:
-            keystore_data = json.load(f)
-        
-        crypto = keystore_data.get('crypto', {})
-        if not crypto:
-            raise ValueError("No crypto section in keystore")
-            
-        cipherparams = crypto.get('cipherparams', {})
-        salt = bytes.fromhex(cipherparams.get('salt', ''))
-        ciphertext = bytes.fromhex(crypto.get('ciphertext', ''))
-        nonce = bytes.fromhex(cipherparams.get('nonce', ''))
-        
-        if not salt or not ciphertext or not nonce:
-            raise ValueError("Missing required crypto parameters")
-        
-        # Derive key using PBKDF2
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=100000,
-        )
-        key = kdf.derive(password.encode())
-        
-        # Decrypt using AES-256-GCM
-        aesgcm = AESGCM(key)
-        decrypted = aesgcm.decrypt(nonce, ciphertext, None)
-        private_key_hex = decrypted.hex()
-        
+        sys.path.insert(0, "/opt/aitbc/cli")
+        from aitbc_cli import decrypt_private_key
+        private_key_hex = decrypt_private_key(sender_keystore, password)
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         print(f"Error decrypting wallet: {e}")
