@@ -328,6 +328,8 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
             "signature": tx_data.sig
         }
         
+        _logger.info(f"tx_data.to: {tx_data.to}, tx_data_dict['to']: {tx_data_dict['to']}")
+        
         _logger.info(f"Initial tx_data_dict amount: {tx_data_dict['amount']}")
         
         # If value is provided at top level, use it instead of payload.amount
