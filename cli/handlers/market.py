@@ -267,7 +267,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
                             print(f"  - ID: {gpu.get('id', 'N/A')}")
                             print(f"    Model: {gpu.get('model', 'N/A')}")
                             print(f"    Memory: {gpu.get('memory_gb', 'N/A')} GB")
-                            print(f"    Price: ${gpu.get('price_per_hour', 0)}/hour")
+                            print(f"    Price: {gpu.get('price_per_hour', 0)} AIT/hour")
                             print(f"    Status: {gpu.get('status', 'N/A')}")
                             print(f"    Region: {gpu.get('region', 'N/A')}")
                     else:
