@@ -26,7 +26,7 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print("Error: Password is required for signing")
         sys.exit(1)
     
-    # Get auth headers using correct decryption
+    # Get keystore and decrypt private key
     from pathlib import Path
     import json
     from cryptography.hazmat.primitives.asymmetric import ed25519
