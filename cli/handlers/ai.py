@@ -20,17 +20,11 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print("Error: --wallet, --type, and --prompt are required")
         sys.exit(1)
     
-    # Get password for signing
-    password = read_password(args)
-    if not password:
-        print("Error: Password is required for signing")
-        sys.exit(1)
-    
-    # Get keystore and decrypt private key
+    # Get sender address (no password needed for Agent Coordinator)
     from pathlib import Path
     import json
-    from cryptography.hazmat.primitives.asymmetric import ed25519
     
+    # Get sender address
     keystore_dir = Path("/var/lib/aitbc/keystore")
     sender_keystore = keystore_dir / f"{wallet}.json"
     
@@ -38,7 +32,6 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         print(f"Error: Wallet '{wallet}' not found")
         sys.exit(1)
     
-    # Get sender address
     with open(sender_keystore) as f:
         sender_data = json.load(f)
     sender_address = sender_data['address']
