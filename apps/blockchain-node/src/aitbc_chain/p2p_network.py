@@ -246,23 +246,23 @@ class P2PNetworkService:
                 for node_id, writer in self.active_connections.items():
                     peer_ip = writer.get_extra_info('peername')[0]
                     logger.debug(f"Checking peer {node_id} with IP {peer_ip} against host {host}")
-                    # Handle hostname resolution for common node names
+                    # Direct IP match
                     if peer_ip == host:
                         already_connected_ip = True
                         logger.debug(f"Match: peer_ip == host ({peer_ip} == {host})")
                         break
-                    elif host == "aitbc" and peer_ip == "10.1.223.93":
-                        already_connected_ip = True
-                        logger.debug(f"Match: aitbc hostname resolved to {peer_ip}")
-                        break
-                    elif host == "aitbc1" and peer_ip.startswith("10.1.223."):
-                        already_connected_ip = True
-                        logger.debug(f"Match: aitbc1 hostname resolved to {peer_ip}")
-                        break
-                    elif host == "gitea-runner" and peer_ip == "10.1.223.98":
-                        already_connected_ip = True
-                        logger.debug(f"Match: gitea-runner hostname resolved to {peer_ip}")
-                        break
+                    # Resolve hostname to IP and compare
+                    try:
+                        import socket
+                        host_ip = socket.gethostbyname(host)
+                        if peer_ip == host_ip:
+                            already_connected_ip = True
+                            logger.debug(f"Match: resolved {host} to {host_ip}, matches peer_ip {peer_ip}")
+                            break
+                    except socket.gaierror:
+                        # Hostname resolution failed, skip this comparison
+                        logger.debug(f"Could not resolve hostname {host}, skipping IP comparison")
+                        pass
                          
                 if already_connected_ip:
                     self.connected_endpoints.add(endpoint) # Mark so we don't try again
