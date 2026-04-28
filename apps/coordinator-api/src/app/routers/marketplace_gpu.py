@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 """
 GPU marketplace endpoints backed by persistent SQLModel tables.
