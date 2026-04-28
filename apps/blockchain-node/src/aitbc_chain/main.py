@@ -252,8 +252,6 @@ class BlockchainNode:
         production_chains_str = getattr(settings, 'block_production_chains', chains_str)
         production_chains = [c.strip() for c in production_chains_str.split(",") if c.strip()]
         
-        logger.info(f"Supported chains: {chains}, Block production chains: {production_chains}")
-        
         for chain_id in chains:
             # Only start proposer if chain is in production chains
             if chain_id not in production_chains:
