@@ -566,6 +566,7 @@ def run_cli(argv, core):
         "handle_market_delete": handle_market_delete,
         "handle_market_gpu_register": handle_market_gpu_register,
         "handle_market_gpu_list": handle_market_gpu_list,
+        "handle_market_buy": handle_market_buy,
         "handle_ai_submit": handle_ai_submit,
         "handle_ai_jobs": handle_ai_jobs,
         "handle_ai_job": handle_ai_job,
