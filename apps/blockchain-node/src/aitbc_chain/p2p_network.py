@@ -244,10 +244,19 @@ class P2PNetworkService:
                 already_connected_ip = False
                 for node_id, writer in self.active_connections.items():
                     peer_ip = writer.get_extra_info('peername')[0]
-                    # We might want to resolve hostname -> IP but keeping it simple:
-                    if peer_ip == host or (host == "aitbc1" and peer_ip.startswith("10.")):
-                         already_connected_ip = True
-                         break
+                    # Handle hostname resolution for common node names
+                    if peer_ip == host:
+                        already_connected_ip = True
+                        break
+                    elif host == "aitbc" and peer_ip == "10.1.223.93":
+                        already_connected_ip = True
+                        break
+                    elif host == "aitbc1" and peer_ip.startswith("10.1.223."):
+                        already_connected_ip = True
+                        break
+                    elif host == "gitea-runner" and peer_ip == "10.1.223.98":
+                        already_connected_ip = True
+                        break
                          
                 if already_connected_ip:
                     self.connected_endpoints.add(endpoint) # Mark so we don't try again
