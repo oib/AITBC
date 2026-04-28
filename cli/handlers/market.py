@@ -285,33 +285,12 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 
 
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
-    """Handle marketplace buy command via coordinator API using dual-mode wallet adapter."""
-    import sys
-    sys.path.insert(0, "/opt/aitbc/cli")
-    from utils.dual_mode_wallet_adapter import DualModeWalletAdapter
-    from config import Config
-
+    """Handle marketplace buy command via coordinator API."""
     coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
 
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
         sys.exit(1)
-
-    # Load config and use dual-mode adapter
-    try:
-        config = Config()
-    except Exception:
-        config = None
-
-    adapter = DualModeWalletAdapter(config, use_daemon=True)
-
-    # Get wallet balance via daemon first
-    try:
-        balance_info = adapter.get_wallet_balance(args.wallet)
-        if balance_info:
-            print(f"Wallet balance: {balance_info.get('balance', 0)} AIT")
-    except Exception as e:
-        print(f"Note: Could not get balance from daemon ({e}), proceeding...")
 
     # Submit purchase to coordinator API
     purchase_data = {
