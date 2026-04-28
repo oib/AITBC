@@ -40,13 +40,34 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     
     # Decrypt private key using the correct method
     try:
-        sys.path.insert(0, "/opt/aitbc/cli")
-        # Import from the module file, not the package
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("aitbc_cli_module", "/opt/aitbc/cli/aitbc_cli.py")
-        aitbc_cli_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(aitbc_cli_module)
-        private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+        import base64
+        
+        with open(sender_keystore) as f:
+            keystore_data = json.load(f)
+        
+        crypto = keystore_data.get('crypto', {})
+        cipherparams = crypto.get('cipherparams', {})
+        salt = bytes.fromhex(cipherparams.get('salt', ''))
+        ciphertext = bytes.fromhex(crypto.get('ciphertext', ''))
+        
+        # Derive key using PBKDF2
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+        )
+        key = kdf.derive(password.encode())
+        
+        # Decrypt using AES-256-GCM
+        aesgcm = AESGCM(key)
+        nonce = bytes.fromhex(cipherparams.get('nonce', ''))
+        decrypted = aesgcm.decrypt(nonce, ciphertext, None)
+        private_key_hex = decrypted.hex()
+        
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         print(f"Error decrypting wallet: {e}")
