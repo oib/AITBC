@@ -36,7 +36,12 @@ def handle_agent_action(args, agent_operations, render_mapping):
     result = agent_operations(args.agent_action, **kwargs)
     if not result:
         sys.exit(1)
-    render_mapping(f"Agent {result['action']}:", result)
+    # Handle case where result doesn't have 'action' field (e.g., message send)
+    if 'action' in result:
+        render_mapping(f"Agent {result['action']}:", result)
+    else:
+        # Just print success message for message send
+        print("Agent operation completed successfully")
 
 
 def handle_openclaw_action(args, openclaw_operations, first, render_mapping):
