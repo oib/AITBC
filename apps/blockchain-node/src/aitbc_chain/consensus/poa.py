@@ -384,20 +384,25 @@ class PoAProposer:
             
             # Broadcast the new block
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
-            await gossip_broker.publish(
-                "blocks",
-                {
-                    "chain_id": self._config.chain_id,
-                    "height": block.height,
-                    "hash": block.hash,
-                    "parent_hash": block.parent_hash,
-                    "proposer": block.proposer,
-                    "timestamp": block.timestamp.isoformat(),
-                    "tx_count": block.tx_count,
-                    "state_root": block.state_root,
-                    "transactions": tx_list,
-                },
-            )
+            self._logger.info(f"Broadcasting block {block.height} to gossip")
+            try:
+                await gossip_broker.publish(
+                    "blocks",
+                    {
+                        "chain_id": self._config.chain_id,
+                        "height": block.height,
+                        "hash": block.hash,
+                        "parent_hash": block.parent_hash,
+                        "proposer": block.proposer,
+                        "timestamp": block.timestamp.isoformat(),
+                        "tx_count": block.tx_count,
+                        "state_root": block.state_root,
+                        "transactions": tx_list,
+                    },
+                )
+                self._logger.info(f"Successfully broadcasted block {block.height}")
+            except Exception as e:
+                self._logger.error(f"Failed to broadcast block {block.height}: {e}")
 
         return True
 
