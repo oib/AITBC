@@ -7,6 +7,8 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
 Environment=PYTHONPATH=/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
+ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
+EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-coordinator-api-wrapper.py
