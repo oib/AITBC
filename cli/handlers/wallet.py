@@ -113,8 +113,8 @@ def handle_wallet_send(args, send_transaction, read_password, first):
     # Decrypt private key for signing
     try:
         sys.path.insert(0, "/opt/aitbc/cli")
-        from aitbc_cli import decrypt_private_key
-        private_key_hex = decrypt_private_key(sender_keystore, password)
+        import aitbc_cli as aitbc_cli_module
+        private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         print(f"Error decrypting wallet: {e}")
