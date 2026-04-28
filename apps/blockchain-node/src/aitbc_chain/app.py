@@ -96,11 +96,13 @@ async def lifespan(app: FastAPI):
         max_size=settings.mempool_max_size,
         min_fee=settings.min_fee,
     )
+    _app_logger.info(f"Initializing gossip backend: {settings.gossip_backend}, url: {settings.gossip_broadcast_url}")
     backend = create_backend(
         settings.gossip_backend,
         broadcast_url=settings.gossip_broadcast_url,
     )
     await gossip_broker.set_backend(backend)
+    _app_logger.info("Gossip backend initialized successfully")
     proposers = []
     block_production_override = os.getenv("enable_block_production")
     if block_production_override is None:
@@ -108,6 +110,8 @@ async def lifespan(app: FastAPI):
     block_production_enabled = settings.enable_block_production
     if block_production_override is not None:
         block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
+    
+    _app_logger.info(f"Block production enabled: {block_production_enabled}, proposer_id: {settings.proposer_id}")
     
     # Initialize PoA proposer for mining integration
     if block_production_enabled and settings.proposer_id:
