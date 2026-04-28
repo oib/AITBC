@@ -41,19 +41,24 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
         from sys.path import insert
         insert(0, "/opt/aitbc")
         from aitbc_cli.utils.chain_id import get_chain_id
-        chain_id = get_chain_id(rpc_url, override=None, timeout=5)
+        chain_id = get_chain_id(coordinator_url, override=None, timeout=5)
     except Exception:
         chain_id = "ait-testnet"
     
     # Get actual nonce from blockchain
     actual_nonce = 0
     try:
-        account_data = requests.get(f"{rpc_url}/rpc/account/{sender_address}", timeout=5).json()
+        account_data = requests.get(f"{coordinator_url}/rpc/account/{sender_address}", timeout=5).json()
         actual_nonce = account_data.get("nonce", 0)
+    except Exception:
+        pass
+
     job_data = {
-        "model": getattr(args, 'model', 'llama2'),
-        "prompt": getattr(args, 'prompt', ''),
-        "parameters": getattr(args, 'parameters', {})
+        "model": model,
+        "prompt": prompt,
+        "payment": payment,
+        "chain_id": chain_id,
+        "nonce": actual_nonce,
     }
 
     # If wallet specified, use dual-mode adapter for payment
