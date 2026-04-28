@@ -5,18 +5,15 @@ This module provides a client for interacting with the AITBC wallet daemon.
 
 import sys
 import json
+import base64
 from typing import Dict, Any, Optional, List
-from datetime import datetime
-
-sys.path.insert(0, "/opt/aitbc/cli")
-from config import Config
 from pathlib import Path
 from dataclasses import dataclass
 
 from aitbc import AITBCHTTPClient, NetworkError
 
+sys.path.insert(0, "/opt/aitbc/cli")
 from utils import error, success
-from config import Config
 
 
 @dataclass
