@@ -311,11 +311,11 @@ async def submit_transaction(tx_data: TransactionRequest) -> Dict[str, Any]:
         chain_id = get_chain_id(None)
 
         # Convert TransactionRequest to dict for normalization
-        # _normalize_transaction_data expects "from", not "sender"
+        # Use top-level fields if available, otherwise fall back to payload
         tx_data_dict = {
             "from": tx_data.sender,
-            "to": tx_data.payload.get("to"),  # Get to from payload (required field)
-            "amount": tx_data.payload.get("amount", 0),  # Get amount from payload (fallback)
+            "to": tx_data.to if tx_data.to else tx_data.payload.get("to"),
+            "amount": tx_data.amount if tx_data.amount else tx_data.payload.get("amount", tx_data.value or 0),
             "fee": tx_data.fee,
             "nonce": tx_data.nonce,
             "payload": tx_data.payload,
