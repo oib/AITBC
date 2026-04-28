@@ -333,25 +333,36 @@ async def buy_gpu(
         )
         job = job_service.create_job(client_id=request.buyer_id, req=job_create)
         job_id = job.id
-
-        # Create payment for the job
-        payment_service = PaymentService(session)
-        payment_create = JobPaymentCreate(
-            job_id=job.id,
-            amount=total_cost,
-            currency="AITBC",
-            payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
-            escrow_timeout_seconds=int(request.duration_hours * 3600),
-        )
-        payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
-        payment_id = payment.id
-        payment_status = payment.status
-
-        # Update job with payment reference
-        job.payment_id = payment.id
-        job.payment_status = payment.status
-        session.add(job)
+        
+        # Commit job separately to ensure it persists even if payment fails
         session.commit()
+        logger.info(f"Created job {job.id} for GPU purchase {booking_id}")
+
+        # Create payment for the job (separate transaction)
+        try:
+            payment_service = PaymentService(session)
+            payment_create = JobPaymentCreate(
+                job_id=job.id,
+                amount=total_cost,
+                currency="AITBC",
+                payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
+                escrow_timeout_seconds=int(request.duration_hours * 3600),
+            )
+            payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
+            payment_id = payment.id
+            payment_status = payment.status
+
+            # Update job with payment reference
+            job.payment_id = payment.id
+            job.payment_status = payment.status
+            session.add(job)
+            session.commit()
+            
+            logger.info(f"Created payment {payment.id} for job {job.id}")
+        except Exception as e:
+            logger.error(f"Failed to create payment for job {job.id}: {e}")
+            payment_id = None
+            payment_status = "failed"
 
         # Update booking with job reference
         booking.job_id = job.id
