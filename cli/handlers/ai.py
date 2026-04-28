@@ -41,8 +41,12 @@ def handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping
     # Decrypt private key using the correct method
     try:
         sys.path.insert(0, "/opt/aitbc/cli")
-        import aitbc_cli
-        private_key_hex = aitbc_cli.decrypt_private_key(sender_keystore, password)
+        # Import from the module file, not the package
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("aitbc_cli_module", "/opt/aitbc/cli/aitbc_cli.py")
+        aitbc_cli_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(aitbc_cli_module)
+        private_key_hex = aitbc_cli_module.decrypt_private_key(sender_keystore, password)
         private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(private_key_hex))
     except Exception as e:
         print(f"Error decrypting wallet: {e}")
