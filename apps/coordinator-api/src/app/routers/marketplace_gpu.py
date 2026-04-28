@@ -249,7 +249,7 @@ async def buy_gpu(
     session: Annotated[Session, Depends(get_session)],
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
 ) -> dict[str, Any]:
-    """Buy GPU compute from marketplace with blockchain payment."""
+    """Buy GPU compute from marketplace with blockchain payment and AI job scheduling."""
     gpu = _get_gpu_or_404(session, request.gpu_id)
 
     if gpu.status != "available":
@@ -277,7 +277,7 @@ async def buy_gpu(
 
     total_cost = request.duration_hours * current_price
 
-    # Create booking
+    # Create booking first (this is the core purchase flow)
     booking_id = str(uuid4())
     booking = GPUBooking(
         id=booking_id,
@@ -300,15 +300,79 @@ async def buy_gpu(
     session.refresh(gpu)
     session.refresh(booking)
 
+    # Try to create AI job and payment (non-blocking, optional)
+    job_id = None
+    payment_id = None
+    payment_status = None
+    try:
+        # Lazy import to avoid blocking startup
+        from ..custom_types import Constraints
+        from ..domain.job import Job
+        from ..schemas import JobCreate, JobPaymentCreate
+        from ..services.jobs import JobService
+        from ..services.payments import PaymentService
+        
+        # Create AI job for GPU compute
+        job_service = JobService(session)
+        job_create = JobCreate(
+            payload={
+                "type": "gpu_compute",
+                "gpu_id": request.gpu_id,
+                "task": "general_compute",
+                "duration_hours": request.duration_hours,
+            },
+            constraints=Constraints(
+                gpu=gpu.model,
+                region=gpu.region,
+                min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
+                max_price=current_price * 1.1,
+            ),
+            ttl_seconds=int(request.duration_hours * 3600),
+            payment_amount=total_cost,
+            payment_currency="AITBC",
+        )
+        job = job_service.create_job(client_id=request.buyer_id, req=job_create)
+        job_id = job.id
+
+        # Create payment for the job
+        payment_service = PaymentService(session)
+        payment_create = JobPaymentCreate(
+            job_id=job.id,
+            amount=total_cost,
+            currency="AITBC",
+            payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
+            escrow_timeout_seconds=int(request.duration_hours * 3600),
+        )
+        payment = await payment_service.create_payment(job_id=job.id, payment_data=payment_create)
+        payment_id = payment.id
+        payment_status = payment.status
+
+        # Update job with payment reference
+        job.payment_id = payment.id
+        job.payment_status = payment.status
+        session.add(job)
+        session.commit()
+
+        # Update booking with job reference
+        booking.job_id = job.id
+        session.add(booking)
+        session.commit()
+    except Exception as e:
+        logger.error(f"Failed to create job/payment for GPU purchase: {e}")
+        # Continue without job/payment - the purchase is still valid
+
     return {
         "purchase_id": booking_id,
         "gpu_id": request.gpu_id,
         "buyer_id": request.buyer_id,
+        "job_id": job_id,
+        "payment_id": payment_id,
         "duration_hours": request.duration_hours,
         "total_cost": total_cost,
         "price_per_hour": current_price,
         "status": "purchased",
         "payment_method": request.payment_method,
+        "payment_status": payment_status,
         "start_time": start_time.isoformat() + "Z",
         "end_time": end_time.isoformat() + "Z",
     }
