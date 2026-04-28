@@ -645,25 +645,43 @@ def handle_genesis_init(args):
     import sys
     from pathlib import Path
     
-    script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
+    # Use new genesis-init.py script for basic genesis initialization
+    new_script_path = Path("/opt/aitbc/scripts/utils/genesis-init.py")
+    old_script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
     
-    if not script_path.exists():
-        print(f"Error: Genesis generation script not found: {script_path}")
+    # Prefer new script if it exists and we're not doing wallet creation
+    if new_script_path.exists() and not args.create_wallet:
+        script_path = new_script_path
+        use_new_script = True
+    elif old_script_path.exists():
+        script_path = old_script_path
+        use_new_script = False
+    else:
+        print(f"Error: Genesis generation script not found")
         return
     
-    cmd = [sys.executable, str(script_path), "--chain-id", args.chain_id]
-    
-    if args.create_wallet:
-        cmd.append("--create-wallet")
-    if args.password:
-        cmd.extend(["--password", args.password])
-    if args.proposer:
-        cmd.extend(["--proposer", args.proposer])
-    if args.force:
-        cmd.append("--force")
-    if args.register_service:
-        cmd.append("--register-service")
-        cmd.extend(["--service-url", args.service_url])
+    if use_new_script:
+        # Use new simpler script
+        cmd = [sys.executable, str(script_path), "--chain-id", args.chain_id]
+        if args.proposer:
+            cmd.extend(["--proposer", args.proposer])
+        else:
+            print("Error: --proposer is required for genesis initialization")
+            return
+    else:
+        # Use old comprehensive script for wallet creation
+        cmd = [sys.executable, str(script_path), "--chain-id", args.chain_id]
+        if args.create_wallet:
+            cmd.append("--create-wallet")
+        if args.password:
+            cmd.extend(["--password", args.password])
+        if args.proposer:
+            cmd.extend(["--proposer", args.proposer])
+        if args.force:
+            cmd.append("--force")
+        if args.register_service:
+            cmd.append("--register-service")
+            cmd.extend(["--service-url", args.service_url])
     
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
