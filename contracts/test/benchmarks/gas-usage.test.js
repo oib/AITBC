@@ -1,4 +1,4 @@
-const { expect } = require("chai");
+import { expect } from "chai";
 
 describe("Gas Usage Benchmarks", function () {
   describe("EscrowService", function () {
