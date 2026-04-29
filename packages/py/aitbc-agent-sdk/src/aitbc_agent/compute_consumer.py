@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from .agent import Agent, AgentCapabilities
+from .agent import Agent, AgentCapabilities, AgentIdentity
 
 from aitbc.aitbc_logging import get_logger
 
@@ -62,8 +62,6 @@ class ComputeConsumer(Agent):
     @classmethod
     def create(cls, name: str, agent_type: str, capabilities: Dict[str, Any]) -> "ComputeConsumer":
         """Create a new ComputeConsumer agent"""
-        from .agent import AgentCapabilities, AgentIdentity
-
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         public_key = private_key.public_key()
