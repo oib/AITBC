@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
-from .agent import Agent, AgentCapabilities
+from .agent import Agent, AgentCapabilities, AgentIdentity
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
@@ -68,8 +68,6 @@ class ComputeProvider(Agent):
         cls, name: str, capabilities: Dict[str, Any], pricing_model: Dict[str, Any]
     ) -> "ComputeProvider":
         """Create and register a compute provider"""
-        from .agent import AgentIdentity
-
         # Generate cryptographic keys
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         public_key = private_key.public_key()
