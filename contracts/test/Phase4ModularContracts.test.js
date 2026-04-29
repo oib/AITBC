@@ -81,6 +81,10 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
       await daoGovernanceEnhanced.getAddress()
     );
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator")),
+      await performanceAggregator.getAddress()
+    );
 
     // Initialize all contracts (after registration)
     await treasuryManager.initialize(await contractRegistry.getAddress());
