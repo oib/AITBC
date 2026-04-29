@@ -67,7 +67,7 @@ check_rpc_health() {
         local url="http://${node_ip}:${RPC_PORT}/health"
     fi
 
-    if curl -f -s --max-time 5 "$url" > /dev/null 2>&1; then
+    if curl -f -s --max-time 10 "$url" > /dev/null 2>&1; then
         log_success "RPC endpoint healthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
         return 0
     else
