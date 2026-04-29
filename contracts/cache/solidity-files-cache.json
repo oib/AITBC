@@ -2,7 +2,7 @@
   "_format": "hh-sol-cache-2",
   "files": {
     "/opt/aitbc/contracts/contracts/AIPowerRental.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "d8c0ce86b1f2b089fa6f06084b7cb190",
       "sourceName": "contracts/AIPowerRental.sol",
       "solcConfig": {
@@ -45,7 +45,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/ZKReceiptVerifier.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809550,
       "contentHash": "6073105a42e915b545afb422852ccff6",
       "sourceName": "contracts/ZKReceiptVerifier.sol",
       "solcConfig": {
@@ -83,7 +83,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/Groth16Verifier.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "9c8f364f4769495d212de11e05d57ac3",
       "sourceName": "contracts/Groth16Verifier.sol",
       "solcConfig": {
@@ -116,6 +116,42 @@
       ],
       "artifacts": [
         "Groth16Verifier"
+      ]
+    },
+    "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol": {
+      "lastModificationDate": 1776109096767,
+      "contentHash": "1535f8c0c68463f8c1b5239f7584e71f",
+      "sourceName": "@openzeppelin/contracts/security/ReentrancyGuard.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "ReentrancyGuard"
       ]
     },
     "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/access/Ownable.sol": {
@@ -194,42 +230,6 @@
         "Pausable"
       ]
     },
-    "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/security/ReentrancyGuard.sol": {
-      "lastModificationDate": 1776109096767,
-      "contentHash": "1535f8c0c68463f8c1b5239f7584e71f",
-      "sourceName": "@openzeppelin/contracts/security/ReentrancyGuard.sol",
-      "solcConfig": {
-        "version": "0.8.19",
-        "settings": {
-          "optimizer": {
-            "enabled": true,
-            "runs": 200
-          },
-          "viaIR": true,
-          "outputSelection": {
-            "*": {
-              "*": [
-                "abi",
-                "evm.bytecode",
-                "evm.deployedBytecode",
-                "evm.methodIdentifiers",
-                "metadata"
-              ],
-              "": [
-                "ast"
-              ]
-            }
-          }
-        }
-      },
-      "imports": [],
-      "versionPragmas": [
-        "^0.8.0"
-      ],
-      "artifacts": [
-        "ReentrancyGuard"
-      ]
-    },
     "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/token/ERC20/IERC20.sol": {
       "lastModificationDate": 1776109096759,
       "contentHash": "df36f7051335cd1e748b1b6463b7fdd3",
@@ -303,7 +303,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/PerformanceVerifier.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "4c06ef6a765d764a5561389584e9d4ef",
       "sourceName": "contracts/PerformanceVerifier.sol",
       "solcConfig": {
@@ -536,7 +536,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/TreasuryManager.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809550,
       "contentHash": "4b2fe1b18bb9d35d4302593ba04c9c9f",
       "sourceName": "contracts/TreasuryManager.sol",
       "solcConfig": {
@@ -580,7 +580,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/ContractRegistry.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "fe9d06f15a808ea45ceee1baaafce6fa",
       "sourceName": "contracts/ContractRegistry.sol",
       "solcConfig": {
@@ -621,7 +621,7 @@
       ]
     },
     "/opt/aitbc/contracts/interfaces/IModularContracts.sol": {
-      "lastModificationDate": 1774889513000,
+      "lastModificationDate": 1776798809550,
       "contentHash": "1625a87f976af0bb250d6bf289d5d60a",
       "sourceName": "interfaces/IModularContracts.sol",
       "solcConfig": {
@@ -665,7 +665,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/StakingPoolFactory.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809550,
       "contentHash": "7679638d7265ded0348342ad3f040808",
       "sourceName": "contracts/StakingPoolFactory.sol",
       "solcConfig": {
@@ -709,7 +709,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/RewardDistributor.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809550,
       "contentHash": "53b2bbac86b3e883647a8e0ac5443afa",
       "sourceName": "contracts/RewardDistributor.sol",
       "solcConfig": {
@@ -753,7 +753,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/PerformanceAggregator.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "aac6767f07379cb2fca471c04b780055",
       "sourceName": "contracts/PerformanceAggregator.sol",
       "solcConfig": {
@@ -795,7 +795,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/DAOGovernanceEnhanced.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "389b30f1a2bddc7bab05aa470322cc13",
       "sourceName": "contracts/DAOGovernanceEnhanced.sol",
       "solcConfig": {
@@ -838,7 +838,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/MemoryVerifier.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "0774eb50ca48ba109f10505731c47a71",
       "sourceName": "contracts/MemoryVerifier.sol",
       "solcConfig": {
@@ -877,7 +877,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentMemory.sol": {
-      "lastModificationDate": 1776110189156,
+      "lastModificationDate": 1776798809546,
       "contentHash": "d65664faa2b98da3286309fbf9619a92",
       "sourceName": "contracts/AgentMemory.sol",
       "solcConfig": {
@@ -917,7 +917,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/KnowledgeGraphMarket.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "ea02313df07f22808306946349dafcab",
       "sourceName": "contracts/KnowledgeGraphMarket.sol",
       "solcConfig": {
@@ -958,7 +958,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/EscrowService.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "8ed24c1fa857455a40b3c6c555b4545c",
       "sourceName": "contracts/EscrowService.sol",
       "solcConfig": {
@@ -1001,7 +1001,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AITBCPaymentProcessor.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "5ec26ac0543a051dc1941c013ad73639",
       "sourceName": "contracts/AITBCPaymentProcessor.sol",
       "solcConfig": {
@@ -1043,7 +1043,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/DisputeResolution.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "f4f92c013eb32e8083a38d42037a1586",
       "sourceName": "contracts/DisputeResolution.sol",
       "solcConfig": {
@@ -1086,7 +1086,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/DynamicPricing.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "369efa756a98c8775c28ad327f0214c9",
       "sourceName": "contracts/DynamicPricing.sol",
       "solcConfig": {
@@ -1129,7 +1129,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/DAOGovernance.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "eedc031861f30107b2eddd1aab3f22d0",
       "sourceName": "contracts/DAOGovernance.sol",
       "solcConfig": {
@@ -1170,7 +1170,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/CrossChainReputation.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "66140705bb9ab2298187dac9d432683f",
       "sourceName": "contracts/CrossChainReputation.sol",
       "solcConfig": {
@@ -1208,7 +1208,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/CrossChainBridge.sol": {
-      "lastModificationDate": 1776110210680,
+      "lastModificationDate": 1776798809546,
       "contentHash": "4f2d2d2cfde1b1784b5bf00eb2a71228",
       "sourceName": "contracts/CrossChainBridge.sol",
       "solcConfig": {
@@ -1437,7 +1437,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentPortfolioManager.sol": {
-      "lastModificationDate": 1776110179740,
+      "lastModificationDate": 1776798809546,
       "contentHash": "81870b762005afada2741c1940e91bcb",
       "sourceName": "contracts/AgentPortfolioManager.sol",
       "solcConfig": {
@@ -1480,7 +1480,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AIServiceAMM.sol": {
-      "lastModificationDate": 1776110158220,
+      "lastModificationDate": 1776798809546,
       "contentHash": "3e95a04b8c88f379da7bfca06f6fc603",
       "sourceName": "contracts/AIServiceAMM.sol",
       "solcConfig": {
@@ -1523,7 +1523,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/CrossChainAtomicSwap.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "a565b38a8b80295fc48923eebca31763",
       "sourceName": "contracts/CrossChainAtomicSwap.sol",
       "solcConfig": {
@@ -1564,7 +1564,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/BountyIntegration.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "453b657ebe28ba5da51d14607d276a2d",
       "sourceName": "contracts/BountyIntegration.sol",
       "solcConfig": {
@@ -1607,7 +1607,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentBounty.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "5c4a0794eed82917df0db4b5f239a2fe",
       "sourceName": "contracts/AgentBounty.sol",
       "solcConfig": {
@@ -1650,7 +1650,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentStaking.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "a82def520a32036e992abcfd3e9ba4e6",
       "sourceName": "contracts/AgentStaking.sol",
       "solcConfig": {
@@ -1693,7 +1693,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AIToken.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "a519ac2b538bf933d939cff30af42b82",
       "sourceName": "contracts/AIToken.sol",
       "solcConfig": {
@@ -1732,7 +1732,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentWallet.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "95b1c5ed8ed5c2ea1228eaff07a71894",
       "sourceName": "contracts/AgentWallet.sol",
       "solcConfig": {
@@ -1773,7 +1773,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentServiceMarketplace.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "17dabc7a7ddcedf8b2443ce8e28f8c66",
       "sourceName": "contracts/AgentServiceMarketplace.sol",
       "solcConfig": {
@@ -1815,7 +1815,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentMarketplaceV2.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "0527d6127218f552ade59c56bc5673d0",
       "sourceName": "contracts/AgentMarketplaceV2.sol",
       "solcConfig": {
@@ -1857,7 +1857,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentCommunication.sol": {
-      "lastModificationDate": 1774889512996,
+      "lastModificationDate": 1776798809546,
       "contentHash": "2570253be1f560aae48e69e15bf67288",
       "sourceName": "contracts/AgentCommunication.sol",
       "solcConfig": {
@@ -1895,7 +1895,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/MockVerifier.sol": {
-      "lastModificationDate": 1776110320118,
+      "lastModificationDate": 1776798809546,
       "contentHash": "a3d5ebc522aa8530a096de8bb0bd3ac5",
       "sourceName": "contracts/MockVerifier.sol",
       "solcConfig": {
