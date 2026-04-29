@@ -42,7 +42,7 @@ jobs:
       - name: Run cross-node transaction test
         run: |
           cd /var/lib/aitbc-workspaces/cross-node-transaction-testing/repo
-          bash scripts/multi-node/cross-node-transaction-test.sh
+          CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/cross-node-transaction-test.sh
 
       - name: Transaction test report
         if: always()
