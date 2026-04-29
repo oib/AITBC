@@ -32,7 +32,8 @@ and security expectations
 ## 📦 **Contents**
 
 - **[BRANCH_PROTECTION.md](BRANCH_PROTECTION.md)** - Branch protection policy
-- **[CLI_TRANSLATION_SECURITY_POLICY.md](CLI_TRANSLATION_SECURITY_POLICY.md)** - CLI translation security policy
+- **[CLI_TRANSLATION_SECURITY_POLICY.md](CLI_TRANSLATION_SECURITY_POLICY.md)**
+  CLI translation security policy
 - **[DOTENV_DISCIPLINE.md](DOTENV_DISCIPLINE.md)**
   Environment file handling discipline
 
