@@ -63,10 +63,12 @@ jobs:
           
           PYTHONPATH="$PWD/apps/blockchain-node/src:$PYTHONPATH" venv/bin/python -c "
           import asyncio
+          import os
           from aitbc_chain.cross_chain import CrossChainSync
           
           async def test_sync():
-              sync = CrossChainSync(chains=CHAINS.split(','))
+              chains = os.getenv('CHAINS', 'ait-mainnet,ait-testnet,ait-devnet').split(',')
+              sync = CrossChainSync(chains=chains)
               await sync.test_synchronization()
               print('✅ Cross-chain sync test passed')
           
