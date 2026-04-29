@@ -76,6 +76,20 @@ check_rpc_health() {
     fi
 }
 
+# Get supported chains for a node
+get_supported_chains() {
+    local node_ip="$1"
+    local url="http://${node_ip}:${RPC_PORT}/health"
+    
+    local supported_chains=$(curl -s "$url" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null || echo "")
+    
+    if [ -z "$supported_chains" ]; then
+        echo "$CHAINS"  # Fallback to configured chains if health endpoint doesn't return supported chains
+    else
+        echo "$supported_chains"
+    fi
+}
+
 # Check systemd service status (RPC-based only, no SSH)
 check_service_status() {
     local node_name="$1"
@@ -117,8 +131,12 @@ check_node_health() {
 
     local failures=0
 
-    # Check RPC health for each chain
-    IFS=',' read -ra CHAIN_ARRAY <<< "$CHAINS"
+    # Get the chains this node actually supports
+    local node_chains=$(get_supported_chains "$node_ip")
+    log "Node ${node_name} supports chains: ${node_chains}"
+
+    # Check RPC health for each supported chain
+    IFS=',' read -ra CHAIN_ARRAY <<< "$node_chains"
     for chain in "${CHAIN_ARRAY[@]}"; do
         chain=$(echo "$chain" | xargs)  # Trim whitespace
         if ! check_rpc_health "$node_name" "$node_ip" "$chain"; then
