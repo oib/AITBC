@@ -26,6 +26,7 @@ TEST_WALLET_NAME="cross-node-test-wallet"
 TEST_WALLET_PASSWORD="test123456"
 TEST_RECIPIENT="ait1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqz4vxy"
 TEST_AMOUNT=1
+CHAINS="${CHAINS:-ait-mainnet,ait-testnet}"
 
 # Colors for output
 RED='\033[0;31m'
