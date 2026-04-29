@@ -32,7 +32,6 @@ jobs:
   benchmark-gas-usage:
     runs-on: debian
     timeout-minutes: 30
-    if: false # Disabled - benchmark test files not yet implemented
 
     steps:
       - name: Clone repository
@@ -87,7 +86,6 @@ jobs:
   benchmark-execution-time:
     runs-on: debian
     timeout-minutes: 30
-    if: false # Disabled - benchmark test files not yet implemented
 
     steps:
       - name: Clone repository
@@ -135,7 +133,6 @@ jobs:
   benchmark-throughput:
     runs-on: debian
     timeout-minutes: 30
-    if: false # Disabled - benchmark test files not yet implemented
 
     steps:
       - name: Clone repository
@@ -184,7 +181,6 @@ jobs:
     runs-on: debian
     timeout-minutes: 15
     needs: [benchmark-gas-usage, benchmark-execution-time, benchmark-throughput]
-    if: false # Disabled - benchmark test files not yet implemented
 
     steps:
       - name: Clone repository
