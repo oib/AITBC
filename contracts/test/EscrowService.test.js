@@ -95,7 +95,8 @@ describe("EscrowService", function () {
       );
       const receipt = await tx.wait();
 
-      const escrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      const escrowId = event.args[0];
       expect(escrowId).to.not.be.undefined;
     });
 
@@ -156,7 +157,8 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      escrowId = event.args[0];
     });
 
     it("Should skip - fundEscrow not implemented", async function () {
@@ -189,7 +191,8 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      escrowId = event.args[0];
     });
 
     it("Should release escrow to beneficiary", async function () {
@@ -220,7 +223,8 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      const newEscrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      const newEscrowId = event.args[0];
       
       await expect(
         escrowService.connect(depositor).releaseEscrow(newEscrowId, "Service completed")
@@ -242,7 +246,8 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      escrowId = event.args[0];
     });
 
     it("Should refund escrow to depositor", async function () {
@@ -309,7 +314,8 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = ethers.getBigInt(receipt.logs[0].topics[1]);
+      const event = escrowService.interface.parseLog(receipt.logs[0]);
+      escrowId = event.args[0];
     });
 
     it("Should get escrow details", async function () {
