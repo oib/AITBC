@@ -306,7 +306,6 @@ describe("EscrowService", function () {
       const receipt = await tx.wait();
       escrowId = receipt.logs[0].args[0];
     });
-    });
 
     it("Should get escrow details", async function () {
       const escrow = await escrowService.escrowAccounts(escrowId);
