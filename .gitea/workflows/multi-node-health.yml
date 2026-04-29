@@ -10,8 +10,6 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
-  schedule:
-    - cron: '0 */2 * * *'  # Every 2 hours
 
 concurrency:
   group: multi-node-health-${{ github.ref }}
