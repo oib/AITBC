@@ -95,7 +95,7 @@ describe("EscrowService", function () {
       );
       const receipt = await tx.wait();
 
-      const escrowId = receipt.logs[0].topics[1];
+      const escrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
       expect(escrowId).to.not.be.undefined;
     });
 
@@ -156,7 +156,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].topics[1];
+      escrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
     });
 
     it("Should skip - fundEscrow not implemented", async function () {
@@ -192,7 +192,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].topics[1];
+      escrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
     });
 
     it("Should release escrow to beneficiary", async function () {
@@ -214,16 +214,15 @@ describe("EscrowService", function () {
       // Create new escrow
       const tx = await escrowService.connect(depositor).createEscrow(
         beneficiary.address,
+        arbiter.address,
         ESCROW_AMOUNT,
+        1, // Time lock escrow type
+        0,
         3600,
-        0,
-        0,
-        ethers.ZeroHash
+        "Test escrow"
       );
       const receipt = await tx.wait();
-      const newEscrowId = receipt.logs[0].args[0];
-      
-      await escrowService.connect(depositor).fundEscrow(newEscrowId);
+      const newEscrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
       
       await expect(
         escrowService.connect(depositor).releaseEscrow(newEscrowId, "Service completed")
@@ -245,7 +244,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].topics[1];
+      escrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
     });
 
     it("Should refund escrow to depositor", async function () {
@@ -312,7 +311,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].topics[1];
+      escrowId = ethers.toBigInt(receipt.logs[0].topics[1]);
     });
 
     it("Should get escrow details", async function () {
@@ -323,12 +322,12 @@ describe("EscrowService", function () {
     });
 
     it("Should get depositor escrows", async function () {
-      const escrows = await escrowService.depositorEscrows(depositor.address);
+      const escrows = await escrowService.getDepositorEscrows(depositor.address);
       expect(escrows.length).to.be.gte(1);
     });
 
     it("Should get beneficiary escrows", async function () {
-      const escrows = await escrowService.beneficiaryEscrows(beneficiary.address);
+      const escrows = await escrowService.getBeneficiaryEscrows(beneficiary.address);
       expect(escrows.length).to.be.gte(1);
     });
   });
