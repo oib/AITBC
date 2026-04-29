@@ -75,10 +75,10 @@ describe("EscrowService", function () {
     });
 
     it("Should set default configuration values", async function () {
-      expect(await escrowService.minEscrowAmount()).to.equal(1e15);
-      expect(await escrowService.maxEscrowAmount()).to.equal(1e22);
-      expect(await escrowService.minTimeLock()).to.equal(300);
-      expect(await escrowService.maxTimeLock()).to.equal(86400 * 30);
+      expect(await escrowService.minEscrowAmount()).to.equal(1000000000000000n);
+      expect(await escrowService.maxEscrowAmount()).to.equal(10000000000000000000000n);
+      expect(await escrowService.minTimeLock()).to.equal(300n);
+      expect(await escrowService.maxTimeLock()).to.equal(2592000n);
     });
   });
 
@@ -95,7 +95,7 @@ describe("EscrowService", function () {
       );
       const receipt = await tx.wait();
 
-      const escrowId = receipt.logs[0].args[0];
+      const escrowId = receipt.logs[0].topics[1];
       expect(escrowId).to.not.be.undefined;
     });
 
@@ -156,7 +156,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].args[0];
+      escrowId = receipt.logs[0].topics[1];
     });
 
     it("Should skip - fundEscrow not implemented", async function () {
@@ -192,7 +192,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].args[0];
+      escrowId = receipt.logs[0].topics[1];
     });
 
     it("Should release escrow to beneficiary", async function () {
@@ -245,7 +245,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].args[0];
+      escrowId = receipt.logs[0].topics[1];
     });
 
     it("Should refund escrow to depositor", async function () {
@@ -312,7 +312,7 @@ describe("EscrowService", function () {
         "Test escrow"
       );
       const receipt = await tx.wait();
-      escrowId = receipt.logs[0].args[0];
+      escrowId = receipt.logs[0].topics[1];
     });
 
     it("Should get escrow details", async function () {
