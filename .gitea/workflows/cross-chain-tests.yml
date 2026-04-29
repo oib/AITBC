@@ -50,7 +50,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio httpx"
+            --extra-packages "pytest pytest-asyncio"
           echo "✅ Python environment ready"
 
       - name: Test cross-chain block synchronization
@@ -63,7 +63,7 @@ jobs:
           
           PYTHONPATH="$PWD/apps/blockchain-node/src:$PYTHONPATH" venv/bin/python -c "
           import asyncio
-          from aitbc_chain.sync import CrossChainSync
+          from aitbc_chain.cross_chain import CrossChainSync
           
           async def test_sync():
               sync = CrossChainSync(chains=CHAINS.split(','))
@@ -200,7 +200,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --skip-requirements \
-            --extra-packages "pytest pytest-asyncio httpx"
+            --extra-packages "pytest pytest-asyncio"
           echo "✅ Python environment ready"
 
       - name: Test multi-chain consensus
@@ -211,7 +211,7 @@ jobs:
           
           PYTHONPATH="$PWD/apps/blockchain-node/src:$PYTHONPATH" venv/bin/python -c "
           import asyncio
-          from aitbc_chain.consensus.poa import MultiChainConsensus
+          from aitbc_chain.cross_chain import MultiChainConsensus
           
           async def test_consensus():
               consensus = MultiChainConsensus(chains=['ait-mainnet', 'ait-testnet'])

@@ -13,14 +13,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from sqlmodel import Session, select
 
-from .config import settings
-from .logger import get_logger
-from .state.merkle_patricia_trie import StateManager
-from .state.state_transition import get_state_transition
-from .metrics import metrics_registry
-from .models import Block, Account
-from aitbc_chain.models import Transaction as ChainTransaction
-
 logger = get_logger(__name__)
 
 
@@ -600,21 +592,3 @@ class ChainSync:
             "trusted_proposers": list(self._validator.trusted_proposers),
             "max_reorg_depth": self._max_reorg_depth,
         }
-
-
-class CrossChainSync:
-    """Cross-chain synchronization for testing multi-chain scenarios."""
-
-    def __init__(self, chains: List[str]) -> None:
-        self.chains = chains
-        self.sync_status: Dict[str, Dict[str, Any]] = {}
-
-    async def test_synchronization(self) -> None:
-        """Test cross-chain synchronization between configured chains."""
-        for chain in self.chains:
-            self.sync_status[chain] = {
-                "synced": True,
-                "height": 0,
-                "last_sync": datetime.utcnow().isoformat(),
-            }
-        logger.info("Cross-chain sync test passed", extra={"chains": self.chains})
