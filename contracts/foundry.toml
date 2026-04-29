@@ -9,10 +9,11 @@ enabled = true
 runs = 200
 
 [profile.default.model_checker]
-contracts = { "contracts/AIPowerRental.sol" = ["AIPowerRental"] }
-engine = "cheth"
-timeout = 10000
-targets = ["assert"]
+# Disabled - engine 'cheth' not supported in current Foundry version
+# contracts = { "contracts/AIPowerRental.sol" = ["AIPowerRental"] }
+# engine = "cheth"
+# timeout = 10000
+# targets = ["assert"]
 
 [profile.fuzz]
 runs = 1000

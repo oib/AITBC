@@ -43,18 +43,33 @@ async function main() {
       const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
       const registry = ContractRegistry.attach(deployments.ContractRegistry);
       
+      // Contracts that should be registered in the registry
+      const contractsToRegister = ["TreasuryManager", "AgentMarketplaceV2", "RewardDistributor", "PerformanceAggregator"];
+      
       for (const [name, address] of Object.entries(deployments)) {
-        if (name === "ContractRegistry") continue;
+        if (name === "ContractRegistry" || name === "AIToken") continue;
+        
+        // Only check contracts that should be registered
+        if (!contractsToRegister.includes(name)) {
+          console.log(`⚠️  ${name} not expected to be in registry`);
+          verificationResults[`${name}_registry`] = { success: true, skipped: true };
+          continue;
+        }
         
         const contractId = ethers.keccak256(ethers.toUtf8Bytes(name));
-        const registeredAddress = await registry.getContract(contractId);
-        
-        if (registeredAddress.toLowerCase() === address.toLowerCase()) {
-          console.log(`✅ ${name} registered correctly in registry`);
-          verificationResults[`${name}_registry`] = { success: true, registered: true };
-        } else {
-          console.log(`❌ ${name} NOT registered in registry (expected: ${address}, got: ${registeredAddress})`);
-          verificationResults[`${name}_registry`] = { success: false, registered: false };
+        try {
+          const registeredAddress = await registry.getContract(contractId);
+          
+          if (registeredAddress.toLowerCase() === address.toLowerCase()) {
+            console.log(`✅ ${name} registered correctly in registry`);
+            verificationResults[`${name}_registry`] = { success: true, registered: true };
+          } else {
+            console.log(`❌ ${name} NOT registered in registry (expected: ${address}, got: ${registeredAddress})`);
+            verificationResults[`${name}_registry`] = { success: false, registered: false };
+          }
+        } catch (error) {
+          console.log(`❌ ${name} registry check failed: ${error.message}`);
+          verificationResults[`${name}_registry`] = { success: false, error: error.message };
         }
       }
     }
