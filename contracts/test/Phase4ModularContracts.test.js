@@ -72,11 +72,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("RewardDistributor")),
       await rewardDistributor.getAddress()
     );
-    // PerformanceAggregator registers itself during initialize()
-    await contractRegistry.registerContract(
-      ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")),
-      await stakingPoolFactory.getAddress()
-    );
+    // StakingPoolFactory and PerformanceAggregator register themselves during initialize()
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
       await daoGovernanceEnhanced.getAddress()
