@@ -122,3 +122,19 @@ class ComputeConsumer(Agent):
             "completed_jobs": len(self.completed_jobs),
             "pending_jobs": len(self.pending_jobs),
         }
+
+    async def __aenter__(self) -> "ComputeConsumer":
+        """Async context manager entry - register consumer"""
+        await self.register() if hasattr(self, 'register') else None
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - cleanup consumer resources"""
+        # Cancel any pending jobs
+        for job in self.pending_jobs[:]:
+            await self.cancel_job(job.job_id if hasattr(job, 'job_id') else str(job))
+        
+        if exc_type is not None:
+            logger.error(f"Consumer {self.identity.id} exiting with exception: {exc_val}")
+        else:
+            logger.info(f"Consumer {self.identity.id} exiting normally. Total spent: {self.total_spent} AITBC")
