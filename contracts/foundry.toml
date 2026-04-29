@@ -8,13 +8,6 @@ test = "test"
 enabled = true
 runs = 200
 
-[profile.default.model_checker]
-# Disabled - engine 'cheth' not supported in current Foundry version
-# contracts = { "contracts/AIPowerRental.sol" = ["AIPowerRental"] }
-# engine = "cheth"
-# timeout = 10000
-# targets = ["assert"]
-
 [profile.fuzz]
 runs = 1000
 max_test_rejects = 65536
