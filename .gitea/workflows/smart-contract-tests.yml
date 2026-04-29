@@ -118,12 +118,14 @@ jobs:
           if ! command -v forge &> /dev/null; then
             curl -L https://foundry.paradigm.xyz | bash
             export PATH="$HOME/.foundry/bin:$PATH"
-            source ~/.bashrc
+            foundryup
+            export PATH="$HOME/.foundry/bin:$PATH"
           fi
           forge --version
 
       - name: Test contracts with Foundry
         run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
           cd /var/lib/aitbc-workspaces/foundry/repo/contracts
           
           # Ensure standard directories exist
