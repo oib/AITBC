@@ -75,8 +75,8 @@ async function main() {
     console.log("\n=== Deployment Summary ===");
     console.log(JSON.stringify(deployments, null, 2));
     
-    // Write to file
-    const deploymentFile = `deployments-${network.name}-${Date.now()}.json`;
+    // Write to file (use consistent filename for verification)
+    const deploymentFile = `deployments-${network.name}.json`;
     fs.writeFileSync(deploymentFile, JSON.stringify(deployments, null, 2));
     console.log(`Deployment addresses saved to: ${deploymentFile}`);
 
