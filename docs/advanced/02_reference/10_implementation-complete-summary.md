@@ -88,7 +88,7 @@ Payments:
    - Wallet daemon for Bitcoin operations
 
 3. **Configure Environment**
-   - Exchange API URL: `http://127.0.0.1:23000`
+   - Exchange API URL: `http://127.0.0.1:8001`
    - Wallet daemon URL: `http://127.0.0.1:20000`
 
 ## 📊 Test Coverage
