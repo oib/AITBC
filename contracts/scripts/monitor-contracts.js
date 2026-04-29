@@ -3,8 +3,9 @@
  * Monitors contract health, balances, and key metrics
  */
 
-const { ethers } = require("hardhat");
-const fs = require("fs");
+import hardhat from "hardhat";
+const { ethers } = hardhat;
+import fs from "fs";
 
 async function main() {
   console.log("=== AITBC Smart Contract Monitoring ===");
