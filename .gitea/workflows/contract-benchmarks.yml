@@ -9,8 +9,6 @@ on:
       - '.gitea/workflows/contract-benchmarks.yml'
   pull_request:
     branches: [main, develop]
-  schedule:
-    - cron: '0 0 * * 0'  # Weekly on Sunday
   workflow_dispatch:
     inputs:
       benchmark_type:
