@@ -231,9 +231,9 @@ main() {
     
     log "Healthy nodes: ${healthy_nodes} / ${#NODES[@]}"
     
-    # Need at least 2 healthy nodes for failover testing
-    if [ $healthy_nodes -lt 2 ]; then
-        log_error "Insufficient healthy nodes for failover testing (need at least 2, have ${healthy_nodes})"
+    # Need at least 3 healthy nodes for failover testing (to test taking one down and still having 2)
+    if [ $healthy_nodes -lt 3 ]; then
+        log_error "Insufficient healthy nodes for failover testing (need at least 3, have ${healthy_nodes})"
         log_success "Failover simulation skipped (insufficient infrastructure - expected in test environment)"
         exit 0  # Exit successfully since this is an infrastructure issue, not a code issue
     fi
