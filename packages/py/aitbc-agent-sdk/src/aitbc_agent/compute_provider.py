@@ -4,9 +4,12 @@ Compute Provider Agent - for agents that provide computational resources
 
 import asyncio
 import httpx
+import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
 from .agent import Agent, AgentCapabilities
 
 from aitbc.aitbc_logging import get_logger
@@ -46,24 +49,62 @@ class JobExecution:
 class ComputeProvider(Agent):
     """Agent that provides computational resources"""
 
-    def __init__(self, *args: Any, coordinator_url: Optional[str] = None, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self,
+        identity: AgentIdentity,
+        capabilities: AgentCapabilities,
+        coordinator_url: Optional[str] = None,
+    ) -> None:
+        super().__init__(identity, capabilities, coordinator_url)
         self.current_offers: List[ResourceOffer] = []
         self.active_jobs: List[JobExecution] = []
         self.earnings: float = 0.0
         self.utilization_rate: float = 0.0
         self.pricing_model: Dict[str, Any] = {}
         self.dynamic_pricing: Dict[str, Any] = {}
-        self.coordinator_url = coordinator_url or "http://localhost:8001"
-        self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
     @classmethod
     def create_provider(
         cls, name: str, capabilities: Dict[str, Any], pricing_model: Dict[str, Any]
     ) -> "ComputeProvider":
         """Create and register a compute provider"""
-        agent = super().create(name, "compute_provider", capabilities)
-        provider = cls(agent.identity, agent.capabilities)
+        from .agent import AgentIdentity
+
+        # Generate cryptographic keys
+        private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        public_key = private_key.public_key()
+
+        private_key_pem = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption(),
+        ).decode()
+
+        public_key_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode()
+
+        # Create identity
+        identity = AgentIdentity(
+            id=str(uuid.uuid4()),
+            name=name,
+            address=f"0x{uuid.uuid4().hex[:40]}",
+            public_key=public_key_pem,
+            private_key=private_key_pem,
+        )
+
+        # Create capabilities
+        agent_capabilities = AgentCapabilities(
+            compute_type=capabilities.get("compute_type", "general"),
+            gpu_memory=capabilities.get("gpu_memory"),
+            supported_models=capabilities.get("supported_models"),
+            performance_score=capabilities.get("performance_score", 0.0),
+            max_concurrent_jobs=capabilities.get("max_concurrent_jobs", 1),
+            specialization=capabilities.get("specialization"),
+        )
+
+        provider = cls(identity, agent_capabilities)
         provider.pricing_model = pricing_model
         return provider
 
