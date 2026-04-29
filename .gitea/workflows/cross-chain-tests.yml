@@ -49,8 +49,7 @@ jobs:
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
-            --skip-requirements \
-            --extra-packages "pytest pytest-asyncio fastapi uvicorn httpx cryptography pydantic-settings"
+            --extra-packages "pytest pytest-asyncio"
           echo "✅ Python environment ready"
 
       - name: Test cross-chain block synchronization
@@ -199,8 +198,7 @@ jobs:
           bash scripts/ci/setup-python-venv.sh \
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
-            --skip-requirements \
-            --extra-packages "pytest pytest-asyncio fastapi uvicorn httpx cryptography pydantic-settings"
+            --extra-packages "pytest pytest-asyncio"
           echo "✅ Python environment ready"
 
       - name: Test multi-chain consensus
