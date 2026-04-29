@@ -27,7 +27,10 @@ describe("EscrowService", function () {
 
     // Deploy AITBCPaymentProcessor (mock)
     const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
-    paymentProcessor = await AITBCPaymentProcessor.deploy();
+    paymentProcessor = await AITBCPaymentProcessor.deploy(
+      await aitbcToken.getAddress(),
+      await aiPowerRental.getAddress()
+    );
     await paymentProcessor.waitForDeployment();
 
     // Deploy EscrowService
