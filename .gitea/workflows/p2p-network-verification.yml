@@ -10,8 +10,6 @@ on:
   pull_request:
     branches: [main, develop]
   workflow_dispatch:
-  schedule:
-    - cron: '0 */4 * * *'  # Every 4 hours
 
 concurrency:
   group: p2p-network-verification-${{ github.ref }}
