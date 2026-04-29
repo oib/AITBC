@@ -17,7 +17,7 @@ NODES=(
 )
 
 RPC_PORT=8006
-CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
+CLI_PATH="${CLI_PATH:-${REPO_ROOT}/cli/aitbc_cli.py}"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/stress-test.log"
 
@@ -219,6 +219,7 @@ main() {
         log_warning "Insufficient balance for stress testing - skipping test"
         log "Stress test requires funded wallet to generate transactions"
         cleanup_wallet
+        log_success "Stress test skipped (insufficient balance - expected in test environment)"
         exit 0  # Exit successfully since this is a test environment issue, not a code issue
     fi
     
