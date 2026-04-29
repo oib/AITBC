@@ -215,7 +215,7 @@ class TestComputeConsumer:
         with patch('aitbc_agent.compute_consumer.httpx.AsyncClient') as mock_client:
             mock_response = Mock()
             mock_response.status_code = 201
-            mock_response.json.return_value = {"job_id": "test-job-123"}
+            mock_response.json.return_value = {"job_id": "job_test_123"}
             mock_client.return_value.__aenter__.return_value.post.return_value = mock_response
             
             job_id = await consumer.submit_job(
