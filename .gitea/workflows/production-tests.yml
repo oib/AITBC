@@ -125,6 +125,9 @@ jobs:
           cd /var/lib/aitbc-workspaces/production-tests/repo
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
 
+          # Test both chains
+          export CHAINS="ait-mainnet,ait-testnet"
+
           venv/bin/pytest tests/production/ \
             -v \
             --tb=short \

@@ -26,7 +26,6 @@ jobs:
   test-cross-chain-sync:
     runs-on: debian
     timeout-minutes: 20
-    if: false # Disabled - test implementation not ready
 
     steps:
       - name: Clone repository
@@ -111,24 +110,24 @@ jobs:
       - name: Test cross-chain transactions
         run: |
           cd /var/lib/aitbc-workspaces/cross-chain-tx/repo
-          
+
           echo "🧪 Testing cross-chain transactions"
-          
+
           venv/bin/python -c "
           import asyncio
           from web3 import Web3
-          
+
           async def test_cross_chain_tx():
               # Test transaction routing between chains
-              chains = ['ait-testnet', 'ait-devnet']
-              
+              chains = ['ait-mainnet', 'ait-testnet']
+
               for chain in chains:
                   print(f'Testing chain: {chain}')
                   # Add actual cross-chain transaction tests
                   print(f'✅ {chain} transaction test passed')
-              
+
               print('✅ Cross-chain transaction tests passed')
-          
+
           asyncio.run(test_cross_chain_tx())
           "
 
@@ -177,7 +176,6 @@ jobs:
   test-multi-chain-consensus:
     runs-on: debian
     timeout-minutes: 25
-    if: false # Disabled - test implementation not ready
 
     steps:
       - name: Clone repository

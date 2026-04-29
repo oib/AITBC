@@ -65,6 +65,9 @@ jobs:
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
+          # Test both chains for blockchain commands
+          export CHAINS="ait-mainnet,ait-testnet"
+
           if [[ -d "cli/tests" ]]; then
             # Run the CLI test runner that uses virtual environment
             python3 cli/tests/run_cli_tests.py

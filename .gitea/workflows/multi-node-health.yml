@@ -52,7 +52,7 @@ jobs:
       - name: Run multi-node health check
         run: |
           cd /var/lib/aitbc-workspaces/multi-node-health/repo
-          bash scripts/multi-node/blockchain-health-check.sh
+          CHAINS="ait-mainnet,ait-testnet" bash scripts/multi-node/blockchain-health-check.sh
 
       - name: Health check report
         if: always()

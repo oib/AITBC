@@ -57,14 +57,21 @@ log_warning() {
 check_rpc_health() {
     local node_name="$1"
     local node_ip="$2"
-    
-    log "Checking RPC health for ${node_name} (${node_ip}:${RPC_PORT})"
-    
-    if curl -f -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" > /dev/null 2>&1; then
-        log_success "RPC endpoint healthy on ${node_name}"
+    local chain_id="${3:-}"
+
+    if [ -n "$chain_id" ]; then
+        log "Checking RPC health for ${node_name} (${node_ip}:${RPC_PORT}) on chain ${chain_id}"
+        local url="http://${node_ip}:${RPC_PORT}/rpc/head?chain_id=${chain_id}"
+    else
+        log "Checking RPC health for ${node_name} (${node_ip}:${RPC_PORT})"
+        local url="http://${node_ip}:${RPC_PORT}/health"
+    fi
+
+    if curl -f -s --max-time 5 "$url" > /dev/null 2>&1; then
+        log_success "RPC endpoint healthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
         return 0
     else
-        log_error "RPC endpoint unhealthy on ${node_name}"
+        log_error "RPC endpoint unhealthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
         return 1
     fi
 }
@@ -107,18 +114,22 @@ check_redis_connectivity() {
 check_node_health() {
     local node_name="$1"
     local node_ip="$2"
-    
+
     local failures=0
-    
-    # Check RPC health only
-    if ! check_rpc_health "$node_name" "$node_ip"; then
-        ((failures++))
-        log_error "RPC endpoint unhealthy on ${node_name}"
-    fi
-    
+
+    # Check RPC health for each chain
+    IFS=',' read -ra CHAIN_ARRAY <<< "$CHAINS"
+    for chain in "${CHAIN_ARRAY[@]}"; do
+        chain=$(echo "$chain" | xargs)  # Trim whitespace
+        if ! check_rpc_health "$node_name" "$node_ip" "$chain"; then
+            ((failures++))
+            log_error "RPC endpoint unhealthy on ${node_name} for chain ${chain}"
+        fi
+    done
+
     # Skip SSH-based service and resource checks
     log "Skipping SSH-based checks for ${node_name} (RPC health only mode)"
-    
+
     return $failures
 }
 
