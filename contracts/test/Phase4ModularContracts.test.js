@@ -62,15 +62,8 @@ describe("Phase 4 Modular Smart Contracts", function () {
     const DAOGovernanceEnhanced = await ethers.getContractFactory("DAOGovernanceEnhanced");
     daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(await aiToken.getAddress(), MIN_STAKE);
     await daoGovernanceEnhanced.waitForDeployment();
-    
-    // Initialize all contracts
-    await treasuryManager.initialize(await contractRegistry.getAddress());
-    await rewardDistributor.initialize(await contractRegistry.getAddress());
-    await performanceAggregator.initialize(await contractRegistry.getAddress());
-    await stakingPoolFactory.initialize(await contractRegistry.getAddress());
-    await daoGovernanceEnhanced.initialize(await contractRegistry.getAddress());
-    
-    // Register contracts in registry
+
+    // Register contracts in registry first (required by PerformanceAggregator.initialize)
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")),
       await treasuryManager.getAddress()
@@ -91,6 +84,13 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
       await daoGovernanceEnhanced.getAddress()
     );
+
+    // Initialize all contracts (after registration)
+    await treasuryManager.initialize(await contractRegistry.getAddress());
+    await rewardDistributor.initialize(await contractRegistry.getAddress());
+    await performanceAggregator.initialize(await contractRegistry.getAddress());
+    await stakingPoolFactory.initialize(await contractRegistry.getAddress());
+    await daoGovernanceEnhanced.initialize(await contractRegistry.getAddress());
   });
 
   describe("ContractRegistry", function () {

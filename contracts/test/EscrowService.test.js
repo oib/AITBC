@@ -20,9 +20,22 @@ describe("EscrowService", function () {
     // Transfer tokens to depositor
     await aitbcToken.transfer(depositor.address, ethers.parseEther("10000"));
 
-    // Deploy AIPowerRental (mock)
+    // Deploy mock verifiers for AIPowerRental
+    const ZKReceiptVerifier = await ethers.getContractFactory("ZKReceiptVerifier");
+    const zkVerifier = await ZKReceiptVerifier.deploy();
+    await zkVerifier.waitForDeployment();
+
+    const Groth16Verifier = await ethers.getContractFactory("Groth16Verifier");
+    const groth16Verifier = await Groth16Verifier.deploy();
+    await groth16Verifier.waitForDeployment();
+
+    // Deploy AIPowerRental
     const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
-    aiPowerRental = await AIPowerRental.deploy();
+    aiPowerRental = await AIPowerRental.deploy(
+      await aitbcToken.getAddress(),
+      await zkVerifier.getAddress(),
+      await groth16Verifier.getAddress()
+    );
     await aiPowerRental.waitForDeployment();
 
     // Deploy AITBCPaymentProcessor (mock)
