@@ -24,6 +24,7 @@
 ## 📦 **Contents**
 
 - **[SETUP_PRODUCTION.md](SETUP_PRODUCTION.md)** - Production deployment setup and operational checklist
+- **[SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md)** - Smart contract deployment guide for testnet and mainnet
 
 ---
 
