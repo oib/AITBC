@@ -1,0 +1,169 @@
+name: Deploy to Testnet
+
+on:
+  push:
+    branches: [main]
+    tags: ['testnet-v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - devnet
+      verify_contracts:
+        description: 'Verify contracts on block explorer'
+        required: false
+        default: true
+        type: boolean
+
+concurrency:
+  group: deploy-testnet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-testnet:
+    runs-on: debian
+    timeout-minutes: 30
+    environment:
+      name: testnet
+      url: https://testnet.aitbc.network
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/deploy-testnet"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Node.js environment
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          npm install
+          echo "✅ Node.js environment ready"
+
+      - name: Compile contracts
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          npx hardhat compile
+          echo "✅ Contracts compiled"
+
+      - name: Run contract tests
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          npx hardhat test
+          echo "✅ Contract tests passed"
+
+      - name: Deploy contracts to testnet
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          
+          # Load testnet deployment configuration
+          export HARDHAT_NETWORK=testnet
+          export PRIVATE_KEY=${{ secrets.TESTNET_DEPLOYER_PRIVATE_KEY }}
+          export TESTNET_RPC_URL=${{ secrets.TESTNET_RPC_URL }}
+          
+          # Deploy contracts
+          npx hardhat run scripts/deploy-testnet.js --network testnet
+          
+          echo "✅ Contracts deployed to testnet"
+
+      - name: Verify contracts on block explorer
+        if: inputs.verify_contracts != false
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          
+          # Load verification configuration
+          export ETHERSCAN_API_KEY=${{ secrets.TESTNET_EXPLORER_API_KEY }}
+          export TESTNET_EXPLORER_URL=${{ secrets.TESTNET_EXPLORER_URL }}
+          
+          # Verify deployed contracts
+          npx hardhat verify --network testnet DEPLOYED_CONTRACT_ADDRESS CONSTRUCTOR_ARGS
+          
+          echo "✅ Contracts verified on block explorer"
+
+      - name: Record deployment metadata
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          
+          # Save deployment information
+          cat > deployment-info.json << EOF
+          {
+            "network": "testnet",
+            "commit": "${{ github.sha }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "deployed_by": "${{ github.actor }}",
+            "contracts": {
+              "PaymentProcessor": "DEPLOYED_ADDRESS",
+              "AgentMarketplace": "DEPLOYED_ADDRESS",
+              "StakingContract": "DEPLOYED_ADDRESS"
+            }
+          }
+          EOF
+          
+          echo "✅ Deployment metadata recorded"
+
+      - name: Setup monitoring alerts
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          
+          # Configure monitoring for deployed contracts
+          bash scripts/monitoring/setup-contract-monitoring.sh testnet
+          
+          echo "✅ Monitoring alerts configured"
+
+      - name: Run smoke tests
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          
+          # Run smoke tests against deployed contracts
+          bash scripts/testing/run-smoke-tests.sh testnet
+          
+          echo "✅ Smoke tests passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/deploy-testnet
+
+  notify-deployment:
+    runs-on: debian
+    needs: deploy-testnet
+    if: always()
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/notify-deployment"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/notify-deployment/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Send deployment notification
+        run: |
+          cd /var/lib/aitbc-workspaces/notify-deployment/repo
+          
+          # Send notification about deployment status
+          STATUS=${{ needs.deploy-testnet.result }}
+          bash scripts/notifications/send-deployment-notification.sh testnet $STATUS
+          
+          echo "✅ Deployment notification sent"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/notify-deployment
