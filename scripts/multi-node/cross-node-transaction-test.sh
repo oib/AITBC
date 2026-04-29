@@ -63,10 +63,10 @@ create_test_wallet() {
     log "Creating test wallet: ${TEST_WALLET_NAME}"
     
     # Remove existing test wallet if it exists
-    ${CLI_PATH} wallet delete --name "${TEST_WALLET_NAME}" --yes 2>/dev/null || true
+    timeout 30 ${CLI_PATH} wallet delete --name "${TEST_WALLET_NAME}" --yes 2>/dev/null || true
     
     # Create new test wallet
-    ${CLI_PATH} wallet create --name "${TEST_WALLET_NAME}" --password "${TEST_WALLET_PASSWORD}" --yes --no-confirm >> "${LOG_FILE}" 2>&1
+    timeout 30 ${CLI_PATH} wallet create --name "${TEST_WALLET_NAME}" --password "${TEST_WALLET_PASSWORD}" --yes --no-confirm >> "${LOG_FILE}" 2>&1
     
     log_success "Test wallet created: ${TEST_WALLET_NAME}"
 }
@@ -83,13 +83,13 @@ get_wallet_address() {
     fi
     
     # Try different wallet address command syntaxes
-    local address=$(${CLI_PATH} wallet address --name "${wallet_name}" 2>&1)
+    local address=$(timeout 10 ${CLI_PATH} wallet address --name "${wallet_name}" 2>&1)
     local exit_code=$?
     
     if [ $exit_code -ne 0 ] || [ -z "$address" ]; then
         log_warning "wallet address command failed (exit code: ${exit_code}, output: ${address})"
         # Try alternative syntax
-        address=$(${CLI_PATH} wallet list --name "${wallet_name}" 2>&1 | grep -o "ait1[a-z0-9]*" | head -1 || echo "")
+        address=$(timeout 10 ${CLI_PATH} wallet list --name "${wallet_name}" 2>&1 | grep -o "ait1[a-z0-9]*" | head -1 || echo "")
     fi
     
     echo "$address"
@@ -98,7 +98,7 @@ get_wallet_address() {
 # Get wallet balance
 get_wallet_balance() {
     local wallet_name="$1"
-    ${CLI_PATH} wallet balance --name "${wallet_name}" 2>/dev/null || echo "0"
+    timeout 10 ${CLI_PATH} wallet balance --name "${wallet_name}" 2>/dev/null || echo "0"
 }
 
 # Submit transaction
@@ -110,7 +110,7 @@ submit_transaction() {
     log "Submitting transaction: ${amount} from ${from_wallet} to ${to_address}"
     
     local tx_start=$(date +%s)
-    ${CLI_PATH} wallet send --from "${from_wallet}" --to "${to_address}" --amount "${amount}" --password "${TEST_WALLET_PASSWORD}" --yes --verbose >> "${LOG_FILE}" 2>&1
+    timeout 60 ${CLI_PATH} wallet send --from "${from_wallet}" --to "${to_address}" --amount "${amount}" --password "${TEST_WALLET_PASSWORD}" --yes --verbose >> "${LOG_FILE}" 2>&1
     local tx_end=$(date +%s)
     local tx_time=$((tx_end - tx_start))
     
@@ -219,7 +219,7 @@ measure_propagation_latency() {
 # Clean up test wallet
 cleanup_wallet() {
     log "Cleaning up test wallet: ${TEST_WALLET_NAME}"
-    ${CLI_PATH} wallet delete --name "${TEST_WALLET_NAME}" --yes >> "${LOG_FILE}" 2>&1 || true
+    timeout 30 ${CLI_PATH} wallet delete --name "${TEST_WALLET_NAME}" --yes >> "${LOG_FILE}" 2>&1 || true
     log_success "Test wallet deleted"
 }
 
