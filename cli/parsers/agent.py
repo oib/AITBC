@@ -49,3 +49,71 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         agent_messages_parser.add_argument("--wallet")
         agent_messages_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
         agent_messages_parser.set_defaults(handler=ctx.handle_agent_action, agent_action="messages")
+    
+        # Agent SDK commands for lifecycle management
+        agent_sdk_parser = agent_subparsers.add_parser("sdk", help="Agent SDK lifecycle management")
+        agent_sdk_subparsers = agent_sdk_parser.add_subparsers(dest="agent_sdk_action")
+    
+        # agent sdk create
+        agent_sdk_create_parser = agent_sdk_subparsers.add_parser("create", help="Create a new agent using Agent SDK")
+        agent_sdk_create_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_create_parser.add_argument("--type", choices=["provider", "consumer", "general"], default="provider", help="Agent type")
+        agent_sdk_create_parser.add_argument("--compute-type", default="inference", help="Compute type")
+        agent_sdk_create_parser.add_argument("--gpu-memory", type=int, help="GPU memory in GB")
+        agent_sdk_create_parser.add_argument("--models", help="Comma-separated supported models")
+        agent_sdk_create_parser.add_argument("--performance", type=float, default=0.8, help="Performance score")
+        agent_sdk_create_parser.add_argument("--max-jobs", type=int, default=1, help="Max concurrent jobs")
+        agent_sdk_create_parser.add_argument("--specialization", help="Agent specialization")
+        agent_sdk_create_parser.add_argument("--coordinator-url", help="Coordinator URL")
+        agent_sdk_create_parser.add_argument("--auto-detect", action="store_true", help="Auto-detect capabilities")
+        agent_sdk_create_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="create")
+    
+        # agent sdk register
+        agent_sdk_register_parser = agent_sdk_subparsers.add_parser("register", help="Register agent with coordinator")
+        agent_sdk_register_parser.add_argument("--agent-id", required=True, help="Agent ID")
+        agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:8001", help="Coordinator URL")
+        agent_sdk_register_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="register")
+    
+        # agent sdk list
+        agent_sdk_list_parser = agent_sdk_subparsers.add_parser("list", help="List local agents")
+        agent_sdk_list_parser.add_argument("--agent-dir", help="Agent directory path")
+        agent_sdk_list_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="list")
+    
+        # agent sdk status
+        agent_sdk_status_parser = agent_sdk_subparsers.add_parser("status", help="Get agent status")
+        agent_sdk_status_parser.add_argument("--agent-id", required=True, help="Agent ID")
+        agent_sdk_status_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="status")
+    
+        # agent sdk capabilities
+        agent_sdk_caps_parser = agent_sdk_subparsers.add_parser("capabilities", help="Show system capabilities")
+        agent_sdk_caps_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="capabilities")
+    
+        # agent sdk config-set
+        agent_sdk_config_set_parser = agent_sdk_subparsers.add_parser("config-set", help="Set agent configuration value")
+        agent_sdk_config_set_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_config_set_parser.add_argument("--key", required=True, help="Configuration key")
+        agent_sdk_config_set_parser.add_argument("--value", required=True, help="Configuration value")
+        agent_sdk_config_set_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="config_set")
+    
+        # agent sdk config-get
+        agent_sdk_config_get_parser = agent_sdk_subparsers.add_parser("config-get", help="Get agent configuration")
+        agent_sdk_config_get_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_config_get_parser.add_argument("--key", help="Specific configuration key")
+        agent_sdk_config_get_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="config_get")
+    
+        # agent sdk config-validate
+        agent_sdk_config_validate_parser = agent_sdk_subparsers.add_parser("config-validate", help="Validate agent configuration")
+        agent_sdk_config_validate_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_config_validate_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="config_validate")
+    
+        # agent sdk config-import
+        agent_sdk_config_import_parser = agent_sdk_subparsers.add_parser("config-import", help="Import agent configuration from file")
+        agent_sdk_config_import_parser.add_argument("--file", required=True, help="Configuration file path")
+        agent_sdk_config_import_parser.add_argument("--name", help="Override agent name")
+        agent_sdk_config_import_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="config_import")
+    
+        # agent sdk config-export
+        agent_sdk_config_export_parser = agent_sdk_subparsers.add_parser("config-export", help="Export agent configuration to file")
+        agent_sdk_config_export_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_config_export_parser.add_argument("--output", required=True, help="Output file path")
+        agent_sdk_config_export_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="config_export")

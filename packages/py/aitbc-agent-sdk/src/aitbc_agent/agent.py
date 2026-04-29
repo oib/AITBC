@@ -343,6 +343,20 @@ class Agent:
             "earnings": self.earnings,
         }
 
+    async def __aenter__(self) -> "Agent":
+        """Async context manager entry - automatically register agent"""
+        await self.register()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - cleanup agent resources"""
+        # In a real implementation, this would unregister the agent
+        # and clean up any resources
+        if exc_type is not None:
+            logger.error(f"Agent {self.identity.id} exiting with exception: {exc_val}")
+        else:
+            logger.info(f"Agent {self.identity.id} exiting normally")
+
 
 class AITBCAgent:
     """High-level convenience wrapper for creating AITBC agents.

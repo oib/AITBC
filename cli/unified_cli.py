@@ -459,6 +459,193 @@ def run_cli(argv, core):
     def handle_agent_action(args):
         system_handlers.handle_agent_action(args, agent_operations, render_mapping)
 
+    def handle_agent_sdk_action(args):
+        """Handle Agent SDK lifecycle management commands"""
+        import sys
+        from pathlib import Path
+        
+        # Import the agent SDK commands module
+        agent_sdk_path = Path(__file__).parent / "aitbc_cli" / "commands" / "agent_sdk.py"
+        if agent_sdk_path.exists():
+            sys.path.insert(0, str(Path(__file__).parent / "aitbc_cli" / "commands"))
+            try:
+                from agent_sdk import (
+                    create_agent, register_agent, list_local_agents, 
+                    get_agent_status, get_agent_capabilities
+                )
+                
+                action = getattr(args, "agent_sdk_action", None)
+                
+                if action == "create":
+                    # Build capabilities
+                    if getattr(args, "auto_detect", False):
+                        capabilities = get_agent_capabilities()
+                        if "error" in capabilities:
+                            print(f"Error: Auto-detection failed: {capabilities['error']}")
+                            return
+                    else:
+                        capabilities = {
+                            "compute_type": getattr(args, "compute_type", "inference"),
+                            "performance_score": getattr(args, "performance", 0.8),
+                            "max_concurrent_jobs": getattr(args, "max_jobs", 1)
+                        }
+                        
+                        if hasattr(args, "gpu_memory") and args.gpu_memory:
+                            capabilities["gpu_memory"] = args.gpu_memory
+                        
+                        if hasattr(args, "models") and args.models:
+                            capabilities["supported_models"] = [m.strip() for m in args.models.split(',')]
+                        
+                        if hasattr(args, "specialization") and args.specialization:
+                            capabilities["specialization"] = args.specialization
+                    
+                    # Create agent
+                    result = create_agent(
+                        name=args.name,
+                        agent_type=getattr(args, "type", "provider"),
+                        capabilities=capabilities,
+                        coordinator_url=getattr(args, "coordinator_url", None)
+                    )
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    print(f"✅ Agent created successfully!")
+                    print(f"  Agent ID: {result['agent_id']}")
+                    print(f"  Name: {result['name']}")
+                    print(f"  Address: {result['address']}")
+                    print(f"  Type: {result['agent_type']}")
+                    print(f"  Compute Type: {capabilities.get('compute_type', 'N/A')}")
+                    print(f"  GPU Memory: {capabilities.get('gpu_memory', 'N/A')} GB")
+                    print(f"  Performance Score: {capabilities.get('performance_score', 'N/A'):.2f}")
+                    print(f"  Max Jobs: {capabilities.get('max_concurrent_jobs', 'N/A')}")
+                
+                elif action == "register":
+                    import asyncio
+                    result = asyncio.run(register_agent(
+                        agent_id=args.agent_id,
+                        coordinator_url=getattr(args, "coordinator_url", "http://localhost:8001")
+                    ))
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    print(f"✅ Agent {args.agent_id} registered successfully!")
+                    print(f"  Coordinator URL: {result['coordinator_url']}")
+                    print(f"  Message: {result['message']}")
+                
+                elif action == "list":
+                    agent_dir = Path(args.agent_dir) if hasattr(args, "agent_dir") and args.agent_dir else None
+                    agents = list_local_agents(agent_dir)
+                    
+                    if not agents:
+                        print("No local agents found")
+                        return
+                    
+                    print(f"Local Agents ({len(agents)}):")
+                    for agent in agents:
+                        print(f"  - {agent['name']}: {agent.get('address', 'N/A')}")
+                
+                elif action == "status":
+                    result = get_agent_status(args.agent_id)
+                    
+                    print(f"Agent Status: {args.agent_id}")
+                    print(f"  Status: {result['status']}")
+                    print(f"  Registered: {result['registered']}")
+                    print(f"  Reputation Score: {result['reputation_score']:.3f}")
+                    print(f"  Last Seen: {result['last_seen']}")
+                
+                elif action == "capabilities":
+                    caps = get_agent_capabilities()
+                    
+                    if "error" in caps:
+                        print(f"Error: {caps['error']}")
+                        return
+                    
+                    print("System Capabilities:")
+                    print(f"  GPU Memory: {caps['gpu_memory']} MiB")
+                    print(f"  GPU Count: {caps.get('gpu_count', 0)}")
+                    print(f"  Compute Capability: {caps.get('compute_capability', 'unknown')}")
+                    print(f"  Performance Score: {caps['performance_score']:.2f}")
+                    print(f"  Max Concurrent Jobs: {caps['max_concurrent_jobs']}")
+                    print(f"  Supported Models: {', '.join(caps.get('supported_models', []))}")
+                
+                elif action == "config_set":
+                    from agent_sdk import set_agent_config
+                    result = set_agent_config(args.name, args.key, args.value)
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    print(f"✅ Configuration set: {args.name}.{args.key} = {result['value']}")
+                
+                elif action == "config_get":
+                    from agent_sdk import get_agent_config
+                    key = getattr(args, 'key', None)
+                    result = get_agent_config(args.name, key)
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    if key:
+                        print(f"Agent Config: {args.name}.{key}")
+                        print(f"  Value: {result['value']}")
+                    else:
+                        print(f"Agent Config: {args.name}")
+                        import json
+                        print(json.dumps(result['config'], indent=2))
+                
+                elif action == "config_validate":
+                    from agent_sdk import validate_agent_config
+                    result = validate_agent_config(args.name)
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    if result.get("valid"):
+                        print(f"✅ Configuration is valid: {args.name}")
+                    else:
+                        print(f"❌ Configuration validation failed: {result.get('error')}")
+                
+                elif action == "config_import":
+                    from agent_sdk import import_agent_config
+                    file_path = getattr(args, 'file', None)
+                    name = getattr(args, 'name', None)
+                    result = import_agent_config(file_path, name)
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    print(f"✅ Configuration imported: {result['name']} -> {result['config_file']}")
+                
+                elif action == "config_export":
+                    from agent_sdk import export_agent_config
+                    output_path = getattr(args, 'output', None)
+                    result = export_agent_config(args.name, output_path)
+                    
+                    if "error" in result:
+                        print(f"Error: {result['error']}")
+                        return
+                    
+                    print(f"✅ Configuration exported: {args.name} -> {result['exported_to']}")
+                
+                else:
+                    print(f"Unknown action: {action}")
+                    
+            except ImportError as e:
+                print(f"Error: Agent SDK commands module not available: {e}")
+                print("Install the Agent SDK from packages/py/aitbc-agent-sdk")
+            except Exception as e:
+                print(f"Error: {e}")
+        else:
+            print(f"Error: Agent SDK commands file not found at {agent_sdk_path}")
+
     def handle_openclaw_action(args):
         system_handlers.handle_openclaw_action(args, openclaw_operations, first, render_mapping)
 
@@ -575,18 +762,19 @@ def run_cli(argv, core):
         "handle_ai_service_list": handle_ai_service_list,
         "handle_ai_service_status": handle_ai_service_status,
         "handle_ai_service_test": handle_ai_service_test,
-        "handle_mining_action": handle_mining_action,
-        "handle_system_status": handle_system_status,
-        "handle_analytics": handle_analytics,
         "handle_economics_action": handle_economics_action,
         "handle_cluster_action": handle_cluster_action,
         "handle_performance_action": handle_performance_action,
         "handle_security_action": handle_security_action,
-        "handle_simulate_action": handle_simulate_action,
+        "handle_mining_action": handle_mining_action,
+        "handle_system_status": handle_system_status,
+        "handle_analytics": handle_analytics,
         "handle_agent_action": handle_agent_action,
+        "handle_agent_sdk_action": handle_agent_sdk_action,
         "handle_openclaw_action": handle_openclaw_action,
         "handle_workflow_action": handle_workflow_action,
         "handle_resource_action": handle_resource_action,
+        "handle_simulate_action": handle_simulate_action,
         "handle_pool_hub_sla_metrics": handle_pool_hub_sla_metrics,
         "handle_pool_hub_sla_violations": handle_pool_hub_sla_violations,
         "handle_pool_hub_capacity_snapshots": handle_pool_hub_capacity_snapshots,

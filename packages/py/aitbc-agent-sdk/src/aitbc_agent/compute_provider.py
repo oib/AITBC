@@ -442,3 +442,32 @@ class ComputeProvider(Agent):
             capabilities["max_concurrent_jobs"] = 1
         
         return capabilities
+
+    async def __aenter__(self) -> "ComputeProvider":
+        """Async context manager entry - register provider and start services"""
+        await super().__aenter__() if hasattr(super(), '__aenter__') else self.register()
+        # Start dynamic pricing if enabled
+        if self.dynamic_pricing.get("enabled", False):
+            asyncio.create_task(self._dynamic_pricing_loop())
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Async context manager exit - cleanup provider resources"""
+        # Stop dynamic pricing
+        if hasattr(self, 'dynamic_pricing'):
+            self.dynamic_pricing["enabled"] = False
+        
+        # Complete any remaining jobs
+        for job in self.active_jobs[:]:
+            if job.status == "running":
+                job.status = "failed"
+                logger.warning(f"Job {job.job_id} marked as failed due to provider shutdown")
+        
+        # Call parent cleanup
+        if hasattr(super(), '__aexit__'):
+            await super().__aexit__(exc_type, exc_val, exc_tb)
+        
+        if exc_type is not None:
+            logger.error(f"Provider {self.identity.id} exiting with exception: {exc_val}")
+        else:
+            logger.info(f"Provider {self.identity.id} exiting normally. Total earnings: {self.earnings} AITBC")
