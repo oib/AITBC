@@ -90,7 +90,7 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0, // Standard escrow type
         0, // Manual release condition
-        3600, // 1 hour release time
+        0, // Immediate release
         "Test escrow"
       );
       const receipt = await tx.wait();
@@ -107,7 +107,7 @@ describe("EscrowService", function () {
           ESCROW_AMOUNT,
           0,
           0,
-          3600,
+          0,
           "Test escrow"
         )
       ).to.emit(escrowService, "EscrowCreated");
@@ -121,7 +121,7 @@ describe("EscrowService", function () {
           ethers.parseEther("0.0001"), // Below minimum
           0,
           0,
-          3600,
+          0,
           "Test escrow"
         )
       ).to.be.reverted;
@@ -135,7 +135,7 @@ describe("EscrowService", function () {
           ethers.parseEther("20000"), // Above maximum
           0,
           0,
-          3600,
+          0,
           "Test escrow"
         )
       ).to.be.reverted;
@@ -152,7 +152,7 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        3600,
+        0,
         "Test escrow"
       );
       const receipt = await tx.wait();
@@ -188,7 +188,7 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        3600,
+        0,
         "Test escrow"
       );
       const receipt = await tx.wait();
@@ -241,7 +241,7 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        3600,
+        0,
         "Test escrow"
       );
       const receipt = await tx.wait();
@@ -308,7 +308,7 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        3600,
+        0,
         "Test escrow"
       );
       const receipt = await tx.wait();
