@@ -1,4 +1,4 @@
-const { expect } = require("chai");
+import { expect } from "chai";
 
 describe("Execution Time Benchmarks", function () {
   describe("EscrowService", function () {
