@@ -35,9 +35,13 @@ describe("DynamicPricing", function () {
     );
     await aiPowerRental.waitForDeployment();
 
-    // Deploy PerformanceVerifier (mock)
+    // Deploy PerformanceVerifier (requires verifiers and AIPowerRental)
     const PerformanceVerifier = await ethers.getContractFactory("PerformanceVerifier");
-    performanceVerifier = await PerformanceVerifier.deploy();
+    performanceVerifier = await PerformanceVerifier.deploy(
+      await zkVerifier.getAddress(),
+      await groth16Verifier.getAddress(),
+      await aiPowerRental.getAddress()
+    );
     await performanceVerifier.waitForDeployment();
 
     // Deploy DynamicPricing
