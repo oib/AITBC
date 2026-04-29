@@ -134,6 +134,10 @@ jobs:
 
           echo "=== Running Foundry Tests ==="
           
+          # Install OpenZeppelin dependencies
+          forge install OpenZeppelin/openzeppelin-contracts --no-commit
+          echo "✅ OpenZeppelin dependencies installed"
+          
           # Build contracts
           forge build
           echo "✅ Foundry build completed"
