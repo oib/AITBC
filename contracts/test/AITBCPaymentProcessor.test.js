@@ -8,7 +8,6 @@ describe("AITBCPaymentProcessor", function () {
   let paymentId;
 
   const PAYMENT_AMOUNT = ethers.parseEther("100");
-  const SERVICE_FEE_PERCENTAGE = 200; // 2%
 
   beforeEach(async function () {
     [deployer, payer, payee, agent] = await ethers.getSigners();
@@ -18,11 +17,16 @@ describe("AITBCPaymentProcessor", function () {
     aitbcToken = await AIToken.deploy(ethers.parseUnits("1000000", 18));
     await aitbcToken.waitForDeployment();
 
+    // Deploy AIPowerRental (mock)
+    const AIPowerRental = await ethers.getContractFactory("AIPowerRental");
+    const aiPowerRental = await AIPowerRental.deploy();
+    await aiPowerRental.waitForDeployment();
+
     // Deploy PaymentProcessor
     const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
     paymentProcessor = await AITBCPaymentProcessor.deploy(
       await aitbcToken.getAddress(),
-      SERVICE_FEE_PERCENTAGE
+      await aiPowerRental.getAddress()
     );
     await paymentProcessor.waitForDeployment();
 
