@@ -26,7 +26,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
     // Deploy AIToken for testing
     const AIToken = await ethers.getContractFactory("AIToken");
     aiToken = await AIToken.deploy(INITIAL_SUPPLY);
-    await aiToken.deployed();
+    await aiToken.waitForDeployment();
     
     // Transfer tokens to users
     await aiToken.transfer(user1.address, ethers.parseEther("10000"));
@@ -36,60 +36,60 @@ describe("Phase 4 Modular Smart Contracts", function () {
     // Deploy ContractRegistry
     const ContractRegistry = await ethers.getContractFactory("ContractRegistry");
     contractRegistry = await ContractRegistry.deploy();
-    await contractRegistry.deployed();
+    await contractRegistry.waitForDeployment();
     
     // Deploy TreasuryManager
     const TreasuryManager = await ethers.getContractFactory("TreasuryManager");
-    treasuryManager = await TreasuryManager.deploy(aiToken.address);
-    await treasuryManager.deployed();
+    treasuryManager = await TreasuryManager.deploy(await aiToken.getAddress());
+    await treasuryManager.waitForDeployment();
     
     // Deploy RewardDistributor
     const RewardDistributor = await ethers.getContractFactory("RewardDistributor");
     rewardDistributor = await RewardDistributor.deploy();
-    await rewardDistributor.deployed();
+    await rewardDistributor.waitForDeployment();
     
     // Deploy PerformanceAggregator
     const PerformanceAggregator = await ethers.getContractFactory("PerformanceAggregator");
     performanceAggregator = await PerformanceAggregator.deploy();
-    await performanceAggregator.deployed();
+    await performanceAggregator.waitForDeployment();
     
     // Deploy StakingPoolFactory
     const StakingPoolFactory = await ethers.getContractFactory("StakingPoolFactory");
-    stakingPoolFactory = await StakingPoolFactory.deploy(aiToken.address);
-    await stakingPoolFactory.deployed();
+    stakingPoolFactory = await StakingPoolFactory.deploy(await aiToken.getAddress());
+    await stakingPoolFactory.waitForDeployment();
     
     // Deploy DAOGovernanceEnhanced
     const DAOGovernanceEnhanced = await ethers.getContractFactory("DAOGovernanceEnhanced");
-    daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(aiToken.address, MIN_STAKE);
-    await daoGovernanceEnhanced.deployed();
+    daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(await aiToken.getAddress(), MIN_STAKE);
+    await daoGovernanceEnhanced.waitForDeployment();
     
     // Initialize all contracts
-    await treasuryManager.initialize(contractRegistry.address);
-    await rewardDistributor.initialize(contractRegistry.address);
-    await performanceAggregator.initialize(contractRegistry.address);
-    await stakingPoolFactory.initialize(contractRegistry.address);
-    await daoGovernanceEnhanced.initialize(contractRegistry.address);
+    await treasuryManager.initialize(await contractRegistry.getAddress());
+    await rewardDistributor.initialize(await contractRegistry.getAddress());
+    await performanceAggregator.initialize(await contractRegistry.getAddress());
+    await stakingPoolFactory.initialize(await contractRegistry.getAddress());
+    await daoGovernanceEnhanced.initialize(await contractRegistry.getAddress());
     
     // Register contracts in registry
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")),
-      treasuryManager.address
+      await treasuryManager.getAddress()
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("RewardDistributor")),
-      rewardDistributor.address
+      await rewardDistributor.getAddress()
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator")),
-      performanceAggregator.address
+      await performanceAggregator.getAddress()
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")),
-      stakingPoolFactory.address
+      await stakingPoolFactory.getAddress()
     );
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
-      daoGovernanceEnhanced.address
+      await daoGovernanceEnhanced.getAddress()
     );
   });
 
