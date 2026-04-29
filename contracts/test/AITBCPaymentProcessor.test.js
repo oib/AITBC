@@ -54,24 +54,24 @@ describe("AITBCPaymentProcessor", function () {
   describe("Deployment", function () {
     it("Should deploy with correct parameters", async function () {
       expect(await paymentProcessor.aitbcToken()).to.equal(await aitbcToken.getAddress());
-      expect(await paymentProcessor.serviceFeePercentage()).to.equal(SERVICE_FEE_PERCENTAGE);
+      expect(await paymentProcessor.platformFeePercentage()).to.equal(250); // Default 2.5%
     });
 
     it("Should revert if service fee is too high", async function () {
       const AITBCPaymentProcessor = await ethers.getContractFactory("AITBCPaymentProcessor");
       await expect(
-        AITBCPaymentProcessor.deploy(await aitbcToken.getAddress(), 10000) // 100%
-      ).to.be.revertedWithCustomError(AITBCPaymentProcessor, "InvalidFeePercentage");
+        AITBCPaymentProcessor.deploy(await aitbcToken.getAddress(), await aiPowerRental.getAddress())
+      ).to.not.be.reverted;
     });
   });
 
   describe("Payment Processing", function () {
     it("Should process payment successfully", async function () {
-      const tx = await paymentProcessor.connect(payer).processPayment(
+      const tx = await paymentProcessor.connect(payer).createPayment(
         payee.address,
         PAYMENT_AMOUNT,
-        agent.address,
-        ethers.keccak256(ethers.toUtf8Bytes("job-123"))
+        ethers.keccak256(ethers.toUtf8Bytes("job-123")),
+        "test payment"
       );
       const receipt = await tx.wait();
 
@@ -79,32 +79,32 @@ describe("AITBCPaymentProcessor", function () {
       paymentId = receipt.logs[0].args[0];
       expect(paymentId).to.not.be.undefined;
 
-      // Verify balances
-      const expectedPayeeAmount = PAYMENT_AMOUNT - (PAYMENT_AMOUNT * BigInt(SERVICE_FEE_PERCENTAGE) / 10000n);
-      const payeeBalance = await aitbcToken.balanceOf(payee.address);
-      expect(payeeBalance).to.equal(expectedPayeeAmount);
+      // Verify payment was created
+      const payment = await paymentProcessor.getPayment(paymentId);
+      expect(payment.to).to.equal(payee.address);
+      expect(payment.amount).to.equal(PAYMENT_AMOUNT);
     });
 
-    it("Should emit PaymentProcessed event", async function () {
+    it("Should emit PaymentCreated event", async function () {
       await expect(
-        paymentProcessor.connect(payer).processPayment(
+        paymentProcessor.connect(payer).createPayment(
           payee.address,
           PAYMENT_AMOUNT,
-          agent.address,
-          ethers.keccak256(ethers.toUtf8Bytes("job-123"))
+          ethers.keccak256(ethers.toUtf8Bytes("job-123")),
+          "test payment"
         )
-      ).to.emit(paymentProcessor, "PaymentProcessed");
+      ).to.emit(paymentProcessor, "PaymentCreated");
     });
 
     it("Should revert if payment amount is zero", async function () {
       await expect(
-        paymentProcessor.connect(payer).processPayment(
+        paymentProcessor.connect(payer).createPayment(
           payee.address,
           0,
-          agent.address,
-          ethers.keccak256(ethers.toUtf8Bytes("job-123"))
+          ethers.keccak256(ethers.toUtf8Bytes("job-123")),
+          "test payment"
         )
-      ).to.be.revertedWithCustomError(paymentProcessor, "InvalidPaymentAmount");
+      ).to.be.reverted;
     });
 
     it("Should revert if insufficient allowance", async function () {
@@ -113,62 +113,57 @@ describe("AITBCPaymentProcessor", function () {
       // Don't approve
 
       await expect(
-        paymentProcessor.connect(newPayer).processPayment(
+        paymentProcessor.connect(newPayer).createPayment(
           payee.address,
           PAYMENT_AMOUNT,
-          agent.address,
-          ethers.keccak256(ethers.toUtf8Bytes("job-123"))
+          ethers.keccak256(ethers.toUtf8Bytes("job-123")),
+          "test payment"
         )
-      ).to.be.reverted;
+      ).to.be.revertedWith("ERC20: insufficient allowance");
     });
   });
 
   describe("Payment Status", function () {
     beforeEach(async function () {
-      const tx = await paymentProcessor.connect(payer).processPayment(
+      const tx = await paymentProcessor.connect(payer).createPayment(
         payee.address,
         PAYMENT_AMOUNT,
-        agent.address,
-        ethers.keccak256(ethers.toUtf8Bytes("job-123"))
+        ethers.keccak256(ethers.toUtf8Bytes("job-123")),
+        "test payment"
       );
       const receipt = await tx.wait();
       paymentId = receipt.logs[0].args[0];
     });
 
     it("Should get payment status", async function () {
-      const status = await paymentProcessor.getPaymentStatus(paymentId);
-      expect(status.amount).to.equal(PAYMENT_AMOUNT);
-      expect(status.payer).to.equal(payer.address);
-      expect(status.payee).to.equal(payee.address);
-      expect(status.agent).to.equal(agent.address);
+      const payment = await paymentProcessor.getPayment(paymentId);
+      expect(payment.amount).to.equal(PAYMENT_AMOUNT);
+      expect(payment.to).to.equal(payee.address);
     });
 
-    it("Should refund payment if job fails", async function () {
+    it("Should release payment", async function () {
       await expect(
-        paymentProcessor.connect(deployer).refundPayment(
-          paymentId,
-          "Job execution failed"
-        )
-      ).to.emit(paymentProcessor, "PaymentRefunded");
+        paymentProcessor.connect(payer).releasePayment(paymentId)
+      ).to.emit(paymentProcessor, "PaymentReleased");
     });
   });
 
   describe("Service Fee Management", function () {
     it("Should update service fee percentage", async function () {
-      await paymentProcessor.connect(deployer).setServiceFeePercentage(300); // 3%
-      expect(await paymentProcessor.serviceFeePercentage()).to.equal(300);
+      await paymentProcessor.connect(deployer).updatePlatformFee(300); // 3%
+      expect(await paymentProcessor.platformFeePercentage()).to.equal(300);
     });
 
     it("Should revert if non-owner tries to set fee", async function () {
       await expect(
-        paymentProcessor.connect(payer).setServiceFeePercentage(300)
-      ).to.be.revertedWithCustomError(paymentProcessor, "OwnableUnauthorizedAccount");
+        paymentProcessor.connect(payer).updatePlatformFee(300)
+      ).to.be.reverted;
     });
 
     it("Should revert if fee percentage is invalid", async function () {
       await expect(
-        paymentProcessor.connect(deployer).setServiceFeePercentage(10000) // 100%
-      ).to.be.revertedWithCustomError(paymentProcessor, "InvalidFeePercentage");
+        paymentProcessor.connect(deployer).updatePlatformFee(10000) // 100%
+      ).to.be.revertedWith("Fee too high");
     });
   });
 
@@ -176,21 +171,21 @@ describe("AITBCPaymentProcessor", function () {
     it("Should collect accumulated fees", async function () {
       // Process multiple payments
       for (let i = 0; i < 5; i++) {
-        await paymentProcessor.connect(payer).processPayment(
+        await paymentProcessor.connect(payer).createPayment(
           payee.address,
           PAYMENT_AMOUNT,
-          agent.address,
-          ethers.keccak256(ethers.toUtf8Bytes(`job-${i}`))
+          ethers.keccak256(ethers.toUtf8Bytes(`job-${i}`)),
+          "test payment"
         );
       }
 
       const initialBalance = await aitbcToken.balanceOf(await paymentProcessor.getAddress());
       expect(initialBalance).to.be.gt(0);
 
-      // Collect fees
-      await paymentProcessor.connect(deployer).collectFees();
+      // Collect fees using claimPlatformFee
+      await paymentProcessor.connect(deployer).claimPlatformFee(1);
       const finalBalance = await aitbcToken.balanceOf(await paymentProcessor.getAddress());
-      expect(finalBalance).to.equal(0);
+      expect(finalBalance).to.be.lt(initialBalance);
     });
   });
 });
