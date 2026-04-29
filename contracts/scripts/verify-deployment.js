@@ -3,8 +3,9 @@
  * Verifies contract deployments and performs basic health checks
  */
 
-const { ethers } = require("hardhat");
-const fs = require("fs");
+import hardhat from "hardhat";
+const { ethers } = hardhat;
+import fs from "fs";
 
 async function main() {
   console.log("=== AITBC Smart Contract Deployment Verification ===");
