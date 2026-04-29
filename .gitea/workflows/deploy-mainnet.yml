@@ -1,0 +1,247 @@
+name: Deploy to Mainnet
+
+on:
+  push:
+    tags: ['mainnet-v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'mainnet'
+        type: choice
+        options:
+          - mainnet
+      verify_contracts:
+        description: 'Verify contracts on Etherscan'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Skip pre-deployment tests (NOT RECOMMENDED)'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: deploy-mainnet-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-deployment-checks:
+    runs-on: debian
+    timeout-minutes: 20
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/pre-deployment"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Run security scan
+        run: |
+          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          
+          # Run comprehensive security scan before mainnet deployment
+          bash scripts/ci/security-scan.sh
+          
+          echo "✅ Security scan passed"
+
+      - name: Run contract tests
+        if: inputs.skip_tests != true
+        run: |
+          cd /var/lib/aitbc-workspaces/pre-deployment/repo/contracts
+          npm install
+          npx hardhat test
+          echo "✅ Contract tests passed"
+
+      - name: Verify deployment readiness
+        run: |
+          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          
+          # Check all pre-deployment requirements
+          bash scripts/deployment/check-deployment-readiness.sh mainnet
+          
+          echo "✅ Deployment readiness verified"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/pre-deployment
+
+  deploy-mainnet:
+    runs-on: debian
+    timeout-minutes: 45
+    needs: pre-deployment-checks
+    environment:
+      name: mainnet
+      url: https://mainnet.aitbc.network
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/deploy-mainnet"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Setup Node.js environment
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          npm install
+          echo "✅ Node.js environment ready"
+
+      - name: Compile contracts
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          npx hardhat compile
+          echo "✅ Contracts compiled"
+
+      - name: Deploy contracts to mainnet
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          
+          # Load mainnet deployment configuration
+          export HARDHAT_NETWORK=mainnet
+          export PRIVATE_KEY=${{ secrets.MAINNET_DEPLOYER_PRIVATE_KEY }}
+          export MAINNET_RPC_URL=${{ secrets.MAINNET_RPC_URL }}
+          
+          # Deploy contracts with gas optimization
+          npx hardhat run scripts/deploy-mainnet.js --network mainnet
+          
+          echo "✅ Contracts deployed to mainnet"
+
+      - name: Verify contracts on Etherscan
+        if: inputs.verify_contracts != false
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          
+          # Load Etherscan verification configuration
+          export ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
+          
+          # Verify each deployed contract on Etherscan
+          echo "🔍 Verifying contracts on Etherscan..."
+          
+          # Verify PaymentProcessor
+          npx hardhat verify --network mainnet $PAYMENT_PROCESSOR_ADDRESS --constructor-args scripts/deployment/args/payment-processor-args.js
+          
+          # Verify AgentMarketplace
+          npx hardhat verify --network mainnet $AGENT_MARKETPLACE_ADDRESS --constructor-args scripts/deployment/args/agent-marketplace-args.js
+          
+          # Verify StakingContract
+          npx hardhat verify --network mainnet $STAKING_CONTRACT_ADDRESS --constructor-args scripts/deployment/args/staking-contract-args.js
+          
+          # Verify TreasuryManager
+          npx hardhat verify --network mainnet $TREASURY_MANAGER_ADDRESS --constructor-args scripts/deployment/args/treasury-manager-args.js
+          
+          echo "✅ All contracts verified on Etherscan"
+
+      - name: Record deployment metadata
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          
+          # Save deployment information
+          cat > deployment-info.json << EOF
+          {
+            "network": "mainnet",
+            "commit": "${{ github.sha }}",
+            "tag": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "deployed_by": "${{ github.actor }}",
+            "contracts": {
+              "PaymentProcessor": "$PAYMENT_PROCESSOR_ADDRESS",
+              "AgentMarketplace": "$AGENT_MARKETPLACE_ADDRESS",
+              "StakingContract": "$STAKING_CONTRACT_ADDRESS",
+              "TreasuryManager": "$TREASURY_MANAGER_ADDRESS"
+            },
+            "etherscan_verified": "${{ inputs.verify_contracts }}"
+          }
+          EOF
+          
+          echo "✅ Deployment metadata recorded"
+
+      - name: Setup contract monitoring
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          
+          # Configure monitoring for deployed contracts on mainnet
+          bash scripts/monitoring/setup-contract-monitoring.sh mainnet
+          
+          echo "✅ Contract monitoring configured"
+
+      - name: Run production smoke tests
+        run: |
+          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          
+          # Run smoke tests against deployed contracts on mainnet
+          bash scripts/testing/run-production-smoke-tests.sh mainnet
+          
+          echo "✅ Production smoke tests passed"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/deploy-mainnet
+
+  post-deployment-monitoring:
+    runs-on: debian
+    needs: deploy-mainnet
+    if: always()
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/post-deployment"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Configure automated monitoring alerts
+        run: |
+          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          
+          # Setup automated alerts for contract events
+          bash scripts/monitoring/setup-automated-alerts.sh mainnet
+          
+          echo "✅ Automated monitoring alerts configured"
+
+      - name: Verify monitoring setup
+        run: |
+          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          
+          # Verify monitoring is working
+          bash scripts/monitoring/verify-monitoring.sh mainnet
+          
+          echo "✅ Monitoring verification passed"
+
+      - name: Send deployment notification
+        run: |
+          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          
+          # Send notification about mainnet deployment
+          STATUS=${{ needs.deploy-mainnet.result }}
+          bash scripts/notifications/send-deployment-notification.sh mainnet $STATUS
+          
+          echo "✅ Deployment notification sent"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/post-deployment
