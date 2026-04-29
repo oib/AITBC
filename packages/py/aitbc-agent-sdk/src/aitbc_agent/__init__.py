@@ -11,11 +11,16 @@ __version__ = "1.0.0"
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "Agent": ("agent", "Agent"),
+    "AgentIdentity": ("agent", "AgentIdentity"),
+    "AgentCapabilities": ("agent", "AgentCapabilities"),
     "AITBCAgent": ("agent", "AITBCAgent"),
     "ComputeProvider": ("compute_provider", "ComputeProvider"),
     "ComputeConsumer": ("compute_consumer", "ComputeConsumer"),
     "PlatformBuilder": ("platform_builder", "PlatformBuilder"),
     "SwarmCoordinator": ("swarm_coordinator", "SwarmCoordinator"),
+    "ContractClient": ("contract_integration", "ContractClient"),
+    "ContractConfig": ("contract_integration", "ContractConfig"),
+    "AgentContractIntegration": ("contract_integration", "AgentContractIntegration"),
 }
 
 

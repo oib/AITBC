@@ -25,6 +25,8 @@ jobs:
         project:
           - name: "aitbc-token"
             path: "packages/solidity/aitbc-token"
+          - name: "aitbc-contracts"
+            path: "contracts"
 
     steps:
       - name: Clone repository
@@ -93,9 +95,57 @@ jobs:
 
           echo "✅ ${{ matrix.project.name }} completed"
 
+  test-foundry:
+    runs-on: debian
+    timeout-minutes: 20
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/foundry"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/foundry/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Install Foundry
+        run: |
+          if ! command -v forge &> /dev/null; then
+            curl -L https://foundry.paradigm.xyz | bash
+            export PATH="$HOME/.foundry/bin:$PATH"
+            source ~/.bashrc
+          fi
+          forge --version
+
+      - name: Test contracts with Foundry
+        run: |
+          cd /var/lib/aitbc-workspaces/foundry/repo/contracts
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          echo "=== Running Foundry Tests ==="
+          
+          # Build contracts
+          forge build
+          echo "✅ Foundry build completed"
+          
+          # Run tests
+          forge test
+          echo "✅ Foundry tests passed"
+          
+          # Run fuzz tests
+          forge test --match-path "test/fuzz/**/*.t.sol"
+          echo "✅ Foundry fuzz tests passed"
+
       - name: Cleanup
         if: always()
-        run: rm -rf "/var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}"
+        run: rm -rf "/var/lib/aitbc-workspaces/foundry"
 
   lint-solidity:
     runs-on: debian
@@ -122,7 +172,7 @@ jobs:
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
 
-          for project in packages/solidity/aitbc-token; do
+          for project in packages/solidity/aitbc-token contracts; do
             if [[ -d "$project" ]] && [[ -f "$project/package.json" ]]; then
               echo "=== Linting $project ==="
               cd "$project"
@@ -143,3 +193,57 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -rf /var/lib/aitbc-workspaces/solidity-lint
+
+  deploy-contracts:
+    runs-on: debian
+    timeout-minutes: 15
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/deployment"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/deployment/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Deploy contracts to localhost
+        run: |
+          cd /var/lib/aitbc-workspaces/deployment/repo/contracts
+          
+          # Ensure standard directories exist
+          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
+          echo "=== Deploying Contracts to Localhost ==="
+          
+          # Install dependencies
+          npm install --legacy-peer-deps
+          
+          # Compile contracts
+          npx hardhat compile
+          
+          # Start local node in background
+          npx hardhat node &
+          NODE_PID=$!
+          sleep 10
+          
+          # Deploy contracts
+          npx hardhat run scripts/deploy-automation.js --network localhost
+          echo "✅ Contracts deployed successfully"
+          
+          # Verify deployment
+          DEPLOYMENT_FILE="deployments-localhost.json" npx hardhat run scripts/verify-deployment.js --network localhost
+          echo "✅ Deployment verified"
+          
+          # Cleanup
+          kill $NODE_PID 2>/dev/null || true
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/deployment
