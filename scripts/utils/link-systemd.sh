@@ -8,10 +8,14 @@
 
 REPO_SYSTEMD_DIR="/opt/aitbc/systemd"
 ACTIVE_SYSTEMD_DIR="/etc/systemd/system"
+REPO_CONFIG_DIR="/opt/aitbc/scripts/config"
+ACTIVE_TMPFILES_DIR="/etc/tmpfiles.d"
 
 echo "=== AITBC SYSTEMD LINKING ==="
 echo "Repository: $REPO_SYSTEMD_DIR"
 echo "Active: $ACTIVE_SYSTEMD_DIR"
+echo "Config: $REPO_CONFIG_DIR"
+echo "Tmpfiles: $ACTIVE_TMPFILES_DIR"
 echo
 
 # Check if running as root
@@ -95,6 +99,26 @@ if systemctl daemon-reload 2>/dev/null; then
     echo "    ✅ Systemd daemon reloaded successfully"
 else
     echo "    ⚠️  Systemd daemon reload failed, but continuing..."
+fi
+
+echo
+echo "📁 Deploying tmpfiles.d configurations..."
+if [[ -d "$REPO_CONFIG_DIR" ]]; then
+    for file in "$REPO_CONFIG_DIR"/*.conf; do
+        if [[ -f "$file" ]]; then
+            filename=$(basename "$file")
+            target="$ACTIVE_TMPFILES_DIR/$filename"
+            echo "  📋 Deploying: $filename -> $target"
+            if cp "$file" "$target" 2>/dev/null; then
+                echo "    ✅ Successfully deployed: $filename"
+            else
+                echo "    ❌ Failed to deploy: $filename"
+                ((error_count++))
+            fi
+        fi
+    done
+else
+    echo "  ℹ️  Config directory not found: $REPO_CONFIG_DIR (skipping tmpfiles.d deployment)"
 fi
 
 echo
