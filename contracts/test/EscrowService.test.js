@@ -90,7 +90,8 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0, // Standard escrow type
         0, // Manual release condition
-        ethers.ZeroHash
+        3600, // 1 hour release time
+        "Test escrow"
       );
       const receipt = await tx.wait();
 
@@ -106,7 +107,8 @@ describe("EscrowService", function () {
           ESCROW_AMOUNT,
           0,
           0,
-          ethers.ZeroHash
+          3600,
+          "Test escrow"
         )
       ).to.emit(escrowService, "EscrowCreated");
     });
@@ -119,7 +121,8 @@ describe("EscrowService", function () {
           ethers.parseEther("0.0001"), // Below minimum
           0,
           0,
-          ethers.ZeroHash
+          3600,
+          "Test escrow"
         )
       ).to.be.reverted;
     });
@@ -132,7 +135,8 @@ describe("EscrowService", function () {
           ethers.parseEther("20000"), // Above maximum
           0,
           0,
-          ethers.ZeroHash
+          3600,
+          "Test escrow"
         )
       ).to.be.reverted;
     });
@@ -148,7 +152,8 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        ethers.ZeroHash
+        3600,
+        "Test escrow"
       );
       const receipt = await tx.wait();
       escrowId = receipt.logs[0].args[0];
@@ -183,7 +188,8 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        ethers.ZeroHash
+        3600,
+        "Test escrow"
       );
       const receipt = await tx.wait();
       escrowId = receipt.logs[0].args[0];
@@ -235,7 +241,8 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        ethers.ZeroHash
+        3600,
+        "Test escrow"
       );
       const receipt = await tx.wait();
       escrowId = receipt.logs[0].args[0];
@@ -301,7 +308,8 @@ describe("EscrowService", function () {
         ESCROW_AMOUNT,
         0,
         0,
-        ethers.ZeroHash
+        3600,
+        "Test escrow"
       );
       const receipt = await tx.wait();
       escrowId = receipt.logs[0].args[0];
