@@ -149,7 +149,7 @@ async function verifyContract(name, address) {
         const owner = await contract.owner();
         console.log(`   Owner: ${owner}`);
       } else if (name === "TreasuryManager") {
-        const token = await contract.aitbcToken();
+        const token = await contract.token();
         console.log(`   Token: ${token}`);
       }
       
