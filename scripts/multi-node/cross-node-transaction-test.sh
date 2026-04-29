@@ -17,7 +17,7 @@ NODES=(
 )
 
 RPC_PORT=8006
-CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
+CLI_PATH="${CLI_PATH:-${REPO_ROOT}/cli/aitbc_cli.py}"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/cross-node-transaction-test.log"
 
