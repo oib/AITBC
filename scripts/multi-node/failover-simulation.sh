@@ -5,7 +5,7 @@
 # Uses RPC endpoints only, no SSH access (check logic only)
 #
 
-set -e
+# Don't use set -e - we handle errors manually
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
