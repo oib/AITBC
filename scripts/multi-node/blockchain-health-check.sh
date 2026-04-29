@@ -16,7 +16,7 @@ LOG_FILE="${LOG_DIR}/multi-node-health.log"
 NODES=(
     "aitbc:10.1.223.93"
     "aitbc1:10.1.223.40"
-    "aitbc2:localhost"
+    "aitbc2:10.1.223.93"
 )
 
 RPC_PORT=8006
@@ -81,16 +81,11 @@ get_supported_chains() {
     local node_ip="$1"
     local url="http://${node_ip}:${RPC_PORT}/health"
     
-    local health_response=$(curl -s "$url" 2>&1)
-    log "Health endpoint response from ${node_ip}: ${health_response}"
-    
-    local supported_chains=$(echo "$health_response" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null || echo "")
+    local supported_chains=$(curl -s "$url" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null || echo "")
     
     if [ -z "$supported_chains" ]; then
-        log "Warning: Could not parse supported chains from health endpoint, falling back to CHAINS env var"
         echo "$CHAINS"  # Fallback to configured chains if health endpoint doesn't return supported chains
     else
-        log "Parsed supported chains: ${supported_chains}"
         echo "$supported_chains"
     fi
 }
