@@ -552,7 +552,7 @@ def balance(ctx):
                         },
                         ctx.obj.get("output_format", "table"),
                     )
-                    return
+                return
         except Exception:
             pass
 
