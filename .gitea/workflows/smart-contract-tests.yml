@@ -6,6 +6,7 @@ on:
     paths:
       - 'packages/solidity/**'
       - 'apps/zk-circuits/**'
+      - 'contracts/**'
       - '.gitea/workflows/smart-contract-tests.yml'
   pull_request:
     branches: [main, develop]
