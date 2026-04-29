@@ -67,11 +67,14 @@ check_rpc_health() {
         local url="http://${node_ip}:${RPC_PORT}/health"
     fi
 
-    if curl -f -s --max-time 10 "$url" > /dev/null 2>&1; then
+    local response=$(curl -s --max-time 10 "$url" 2>&1)
+    local curl_exit_code=$?
+    
+    if [ $curl_exit_code -eq 0 ] && [ -n "$response" ]; then
         log_success "RPC endpoint healthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
         return 0
     else
-        log_error "RPC endpoint unhealthy on ${node_name}${chain_id:+ (chain: ${chain_id})}"
+        log_error "RPC endpoint unhealthy on ${node_name}${chain_id:+ (chain: ${chain_id})} (curl exit: $curl_exit_code, response: ${response})"
         return 1
     fi
 }
