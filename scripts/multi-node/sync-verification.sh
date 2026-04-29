@@ -72,12 +72,15 @@ get_block_height() {
 get_chain_id() {
     local node_ip="$1"
     
-    # Get chain ID from /health endpoint
-    chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null | grep -o '"supported_chains":\["[^"]*"\]' | grep -o '\["[^"]*"\]' | grep -o '[^"\[\]]*' || echo "")
+    # Get chain ID from /health endpoint using proper JSON parsing
+    local health_response=$(curl -s --max-time 10 "http://${node_ip}:${RPC_PORT}/health" 2>/dev/null)
     
-    if [ -z "$chain_id" ]; then
+    # Check if response is valid JSON and contains supported_chains
+    if echo "$health_response" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null; then
+        chain_id=$(echo "$health_response" | python3 -c "import sys, json; data = json.load(sys.stdin); print(','.join(data.get('supported_chains', [])))" 2>/dev/null)
+    else
         # Try alternative endpoint
-        chain_id=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/chain-id" 2>/dev/null || echo "")
+        chain_id=$(curl -s --max-time 10 "http://${node_ip}:${RPC_PORT}/chain-id" 2>/dev/null || echo "")
     fi
     
     echo "$chain_id"
