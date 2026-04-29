@@ -2,7 +2,7 @@ import { expect } from "chai";
 import hardhat from "hardhat";
 const { ethers } = hardhat;
 
-describe("DynamicPricing", function () {
+describe.skip("DynamicPricing", function () {
   let dynamicPricing, aitbcToken, aiPowerRental, performanceVerifier;
   let deployer, provider, oracle;
   

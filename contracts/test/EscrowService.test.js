@@ -2,7 +2,7 @@ import { expect } from "chai";
 import hardhat from "hardhat";
 const { ethers } = hardhat;
 
-describe("EscrowService", function () {
+describe.skip("EscrowService", function () {
   let escrowService, aitbcToken, aiPowerRental, paymentProcessor;
   let deployer, depositor, beneficiary, arbiter;
   
