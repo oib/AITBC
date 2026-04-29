@@ -15,7 +15,7 @@ SERVICES = {
     "coordinator": {"url": f"http://{API_HOST}:8000", "endpoints": ["/", "/health", "/info"]},
     "exchange": {"url": f"http://{API_HOST}:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": f"http://{API_HOST}:8003", "endpoints": ["/", "/health", "/wallets"]},
-    "blockchain_rpc": {"url": f"http://{API_HOST}:8006", "endpoints": ["/health", "/rpc/head", "/rpc/mempool"]},
+    "blockchain_rpc": {"url": f"http://{API_HOST}:8006", "endpoints": ["/health", "/rpc/head", "/rpc/head?chain_id=ait-mainnet", "/rpc/head?chain_id=ait-testnet", "/rpc/mempool"]},
 }
 
 

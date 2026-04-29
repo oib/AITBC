@@ -155,7 +155,7 @@ jobs:
             pytest tests/ -x --timeout=30 -q --ignore=tests/production
           fi
 
-          # Service health check integration
+          # Service health check integration (now tests both chains)
           python3 scripts/ci/test_api_endpoints.py
           echo "✅ Integration tests completed"
 
