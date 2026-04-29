@@ -83,6 +83,20 @@ describe("Phase 4 Modular Smart Contracts", function () {
     );
     // PerformanceAggregator registers itself during initialize(), so don't register it here
 
+    // Register mock contracts that PerformanceAggregator.initialize() requires
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("PerformanceVerifier")),
+      user1.address
+    );
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("AgentBounty")),
+      user2.address
+    );
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("AgentStaking")),
+      deployer.address
+    );
+
     // Initialize all contracts (after registration)
     await treasuryManager.initialize(await contractRegistry.getAddress());
     await rewardDistributor.initialize(await contractRegistry.getAddress());
