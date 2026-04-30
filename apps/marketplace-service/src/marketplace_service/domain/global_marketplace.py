@@ -5,7 +5,7 @@ Domain models for global marketplace operations, multi-region support, and cross
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -64,8 +64,8 @@ class MarketplaceRegion(SQLModel, table=True):
     request_rate: float = Field(default=0.0)
     error_rate: float = Field(default=0.0)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class GlobalMarketplaceConfig(SQLModel, table=True):
@@ -88,8 +88,8 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     max_value: float | None = Field(default=None)
     allowed_values: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_modified_by: str | None = Field(default=None)
 
 
@@ -125,8 +125,8 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     cross_chain_pricing: dict[int, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = Field(default=None)
 
 
@@ -162,8 +162,8 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     payment_status: str = Field(default="pending")
     delivery_status: str = Field(default="pending")
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
 
