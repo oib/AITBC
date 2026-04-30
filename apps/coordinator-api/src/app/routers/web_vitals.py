@@ -3,13 +3,13 @@
 Web Vitals API endpoint for collecting performance metrics
 """
 
-import logging
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from ..auth import get_api_key
 
 logger = get_logger(__name__)
 
@@ -56,7 +56,13 @@ async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
             filtered_entries.append(filtered_entry)
 
         # Log the metric for monitoring/analysis
-        logging.info(f"Web Vitals - {metric.name}: {metric.value}ms (ID: {metric.id}) from {metric.url or 'unknown'}")
+        logger.info(
+            "Web Vitals metric received",
+            metric_name=metric.name,
+            metric_value=metric.value,
+            metric_id=metric.id,
+            url=metric.url or "unknown",
+        )
 
         # In a production setup, you might:
         # - Store in database for trend analysis
@@ -67,7 +73,7 @@ async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
         return {"status": "received", "metric": metric.name, "value": metric.value}
 
     except (ValueError, AttributeError, KeyError) as e:
-        logging.error(f"Error processing web vitals metric: {e}")
+        logger.error("Error processing web vitals metric", error=str(e))
         raise HTTPException(status_code=500, detail="Failed to process metric")
 
 
