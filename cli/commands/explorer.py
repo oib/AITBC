@@ -1,5 +1,6 @@
 """Explorer commands for AITBC CLI"""
 
+import os
 import click
 import subprocess
 import json
@@ -12,9 +13,9 @@ def _get_explorer_endpoint(ctx):
     try:
         config = ctx.obj['config']
         # Default to port 8004 for blockchain explorer
-        return getattr(config, 'explorer_url', 'http://10.1.223.1:8004')
+        return getattr(config, 'explorer_url', os.getenv('AITBC_EXPLORER_URL', 'http://127.0.0.1:8004'))
     except:
-        return "http://10.1.223.1:8004"
+        return os.getenv('AITBC_EXPLORER_URL', 'http://127.0.0.1:8004')
 
 
 def _curl_request(url: str, params: dict = None):
