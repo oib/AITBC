@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -17,7 +17,7 @@ class MarketplaceOffer(SQLModel, table=True):
     price: float = Field(default=0.0, nullable=False)
     sla: str = Field(default="")
     status: str = Field(default="open", max_length=20)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     attributes: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     # GPU-specific fields
     gpu_model: str | None = Field(default=None, index=True)
@@ -38,4 +38,4 @@ class MarketplaceBid(SQLModel, table=True):
     price: float = Field(default=0.0, nullable=False)
     notes: str | None = Field(default=None)
     status: str = Field(default="pending", nullable=False)
-    submitted_at: datetime = Field(default_factory=datetime.now(datetime.UTC), nullable=False, index=True)
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)

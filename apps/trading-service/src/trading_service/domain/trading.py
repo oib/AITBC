@@ -3,7 +3,7 @@ Agent-to-Agent Trading Protocol Domain Models
 Implements SQLModel definitions for P2P trading, matching, negotiation, and settlement
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -93,10 +93,10 @@ class TradeRequest(SQLModel, table=True):
     negotiation_count: int = Field(default=0)
     best_match_score: float = Field(default=0.0)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
-    last_activity: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     tags: list[str] = Field(default=[], sa_column=Column(JSON))
     trading_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -135,8 +135,8 @@ class TradeMatch(SQLModel, table=True):
     negotiation_initiator: str | None = None
     initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
     last_interaction: datetime | None = None
 
@@ -178,8 +178,8 @@ class TradeNegotiation(SQLModel, table=True):
     negotiation_strategy: str = Field(default="balanced")
     auto_accept_threshold: float = Field(default=85.0, ge=0, le=100)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: datetime | None = None
     completed_at: datetime | None = None
     expires_at: datetime | None = None
@@ -227,9 +227,9 @@ class TradeAgreement(SQLModel, table=True):
     execution_status: str = Field(default="pending")
     completion_percentage: float = Field(default=0.0, ge=0, le=100)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    signed_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    signed_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     completed_at: datetime | None = None
@@ -273,7 +273,7 @@ class TradeSettlement(SQLModel, table=True):
     net_amount_seller: float = Field(ge=0)
 
     status: TradeStatus = Field(default=TradeStatus.SETTLING)
-    initiated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    initiated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = None
     completed_at: datetime | None = None
     refunded_at: datetime | None = None
@@ -316,8 +316,8 @@ class TradeFeedback(SQLModel, table=True):
     moderation_status: str = Field(default="approved")
     moderator_notes: str = Field(default="", max_length=500)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     trade_completed_at: datetime
 
     feedback_context: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -362,8 +362,8 @@ class TradingAnalytics(SQLModel, table=True):
     dispute_rate: float = Field(default=0.0, ge=0, le=100.0)
     repeat_trade_rate: float = Field(default=0.0, ge=0, le=100.0)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
     trends_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
