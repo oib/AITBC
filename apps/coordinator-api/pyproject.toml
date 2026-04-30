@@ -8,14 +8,12 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.13,<3.15"
-# All dependencies managed centrally in /opt/aitbc/requirements-consolidated.txt
-# Use: ./scripts/install-profiles.sh web database blockchain
+python = "^3.13"
+# All dependencies managed centrally in root pyproject.toml
+# This file only defines package structure for the coordinator-api
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=8.3.0"
-pytest-asyncio = ">=0.23.0"
-httpx = {extras=["cli"], version=">=0.27.0"}
+# Dev dependencies managed centrally in root pyproject.toml
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
