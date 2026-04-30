@@ -450,7 +450,9 @@ class CrossChainBridgeService:
                 )
                 self.session.execute(stmt)
                 self.session.commit()
-            except:
+            except Exception:
+                # Database update failed, log but continue
+                logger.warning(f"Failed to update bridge request status to failed: {bridge_request_id}")
                 pass
 
     async def _execute_atomic_swap(self, bridge_request: BridgeRequest) -> None:

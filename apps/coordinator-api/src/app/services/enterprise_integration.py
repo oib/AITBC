@@ -392,7 +392,7 @@ class SAPIntegration(ERPIntegration):
                 day = date_value[6:8]
                 return f"{year}-{month}-{day}"
             return date_value
-        except:
+        except (ValueError, IndexError, AttributeError, TypeError):
             return date_value
     
     def _transform_numeric(self, value: str, transform: Dict[str, Any]) -> Union[str, int, float]:
