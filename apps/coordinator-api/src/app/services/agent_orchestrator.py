@@ -9,7 +9,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -360,7 +360,7 @@ class AgentOrchestrator:
 
         # Process each execution stage
         for stage_idx, stage_sub_tasks in enumerate(decomposition.execution_plan):
-            stage_start = datetime.utcnow() + timedelta(hours=stage_idx * 2)  # Estimate 2 hours per stage
+            stage_start = datetime.now(datetime.UTC) + timedelta(hours=stage_idx * 2)  # Estimate 2 hours per stage
 
             for sub_task_id in stage_sub_tasks:
                 # Find sub-task
@@ -368,7 +368,7 @@ class AgentOrchestrator:
 
                 # Create assignment (will be filled during execution)
                 assignment = AgentAssignment(
-                    sub_task_id=sub_task_id, agent_id="", assigned_at=datetime.utcnow()  # Will be assigned during execution
+                    sub_task_id=sub_task_id, agent_id="", assigned_at=datetime.now(datetime.UTC)  # Will be assigned during execution
                 )
                 assignments.append(assignment)
 
@@ -469,7 +469,7 @@ class AgentOrchestrator:
             sub_task_id=sub_task_id,
             resource_type=ResourceType.GPU,
             allocated_amount=1,
-            allocated_at=datetime.utcnow(),
+            allocated_at=datetime.now(datetime.UTC),
             expected_duration=requirements.estimated_duration,
         )
         allocations.append(gpu_allocation)
@@ -480,7 +480,7 @@ class AgentOrchestrator:
             sub_task_id=sub_task_id,
             resource_type=ResourceType.MEMORY,
             allocated_amount=requirements.memory_requirement,
-            allocated_at=datetime.utcnow(),
+            allocated_at=datetime.now(datetime.UTC),
             expected_duration=requirements.estimated_duration,
         )
         allocations.append(memory_allocation)
@@ -568,7 +568,7 @@ class AgentOrchestrator:
                     # For now, assume agents are healthy if they have recent updates
 
                     capability = self.agent_capabilities[agent_id]
-                    time_since_update = datetime.utcnow() - capability.last_updated
+                    time_since_update = datetime.now(datetime.UTC) - capability.last_updated
 
                     if time_since_update > timedelta(minutes=5):
                         if self.agent_status[agent_id] != AgentStatus.OFFLINE:
@@ -619,7 +619,7 @@ class AgentOrchestrator:
 
         # Adjust for deadline
         if deadline:
-            time_to_deadline = (deadline - datetime.utcnow()).total_seconds() / 3600
+            time_to_deadline = (deadline - datetime.now(datetime.UTC)).total_seconds() / 3600
             if time_to_deadline < decomposition.estimated_total_duration:
                 confidence *= 0.6
 

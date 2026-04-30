@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginUsage, PluginPerformance, PluginRating, PluginEvent
@@ -25,7 +25,7 @@ def test_plugin_usage_model():
         plugin_id="plugin_123",
         user_id="user_123",
         action="install",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         metadata={"source": "marketplace"}
     )
     assert usage.plugin_id == "plugin_123"
@@ -41,7 +41,7 @@ def test_plugin_usage_defaults():
         plugin_id="plugin_123",
         user_id="user_123",
         action="use",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert usage.metadata == {}
 
@@ -57,7 +57,7 @@ def test_plugin_performance_model():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert perf.plugin_id == "plugin_123"
     assert perf.version == "1.0.0"
@@ -76,7 +76,7 @@ def test_plugin_rating_model():
         user_id="user_123",
         rating=5,
         review="Great plugin!",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert rating.plugin_id == "plugin_123"
     assert rating.rating == 5
@@ -90,7 +90,7 @@ def test_plugin_rating_defaults():
         plugin_id="plugin_123",
         user_id="user_123",
         rating=4,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert rating.review is None
 
@@ -103,7 +103,7 @@ def test_plugin_event_model():
         plugin_id="plugin_123",
         user_id="user_123",
         data={"error": "timeout"},
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert event.event_type == "error"
     assert event.plugin_id == "plugin_123"
@@ -117,7 +117,7 @@ def test_plugin_event_defaults():
     event = PluginEvent(
         event_type="info",
         plugin_id="plugin_123",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert event.user_id is None
     assert event.data == {}

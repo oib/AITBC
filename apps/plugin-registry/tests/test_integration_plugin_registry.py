@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginRegistration, PluginVersion, SecurityScan, plugins, plugin_versions, security_scans, analytics, downloads
@@ -129,7 +129,7 @@ def test_add_plugin_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     assert response.status_code == 200
@@ -166,7 +166,7 @@ def test_add_duplicate_version():
         download_url="https://github.com/test/plugin/archive/v1.1.0.tar.gz",
         checksum="def456",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     
@@ -280,7 +280,7 @@ def test_download_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     
@@ -320,7 +320,7 @@ def test_create_security_scan():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     
@@ -329,7 +329,7 @@ def test_create_security_scan():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True

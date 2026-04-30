@@ -6,7 +6,7 @@ Integrates agent orchestration with existing ML ZK proof system and provides dep
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -380,7 +380,7 @@ class AgentDeploymentManager:
 
             # Update deployment status
             config.status = DeploymentStatus.DEPLOYING
-            config.deployment_time = datetime.utcnow()
+            config.deployment_time = datetime.now(datetime.UTC)
             self.session.commit()
 
             deployment_result = {
@@ -469,7 +469,7 @@ class AgentDeploymentManager:
             instance.status = DeploymentStatus.DEPLOYED
             instance.health_status = "healthy"
             instance.endpoint_url = f"http://localhost:{instance.port}"
-            instance.last_health_check = datetime.utcnow()
+            instance.last_health_check = datetime.now(datetime.UTC)
 
             self.session.commit()
 
@@ -554,11 +554,11 @@ class AgentDeploymentManager:
 
             # Update instance health status
             instance.health_status = health_status
-            instance.last_health_check = datetime.utcnow()
+            instance.last_health_check = datetime.now(datetime.UTC)
 
             # Add to health check history
             health_check_record = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "status": health_status,
                 "response_time": response_time,
             }
@@ -582,7 +582,7 @@ class AgentDeploymentManager:
 
             # Mark as unhealthy
             instance.health_status = "unhealthy"
-            instance.last_health_check = datetime.utcnow()
+            instance.last_health_check = datetime.now(datetime.UTC)
             instance.consecutive_failures += 1
             self.session.commit()
 

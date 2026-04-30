@@ -5,7 +5,7 @@ Implements sophisticated pricing algorithms based on real-time market conditions
 
 import asyncio
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -238,7 +238,7 @@ class DynamicPricingEngine:
             confidence = await self._calculate_confidence_score(factors, market_conditions)
 
             # Schedule next update
-            next_update = datetime.utcnow() + timedelta(seconds=self.update_interval)
+            next_update = datetime.now(datetime.UTC) + timedelta(seconds=self.update_interval)
 
             # Store price point
             await self._store_price_point(resource_id, final_price, factors, strategy)
@@ -302,7 +302,7 @@ class DynamicPricingEngine:
                 confidence = max(0.3, 0.9 - (hour / hours_ahead) * 0.6)
 
                 forecast_point = PricePoint(
-                    timestamp=datetime.utcnow() + timedelta(hours=hour),
+                    timestamp=datetime.now(datetime.UTC) + timedelta(hours=hour),
                     price=forecast_price,
                     demand_level=demand_forecast,
                     supply_level=supply_forecast,
@@ -485,8 +485,8 @@ class DynamicPricingEngine:
     def _calculate_time_multiplier(self) -> float:
         """Calculate time-based price multiplier"""
 
-        hour = datetime.utcnow().hour
-        day_of_week = datetime.utcnow().weekday()
+        hour = datetime.now(datetime.UTC).hour
+        day_of_week = datetime.now(datetime.UTC).weekday()
 
         # Business hours premium (8 AM - 8 PM, Monday-Friday)
         if 8 <= hour <= 20 and day_of_week < 5:
@@ -624,7 +624,7 @@ class DynamicPricingEngine:
             reasoning.append("High supply enables competitive pricing")
 
         # Time-based reasoning
-        hour = datetime.utcnow().hour
+        hour = datetime.now(datetime.UTC).hour
         if 8 <= hour <= 20:
             reasoning.append("Business hours premium applied")
         elif 2 <= hour <= 6:
@@ -677,7 +677,7 @@ class DynamicPricingEngine:
             self.pricing_history[resource_id] = []
 
         price_point = PricePoint(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             price=price,
             demand_level=factors.demand_level,
             supply_level=factors.supply_level,
@@ -699,7 +699,7 @@ class DynamicPricingEngine:
         if cache_key in self.market_conditions_cache:
             cached = self.market_conditions_cache[cache_key]
             # Use cached data if less than 5 minutes old
-            if (datetime.utcnow() - cached.timestamp).total_seconds() < 300:
+            if (datetime.now(datetime.UTC) - cached.timestamp).total_seconds() < 300:
                 return cached
 
         # In a real implementation, this would fetch from market data sources

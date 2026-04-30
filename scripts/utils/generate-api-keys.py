@@ -8,7 +8,7 @@ Generates cryptographically secure API keys for testing CLI commands
 import secrets
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 def generate_api_key(length=32):
     """Generate a cryptographically secure API key"""
@@ -23,8 +23,8 @@ def create_api_key_entry(name, permissions="client", environment="default"):
         "api_key": api_key,  # Stored in memory only, masked when printed
         "permissions": permissions.split(",") if isinstance(permissions, str) else permissions,
         "environment": environment,
-        "created_at": datetime.utcnow().isoformat(),
-        "expires_at": (datetime.utcnow() + timedelta(days=365)).isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "expires_at": (datetime.now(datetime.UTC) + timedelta(days=365)).isoformat(),
         "status": "active"
     }
     

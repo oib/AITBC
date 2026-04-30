@@ -18,7 +18,7 @@ import base64
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Any, Optional
 
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -233,7 +233,7 @@ def initialize_genesis_database(genesis_block: Dict, allocations: List[Dict], db
                     alloc["address"],
                     alloc["balance"],
                     alloc["nonce"],
-                    datetime.utcnow().isoformat()
+                    datetime.now(datetime.UTC).isoformat()
                 )
             )
         

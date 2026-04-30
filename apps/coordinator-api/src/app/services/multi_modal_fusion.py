@@ -5,7 +5,7 @@ Phase 5.1: Advanced AI Capabilities Enhancement
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 from uuid import uuid4
 
@@ -571,7 +571,7 @@ class MultiModalFusionEngine:
             fusion_model.robustness_score = training_results["robustness"]
             fusion_model.inference_time = training_results["inference_time"]
             fusion_model.status = "ready"
-            fusion_model.trained_at = datetime.utcnow()
+            fusion_model.trained_at = datetime.now(datetime.UTC)
 
             session.commit()
 

@@ -8,7 +8,7 @@ import asyncio
 import ccxt
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
@@ -105,7 +105,7 @@ class RealExchangeManager:
             self.health_status[exchange_name] = ExchangeHealth(
                 status=ExchangeStatus.CONNECTED,
                 latency_ms=0.0,
-                last_check=datetime.utcnow()
+                last_check=datetime.now(datetime.UTC)
             )
             
             logger.info(f"✅ Connected to {exchange_name}")
@@ -116,7 +116,7 @@ class RealExchangeManager:
             self.health_status[exchange_name] = ExchangeHealth(
                 status=ExchangeStatus.ERROR,
                 latency_ms=0.0,
-                last_check=datetime.utcnow(),
+                last_check=datetime.now(datetime.UTC),
                 error_message=str(e)
             )
             return False

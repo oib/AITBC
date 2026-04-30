@@ -6,7 +6,7 @@ import asyncio
 import httpx
 import uuid
 from typing import Dict, List, Optional, Any
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from dataclasses import dataclass, asdict
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
@@ -233,7 +233,7 @@ class ComputeProvider(Agent):
             job = JobExecution(
                 job_id=job_request["job_id"],
                 consumer_id=job_request["consumer_id"],
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(datetime.UTC),
                 expected_duration=timedelta(hours=job_request["estimated_hours"]),
             )
 
@@ -286,7 +286,7 @@ class ComputeProvider(Agent):
         notification = {
             "job_id": job.job_id,
             "status": job.status,
-            "completion_time": datetime.utcnow().isoformat(),
+            "completion_time": datetime.now(datetime.UTC).isoformat(),
             "duration_hours": (
                 job.actual_duration.total_seconds() / 3600
                 if job.actual_duration

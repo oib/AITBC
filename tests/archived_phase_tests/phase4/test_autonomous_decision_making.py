@@ -6,7 +6,7 @@ Tests for autonomous systems, learning, and adaptation
 import pytest
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from unittest.mock import Mock, AsyncMock
 from typing import Dict, List, Any, Optional
 
@@ -27,7 +27,7 @@ class MockAutonomousEngine:
             'action': self._determine_action(context),
             'reasoning': self._generate_reasoning(context),
             'confidence': self._calculate_confidence(context),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         self.decisions.append(decision)
         return decision
@@ -67,7 +67,7 @@ class MockLearningSystem:
             'experience': experience,
             'lessons_learned': self._extract_lessons(experience),
             'performance_impact': self._calculate_impact(experience),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         self.experience_buffer.append(learning_data)
         return learning_data
@@ -93,7 +93,7 @@ class MockLearningSystem:
             'type': adaptation_data.get('type', 'parameter_adjustment'),
             'changes': adaptation_data.get('changes', {}),
             'expected_improvement': adaptation_data.get('expected_improvement', 0.1),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         self.adaptations[adaptation_id] = adaptation
         return adaptation
@@ -128,7 +128,7 @@ class MockPolicyEngine:
             'compliance_score': compliance_score,
             'violations': violations,
             'approved': compliance_score >= 0.8 and len(violations) == 0,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
     
     def _calculate_compliance(self, decision: Dict[str, Any]) -> float:

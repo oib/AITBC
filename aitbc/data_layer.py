@@ -5,7 +5,7 @@ Provides toggle between mock and real data sources for development/testing
 
 import os
 from typing import Any, Dict, List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 import httpx
 
 
@@ -119,7 +119,7 @@ class MockDataGenerator:
                 "hash": MockFactory.generate_hash(),
                 "validator": validator or MockFactory.generate_ethereum_address(),
                 "tx_count": min_tx or 5,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(datetime.UTC).isoformat()
             })
         
         return blocks

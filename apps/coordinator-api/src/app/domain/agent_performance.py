@@ -3,7 +3,7 @@ Advanced Agent Performance Domain Models
 Implements SQLModel definitions for meta-learning, resource management, and performance optimization
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -206,7 +206,7 @@ class ResourceAllocation(SQLModel, table=True):
 
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow())
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     allocation_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

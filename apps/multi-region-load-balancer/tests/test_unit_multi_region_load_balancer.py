@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, LoadBalancingRule, RegionHealth, LoadBalancingMetrics, GeographicRule
@@ -47,7 +47,7 @@ def test_region_health_model():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     assert health.region_id == "us-east-1"
     assert health.status == "healthy"
@@ -61,7 +61,7 @@ def test_load_balancing_metrics_model():
     """Test LoadBalancingMetrics model"""
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         total_requests=1000,
         requests_per_region={"us-east-1": 500, "eu-west-1": 500},
         average_response_time=50.5,
@@ -115,6 +115,6 @@ def test_region_health_negative_response_time():
         response_time_ms=-45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     assert health.response_time_ms == -45.5

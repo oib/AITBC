@@ -188,7 +188,7 @@ class PersistentKeystoreService:
             nonce = token_bytes(self._encryption.nonce_bytes)
             ciphertext = self._encryption.encrypt(password=password, plaintext=secret_bytes, salt=salt, nonce=nonce)
             
-            now = datetime.utcnow().isoformat()
+            now = datetime.now(datetime.UTC).isoformat()
             
             conn = sqlite3.connect(self.db_path)
             try:
@@ -280,7 +280,7 @@ class PersistentKeystoreService:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(datetime.UTC).isoformat()
                 metadata_json = json.dumps(metadata)
                 
                 cursor = conn.execute("""
@@ -299,7 +299,7 @@ class PersistentKeystoreService:
         with self._lock:
             conn = sqlite3.connect(self.db_path)
             try:
-                now = datetime.utcnow().isoformat()
+                now = datetime.now(datetime.UTC).isoformat()
                 conn.execute("""
                     INSERT INTO wallet_access_log (wallet_id, action, timestamp, success, ip_address)
                     VALUES (?, ?, ?, ?, ?)
@@ -405,4 +405,4 @@ class PersistentKeystoreService:
 
 
 # Import datetime for the module
-from datetime import datetime
+from datetime import datetime, UTC

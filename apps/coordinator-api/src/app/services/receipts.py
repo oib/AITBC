@@ -3,7 +3,7 @@ from __future__ import annotations
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime
+from datetime import datetime, UTC
 from secrets import token_hex
 from typing import Any
 
@@ -111,8 +111,8 @@ class ReceiptService:
             "unit_type": unit_type,
             "unit_price": unit_price,
             "price": price,
-            "started_at": int(job.requested_at.timestamp()) if job.requested_at else int(datetime.utcnow().timestamp()),
-            "completed_at": int(datetime.utcnow().timestamp()),
+            "started_at": int(job.requested_at.timestamp()) if job.requested_at else int(datetime.now(datetime.UTC).timestamp()),
+            "completed_at": int(datetime.now(datetime.UTC).timestamp()),
             "metadata": {
                 "job_payload": job.payload,
                 "job_constraints": job.constraints,

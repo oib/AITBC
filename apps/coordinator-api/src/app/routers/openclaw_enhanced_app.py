@@ -42,13 +42,13 @@ async def detailed_health():
     try:
         import psutil
         import logging
-        from datetime import datetime
+        from datetime import datetime, UTC
         
         return {
             "status": "healthy",
             "service": "openclaw-enhanced",
             "port": 8014,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "python_version": "3.13.5",
             "system": {
                 "cpu_percent": psutil.cpu_percent(),

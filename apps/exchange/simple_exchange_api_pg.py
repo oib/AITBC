@@ -7,7 +7,7 @@ import json
 import urllib.request
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from datetime import datetime
+from datetime import datetime, UTC
 from decimal import Decimal
 import random
 
@@ -151,7 +151,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_json_response({
                 'status': 'ok',
                 'database': 'postgresql',
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
         except Exception as e:
             self.send_json_response({

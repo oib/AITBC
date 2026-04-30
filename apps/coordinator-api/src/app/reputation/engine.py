@@ -3,7 +3,7 @@ Cross-Chain Reputation Engine
 Core reputation calculation and aggregation engine for multi-chain agent reputation
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 
 from aitbc import get_logger
@@ -57,8 +57,8 @@ class CrossChainReputationEngine:
                     agent_id=agent_id,
                     trust_score=score * 1000,  # Convert to 0-1000 scale
                     reputation_level=self._determine_reputation_level(score),
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=datetime.now(datetime.UTC),
+                    updated_at=datetime.now(datetime.UTC),
                 )
 
                 self.session.add(new_reputation)
@@ -152,8 +152,8 @@ class CrossChainReputationEngine:
                     agent_id=agent_id,
                     trust_score=max(0, min(1000, (base_score + impact_score) * 1000)),
                     reputation_level=self._determine_reputation_level(base_score + impact_score),
-                    created_at=datetime.utcnow(),
-                    updated_at=datetime.utcnow(),
+                    created_at=datetime.now(datetime.UTC),
+                    updated_at=datetime.now(datetime.UTC),
                 )
 
                 self.session.add(reputation)
@@ -164,7 +164,7 @@ class CrossChainReputationEngine:
 
                 reputation.trust_score = new_score * 1000
                 reputation.reputation_level = self._determine_reputation_level(new_score)
-                reputation.updated_at = datetime.utcnow()
+                reputation.updated_at = datetime.now(datetime.UTC)
 
             # Create reputation event record
             event = ReputationEvent(
@@ -174,7 +174,7 @@ class CrossChainReputationEngine:
                 trust_score_before=reputation.trust_score - (impact_score * 1000),
                 trust_score_after=reputation.trust_score,
                 event_data=event_data,
-                occurred_at=datetime.utcnow(),
+                occurred_at=datetime.now(datetime.UTC),
             )
 
             self.session.add(event)
@@ -195,7 +195,7 @@ class CrossChainReputationEngine:
 
         try:
             # Get reputation events for the period
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.now(datetime.UTC) - timedelta(days=days)
 
             stmt = (
                 select(ReputationEvent)
@@ -295,7 +295,7 @@ class CrossChainReputationEngine:
 
         reputation.trust_score = new_score * 1000
         reputation.reputation_level = self._determine_reputation_level(new_score)
-        reputation.updated_at = datetime.utcnow()
+        reputation.updated_at = datetime.now(datetime.UTC)
 
         # Update transaction metrics if available
         if "transaction_count" in transaction_data:
@@ -364,7 +364,7 @@ class CrossChainReputationEngine:
                 aggregation.score_variance = variance
                 aggregation.score_range = score_range
                 aggregation.consistency_score = consistency_score
-                aggregation.last_updated = datetime.utcnow()
+                aggregation.last_updated = datetime.now(datetime.UTC)
             else:
                 # Create new aggregation
                 aggregation = CrossChainReputationAggregation(
@@ -376,8 +376,8 @@ class CrossChainReputationEngine:
                     score_range=score_range,
                     consistency_score=consistency_score,
                     verification_status="pending",
-                    created_at=datetime.utcnow(),
-                    last_updated=datetime.utcnow(),
+                    created_at=datetime.now(datetime.UTC),
+                    last_updated=datetime.now(datetime.UTC),
                 )
 
                 self.session.add(aggregation)
@@ -440,7 +440,7 @@ class CrossChainReputationEngine:
                 "total_transactions": getattr(reputation, "transaction_count", 0),
                 "success_rate": getattr(reputation, "success_rate", 0.0),
                 "dispute_count": getattr(reputation, "dispute_count", 0),
-                "last_activity": getattr(reputation, "last_activity", datetime.utcnow()),
+                "last_activity": getattr(reputation, "last_activity", datetime.now(datetime.UTC)),
                 "cross_chain": {
                     "aggregated_score": aggregation.aggregated_score if aggregation else 0.0,
                     "chain_count": aggregation.chain_count if aggregation else 0,

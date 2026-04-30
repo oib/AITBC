@@ -5,7 +5,7 @@ Swarm Coordinator - for agents participating in collective intelligence
 import asyncio
 import json
 from typing import Dict, List, Optional, Any  # noqa: F401
-from datetime import datetime
+from datetime import datetime, UTC
 from dataclasses import dataclass
 from .agent import Agent
 
@@ -79,9 +79,9 @@ class SwarmCoordinator(Agent):
             self.joined_swarms[swarm_id] = {
                 "type": swarm_type,
                 "role": config.get("role", "participant"),
-                "joined_at": datetime.utcnow().isoformat(),
+                "joined_at": datetime.now(datetime.UTC).isoformat(),
                 "contribution_count": 0,
-                "last_activity": datetime.utcnow().isoformat(),
+                "last_activity": datetime.now(datetime.UTC).isoformat(),
             }
 
             # Initialize swarm reputation
@@ -115,7 +115,7 @@ class SwarmCoordinator(Agent):
                 await self._participate_in_decisions(swarm_id)
 
                 # Update activity timestamp
-                swarm_config["last_activity"] = datetime.utcnow().isoformat()
+                swarm_config["last_activity"] = datetime.now(datetime.UTC).isoformat()
 
             except Exception as e:
                 logger.error(f"Swarm participation error for {swarm_id}: {e}")
@@ -177,7 +177,7 @@ class SwarmCoordinator(Agent):
                 message_type="data_contribution",
                 priority="medium",
                 payload=data,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(datetime.UTC).isoformat(),
                 swarm_signature="",  # Will be added in broadcast_to_swarm
             )
 
@@ -285,7 +285,7 @@ class SwarmCoordinator(Agent):
         try:
             # Create coordination proposal
             proposal = {
-                "task_id": f"task_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+                "task_id": f"task_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}",
                 "task_type": task,
                 "coordinator_id": self.identity.id,
                 "required_collaborators": collaborators,
@@ -320,7 +320,7 @@ class SwarmCoordinator(Agent):
                     message_type="intelligence_request",
                     priority="high",
                     payload={"request_type": "market_intelligence"},
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(datetime.UTC).isoformat(),
                     swarm_signature="",
                 )
 

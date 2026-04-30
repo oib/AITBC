@@ -4,7 +4,7 @@ import click
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from utils import output, error, success, warning
 
 
@@ -38,8 +38,8 @@ def set_limit(ctx, wallet: str, max_daily: Optional[float], max_weekly: Optional
     # Create or update wallet limits
     wallet_limits = limits.get(wallet, {
         "wallet": wallet,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "updated_at": datetime.now(datetime.UTC).isoformat(),
         "status": "active"
     })
     
@@ -59,14 +59,14 @@ def set_limit(ctx, wallet: str, max_daily: Optional[float], max_weekly: Optional
     if blacklist:
         wallet_limits["blacklist"] = [addr.strip() for addr in blacklist.split(',')]
     
-    wallet_limits["updated_at"] = datetime.utcnow().isoformat()
+    wallet_limits["updated_at"] = datetime.now(datetime.UTC).isoformat()
     
     # Initialize usage tracking
     if "usage" not in wallet_limits:
         wallet_limits["usage"] = {
-            "daily": {"amount": 0.0, "count": 0, "reset_at": datetime.utcnow().isoformat()},
-            "weekly": {"amount": 0.0, "count": 0, "reset_at": datetime.utcnow().isoformat()},
-            "monthly": {"amount": 0.0, "count": 0, "reset_at": datetime.utcnow().isoformat()}
+            "daily": {"amount": 0.0, "count": 0, "reset_at": datetime.now(datetime.UTC).isoformat()},
+            "weekly": {"amount": 0.0, "count": 0, "reset_at": datetime.now(datetime.UTC).isoformat()},
+            "monthly": {"amount": 0.0, "count": 0, "reset_at": datetime.now(datetime.UTC).isoformat()}
         }
     
     # Save limits
@@ -100,10 +100,10 @@ def time_lock(ctx, wallet: str, amount: float, duration: int, recipient: str, de
     """Create a time-locked transfer"""
     
     # Generate lock ID
-    lock_id = f"lock_{str(int(datetime.utcnow().timestamp()))[-8:]}"
+    lock_id = f"lock_{str(int(datetime.now(datetime.UTC).timestamp()))[-8:]}"
     
     # Calculate release time
-    release_time = datetime.utcnow() + timedelta(days=duration)
+    release_time = datetime.now(datetime.UTC) + timedelta(days=duration)
     
     # Create time lock
     time_lock = {
@@ -112,7 +112,7 @@ def time_lock(ctx, wallet: str, amount: float, duration: int, recipient: str, de
         "recipient": recipient,
         "amount": amount,
         "duration_days": duration,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "release_time": release_time.isoformat(),
         "status": "locked",
         "description": description or f"Time-locked transfer of {amount} to {recipient}",
@@ -159,11 +159,11 @@ def vesting_schedule(ctx, wallet: str, total_amount: float, duration: int, cliff
     """Create a vesting schedule for token release"""
     
     # Generate schedule ID
-    schedule_id = f"vest_{str(int(datetime.utcnow().timestamp()))[-8:]}"
+    schedule_id = f"vest_{str(int(datetime.now(datetime.UTC).timestamp()))[-8:]}"
     
     # Calculate vesting schedule
-    start_time = datetime.utcnow() + timedelta(days=cliff_period)
-    end_time = datetime.utcnow() + timedelta(days=duration)
+    start_time = datetime.now(datetime.UTC) + timedelta(days=cliff_period)
+    end_time = datetime.now(datetime.UTC) + timedelta(days=duration)
     
     # Create release events
     releases = []
@@ -188,7 +188,7 @@ def vesting_schedule(ctx, wallet: str, total_amount: float, duration: int, cliff
         "duration_days": duration,
         "cliff_period_days": cliff_period,
         "release_interval_days": release_interval,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "start_time": start_time.isoformat(),
         "end_time": end_time.isoformat(),
         "status": "active",
@@ -239,7 +239,7 @@ def audit_trail(ctx, wallet: Optional[str], status: Optional[str]):
         "time_locks": {},
         "vesting_schedules": {},
         "transfers": {},
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
     
     # Load transfer limits
@@ -318,7 +318,7 @@ def status(ctx, wallet: Optional[str]):
         "wallet_limits": {},
         "active_time_locks": {},
         "active_vesting_schedules": {},
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
     
     # Load and filter limits
@@ -410,7 +410,7 @@ def release_time_lock(ctx, lock_id: str):
     
     # Check if lock can be released
     release_time = datetime.fromisoformat(lock_data["release_time"])
-    current_time = datetime.utcnow()
+    current_time = datetime.now(datetime.UTC)
     
     if current_time < release_time:
         error(f"Time lock cannot be released until {release_time.isoformat()}")
@@ -454,7 +454,7 @@ def release_vesting(ctx, schedule_id: str):
         return
     
     schedule = vesting_schedules[schedule_id]
-    current_time = datetime.utcnow()
+    current_time = datetime.now(datetime.UTC)
     
     # Find available releases
     available_releases = []

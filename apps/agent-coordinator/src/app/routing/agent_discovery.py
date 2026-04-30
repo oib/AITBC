@@ -8,7 +8,7 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Set, Callable, Any
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import uuid
 import hashlib
 from enum import Enum
@@ -178,7 +178,7 @@ class AgentRegistry:
             
             agent_info = self.agents[agent_id]
             agent_info.status = status
-            agent_info.last_heartbeat = datetime.utcnow()
+            agent_info.last_heartbeat = datetime.now(datetime.UTC)
             
             if load_metrics:
                 agent_info.load_metrics.update(load_metrics)
@@ -206,7 +206,7 @@ class AgentRegistry:
                 return False
             
             agent_info = self.agents[agent_id]
-            agent_info.last_heartbeat = datetime.utcnow()
+            agent_info.last_heartbeat = datetime.now(datetime.UTC)
             
             # Update health score
             agent_info.health_score = self._calculate_health_score(agent_info)
@@ -307,7 +307,7 @@ class AgentRegistry:
             "type_counts": type_counts,
             "service_count": len(self.service_index),
             "capability_count": len(self.capability_index),
-            "last_cleanup": datetime.utcnow().isoformat()
+            "last_cleanup": datetime.now(datetime.UTC).isoformat()
         }
     
     def _update_indexes(self, agent_info: AgentInfo):
@@ -372,7 +372,7 @@ class AgentRegistry:
             base_score -= 0.1
         
         # Penalty for old heartbeat
-        heartbeat_age = (datetime.utcnow() - agent_info.last_heartbeat).total_seconds()
+        heartbeat_age = (datetime.now(datetime.UTC) - agent_info.last_heartbeat).total_seconds()
         if heartbeat_age > self.max_heartbeat_age:
             base_score -= 0.5
         elif heartbeat_age > self.max_heartbeat_age / 2:
@@ -428,7 +428,7 @@ class AgentRegistry:
         
         event = {
             "event_type": event_type,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "agent_info": agent_info.to_dict()
         }
         
@@ -441,7 +441,7 @@ class AgentRegistry:
                 await asyncio.sleep(self.heartbeat_interval)
                 
                 # Check for agents with old heartbeats
-                now = datetime.utcnow()
+                now = datetime.now(datetime.UTC)
                 for agent_id, agent_info in list(self.agents.items()):
                     heartbeat_age = (now - agent_info.last_heartbeat).total_seconds()
                     
@@ -462,7 +462,7 @@ class AgentRegistry:
                 await asyncio.sleep(self.cleanup_interval)
                 
                 # Remove agents that have been inactive too long
-                now = datetime.utcnow()
+                now = datetime.now(datetime.UTC)
                 max_inactive_age = timedelta(hours=1)  # 1 hour
                 
                 for agent_id, agent_info in list(self.agents.items()):
@@ -502,8 +502,8 @@ class AgentDiscoveryService:
                 services=discovery_data.services,
                 endpoints=discovery_data.endpoints,
                 metadata=discovery_data.metadata,
-                last_heartbeat=datetime.utcnow(),
-                registration_time=datetime.utcnow()
+                last_heartbeat=datetime.now(datetime.UTC),
+                registration_time=datetime.now(datetime.UTC)
             )
             
             # Register or update agent
@@ -597,8 +597,8 @@ def create_agent_info(agent_id: str, agent_type: str, capabilities: List[str], s
         services=services,
         endpoints=endpoints,
         metadata={},
-        last_heartbeat=datetime.utcnow(),
-        registration_time=datetime.utcnow()
+        last_heartbeat=datetime.now(datetime.UTC),
+        registration_time=datetime.now(datetime.UTC)
     )
 
 # Example usage

@@ -4,7 +4,7 @@ import click
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from utils import output, error, success, warning
 
 
@@ -41,7 +41,7 @@ def set_price(ctx, pair: str, price: float, source: str, confidence: float, desc
         "source": source,
         "confidence": confidence,
         "description": description or f"Price set by {source}",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "volume": 0.0,
         "spread": 0.0
     }
@@ -155,7 +155,7 @@ def price_history(ctx, pair: Optional[str], days: int, limit: int, source: Optio
     
     # Filter data
     history_data = {}
-    cutoff_time = datetime.utcnow() - timedelta(days=days)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(days=days)
     
     for pair_name, pair_data in oracle_data.items():
         if pair and pair_name != pair:
@@ -193,7 +193,7 @@ def price_history(ctx, pair: Optional[str], days: int, limit: int, source: Optio
             "limit": limit,
             "source": source or "all"
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     })
 
 
@@ -259,7 +259,7 @@ def price_feed(ctx, pairs: Optional[str], interval: int, sources: Optional[str])
             "interval": interval,
             "sources": source_list or "all"
         },
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(datetime.UTC).isoformat(),
         "total_pairs": len(feed_data)
     })
     
@@ -282,7 +282,7 @@ def analyze(ctx, pair: Optional[str], hours: int):
     with open(oracle_file, 'r') as f:
         oracle_data = json.load(f)
     
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
     analysis_results = {}
     
     for pair_name, pair_data in oracle_data.items():
@@ -334,7 +334,7 @@ def analyze(ctx, pair: Optional[str], hours: int):
             "pair": pair or "all",
             "time_window_hours": hours
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     })
 
 

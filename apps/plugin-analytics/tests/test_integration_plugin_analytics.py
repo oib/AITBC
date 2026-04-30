@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginUsage, PluginPerformance, PluginRating, PluginEvent, plugin_usage_data, plugin_performance_data, plugin_ratings, plugin_events
@@ -56,7 +56,7 @@ def test_record_plugin_usage():
         plugin_id="plugin_123",
         user_id="user_123",
         action="install",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
     assert response.status_code == 200
@@ -77,7 +77,7 @@ def test_record_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
     assert response.status_code == 200
@@ -95,7 +95,7 @@ def test_record_plugin_rating():
         user_id="user_123",
         rating=5,
         review="Great plugin!",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
     assert response.status_code == 200
@@ -113,7 +113,7 @@ def test_record_plugin_event():
         plugin_id="plugin_123",
         user_id="user_123",
         data={"error": "timeout"},
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/analytics/event", json=event.model_dump(mode='json'))
     assert response.status_code == 200
@@ -131,7 +131,7 @@ def test_get_plugin_usage():
         plugin_id="plugin_123",
         user_id="user_123",
         action="install",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
     
@@ -155,7 +155,7 @@ def test_get_plugin_performance():
         response_time=0.123,
         error_rate=0.001,
         uptime=99.9,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/analytics/performance", json=perf.model_dump(mode='json'))
     
@@ -175,7 +175,7 @@ def test_get_plugin_ratings():
         plugin_id="plugin_123",
         user_id="user_123",
         rating=5,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/analytics/rating", json=rating.model_dump(mode='json'))
     

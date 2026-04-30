@@ -7,7 +7,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 
@@ -228,7 +228,7 @@ class TaskDecompositionEngine:
     ) -> TaskAggregation:
         """Create aggregation configuration for combining sub-task results"""
 
-        aggregation_id = f"agg_{parent_task_id}_{datetime.utcnow().timestamp()}"
+        aggregation_id = f"agg_{parent_task_id}_{datetime.now(datetime.UTC).timestamp()}"
 
         aggregation = TaskAggregation(
             aggregation_id=aggregation_id,
@@ -262,9 +262,9 @@ class TaskDecompositionEngine:
 
         # Update timestamps
         if status == SubTaskStatus.IN_PROGRESS and old_status != SubTaskStatus.IN_PROGRESS:
-            sub_task.started_at = datetime.utcnow()
+            sub_task.started_at = datetime.now(datetime.UTC)
         elif status == SubTaskStatus.COMPLETED:
-            sub_task.completed_at = datetime.utcnow()
+            sub_task.completed_at = datetime.now(datetime.UTC)
         elif status == SubTaskStatus.FAILED:
             sub_task.retry_count += 1
 

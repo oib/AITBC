@@ -1,7 +1,7 @@
 """Cross-chain synchronization for testing multi-chain scenarios."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List
 
 
@@ -18,7 +18,7 @@ class CrossChainSync:
             self.sync_status[chain] = {
                 "synced": True,
                 "height": 0,
-                "last_sync": datetime.utcnow().isoformat(),
+                "last_sync": datetime.now(datetime.UTC).isoformat(),
             }
 
 
@@ -36,5 +36,5 @@ class MultiChainConsensus:
                 "consensus_reached": True,
                 "height": 0,
                 "validators": 1,
-                "last_consensus": datetime.utcnow().isoformat(),
+                "last_consensus": datetime.now(datetime.UTC).isoformat(),
             }

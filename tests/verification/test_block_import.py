@@ -6,7 +6,7 @@ Tests the /rpc/blocks/import POST endpoint functionality
 
 import json
 import hashlib
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Test configuration
 BASE_URL = "https://aitbc.bubuit.net/rpc"
@@ -35,7 +35,7 @@ def test_block_import():
     print("\n1. Testing valid block import...")
     height = base_height
     parent_hash = head["hash"]
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.now(datetime.UTC).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     response = requests.post(

@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 
 from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance, global_agents, agent_messages, collaboration_sessions, agent_performance
@@ -64,7 +64,7 @@ def test_agent_performance_out_of_range_score():
     """Test AgentPerformance with out of range scores"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=2.0,
@@ -86,7 +86,7 @@ def test_agent_message_empty_content():
         content={},
         priority="high",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert message.content == {}
 
@@ -148,8 +148,8 @@ def test_send_collaboration_message_sender_not_participant():
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))

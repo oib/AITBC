@@ -4,7 +4,7 @@ Defines various pricing strategies and their configurations for dynamic pricing
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 
@@ -515,7 +515,7 @@ class StrategyOptimizer:
         if strategy_id not in self.performance_history:
             self.performance_history[strategy_id] = []
 
-        self.performance_history[strategy_id].append({"timestamp": datetime.utcnow(), "performance": performance_data})
+        self.performance_history[strategy_id].append({"timestamp": datetime.now(datetime.UTC), "performance": performance_data})
 
         # Apply optimization rules
         optimized_config = self._apply_optimization_rules(strategy_config, performance_data)

@@ -1,7 +1,7 @@
 """Health check routes for Pool Hub"""
 
 from fastapi import APIRouter
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import text
 
 router = APIRouter(tags=["health"])
@@ -13,7 +13,7 @@ async def health_check():
     return {
         "status": "ok",
         "service": "pool-hub",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
     }
 
 
@@ -28,7 +28,7 @@ async def readiness_check():
     return {
         "ready": all_ready,
         "checks": checks,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
     }
 
 

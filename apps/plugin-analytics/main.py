@@ -5,7 +5,7 @@ Handles plugin analytics, usage tracking, and performance monitoring
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -66,7 +66,7 @@ async def root():
     return {
         "service": "AITBC Plugin Analytics Service",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -85,7 +85,7 @@ async def health_check():
 async def record_plugin_usage(usage: PluginUsage):
     """Record plugin usage event"""
     usage_record = {
-        "usage_id": f"usage_{int(datetime.utcnow().timestamp())}",
+        "usage_id": f"usage_{int(datetime.now(datetime.UTC).timestamp())}",
         "plugin_id": usage.plugin_id,
         "user_id": usage.user_id,
         "action": usage.action,
@@ -113,7 +113,7 @@ async def record_plugin_usage(usage: PluginUsage):
 async def record_plugin_performance(performance: PluginPerformance):
     """Record plugin performance metrics"""
     performance_record = {
-        "performance_id": f"perf_{int(datetime.utcnow().timestamp())}",
+        "performance_id": f"perf_{int(datetime.now(datetime.UTC).timestamp())}",
         "plugin_id": performance.plugin_id,
         "version": performance.version,
         "cpu_usage": performance.cpu_usage,
@@ -141,7 +141,7 @@ async def record_plugin_performance(performance: PluginPerformance):
 async def record_plugin_rating(rating: PluginRating):
     """Record plugin rating and review"""
     rating_record = {
-        "rating_id": f"rating_{int(datetime.utcnow().timestamp())}",
+        "rating_id": f"rating_{int(datetime.now(datetime.UTC).timestamp())}",
         "plugin_id": rating.plugin_id,
         "user_id": rating.user_id,
         "rating": rating.rating,
@@ -166,7 +166,7 @@ async def record_plugin_rating(rating: PluginRating):
 async def record_plugin_event(event: PluginEvent):
     """Record generic plugin event"""
     event_record = {
-        "event_id": f"event_{int(datetime.utcnow().timestamp())}",
+        "event_id": f"event_{int(datetime.now(datetime.UTC).timestamp())}",
         "event_type": event.event_type,
         "plugin_id": event.plugin_id,
         "user_id": event.user_id,
@@ -190,7 +190,7 @@ async def record_plugin_event(event: PluginEvent):
 @app.get("/api/v1/analytics/usage/{plugin_id}")
 async def get_plugin_usage(plugin_id: str, days: int = 30):
     """Get usage analytics for a specific plugin"""
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=days)
     
     usage_records = plugin_usage_data.get(plugin_id, [])
     recent_usage = [r for r in usage_records 
@@ -204,13 +204,13 @@ async def get_plugin_usage(plugin_id: str, days: int = 30):
         "period_days": days,
         "usage_statistics": usage_stats,
         "total_records": len(recent_usage),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/performance/{plugin_id}")
 async def get_plugin_performance(plugin_id: str, hours: int = 24):
     """Get performance analytics for a specific plugin"""
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
     
     performance_records = plugin_performance_data.get(plugin_id, [])
     recent_performance = [r for r in performance_records 
@@ -224,7 +224,7 @@ async def get_plugin_performance(plugin_id: str, hours: int = 24):
         "period_hours": hours,
         "performance_statistics": performance_stats,
         "total_records": len(recent_performance),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/ratings/{plugin_id}")
@@ -240,7 +240,7 @@ async def get_plugin_ratings(plugin_id: str):
         "rating_statistics": rating_stats,
         "total_ratings": len(rating_records),
         "recent_ratings": rating_records[-10:],  # Last 10 ratings
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/dashboard")
@@ -257,7 +257,7 @@ async def get_analytics_dashboard():
     
     return {
         "dashboard": dashboard_data,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/trends")
@@ -398,7 +398,7 @@ def get_overview_statistics() -> Dict[str, Any]:
     total_ratings = sum(len(data) for data in plugin_ratings.values())
     
     # Calculate active plugins (plugins with usage in last 7 days)
-    cutoff_date = datetime.utcnow() - timedelta(days=7)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=7)
     active_plugins = 0
     
     for plugin_id, usage_records in plugin_usage_data.items():
@@ -417,7 +417,7 @@ def get_overview_statistics() -> Dict[str, Any]:
 
 def get_trending_plugins(limit: int = 10) -> List[Dict]:
     """Get trending plugins based on recent usage"""
-    cutoff_date = datetime.utcnow() - timedelta(days=7)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=7)
     
     plugin_scores = []
     
@@ -443,7 +443,7 @@ def get_trending_plugins(limit: int = 10) -> List[Dict]:
 
 def get_global_usage_trends(days: int = 30) -> Dict[str, Any]:
     """Get global usage trends"""
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=days)
     global_trends = {}
     
     for plugin_id, usage_records in plugin_usage_data.items():
@@ -541,14 +541,14 @@ def get_plugin_trends(plugin_id: str, days: int) -> Dict[str, Any]:
     """Get trends for a specific plugin"""
     plugin_trends = usage_trends.get(plugin_id, {})
     
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=days)
     date_key = cutoff_date.date().isoformat()
     
     return {
         "plugin_id": plugin_id,
         "trends": plugin_trends,
         "period_days": days,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Report generation functions
@@ -581,7 +581,7 @@ def generate_summary_report(plugin_id: Optional[str] = None) -> Dict[str, Any]:
             "usage": get_plugin_usage(plugin_id, days=30),
             "performance": get_plugin_performance(plugin_id, hours=24),
             "ratings": get_plugin_ratings(plugin_id),
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": datetime.now(datetime.UTC).isoformat()
         }
     else:
         return get_analytics_dashboard()
@@ -613,7 +613,7 @@ def update_analytics_cache():
 
 def cleanup_old_data():
     """Clean up old analytics data"""
-    cutoff_date = datetime.utcnow() - timedelta(days=90)
+    cutoff_date = datetime.now(datetime.UTC) - timedelta(days=90)
     cutoff_iso = cutoff_date.isoformat()
     
     # Clean usage data

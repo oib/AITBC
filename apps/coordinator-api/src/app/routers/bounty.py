@@ -5,7 +5,7 @@ Bounty Management API
 REST API for AI agent bounty system with ZK-proof verification
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -38,7 +38,7 @@ class BountyCreateRequest(BaseModel):
     performance_criteria: Dict[str, Any] = Field(default_factory=dict)
     min_accuracy: float = Field(default=90.0, ge=0, le=100)
     max_response_time: Optional[int] = Field(default=None, gt=0)
-    deadline: datetime = Field(..., gt=datetime.utcnow())
+    deadline: datetime = Field(..., gt=datetime.now(datetime.UTC))
     max_submissions: int = Field(default=100, gt=0, le=1000)
     requires_zk_proof: bool = Field(default=True)
     auto_verify_threshold: float = Field(default=95.0, ge=0, le=100)
@@ -48,9 +48,9 @@ class BountyCreateRequest(BaseModel):
 
     @validator('deadline')
     def validate_deadline(cls, v):
-        if v <= datetime.utcnow():
+        if v <= datetime.now(datetime.UTC):
             raise ValueError('Deadline must be in the future')
-        if v > datetime.utcnow() + timedelta(days=365):
+        if v > datetime.now(datetime.UTC) + timedelta(days=365):
             raise ValueError('Deadline cannot be more than 1 year in the future')
         return v
 
@@ -281,7 +281,7 @@ async def submit_bounty_solution(
         if bounty.status != BountyStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Bounty is not active")
         
-        if datetime.utcnow() > bounty.deadline:
+        if datetime.now(datetime.UTC) > bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has passed")
         
         # Create submission
@@ -519,7 +519,7 @@ async def expire_bounty(
         if bounty.status != BountyStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Bounty is not active")
         
-        if datetime.utcnow() <= bounty.deadline:
+        if datetime.now(datetime.UTC) <= bounty.deadline:
             raise HTTPException(status_code=400, detail="Bounty deadline has not passed")
         
         # Expire bounty

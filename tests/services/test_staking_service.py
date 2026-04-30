@@ -6,7 +6,7 @@ High-priority tests for staking service functionality
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -70,7 +70,7 @@ def staking_pool(db_session, agent_metrics):
         pool_apy=5.0,
         staker_count=0,
         active_stakers=[],
-        last_distribution_time=datetime.utcnow(),
+        last_distribution_time=datetime.now(datetime.UTC),
         distribution_frequency=1
     )
     db_session.add(pool)
@@ -114,7 +114,7 @@ class TestStakingService:
         assert stake.current_apy > 8.0  # Allow small rounding error
 
         # Verify end time calculated
-        expected_end_time = datetime.utcnow() + timedelta(days=lock_period)
+        expected_end_time = datetime.now(datetime.UTC) + timedelta(days=lock_period)
         time_diff = abs((stake.end_time - expected_end_time).total_seconds())
         assert time_diff < 60  # Within 1 minute
 
@@ -254,7 +254,7 @@ class TestStakingService:
         )
         
         # Simulate lock period ending by updating end_time
-        stake.end_time = datetime.utcnow() - timedelta(days=1)
+        stake.end_time = datetime.now(datetime.UTC) - timedelta(days=1)
         staking_service.session.commit()
         
         # Unbond the stake
@@ -277,7 +277,7 @@ class TestStakingService:
         )
         
         # Unbond the stake
-        stake.end_time = datetime.utcnow() - timedelta(days=1)
+        stake.end_time = datetime.now(datetime.UTC) - timedelta(days=1)
         staking_service.session.commit()
         await staking_service.unbond_stake(stake.stake_id)
         
@@ -304,13 +304,13 @@ class TestStakingService:
         )
         
         # Unbond the stake
-        stake.end_time = datetime.utcnow() - timedelta(days=1)
+        stake.end_time = datetime.now(datetime.UTC) - timedelta(days=1)
         staking_service.session.commit()
         await staking_service.unbond_stake(stake.stake_id)
         
         # Set unbonding time to 35 days ago (past 30-day penalty period)
         stake = await staking_service.get_stake(stake.stake_id)
-        stake.unbonding_time = datetime.utcnow() - timedelta(days=35)
+        stake.unbonding_time = datetime.now(datetime.UTC) - timedelta(days=35)
         staking_service.session.commit()
         
         # Complete unbonding (no penalty)
@@ -352,7 +352,7 @@ class TestStakingService:
         )
         
         # Unbond the stake
-        stake.end_time = datetime.utcnow() - timedelta(days=1)
+        stake.end_time = datetime.now(datetime.UTC) - timedelta(days=1)
         staking_service.session.commit()
         await staking_service.unbond_stake(stake.stake_id)
         

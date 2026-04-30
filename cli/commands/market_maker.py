@@ -6,7 +6,7 @@ import uuid
 import httpx
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from utils import output, error, success, warning
 
 
@@ -56,7 +56,7 @@ def create(ctx, exchange: str, pair: str, spread: float, depth: float, max_order
             "orders_placed": 0,
             "orders_filled": 0
         },
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "last_updated": None,
         "description": description or f"Market making bot for {pair} on {exchange}",
         "current_orders": [],
@@ -144,7 +144,7 @@ def config(ctx, bot_id: str, spread: Optional[float], depth: Optional[float], ma
         return
     
     # Update timestamp
-    bot["last_updated"] = datetime.utcnow().isoformat()
+    bot["last_updated"] = datetime.now(datetime.UTC).isoformat()
     
     # Save bots
     with open(bots_file, 'w') as f:
@@ -187,8 +187,8 @@ def start(ctx, bot_id: str, dry_run: bool):
     
     # Update bot status
     bot["status"] = "running" if not dry_run else "simulation"
-    bot["started_at"] = datetime.utcnow().isoformat()
-    bot["last_updated"] = datetime.utcnow().isoformat()
+    bot["started_at"] = datetime.now(datetime.UTC).isoformat()
+    bot["last_updated"] = datetime.now(datetime.UTC).isoformat()
     bot["dry_run"] = dry_run
     
     # Initialize performance tracking for this run
@@ -244,8 +244,8 @@ def stop(ctx, bot_id: str):
     
     # Update bot status
     bot["status"] = "stopped"
-    bot["stopped_at"] = datetime.utcnow().isoformat()
-    bot["last_updated"] = datetime.utcnow().isoformat()
+    bot["stopped_at"] = datetime.now(datetime.UTC).isoformat()
+    bot["last_updated"] = datetime.now(datetime.UTC).isoformat()
     
     # Cancel all current orders (simulation)
     bot["current_orders"] = []
@@ -318,7 +318,7 @@ def performance(ctx, bot_id: Optional[str], exchange: Optional[str], pair: Optio
             bot_performance["current_run"] = current_run
             if "started_at" in current_run:
                 start_time = datetime.fromisoformat(current_run["started_at"].replace('Z', '+00:00'))
-                runtime = datetime.utcnow() - start_time
+                runtime = datetime.now(datetime.UTC) - start_time
                 bot_performance["run_time_hours"] = runtime.total_seconds() / 3600
         
         performance_data[current_bot_id] = bot_performance
@@ -330,7 +330,7 @@ def performance(ctx, bot_id: Optional[str], exchange: Optional[str], pair: Optio
     output({
         "performance_data": performance_data,
         "total_bots": len(performance_data),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     })
 
 
@@ -397,7 +397,7 @@ def status(ctx, bot_id: str):
     uptime_hours = None
     if bot["status"] in ["running", "simulation"] and "started_at" in bot:
         start_time = datetime.fromisoformat(bot["started_at"].replace('Z', '+00:00'))
-        uptime = datetime.utcnow() - start_time
+        uptime = datetime.now(datetime.UTC) - start_time
         uptime_hours = uptime.total_seconds() / 3600
     
     output({

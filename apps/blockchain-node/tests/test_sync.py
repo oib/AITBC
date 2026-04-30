@@ -4,7 +4,7 @@ import hashlib
 import time
 import sys
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 from contextlib import contextmanager
 
 from sqlmodel import Session, SQLModel, create_engine, select
@@ -68,7 +68,7 @@ class TestProposerSignatureValidator:
 
     def test_valid_block(self):
         v = ProposerSignatureValidator()
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -81,7 +81,7 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "0x" + "a" * 64, "parent_hash": "0x00",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         })
         assert ok is False
         assert "Missing proposer" in reason
@@ -90,7 +90,7 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "badhash", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.utcnow().isoformat(),
+            "proposer": "node-a", "timestamp": datetime.now(datetime.UTC).isoformat(),
         })
         assert ok is False
         assert "Invalid block hash" in reason
@@ -99,14 +99,14 @@ class TestProposerSignatureValidator:
         v = ProposerSignatureValidator()
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": "0xabc", "parent_hash": "0x00",
-            "proposer": "node-a", "timestamp": datetime.utcnow().isoformat(),
+            "proposer": "node-a", "timestamp": datetime.now(datetime.UTC).isoformat(),
         })
         assert ok is False
         assert "Invalid hash length" in reason
 
     def test_untrusted_proposer_rejected(self):
         v = ProposerSignatureValidator(trusted_proposers=["node-a", "node-b"])
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -117,7 +117,7 @@ class TestProposerSignatureValidator:
 
     def test_trusted_proposer_accepted(self):
         v = ProposerSignatureValidator(trusted_proposers=["node-a"])
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 1, "0x00", ts)
         ok, reason = v.validate_block_signature({
             "height": 1, "hash": bh, "parent_hash": "0x00",
@@ -147,7 +147,7 @@ class TestChainSyncAppend:
 
     def test_append_to_empty_chain(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -232,7 +232,7 @@ class TestChainSyncSignatureValidation:
     def test_untrusted_proposer_rejected_on_import(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -244,7 +244,7 @@ class TestChainSyncSignatureValidation:
     def test_trusted_proposer_accepted_on_import(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -255,7 +255,7 @@ class TestChainSyncSignatureValidation:
     def test_validation_disabled(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=False)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         result = sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -295,7 +295,7 @@ class TestSyncMetrics:
 
     def test_accepted_block_increments_metrics(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",
@@ -308,7 +308,7 @@ class TestSyncMetrics:
     def test_rejected_block_increments_metrics(self, session_factory):
         validator = ProposerSignatureValidator(trusted_proposers=["node-a"])
         sync = ChainSync(session_factory, chain_id="test", validator=validator, validate_signatures=True)
-        ts = datetime.utcnow()
+        ts = datetime.now(datetime.UTC)
         bh = _make_block_hash("test", 0, "0x00", ts)
         sync.import_block({
             "height": 0, "hash": bh, "parent_hash": "0x00",

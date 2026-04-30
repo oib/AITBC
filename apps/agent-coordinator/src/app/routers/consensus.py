@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -105,7 +105,7 @@ async def get_advanced_features_status():
         
         return {
             "status": "success",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "features": {
                 "realtime_learning": {
                     "status": "active",

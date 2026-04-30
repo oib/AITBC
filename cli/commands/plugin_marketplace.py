@@ -6,7 +6,7 @@ Commands for browsing, purchasing, and managing plugins from the marketplace
 import click
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional
 
 @click.group()
@@ -312,7 +312,7 @@ def purchase(plugin_id, test_mode):
             "price": plugin.get('price', 0.0),
             "currency": plugin.get('pricing', {}).get('currency', 'USD'),
             "payment_method": "credit_card",
-            "purchased_at": datetime.utcnow().isoformat()
+            "purchased_at": datetime.now(datetime.UTC).isoformat()
         }
         
         response = requests.post(

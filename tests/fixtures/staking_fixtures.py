@@ -5,7 +5,7 @@ Reusable fixtures for service and integration tests to avoid duplication
 
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 import pytest
 from sqlalchemy import create_engine
@@ -67,7 +67,7 @@ def agent_metrics(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.utcnow()
+        last_update_time=datetime.now(datetime.UTC)
     )
 
 
@@ -84,7 +84,7 @@ def agent_metrics_bronze(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.utcnow()
+        last_update_time=datetime.now(datetime.UTC)
     )
 
 
@@ -101,7 +101,7 @@ def agent_metrics_diamond(agent_wallet):
         total_staked=0.0,
         staker_count=0,
         total_rewards_distributed=0.0,
-        last_update_time=datetime.utcnow()
+        last_update_time=datetime.now(datetime.UTC)
     )
 
 
@@ -115,7 +115,7 @@ def staking_pool(db_session, agent_metrics):
         pool_apy=5.0,
         staker_count=0,
         active_stakers=[],
-        last_distribution_time=datetime.utcnow(),
+        last_distribution_time=datetime.now(datetime.UTC),
         distribution_frequency=1
     )
     db_session.add(pool)
@@ -185,11 +185,11 @@ def active_stake(db_session, agent_wallet, staker_address):
         agent_wallet=agent_wallet,
         amount=1000.0,
         lock_period=30,
-        start_time=datetime.utcnow(),
-        end_time=datetime.utcnow() + timedelta(days=30),
+        start_time=datetime.now(datetime.UTC),
+        end_time=datetime.now(datetime.UTC) + timedelta(days=30),
         status=StakeStatus.ACTIVE,
         accumulated_rewards=0.0,
-        last_reward_time=datetime.utcnow(),
+        last_reward_time=datetime.now(datetime.UTC),
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
@@ -210,16 +210,16 @@ def unbonding_stake(db_session, agent_wallet, staker_address):
         agent_wallet=agent_wallet,
         amount=1000.0,
         lock_period=30,
-        start_time=datetime.utcnow() - timedelta(days=35),
-        end_time=datetime.utcnow() - timedelta(days=5),
+        start_time=datetime.now(datetime.UTC) - timedelta(days=35),
+        end_time=datetime.now(datetime.UTC) - timedelta(days=5),
         status=StakeStatus.UNBONDING,
         accumulated_rewards=50.0,
-        last_reward_time=datetime.utcnow() - timedelta(days=5),
+        last_reward_time=datetime.now(datetime.UTC) - timedelta(days=5),
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
         auto_compound=False,
-        unbonding_time=datetime.utcnow() - timedelta(days=5)
+        unbonding_time=datetime.now(datetime.UTC) - timedelta(days=5)
     )
     db_session.add(stake)
     db_session.commit()
@@ -236,16 +236,16 @@ def completed_stake(db_session, agent_wallet, staker_address):
         agent_wallet=agent_wallet,
         amount=1000.0,
         lock_period=30,
-        start_time=datetime.utcnow() - timedelta(days=70),
-        end_time=datetime.utcnow() - timedelta(days=40),
+        start_time=datetime.now(datetime.UTC) - timedelta(days=70),
+        end_time=datetime.now(datetime.UTC) - timedelta(days=40),
         status=StakeStatus.COMPLETED,
         accumulated_rewards=100.0,
-        last_reward_time=datetime.utcnow() - timedelta(days=40),
+        last_reward_time=datetime.now(datetime.UTC) - timedelta(days=40),
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
         auto_compound=False,
-        unbonding_time=datetime.utcnow() - timedelta(days=40)
+        unbonding_time=datetime.now(datetime.UTC) - timedelta(days=40)
     )
     db_session.add(stake)
     db_session.commit()
@@ -265,11 +265,11 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         agent_wallet=agent_wallet,
         amount=1000.0,
         lock_period=30,
-        start_time=datetime.utcnow(),
-        end_time=datetime.utcnow() + timedelta(days=30),
+        start_time=datetime.now(datetime.UTC),
+        end_time=datetime.now(datetime.UTC) + timedelta(days=30),
         status=StakeStatus.ACTIVE,
         accumulated_rewards=0.0,
-        last_reward_time=datetime.utcnow(),
+        last_reward_time=datetime.now(datetime.UTC),
         current_apy=8.25,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,
@@ -283,11 +283,11 @@ def multiple_stakes(db_session, agent_wallet, staker_address):
         agent_wallet=agent_wallet,
         amount=2000.0,
         lock_period=90,
-        start_time=datetime.utcnow(),
-        end_time=datetime.utcnow() + timedelta(days=90),
+        start_time=datetime.now(datetime.UTC),
+        end_time=datetime.now(datetime.UTC) + timedelta(days=90),
         status=StakeStatus.ACTIVE,
         accumulated_rewards=0.0,
-        last_reward_time=datetime.utcnow(),
+        last_reward_time=datetime.now(datetime.UTC),
         current_apy=10.0,
         agent_tier=PerformanceTier.GOLD,
         performance_multiplier=1.5,

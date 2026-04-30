@@ -7,7 +7,7 @@ import sys
 import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch
-from datetime import datetime
+from datetime import datetime, UTC
 
 from app.agent_identity.sdk.client import AgentIdentityClient
 from app.agent_identity.sdk.models import (
@@ -328,16 +328,16 @@ class TestModels:
             status=IdentityStatus.ACTIVE,
             verification_level=VerificationType.BASIC,
             is_verified=True,
-            verified_at=datetime.utcnow(),
+            verified_at=datetime.now(datetime.UTC),
             supported_chains=['1', '137'],
             primary_chain=1,
             reputation_score=85.5,
             total_transactions=100,
             successful_transactions=95,
             success_rate=0.95,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-            last_activity=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
+            updated_at=datetime.now(datetime.UTC),
+            last_activity=datetime.now(datetime.UTC),
             metadata={'key': 'value'},
             tags=['test', 'agent']
         )
@@ -358,14 +358,14 @@ class TestModels:
             chain_type=ChainType.ETHEREUM,
             chain_address='0x123...',
             is_verified=True,
-            verified_at=datetime.utcnow(),
+            verified_at=datetime.now(datetime.UTC),
             wallet_address='0x456...',
             wallet_type='agent-wallet',
             chain_metadata={'test': 'data'},
-            last_transaction=datetime.utcnow(),
+            last_transaction=datetime.now(datetime.UTC),
             transaction_count=10,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(datetime.UTC),
+            updated_at=datetime.now(datetime.UTC)
         )
         
         assert mapping.id == 'mapping_123'
@@ -391,10 +391,10 @@ class TestModels:
             requires_multisig=False,
             multisig_threshold=1,
             multisig_signers=['0x123...'],
-            last_transaction=datetime.utcnow(),
+            last_transaction=datetime.now(datetime.UTC),
             transaction_count=5,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            created_at=datetime.now(datetime.UTC),
+            updated_at=datetime.now(datetime.UTC)
         )
         
         assert wallet.id == 'wallet_123'

@@ -7,7 +7,7 @@ Port: 8009
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 import numpy as np
@@ -120,7 +120,7 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "gpu_available": torch.cuda.is_available(),
         "services": {"rl_engine": "operational", "fusion_engine": "operational", "advanced_learning": "operational"},
     }
@@ -193,7 +193,7 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest):
     """Process multi-modal fusion"""
 
     try:
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Simulate database session
 
@@ -213,13 +213,13 @@ async def process_multi_modal_fusion(request: MultiModalFusionRequest):
                     modal_data=request.modal_data, performance_requirements=request.fusion_config or {}
                 )
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds() * 1000
 
         return {
             "fusion_result": result,
             "processing_time_ms": processing_time,
             "strategy_used": request.fusion_strategy,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
     except Exception as e:
@@ -243,7 +243,7 @@ async def optimize_gpu_processing(request: GPUOptimizationRequest):
                 modality_features=request.modality_features, attention_config=request.attention_config
             )
 
-        return {"optimization_result": result, "timestamp": datetime.utcnow().isoformat()}
+        return {"optimization_result": result, "timestamp": datetime.now(datetime.UTC).isoformat()}
 
     except Exception as e:
         logger.error(f"GPU optimization failed: {e}")
@@ -255,7 +255,7 @@ async def advanced_ai_processing(request: AdvancedAIRequest):
     """Unified advanced AI processing endpoint"""
 
     try:
-        datetime.utcnow()
+        datetime.now(datetime.UTC)
 
         if request.request_type == "rl_training":
             # Convert to RL training request
@@ -335,7 +335,7 @@ async def get_performance_metrics():
         }
 
         return {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "gpu_metrics": gpu_metrics,
             "service_metrics": service_metrics,
             "system_health": "operational",

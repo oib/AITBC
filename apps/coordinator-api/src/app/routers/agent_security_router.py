@@ -125,7 +125,7 @@ async def update_security_policy(
             if hasattr(policy, field):
                 setattr(policy, field, value)
 
-        policy.updated_at = datetime.utcnow()
+        policy.updated_at = datetime.now(datetime.UTC)
         session.commit()
         session.refresh(policy)
 

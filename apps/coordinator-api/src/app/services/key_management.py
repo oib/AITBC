@@ -6,7 +6,7 @@ import asyncio
 import base64
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -38,7 +38,7 @@ class KeyManager:
                 private_key=private_key.private_bytes_raw(),
                 public_key=public_key.public_bytes_raw(),
                 algorithm="X25519",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(datetime.UTC),
                 version=1,
             )
 
@@ -79,7 +79,7 @@ class KeyManager:
                 participant_id=participant_id,
                 old_version=current_key.version,
                 new_version=new_key_pair.version,
-                rotated_at=datetime.utcnow(),
+                rotated_at=datetime.now(datetime.UTC),
                 reason="scheduled_rotation",
             )
             await self.storage.log_rotation(rotation_log)
@@ -150,7 +150,7 @@ class KeyManager:
             auth_json = json.loads(auth_data)
 
             expires_at = datetime.fromisoformat(auth_json["expires_at"])
-            if datetime.utcnow() > expires_at:
+            if datetime.now(datetime.UTC) > expires_at:
                 return False
 
             required_fields = ["issuer", "subject", "expires_at", "signature"]
@@ -171,8 +171,8 @@ class KeyManager:
                 "issuer": issuer,
                 "subject": "audit_access",
                 "purpose": purpose,
-                "created_at": datetime.utcnow().isoformat(),
-                "expires_at": (datetime.utcnow() + timedelta(hours=expires_in_hours)).isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
+                "expires_at": (datetime.now(datetime.UTC) + timedelta(hours=expires_in_hours)).isoformat(),
                 "signature": "placeholder",  # In production, sign with issuer key
             }
 
@@ -220,7 +220,7 @@ class KeyManager:
                 private_key=self._audit_private,
                 public_key=audit_public.public_bytes_raw(),
                 algorithm="X25519",
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(datetime.UTC),
                 version=1,
             )
 

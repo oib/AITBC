@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 # Mock numpy before importing
@@ -68,7 +68,7 @@ async def test_make_trading_decision_extreme_confidence():
                 'risk_assessment': {'risk_score': 0.0, 'volatility': 0.01},
                 'sentiment_analysis': {'sentiment_score': 1.0, 'overall_sentiment': 'bullish'}
             },
-            'timestamp': datetime.utcnow()
+            'timestamp': datetime.now(datetime.UTC)
         }
         
         result = await engine.make_trading_decision('AITBC/BTC')
@@ -155,7 +155,7 @@ async def test_signal_strength_boundary_buy():
                 'risk_assessment': {'risk_score': 0.0, 'volatility': 0.01},
                 'sentiment_analysis': {'sentiment_score': 0.5, 'overall_sentiment': 'bullish'}
             },
-            'timestamp': datetime.utcnow()
+            'timestamp': datetime.now(datetime.UTC)
         }
         
         result = await engine.make_trading_decision('AITBC/BTC')
