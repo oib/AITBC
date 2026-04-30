@@ -4,7 +4,7 @@ Request validation middleware for FastAPI
 
 from typing import Callable
 
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
@@ -49,18 +49,19 @@ class RequestValidationMiddleware(BaseHTTPMiddleware):
         # Process request
         response = await call_next(request)
 
-        # Validate response size
-        response_size = len(response.body)
-        if response_size > self.max_response_size:
-            logger.warning(
-                "Response too large",
-                response_size=response_size,
-                max_size=self.max_response_size,
-                path=request.url.path,
-            )
-            raise HTTPException(
-                status_code=500,
-                detail="Response too large",
-            )
+        # Validate response size (skip for streaming responses)
+        if hasattr(response, "body"):
+            response_size = len(response.body)
+            if response_size > self.max_response_size:
+                logger.warning(
+                    "Response too large",
+                    response_size=response_size,
+                    max_size=self.max_response_size,
+                    path=request.url.path,
+                )
+                raise HTTPException(
+                    status_code=500,
+                    detail="Response too large",
+                )
 
         return response

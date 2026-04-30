@@ -5,7 +5,7 @@ Request ID correlation middleware for structured logging
 import uuid
 from typing import Callable
 
-from fastapi import Request
+from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
