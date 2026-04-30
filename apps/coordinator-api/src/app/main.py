@@ -91,7 +91,12 @@ except ImportError:
     print("WARNING: ML ZK proofs router not available (missing dependencies)")
 from aitbc import get_logger
 
+from .app_logging import configure_logging
+from .middleware.request_id import RequestIDMiddleware
 from .exceptions import AITBCError, ErrorResponse
+
+# Configure structured logging
+configure_logging(level=settings.log_level if hasattr(settings, 'log_level') else "INFO")
 
 logger = get_logger(__name__)
 from contextlib import asynccontextmanager
@@ -280,6 +285,9 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["*"],  # Allow all headers for API keys and content types
     )
+    
+    # Add request ID correlation middleware
+    app.add_middleware(RequestIDMiddleware)
 
     @app.middleware("http")
     async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
