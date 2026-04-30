@@ -1,6 +1,7 @@
 """Sync management commands for AITBC."""
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -16,7 +17,7 @@ def sync():
 
 
 @sync.command()
-@click.option('--source', default='http://10.1.223.40:8006', help='Source RPC URL (leader)')
+@click.option('--source', default=lambda: os.getenv('AITBC_SYNC_SOURCE_URL', 'http://127.0.0.1:8006'), help='Source RPC URL (leader)')
 @click.option('--import-url', default='http://127.0.0.1:8006', help='Local RPC URL for import')
 @click.option('--batch-size', type=int, default=100, help='Blocks per batch')
 @click.option('--poll-interval', type=float, default=0.2, help='Seconds between batches')
