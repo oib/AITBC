@@ -9,16 +9,14 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "^3.13"
-cryptography = ">=46.0.0"
-# All dependencies managed centrally in /opt/aitbc/requirements-consolidated.txt
-# Use: ./scripts/install-profiles.sh web database blockchain
+# All dependencies managed centrally in root pyproject.toml
+# This file only defines package structure for the blockchain-node
 
 [tool.poetry.extras]
 uvloop = ["uvloop"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = ">=8.3.0"
-pytest-asyncio = ">=0.23.0"
+# Dev dependencies managed centrally in root pyproject.toml
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
