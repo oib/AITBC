@@ -93,7 +93,7 @@ async def get_developer_earnings(
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> DeveloperEarningsResponse:
     """Get developer earnings metrics"""
     try:
         earnings_data = await ecosystem_service.get_developer_earnings(period=period)
@@ -112,7 +112,7 @@ async def get_agent_utilization(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> AgentUtilizationResponse:
     """Get agent utilization metrics"""
     try:
         utilization_data = await ecosystem_service.get_agent_utilization(period=period)
@@ -131,7 +131,7 @@ async def get_treasury_allocation(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> TreasuryAllocationResponse:
     """Get DAO treasury allocation metrics"""
     try:
         treasury_data = await ecosystem_service.get_treasury_allocation(period=period)
@@ -150,7 +150,7 @@ async def get_staking_metrics(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> StakingMetricsResponse:
     """Get staking system metrics"""
     try:
         staking_data = await ecosystem_service.get_staking_metrics(period=period)
@@ -169,7 +169,7 @@ async def get_bounty_analytics(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> BountyAnalyticsResponse:
     """Get bounty system analytics"""
     try:
         bounty_data = await ecosystem_service.get_bounty_analytics(period=period)
@@ -188,7 +188,7 @@ async def get_ecosystem_overview(
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> EcosystemOverviewResponse:
     """Get comprehensive ecosystem overview"""
     try:
         overview_data = await ecosystem_service.get_ecosystem_overview(period_type=period_type)
@@ -217,7 +217,7 @@ async def get_ecosystem_metrics(
     limit: int = Field(default=100, ge=1, le=1000),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get time-series ecosystem metrics"""
     try:
         metrics = await ecosystem_service.get_time_series_metrics(
@@ -241,7 +241,7 @@ async def get_ecosystem_metrics(
 async def get_ecosystem_health_score(
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get overall ecosystem health score"""
     try:
         health_score = await ecosystem_service.calculate_health_score()
@@ -262,7 +262,7 @@ async def get_growth_indicators(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get ecosystem growth indicators"""
     try:
         growth_data = await ecosystem_service.get_growth_indicators(period=period)
@@ -285,7 +285,7 @@ async def get_top_performers(
     limit: int = Field(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get top performers in different categories"""
     try:
         performers = await ecosystem_service.get_top_performers(
@@ -311,7 +311,7 @@ async def get_ecosystem_predictions(
     horizon: int = Field(default=30, ge=1, le=365),  # days
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get ecosystem predictions based on historical data"""
     try:
         predictions = await ecosystem_service.get_predictions(
@@ -336,7 +336,7 @@ async def get_ecosystem_alerts(
     severity: str = Field(default="all", regex="^(low|medium|high|critical|all)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get ecosystem alerts and anomalies"""
     try:
         alerts = await ecosystem_service.get_alerts(severity=severity)
@@ -360,7 +360,7 @@ async def get_ecosystem_comparison(
     custom_end_date: Optional[datetime] = None,
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Compare ecosystem metrics between periods"""
     try:
         comparison = await ecosystem_service.get_period_comparison(
@@ -389,7 +389,7 @@ async def export_ecosystem_data(
     end_date: Optional[datetime] = None,
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Export ecosystem data in various formats"""
     try:
         export_data = await ecosystem_service.export_data(
@@ -416,7 +416,7 @@ async def export_ecosystem_data(
 async def get_real_time_metrics(
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get real-time ecosystem metrics"""
     try:
         real_time_data = await ecosystem_service.get_real_time_metrics()
@@ -435,7 +435,7 @@ async def get_real_time_metrics(
 async def get_kpi_dashboard(
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
-):
+) -> Dict[str, Any]:
     """Get KPI dashboard with key performance indicators"""
     try:
         kpi_data = await ecosystem_service.get_kpi_dashboard()

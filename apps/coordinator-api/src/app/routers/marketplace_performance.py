@@ -3,14 +3,17 @@ Marketplace Performance Optimization API Endpoints
 REST API for managing distributed processing, GPU optimization, caching, and scaling
 """
 
+import time
+import os
+import sys
 from typing import Any
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from pydantic import BaseModel, Field
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-
-import os
-import sys
 
 from app.services.marketplace_gpu_optimizer import MarketplaceGPUOptimizer
 from app.services.distributed_framework import (
@@ -32,7 +35,7 @@ resource_scaler = ResourceScaler()
 
 # Startup event handler for background tasks
 @router.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     await marketplace_monitor.start()
     await distributed_coordinator.start()
     await resource_scaler.start()
@@ -40,7 +43,7 @@ async def startup_event():
 
 
 @router.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     await marketplace_monitor.stop()
     await distributed_coordinator.stop()
     await resource_scaler.stop()
@@ -85,7 +88,7 @@ class ScalingPolicyUpdate(BaseModel):
 
 # Endpoints: GPU Optimization
 @router.post("/gpu/allocate")
-async def allocate_gpu_resources(request: GPUAllocationRequest):
+async def allocate_gpu_resources(request: GPUAllocationRequest) -> dict[str, Any]:
     """Request optimal GPU resource allocation for a marketplace task"""
     try:
         start_time = time.time()
@@ -105,7 +108,7 @@ async def allocate_gpu_resources(request: GPUAllocationRequest):
 
 
 @router.post("/gpu/release")
-async def release_gpu_resources(request: GPUReleaseRequest):
+async def release_gpu_resources(request: GPUReleaseRequest) -> dict[str, str]:
     """Release previously allocated GPU resources"""
     success = gpu_optimizer.release_resources(request.job_id)
     if not success:
@@ -114,14 +117,14 @@ async def release_gpu_resources(request: GPUReleaseRequest):
 
 
 @router.get("/gpu/status")
-async def get_gpu_status():
+async def get_gpu_status() -> dict[str, Any]:
     """Get overall GPU fleet status and optimization metrics"""
     return gpu_optimizer.get_system_status()
 
 
 # Endpoints: Distributed Processing
 @router.post("/distributed/task")
-async def submit_distributed_task(request: DistributedTaskRequest):
+async def submit_distributed_task(request: DistributedTaskRequest) -> dict[str, str]:
     """Submit a task to the distributed processing framework"""
     task = DistributedTask(
         task_id=None,
@@ -137,7 +140,7 @@ async def submit_distributed_task(request: DistributedTaskRequest):
 
 
 @router.get("/distributed/task/{task_id}")
-async def get_distributed_task_status(task_id: str):
+async def get_distributed_task_status(task_id: str) -> dict[str, Any]:
     """Check the status and get results of a distributed task"""
     status = await distributed_coordinator.get_task_status(task_id)
     if not status:
@@ -146,7 +149,7 @@ async def get_distributed_task_status(task_id: str):
 
 
 @router.post("/distributed/worker/register")
-async def register_worker(request: WorkerRegistrationRequest):
+async def register_worker(request: WorkerRegistrationRequest) -> dict[str, str]:
     """Register a new worker node in the cluster"""
     distributed_coordinator.register_worker(
         worker_id=request.worker_id,
@@ -158,14 +161,14 @@ async def register_worker(request: WorkerRegistrationRequest):
 
 
 @router.get("/distributed/status")
-async def get_cluster_status():
+async def get_cluster_status() -> dict[str, Any]:
     """Get overall distributed cluster health and load"""
     return distributed_coordinator.get_cluster_status()
 
 
 # Endpoints: Caching
 @router.get("/cache/stats")
-async def get_cache_stats():
+async def get_cache_stats() -> dict[str, Any]:
     """Get current caching performance statistics"""
     return {
         "status": "connected" if cache_optimizer.is_connected else "local_only",
@@ -175,7 +178,7 @@ async def get_cache_stats():
 
 
 @router.post("/cache/invalidate/{namespace}")
-async def invalidate_cache_namespace(namespace: str, background_tasks: BackgroundTasks):
+async def invalidate_cache_namespace(namespace: str, background_tasks: BackgroundTasks) -> dict[str, str]:
     """Invalidate a specific cache namespace (e.g., 'order_book')"""
     background_tasks.add_task(cache_optimizer.invalidate_namespace, namespace)
     return {"success": True, "message": f"Invalidation for {namespace} queued"}
@@ -183,20 +186,20 @@ async def invalidate_cache_namespace(namespace: str, background_tasks: Backgroun
 
 # Endpoints: Monitoring
 @router.get("/monitor/dashboard")
-async def get_monitoring_dashboard():
+async def get_monitoring_dashboard() -> dict[str, Any]:
     """Get real-time performance dashboard data"""
     return marketplace_monitor.get_realtime_dashboard_data()
 
 
 # Endpoints: Auto-scaling
 @router.get("/scaler/status")
-async def get_scaler_status():
+async def get_scaler_status() -> dict[str, Any]:
     """Get current auto-scaler status and active rules"""
     return resource_scaler.get_status()
 
 
 @router.post("/scaler/policy")
-async def update_scaling_policy(policy_update: ScalingPolicyUpdate):
+async def update_scaling_policy(policy_update: ScalingPolicyUpdate) -> dict[str, str]:
     """Update auto-scaling thresholds and parameters dynamically"""
     current_policy = resource_scaler.policy
 

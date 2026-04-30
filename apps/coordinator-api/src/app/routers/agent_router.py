@@ -8,6 +8,7 @@ Provides REST API endpoints for agent workflow management and execution
 """
 
 from datetime import datetime, UTC
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
@@ -38,7 +39,7 @@ async def create_workflow(
     workflow_data: AgentWorkflowCreate,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
 
     try:
@@ -63,7 +64,7 @@ async def list_workflows(
     tags: list[str] | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AIAgentWorkflow]:
     """List agent workflows with filtering"""
 
     try:
@@ -97,7 +98,7 @@ async def get_workflow(
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AIAgentWorkflow:
     """Get a specific agent workflow"""
 
     try:
@@ -124,7 +125,7 @@ async def update_workflow(
     workflow_data: AgentWorkflowUpdate,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AIAgentWorkflow:
     """Update an agent workflow"""
 
     try:
@@ -160,7 +161,7 @@ async def delete_workflow(
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, str]:
     """Delete an agent workflow"""
 
     try:
@@ -192,7 +193,7 @@ async def execute_workflow(
     background_tasks: BackgroundTasks,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
 
     try:
@@ -236,7 +237,7 @@ async def get_execution_status(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentExecutionStatus:
     """Get execution status"""
 
     try:
@@ -270,7 +271,7 @@ async def list_executions(
     offset: int = 0,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentExecutionStatus]:
     """List agent executions with filtering"""
 
     try:
@@ -328,7 +329,7 @@ async def cancel_execution(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, str]:
     """Cancel an ongoing execution"""
 
     try:
@@ -368,7 +369,7 @@ async def get_execution_logs(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get execution logs"""
 
     try:
@@ -422,7 +423,7 @@ async def get_execution_logs(
 
 
 @router.get("/test")
-async def test_endpoint():
+async def test_endpoint() -> dict[str, str]:
     """Test endpoint to verify router is working"""
     return {"message": "Agent router is working", "timestamp": datetime.now(datetime.UTC).isoformat()}
 
@@ -432,7 +433,7 @@ async def create_agent_network(
     network_data: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -472,7 +473,7 @@ async def get_execution_receipt(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get verifiable receipt for completed execution"""
 
     try:

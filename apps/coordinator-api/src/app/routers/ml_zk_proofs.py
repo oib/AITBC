@@ -1,4 +1,6 @@
 
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 
 from ..services.fhe_service import FHEService
@@ -11,7 +13,7 @@ fhe_service = FHEService()
 
 
 @router.post("/prove/training")
-async def prove_ml_training(proof_request: dict):
+async def prove_ml_training(proof_request: dict) -> dict[str, Any]:
     """Generate ZK proof for ML training verification"""
     try:
         circuit_name = "ml_training_verification"
@@ -33,7 +35,7 @@ async def prove_ml_training(proof_request: dict):
 
 
 @router.post("/verify/training")
-async def verify_ml_training(verification_request: dict):
+async def verify_ml_training(verification_request: dict) -> dict[str, Any]:
     """Verify ZK proof for ML training"""
     try:
         verification_result = await zk_service.verify_proof(
@@ -52,7 +54,7 @@ async def verify_ml_training(verification_request: dict):
 
 
 @router.post("/prove/modular")
-async def prove_modular_ml(proof_request: dict):
+async def prove_modular_ml(proof_request: dict) -> dict[str, Any]:
     """Generate ZK proof using optimized modular circuits"""
     try:
         circuit_name = "modular_ml_components"
@@ -75,7 +77,7 @@ async def prove_modular_ml(proof_request: dict):
 
 
 @router.post("/verify/inference")
-async def verify_ml_inference(verification_request: dict):
+async def verify_ml_inference(verification_request: dict) -> dict[str, Any]:
     """Verify ZK proof for ML inference"""
     try:
         verification_result = await zk_service.verify_proof(
@@ -94,7 +96,7 @@ async def verify_ml_inference(verification_request: dict):
 
 
 @router.post("/fhe/inference")
-async def fhe_ml_inference(fhe_request: dict):
+async def fhe_ml_inference(fhe_request: dict) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
     try:
         # Setup FHE context
@@ -123,7 +125,7 @@ async def fhe_ml_inference(fhe_request: dict):
 
 
 @router.get("/circuits")
-async def list_ml_circuits():
+async def list_ml_circuits() -> dict[str, Any]:
     """List available ML ZK circuits"""
     circuits = [
         {

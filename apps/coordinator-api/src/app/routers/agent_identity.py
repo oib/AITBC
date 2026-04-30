@@ -20,7 +20,7 @@ from ..storage.db import get_session
 router = APIRouter(prefix="/agent-identity", tags=["Agent Identity"])
 
 
-def get_identity_manager(session=Depends(get_session)) -> AgentIdentityManager:
+def get_identity_manager(session: Session = Depends(get_session)) -> AgentIdentityManager:
     """Dependency injection for AgentIdentityManager"""
     return AgentIdentityManager(session)
 
@@ -29,7 +29,7 @@ def get_identity_manager(session=Depends(get_session)) -> AgentIdentityManager:
 
 
 @router.post("/identities", response_model=dict[str, Any])
-async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)) -> JSONResponse:
     """Create a new agent identity with cross-chain mappings"""
     try:
         result = await manager.create_agent_identity(
@@ -46,7 +46,7 @@ async def create_agent_identity(request: dict[str, Any], manager: AgentIdentityM
 
 
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])
-async def get_agent_identity(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_agent_identity(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Get comprehensive agent identity summary"""
     try:
         result = await manager.get_agent_identity_summary(agent_id)
@@ -62,7 +62,7 @@ async def get_agent_identity(agent_id: str, manager: AgentIdentityManager = Depe
 @router.put("/identities/{agent_id}", response_model=dict[str, Any])
 async def update_agent_identity(
     agent_id: str, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Update agent identity and related components"""
     try:
         result = await manager.update_agent_identity(agent_id, request)
@@ -78,7 +78,7 @@ async def update_agent_identity(
 @router.post("/identities/{agent_id}/deactivate", response_model=dict[str, Any])
 async def deactivate_agent_identity(
     agent_id: str, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Deactivate an agent identity across all chains"""
     try:
         reason = request.get("reason", "")
@@ -98,7 +98,7 @@ async def deactivate_agent_identity(
 @router.post("/identities/{agent_id}/cross-chain/register", response_model=dict[str, Any])
 async def register_cross_chain_identity(
     agent_id: str, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Register cross-chain identity mappings"""
     try:
         chain_mappings = request["chain_mappings"]
@@ -115,7 +115,7 @@ async def register_cross_chain_identity(
 
 
 @router.get("/identities/{agent_id}/cross-chain/mapping", response_model=list[CrossChainMappingResponse])
-async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> list[CrossChainMappingResponse]:
     """Get all cross-chain mappings for an agent"""
     try:
         mappings = await manager.registry.get_all_cross_chain_mappings(agent_id)
@@ -145,7 +145,7 @@ async def get_cross_chain_mapping(agent_id: str, manager: AgentIdentityManager =
 @router.put("/identities/{agent_id}/cross-chain/{chain_id}", response_model=dict[str, Any])
 async def update_cross_chain_mapping(
     agent_id: str, chain_id: int, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Update cross-chain mapping for a specific chain"""
     try:
         new_address = request.get("new_address")
@@ -175,7 +175,7 @@ async def update_cross_chain_mapping(
 @router.post("/identities/{agent_id}/cross-chain/{chain_id}/verify", response_model=dict[str, Any])
 async def verify_cross_chain_identity(
     agent_id: str, chain_id: int, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Verify identity on a specific blockchain"""
     try:
         # Get identity ID
@@ -209,7 +209,7 @@ async def verify_cross_chain_identity(
 @router.post("/identities/{agent_id}/migrate", response_model=dict[str, Any])
 async def migrate_agent_identity(
     agent_id: str, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Migrate agent identity from one chain to another"""
     try:
         result = await manager.migrate_agent_identity(
@@ -226,7 +226,7 @@ async def migrate_agent_identity(
 @router.post("/identities/{agent_id}/wallets", response_model=dict[str, Any])
 async def create_agent_wallet(
     agent_id: str, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Create an agent wallet on a specific blockchain"""
     try:
         wallet = await manager.wallet_adapter.create_agent_wallet(
@@ -247,7 +247,7 @@ async def create_agent_wallet(
 
 
 @router.get("/identities/{agent_id}/wallets/{chain_id}/balance", response_model=dict[str, Any])
-async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Get wallet balance for an agent on a specific chain"""
     try:
         balance = await manager.wallet_adapter.get_wallet_balance(agent_id, chain_id)
@@ -264,7 +264,7 @@ async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentit
 @router.post("/identities/{agent_id}/wallets/{chain_id}/transactions", response_model=dict[str, Any])
 async def execute_wallet_transaction(
     agent_id: str, chain_id: int, request: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Execute a transaction from agent wallet"""
     try:
         from decimal import Decimal
@@ -284,7 +284,7 @@ async def get_wallet_transaction_history(
     limit: int = Query(default=50, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     manager: AgentIdentityManager = Depends(get_identity_manager),
-):
+) -> list[dict[str, Any]]:
     """Get transaction history for agent wallet"""
     try:
         history = await manager.wallet_adapter.get_wallet_transaction_history(agent_id, chain_id, limit, offset)
@@ -294,7 +294,7 @@ async def get_wallet_transaction_history(
 
 
 @router.get("/identities/{agent_id}/wallets", response_model=dict[str, Any])
-async def get_all_agent_wallets(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_all_agent_wallets(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Get all wallets for an agent across all chains"""
     try:
         wallets = await manager.wallet_adapter.get_all_agent_wallets(agent_id)
@@ -339,7 +339,7 @@ async def search_agent_identities(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     manager: AgentIdentityManager = Depends(get_identity_manager),
-):
+) -> dict[str, Any]:
     """Search agent identities with advanced filters"""
     try:
         result = await manager.search_agent_identities(
@@ -357,7 +357,7 @@ async def search_agent_identities(
 
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])
-async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Sync agent reputation across all chains"""
     try:
         result = await manager.sync_agent_reputation(agent_id)
@@ -370,7 +370,7 @@ async def sync_agent_reputation(agent_id: str, manager: AgentIdentityManager = D
 
 
 @router.get("/registry/health", response_model=dict[str, Any])
-async def get_registry_health(manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_registry_health(manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Get health status of the identity registry"""
     try:
         result = await manager.get_registry_health()
@@ -380,7 +380,7 @@ async def get_registry_health(manager: AgentIdentityManager = Depends(get_identi
 
 
 @router.get("/registry/statistics", response_model=dict[str, Any])
-async def get_registry_statistics(manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_registry_statistics(manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Get comprehensive registry statistics"""
     try:
         result = await manager.registry.get_registry_statistics()
@@ -390,7 +390,7 @@ async def get_registry_statistics(manager: AgentIdentityManager = Depends(get_id
 
 
 @router.get("/chains/supported", response_model=list[dict[str, Any]])
-async def get_supported_chains(manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def get_supported_chains(manager: AgentIdentityManager = Depends(get_identity_manager)) -> list[dict[str, Any]]:
     """Get list of supported blockchains"""
     try:
         chains = manager.wallet_adapter.get_supported_chains()
@@ -402,7 +402,7 @@ async def get_supported_chains(manager: AgentIdentityManager = Depends(get_ident
 @router.post("/identities/{agent_id}/export", response_model=dict[str, Any])
 async def export_agent_identity(
     agent_id: str, request: dict[str, Any] = None, manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Export agent identity data for backup or migration"""
     try:
         format_type = (request or {}).get("format", "json")
@@ -413,7 +413,7 @@ async def export_agent_identity(
 
 
 @router.post("/identities/import", response_model=dict[str, Any])
-async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Import agent identity data from backup or migration"""
     try:
         result = await manager.import_agent_identity(export_data)
@@ -423,7 +423,7 @@ async def import_agent_identity(export_data: dict[str, Any], manager: AgentIdent
 
 
 @router.post("/registry/cleanup-expired", response_model=dict[str, Any])
-async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Clean up expired verification records"""
     try:
         cleaned_count = await manager.registry.cleanup_expired_verifications()
@@ -435,7 +435,7 @@ async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(
 @router.post("/identities/batch-verify", response_model=list[dict[str, Any]])
 async def batch_verify_identities(
     verifications: list[dict[str, Any]], manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> list[dict[str, Any]]:
     """Batch verify multiple identities"""
     try:
         results = await manager.registry.batch_verify_identities(verifications)
@@ -445,7 +445,7 @@ async def batch_verify_identities(
 
 
 @router.get("/identities/{agent_id}/resolve/{chain_id}", response_model=dict[str, Any])
-async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)):
+async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)) -> dict[str, Any]:
     """Resolve agent identity to chain-specific address"""
     try:
         address = await manager.registry.resolve_agent_identity(agent_id, chain_id)
@@ -462,7 +462,7 @@ async def resolve_agent_identity(agent_id: str, chain_id: int, manager: AgentIde
 @router.get("/address/{chain_address}/resolve/{chain_id}", response_model=dict[str, Any])
 async def resolve_address_to_agent(
     chain_address: str, chain_id: int, manager: AgentIdentityManager = Depends(get_identity_manager)
-):
+) -> dict[str, Any]:
     """Resolve chain address back to agent ID"""
     try:
         agent_id = await manager.registry.resolve_agent_identity_by_address(chain_address, chain_id)

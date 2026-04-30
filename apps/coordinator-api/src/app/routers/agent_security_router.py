@@ -41,7 +41,7 @@ async def create_security_policy(
     policy_rules: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentSecurityPolicy:
     """Create a new security policy"""
 
     try:
@@ -64,7 +64,7 @@ async def list_security_policies(
     is_active: bool | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentSecurityPolicy]:
     """List security policies with filtering"""
 
     try:
@@ -89,7 +89,7 @@ async def get_security_policy(
     policy_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentSecurityPolicy:
     """Get a specific security policy"""
 
     try:
@@ -112,7 +112,7 @@ async def update_security_policy(
     policy_updates: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentSecurityPolicy:
     """Update a security policy"""
 
     try:
@@ -154,7 +154,7 @@ async def delete_security_policy(
     policy_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, str]:
     """Delete a security policy"""
 
     try:
@@ -190,7 +190,7 @@ async def validate_workflow_security(
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Validate workflow security requirements"""
 
     try:
@@ -228,7 +228,7 @@ async def list_audit_logs(
     offset: int = 0,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentAuditLog]:
     """List audit logs with filtering"""
 
     try:
@@ -271,7 +271,7 @@ async def get_audit_log(
     audit_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentAuditLog:
     """Get a specific audit log entry"""
 
     try:
@@ -299,7 +299,7 @@ async def list_trust_scores(
     offset: int = 0,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentTrustScore]:
     """List trust scores with filtering"""
 
     try:
@@ -335,7 +335,7 @@ async def get_trust_score(
     entity_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentTrustScore:
     """Get trust score for specific entity"""
 
     try:
@@ -369,7 +369,7 @@ async def update_trust_score(
     policy_violation: bool = False,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentTrustScore:
     """Update trust score based on execution results"""
 
     try:
@@ -415,7 +415,7 @@ async def create_sandbox(
     workflow_requirements: dict | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
 
     try:
@@ -451,7 +451,7 @@ async def monitor_sandbox(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Monitor sandbox execution for security violations"""
 
     try:
@@ -470,7 +470,7 @@ async def cleanup_sandbox(
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Clean up sandbox environment after execution"""
 
     try:
@@ -500,7 +500,7 @@ async def monitor_execution_security(
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Monitor execution for security violations"""
 
     try:
@@ -517,7 +517,7 @@ async def monitor_execution_security(
 @router.get("/security-dashboard")
 async def get_security_dashboard(
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
-):
+) -> dict[str, Any]:
     """Get comprehensive security dashboard data"""
 
     try:
@@ -572,7 +572,7 @@ async def get_security_dashboard(
 @router.get("/security-stats")
 async def get_security_statistics(
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
-):
+) -> dict[str, Any]:
     """Get security statistics and metrics"""
 
     try:
