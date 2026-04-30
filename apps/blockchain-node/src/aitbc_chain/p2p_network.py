@@ -557,7 +557,7 @@ class P2PNetworkService:
             writer.close()
             try:
                 await writer.wait_closed()
-            except:
+            except Exception:
                 pass
 
     def _get_gpu_count(self) -> int:

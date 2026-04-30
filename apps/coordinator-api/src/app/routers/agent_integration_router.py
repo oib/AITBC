@@ -454,7 +454,7 @@ async def get_production_dashboard(
             try:
                 monitoring_manager = AgentMonitoringManager(session)
                 metrics = await monitoring_manager.get_deployment_metrics(config.id)
-            except:
+            except Exception:
                 metrics = {"aggregated_metrics": {}}
 
             dashboard_data["deployments"].append(
