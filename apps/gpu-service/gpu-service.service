@@ -1,0 +1,17 @@
+[Unit]
+Description=AITBC GPU Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=aitbc
+WorkingDirectory=/opt/aitbc/apps/gpu-service
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/gpu-service/src:/opt/aitbc"
+Environment="DATABASE_URL=postgresql+asyncpg://aitbc_gpu:password@localhost:5432/aitbc_gpu"
+ExecStart=/opt/aitbc/venv/bin/python -m gpu_service.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
