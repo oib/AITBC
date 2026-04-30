@@ -2,11 +2,18 @@
 # This file contains all Python dependencies for AITBC services
 # Merged from all subdirectory requirements files
 #
+# DEPENDENCY MANAGEMENT:
+# - Source of truth: /opt/aitbc/pyproject.toml
+# - Lock file: /opt/aitbc/poetry.lock
+# - This file is generated from pyproject.toml for CI/CD compatibility
+# - To update: Run `pip-compile pyproject.toml` or manually sync from poetry.lock
+#
 # Recent Updates:
 # - Added bech32>=1.2.0 for blockchain address encoding (2026-03-30)
 # - Fixed duplicate web3 entries and tenseal version
 # - All dependencies tested and working with current services
 # - Cache invalidation for CLI rich dependency (2026-04-19)
+# - Consolidated to root pyproject.toml as single source of truth (2026-04-30)
 
 # Core Web Framework
 fastapi>=0.115.6
