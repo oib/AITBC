@@ -13,6 +13,12 @@ poetry install --with gpu-service
 
 Create a separate database for the GPU service:
 
+```bash
+sudo -u postgres psql -f apps/gpu-service/scripts/setup-database.sql
+```
+
+Or manually:
+
 ```sql
 CREATE DATABASE aitbc_gpu;
 CREATE USER aitbc_gpu WITH PASSWORD 'password';
@@ -34,20 +40,51 @@ sudo systemctl enable gpu-service
 
 - `GET /health` - Health check
 - `GET /gpu/status` - Get GPU status
+- `GET /v1/marketplace/edge-gpu/profiles` - Get consumer GPU profiles
+- `GET /v1/marketplace/edge-gpu/metrics/{gpu_id}` - Get edge GPU metrics
+- `POST /v1/marketplace/edge-gpu/scan/{miner_id}` - Scan and register edge GPUs
+- `POST /v1/marketplace/edge-gpu/optimize/inference/{gpu_id}` - Optimize ML inference
 
-## Future Work
+## Testing
 
-To fully extract GPU functionality from coordinator-api, the following needs to be done:
+To test the GPU service end-to-end with the gateway:
 
-1. **Extract domain models**: Copy GPU-related domain models from coordinator-api
-2. **Extract services**: Copy GPU-related services from coordinator-api
-3. **Extract storage layer**: Set up separate database session management
-4. **Extract routers**: Copy GPU routers (edge_gpu.py, gpu_multimodal_health.py, miner.py)
-5. **Update coordinator-api**: Remove GPU-related code
-6. **Update gateway**: GPU service is already configured in gateway
+1. Start the GPU service:
+   ```bash
+   python -m gpu_service.main
+   ```
+
+2. Start the API gateway:
+   ```bash
+   python -m api_gateway.main
+   ```
+
+3. Test GPU endpoints through the gateway:
+   ```bash
+   curl http://localhost:8080/gpu/v1/marketplace/edge-gpu/profiles
+   curl http://localhost:8080/gpu/health
+   ```
 
 ## Service Configuration
 
 - Port: 8101
 - Database: aitbc_gpu
 - Gateway route: /gpu/*
+
+## Migration Status
+
+**Completed:**
+- Extracted GPU domain models (GPUArchitecture, GPURegistry, ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPUReview)
+- Extracted GPU services (EdgeGPUService)
+- Extracted GPU data (consumer_gpu_profiles)
+- Set up database session management
+- Extracted GPU router endpoints
+- Removed edge_gpu router from coordinator-api
+- Created systemd service configuration
+- Created database setup script
+
+**Remaining:**
+- Extract additional GPU routers (gpu_multimodal_health.py, miner.py) if needed
+- Run database migration script to create aitbc_gpu database
+- Install and enable systemd service
+- End-to-end testing with gateway
