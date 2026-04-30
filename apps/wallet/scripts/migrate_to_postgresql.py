@@ -90,7 +90,7 @@ def migrate_data():
         if isinstance(metadata, str):
             try:
                 metadata = json.loads(metadata)
-            except:
+            except json.JSONDecodeError:
                 metadata = {}
         
         pg_cursor.execute("""
@@ -111,7 +111,7 @@ def migrate_data():
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
-            except:
+            except json.JSONDecodeError:
                 payload = {}
         
         pg_cursor.execute("""

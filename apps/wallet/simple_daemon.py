@@ -66,7 +66,7 @@ async def check_blockchain_health() -> bool:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{BLOCKCHAIN_RPC_URL}/health", timeout=2.0)
             return response.status_code == 200
-    except:
+    except (httpx.RequestError, httpx.TimeoutException, Exception):
         return False
 
 def get_wallet_list() -> List[Dict[str, Any]]:
