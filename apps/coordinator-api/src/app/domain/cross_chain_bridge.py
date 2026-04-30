@@ -6,7 +6,7 @@ Domain models for cross-chain asset transfers, bridge requests, and validator ma
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -80,7 +80,7 @@ class BridgeRequest(SQLModel, table=True):
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     resolved_at: datetime | None = Field(default=None)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
 
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
@@ -241,7 +241,7 @@ class MerkleProof(SQLModel, table=True):
     tree_depth: int = Field(default=0)  # Tree depth
     is_valid: bool = Field(default=False)
     verified_at: datetime | None = Field(default=None)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
@@ -291,7 +291,7 @@ class BridgeAlert(SQLModel, table=True):
     resolved_at: datetime | None = Field(default=None)
     resolution_notes: str | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
 
 
 class BridgeConfiguration(SQLModel, table=True):

@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Tuple, Any, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import Enum
 import statistics
 import uuid
@@ -132,7 +132,7 @@ class LoadBalancer:
     def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics):
         """Update agent load metrics"""
         self.agent_metrics[agent_id] = metrics
-        self.agent_metrics[agent_id].last_updated = datetime.utcnow()
+        self.agent_metrics[agent_id].last_updated = datetime.now(datetime.UTC)
         
         # Update performance score based on metrics
         self._update_performance_score(agent_id, metrics)
@@ -196,7 +196,7 @@ class LoadBalancer:
             assignment = TaskAssignment(
                 task_id=task_id,
                 agent_id=selected_agent,
-                assigned_at=datetime.utcnow()
+                assigned_at=datetime.now(datetime.UTC)
             )
             
             # Record assignment
@@ -226,7 +226,7 @@ class LoadBalancer:
                 return
             
             assignment = self.task_assignments[task_id]
-            assignment.completed_at = datetime.utcnow()
+            assignment.completed_at = datetime.now(datetime.UTC)
             assignment.status = "completed"
             assignment.success = success
             assignment.response_time = response_time
@@ -580,7 +580,7 @@ class TaskDistributor:
             "task_data": task_data,
             "priority": priority,
             "requirements": requirements,
-            "submitted_at": datetime.utcnow()
+            "submitted_at": datetime.now(datetime.UTC)
         }
         
         await self.priority_queues[priority].put(task_info)
@@ -612,7 +612,7 @@ class TaskDistributor:
     
     async def _distribute_task(self, task_info: Dict[str, Any]):
         """Distribute a single task"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         
         try:
             # Assign task
@@ -648,7 +648,7 @@ class TaskDistributor:
         
         finally:
             # Update distribution time
-            distribution_time = (datetime.utcnow() - start_time).total_seconds()
+            distribution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
             total_distributed = self.distribution_stats["tasks_distributed"]
             self.distribution_stats["avg_distribution_time"] = (
                 (self.distribution_stats["avg_distribution_time"] * (total_distributed - 1) + distribution_time) / total_distributed

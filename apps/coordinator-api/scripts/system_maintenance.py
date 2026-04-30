@@ -6,7 +6,7 @@ Ongoing maintenance, monitoring, and enhancement of the complete system
 import asyncio
 import json
 from aitbc.logging import get_logger
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional, Any
 from enum import Enum
 
@@ -73,7 +73,7 @@ class SystemMaintenanceManager:
         """Perform comprehensive maintenance cycle"""
         
         maintenance_result = {
-            "maintenance_cycle": f"maintenance_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+            "maintenance_cycle": f"maintenance_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}",
             "status": "in_progress",
             "categories_completed": [],
             "enhancements_implemented": [],

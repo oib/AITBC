@@ -6,7 +6,7 @@ Provides event bus implementation, pub/sub patterns, and event decorators
 import asyncio
 from typing import Any, Callable, Dict, List, Optional, TypeVar, Generic
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 import inspect
 import functools
@@ -34,7 +34,7 @@ class Event:
     
     def __post_init__(self):
         if self.timestamp is None:
-            self.timestamp = datetime.utcnow()
+            self.timestamp = datetime.now(datetime.UTC)
 
 
 class EventBus:
@@ -199,7 +199,7 @@ class EventAggregator:
     def add_event(self, event: Event) -> None:
         """Add event to aggregation"""
         key = event.event_type
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         
         if key not in self.aggregated_events:
             self.aggregated_events[key] = {
@@ -223,7 +223,7 @@ class EventAggregator:
     def get_aggregated_events(self) -> Dict[str, Dict[str, Any]]:
         """Get aggregated events"""
         # Remove old events
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         cutoff = now.timestamp() - self.window_seconds
         
         to_remove = []

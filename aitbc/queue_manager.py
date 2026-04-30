@@ -8,7 +8,7 @@ import heapq
 import time
 from typing import Any, Callable, Dict, List, Optional, TypeVar
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import Enum
 import uuid
 
@@ -244,7 +244,7 @@ class BackgroundTaskManager:
             async with self.semaphore:
                 try:
                     self.task_info[task_id]["status"] = "running"
-                    self.task_info[task_id]["started_at"] = datetime.utcnow()
+                    self.task_info[task_id]["started_at"] = datetime.now(datetime.UTC)
                     
                     if asyncio.iscoroutinefunction(func):
                         result = await func(*args, **kwargs)
@@ -253,18 +253,18 @@ class BackgroundTaskManager:
                     
                     self.task_info[task_id]["status"] = "completed"
                     self.task_info[task_id]["result"] = result
-                    self.task_info[task_id]["completed_at"] = datetime.utcnow()
+                    self.task_info[task_id]["completed_at"] = datetime.now(datetime.UTC)
                 except Exception as e:
                     self.task_info[task_id]["status"] = "failed"
                     self.task_info[task_id]["error"] = str(e)
-                    self.task_info[task_id]["completed_at"] = datetime.utcnow()
+                    self.task_info[task_id]["completed_at"] = datetime.now(datetime.UTC)
                 finally:
                     if task_id in self.tasks:
                         del self.tasks[task_id]
         
         self.task_info[task_id] = {
             "status": "pending",
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(datetime.UTC),
             "started_at": None,
             "completed_at": None,
             "result": None,
@@ -286,7 +286,7 @@ class BackgroundTaskManager:
                 pass
             
             self.task_info[task_id]["status"] = "cancelled"
-            self.task_info[task_id]["completed_at"] = datetime.utcnow()
+            self.task_info[task_id]["completed_at"] = datetime.now(datetime.UTC)
             del self.tasks[task_id]
             return True
         return False

@@ -45,7 +45,7 @@ def test_order_create_model_sell():
 @pytest.mark.unit
 def test_order_response_model():
     """Test OrderResponse model"""
-    from datetime import datetime
+    from datetime import datetime, UTC
     order = OrderResponse(
         id=1,
         order_type="BUY",
@@ -55,7 +55,7 @@ def test_order_response_model():
         filled=0.0,
         remaining=100.0,
         status="OPEN",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     assert order.id == 1
     assert order.order_type == "BUY"
@@ -66,13 +66,13 @@ def test_order_response_model():
 @pytest.mark.unit
 def test_trade_response_model():
     """Test TradeResponse model"""
-    from datetime import datetime
+    from datetime import datetime, UTC
     trade = TradeResponse(
         id=1,
         amount=50.0,
         price=0.00001,
         total=0.0005,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     assert trade.id == 1
     assert trade.amount == 50.0
@@ -82,7 +82,7 @@ def test_trade_response_model():
 @pytest.mark.unit
 def test_order_book_response_model():
     """Test OrderBookResponse model"""
-    from datetime import datetime
+    from datetime import datetime, UTC
     buy_order = OrderResponse(
         id=1,
         order_type="BUY",
@@ -92,7 +92,7 @@ def test_order_book_response_model():
         filled=0.0,
         remaining=100.0,
         status="OPEN",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     sell_order = OrderResponse(
         id=2,
@@ -103,7 +103,7 @@ def test_order_book_response_model():
         filled=0.0,
         remaining=50.0,
         status="OPEN",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     orderbook = OrderBookResponse(buys=[buy_order], sells=[sell_order])
     assert len(orderbook.buys) == 1

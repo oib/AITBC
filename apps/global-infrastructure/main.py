@@ -5,7 +5,7 @@ Handles multi-region deployment, load balancing, and global optimization
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -72,7 +72,7 @@ async def root():
     return {
         "service": "AITBC Global Infrastructure Service",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -103,7 +103,7 @@ async def register_region(region: Region):
         "current_load": region.current_load,
         "latency_ms": region.latency_ms,
         "compliance_level": region.compliance_level,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "last_health_check": None,
         "services_deployed": [],
         "performance_history": []
@@ -148,7 +148,7 @@ async def get_region(region_id: str):
 @app.post("/api/v1/deployments/create")
 async def create_deployment(deployment: GlobalDeployment):
     """Create a new global deployment"""
-    deployment_id = f"deploy_{int(datetime.utcnow().timestamp())}"
+    deployment_id = f"deploy_{int(datetime.now(datetime.UTC).timestamp())}"
     
     # Validate target regions
     for region_id in deployment.target_regions:
@@ -164,7 +164,7 @@ async def create_deployment(deployment: GlobalDeployment):
         "deployment_strategy": deployment.deployment_strategy,
         "health_checks": deployment.health_checks,
         "status": "pending",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "started_at": None,
         "completed_at": None,
         "deployment_progress": {},
@@ -214,7 +214,7 @@ async def list_deployments(status: Optional[str] = None):
 @app.post("/api/v1/load-balancers/create")
 async def create_load_balancer(balancer: LoadBalancer):
     """Create a new load balancer"""
-    balancer_id = f"lb_{int(datetime.utcnow().timestamp())}"
+    balancer_id = f"lb_{int(datetime.now(datetime.UTC).timestamp())}"
     
     # Validate target regions
     for region_id in balancer.target_regions:
@@ -230,7 +230,7 @@ async def create_load_balancer(balancer: LoadBalancer):
         "health_check_interval": balancer.health_check_interval,
         "failover_threshold": balancer.failover_threshold,
         "status": "active",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "current_weights": {region_id: 1.0 for region_id in balancer.target_regions},
         "health_status": {region_id: "healthy" for region_id in balancer.target_regions},
         "total_requests": 0,
@@ -265,7 +265,7 @@ async def list_load_balancers():
 async def record_performance_metrics(metrics: PerformanceMetrics):
     """Record performance metrics for a region"""
     metrics_record = {
-        "metrics_id": f"metrics_{int(datetime.utcnow().timestamp())}",
+        "metrics_id": f"metrics_{int(datetime.now(datetime.UTC).timestamp())}",
         "region_id": metrics.region_id,
         "timestamp": metrics.timestamp.isoformat(),
         "cpu_usage": metrics.cpu_usage,
@@ -310,7 +310,7 @@ async def get_region_performance(region_id: str, hours: int = 24):
     if region_id not in performance_metrics:
         raise HTTPException(status_code=404, detail="No performance data for region")
     
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
     recent_metrics = [
         m for m in performance_metrics[region_id]
         if datetime.fromisoformat(m["timestamp"]) > cutoff_time
@@ -334,7 +334,7 @@ async def get_region_performance(region_id: str, hours: int = 24):
             "average_response_time_ms": round(avg_response_time, 2),
             "total_samples": len(recent_metrics)
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/compliance/{region_id}")
@@ -350,8 +350,8 @@ async def get_region_compliance(region_id: str):
         "compliance_level": global_regions[region_id]["compliance_level"],
         "certifications": ["SOC2", "ISO27001", "GDPR"],
         "data_residency": "compliant",
-        "last_audit": (datetime.utcnow() - timedelta(days=90)).isoformat(),
-        "next_audit": (datetime.utcnow() + timedelta(days=275)).isoformat(),
+        "last_audit": (datetime.now(datetime.UTC) - timedelta(days=90)).isoformat(),
+        "next_audit": (datetime.now(datetime.UTC) + timedelta(days=275)).isoformat(),
         "regulations": ["GDPR", "CCPA", "PDPA"],
         "data_protection": "end-to-end-encryption",
         "access_controls": "role-based-access",
@@ -410,7 +410,7 @@ async def get_global_dashboard():
                 "partial_compliance": len([r for r in global_regions.values() if r["compliance_level"] == "partial"])
             }
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Core deployment and load balancing functions
@@ -418,13 +418,13 @@ async def execute_deployment(deployment_id: str):
     """Execute a global deployment"""
     deployment = deployments[deployment_id]
     deployment["status"] = "in_progress"
-    deployment["started_at"] = datetime.utcnow().isoformat()
+    deployment["started_at"] = datetime.now(datetime.UTC).isoformat()
     
     try:
         for region_id in deployment["target_regions"]:
             deployment["deployment_progress"][region_id] = {
                 "status": "deploying",
-                "started_at": datetime.utcnow().isoformat(),
+                "started_at": datetime.now(datetime.UTC).isoformat(),
                 "progress": 0
             }
             
@@ -433,7 +433,7 @@ async def execute_deployment(deployment_id: str):
             
             deployment["deployment_progress"][region_id].update({
                 "status": "completed",
-                "completed_at": datetime.utcnow().isoformat(),
+                "completed_at": datetime.now(datetime.UTC).isoformat(),
                 "progress": 100
             })
             
@@ -443,7 +443,7 @@ async def execute_deployment(deployment_id: str):
                     global_regions[region_id]["services_deployed"].append(deployment["service_name"])
         
         deployment["status"] = "completed"
-        deployment["completed_at"] = datetime.utcnow().isoformat()
+        deployment["completed_at"] = datetime.now(datetime.UTC).isoformat()
         
         logger.info(f"Deployment completed: {deployment_id}")
         
@@ -516,7 +516,7 @@ async def global_monitoring_task():
         await asyncio.sleep(60)  # Monitor every minute
         
         # Update global monitoring data
-        global_monitoring["last_update"] = datetime.utcnow().isoformat()
+        global_monitoring["last_update"] = datetime.now(datetime.UTC).isoformat()
         global_monitoring["total_requests"] = sum(lb.get("total_requests", 0) for lb in load_balancers.values())
         global_monitoring["failed_requests"] = sum(lb.get("failed_requests", 0) for lb in load_balancers.values())
         
@@ -582,7 +582,7 @@ async def startup_event():
             "current_load": region.current_load,
             "latency_ms": region.latency_ms,
             "compliance_level": region.compliance_level,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "last_health_check": None,
             "services_deployed": [],
             "performance_history": []

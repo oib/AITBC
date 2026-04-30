@@ -12,7 +12,7 @@ import gzip
 import hashlib
 import pickle
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from .secure_pickle import safe_loads
@@ -96,7 +96,7 @@ class IPFSStorageService:
     ) -> IPFSUploadResult:
         """Upload agent memory data to IPFS"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         tags = tags or []
 
         try:
@@ -239,7 +239,7 @@ class IPFSStorageService:
         try:
             # This would integrate with Filecoin storage providers
             # For now, return a mock deal ID
-            deal_id = f"deal-{cid[:8]}-{datetime.utcnow().timestamp()}"
+            deal_id = f"deal-{cid[:8]}-{datetime.now(datetime.UTC).timestamp()}"
 
             logger.info(f"Created Filecoin deal {deal_id} for CID {cid}")
             return deal_id
@@ -321,7 +321,7 @@ class IPFSStorageService:
         return MemoryMetadata(
             agent_id="mock_agent",
             memory_type="experience",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             version=1,
             tags=["mock"],
             compression_ratio=1.0,

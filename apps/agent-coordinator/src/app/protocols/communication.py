@@ -7,7 +7,7 @@ import json
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 import uuid
 from pydantic import BaseModel, Field
 
@@ -123,7 +123,7 @@ class CommunicationProtocol:
     
     def _is_message_expired(self, message: AgentMessage) -> bool:
         """Check if message has expired"""
-        age = (datetime.utcnow() - message.timestamp).total_seconds()
+        age = (datetime.now(datetime.UTC) - message.timestamp).total_seconds()
         return age > message.ttl
     
     async def _send_to_agent(self, message: AgentMessage):
@@ -283,7 +283,7 @@ class MessageTemplates:
             sender_id=sender_id,
             message_type=MessageType.HEARTBEAT,
             priority=Priority.LOW,
-            payload={"timestamp": datetime.utcnow().isoformat()}
+            payload={"timestamp": datetime.now(datetime.UTC).isoformat()}
         )
     
     @staticmethod

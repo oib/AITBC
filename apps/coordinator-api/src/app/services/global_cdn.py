@@ -8,7 +8,7 @@ import gzip
 import time
 import zlib
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -117,14 +117,14 @@ class EdgeCache:
         entry = self.cache.get(cache_key)
         if entry:
             # Check if expired
-            if datetime.utcnow() > entry.expires_at:
+            if datetime.now(datetime.UTC) > entry.expires_at:
                 await self.remove(cache_key)
                 return None
 
             # Update access statistics
             entry.access_count += 1
-            entry.last_accessed = datetime.utcnow()
-            self.access_times[cache_key] = datetime.utcnow()
+            entry.last_accessed = datetime.now(datetime.UTC)
+            self.access_times[cache_key] = datetime.now(datetime.UTC)
 
             self.logger.debug(f"Cache hit: {cache_key}")
             return entry
@@ -166,15 +166,15 @@ class EdgeCache:
                 size_bytes=entry_size,
                 compressed=is_compressed,
                 compression_type=compression_type,
-                created_at=datetime.utcnow(),
-                expires_at=datetime.utcnow() + ttl,
+                created_at=datetime.now(datetime.UTC),
+                expires_at=datetime.now(datetime.UTC) + ttl,
                 edge_locations=[self.location_id],
             )
 
             # Store entry
             self.cache[cache_key] = entry
             self.cache_size_bytes += entry_size
-            self.access_times[cache_key] = datetime.utcnow()
+            self.access_times[cache_key] = datetime.now(datetime.UTC)
 
             self.logger.debug(f"Content cached: {cache_key} ({entry_size} bytes)")
             return True
@@ -317,19 +317,19 @@ class CDNManager:
                         "content_type": entry.content_type,
                         "edge_location": edge_location.location_id,
                         "compressed": entry.compressed,
-                        "cache_age": (datetime.utcnow() - entry.created_at).total_seconds(),
+                        "cache_age": (datetime.now(datetime.UTC) - entry.created_at).total_seconds(),
                     }
 
             # Try global cache
             global_entry = self.global_cache.get(cache_key)
-            if global_entry and datetime.utcnow() <= global_entry.expires_at:
+            if global_entry and datetime.now(datetime.UTC) <= global_entry.expires_at:
                 # Cache at edge location
                 if edge_cache:
                     await edge_cache.put(
                         cache_key,
                         global_entry.content,
                         global_entry.content_type,
-                        global_entry.expires_at - datetime.utcnow(),
+                        global_entry.expires_at - datetime.now(datetime.UTC),
                         global_entry.compression_type,
                     )
 
@@ -377,8 +377,8 @@ class CDNManager:
                 size_bytes=len(content),
                 compressed=False,
                 compression_type=compression_type,
-                created_at=datetime.utcnow(),
-                expires_at=datetime.utcnow() + ttl,
+                created_at=datetime.now(datetime.UTC),
+                expires_at=datetime.now(datetime.UTC) + ttl,
             )
 
             self.global_cache[cache_key] = global_entry
@@ -501,7 +501,7 @@ class CDNManager:
             try:
                 await asyncio.sleep(self.config.purge_interval.total_seconds())
 
-                current_time = datetime.utcnow()
+                current_time = datetime.now(datetime.UTC)
 
                 # Purge global cache
                 expired_keys = [key for key, entry in self.global_cache.items() if current_time > entry.expires_at]
@@ -601,7 +601,7 @@ class CDNManager:
             "edge_stats": edge_stats,
             "global_cache_size": len(self.global_cache),
             "provider": self.config.provider.value,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
 
@@ -625,7 +625,7 @@ class EdgeComputingManager:
                 "code": function_code,
                 "edge_locations": edge_locations,
                 "config": config,
-                "deployed_at": datetime.utcnow(),
+                "deployed_at": datetime.now(datetime.UTC),
                 "status": "active",
             }
 
@@ -669,7 +669,7 @@ class EdgeComputingManager:
                 "function_id": function_id,
                 "edge_location": edge_location.location_id,
                 "execution_time_ms": execution_time,
-                "timestamp": datetime.utcnow(),
+                "timestamp": datetime.now(datetime.UTC),
                 "success": True,
             }
 
@@ -711,7 +711,7 @@ class EdgeComputingManager:
             "average_execution_time_ms": avg_execution_time,
             "active_functions": len([f for f in self.edge_functions.values() if f["status"] == "active"]),
             "edge_locations": len(self.cdn_manager.edge_caches),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
 
@@ -778,7 +778,7 @@ class GlobalCDNIntegration:
                 "overall_status": (
                     "excellent" if performance_score >= 0.8 else "good" if performance_score >= 0.6 else "needs_improvement"
                 ),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
             }
 
         except Exception as e:

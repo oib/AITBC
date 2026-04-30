@@ -4,7 +4,7 @@ Tests for Billing Integration Service
 
 import sys
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch
 from sqlalchemy.orm import Session
@@ -84,7 +84,7 @@ async def test_record_usage_with_fallback_pricing(billing_integration: BillingIn
 @pytest.mark.asyncio
 async def test_sync_miner_usage(billing_integration: BillingIntegration, sample_miner: Miner):
     """Test syncing usage for a specific miner"""
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(hours=24)
     
     with patch("poolhub.services.billing_integration.httpx.AsyncClient") as mock_client:
@@ -123,7 +123,7 @@ async def test_sync_all_miners_usage(billing_integration: BillingIntegration, sa
 
 def test_collect_miner_usage(billing_integration: BillingIntegration, sample_miner: Miner):
     """Test collecting usage data for a miner"""
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(hours=24)
     
     usage_data = billing_integration.db.run_sync(
@@ -169,7 +169,7 @@ async def test_trigger_invoice_generation(billing_integration: BillingIntegratio
         
         mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
         
-        end_date = datetime.utcnow()
+        end_date = datetime.now(datetime.UTC)
         start_date = end_date - timedelta(days=30)
         
         result = await billing_integration.trigger_invoice_generation(

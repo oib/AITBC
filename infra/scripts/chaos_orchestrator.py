@@ -11,7 +11,7 @@ import logging
 import subprocess
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -108,7 +108,7 @@ class ChaosOrchestrator:
     def generate_report(self, output_file: Optional[str] = None):
         """Generate a comprehensive chaos test report"""
         report = {
-            "report_generated": datetime.utcnow().isoformat(),
+            "report_generated": datetime.now(datetime.UTC).isoformat(),
             "namespace": self.namespace,
             "orchestration": self.results,
             "recommendations": []
@@ -204,7 +204,7 @@ class ChaosOrchestrator:
     async def run_all_scenarios(self, scenarios: List[str], scenario_args: Dict[str, List[str]]):
         """Run all specified chaos test scenarios"""
         logger.info("Starting chaos testing orchestration")
-        self.results["orchestration_start"] = datetime.utcnow().isoformat()
+        self.results["orchestration_start"] = datetime.now(datetime.UTC).isoformat()
         
         for scenario in scenarios:
             args = scenario_args.get(scenario, [])
@@ -215,7 +215,7 @@ class ChaosOrchestrator:
             if result:
                 self.results["scenarios"].append(result)
         
-        self.results["orchestration_end"] = datetime.utcnow().isoformat()
+        self.results["orchestration_end"] = datetime.now(datetime.UTC).isoformat()
         
         # Calculate summary metrics
         self.calculate_summary_metrics()

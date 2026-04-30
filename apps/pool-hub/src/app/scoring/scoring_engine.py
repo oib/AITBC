@@ -2,7 +2,7 @@
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import math
 
 
@@ -74,7 +74,7 @@ class ScoringEngine:
             success_rate = 100.0  # New miners start with perfect score
         
         # Heartbeat freshness penalty
-        heartbeat_age = (datetime.utcnow() - miner.last_heartbeat).total_seconds()
+        heartbeat_age = (datetime.now(datetime.UTC) - miner.last_heartbeat).total_seconds()
         if heartbeat_age > 300:  # 5 minutes
             freshness_penalty = min(20, heartbeat_age / 60)
         else:
@@ -137,7 +137,7 @@ class ScoringEngine:
         weight_total = 0
         
         for record in history:
-            age_days = (datetime.utcnow() - record["timestamp"]).days
+            age_days = (datetime.now(datetime.UTC) - record["timestamp"]).days
             weight = math.exp(-age_days / self.DECAY_HALF_LIFE_DAYS)
             
             if record["success"]:
@@ -153,7 +153,7 @@ class ScoringEngine:
     
     def _get_hours_active(self, miner) -> float:
         """Get hours since miner registered."""
-        delta = datetime.utcnow() - miner.registered_at
+        delta = datetime.now(datetime.UTC) - miner.registered_at
         return max(1, delta.total_seconds() / 3600)
     
     def _parse_memory(self, memory_str: str) -> float:
@@ -204,7 +204,7 @@ class ScoringEngine:
             self._history[miner_id] = []
         
         self._history[miner_id].append({
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(datetime.UTC),
             "success": True,
             "metrics": metrics or {}
         })
@@ -219,7 +219,7 @@ class ScoringEngine:
             self._history[miner_id] = []
         
         self._history[miner_id].append({
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(datetime.UTC),
             "success": False,
             "error": error
         })

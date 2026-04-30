@@ -5,7 +5,7 @@ Staking Management API
 REST API for AI agent staking system with reputation-based yield farming
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -303,7 +303,7 @@ async def unbond_stake(
         if stake.status != StakeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Stake is not active")
         
-        if datetime.utcnow() < stake.end_time:
+        if datetime.now(datetime.UTC) < stake.end_time:
             raise HTTPException(status_code=400, detail="Lock period has not ended")
         
         # Initiate unbonding

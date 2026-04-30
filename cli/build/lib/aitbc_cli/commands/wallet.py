@@ -8,7 +8,7 @@ import shutil
 import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from ..utils import output, error, success, encrypt_value, decrypt_value
 import getpass
 
@@ -185,7 +185,7 @@ def create(ctx, name: str, wallet_type: str, no_encrypt: bool):
         "address": address,
         "public_key": public_key,
         "private_key": private_key,
-        "created_at": datetime.utcnow().isoformat() + "Z",
+        "created_at": datetime.now(datetime.UTC).isoformat() + "Z",
         "balance": 0,
         "transactions": [],
     }
@@ -343,7 +343,7 @@ def backup(ctx, name: str, destination: Optional[str]):
         {
             "wallet": name,
             "backup_path": destination,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(datetime.UTC).isoformat() + "Z",
         }
     )
 
@@ -372,7 +372,7 @@ def restore(ctx, backup_path: str, name: str, force: bool):
 
     # Update wallet name if needed
     wallet_data["wallet_id"] = name
-    wallet_data["restored_at"] = datetime.utcnow().isoformat() + "Z"
+    wallet_data["restored_at"] = datetime.now(datetime.UTC).isoformat() + "Z"
 
     # Save restored wallet (preserve encryption state)
     # If wallet was encrypted, we save it as-is (still encrypted with original password)
@@ -471,7 +471,7 @@ def balance(ctx):
             "address": address,
             "public_key": public_key,
             "private_key": private_key,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(datetime.UTC).isoformat() + "Z",
             "balance": 0.0,
             "transactions": [],
         }

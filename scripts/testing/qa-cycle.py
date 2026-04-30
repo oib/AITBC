@@ -10,7 +10,7 @@ import sys
 import shutil
 import time
 import random
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 
 # Jitter: random delay up to 15 minutes (900 seconds)
@@ -33,7 +33,7 @@ API_BASE = os.getenv('GITEA_API_BASE', 'http://gitea.bubuit.net:3000/api/v1')
 REPO = 'oib/aitbc'
 
 def log(msg):
-    now = datetime.utcnow().isoformat() + 'Z'
+    now = datetime.now(datetime.UTC).isoformat() + 'Z'
     with open(LOG_FILE, 'a') as f:
         f.write(f"[{now}] {msg}\n")
     print(msg)
@@ -139,7 +139,7 @@ def synthesize_status():
             log(f"PR #{num} has failing checks: {', '.join(s.get('context','?') for s in failing)}")
 
 def main():
-    now = datetime.utcnow().isoformat() + 'Z'
+    now = datetime.now(datetime.UTC).isoformat() + 'Z'
     log(f"\n=== QA Cycle start: {now} ===")
     if not GITEA_TOKEN:
         log("GITEA_TOKEN not set; aborting.")

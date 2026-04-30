@@ -7,7 +7,7 @@ Marketplace Analytics API Endpoints
 REST API for analytics, insights, reporting, and dashboards
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -552,7 +552,7 @@ async def get_key_performance_indicators(
     
     try:
         # Get latest metrics for KPIs
-        end_time = datetime.utcnow()
+        end_time = datetime.now(datetime.UTC)
         
         if period_type == AnalyticsPeriod.DAILY:
             start_time = end_time - timedelta(days=1)

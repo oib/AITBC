@@ -6,7 +6,7 @@ Handles plugin registration, discovery, versioning, and security validation
 import asyncio
 import json
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -66,7 +66,7 @@ async def root():
     return {
         "service": "AITBC Plugin Registry",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -79,7 +79,7 @@ async def health_check():
         "security_scans": len(security_scans),
         "downloads_today": len([d for downloads_list in downloads.values() 
                               for d in downloads_list 
-                              if datetime.fromisoformat(d["timestamp"]).date() == datetime.utcnow().date()])
+                              if datetime.fromisoformat(d["timestamp"]).date() == datetime.now(datetime.UTC).date()])
     }
 
 @app.post("/api/v1/plugins/register")
@@ -105,8 +105,8 @@ async def register_plugin(plugin: PluginRegistration):
         "aitbc_version": plugin.aitbc_version,
         "plugin_type": plugin.plugin_type,
         "status": "active",
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "updated_at": datetime.now(datetime.UTC).isoformat(),
         "verified": False,
         "featured": False,
         "download_count": 0,
@@ -158,14 +158,14 @@ async def add_plugin_version(plugin_id: str, version: PluginVersion):
         "release_date": version.release_date.isoformat(),
         "downloads": 0,
         "security_scan_passed": False,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat()
     }
     
     plugin_versions[plugin_id].append(version_record)
     
     # Update plugin's latest version
     plugins[plugin_id]["latest_version"] = version.version
-    plugins[plugin_id]["updated_at"] = datetime.utcnow().isoformat()
+    plugins[plugin_id]["updated_at"] = datetime.now(datetime.UTC).isoformat()
     
     # Sort versions by version number (semantic versioning)
     plugin_versions[plugin_id].sort(key=lambda x: x["version"], reverse=True)
@@ -272,7 +272,7 @@ async def download_plugin(plugin_id: str, version: str):
     # Record download
     download_record = {
         "version": version,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "ip_address": "client_ip",  # In production, get actual IP
         "user_agent": "user_agent"   # In production, get actual user agent
     }
@@ -284,7 +284,7 @@ async def download_plugin(plugin_id: str, version: str):
     # Update analytics
     if plugin_id not in analytics:
         analytics[plugin_id] = {"downloads": [], "views": [], "ratings": []}
-    analytics[plugin_id]["downloads"].append(datetime.utcnow().timestamp())
+    analytics[plugin_id]["downloads"].append(datetime.now(datetime.UTC).timestamp())
     
     # Update plugin download count
     plugins[plugin_id]["download_count"] += 1
@@ -319,7 +319,7 @@ async def create_security_scan(plugin_id: str, scan: SecurityScan):
         "vulnerabilities": scan.vulnerabilities,
         "risk_score": scan.risk_score,
         "passed": scan.passed,
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat()
     }
     
     # Update version security status
@@ -400,7 +400,7 @@ async def get_popular_plugins(limit: int = 10):
     return {
         "popular_plugins": popular_plugins,
         "limit": limit,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/recent")
@@ -411,7 +411,7 @@ async def get_recent_plugins(limit: int = 10):
     return {
         "recent_plugins": recent_plugins,
         "limit": limit,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/analytics/dashboard")
@@ -429,7 +429,7 @@ async def get_analytics_dashboard():
     
     # Recent activity
     recent_downloads = 0
-    today = datetime.utcnow().date()
+    today = datetime.now(datetime.UTC).date()
     for download_list in downloads.values():
         recent_downloads += len([d for d in download_list 
                                if datetime.fromisoformat(d["timestamp"]).date() == today])
@@ -444,7 +444,7 @@ async def get_analytics_dashboard():
             "security_scans": len(security_scans),
             "passed_scans": len([s for s in security_scans.values() if s["passed"]])
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Background task for analytics processing
@@ -454,7 +454,7 @@ async def process_analytics():
         await asyncio.sleep(3600)  # Process every hour
         
         # Update daily statistics
-        current_date = datetime.utcnow().date()
+        current_date = datetime.now(datetime.UTC).date()
         
         for plugin_id, plugin_analytics in analytics.items():
             daily_key = current_date.isoformat()

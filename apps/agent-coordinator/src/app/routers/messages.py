@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -63,7 +63,7 @@ async def send_message(request: MessageRequest):
                 "message": "Message sent successfully",
                 "message_id": message.id,
                 "receiver_id": request.receiver_id,
-                "sent_at": datetime.utcnow().isoformat()
+                "sent_at": datetime.now(datetime.UTC).isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to send message")
@@ -85,7 +85,7 @@ async def get_load_balancer_stats():
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -105,7 +105,7 @@ async def get_registry_stats():
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -127,7 +127,7 @@ async def get_agents_by_service(service: str):
             "service": service,
             "agents": [agent.to_dict() for agent in agents],
             "count": len(agents),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -149,7 +149,7 @@ async def get_agents_by_capability(capability: str):
             "capability": capability,
             "agents": [agent.to_dict() for agent in agents],
             "count": len(agents),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -175,7 +175,7 @@ async def set_load_balancing_strategy(strategy: str = Query(..., description="Lo
             "status": "success",
             "message": f"Load balancing strategy set to {strategy}",
             "strategy": strategy,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(datetime.UTC).isoformat()
         }
         
     except HTTPException:

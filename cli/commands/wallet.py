@@ -8,7 +8,7 @@ import shutil
 import yaml
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from utils import output, error, success, encrypt_value, decrypt_value
 import getpass
 
@@ -398,7 +398,7 @@ def backup(ctx, name: str, destination: Optional[str]):
         {
             "wallet": name,
             "backup_path": destination,
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(datetime.UTC).isoformat() + "Z",
         }
     )
 
@@ -438,7 +438,7 @@ def restore(ctx, backup_path: str, name: str, force: bool):
 
     # Update wallet name if needed
     wallet_data["wallet_id"] = name
-    wallet_data["restored_at"] = datetime.utcnow().isoformat() + "Z"
+    wallet_data["restored_at"] = datetime.now(datetime.UTC).isoformat() + "Z"
 
     # Save restored wallet (preserve encryption state)
     # If wallet was encrypted, we save it as-is (still encrypted with original password)
@@ -550,7 +550,7 @@ def balance(ctx):
             "address": address,
             "public_key": public_key,
             "private_key": private_key,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(datetime.UTC).isoformat() + "Z",
             "balance": 0.0,
             "transactions": [],
         }
@@ -1081,7 +1081,7 @@ def rewards(ctx):
             "address": address,
             "public_key": public_key,
             "private_key": private_key,
-            "created_at": datetime.utcnow().isoformat() + "Z",
+            "created_at": datetime.now(datetime.UTC).isoformat() + "Z",
             "balance": 0.0,
             "transactions": [],
         }
@@ -2103,7 +2103,7 @@ def multisig_create(ctx, threshold: int, signers: tuple, wallet_name: Optional[s
         "threshold": threshold,
         "signers": list(signers),
         "wallet_name": wallet_name or f"multisig_{int(datetime.now().timestamp())}",
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat()
     }
     
     if chain_id:
@@ -2164,7 +2164,7 @@ def set_limit(ctx, amount: float, period: str, wallet_name: Optional[str]):
     limit_data = {
         "amount": amount,
         "period": period,
-        "set_at": datetime.utcnow().isoformat()
+        "set_at": datetime.now(datetime.UTC).isoformat()
     }
     
     try:
@@ -2225,8 +2225,8 @@ def time_lock(ctx, amount: float, duration: int, recipient: str, wallet_name: Op
         "duration_hours": duration,
         "recipient": recipient,
         "wallet_name": wallet_name or "default",
-        "created_at": datetime.utcnow().isoformat(),
-        "unlock_time": (datetime.utcnow() + timedelta(hours=duration)).isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "unlock_time": (datetime.now(datetime.UTC) + timedelta(hours=duration)).isoformat()
     }
     
     try:
@@ -2346,7 +2346,7 @@ def audit_trail(ctx, wallet_name: Optional[str], days: int):
     audit_data = {
         "wallet_name": wallet_name or "all",
         "audit_period_days": days,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
     
     try:
@@ -2371,7 +2371,7 @@ def audit_trail(ctx, wallet_name: Optional[str], days: int):
             audit_file.parent.mkdir(parents=True, exist_ok=True)
             
             # Generate sample audit data
-            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            cutoff_date = datetime.now(datetime.UTC) - timedelta(days=days)
             
             audit_data["transactions"] = []
             audit_data["signatures"] = []

@@ -8,7 +8,7 @@ import time
 import hashlib
 from typing import Dict, List, Optional, Any, Union, Set
 from collections import OrderedDict
-from datetime import datetime
+from datetime import datetime, UTC
 
 import redis.asyncio as redis
 
@@ -204,7 +204,7 @@ class MarketplaceDataOptimizer:
             "active_providers": 450,
             "average_price_per_tflop": 0.005,
             "network_utilization": 0.76,
-            "computed_at": datetime.utcnow().isoformat(),
+            "computed_at": datetime.now(datetime.UTC).isoformat(),
             "computation_time_ms": int((time.time() - start_time) * 1000)
         }
         

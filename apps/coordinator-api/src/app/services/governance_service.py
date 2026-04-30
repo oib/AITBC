@@ -4,7 +4,7 @@ Implements the OpenClaw DAO, voting mechanisms, and proposal lifecycle
 Enhanced with multi-jurisdictional support and regional governance
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 
 from aitbc import get_logger
@@ -81,7 +81,7 @@ class GovernanceService:
         if total_power < 100.0:  # Arbitrary minimum threshold for example
             raise ValueError("Insufficient voting power to submit a proposal")
 
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         voting_starts = data.get("voting_starts", now + timedelta(days=1))
         if isinstance(voting_starts, str):
             voting_starts = datetime.fromisoformat(voting_starts)
@@ -122,7 +122,7 @@ class GovernanceService:
         if not proposal or not voter:
             raise ValueError("Proposal or Voter not found")
 
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         if proposal.status != ProposalStatus.ACTIVE or now < proposal.voting_starts or now > proposal.voting_ends:
             raise ValueError("Proposal is not currently active for voting")
 
@@ -169,7 +169,7 @@ class GovernanceService:
         if not proposal:
             raise ValueError("Proposal not found")
 
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
 
         # Draft -> Active
         if proposal.status == ProposalStatus.DRAFT and now >= proposal.voting_starts:
@@ -237,7 +237,7 @@ class GovernanceService:
                     raise ValueError("Insufficient funds in DAO Treasury for execution")
 
         proposal.status = ProposalStatus.EXECUTED
-        proposal.executed_at = datetime.utcnow()
+        proposal.executed_at = datetime.now(datetime.UTC)
 
         self.session.add(proposal)
         self.session.commit()

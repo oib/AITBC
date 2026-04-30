@@ -6,7 +6,7 @@ Provides mock factories, test data generators, and test helpers
 import secrets
 import json
 from typing import Any, Dict, List, Optional, Type, TypeVar, Callable
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from dataclasses import dataclass, field
 from decimal import Decimal
 import uuid
@@ -72,8 +72,8 @@ class TestDataGenerator:
             "username": MockFactory.generate_string(8),
             "first_name": MockFactory.generate_string(6),
             "last_name": MockFactory.generate_string(6),
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
+            "updated_at": datetime.now(datetime.UTC).isoformat(),
             "is_active": True,
             "role": "user"
         }
@@ -91,7 +91,7 @@ class TestDataGenerator:
             "gas_price": str(secrets.randbelow(100000000000)),
             "gas_limit": secrets.randbelow(100000),
             "nonce": secrets.randbelow(1000),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "status": "pending"
         }
         data.update(overrides)
@@ -104,7 +104,7 @@ class TestDataGenerator:
             "number": secrets.randbelow(10000000),
             "hash": MockFactory.generate_hash(),
             "parent_hash": MockFactory.generate_hash(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "transactions": [],
             "gas_used": str(secrets.randbelow(10000000)),
             "gas_limit": str(15000000),
@@ -122,7 +122,7 @@ class TestDataGenerator:
             "user_id": MockFactory.generate_uuid(),
             "name": MockFactory.generate_string(10),
             "scopes": ["read", "write"],
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "last_used": None,
             "is_active": True
         }
@@ -137,7 +137,7 @@ class TestDataGenerator:
             "address": MockFactory.generate_ethereum_address(),
             "chain_id": 1,
             "balance": str(secrets.randbelow(1000000000000000000)),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "is_active": True
         }
         data.update(overrides)

@@ -7,7 +7,7 @@ import click
 import json
 import requests
 import subprocess
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional
 
 @click.group()
@@ -27,7 +27,7 @@ def health(test_mode):
                 "service": "blockchain-event-bridge",
                 "version": "0.1.0",
                 "uptime_seconds": 86400,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(datetime.UTC).isoformat()
             }
             
             click.echo("🏥 Blockchain Event Bridge Health:")

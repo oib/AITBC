@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginRegistration, PluginVersion, SecurityScan
@@ -72,7 +72,7 @@ def test_plugin_version_model():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0", "1.1.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     assert version.version == "1.0.0"
     assert version.changelog == "Initial release"
@@ -88,7 +88,7 @@ def test_security_scan_model():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[{"severity": "low", "description": "Test"}],
         risk_score="low",
         passed=True

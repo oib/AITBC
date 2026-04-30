@@ -3,7 +3,7 @@ Agent-to-Agent Trading Protocol Service
 Implements P2P trading, matching, negotiation, and settlement systems
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -588,7 +588,7 @@ class SettlementLayer:
             "currency": settlement["currency"],
             "fee": settlement["platform_fee"],
             "net_amount": settlement["net_amount_seller"],
-            "processed_at": datetime.utcnow().isoformat(),
+            "processed_at": datetime.now(datetime.UTC).isoformat(),
         }
 
         # Add escrow details if applicable
@@ -611,7 +611,7 @@ class SettlementLayer:
             "escrow_address": settlement["escrow_config"]["escrow_address"],
             "release_reason": release_reason,
             "conditions_met": release_conditions_met,
-            "released_at": datetime.utcnow().isoformat(),
+            "released_at": datetime.now(datetime.UTC).isoformat(),
             "status": "released" if release_conditions_met else "held",
         }
 
@@ -632,7 +632,7 @@ class SettlementLayer:
             "dispute_type": dispute_details.get("type", "general"),
             "dispute_reason": dispute_details.get("reason", ""),
             "initiated_by": dispute_details.get("initiated_by", ""),
-            "initiated_at": datetime.utcnow().isoformat(),
+            "initiated_at": datetime.now(datetime.UTC).isoformat(),
             "status": "under_review",
         }
 
@@ -685,7 +685,7 @@ class P2PTradingProtocol:
             service_level_required=kwargs.get("service_level_required", "standard"),
             tags=kwargs.get("tags", []),
             metadata=kwargs.get("metadata", {}),
-            expires_at=kwargs.get("expires_at", datetime.utcnow() + timedelta(days=7)),
+            expires_at=kwargs.get("expires_at", datetime.now(datetime.UTC) + timedelta(days=7)),
         )
 
         self.session.add(trade_request)
@@ -732,7 +732,7 @@ class P2PTradingProtocol:
                 geographic_compatibility=match["compatibility_breakdown"]["geographic_compatibility"],
                 seller_offer=match["seller_offer"],
                 proposed_terms=match["seller_offer"].get("terms", {}),
-                expires_at=datetime.utcnow() + timedelta(hours=self.matching_engine.match_expiry_hours),
+                expires_at=datetime.now(datetime.UTC) + timedelta(hours=self.matching_engine.match_expiry_hours),
             )
 
             self.session.add(trade_match)
@@ -743,7 +743,7 @@ class P2PTradingProtocol:
         # Update request match count
         trade_request.match_count = len(trade_matches)
         trade_request.best_match_score = matches[0]["match_score"] if matches else 0.0
-        trade_request.updated_at = datetime.utcnow()
+        trade_request.updated_at = datetime.now(datetime.UTC)
         self.session.commit()
 
         logger.info(f"Found {len(trade_matches)} matches for request {request_id}")
@@ -779,8 +779,8 @@ class P2PTradingProtocol:
             current_terms=initial_offer,
             initial_terms=initial_offer,
             auto_accept_threshold=85.0,
-            started_at=datetime.utcnow(),
-            expires_at=datetime.utcnow() + timedelta(hours=self.negotiation_system.max_negotiation_hours),
+            started_at=datetime.now(datetime.UTC),
+            expires_at=datetime.now(datetime.UTC) + timedelta(hours=self.negotiation_system.max_negotiation_hours),
         )
 
         self.session.add(negotiation)
@@ -792,7 +792,7 @@ class P2PTradingProtocol:
         trade_match.negotiation_initiated = True
         trade_match.negotiation_initiator = initiator
         trade_match.initial_terms = initial_offer
-        trade_match.last_interaction = datetime.utcnow()
+        trade_match.last_interaction = datetime.now(datetime.UTC)
         self.session.commit()
 
         logger.info(f"Initiated negotiation {negotiation.negotiation_id} for match {match_id}")
@@ -808,7 +808,7 @@ class P2PTradingProtocol:
                 "agent_id": "seller_001",
                 "price": 0.05,
                 "specifications": {"cpu_cores": 4, "memory_gb": 16, "gpu_count": 1},
-                "timing": {"start_time": datetime.utcnow(), "duration_hours": 8},
+                "timing": {"start_time": datetime.now(datetime.UTC), "duration_hours": 8},
                 "regions": ["us-east", "us-west"],
                 "service_level": "premium",
                 "terms": {"settlement_type": "escrow", "delivery_guarantee": True},
@@ -817,7 +817,7 @@ class P2PTradingProtocol:
                 "agent_id": "seller_002",
                 "price": 0.045,
                 "specifications": {"cpu_cores": 2, "memory_gb": 8, "gpu_count": 1},
-                "timing": {"start_time": datetime.utcnow(), "duration_hours": 6},
+                "timing": {"start_time": datetime.now(datetime.UTC), "duration_hours": 6},
                 "regions": ["us-east"],
                 "service_level": "standard",
                 "terms": {"settlement_type": "immediate", "delivery_guarantee": False},
@@ -870,8 +870,8 @@ class P2PTradingProtocol:
             "average_match_score": sum(m.match_score for m in matches) / len(matches) if matches else 0.0,
             "total_trade_volume": sum(a.total_price for a in agreements),
             "recent_activity": {
-                "requests_last_30d": len([r for r in requests if r.created_at >= datetime.utcnow() - timedelta(days=30)]),
-                "matches_last_30d": len([m for m in matches if m.created_at >= datetime.utcnow() - timedelta(days=30)]),
-                "agreements_last_30d": len([a for a in agreements if a.created_at >= datetime.utcnow() - timedelta(days=30)]),
+                "requests_last_30d": len([r for r in requests if r.created_at >= datetime.now(datetime.UTC) - timedelta(days=30)]),
+                "matches_last_30d": len([m for m in matches if m.created_at >= datetime.now(datetime.UTC) - timedelta(days=30)]),
+                "agreements_last_30d": len([a for a in agreements if a.created_at >= datetime.now(datetime.UTC) - timedelta(days=30)]),
             },
         }

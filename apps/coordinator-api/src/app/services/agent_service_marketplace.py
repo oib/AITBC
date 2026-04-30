@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 import hashlib
 import json
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -265,8 +265,8 @@ class AgentServiceMarketplace:
                 completed_jobs=0,
                 average_rating=0.0,
                 rating_count=0,
-                listed_at=datetime.utcnow(),
-                last_updated=datetime.utcnow(),
+                listed_at=datetime.now(datetime.UTC),
+                last_updated=datetime.now(datetime.UTC),
                 tags=tags,
                 capabilities=capabilities,
                 requirements=requirements,
@@ -332,10 +332,10 @@ class AgentServiceMarketplace:
             if budget < service.base_price:
                 raise ValueError(f"Budget below service price: {service.base_price}")
 
-            if deadline <= datetime.utcnow():
+            if deadline <= datetime.now(datetime.UTC):
                 raise ValueError("Invalid deadline")
 
-            if deadline > datetime.utcnow() + timedelta(days=365):
+            if deadline > datetime.now(datetime.UTC) + timedelta(days=365):
                 raise ValueError("Deadline too far in future")
 
             # Generate request ID
@@ -390,13 +390,13 @@ class AgentServiceMarketplace:
             if service.agent_id != agent_id:
                 raise ValueError("Not service provider")
 
-            if datetime.utcnow() > request.deadline:
+            if datetime.now(datetime.UTC) > request.deadline:
                 raise ValueError("Request expired")
 
             # Update request
             request.status = RequestStatus.ACCEPTED
             request.assigned_agent = agent_id
-            request.accepted_at = datetime.utcnow()
+            request.accepted_at = datetime.now(datetime.UTC)
 
             # Calculate dynamic price
             final_price = await self._calculate_dynamic_price(request.service_id, request.budget)
@@ -425,12 +425,12 @@ class AgentServiceMarketplace:
             if request.assigned_agent != agent_id:
                 raise ValueError("Not assigned agent")
 
-            if datetime.utcnow() > request.deadline:
+            if datetime.now(datetime.UTC) > request.deadline:
                 raise ValueError("Request expired")
 
             # Update request
             request.status = RequestStatus.COMPLETED
-            request.completed_at = datetime.utcnow()
+            request.completed_at = datetime.now(datetime.UTC)
             request.results_hash = hashlib.sha256(json.dumps(results, sort_keys=True).encode()).hexdigest()
 
             # Calculate payment
@@ -441,7 +441,7 @@ class AgentServiceMarketplace:
             # Update service stats
             service.total_earnings += agent_payment
             service.completed_jobs += 1
-            service.last_updated = datetime.utcnow()
+            service.last_updated = datetime.now(datetime.UTC)
 
             # Update category
             if service.service_type.value in self.categories:
@@ -479,7 +479,7 @@ class AgentServiceMarketplace:
             if rating < 1 or rating > 5:
                 raise ValueError("Invalid rating")
 
-            if datetime.utcnow() > request.deadline + timedelta(days=30):
+            if datetime.now(datetime.UTC) > request.deadline + timedelta(days=30):
                 raise ValueError("Rating period expired")
 
             # Update request
@@ -539,7 +539,7 @@ class AgentServiceMarketplace:
                 total_earnings=0.0,
                 reputation=founder_reputation,
                 status=GuildStatus.ACTIVE,
-                created_at=datetime.utcnow(),
+                created_at=datetime.now(datetime.UTC),
                 requirements=requirements,
                 benefits=benefits,
                 guild_rules=guild_rules,
@@ -547,7 +547,7 @@ class AgentServiceMarketplace:
 
             # Add founder as member
             guild.members[founder_id] = {
-                "joined_at": datetime.utcnow(),
+                "joined_at": datetime.now(datetime.UTC),
                 "reputation": founder_reputation,
                 "role": "founder",
                 "contributions": 0,
@@ -592,7 +592,7 @@ class AgentServiceMarketplace:
 
             # Add member
             guild.members[agent_id] = {
-                "joined_at": datetime.utcnow(),
+                "joined_at": datetime.now(datetime.UTC),
                 "reputation": agent_reputation,
                 "role": "member",
                 "contributions": 0,
@@ -842,7 +842,7 @@ class AgentServiceMarketplace:
 
         while True:
             try:
-                current_time = datetime.utcnow()
+                current_time = datetime.now(datetime.UTC)
 
                 for request in self.service_requests.values():
                     if request.status == RequestStatus.PENDING and current_time > request.deadline:

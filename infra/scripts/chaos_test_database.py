@@ -12,7 +12,7 @@ import time
 import logging
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -263,7 +263,7 @@ class ChaosTestDatabase:
     async def run_test(self, failure_type: str = "connection", failure_duration: int = 60):
         """Run the complete database chaos test"""
         logger.info(f"Starting database chaos test - failure type: {failure_type}")
-        self.metrics["test_start"] = datetime.utcnow().isoformat()
+        self.metrics["test_start"] = datetime.now(datetime.UTC).isoformat()
         
         # Phase 1: Baseline test
         logger.info("Phase 1: Baseline connectivity test")
@@ -282,7 +282,7 @@ class ChaosTestDatabase:
         
         # Phase 3: Induce database failure
         logger.info("Phase 3: Inducing database failure")
-        self.metrics["failure_start"] = datetime.utcnow().isoformat()
+        self.metrics["failure_start"] = datetime.now(datetime.UTC).isoformat()
         
         if failure_type == "connection":
             if not self.simulate_database_connection_failure():
@@ -311,7 +311,7 @@ class ChaosTestDatabase:
         
         # Phase 5: Restore database and monitor recovery
         logger.info("Phase 5: Restoring database")
-        self.metrics["failure_end"] = datetime.utcnow().isoformat()
+        self.metrics["failure_end"] = datetime.now(datetime.UTC).isoformat()
         
         if not self.restore_database():
             logger.error("Failed to restore database")
@@ -327,7 +327,7 @@ class ChaosTestDatabase:
         await self.generate_load(60)
         
         # Final metrics
-        self.metrics["test_end"] = datetime.utcnow().isoformat()
+        self.metrics["test_end"] = datetime.now(datetime.UTC).isoformat()
         self.metrics["mttr"] = self.metrics["recovery_time"]
         
         # Save results

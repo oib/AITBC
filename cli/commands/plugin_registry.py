@@ -6,7 +6,7 @@ Commands for managing plugin registration, versioning, and discovery
 import click
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -46,8 +46,8 @@ def register(plugin_id, name, version, description, author, category, tags, repo
             "homepage": homepage,
             "license": license,
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
+            "updated_at": datetime.now(datetime.UTC).isoformat(),
             "downloads": 0,
             "rating": 0.0,
             "reviews_count": 0
@@ -55,7 +55,7 @@ def register(plugin_id, name, version, description, author, category, tags, repo
         
         if test_mode:
             # Mock registration for testing
-            plugin_data["registration_id"] = f"reg_{int(datetime.utcnow().timestamp())}"
+            plugin_data["registration_id"] = f"reg_{int(datetime.now(datetime.UTC).timestamp())}"
             plugin_data["status"] = "registered"
             click.echo(f"✅ Plugin registered successfully (test mode)")
             click.echo(f"📋 Plugin ID: {plugin_data['plugin_id']}")
@@ -304,7 +304,7 @@ def update_version(plugin_id, version, changelog, test_mode):
         update_data = {
             "version": version,
             "changelog": changelog,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": datetime.now(datetime.UTC).isoformat()
         }
         
         if test_mode:

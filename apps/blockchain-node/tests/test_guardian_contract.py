@@ -6,7 +6,7 @@ import sys
 import pytest
 import tempfile
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from unittest.mock import patch, Mock
 from typing import Generator
@@ -113,7 +113,7 @@ class TestGuardianContract:
     def test_spending_limit_check_hourly(self, guardian_contract: GuardianContract) -> None:
         """Test hourly spending limit."""
         # Add some spending history
-        base_time = datetime.utcnow()
+        base_time = datetime.now(datetime.UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",
@@ -139,7 +139,7 @@ class TestGuardianContract:
     def test_spending_limit_check_daily(self, guardian_contract: GuardianContract) -> None:
         """Test daily spending limit."""
         # Add spending history across the day
-        base_time = datetime.utcnow()
+        base_time = datetime.now(datetime.UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",
@@ -165,7 +165,7 @@ class TestGuardianContract:
     def test_spending_limit_check_weekly(self, guardian_contract: GuardianContract) -> None:
         """Test weekly spending limit."""
         # Add spending history across the week
-        base_time = datetime.utcnow()
+        base_time = datetime.now(datetime.UTC)
         guardian_contract.spending_history = [
             {
                 "operation_id": "op1",

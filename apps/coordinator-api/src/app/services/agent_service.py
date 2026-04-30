@@ -4,7 +4,7 @@ Implements core orchestration logic and state management for AI agent workflows
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 
 from aitbc import get_logger
@@ -60,7 +60,7 @@ class AgentStateManager:
         stmt = (
             update(AgentExecution)
             .where(AgentExecution.id == execution_id)
-            .values(status=status, updated_at=datetime.utcnow(), **kwargs)
+            .values(status=status, updated_at=datetime.now(datetime.UTC), **kwargs)
         )
 
         self.session.execute(stmt)
@@ -101,7 +101,7 @@ class AgentStateManager:
         stmt = (
             update(AgentStepExecution)
             .where(AgentStepExecution.id == step_execution_id)
-            .values(updated_at=datetime.utcnow(), **kwargs)
+            .values(updated_at=datetime.now(datetime.UTC), **kwargs)
         )
 
         self.session.execute(stmt)
@@ -148,7 +148,7 @@ class AgentVerifier:
 
     async def _basic_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
         """Basic verification of step execution"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Basic checks: execution completed, has output, no errors
         verified = (
@@ -157,7 +157,7 @@ class AgentVerifier:
             and step_execution.error_message is None
         )
 
-        verification_time = (datetime.utcnow() - start_time).total_seconds()
+        verification_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "verified": verified,
@@ -169,7 +169,7 @@ class AgentVerifier:
 
     async def _full_verify_step(self, step_execution: AgentStepExecution) -> dict[str, Any]:
         """Full verification with additional checks"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Basic verification first
         basic_result = await self._basic_verify_step(step_execution)
@@ -190,7 +190,7 @@ class AgentVerifier:
         if step_execution.memory_usage and step_execution.memory_usage < 8192:  # < 8GB
             additional_checks.append("reasonable_memory_usage")
 
-        verification_time = (datetime.utcnow() - start_time).total_seconds()
+        verification_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "verified": basic_result["verified"],
@@ -209,7 +209,7 @@ class AgentVerifier:
         2. Verify proof against public parameters
         3. Return verification result with proof hash
         """
-        datetime.utcnow()
+        datetime.now(datetime.UTC)
 
         # For now, fall back to full verification
         # ZK proof generation and verification requires specialized cryptographic libraries
@@ -245,7 +245,7 @@ class AIAgentOrchestrator:
         try:
             # Start execution
             await self.state_manager.update_execution_status(
-                execution.id, status=AgentStatus.RUNNING, started_at=datetime.utcnow(), total_steps=len(workflow.steps)
+                execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(datetime.UTC), total_steps=len(workflow.steps)
             )
 
             # Execute steps asynchronously
@@ -340,7 +340,7 @@ class AIAgentOrchestrator:
         try:
             # Update step status to running
             await self.state_manager.update_step_execution(
-                step_execution.id, status=AgentStatus.RUNNING, started_at=datetime.utcnow(), input_data=inputs
+                step_execution.id, status=AgentStatus.RUNNING, started_at=datetime.now(datetime.UTC), input_data=inputs
             )
 
             # Execute the step based on type
@@ -357,7 +357,7 @@ class AIAgentOrchestrator:
             await self.state_manager.update_step_execution(
                 step_execution.id,
                 status=AgentStatus.COMPLETED,
-                completed_at=datetime.utcnow(),
+                completed_at=datetime.now(datetime.UTC),
                 output_data=result.get("output"),
                 execution_time=result.get("execution_time", 0.0),
                 gpu_accelerated=result.get("gpu_accelerated", False),
@@ -379,7 +379,7 @@ class AIAgentOrchestrator:
         except Exception as e:
             # Mark step as failed
             await self.state_manager.update_step_execution(
-                step_execution.id, status=AgentStatus.FAILED, completed_at=datetime.utcnow(), error_message=str(e)
+                step_execution.id, status=AgentStatus.FAILED, completed_at=datetime.now(datetime.UTC), error_message=str(e)
             )
             raise
 
@@ -393,12 +393,12 @@ class AIAgentOrchestrator:
         4. Output postprocessing
         Currently using simulated inference for testing purposes.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Simulate processing time
         await asyncio.sleep(0.1)
 
-        execution_time = (datetime.utcnow() - start_time).total_seconds()
+        execution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "output": {"prediction": "simulated_result", "confidence": 0.95},
@@ -417,12 +417,12 @@ class AIAgentOrchestrator:
         4. Model checkpointing and validation
         Currently using simulated training for testing purposes.
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Simulate training time
         await asyncio.sleep(0.5)
 
-        execution_time = (datetime.utcnow() - start_time).total_seconds()
+        execution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "output": {"model_updated": True, "training_loss": 0.123},
@@ -434,12 +434,12 @@ class AIAgentOrchestrator:
     async def _execute_data_processing_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute data processing step"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Simulate processing time
         await asyncio.sleep(0.05)
 
-        execution_time = (datetime.utcnow() - start_time).total_seconds()
+        execution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "output": {"processed_records": 1000, "data_validated": True},
@@ -451,12 +451,12 @@ class AIAgentOrchestrator:
     async def _execute_custom_step(self, step: AgentStep, inputs: dict[str, Any]) -> dict[str, Any]:
         """Execute custom step"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
 
         # Simulate custom processing
         await asyncio.sleep(0.2)
 
-        execution_time = (datetime.utcnow() - start_time).total_seconds()
+        execution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         return {
             "output": {"custom_result": "completed", "metadata": inputs},
@@ -494,7 +494,7 @@ class AIAgentOrchestrator:
     async def _complete_execution(self, execution_id: str, step_results: dict[str, Any]) -> None:
         """Mark execution as completed"""
 
-        completed_at = datetime.utcnow()
+        completed_at = datetime.now(datetime.UTC)
         execution = await self.state_manager.get_execution(execution_id)
 
         total_execution_time = (completed_at - execution.started_at).total_seconds() if execution.started_at else 0.0
@@ -511,7 +511,7 @@ class AIAgentOrchestrator:
         """Handle execution failure"""
 
         await self.state_manager.update_execution_status(
-            execution_id, status=AgentStatus.FAILED, completed_at=datetime.utcnow(), error_message=str(error)
+            execution_id, status=AgentStatus.FAILED, completed_at=datetime.now(datetime.UTC), error_message=str(error)
         )
 
     def _estimate_completion(self, execution: AgentExecution) -> datetime | None:

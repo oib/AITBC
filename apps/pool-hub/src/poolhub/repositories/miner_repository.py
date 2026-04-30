@@ -69,7 +69,7 @@ class MinerRepository:
             miner.capabilities = capabilities
             miner.region = region
 
-        miner.last_seen_at = dt.datetime.utcnow()
+        miner.last_seen_at = dt.datetime.now(datetime.UTC)
 
         await self._session.flush()
         await self._sync_miner_to_redis(miner_id)
@@ -97,7 +97,7 @@ class MinerRepository:
                         "avg_latency_ms": avg_latency_ms,
                         "temp_c": temp_c,
                         "mem_free_gb": mem_free_gb,
-                        "updated_at": dt.datetime.utcnow(),
+                        "updated_at": dt.datetime.now(datetime.UTC),
                     }.items()
                     if v is not None
                 }
@@ -107,7 +107,7 @@ class MinerRepository:
 
         miner = await self._session.get(Miner, miner_id)
         if miner:
-            miner.last_seen_at = dt.datetime.utcnow()
+            miner.last_seen_at = dt.datetime.now(datetime.UTC)
         await self._session.flush()
         await self._sync_miner_to_redis(miner_id)
 
@@ -115,7 +115,7 @@ class MinerRepository:
         miner = await self._session.get(Miner, miner_id)
         if miner is None:
             return
-        miner.last_seen_at = dt.datetime.utcnow()
+        miner.last_seen_at = dt.datetime.now(datetime.UTC)
         await self._session.flush()
         await self._sync_miner_to_redis(miner_id)
 

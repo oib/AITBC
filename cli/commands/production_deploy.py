@@ -7,7 +7,7 @@ import click
 import json
 import requests
 import subprocess
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional
 
 @click.group()
@@ -82,7 +82,7 @@ def deploy(environment, version, region, dry_run, force):
         click.echo(f"🌍 Environment: {environment}")
         click.echo(f"📦 Version: {version}")
         click.echo(f"🗺️  Region: {region}")
-        click.echo(f"📅 Deployed at: {datetime.utcnow().isoformat()}")
+        click.echo(f"📅 Deployed at: {datetime.now(datetime.UTC).isoformat()}")
         
         if not dry_run:
             click.echo("🔗 Service URLs:")
@@ -131,7 +131,7 @@ def rollback(environment, backup_id, dry_run):
             if rollback_result['success']:
                 click.echo("✅ Rollback completed successfully!")
                 click.echo(f"📦 New Version: {backup_info['version']}")
-                click.echo(f"📅 Rolled back at: {datetime.utcnow().isoformat()}")
+                click.echo(f"📅 Rolled back at: {datetime.now(datetime.UTC).isoformat()}")
             else:
                 click.echo(f"❌ Rollback failed: {rollback_result['error']}")
         else:
@@ -361,10 +361,10 @@ def run_pre_deployment_checks(environment, dry_run):
 
 def create_backup(environment):
     """Create backup of current deployment"""
-    backup_id = f"backup_{environment}_{int(datetime.utcnow().timestamp())}"
+    backup_id = f"backup_{environment}_{int(datetime.now(datetime.UTC).timestamp())}"
     return {
         "backup_id": backup_id,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "status": "completed"
     }
 
@@ -406,7 +406,7 @@ def rollback_deployment(environment, backup_id):
     return {
         "status": "completed",
         "backup_id": backup_id,
-        "rolled_back_at": datetime.utcnow().isoformat()
+        "rolled_back_at": datetime.now(datetime.UTC).isoformat()
     }
 
 def get_current_deployment_info(environment):
@@ -492,7 +492,7 @@ def restart_services(environment, services):
     return {
         "success": True,
         "restarted_services": services,
-        "restarted_at": datetime.utcnow().isoformat()
+        "restarted_at": datetime.now(datetime.UTC).isoformat()
     }
 
 def run_production_tests(environment, test_type, timeout):

@@ -5,7 +5,7 @@ Implements advanced agent orchestration, edge computing integration, and ecosyst
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -287,7 +287,7 @@ class OpenClawEnhancedService:
             "deployment_config": deployment_config,
             "auto_scale": deployment_config.get("auto_scale", False),
             "security_compliance": True,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(datetime.UTC),
         }
 
         # Deploy to edge locations
@@ -346,7 +346,7 @@ class OpenClawEnhancedService:
 
     async def _synchronize_edge_cloud_data(self, edge_deployment_id: str) -> dict[str, Any]:
         """Synchronize data between edge and cloud"""
-        return {"sync_status": "active", "last_sync": datetime.utcnow().isoformat(), "data_consistency": 0.99}
+        return {"sync_status": "active", "last_sync": datetime.now(datetime.UTC).isoformat(), "data_consistency": 0.99}
 
     async def _edge_cloud_load_balancing(self, edge_deployment_id: str) -> dict[str, Any]:
         """Implement edge-to-cloud load balancing"""

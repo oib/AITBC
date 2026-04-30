@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance
@@ -67,7 +67,7 @@ def test_agent_message_model():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert message.message_id == "msg_123"
     assert message.sender_id == "agent_123"
@@ -87,7 +87,7 @@ def test_agent_message_broadcast():
         content={"data": "test"},
         priority="medium",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert message.recipient_id is None
 
@@ -100,8 +100,8 @@ def test_collaboration_session_model():
         participants=["agent_123", "agent_456"],
         session_type="task_force",
         objective="Complete trading task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow(),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC),
         status="active"
     )
     assert session.session_id == "session_123"
@@ -117,8 +117,8 @@ def test_collaboration_session_empty_participants():
         participants=[],
         session_type="research",
         objective="Research task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow(),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC),
         status="active"
     )
     assert session.participants == []
@@ -129,7 +129,7 @@ def test_agent_performance_model():
     """Test AgentPerformance model"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,
@@ -147,7 +147,7 @@ def test_agent_performance_negative_values():
     """Test AgentPerformance with negative values"""
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         tasks_completed=-10,
         response_time_ms=-50.5,
         accuracy_score=-0.95,

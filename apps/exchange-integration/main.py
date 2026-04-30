@@ -5,7 +5,7 @@ Handles real exchange connections and trading operations
 
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 import aiohttp
@@ -54,7 +54,7 @@ async def root():
     return {
         "service": "AITBC Exchange Integration",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -83,7 +83,7 @@ async def register_exchange(registration: ExchangeRegistration):
         "sandbox": registration.sandbox,
         "description": registration.description,
         "connected": False,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "last_sync": None,
         "trading_pairs": []
     }
@@ -116,7 +116,7 @@ async def connect_exchange(exchange_id: str):
     await asyncio.sleep(1)  # Simulate connection delay
     
     exchange["connected"] = True
-    exchange["last_sync"] = datetime.utcnow().isoformat()
+    exchange["last_sync"] = datetime.now(datetime.UTC).isoformat()
     
     logger.info(f"Exchange connected: {exchange_id}")
     
@@ -144,7 +144,7 @@ async def create_trading_pair(pair: TradingPair):
         "price_precision": pair.price_precision,
         "quantity_precision": pair.quantity_precision,
         "status": "active",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "current_price": None,
         "volume_24h": 0.0,
         "orders": []
@@ -186,7 +186,7 @@ async def create_order(order: OrderRequest):
         raise HTTPException(status_code=404, detail="Trading pair not found")
     
     # Generate order ID
-    order_id = f"order_{int(datetime.utcnow().timestamp())}"
+    order_id = f"order_{int(datetime.now(datetime.UTC).timestamp())}"
     
     # Create order
     order_data = {
@@ -197,7 +197,7 @@ async def create_order(order: OrderRequest):
         "quantity": order.quantity,
         "price": order.price,
         "status": "submitted",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "filled_quantity": 0.0,
         "remaining_quantity": order.quantity,
         "average_price": None
@@ -216,7 +216,7 @@ async def create_order(order: OrderRequest):
     order_data["filled_quantity"] = order.quantity
     order_data["remaining_quantity"] = 0.0
     order_data["average_price"] = order.price or 0.00001  # Default price for demo
-    order_data["filled_at"] = datetime.utcnow().isoformat()
+    order_data["filled_at"] = datetime.now(datetime.UTC).isoformat()
     
     logger.info(f"Order created and filled: {order_id}")
     
@@ -263,7 +263,7 @@ async def update_market_price(pair_id: str, price_data: Dict[str, Any]):
     pair = trading_pairs[pair_id]
     pair["current_price"] = price_data.get("price")
     pair["volume_24h"] = price_data.get("volume", pair["volume_24h"])
-    pair["last_price_update"] = datetime.utcnow().isoformat()
+    pair["last_price_update"] = datetime.now(datetime.UTC).isoformat()
     
     return {
         "pair_id": pair_id,
@@ -286,7 +286,7 @@ async def get_market_data():
     return {
         "market_data": market_data,
         "total_pairs": len(market_data),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Background task for simulating market data
@@ -305,7 +305,7 @@ async def simulate_market_data():
                 
                 pair["current_price"] = new_price
                 pair["volume_24h"] += random.uniform(100, 1000)
-                pair["last_price_update"] = datetime.utcnow().isoformat()
+                pair["last_price_update"] = datetime.now(datetime.UTC).isoformat()
 
 # Start background task on startup
 @app.on_event("startup")

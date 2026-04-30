@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -52,7 +52,7 @@ async def register_agent(request: AgentRegistrationRequest):
                 "status": "success",
                 "message": f"Agent {request.agent_id} registered successfully",
                 "agent_id": request.agent_id,
-                "registered_at": datetime.utcnow().isoformat()
+                "registered_at": datetime.now(datetime.UTC).isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to register agent")
@@ -78,7 +78,7 @@ async def discover_agents(query: Dict[str, Any]):
             "query": query,
             "agents": [agent.to_dict() for agent in agents],
             "count": len(agents),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -101,7 +101,7 @@ async def get_agent(agent_id: str):
         return {
             "status": "success",
             "agent": agent.to_dict(),
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except HTTPException:
@@ -132,7 +132,7 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
                 "message": f"Agent {agent_id} status updated",
                 "agent_id": agent_id,
                 "new_status": request.status,
-                "updated_at": datetime.utcnow().isoformat()
+                "updated_at": datetime.now(datetime.UTC).isoformat()
             }
         else:
             raise HTTPException(status_code=500, detail="Failed to update agent status")

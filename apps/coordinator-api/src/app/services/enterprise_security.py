@@ -5,7 +5,7 @@ Zero-trust architecture with HSM integration and advanced security controls
 
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -122,7 +122,7 @@ class HSMManager:
                 "key": key,
                 "iv": iv if algorithm in [EncryptionAlgorithm.AES_256_GCM, EncryptionAlgorithm.AES_256_CBC] else None,
                 "nonce": nonce if algorithm == EncryptionAlgorithm.CHACHA20_POLY1305 else None,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(datetime.UTC),
                 "key_size": key_size,
             }
 
@@ -151,7 +151,7 @@ class HSMManager:
 
         # Update key with rotation timestamp
         new_key["rotated_from"] = key_id
-        new_key["rotation_timestamp"] = datetime.utcnow()
+        new_key["rotation_timestamp"] = datetime.now(datetime.UTC)
 
         return new_key
 
@@ -491,7 +491,7 @@ class ZeroTrustArchitecture:
             event_type="trust_decision",
             severity=ThreatLevel.LOW if decision else ThreatLevel.MEDIUM,
             source="zero_trust",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             user_id=user_id,
             resource_id=resource_id,
             details={"action": action, "trust_score": trust_score, "decision": decision},
@@ -539,7 +539,7 @@ class ThreatDetectionSystem:
                     event_type="threat_detected",
                     severity=pattern["severity"],
                     source="threat_detection",
-                    timestamp=datetime.utcnow(),
+                    timestamp=datetime.now(datetime.UTC),
                     user_id=event_data.get("user_id"),
                     resource_id=event_data.get("resource_id"),
                     details={

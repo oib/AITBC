@@ -6,7 +6,7 @@ Implements predictive and reactive auto-scaling of marketplace resources based o
 import time
 import asyncio
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import math
 
 from aitbc import get_logger
@@ -69,7 +69,7 @@ class ResourceScaler:
         
     def update_historical_demand(self, utilization: float):
         """Update historical data for predictive scaling"""
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         hour_of_week = now.weekday() * 24 + now.hour
         
         if hour_of_week not in self.historical_demand:
@@ -84,7 +84,7 @@ class ResourceScaler:
         if not self.policy.predictive_scaling or not self.historical_demand:
             return 0.0
             
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         target_hour = (now.weekday() * 24 + now.hour + lookahead_hours) % 168
         
         # If we have exact data for that hour
@@ -177,7 +177,7 @@ class ResourceScaler:
             result = await self._execute_scaling(action, diff, target_nodes)
             
             record = {
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "action": action,
                 "nodes_changed": diff,
                 "new_total": target_nodes,

@@ -8,7 +8,7 @@ from locust.stats import stats_printer, stats_history
 import json
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import gevent
 from gevent.pool import Pool
 
@@ -122,8 +122,8 @@ class MarketplaceUser(HttpUser):
                 "ram": random.choice(["16GB", "32GB", "64GB", "128GB"]),
             },
             "availability": {
-                "start_time": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
-                "end_time": (datetime.utcnow() + timedelta(days=30)).isoformat(),
+                "start_time": (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat(),
+                "end_time": (datetime.now(datetime.UTC) + timedelta(days=30)).isoformat(),
             },
         }
         

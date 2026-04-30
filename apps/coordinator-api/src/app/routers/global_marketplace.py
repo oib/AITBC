@@ -3,7 +3,7 @@ Global Marketplace API Router
 REST API endpoints for global marketplace operations, multi-region support, and cross-chain integration
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
@@ -585,7 +585,7 @@ async def get_global_marketplace_health(
         recent_transactions = (
             session.execute(
                 select(func.count(GlobalMarketplaceTransaction.id)).where(
-                    GlobalMarketplaceTransaction.created_at >= datetime.utcnow() - timedelta(hours=24)
+                    GlobalMarketplaceTransaction.created_at >= datetime.now(datetime.UTC) - timedelta(hours=24)
                 )
             ).scalar()
             or 0
@@ -608,7 +608,7 @@ async def get_global_marketplace_health(
                 "recent_24h": recent_transactions,
                 "activity_rate": transaction_activity,
             },
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(datetime.UTC).isoformat(),
         }
 
     except Exception as e:

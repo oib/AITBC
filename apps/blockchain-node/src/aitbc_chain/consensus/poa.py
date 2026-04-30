@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Callable, ContextManager, Optional
 
@@ -168,7 +168,7 @@ class PoAProposer:
         head = self._fetch_chain_head()
         if head is None:
             return
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         elapsed = (now - head.timestamp).total_seconds()
         sleep_for = max(self._config.interval_seconds - elapsed, 0.1)
         if sleep_for <= 0:
@@ -201,7 +201,7 @@ class PoAProposer:
             elif block_generation_mode == "hybrid":
                 # Hybrid mode: check heartbeat interval
                 if self._last_block_timestamp:
-                    time_since_last_block = (datetime.utcnow() - self._last_block_timestamp).total_seconds()
+                    time_since_last_block = (datetime.now(datetime.UTC) - self._last_block_timestamp).total_seconds()
                     if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
                         self._logger.debug(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
                         metrics_registry.increment("sync_empty_blocks_skipped_total")
@@ -224,9 +224,9 @@ class PoAProposer:
             if head is not None:
                 next_height = head.height + 1
                 parent_hash = head.hash
-                interval_seconds = (datetime.utcnow() - head.timestamp).total_seconds()
+                interval_seconds = (datetime.now(datetime.UTC) - head.timestamp).total_seconds()
 
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(datetime.UTC)
             
             # Pull transactions from mempool
             max_txs = self._config.max_txs_per_block

@@ -12,7 +12,7 @@ import sys
 import os
 import subprocess
 import logging
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 
 # Configure logging
@@ -27,7 +27,7 @@ class AgentOnboarder:
     
     def __init__(self):
         self.session = {
-            'start_time': datetime.utcnow(),
+            'start_time': datetime.now(datetime.UTC),
             'steps_completed': [],
             'errors': [],
             'agent': None
@@ -142,9 +142,9 @@ class AgentOnboarder:
         
         # Check network bandwidth (simplified)
         try:
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             requests.get('https://api.aitbc.bubuit.net/v1/health', timeout=5)
-            latency = (datetime.utcnow() - start_time).total_seconds()
+            latency = (datetime.now(datetime.UTC) - start_time).total_seconds()
             capabilities['network_latency'] = latency
             logger.info(f"✅ Network latency: {latency:.2f}s")
         except:
@@ -233,7 +233,7 @@ class AgentOnboarder:
             if agent_type == 'compute_provider':
                 from aitbc_agent.compute_provider import ComputeProvider
                 agent = ComputeProvider.register(
-                    agent_name=f"auto-provider-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                    agent_name=f"auto-provider-{datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S')}",
                     capabilities={
                         "compute_type": "inference",
                         "gpu_memory": capabilities.get('gpu_memory', 0),
@@ -245,7 +245,7 @@ class AgentOnboarder:
             elif agent_type == 'compute_consumer':
                 from aitbc_agent.compute_consumer import ComputeConsumer
                 agent = ComputeConsumer.create(
-                    agent_name=f"auto-consumer-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                    agent_name=f"auto-consumer-{datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S')}",
                     capabilities={
                         "compute_type": "inference",
                         "task_requirements": {"min_performance": 0.8}
@@ -255,7 +255,7 @@ class AgentOnboarder:
             elif agent_type == 'platform_builder':
                 from aitbc_agent.platform_builder import PlatformBuilder
                 agent = PlatformBuilder.create(
-                    agent_name=f"auto-builder-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                    agent_name=f"auto-builder-{datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S')}",
                     capabilities={
                         "specializations": capabilities.get('specializations', [])
                     }
@@ -264,7 +264,7 @@ class AgentOnboarder:
             elif agent_type == 'swarm_coordinator':
                 from aitbc_agent.swarm_coordinator import SwarmCoordinator
                 agent = SwarmCoordinator.create(
-                    agent_name=f"auto-coordinator-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}",
+                    agent_name=f"auto-coordinator-{datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S')}",
                     capabilities={
                         "specialization": "load_balancing",
                         "analytical_skills": "high"
@@ -376,8 +376,8 @@ class AgentOnboarder:
         
         report = {
             'onboarding': {
-                'timestamp': datetime.utcnow().isoformat(),
-                'duration_minutes': (datetime.utcnow() - self.session['start_time']).total_seconds() / 60,
+                'timestamp': datetime.now(datetime.UTC).isoformat(),
+                'duration_minutes': (datetime.now(datetime.UTC) - self.session['start_time']).total_seconds() / 60,
                 'status': 'success',
                 'agent_id': agent.identity.id,
                 'agent_name': agent.identity.name,

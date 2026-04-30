@@ -5,7 +5,7 @@ from __future__ import annotations
 import sys
 import asyncio
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from unittest.mock import AsyncMock, Mock, patch
 from typing import Generator
 
@@ -192,7 +192,7 @@ class TestPoAProposer:
             hash="0xparent",
             parent_hash="0x00",
             proposer="previous-proposer",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             tx_count=0,
         )
         test_db.add(parent)
@@ -231,16 +231,16 @@ class TestPoAProposer:
             hash="0xhead",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             tx_count=0,
         )
         test_db.add(head)
         test_db.commit()
         
         # Should wait for the configured interval
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         await proposer._wait_until_next_slot()
-        elapsed = (datetime.utcnow() - start_time).total_seconds()
+        elapsed = (datetime.now(datetime.UTC) - start_time).total_seconds()
         
         # Should wait at least some time (but less than full interval since block is recent)
         assert elapsed >= 0.1
@@ -255,7 +255,7 @@ class TestPoAProposer:
             hash="0xhead",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.utcnow() - timedelta(seconds=10),
+            timestamp=datetime.now(datetime.UTC) - timedelta(seconds=10),
             tx_count=0,
         )
         test_db.add(head)
@@ -263,9 +263,9 @@ class TestPoAProposer:
         
         # Set stop event and wait
         proposer._stop_event.set()
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         await proposer._wait_until_next_slot()
-        elapsed = (datetime.utcnow() - start_time).total_seconds()
+        elapsed = (datetime.now(datetime.UTC) - start_time).total_seconds()
         
         # Should return immediately due to stop event
         assert elapsed < 0.1
@@ -290,7 +290,7 @@ class TestPoAProposer:
         """Test block hash computation."""
         height = 1
         parent_hash = "0xparent"
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(datetime.UTC)
         processed_txs = []
         
         block_hash = proposer._compute_block_hash(height, parent_hash, timestamp, processed_txs)
@@ -303,7 +303,7 @@ class TestPoAProposer:
         """Test block hash computation with transactions."""
         height = 1
         parent_hash = "0xparent"
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(datetime.UTC)
         
         mock_tx = Mock()
         mock_tx.tx_hash = "0xtx"
@@ -324,7 +324,7 @@ class TestPoAProposer:
             hash="0xexisting",
             parent_hash="0x00",
             proposer="test-proposer",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             tx_count=0,
         )
         test_db.add(block)

@@ -4,7 +4,7 @@ GDPR, CCPA, SOC 2, and regulatory compliance automation
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -129,7 +129,7 @@ class GDPRCompliance:
                 return False
 
             # Check if consent has expired
-            if consent.expires_at and datetime.utcnow() > consent.expires_at:
+            if consent.expires_at and datetime.now(datetime.UTC) > consent.expires_at:
                 return False
 
             # Check if consent has been withdrawn
@@ -165,11 +165,11 @@ class GDPRCompliance:
         consent_id = str(uuid4())
 
         status = ConsentStatus.GRANTED if granted else ConsentStatus.DENIED
-        granted_at = datetime.utcnow() if granted else None
+        granted_at = datetime.now(datetime.UTC) if granted else None
         expires_at = None
 
         if granted and expires_days:
-            expires_at = datetime.utcnow() + timedelta(days=expires_days)
+            expires_at = datetime.now(datetime.UTC) + timedelta(days=expires_days)
 
         consent = ConsentRecord(
             consent_id=consent_id,
@@ -198,7 +198,7 @@ class GDPRCompliance:
             for consent in consents:
                 if consent.consent_id == consent_id:
                     consent.status = ConsentStatus.WITHDRAWN
-                    consent.withdrawn_at = datetime.utcnow()
+                    consent.withdrawn_at = datetime.now(datetime.UTC)
 
                     self.logger.info(f"Consent withdrawn: {consent_id}")
                     return True
@@ -216,8 +216,8 @@ class GDPRCompliance:
             "user_id": user_id,
             "details": details,
             "status": "pending",
-            "created_at": datetime.utcnow(),
-            "due_date": datetime.utcnow() + timedelta(days=30),  # GDPR 30-day deadline
+            "created_at": datetime.now(datetime.UTC),
+            "due_date": datetime.now(datetime.UTC) + timedelta(days=30),  # GDPR 30-day deadline
         }
 
         self.data_subject_requests[request_id] = request_data
@@ -267,8 +267,8 @@ class GDPRCompliance:
             "notification_id": notification_id,
             "breach_data": breach_data,
             "notification_required": await self.check_data_breach_notification(breach_data),
-            "created_at": datetime.utcnow(),
-            "deadline": datetime.utcnow() + timedelta(hours=72),  # 72-hour deadline
+            "created_at": datetime.now(datetime.UTC),
+            "deadline": datetime.now(datetime.UTC) + timedelta(hours=72),  # 72-hour deadline
             "status": "pending",
         }
 
@@ -301,7 +301,7 @@ class SOC2Compliance:
                 "evidence_requirements": control_config.get("evidence_requirements", []),
                 "testing_procedures": control_config.get("testing_procedures", []),
                 "status": "implemented",
-                "implemented_at": datetime.utcnow(),
+                "implemented_at": datetime.now(datetime.UTC),
                 "last_tested": None,
                 "test_results": [],
             }
@@ -328,10 +328,10 @@ class SOC2Compliance:
 
             # Record test result
             control["test_results"].append(
-                {"test_id": str(uuid4()), "timestamp": datetime.utcnow(), "result": test_result, "tester": "automated"}
+                {"test_id": str(uuid4()), "timestamp": datetime.now(datetime.UTC), "result": test_result, "tester": "automated"}
             )
 
-            control["last_tested"] = datetime.utcnow()
+            control["last_tested"] = datetime.now(datetime.UTC)
 
             return test_result
 
@@ -456,7 +456,7 @@ class SOC2Compliance:
             "passed_controls": passed_controls,
             "compliance_score": compliance_score,
             "compliance_status": "compliant" if compliance_score >= 0.9 else "non_compliant",
-            "report_date": datetime.utcnow().isoformat(),
+            "report_date": datetime.now(datetime.UTC).isoformat(),
             "controls": self.security_controls,
         }
 
@@ -515,8 +515,8 @@ class AMLKYCCompliance:
                 "risk_level": risk_level,
                 "status": status,
                 "risk_factors": risk_factors,
-                "checked_at": datetime.utcnow(),
-                "next_review": datetime.utcnow() + timedelta(days=365),
+                "checked_at": datetime.now(datetime.UTC),
+                "next_review": datetime.now(datetime.UTC) + timedelta(days=365),
             }
 
             self.customer_records[customer_id] = kyc_result
@@ -594,7 +594,7 @@ class AMLKYCCompliance:
                 "customer_id": customer_id,
                 "risk_score": risk_score,
                 "suspicious": suspicious,
-                "monitored_at": datetime.utcnow(),
+                "monitored_at": datetime.now(datetime.UTC),
             }
 
             if suspicious:
@@ -654,7 +654,7 @@ class AMLKYCCompliance:
             "risk_score": risk_score,
             "customer_risk_level": customer_risk_level,
             "transaction_details": transaction_data,
-            "created_at": datetime.utcnow(),
+            "created_at": datetime.now(datetime.UTC),
             "status": "pending_review",
             "reported_to_authorities": False,
         }
@@ -686,7 +686,7 @@ class AMLKYCCompliance:
             "suspicious_transactions": suspicious_transactions,
             "pending_sars": pending_sars,
             "suspicious_rate": (suspicious_transactions / total_transactions) if total_transactions > 0 else 0,
-            "report_date": datetime.utcnow().isoformat(),
+            "report_date": datetime.now(datetime.UTC).isoformat(),
         }
 
 
@@ -828,7 +828,7 @@ class EnterpriseComplianceEngine:
             "consent_valid": consent_valid,
             "retention_compliant": retention_compliant,
             "protection_compliant": protection_compliant,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(datetime.UTC).isoformat(),
         }
 
     async def _check_soc2_compliance(self, entity_data: dict[str, Any]) -> dict[str, Any]:
@@ -876,7 +876,7 @@ class EnterpriseComplianceEngine:
             retention_days = entity_data.get("retention_days", 2555)  # 7 years default
             expiry_date = created_at + timedelta(days=retention_days)
 
-            return datetime.utcnow() <= expiry_date
+            return datetime.now(datetime.UTC) <= expiry_date
 
         return True
 
@@ -907,7 +907,7 @@ class EnterpriseComplianceEngine:
                 "overall_compliance_score": overall_score,
                 "frameworks": {"GDPR": gdpr_compliance, "SOC 2": soc2_compliance, "AML/KYC": aml_compliance},
                 "total_rules": len(self.compliance_rules),
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_updated": datetime.now(datetime.UTC).isoformat(),
                 "status": "compliant" if overall_score >= 80 else "needs_attention",
             }
 

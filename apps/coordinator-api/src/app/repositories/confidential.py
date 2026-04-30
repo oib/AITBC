@@ -3,7 +3,7 @@ Repository layer for confidential transactions
 """
 
 from base64 import b64decode
-from datetime import datetime
+from datetime import datetime, UTC
 
 from sqlalchemy import and_, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -131,7 +131,7 @@ class ParticipantKeyRepository:
         stmt = (
             update(ParticipantKeyDB)
             .where(ParticipantKeyDB.participant_id == participant_id)
-            .values(active=active, revoked_at=datetime.utcnow() if not active else None, revoke_reason=reason)
+            .values(active=active, revoked_at=datetime.now(datetime.UTC) if not active else None, revoke_reason=reason)
         )
 
         result = await session.execute(stmt)
@@ -309,7 +309,7 @@ class AuditAuthorizationRepository:
             and_(
                 AuditAuthorizationDB.id == authorization_id,
                 AuditAuthorizationDB.active,
-                AuditAuthorizationDB.expires_at > datetime.utcnow(),
+                AuditAuthorizationDB.expires_at > datetime.now(datetime.UTC),
             )
         )
 
@@ -321,7 +321,7 @@ class AuditAuthorizationRepository:
         stmt = (
             update(AuditAuthorizationDB)
             .where(AuditAuthorizationDB.id == authorization_id)
-            .values(active=False, revoked_at=datetime.utcnow())
+            .values(active=False, revoked_at=datetime.now(datetime.UTC))
         )
 
         result = await session.execute(stmt)
@@ -331,7 +331,7 @@ class AuditAuthorizationRepository:
 
     async def cleanup_expired(self, session: AsyncSession) -> int:
         """Clean up expired authorizations"""
-        stmt = update(AuditAuthorizationDB).where(AuditAuthorizationDB.expires_at < datetime.utcnow()).values(active=False)
+        stmt = update(AuditAuthorizationDB).where(AuditAuthorizationDB.expires_at < datetime.now(datetime.UTC)).values(active=False)
 
         result = await session.execute(stmt)
         await session.commit()

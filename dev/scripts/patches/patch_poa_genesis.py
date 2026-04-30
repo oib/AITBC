@@ -8,7 +8,7 @@ content = content.replace(
             if head is not None:
                 return
 
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(datetime.UTC)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
             genesis = Block(
                 height=0,
@@ -25,7 +25,7 @@ content = content.replace(
             if head is not None:
                 return
 
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(datetime.UTC)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
             genesis = Block(
                 chain_id=self._config.chain_id,

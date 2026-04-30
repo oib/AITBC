@@ -6,7 +6,7 @@ Handles order matching, trade execution, and settlement
 import asyncio
 import json
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 from fastapi import FastAPI, HTTPException
@@ -70,7 +70,7 @@ async def root():
     return {
         "service": "AITBC Trading Engine",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -98,7 +98,7 @@ async def submit_order(order: Order):
             "volume_24h": 0.0,
             "high_24h": None,
             "low_24h": None,
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(datetime.UTC).isoformat()
         }
     
     # Store order
@@ -185,7 +185,7 @@ async def get_order_book(symbol: str, depth: int = 10):
         "volume_24h": book["volume_24h"],
         "high_24h": book["high_24h"],
         "low_24h": book["low_24h"],
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/trades")
@@ -216,7 +216,7 @@ async def get_ticker(symbol: str):
     trades_24h = [t for t in trades.values() 
                  if t["symbol"] == symbol and 
                  datetime.fromisoformat(t["timestamp"]) > 
-                 datetime.utcnow() - timedelta(hours=24)]
+                 datetime.now(datetime.UTC) - timedelta(hours=24)]
     
     if trades_24h:
         prices = [t["price"] for t in trades_24h]
@@ -276,7 +276,7 @@ async def cancel_order(order_id: str):
     
     # Update order status
     order["status"] = "cancelled"
-    order["cancelled_at"] = datetime.utcnow().isoformat()
+    order["cancelled_at"] = datetime.now(datetime.UTC).isoformat()
     
     logger.info(f"Order cancelled: {order_id}")
     
@@ -295,7 +295,7 @@ async def get_market_data():
         trades_24h = [t for t in trades.values() 
                      if t["symbol"] == symbol and 
                      datetime.fromisoformat(t["timestamp"]) > 
-                     datetime.utcnow() - timedelta(hours=24)]
+                     datetime.now(datetime.UTC) - timedelta(hours=24)]
         
         market_summary[symbol] = {
             "last_price": book["last_price"],
@@ -310,7 +310,7 @@ async def get_market_data():
     return {
         "market_data": market_summary,
         "total_symbols": len(market_summary),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/engine/stats")
@@ -338,7 +338,7 @@ async def get_engine_stats():
             "active_order_books": len(order_books),
             "uptime": "running"
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Core trading engine logic
@@ -457,7 +457,7 @@ async def execute_trade(order1: Dict, order2: Dict, price: float) -> Optional[Di
         return None
     
     # Create trade record
-    trade_id = f"trade_{int(datetime.utcnow().timestamp())}_{len(trades)}"
+    trade_id = f"trade_{int(datetime.now(datetime.UTC).timestamp())}_{len(trades)}"
     
     trade = {
         "trade_id": trade_id,
@@ -466,7 +466,7 @@ async def execute_trade(order1: Dict, order2: Dict, price: float) -> Optional[Di
         "sell_order_id": order2["order_id"] if order2["side"] == "sell" else order1["order_id"],
         "quantity": trade_quantity,
         "price": price,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(datetime.UTC).isoformat()
     }
     
     trades[trade_id] = trade
@@ -524,7 +524,7 @@ def update_market_data(symbol: str, trades_executed: List[Dict]):
     trades_24h = [t for t in trades.values() 
                  if t["symbol"] == symbol and 
                  datetime.fromisoformat(t["timestamp"]) > 
-                 datetime.utcnow() - timedelta(hours=24)]
+                 datetime.now(datetime.UTC) - timedelta(hours=24)]
     
     if trades_24h:
         prices = [t["price"] for t in trades_24h]
@@ -548,7 +548,7 @@ async def simulate_market_activity():
                     side = random.choice(["buy", "sell"])
                     quantity = random.uniform(10, 1000)
                     
-                    order_id = f"sim_order_{int(datetime.utcnow().timestamp())}"
+                    order_id = f"sim_order_{int(datetime.now(datetime.UTC).timestamp())}"
                     order = Order(
                         order_id=order_id,
                         symbol=symbol,
@@ -556,7 +556,7 @@ async def simulate_market_activity():
                         type="market",
                         quantity=quantity,
                         user_id="sim_user",
-                        timestamp=datetime.utcnow()
+                        timestamp=datetime.now(datetime.UTC)
                     )
                     
                     order_data = {

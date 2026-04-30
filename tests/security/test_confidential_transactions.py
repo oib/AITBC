@@ -5,7 +5,7 @@ Security tests for AITBC Confidential Transactions
 import pytest
 import json
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from unittest.mock import Mock, patch, AsyncMock
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -109,7 +109,7 @@ class TestConfidentialTransactionSecurity:
         # Generate viewing key for auditor
         viewing_key = generate_viewing_key(
             purpose="audit",
-            expires_at=datetime.utcnow() + timedelta(days=30),
+            expires_at=datetime.now(datetime.UTC) + timedelta(days=30),
             permissions=["view_amount", "view_parties"],
         )
 
@@ -123,7 +123,7 @@ class TestConfidentialTransactionSecurity:
         assert len(viewing_key["key_data"]) >= 32  # At least 256 bits
 
         # Verify expiration
-        assert viewing_key["expires_at"] > datetime.utcnow()
+        assert viewing_key["expires_at"] > datetime.now(datetime.UTC)
 
     def test_viewing_key_permissions(self, confidential_service):
         """Test that viewing keys respect permission constraints"""
@@ -133,7 +133,7 @@ class TestConfidentialTransactionSecurity:
             ciphertext="encrypted_data_here",
             sender_key="sender_pubkey",
             receiver_key="receiver_pubkey",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
         )
 
         # Create viewing key with limited permissions
@@ -142,8 +142,8 @@ class TestConfidentialTransactionSecurity:
             transaction_id=tx.id,
             key_data="encrypted_viewing_key",
             permissions=["view_amount"],
-            expires_at=datetime.utcnow() + timedelta(days=1),
-            created_at=datetime.utcnow(),
+            expires_at=datetime.now(datetime.UTC) + timedelta(days=1),
+            created_at=datetime.now(datetime.UTC),
         )
 
         # Test permission enforcement
@@ -205,7 +205,7 @@ class TestConfidentialTransactionSecurity:
             "receiver": "0x456",
             "amount": 1000,
             "nonce": 12345,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
         # Store nonce
@@ -300,7 +300,7 @@ class TestConfidentialTransactionSecurity:
             ciphertext="encrypted_data",
             sender_key="sender_key",
             receiver_key="receiver_key",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
         )
 
         # Log access
@@ -308,7 +308,7 @@ class TestConfidentialTransactionSecurity:
             transaction_id=tx.id,
             user_id="auditor-123",
             action="view_with_viewing_key",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
         )
 
         # Verify log integrity
@@ -629,7 +629,7 @@ class TestConfidentialTransactionCompliance:
             ciphertext="encrypted_data",
             sender_key="sender_key",
             receiver_key="receiver_key",
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
         )
 
         # Generate regulatory report
@@ -705,7 +705,7 @@ class TestConfidentialTransactionCompliance:
         old_tx = ConfidentialTransaction(
             id="old-tx-123",
             ciphertext="old_encrypted_data",
-            created_at=datetime.utcnow() - timedelta(days=400),  # Over 1 year
+            created_at=datetime.now(datetime.UTC) - timedelta(days=400),  # Over 1 year
         )
 
         # Test retention policy enforcement
