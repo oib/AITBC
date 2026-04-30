@@ -65,7 +65,7 @@ jobs:
 
           echo "✅ Linting completed"
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
           cd /var/lib/aitbc-workspaces/python-tests/repo
 
@@ -84,9 +84,11 @@ jobs:
             apps/wallet/tests/ \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
-            --tb=short -q --timeout=30 --import-mode=importlib
+            apps/coordinator-api/tests/ \
+            --tb=short -q --timeout=30 --import-mode=importlib \
+            --cov=apps --cov=packages --cov=cli --cov-report=term-missing --cov-report=xml
 
-          echo "✅ Python tests completed"
+          echo "✅ Python tests completed with coverage"
 
       - name: Cleanup
         if: always()
