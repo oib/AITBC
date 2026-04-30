@@ -7,16 +7,17 @@ import requests
 
 def handle_market_listings(args, default_coordinator_url, output_format, render_mapping):
     """Handle marketplace listings command."""
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
+    # Use marketplace service URL instead of coordinator URL
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
     chain_id = getattr(args, "chain_id", None)
     
-    print(f"Getting marketplace listings from {coordinator_url}...")
+    print(f"Getting marketplace listings from {marketplace_url}...")
     try:
         params = {}
         if chain_id:
             params["chain_id"] = chain_id
         
-        response = requests.get(f"{coordinator_url}/v1/marketplace/gpu/list", params=params, timeout=10)
+        response = requests.get(f"{marketplace_url}/v1/marketplace/offers", params=params, timeout=10)
         if response.status_code == 200:
             listings = response.json()
             if output_format(args) == "json":
@@ -45,7 +46,8 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
 
 def handle_market_create(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace create command."""
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
+    # Use marketplace service URL instead of coordinator URL
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.wallet or not args.item_type or not args.price:
@@ -66,9 +68,9 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     if chain_id:
         listing_data["chain_id"] = chain_id
     
-    print(f"Creating marketplace listing on {coordinator_url}...")
+    print(f"Creating marketplace listing on {marketplace_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/create", json=listing_data, headers=headers, timeout=30)
+        response = requests.post(f"{marketplace_url}/v1/marketplace/offers", json=listing_data, headers=headers, timeout=30)
         if response.status_code == 200:
             result = response.json()
             print("Listing created successfully")
@@ -84,17 +86,18 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
 
 def handle_market_get(args, default_rpc_url):
     """Handle marketplace get command."""
-    rpc_url = args.rpc_url or default_rpc_url
+    # Use marketplace service URL
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.listing_id:
         print("Error: --listing-id is required")
         sys.exit(1)
     
-    print(f"Getting listing {args.listing_id} from {rpc_url}...")
+    print(f"Getting listing {args.listing_id} from {marketplace_url}...")
     try:
         import requests
-        response = requests.get(f"{rpc_url}/marketplace/get/{args.listing_id}", timeout=10)
+        response = requests.get(f"{marketplace_url}/v1/marketplace/offers/{args.listing_id}", timeout=10)
         if response.status_code == 200:
             listing = response.json()
             print(json.dumps(listing, indent=2))
@@ -109,7 +112,8 @@ def handle_market_get(args, default_rpc_url):
 
 def handle_market_delete(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace delete command."""
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
+    # Use marketplace service URL instead of coordinator URL
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.listing_id or not args.wallet:
@@ -128,9 +132,9 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
     if chain_id:
         delete_data["chain_id"] = chain_id
     
-    print(f"Deleting listing {args.listing_id} on {coordinator_url}...")
+    print(f"Deleting listing {args.listing_id} on {marketplace_url}...")
     try:
-        response = requests.delete(f"{coordinator_url}/v1/marketplace/delete", json=delete_data, headers=headers, timeout=30)
+        response = requests.delete(f"{marketplace_url}/v1/marketplace/offers/{args.listing_id}", json=delete_data, headers=headers, timeout=30)
         if response.status_code == 200:
             result = response.json()
             print("Listing deleted successfully")
@@ -146,7 +150,8 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
 
 def handle_market_gpu_register(args, default_coordinator_url):
     """Handle GPU registration command with nvidia-smi auto-detection."""
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
+    # Use GPU service URL instead of coordinator URL
+    gpu_url = getattr(args, 'gpu_url', 'http://localhost:8101')
     
     # Auto-detect GPU specs from nvidia-smi
     gpu_name = args.name
@@ -211,10 +216,10 @@ def handle_market_gpu_register(args, default_coordinator_url):
         "registered_at": __import__("datetime").datetime.now().isoformat()
     }
     
-    print(f"Registering GPU on {coordinator_url}...")
+    print(f"Registering GPU on {gpu_url}...")
     try:
         response = requests.post(
-            f"{coordinator_url}/v1/marketplace/gpu/register",
+            f"{gpu_url}/v1/marketplace/gpu/register",
             headers={
                 "Content-Type": "application/json",
                 "X-Miner-ID": gpu_specs["miner_id"]
@@ -238,13 +243,17 @@ def handle_market_gpu_register(args, default_coordinator_url):
 
 def handle_market_gpu_list(args, default_coordinator_url, output_format):
     """Handle GPU list command."""
-    coordinator_url = getattr(args, 'coordinator_url', default_coordinator_url)
+    # Use GPU service URL instead of coordinator URL
+    gpu_url = getattr(args, 'gpu_url', 'http://localhost:8101')
     
-    print(f"Listing GPUs from {coordinator_url}...")
+    print(f"Listing GPUs from {gpu_url}...")
     try:
-        params = {}
+        params = {
+            "action": "offer",
+            "status": "active"
+        }
         if getattr(args, "available", None):
-            params["available"] = True
+            params["status"] = "active"
         if getattr(args, "price_max", None):
             params["price_max"] = args.price_max
         if getattr(args, "region", None):
@@ -254,7 +263,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
         if getattr(args, "limit", None):
             params["limit"] = args.limit
         
-        response = requests.get(f"{coordinator_url}/v1/marketplace/gpu/list", params=params, timeout=10)
+        response = requests.get(f"{gpu_url}/v1/transactions", params=params, timeout=10)
         if response.status_code == 200:
             gpus = response.json()
             if output_format(args) == "json":
@@ -264,12 +273,13 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
                 if isinstance(gpus, list):
                     if gpus:
                         for gpu in gpus:
-                            print(f"  - ID: {gpu.get('id', 'N/A')}")
-                            print(f"    Model: {gpu.get('model', 'N/A')}")
-                            print(f"    Memory: {gpu.get('memory_gb', 'N/A')} GB")
-                            print(f"    Price: {gpu.get('price_per_hour', 0)} AIT/hour")
-                            print(f"    Status: {gpu.get('status', 'N/A')}")
-                            print(f"    Region: {gpu.get('region', 'N/A')}")
+                            if isinstance(gpu, dict):
+                                print(f"  - ID: {gpu.get('id', 'N/A')}")
+                                print(f"    Model: {gpu.get('model', 'N/A')}")
+                                print(f"    Memory: {gpu.get('memory_gb', 'N/A')} GB")
+                                print(f"    Price: {gpu.get('price_per_hour', 0)} AIT/hour")
+                                print(f"    Status: {gpu.get('status', 'N/A')}")
+                                print(f"    Region: {gpu.get('region', 'N/A')}")
                     else:
                         print("  No GPUs found")
                 else:
@@ -285,21 +295,22 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 
 
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
-    """Handle marketplace buy command via coordinator API."""
-    coordinator_url = getattr(args, 'rpc_url', default_coordinator_url) or default_coordinator_url
+    """Handle marketplace buy command via marketplace service."""
+    # Use marketplace service URL instead of coordinator URL
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
 
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
         sys.exit(1)
 
-    # Submit purchase to coordinator API using existing book endpoint
+    # Submit purchase to marketplace service
     purchase_data = {
         "duration_hours": 1.0
     }
 
-    print(f"Submitting purchase to {coordinator_url}...")
+    print(f"Submitting purchase to {marketplace_url}...")
     try:
-        response = requests.post(f"{coordinator_url}/v1/marketplace/gpu/{args.item}/book", json=purchase_data, timeout=30)
+        response = requests.post(f"{marketplace_url}/v1/marketplace/offers/{args.item}/book", json=purchase_data, timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")

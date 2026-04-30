@@ -63,9 +63,9 @@ def submit(ctx, job_type: str, prompt: Optional[str], model: Optional[str],
     for attempt in range(1, max_attempts + 1):
         try:
             with httpx.Client() as client:
-                # Use correct API endpoint format
+                # Use AI Service for job operations
                 response = client.post(
-                    f"{config.coordinator_url}/v1/jobs",
+                    f"{config.ai_service_url}/jobs",
                     headers={
                         "Content-Type": "application/json",
                         "X-Api-Key": config.api_key or ""
@@ -128,7 +128,7 @@ def status(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/jobs/{job_id}",
+                f"{config.ai_service_url}/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -157,7 +157,7 @@ def blocks(ctx, limit: int, chain_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/api/v1/blocks",
+                f"{config.trading_service_url}/api/v1/blocks",
                 params={"limit": limit, "chain_id": target_chain},
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -168,7 +168,8 @@ def blocks(ctx, limit: int, chain_id: str):
                     "blocks": blocks,
                     "chain_id": target_chain,
                     "limit": limit,
-                    "query_type": "single_chain"
+                    "query_type": "single_chain",
+                    "service": "trading"
                 }, ctx.obj['output_format'])
             else:
                 error(f"Failed to get blocks from chain {target_chain}: {response.status_code}")
@@ -198,7 +199,7 @@ def cancel(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/jobs/{job_id}/cancel",
+                f"{config.ai_service_url}/jobs/{job_id}/cancel",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -227,7 +228,7 @@ def result(ctx, job_id: str, wait: bool, timeout: int):
             with httpx.Client() as http:
                 # Try the dedicated result endpoint first
                 response = http.get(
-                    f"{config.coordinator_url}/v1/jobs/{job_id}/result",
+                    f"{config.ai_service_url}/jobs/{job_id}/result",
                     headers={"X-Api-Key": config.api_key or ""}
                 )
                 
@@ -281,7 +282,7 @@ def receipts(ctx, limit: int, job_id: Optional[str], status: Optional[str]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/explorer/receipts",
+                f"{config.trading_service_url}/v1/explorer/receipts",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -322,7 +323,7 @@ def history(ctx, limit: int, status: Optional[str], type: Optional[str],
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/v1/jobs",
+                f"{config.ai_service_url}/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -383,7 +384,7 @@ def batch_submit(ctx, file_path: str, file_format: Optional[str], retries: int, 
 
                 with httpx.Client() as http_client:
                     response = http_client.post(
-                        f"{config.coordinator_url}/v1/jobs",
+                        f"{config.ai_service_url}/jobs",
                         headers={
                             "Content-Type": "application/json",
                             "X-Api-Key": config.api_key or ""
@@ -522,7 +523,7 @@ def payment_status(ctx, job_id: str):
     try:
         with httpx.Client() as http_client:
             response = http_client.get(
-                f"{config.coordinator_url}/v1/jobs/{job_id}/payment",
+                f"{config.ai_service_url}/jobs/{job_id}/payment",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             if response.status_code == 200:

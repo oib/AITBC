@@ -17,6 +17,7 @@ from ..utils.island_credentials import (
     load_island_credentials, get_rpc_endpoint, get_chain_id,
     get_island_id, get_island_name
 )
+from ..config import get_config
 
 # Import shared modules
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
@@ -41,9 +42,11 @@ def gpu():
 def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs: Optional[str], description: Optional[str]):
     """Offer GPU power for sale in the marketplace"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -104,10 +107,10 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
             'created_at': datetime.now().isoformat()
         }
 
-        # Submit transaction to blockchain
+        # Submit transaction to GPU service
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=offer_data)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            result = http_client.post("/v1/transactions", json=offer_data)
             success(f"GPU offer created successfully!")
             success(f"Offer ID: {offer_id}")
             success(f"Total Price: {total_price:.2f} AIT")
@@ -142,9 +145,11 @@ def offer(ctx, gpu_count: int, price_per_gpu: float, duration_hours: int, specs:
 def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optional[str]):
     """Bid on GPU power in the marketplace"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -204,9 +209,9 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
             'created_at': datetime.now().isoformat()
         }
 
-        # Submit transaction to blockchain
+        # Submit transaction to GPU service
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
             result = http_client.post("/v1/transactions", json=bid_data)
             success(f"GPU bid created successfully!")
             success(f"Bid ID: {bid_id}")
@@ -241,12 +246,14 @@ def bid(ctx, gpu_count: int, max_price: float, duration_hours: int, specs: Optio
 def list(ctx, provider: Optional[str], status: Optional[str], type: str):
     """List GPU marketplace offers and bids"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        # Query blockchain for GPU marketplace transactions
+        # Query GPU service for GPU marketplace transactions
         try:
             params = {
                 'transaction_type': 'gpu_marketplace',
@@ -259,8 +266,8 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
             if type != 'all':
                 params['action'] = type
 
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            transactions = http_client.get("/transactions", params=params)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            transactions = http_client.get("/v1/transactions", params=params)
             
             if not transactions:
                 info("No GPU marketplace transactions found")
@@ -311,9 +318,11 @@ def list(ctx, provider: Optional[str], status: Optional[str], type: str):
 def cancel(ctx, order_id: str):
     """Cancel a GPU offer or bid"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -336,11 +345,9 @@ def cancel(ctx, order_id: str):
 
         # Determine if it's an offer or bid
         if order_id.startswith('gpu_offer'):
-            action = 'cancel_offer'
-            node_id_field = 'provider_node_id'
+            action = 'cancel'
         elif order_id.startswith('gpu_bid'):
-            action = 'cancel_bid'
-            node_id_field = 'bidder_node_id'
+            action = 'cancel'
         else:
             error("Invalid order ID format. Must start with 'gpu_offer' or 'gpu_bid'")
             raise click.Abort()
@@ -357,10 +364,10 @@ def cancel(ctx, order_id: str):
             'chain_id': chain_id
         }
 
-        # Submit transaction to blockchain
+        # Submit transaction to GPU service
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=cancel_data)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            result = http_client.post("/v1/transactions", json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -377,9 +384,11 @@ def cancel(ctx, order_id: str):
 def accept(ctx, bid_id: str):
     """Accept a GPU bid (provider only)"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         chain_id = get_chain_id()
         island_id = get_island_id()
 
@@ -418,10 +427,10 @@ def accept(ctx, bid_id: str):
             'chain_id': chain_id
         }
 
-        # Submit transaction to blockchain
+        # Submit transaction to GPU service
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            result = http_client.post("/transaction", json=accept_data)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            result = http_client.post("/v1/transactions", json=accept_data)
             success(f"Bid {bid_id} accepted successfully!")
         except NetworkError as e:
             error(f"Network error submitting transaction: {e}")
@@ -438,12 +447,14 @@ def accept(ctx, bid_id: str):
 def status(ctx, order_id: str):
     """Check the status of a GPU order"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        # Query blockchain for the order
+        # Query GPU service for the order
         try:
             params = {
                 'transaction_type': 'gpu_marketplace',
@@ -451,8 +462,8 @@ def status(ctx, order_id: str):
                 'order_id': order_id
             }
 
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            transactions = http_client.get("/transactions", params=params)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            transactions = http_client.get("/v1/transactions", params=params)
             
             if not transactions:
                 error(f"Order {order_id} not found")
@@ -505,12 +516,14 @@ def status(ctx, order_id: str):
 def match(ctx):
     """Match GPU bids with offers (price discovery)"""
     try:
+        # Load CLI config
+        config = get_config()
+        
         # Load island credentials
         credentials = load_island_credentials()
-        rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        # Query blockchain for open offers and bids
+        # Query GPU service for open offers and bids
         try:
             params = {
                 'transaction_type': 'gpu_marketplace',
@@ -518,8 +531,8 @@ def match(ctx):
                 'status': 'active'
             }
 
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            transactions = http_client.get("/transactions", params=params)
+            http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10)
+            transactions = http_client.get("/v1/transactions", params=params)
             
             # Separate offers and bids
             offers = []
@@ -569,7 +582,7 @@ def match(ctx):
                                 }
                                 
                                 # Submit match transaction
-                                match_result = http_client.post("/transaction", json=match_data)
+                                match_result = http_client.post("/v1/transactions", json=match_data)
                                 matches.append({
                                     "Bid ID": bid.get('bid_id')[:16] + "...",
                                     "Offer ID": offer.get('offer_id')[:16] + "...",
