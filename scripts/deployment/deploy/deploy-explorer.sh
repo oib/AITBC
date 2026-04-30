@@ -4,7 +4,7 @@
 
 set -e
 
-SERVER="root@10.1.223.93"
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
 EXPLORER_DIR="/root/aitbc/apps/explorer-web"
 NGINX_CONFIG="/etc/nginx/sites-available/aitbc"
 
