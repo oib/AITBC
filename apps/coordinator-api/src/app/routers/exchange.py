@@ -191,7 +191,7 @@ async def get_wallet_info_api() -> WalletInfoResponse:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def monitor_payment(payment_id: str):
+async def monitor_payment(payment_id: str) -> None:
     """Monitor payment for confirmation (background task)"""
 
     import asyncio
@@ -212,13 +212,13 @@ async def monitor_payment(payment_id: str):
 
 # Agent endpoints temporarily added to exchange router
 @router.get("/agents/test")
-async def test_agent_endpoint():
+async def test_agent_endpoint() -> dict[str, str]:
     """Test endpoint to verify agent routes are working"""
     return {"message": "Agent routes are working", "timestamp": datetime.now(datetime.UTC).isoformat()}
 
 
 @router.post("/agents/networks", response_model=dict, status_code=201)
-async def create_agent_network(network_data: dict):
+async def create_agent_network(network_data: dict) -> dict[str, Any]:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -254,7 +254,7 @@ async def create_agent_network(network_data: dict):
 
 
 @router.get("/agents/executions/{execution_id}/receipt")
-async def get_execution_receipt(execution_id: str):
+async def get_execution_receipt(execution_id: str) -> dict[str, Any]:
     """Get verifiable receipt for completed execution"""
 
     try:

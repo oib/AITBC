@@ -267,7 +267,7 @@ async def llm_stream(
     request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
-):
+) -> ServiceResponse:
     """Stream LLM inference response"""
     # Force streaming mode
     request.stream = True
