@@ -9,7 +9,7 @@ import hashlib
 import time
 import json
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from cryptography.fernet import Fernet
 
 
@@ -118,7 +118,7 @@ class APIKeyManager:
             "user_id": user_id,
             "scopes": scopes or ["read"],
             "name": name,
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "last_used": None
         }
         
@@ -134,7 +134,7 @@ class APIKeyManager:
             return None
         
         # Update last used
-        key_data["last_used"] = datetime.utcnow().isoformat()
+        key_data["last_used"] = datetime.now(datetime.UTC).isoformat()
         if self.storage_path:
             self._save_keys()
         

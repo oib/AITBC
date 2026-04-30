@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -199,7 +199,7 @@ class AgentCommunicationService:
                     messages_sent=0,
                     messages_received=0,
                     active_channels=0,
-                    last_activity=datetime.utcnow(),
+                    last_activity=datetime.now(datetime.UTC),
                     average_response_time=0.0,
                     delivery_rate=0.0,
                 )
@@ -346,11 +346,11 @@ class AgentCommunicationService:
                 encryption_key=encryption_key,
                 encryption_type=encryption_type,
                 size=len(content_bytes),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(datetime.UTC),
                 status=MessageStatus.PENDING,
                 price=price,
                 metadata=metadata or {},
-                expires_at=datetime.utcnow() + timedelta(seconds=self.message_timeout),
+                expires_at=datetime.now(datetime.UTC) + timedelta(seconds=self.message_timeout),
                 reply_to=reply_to,
                 thread_id=thread_id,
             )
@@ -395,7 +395,7 @@ class AgentCommunicationService:
                 raise ValueError(f"Message {message_id} not pending")
 
             message.status = MessageStatus.DELIVERED
-            message.delivery_timestamp = datetime.utcnow()
+            message.delivery_timestamp = datetime.now(datetime.UTC)
 
             # Update stats
             await self._update_message_stats(message.sender, message.recipient, "delivered")
@@ -426,7 +426,7 @@ class AgentCommunicationService:
 
             # Mark as read
             message.status = MessageStatus.READ
-            message.read_timestamp = datetime.utcnow()
+            message.read_timestamp = datetime.now(datetime.UTC)
 
             # Update stats
             await self._update_message_stats(message.sender, message.recipient, "read")
@@ -495,8 +495,8 @@ class AgentCommunicationService:
                 agent2=agent2,
                 channel_type=channel_type,
                 is_active=True,
-                created_timestamp=datetime.utcnow(),
-                last_activity=datetime.utcnow(),
+                created_timestamp=datetime.now(datetime.UTC),
+                last_activity=datetime.now(datetime.UTC),
                 message_count=0,
                 participants=[agent1, agent2],
                 encryption_enabled=encryption_enabled,
@@ -814,17 +814,17 @@ class AgentCommunicationService:
             if sender in self.communication_stats:
                 self.communication_stats[sender].total_messages += 1
                 self.communication_stats[sender].messages_sent += 1
-                self.communication_stats[sender].last_activity = datetime.utcnow()
+                self.communication_stats[sender].last_activity = datetime.now(datetime.UTC)
 
         elif action == "delivered":
             if recipient in self.communication_stats:
                 self.communication_stats[recipient].total_messages += 1
                 self.communication_stats[recipient].messages_received += 1
-                self.communication_stats[recipient].last_activity = datetime.utcnow()
+                self.communication_stats[recipient].last_activity = datetime.now(datetime.UTC)
 
         elif action == "read":
             if recipient in self.communication_stats:
-                self.communication_stats[recipient].last_activity = datetime.utcnow()
+                self.communication_stats[recipient].last_activity = datetime.now(datetime.UTC)
 
     async def _process_message_queue(self):
         """Process message queue for delivery"""
@@ -848,7 +848,7 @@ class AgentCommunicationService:
 
         while True:
             try:
-                current_time = datetime.utcnow()
+                current_time = datetime.now(datetime.UTC)
                 expired_messages = []
 
                 for message_id, message in self.messages.items():
@@ -875,7 +875,7 @@ class AgentCommunicationService:
 
         while True:
             try:
-                current_time = datetime.utcnow()
+                current_time = datetime.now(datetime.UTC)
                 inactive_channels = []
 
                 for channel_id, channel in self.channels.items():
@@ -958,7 +958,7 @@ class AgentCommunicationService:
             "messages": {k: asdict(v) for k, v in self.messages.items()},
             "channels": {k: asdict(v) for k, v in self.channels.items()},
             "templates": {k: asdict(v) for k, v in self.message_templates.items()},
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
         if format.lower() == "json":

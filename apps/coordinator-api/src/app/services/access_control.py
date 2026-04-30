@@ -2,7 +2,7 @@
 Access control service for confidential transactions
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -216,7 +216,7 @@ class AccessController:
 
     def _is_business_hours(self) -> bool:
         """Check if current time is within business hours"""
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
 
         # Monday-Friday, 9 AM - 5 PM UTC
         if now.weekday() >= 5:  # Weekend
@@ -229,7 +229,7 @@ class AccessController:
 
     def _check_retention_period(self, transaction: dict, role: str | None) -> bool:
         """Check if data is within retention period for role"""
-        transaction_date = transaction.get("timestamp", datetime.utcnow())
+        transaction_date = transaction.get("timestamp", datetime.now(datetime.UTC))
 
         # Different retention periods for different roles
         if role == "regulator":
@@ -243,7 +243,7 @@ class AccessController:
 
         expiry_date = transaction_date + timedelta(days=retention_days)
 
-        return datetime.utcnow() <= expiry_date
+        return datetime.now(datetime.UTC) <= expiry_date
 
     def _get_participant_info(self, participant_id: str) -> dict | None:
         """Get participant information"""
@@ -274,8 +274,8 @@ class AccessController:
                 "transaction_miner_id": "miner-789",
                 "miner_id": "miner-789",
                 "purpose": "settlement",
-                "created_at": datetime.utcnow().isoformat(),
-                "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
+                "expires_at": (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat(),
                 "metadata": {"job_id": "job-123", "amount": "1000", "currency": "AITBC"},
             }
         if transaction_id.startswith("ctx-"):
@@ -286,8 +286,8 @@ class AccessController:
                 "transaction_miner_id": "miner-456",
                 "miner_id": "miner-456",
                 "purpose": "settlement",
-                "created_at": datetime.utcnow().isoformat(),
-                "expires_at": (datetime.utcnow() + timedelta(hours=1)).isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
+                "expires_at": (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat(),
                 "metadata": {"job_id": "job-456", "amount": "1000", "currency": "AITBC"},
             }
         else:
@@ -301,7 +301,7 @@ class AccessController:
         """Get cached access result"""
         if cache_key in self._access_cache:
             cached = self._access_cache[cache_key]
-            if datetime.utcnow() - cached["timestamp"] < self._cache_ttl:
+            if datetime.now(datetime.UTC) - cached["timestamp"] < self._cache_ttl:
                 return cached
             else:
                 del self._access_cache[cache_key]
@@ -309,20 +309,20 @@ class AccessController:
 
     def _cache_result(self, cache_key: str, allowed: bool):
         """Cache access result"""
-        self._access_cache[cache_key] = {"allowed": allowed, "timestamp": datetime.utcnow()}
+        self._access_cache[cache_key] = {"allowed": allowed, "timestamp": datetime.now(datetime.UTC)}
 
     def create_access_policy(
         self, name: str, participants: list[str], conditions: dict[str, Any], access_level: AccessLevel
     ) -> str:
         """Create a new access policy"""
-        policy_id = f"policy_{datetime.utcnow().timestamp()}"
+        policy_id = f"policy_{datetime.now(datetime.UTC).timestamp()}"
 
         policy = {
             "participants": participants,
             "conditions": conditions,
             "access_level": access_level,
             "time_restrictions": conditions.get("time_restrictions"),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
         }
 
         self.policy_store.add_policy(policy_id, policy)

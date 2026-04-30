@@ -5,7 +5,7 @@ Registry for cross-chain agent identity mapping and synchronization
 
 import hashlib
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -97,7 +97,7 @@ class CrossChainRegistry:
                 registration_results.append({"chain_id": chain_id, "chain_address": chain_address, "error": str(e)})
 
         # Update identity
-        identity.updated_at = datetime.utcnow()
+        identity.updated_at = datetime.now(datetime.UTC)
         self.session.commit()
 
         return {
@@ -143,7 +143,7 @@ class CrossChainRegistry:
 
         old_address = mapping.chain_address
         mapping.chain_address = new_address.lower()
-        mapping.updated_at = datetime.utcnow()
+        mapping.updated_at = datetime.now(datetime.UTC)
 
         # Reset verification status since address changed
         mapping.is_verified = False
@@ -195,7 +195,7 @@ class CrossChainRegistry:
             proof_hash=proof_hash,
             proof_data=proof_data,
             verification_result="approved",
-            expires_at=datetime.utcnow() + timedelta(days=30),
+            expires_at=datetime.now(datetime.UTC) + timedelta(days=30),
         )
 
         self.session.add(verification)
@@ -204,7 +204,7 @@ class CrossChainRegistry:
 
         # Update mapping verification status
         mapping.is_verified = True
-        mapping.verified_at = datetime.utcnow()
+        mapping.verified_at = datetime.now(datetime.UTC)
         mapping.verification_proof = proof_data
         self.session.commit()
 
@@ -212,7 +212,7 @@ class CrossChainRegistry:
         if self._is_higher_verification_level(verification_type, identity.verification_level):
             identity.verification_level = verification_type
             identity.is_verified = True
-            identity.verified_at = datetime.utcnow()
+            identity.verified_at = datetime.now(datetime.UTC)
             self.session.commit()
 
         logger.info(f"Verified cross-chain identity: {identity_id} on chain {chain_id}")
@@ -229,14 +229,14 @@ class CrossChainRegistry:
         mapping.is_verified = False
         mapping.verified_at = None
         mapping.verification_proof = None
-        mapping.updated_at = datetime.utcnow()
+        mapping.updated_at = datetime.now(datetime.UTC)
 
         # Add revocation to metadata
         if not mapping.chain_metadata:
             mapping.chain_metadata = {}
         mapping.chain_metadata["verification_revoked"] = True
         mapping.chain_metadata["revocation_reason"] = reason
-        mapping.chain_metadata["revoked_at"] = datetime.utcnow().isoformat()
+        mapping.chain_metadata["revoked_at"] = datetime.now(datetime.UTC).isoformat()
 
         self.session.commit()
 
@@ -453,7 +453,7 @@ class CrossChainRegistry:
     async def cleanup_expired_verifications(self) -> int:
         """Clean up expired verification records"""
 
-        current_time = datetime.utcnow()
+        current_time = datetime.now(datetime.UTC)
 
         # Find expired verifications
         stmt = select(IdentityVerification).where(IdentityVerification.expires_at < current_time)

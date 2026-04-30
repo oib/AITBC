@@ -5,7 +5,7 @@ Tenant context middleware for multi-tenant isolation
 import hashlib
 from collections.abc import Callable
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import HTTPException, Request, status
 from sqlalchemy import and_, event, select
@@ -170,11 +170,11 @@ class TenantContextMiddleware(BaseHTTPMiddleware):
                 return None
 
             # Check if key has expired
-            if api_key_record.expires_at and api_key_record.expires_at < datetime.utcnow():
+            if api_key_record.expires_at and api_key_record.expires_at < datetime.now(datetime.UTC):
                 return None
 
             # Update last used timestamp
-            api_key_record.last_used_at = datetime.utcnow()
+            api_key_record.last_used_at = datetime.now(datetime.UTC)
             db.commit()
 
             # Get tenant

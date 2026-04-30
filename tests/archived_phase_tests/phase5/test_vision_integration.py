@@ -7,7 +7,7 @@ import pytest
 import asyncio
 import json
 import base64
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from unittest.mock import Mock, AsyncMock
 from typing import Dict, List, Any, Optional, Tuple
 
@@ -26,7 +26,7 @@ class MockVisionProcessor:
             'processing_type': processing_type,
             'size': len(image_data),
             'format': 'processed',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(datetime.UTC).isoformat(),
             'analysis': await self._analyze_image(image_data, processing_type)
         }
         self.processed_images[image_id] = result
@@ -130,7 +130,7 @@ class MockMultiModalAgent:
             'result_id': result_id,
             'modalities_processed': list(results.keys()),
             'integration': await self._integrate_modalities(results),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         
         self.integrated_results[result_id] = integrated_result
@@ -151,7 +151,7 @@ class MockMultiModalAgent:
         return {
             'sensor_type': sensor_data.get('type', 'unknown'),
             'readings': sensor_data.get('readings', {}),
-            'timestamp': sensor_data.get('timestamp', datetime.utcnow().isoformat()),
+            'timestamp': sensor_data.get('timestamp', datetime.now(datetime.UTC).isoformat()),
             'quality': 'good'
         }
     
@@ -186,7 +186,7 @@ class MockContextIntegration:
             'vision_result': vision_result,
             'context_data': context_data,
             'enhanced_understanding': await self._enhance_understanding(vision_result, context_data),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         
         self.context_history.append(integration)
@@ -298,7 +298,7 @@ class TestMultiModalIntegration:
         self.sample_sensor_data = {
             'type': 'temperature',
             'readings': {'value': 25.5, 'unit': 'celsius'},
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
     
     @pytest.mark.asyncio
@@ -431,7 +431,7 @@ class TestContextIntegration:
             vision_result = await self.vision_processor.process_image(self.sample_image)
             context_data = {
                 'location': f'location_{i}',
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             }
             await self.context_integration.integrate_context(vision_result, context_data)
         
@@ -530,11 +530,11 @@ class TestPerformanceMetrics:
     @pytest.mark.asyncio
     async def test_processing_speed(self):
         """Test image processing speed"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         
         result = await self.vision_processor.process_image(self.sample_image)
         
-        end_time = datetime.utcnow()
+        end_time = datetime.now(datetime.UTC)
         processing_time = (end_time - start_time).total_seconds()
         
         assert processing_time < 2.0  # Should process within 2 seconds
@@ -545,12 +545,12 @@ class TestPerformanceMetrics:
         """Test batch image processing"""
         images = [self.sample_image] * 5
         
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         results = []
         for image in images:
             result = await self.vision_processor.process_image(image)
             results.append(result)
-        end_time = datetime.utcnow()
+        end_time = datetime.now(datetime.UTC)
         
         total_time = (end_time - start_time).total_seconds()
         avg_time = total_time / len(images)
@@ -625,9 +625,9 @@ class TestVisionIntegration:
         # Simulate real-time processing
         processing_times = []
         for i in range(10):
-            start_time = datetime.utcnow()
+            start_time = datetime.now(datetime.UTC)
             await vision_processor.process_image(f'frame_{i}'.encode())
-            end_time = datetime.utcnow()
+            end_time = datetime.now(datetime.UTC)
             processing_times.append((end_time - start_time).total_seconds())
         
         avg_time = sum(processing_times) / len(processing_times)

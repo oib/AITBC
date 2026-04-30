@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, SecurityScan, Vulnerability, SecurityReport, calculate_overall_score, generate_recommendations, get_severity_distribution, estimate_scan_time
@@ -76,7 +76,7 @@ def test_security_report_model():
         scan_id="scan_123",
         plugin_id="plugin_123",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         scan_duration=120.5,
         overall_score="passed",
         vulnerabilities=[],

@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 from exchange_api import OrderCreate, OrderResponse, TradeResponse, OrderBookResponse
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 @pytest.mark.unit
@@ -55,7 +55,7 @@ def test_order_response_zero_remaining():
         filled=100.0,
         remaining=0.0,
         status="FILLED",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     assert order.remaining == 0.0
     assert order.status == "FILLED"
@@ -73,7 +73,7 @@ def test_order_response_empty_status():
         filled=0.0,
         remaining=100.0,
         status="",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     assert order.status == ""
 
@@ -86,7 +86,7 @@ def test_trade_response_zero_amount():
         amount=0.0,
         price=0.00001,
         total=0.0,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     assert trade.amount == 0.0
     assert trade.total == 0.0
@@ -103,7 +103,7 @@ def test_order_book_empty_buys():
 @pytest.mark.unit
 def test_order_book_empty_sells():
     """Test OrderBookResponse with empty sells"""
-    from datetime import datetime
+    from datetime import datetime, UTC
     buy_order = OrderResponse(
         id=1,
         order_type="BUY",
@@ -113,7 +113,7 @@ def test_order_book_empty_sells():
         filled=0.0,
         remaining=100.0,
         status="OPEN",
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     orderbook = OrderBookResponse(buys=[buy_order], sells=[])
     assert len(orderbook.buys) == 1

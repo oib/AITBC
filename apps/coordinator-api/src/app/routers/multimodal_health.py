@@ -6,7 +6,7 @@ Provides health monitoring for multi-modal processing capabilities
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 import psutil
@@ -38,7 +38,7 @@ async def multimodal_health(session: Annotated[Session, Depends(get_session)]) -
             "status": "healthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -81,7 +81,7 @@ async def multimodal_health(session: Annotated[Session, Depends(get_session)]) -
             "status": "unhealthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -129,7 +129,7 @@ async def multimodal_deep_health(session: Annotated[Session, Depends(get_session
             "status": "healthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "modality_tests": modality_tests,
             "overall_health": "pass" if all(test.get("status") == "pass" for test in modality_tests.values()) else "degraded",
         }
@@ -140,6 +140,6 @@ async def multimodal_deep_health(session: Annotated[Session, Depends(get_session
             "status": "unhealthy",
             "service": "multimodal-agent",
             "port": 8002,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Deep health check failed",
         }

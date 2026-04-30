@@ -6,7 +6,7 @@ Complete deployment procedures for the agent orchestration system
 import asyncio
 import json
 from aitbc.logging import get_logger
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
@@ -30,7 +30,7 @@ class AgentOrchestrationDeployment:
         """Deploy complete agent orchestration system to production"""
         
         deployment_result = {
-            "deployment_id": f"prod_deploy_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}",
+            "deployment_id": f"prod_deploy_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}",
             "status": "in_progress",
             "steps_completed": [],
             "steps_failed": [],

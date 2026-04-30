@@ -1,7 +1,7 @@
 """Miner Registry Implementation"""
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from dataclasses import dataclass, field
 import asyncio
 
@@ -142,7 +142,7 @@ class MinerRegistry:
                 miner.current_jobs = current_jobs
                 miner.gpu_utilization = gpu_utilization
                 miner.memory_used_gb = memory_used_gb
-                miner.last_heartbeat = datetime.utcnow()
+                miner.last_heartbeat = datetime.now(datetime.UTC)
 
     async def update_capabilities(self, miner_id: str, capabilities: List[str]):
         """Update miner capabilities."""
@@ -271,7 +271,7 @@ class MinerRegistry:
             if job_id in self._jobs:
                 job = self._jobs[job_id]
                 job.status = status
-                job.completed_at = datetime.utcnow()
+                job.completed_at = datetime.now(datetime.UTC)
 
             if miner_id in self._miners:
                 miner = self._miners[miner_id]
@@ -314,7 +314,7 @@ class MinerRegistry:
             # Update job
             job.miner_id = new_miner_id
             job.status = "assigned"
-            job.assigned_at = datetime.utcnow()
+            job.assigned_at = datetime.now(datetime.UTC)
 
             # Update new miner
             if new_miner_id in self._miners:

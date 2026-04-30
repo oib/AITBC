@@ -5,7 +5,7 @@ Phase 5.1: Advanced AI Capabilities Enhancement
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 from uuid import uuid4
 
@@ -616,7 +616,7 @@ class AdvancedReinforcementLearningEngine:
             rl_config.success_rate_history = training_results["success_rate_history"]
             rl_config.convergence_episode = training_results["convergence_episode"]
             rl_config.status = "ready"
-            rl_config.trained_at = datetime.utcnow()
+            rl_config.trained_at = datetime.now(datetime.UTC)
             rl_config.training_progress = 1.0
 
             session.commit()
@@ -1329,7 +1329,7 @@ class MarketplaceStrategyOptimizer:
             rl_config.deployment_performance = deployment_performance
             rl_config.deployment_count += 1
             rl_config.status = "deployed"
-            rl_config.deployed_at = datetime.utcnow()
+            rl_config.deployed_at = datetime.now(datetime.UTC)
 
             session.commit()
 

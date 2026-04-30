@@ -5,7 +5,7 @@ Collects and tracks system and application metrics for monitoring
 
 import os
 import resource
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from aitbc import get_logger
@@ -29,7 +29,7 @@ class MetricsCollector:
             "memory_usage_mb": 0,
             "cpu_usage_percent": 0.0,
         }
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(datetime.UTC)
     
     def increment_api_requests(self) -> None:
         """Increment API request counter"""
@@ -103,7 +103,7 @@ class MetricsCollector:
         if self._metrics["api_requests"] > 0:
             error_rate = (self._metrics["api_errors"] / self._metrics["api_requests"]) * 100
         
-        uptime_seconds = (datetime.utcnow() - self._start_time).total_seconds()
+        uptime_seconds = (datetime.now(datetime.UTC) - self._start_time).total_seconds()
         
         return {
             **self._metrics,
@@ -113,7 +113,7 @@ class MetricsCollector:
             "alerts": self.get_alert_states(),
             "uptime_seconds": uptime_seconds,
             "uptime_formatted": self._format_uptime(uptime_seconds),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
     
     def _format_uptime(self, seconds: float) -> str:
@@ -155,7 +155,7 @@ class MetricsCollector:
             "memory_usage_mb": 0,
             "cpu_usage_percent": 0.0,
         }
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(datetime.UTC)
 
 
 # Global metrics collector instance

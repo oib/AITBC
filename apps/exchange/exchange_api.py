@@ -3,7 +3,7 @@
 FastAPI backend for the AITBC Trade Exchange
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, status, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -123,7 +123,7 @@ def create_mock_trades(db: Session):
     import random
     
     # Create mock trades over the last hour
-    now = datetime.utcnow()
+    now = datetime.now(datetime.UTC)
     trades = []
     
     for i in range(20):
@@ -278,7 +278,7 @@ def try_match_order(order: Order, db: Session):
             amount=trade_amount,
             price=match.price,
             total=trade_total,
-            trade_hash=f"trade_{datetime.utcnow().timestamp()}"
+            trade_hash=f"trade_{datetime.now(datetime.UTC).timestamp()}"
         )
         
         db.add(trade)
@@ -344,7 +344,7 @@ def logout_user(token: str = Header(..., alias="Authorization")):
 @app.get("/api/health")
 def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.utcnow()}
+    return {"status": "ok", "timestamp": datetime.now(datetime.UTC)}
 
 if __name__ == "__main__":
     import uvicorn

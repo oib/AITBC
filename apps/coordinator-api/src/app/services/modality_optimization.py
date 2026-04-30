@@ -13,7 +13,7 @@ import asyncio
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 
@@ -77,7 +77,7 @@ class TextOptimizer(ModalityOptimizer):
     ) -> dict[str, Any]:
         """Optimize text processing"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         constraints = constraints or {}
 
         # Normalize input
@@ -92,7 +92,7 @@ class TextOptimizer(ModalityOptimizer):
             optimized_result = await self._optimize_single_text(text, strategy, constraints)
             results.append(optimized_result)
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         # Calculate aggregate metrics
         total_original_chars = sum(len(text) for text in texts)
@@ -321,7 +321,7 @@ class ImageOptimizer(ModalityOptimizer):
     ) -> dict[str, Any]:
         """Optimize image processing"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         constraints = constraints or {}
 
         # Extract image properties
@@ -339,7 +339,7 @@ class ImageOptimizer(ModalityOptimizer):
         else:  # BALANCED
             result = await self._optimize_image_balanced(image_data, constraints)
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         # Calculate metrics
         original_size = width * height * channels
@@ -482,7 +482,7 @@ class AudioOptimizer(ModalityOptimizer):
     ) -> dict[str, Any]:
         """Optimize audio processing"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         constraints = constraints or {}
 
         # Extract audio properties
@@ -500,7 +500,7 @@ class AudioOptimizer(ModalityOptimizer):
         else:  # BALANCED
             result = await self._optimize_audio_balanced(audio_data, constraints)
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         # Calculate metrics
         original_size = sample_rate * duration * channels
@@ -649,7 +649,7 @@ class VideoOptimizer(ModalityOptimizer):
     ) -> dict[str, Any]:
         """Optimize video processing"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         constraints = constraints or {}
 
         # Extract video properties
@@ -668,7 +668,7 @@ class VideoOptimizer(ModalityOptimizer):
         else:  # BALANCED
             result = await self._optimize_video_balanced(video_data, constraints)
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         # Calculate metrics
         original_size = fps * duration * width * height * 3  # RGB
@@ -856,7 +856,7 @@ class ModalityOptimizationManager:
     ) -> dict[str, Any]:
         """Optimize multiple modalities"""
 
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         results = {}
 
         # Optimize each modality in parallel
@@ -875,7 +875,7 @@ class ModalityOptimizationManager:
             else:
                 results[modality.value] = result
 
-        processing_time = (datetime.utcnow() - start_time).total_seconds()
+        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
 
         # Calculate aggregate metrics
         total_compression = sum(

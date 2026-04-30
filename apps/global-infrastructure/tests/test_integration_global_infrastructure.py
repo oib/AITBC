@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, Region, GlobalDeployment, LoadBalancer, PerformanceMetrics, global_regions, deployments, load_balancers, performance_metrics
@@ -278,7 +278,7 @@ def test_record_performance_metrics():
     client = TestClient(app)
     metrics = PerformanceMetrics(
         region_id="us-west-1",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         cpu_usage=50.5,
         memory_usage=60.2,
         network_io=1000.5,
@@ -300,7 +300,7 @@ def test_get_region_performance():
     # Record metrics first
     metrics = PerformanceMetrics(
         region_id="us-west-1",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         cpu_usage=50.5,
         memory_usage=60.2,
         network_io=1000.5,

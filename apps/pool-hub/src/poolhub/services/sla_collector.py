@@ -4,7 +4,7 @@ Collects and tracks SLA metrics for miners including uptime, response time, job 
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
@@ -57,7 +57,7 @@ class SLACollector:
             metric_value=metric_value,
             threshold=threshold,
             is_violation=is_violation,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             meta_data=metadata or {},
         )
 
@@ -90,7 +90,7 @@ class SLACollector:
         # Calculate uptime based on last heartbeat
         if miner_status.last_heartbeat_at:
             time_since_heartbeat = (
-                datetime.utcnow() - miner_status.last_heartbeat_at
+                datetime.now(datetime.UTC) - miner_status.last_heartbeat_at
             ).total_seconds()
 
             # Consider miner down if no heartbeat for 5 minutes
@@ -153,7 +153,7 @@ class SLACollector:
         stmt = (
             select(Feedback)
             .where(Feedback.miner_id == miner_id)
-            .where(Feedback.created_at >= datetime.utcnow() - timedelta(days=7))
+            .where(Feedback.created_at >= datetime.now(datetime.UTC) - timedelta(days=7))
             .order_by(Feedback.created_at.desc())
             .limit(100)
         )
@@ -206,7 +206,7 @@ class SLACollector:
             forecast_capacity=total_miners,  # Would be calculated from forecasting
             recommended_scaling="stable",
             scaling_reason="Capacity within normal range",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
             meta_data={"method": "real_time_collection"},
         )
 
@@ -266,7 +266,7 @@ class SLACollector:
         stmt = (
             select(func.count(SLAViolation.id))
             .where(SLAViolation.resolved_at.is_(None))
-            .where(SLAViolation.created_at >= datetime.utcnow() - timedelta(hours=1))
+            .where(SLAViolation.created_at >= datetime.now(datetime.UTC) - timedelta(hours=1))
         )
         results["violations_detected"] = self.db.execute(stmt).scalar() or 0
 
@@ -282,7 +282,7 @@ class SLACollector:
     ) -> List[SLAMetric]:
         """Get SLA metrics for a miner or all miners"""
 
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(datetime.UTC) - timedelta(hours=hours)
 
         stmt = select(SLAMetric).where(SLAMetric.timestamp >= cutoff)
 
@@ -349,7 +349,7 @@ class SLACollector:
             metric_value=metric_value,
             threshold=threshold,
             violation_duration_ms=None,  # Will be updated when resolved
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
             meta_data=metadata or {},
         )
 

@@ -7,7 +7,7 @@ import sys
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, AsyncMock, patch
 from dataclasses import dataclass
@@ -51,9 +51,9 @@ class FakeQuota:
 
     def __post_init__(self):
         if self.period_start is None:
-            self.period_start = datetime.utcnow() - timedelta(hours=1)
+            self.period_start = datetime.now(datetime.UTC) - timedelta(hours=1)
         if self.period_end is None:
-            self.period_end = datetime.utcnow() + timedelta(hours=23)
+            self.period_end = datetime.now(datetime.UTC) + timedelta(hours=23)
 
 
 @dataclass
@@ -93,7 +93,7 @@ class InMemoryBillingStore:
         return self.tenants.get(tenant_id)
 
     def get_active_quota(self, tenant_id: str, resource_type: str):
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         for q in self.quotas:
             if (q.tenant_id == tenant_id
                     and q.resource_type == resource_type
@@ -119,7 +119,7 @@ async def apply_credit(store: InMemoryBillingStore, tenant_id: str, amount: Deci
         "tenant_id": tenant_id,
         "amount": amount,
         "reason": reason,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(datetime.UTC),
     })
     return True
 
@@ -138,7 +138,7 @@ async def apply_charge(store: InMemoryBillingStore, tenant_id: str, amount: Deci
         "tenant_id": tenant_id,
         "amount": amount,
         "reason": reason,
-        "timestamp": datetime.utcnow(),
+        "timestamp": datetime.now(datetime.UTC),
     })
     return True
 
@@ -161,7 +161,7 @@ async def adjust_quota(
 
 async def reset_daily_quotas(store: InMemoryBillingStore) -> int:
     """Reset used_value to 0 for all daily quotas whose period has ended."""
-    now = datetime.utcnow()
+    now = datetime.now(datetime.UTC)
     count = 0
     for q in store.quotas:
         if q.period_type == "daily" and q.is_active and q.period_end <= now:
@@ -197,7 +197,7 @@ async def generate_monthly_invoices(store: InMemoryBillingStore) -> list[str]:
         if not tenant_usage:
             continue
         total = sum(r.total_cost for r in tenant_usage)
-        inv_id = f"INV-{tenant.slug}-{datetime.utcnow().strftime('%Y%m')}-{len(generated)+1:04d}"
+        inv_id = f"INV-{tenant.slug}-{datetime.now(datetime.UTC).strftime('%Y%m')}-{len(generated)+1:04d}"
         store.invoices_generated.append(inv_id)
         generated.append(inv_id)
     return generated
@@ -254,8 +254,8 @@ def store():
         id="q2", tenant_id="t1", resource_type="api_calls",
         limit_value=Decimal("10000"), used_value=Decimal("5000"),
         period_type="daily",
-        period_start=datetime.utcnow() - timedelta(days=2),
-        period_end=datetime.utcnow() - timedelta(hours=1),  # expired
+        period_start=datetime.now(datetime.UTC) - timedelta(days=2),
+        period_end=datetime.now(datetime.UTC) - timedelta(hours=1),  # expired
     ))
     return s
 
@@ -345,7 +345,7 @@ class TestResetDailyQuotas:
         assert count == 1  # q2 is expired daily
         q2 = store.quotas[1]
         assert q2.used_value == Decimal("0")
-        assert q2.period_end > datetime.utcnow()
+        assert q2.period_end > datetime.now(datetime.UTC)
 
     @pytest.mark.asyncio
     async def test_does_not_reset_active_quotas(self, store):

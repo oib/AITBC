@@ -9,7 +9,7 @@ import json
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -425,13 +425,13 @@ class AgentTrustManager:
 
         if security_violation:
             trust_score.security_violations += 1
-            trust_score.last_violation = datetime.utcnow()
-            trust_score.violation_history.append({"timestamp": datetime.utcnow().isoformat(), "type": "security_violation"})
+            trust_score.last_violation = datetime.now(datetime.UTC)
+            trust_score.violation_history.append({"timestamp": datetime.now(datetime.UTC).isoformat(), "type": "security_violation"})
 
         if policy_violation:
             trust_score.policy_violations += 1
-            trust_score.last_violation = datetime.utcnow()
-            trust_score.violation_history.append({"timestamp": datetime.utcnow().isoformat(), "type": "policy_violation"})
+            trust_score.last_violation = datetime.now(datetime.UTC)
+            trust_score.violation_history.append({"timestamp": datetime.now(datetime.UTC).isoformat(), "type": "policy_violation"})
 
         # Calculate scores
         trust_score.trust_score = self._calculate_trust_score(trust_score)
@@ -449,8 +449,8 @@ class AgentTrustManager:
                     trust_score.average_execution_time * (trust_score.total_executions - 1) + execution_time
                 ) / trust_score.total_executions
 
-        trust_score.last_execution = datetime.utcnow()
-        trust_score.updated_at = datetime.utcnow()
+        trust_score.last_execution = datetime.now(datetime.UTC)
+        trust_score.updated_at = datetime.now(datetime.UTC)
 
         self.session.commit()
         self.session.refresh(trust_score)
@@ -477,7 +477,7 @@ class AgentTrustManager:
 
         # Recency bonus (recent successful executions)
         if trust_score.last_execution:
-            days_since_last = (datetime.utcnow() - trust_score.last_execution).days
+            days_since_last = (datetime.now(datetime.UTC) - trust_score.last_execution).days
             if days_since_last < 7:
                 base_score += 5  # Recent activity bonus
             elif days_since_last > 30:
@@ -736,7 +736,7 @@ class AgentSandboxManager:
             if sandbox:
                 # Mark as inactive
                 sandbox.is_active = False
-                sandbox.updated_at = datetime.utcnow()
+                sandbox.updated_at = datetime.now(datetime.UTC)
                 self.session.commit()
 
                 # Sandbox cleanup requires integration with:

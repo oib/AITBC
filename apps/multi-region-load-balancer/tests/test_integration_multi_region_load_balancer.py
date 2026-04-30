@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, LoadBalancingRule, RegionHealth, LoadBalancingMetrics, GeographicRule, load_balancing_rules, region_health_status, balancing_metrics, geographic_rules
@@ -193,7 +193,7 @@ def test_register_region_health():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=100,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/health/register", json=health.model_dump(mode='json'))
     assert response.status_code == 200
@@ -286,7 +286,7 @@ def test_record_balancing_metrics():
     client = TestClient(app)
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         total_requests=1000,
         requests_per_region={"us-east-1": 500},
         average_response_time=50.5,

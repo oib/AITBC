@@ -5,7 +5,7 @@ Tests the integration between pool-hub and coordinator-api's billing system.
 import sys
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 
@@ -70,7 +70,7 @@ def test_end_to_end_sla_to_billing_workflow(
     assert len(metrics) > 0
 
     # Step 3: Collect usage data for billing
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(hours=1)
     usage_data = sla_collector.db.run_sync(
         lambda sess: billing_integration._collect_miner_usage(
@@ -126,7 +126,7 @@ def test_sla_violation_billing_correlation(
     assert len(violations) > 0
 
     # Usage should still be recorded even with violations
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(hours=1)
     usage_data = sla_collector.db.run_sync(
         lambda sess: billing_integration._collect_miner_usage(
@@ -172,7 +172,7 @@ def test_billing_sync_with_coordinator_api(
     """Test billing sync with coordinator-api (mocked)"""
     from unittest.mock import AsyncMock, patch
 
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(hours=1)
 
     with patch("poolhub.services.billing_integration.httpx.AsyncClient") as mock_client:

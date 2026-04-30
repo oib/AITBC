@@ -5,7 +5,7 @@ Simple FastAPI backend for the AITBC Trade Exchange (Python 3.13 compatible)
 
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, UTC
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import random
@@ -84,7 +84,7 @@ def create_mock_trades():
         return
     
     # Create mock trades
-    now = datetime.utcnow()
+    now = datetime.now(datetime.UTC)
     for i in range(20):
         amount = random.uniform(10, 500)
         price = random.uniform(0.000009, 0.000012)
@@ -477,7 +477,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         """Health check"""
         self.send_json_response({
             'status': 'ok',
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         })
     
     def handle_wallet_balance(self):

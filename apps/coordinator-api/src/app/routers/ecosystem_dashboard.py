@@ -5,7 +5,7 @@ Ecosystem Metrics Dashboard API
 REST API for developer ecosystem metrics and analytics
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -345,7 +345,7 @@ async def get_ecosystem_alerts(
             "alerts": alerts,
             "severity": severity,
             "count": len(alerts),
-            "last_updated": datetime.utcnow()
+            "last_updated": datetime.now(datetime.UTC)
         }
         
     except Exception as e:
@@ -422,7 +422,7 @@ async def get_real_time_metrics(
         real_time_data = await ecosystem_service.get_real_time_metrics()
         
         return {
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(datetime.UTC),
             "metrics": real_time_data,
             "update_frequency": "60s"  # Update frequency in seconds
         }
@@ -442,7 +442,7 @@ async def get_kpi_dashboard(
         
         return {
             "kpis": kpi_data,
-            "last_updated": datetime.utcnow(),
+            "last_updated": datetime.now(datetime.UTC),
             "refresh_interval": 300  # 5 minutes
         }
         

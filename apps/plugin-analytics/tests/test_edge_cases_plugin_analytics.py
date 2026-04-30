@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginUsage, PluginPerformance, PluginRating, PluginEvent, plugin_usage_data, plugin_performance_data, plugin_ratings, plugin_events
@@ -32,7 +32,7 @@ def test_plugin_usage_empty_plugin_id():
         plugin_id="",
         user_id="user_123",
         action="install",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert usage.plugin_id == ""
 
@@ -48,7 +48,7 @@ def test_plugin_performance_negative_values():
         response_time=-0.1,
         error_rate=-0.01,
         uptime=-50.0,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert perf.cpu_usage == -10.0
     assert perf.memory_usage == -5.0
@@ -61,7 +61,7 @@ def test_plugin_rating_out_of_range():
         plugin_id="plugin_123",
         user_id="user_123",
         rating=10,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert rating.rating == 10
 
@@ -73,7 +73,7 @@ def test_plugin_rating_zero():
         plugin_id="plugin_123",
         user_id="user_123",
         rating=0,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     assert rating.rating == 0
 
@@ -128,7 +128,7 @@ def test_record_multiple_usage_events():
             plugin_id="plugin_123",
             user_id=f"user_{i}",
             action="use",
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(datetime.UTC)
         )
         client.post("/api/v1/analytics/usage", json=usage.model_dump(mode='json'))
     

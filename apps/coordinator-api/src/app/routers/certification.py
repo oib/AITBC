@@ -7,7 +7,7 @@ Certification and Partnership API Endpoints
 REST API for agent certification, partnership programs, and badge system
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -626,7 +626,7 @@ async def check_automatic_badges(
             "agent_id": agent_id,
             "badges_awarded": awarded_badges,
             "total_awarded": len(awarded_badges),
-            "checked_at": datetime.utcnow().isoformat()
+            "checked_at": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:

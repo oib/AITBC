@@ -6,7 +6,7 @@ Basic marketplace enhancement features compatible with existing domain models
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -69,7 +69,7 @@ class EnhancedMarketplaceService:
             offer.attributes["royalty_distribution"] = {
                 "tiers": royalty_tiers,
                 "dynamic_rates": dynamic_rates,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
             self.session.commit()
@@ -78,7 +78,7 @@ class EnhancedMarketplaceService:
                 "offer_id": offer_id,
                 "tiers": royalty_tiers,
                 "dynamic_rates": dynamic_rates,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
         except Exception as e:
@@ -134,7 +134,7 @@ class EnhancedMarketplaceService:
                 "license_type": license_type.value,
                 "terms": terms,
                 "usage_rights": usage_rights,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
             if custom_terms:
@@ -165,7 +165,7 @@ class EnhancedMarketplaceService:
                 "verification_type": verification_type.value,
                 "status": "verified",
                 "checks": {},
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
             # Add verification checks based on type
@@ -203,7 +203,7 @@ class EnhancedMarketplaceService:
                 metrics = ["volume", "trends", "performance", "revenue"]
 
             # Calculate date range
-            end_date = datetime.utcnow()
+            end_date = datetime.now(datetime.UTC)
             start_date = end_date - timedelta(days=period_days)
 
             # Get marketplace data

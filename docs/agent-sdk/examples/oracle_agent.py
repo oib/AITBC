@@ -8,7 +8,7 @@ import asyncio
 import logging
 import requests
 from typing import Dict, Any, List
-from datetime import datetime
+from datetime import datetime, UTC
 from aitbc_agent_sdk import Agent, AgentConfig
 from aitbc_agent_sdk.blockchain import BlockchainClient
 from aitbc_agent_sdk.oracle import OracleProvider
@@ -120,7 +120,7 @@ class OracleAgentExample:
             # Prepare oracle data package
             oracle_data = {
                 "data_type": data_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "data": data,
                 "agent_address": self.agent.address,
                 "signature": await self.oracle_provider.sign_data(data)
@@ -243,13 +243,13 @@ class OracleAgentExample:
             {
                 "title": "AI Technology Breakthrough Announced",
                 "source": "Tech News",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "sentiment": "positive"
             },
             {
                 "title": "Cryptocurrency Market Sees Major Movement",
                 "source": "Financial Times",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "sentiment": "neutral"
             }
         ]
@@ -266,7 +266,7 @@ class OracleAgentExample:
             return {
                 "success": True,
                 "data": data,
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(datetime.UTC).isoformat()
             }
         else:
             return {
@@ -284,7 +284,7 @@ class OracleAgentExample:
             "is_running": self.is_running,
             "balance": balance,
             "data_sources": list(self.data_sources.keys()),
-            "last_update": datetime.utcnow().isoformat()
+            "last_update": datetime.now(datetime.UTC).isoformat()
         }
 
 async def main():

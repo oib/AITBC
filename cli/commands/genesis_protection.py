@@ -5,7 +5,7 @@ import json
 import hashlib
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, UTC
 from utils import output, error, success, warning
 
 
@@ -50,7 +50,7 @@ def verify_genesis(ctx, chain: str, genesis_hash: Optional[str], force: bool):
         "hash_match": genesis_hash is None or calculated_hash == genesis_hash,
         "genesis_timestamp": chain_genesis.get("timestamp"),
         "genesis_accounts": len(chain_genesis.get("accounts", [])),
-        "verification_timestamp": datetime.utcnow().isoformat()
+        "verification_timestamp": datetime.now(datetime.UTC).isoformat()
     }
     
     if not verification_result["hash_match"] and not force:
@@ -108,7 +108,7 @@ def genesis_hash(ctx, chain: str):
         "genesis_hash": calculated_hash,
         "genesis_timestamp": chain_genesis.get("timestamp"),
         "genesis_size": len(genesis_string),
-        "calculated_at": datetime.utcnow().isoformat(),
+        "calculated_at": datetime.now(datetime.UTC).isoformat(),
         "genesis_summary": {
             "accounts": len(chain_genesis.get("accounts", [])),
             "authorities": len(chain_genesis.get("authorities", [])),
@@ -131,7 +131,7 @@ def verify_signature(ctx, signer: str, message: Optional[str], chain: Optional[s
     """Verify digital signature for genesis or transactions"""
     
     if not message:
-        message = f"Genesis verification for {chain or 'all chains'} at {datetime.utcnow().isoformat()}"
+        message = f"Genesis verification for {chain or 'all chains'} at {datetime.now(datetime.UTC).isoformat()}"
     
     # Create signature (simplified for demo)
     signature_data = f"{signer}:{message}:{chain or 'global'}"
@@ -143,7 +143,7 @@ def verify_signature(ctx, signer: str, message: Optional[str], chain: Optional[s
         "message": message,
         "chain": chain,
         "signature": signature,
-        "verification_timestamp": datetime.utcnow().isoformat(),
+        "verification_timestamp": datetime.now(datetime.UTC).isoformat(),
         "signature_valid": True  # In real implementation, this would verify against actual signature
     }
     
@@ -202,7 +202,7 @@ def network_verify_genesis(ctx, all_chains: bool, chain: Optional[str], network_
     network_results = {
         "verification_type": "network_wide" if network_wide else "selective",
         "chains_verified": chains_to_verify,
-        "verification_timestamp": datetime.utcnow().isoformat(),
+        "verification_timestamp": datetime.now(datetime.UTC).isoformat(),
         "chain_results": {},
         "overall_consensus": True,
         "total_chains": len(chains_to_verify)
@@ -280,7 +280,7 @@ def protect(ctx, chain: str, protection_level: str, backup: bool):
     
     # Create backup if requested
     if backup:
-        backup_file = Path.home() / ".aitbc" / f"genesis_backup_{chain}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+        backup_file = Path.home() / ".aitbc" / f"genesis_backup_{chain}_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}.json"
         with open(backup_file, 'w') as f:
             json.dump(genesis_data, f, indent=2)
         success(f"Genesis backup created: {backup_file}")
@@ -291,7 +291,7 @@ def protect(ctx, chain: str, protection_level: str, backup: bool):
     protection_config = {
         "chain": chain,
         "protection_level": protection_level,
-        "applied_at": datetime.utcnow().isoformat(),
+        "applied_at": datetime.now(datetime.UTC).isoformat(),
         "protection mechanisms": []
     }
     

@@ -6,7 +6,7 @@ Implements comprehensive real-time monitoring and analytics for the AITBC market
 import time
 import asyncio
 from typing import Dict, List, Optional, Any, collections
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import collections
 
 from aitbc import get_logger
@@ -187,7 +187,7 @@ class MarketplaceMonitor:
                 'value': p95_latency,
                 'threshold': self.alert_thresholds['api_latency_p95_ms'],
                 'message': f"High API Latency (p95): {p95_latency:.2f}ms",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Error Rate Alert
@@ -200,7 +200,7 @@ class MarketplaceMonitor:
                 'value': avg_error_rate,
                 'threshold': self.alert_thresholds['api_error_rate_pct'],
                 'message': f"High API Error Rate: {avg_error_rate:.2f}%",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Matching Time Alert
@@ -213,7 +213,7 @@ class MarketplaceMonitor:
                 'value': avg_matching,
                 'threshold': self.alert_thresholds['matching_time_ms'],
                 'message': f"Slow Order Matching: {avg_matching:.2f}ms",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Pool-Hub SLA Alerts
@@ -227,7 +227,7 @@ class MarketplaceMonitor:
                 'value': avg_uptime,
                 'threshold': self.alert_thresholds['miner_uptime_pct'],
                 'message': f"Low Miner Uptime: {avg_uptime:.2f}%",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Miner Response Time Alert
@@ -240,7 +240,7 @@ class MarketplaceMonitor:
                 'value': p95_response,
                 'threshold': self.alert_thresholds['miner_response_time_ms'],
                 'message': f"High Miner Response Time (p95): {p95_response:.2f}ms",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Job Completion Rate Alert
@@ -253,7 +253,7 @@ class MarketplaceMonitor:
                 'value': avg_completion,
                 'threshold': self.alert_thresholds['job_completion_rate_pct'],
                 'message': f"Low Job Completion Rate: {avg_completion:.2f}%",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         # Capacity Availability Alert
@@ -266,7 +266,7 @@ class MarketplaceMonitor:
                 'value': avg_capacity,
                 'threshold': self.alert_thresholds['capacity_availability_pct'],
                 'message': f"Low Capacity Availability: {avg_capacity:.2f}%",
-                'timestamp': datetime.utcnow().isoformat()
+                'timestamp': datetime.now(datetime.UTC).isoformat()
             })
             
         self.active_alerts = current_alerts
@@ -281,7 +281,7 @@ class MarketplaceMonitor:
         """Get aggregated data formatted for the frontend dashboard"""
         return {
             'status': 'degraded' if any(a['severity'] in ['high', 'critical'] for a in self.active_alerts) else 'healthy',
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(datetime.UTC).isoformat(),
             'current_metrics': {
                 'api': {
                     'rps': round(self.api_requests_per_sec.get_latest() or 0, 2),

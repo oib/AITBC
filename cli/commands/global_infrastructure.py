@@ -6,7 +6,7 @@ Commands for managing global infrastructure deployment and multi-region optimiza
 import click
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional
 
 @click.group()
@@ -35,7 +35,7 @@ def deploy_region(region_id, name, location, endpoint, capacity, compliance_leve
             "current_load": 0,
             "latency_ms": 0,
             "compliance_level": compliance_level,
-            "deployed_at": datetime.utcnow().isoformat()
+            "deployed_at": datetime.now(datetime.UTC).isoformat()
         }
         
         if test_mode:
@@ -295,7 +295,7 @@ def deploy_service(service_name, target_regions, strategy, configuration, test_m
             "configuration": config_data,
             "deployment_strategy": strategy,
             "health_checks": ["/health", "/api/health"],
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(datetime.UTC).isoformat()
         }
         
         if test_mode:

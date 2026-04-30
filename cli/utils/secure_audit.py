@@ -7,7 +7,7 @@ import json
 import hashlib
 import secrets
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional, Tuple
 from eth_utils import keccak
 
@@ -34,7 +34,7 @@ class SecureAuditLogger:
                 "genesis_hash": None,
                 "last_hash": None,
                 "entry_count": 0,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
                 "version": "1.0"
             }
             with open(self.integrity_file, "w") as f:
@@ -54,7 +54,7 @@ class SecureAuditLogger:
         
         integrity_data["last_hash"] = entry_hash
         integrity_data["entry_count"] += 1
-        integrity_data["last_updated"] = datetime.utcnow().isoformat()
+        integrity_data["last_updated"] = datetime.now(datetime.UTC).isoformat()
         
         with open(self.integrity_file, "w") as f:
             json.dump(integrity_data, f, indent=2)
@@ -99,7 +99,7 @@ class SecureAuditLogger:
         
         # Create audit entry
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "action": action,
             "user": user or "unknown",
             "details": details or {},
@@ -239,7 +239,7 @@ class SecureAuditLogger:
         # Create report
         report = {
             "audit_report": {
-                "generated_at": datetime.utcnow().isoformat(),
+                "generated_at": datetime.now(datetime.UTC).isoformat(),
                 "integrity": {
                     "is_valid": is_valid,
                     "issues": issues

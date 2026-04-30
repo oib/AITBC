@@ -8,7 +8,7 @@ sys.path.insert(0, 'src')
 
 from aitbc_chain.database import session_scope, init_db
 from aitbc_chain.models import Block
-from datetime import datetime
+from datetime import datetime, UTC
 import hashlib
 
 def compute_block_hash(height: int, parent_hash: str, timestamp: datetime) -> str:
@@ -31,7 +31,7 @@ def create_genesis():
             return
         
         # Create genesis block
-        timestamp = datetime.utcnow()
+        timestamp = datetime.now(datetime.UTC)
         genesis_hash = compute_block_hash(0, "0x00", timestamp)
         genesis = Block(
             height=0,

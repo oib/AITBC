@@ -4,7 +4,7 @@ Handles task creation, assignment, and tracking
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Dict, Any, Optional, List
 from enum import Enum
 
@@ -42,8 +42,8 @@ class Task:
         self.priority = priority
         self.created_by = created_by or assigned_to
         self.status = TaskStatus.PENDING
-        self.created_at = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        self.created_at = datetime.now(datetime.UTC)
+        self.updated_at = datetime.now(datetime.UTC)
         self.completed_at = None
         self.result = None
         self.error = None
@@ -94,10 +94,10 @@ class TaskManager:
             return False
         
         task.status = status
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(datetime.UTC)
         
         if status == TaskStatus.COMPLETED:
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(datetime.UTC)
             task.result = result
         elif status == TaskStatus.FAILED:
             task.error = error
@@ -120,7 +120,7 @@ class TaskManager:
     
     def get_overdue_tasks(self, hours: int = 24) -> List[Task]:
         """Get tasks that are overdue"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
         return [
             task for task in self.tasks.values()
             if task.status in [TaskStatus.PENDING, TaskStatus.IN_PROGRESS] and

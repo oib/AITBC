@@ -4,7 +4,7 @@ Implements adaptive learning, predictive analytics, and intelligent optimization
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict, deque
@@ -55,7 +55,7 @@ class RealTimeLearningSystem:
         try:
             experience = LearningExperience(
                 experience_id=str(uuid.uuid4()),
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(datetime.UTC),
                 context=experience_data.get('context', {}),
                 action=experience_data.get('action', ''),
                 outcome=experience_data.get('outcome', ''),
@@ -157,7 +157,7 @@ class RealTimeLearningSystem:
             features=['action', 'context_load', 'context_agents'],
             target='performance_score',
             accuracy=0.85,
-            last_updated=datetime.utcnow()
+            last_updated=datetime.now(datetime.UTC)
         )
         
         self.models['performance'] = performance_model
@@ -169,7 +169,7 @@ class RealTimeLearningSystem:
             features=['action', 'context_time', 'context_resources'],
             target='success_probability',
             accuracy=0.82,
-            last_updated=datetime.utcnow()
+            last_updated=datetime.now(datetime.UTC)
         )
         
         self.models['success'] = success_model
@@ -257,7 +257,7 @@ class RealTimeLearningSystem:
         try:
             total_experiences = len(self.experiences)
             recent_experiences = [exp for exp in self.experiences 
-                                 if exp.timestamp > datetime.utcnow() - timedelta(hours=24)]
+                                 if exp.timestamp > datetime.now(datetime.UTC) - timedelta(hours=24)]
             
             if not self.experiences:
                 return {
@@ -299,7 +299,7 @@ class RealTimeLearningSystem:
     def _get_last_adaptation_time(self) -> Optional[str]:
         """Get the time of the last adaptation"""
         # This would be tracked in a real implementation
-        return datetime.utcnow().isoformat() if len(self.experiences) > 50 else None
+        return datetime.now(datetime.UTC).isoformat() if len(self.experiences) > 50 else None
     
     async def recommend_action(self, context: Dict[str, Any], available_actions: List[str]) -> Dict[str, Any]:
         """Recommend the best action based on learning"""

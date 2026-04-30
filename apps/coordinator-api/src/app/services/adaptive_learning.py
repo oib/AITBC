@@ -11,7 +11,7 @@ Reinforcement learning frameworks for agent self-improvement
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import StrEnum
 from typing import Any
 
@@ -380,7 +380,7 @@ class AdaptiveLearningService:
                 "action_space_size": len(environment.action_space),
                 "safety_constraints": len(environment.safety_constraints),
                 "max_episodes": environment.max_episodes,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
         except Exception as e:
@@ -403,7 +403,7 @@ class AdaptiveLearningService:
                 "discount_factor": agent.discount_factor,
                 "exploration_rate": agent.exploration_rate,
                 "status": "created",
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
         except Exception as e:
@@ -427,7 +427,7 @@ class AdaptiveLearningService:
         self.training_sessions[session_id] = {
             "agent_id": agent_id,
             "environment_id": environment_id,
-            "start_time": datetime.utcnow(),
+            "start_time": datetime.now(datetime.UTC),
             "config": training_config,
             "status": "running",
         }
@@ -438,7 +438,7 @@ class AdaptiveLearningService:
 
             # Update session
             self.training_sessions[session_id].update(
-                {"status": "completed", "end_time": datetime.utcnow(), "results": training_results}
+                {"status": "completed", "end_time": datetime.now(datetime.UTC), "results": training_results}
             )
 
             return {
@@ -626,7 +626,7 @@ class AdaptiveLearningService:
             "performance_metrics": agent.performance_metrics,
             "current_exploration_rate": agent.exploration_rate,
             "policy_size": len(agent.q_table) if hasattr(agent, "q_table") else "neural_network",
-            "last_updated": datetime.utcnow().isoformat(),
+            "last_updated": datetime.now(datetime.UTC).isoformat(),
         }
 
     async def evaluate_agent(self, agent_id: str, environment_id: str, evaluation_config: dict[str, Any]) -> dict[str, Any]:
@@ -678,7 +678,7 @@ class AdaptiveLearningService:
             "min_reward": float(min(evaluation_rewards)),
             "average_episode_length": float(np.mean(evaluation_lengths)),
             "success_rate": sum(1 for r in evaluation_rewards if r > 0) / len(evaluation_rewards),
-            "evaluation_timestamp": datetime.utcnow().isoformat(),
+            "evaluation_timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
     async def create_reward_function(self, reward_id: str, reward_type: RewardType, config: dict[str, Any]) -> dict[str, Any]:
@@ -690,7 +690,7 @@ class AdaptiveLearningService:
             "config": config,
             "parameters": config.get("parameters", {}),
             "weights": config.get("weights", {}),
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
         }
 
         self.reward_functions[reward_id] = reward_function

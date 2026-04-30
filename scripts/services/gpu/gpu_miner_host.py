@@ -10,7 +10,7 @@ import logging
 import sys
 import subprocess
 import os
-from datetime import datetime
+from datetime import datetime, UTC
 
 # Configuration
 COORDINATOR_URL = "http://127.0.0.1:8000"
@@ -147,7 +147,7 @@ def send_heartbeat():
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.utcnow().isoformat(),
+            "last_seen": datetime.now(datetime.UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
             "memory_total": gpu_info["memory_total"]
@@ -156,7 +156,7 @@ def send_heartbeat():
         heartbeat_data = {
             "status": "active",
             "current_jobs": 0,
-            "last_seen": datetime.utcnow().isoformat(),
+            "last_seen": datetime.now(datetime.UTC).isoformat(),
             "gpu_utilization": 0,
             "memory_used": 0,
         }

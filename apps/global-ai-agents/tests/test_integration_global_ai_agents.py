@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 
 from main import app, Agent, AgentMessage, CollaborationSession, AgentPerformance, global_agents, agent_messages, collaboration_sessions, agent_performance
@@ -194,7 +194,7 @@ def test_send_direct_message():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 200
@@ -241,7 +241,7 @@ def test_send_broadcast_message():
         content={"data": "test"},
         priority="medium",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 200
@@ -261,7 +261,7 @@ def test_send_message_sender_not_found():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 400
@@ -292,7 +292,7 @@ def test_send_message_recipient_not_found():
         content={"data": "test"},
         priority="high",
         language="english",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/messages/send", json=message.model_dump(mode='json'))
     assert response.status_code == 400
@@ -377,8 +377,8 @@ def test_create_collaboration():
         participants=["agent_123", "agent_456"],
         session_type="task_force",
         objective="Complete task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
         status="active"
     )
     response = client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -396,8 +396,8 @@ def test_create_collaboration_participant_not_found():
         participants=["nonexistent"],
         session_type="task_force",
         objective="Complete task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
         status="active"
     )
     response = client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -427,8 +427,8 @@ def test_get_collaboration():
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -462,8 +462,8 @@ def test_send_collaboration_message():
         participants=["agent_123"],
         session_type="research",
         objective="Research task",
-        created_at=datetime.utcnow(),
-        expires_at=datetime.utcnow() + timedelta(hours=1),
+        created_at=datetime.now(datetime.UTC),
+        expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
         status="active"
     )
     client.post("/api/v1/collaborations/create", json=session.model_dump(mode='json'))
@@ -493,7 +493,7 @@ def test_record_agent_performance():
     
     performance = AgentPerformance(
         agent_id="agent_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,
@@ -513,7 +513,7 @@ def test_record_performance_agent_not_found():
     client = TestClient(app)
     performance = AgentPerformance(
         agent_id="nonexistent",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         tasks_completed=10,
         response_time_ms=50.5,
         accuracy_score=0.95,

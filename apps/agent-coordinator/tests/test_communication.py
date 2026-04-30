@@ -5,7 +5,7 @@ Tests for Agent Communication Protocols
 import sys
 import pytest
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from unittest.mock import Mock, AsyncMock
 
 from src.app.protocols.communication import (
@@ -63,12 +63,12 @@ class TestAgentMessage:
             sender_id="agent-001",
             receiver_id="agent-002",
             message_type=MessageType.DIRECT,
-            timestamp=datetime.utcnow() - timedelta(seconds=400),
+            timestamp=datetime.now(datetime.UTC) - timedelta(seconds=400),
             ttl=300
         )
         
         # Message should be expired
-        age = (datetime.utcnow() - old_message.timestamp).total_seconds()
+        age = (datetime.now(datetime.UTC) - old_message.timestamp).total_seconds()
         assert age > old_message.ttl
 
 class TestHierarchicalProtocol:

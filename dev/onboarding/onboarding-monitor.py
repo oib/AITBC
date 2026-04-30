@@ -11,7 +11,7 @@ import json
 import sys
 import time
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 import requests
 from collections import defaultdict
@@ -197,7 +197,7 @@ class OnboardingMonitor:
         metrics = self.calculate_metrics()
         
         report = {
-            'timestamp': datetime.utcnow().isoformat(),
+            'timestamp': datetime.now(datetime.UTC).isoformat(),
             'summary': {
                 'total_onboardings': self.metrics['total_onboardings'],
                 'successful_onboardings': self.metrics['successful_onboardings'],

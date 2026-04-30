@@ -6,7 +6,7 @@ Provides health monitoring for specialized modality optimization strategies
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 import psutil
@@ -33,7 +33,7 @@ async def modality_optimization_health(session: Annotated[Session, Depends(get_s
             "status": "healthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -86,7 +86,7 @@ async def modality_optimization_health(session: Annotated[Session, Depends(get_s
             "status": "unhealthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -148,7 +148,7 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
             "status": "healthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "optimization_tests": optimization_tests,
             "overall_health": (
                 "pass" if all(test.get("status") == "pass" for test in optimization_tests.values()) else "degraded"
@@ -161,6 +161,6 @@ async def modality_optimization_deep_health(session: Annotated[Session, Depends(
             "status": "unhealthy",
             "service": "modality-optimization",
             "port": 8004,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Deep health check failed",
         }

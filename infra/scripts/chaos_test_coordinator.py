@@ -12,7 +12,7 @@ import time
 import logging
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -192,7 +192,7 @@ class ChaosTestCoordinator:
     async def run_test(self, outage_duration: int = 60, load_duration: int = 120):
         """Run the complete chaos test"""
         logger.info("Starting coordinator outage chaos test")
-        self.metrics["test_start"] = datetime.utcnow().isoformat()
+        self.metrics["test_start"] = datetime.now(datetime.UTC).isoformat()
         
         # Phase 1: Generate initial load
         logger.info("Phase 1: Generating initial load")
@@ -200,7 +200,7 @@ class ChaosTestCoordinator:
         
         # Phase 2: Induce outage
         logger.info("Phase 2: Inducing coordinator outage")
-        self.metrics["outage_start"] = datetime.utcnow().isoformat()
+        self.metrics["outage_start"] = datetime.now(datetime.UTC).isoformat()
         
         if not self.delete_coordinator_pods():
             logger.error("Failed to induce outage")
@@ -216,7 +216,7 @@ class ChaosTestCoordinator:
         
         # Phase 3: Monitor recovery
         logger.info("Phase 3: Monitoring service recovery")
-        self.metrics["outage_end"] = datetime.utcnow().isoformat()
+        self.metrics["outage_end"] = datetime.now(datetime.UTC).isoformat()
         
         if not await self.wait_for_recovery():
             logger.error("Service did not recover")
@@ -227,7 +227,7 @@ class ChaosTestCoordinator:
         await self.generate_load(load_duration)
         
         # Calculate metrics
-        self.metrics["test_end"] = datetime.utcnow().isoformat()
+        self.metrics["test_end"] = datetime.now(datetime.UTC).isoformat()
         self.metrics["mttr"] = self.metrics["recovery_time"]
         
         # Save results

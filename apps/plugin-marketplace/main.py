@@ -5,7 +5,7 @@ Provides web interface and marketplace functionality for plugins
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, Request
@@ -120,7 +120,7 @@ async def get_featured_plugins_api():
     """Get featured plugins for marketplace"""
     return {
         "featured_plugins": get_featured_plugins(),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/popular")
@@ -128,7 +128,7 @@ async def get_popular_plugins_api(limit: int = 12):
     """Get popular plugins"""
     return {
         "popular_plugins": get_popular_plugins(limit),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/recent")
@@ -136,7 +136,7 @@ async def get_recent_plugins_api(limit: int = 12):
     """Get recently added plugins"""
     return {
         "recent_plugins": get_recent_plugins(limit),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/marketplace/stats")
@@ -144,13 +144,13 @@ async def get_marketplace_stats_api():
     """Get marketplace statistics"""
     return {
         "stats": get_marketplace_stats(),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.post("/api/v1/reviews")
 async def create_review(review: MarketplaceReview):
     """Create a plugin review"""
-    review_id = f"review_{int(datetime.utcnow().timestamp())}"
+    review_id = f"review_{int(datetime.now(datetime.UTC).timestamp())}"
     
     review_record = {
         "review_id": review_id,
@@ -162,7 +162,7 @@ async def create_review(review: MarketplaceReview):
         "pros": review.pros,
         "cons": review.cons,
         "helpful_votes": 0,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "verified_purchase": False
     }
     
@@ -202,7 +202,7 @@ async def get_plugin_reviews_api(plugin_id: str):
 @app.post("/api/v1/purchases")
 async def create_purchase(purchase: PluginPurchase):
     """Create a plugin purchase"""
-    purchase_id = f"purchase_{int(datetime.utcnow().timestamp())}"
+    purchase_id = f"purchase_{int(datetime.now(datetime.UTC).timestamp())}"
     
     purchase_record = {
         "purchase_id": purchase_id,
@@ -211,8 +211,8 @@ async def create_purchase(purchase: PluginPurchase):
         "price": purchase.price,
         "payment_method": purchase.payment_method,
         "status": "completed",
-        "created_at": datetime.utcnow().isoformat(),
-        "refund_deadline": (datetime.utcnow() + timedelta(days=30)).isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "refund_deadline": (datetime.now(datetime.UTC) + timedelta(days=30)).isoformat()
     }
     
     if purchase.plugin_id not in purchases:
@@ -235,7 +235,7 @@ async def create_purchase(purchase: PluginPurchase):
 @app.post("/api/v1/developers/apply")
 async def apply_developer(application: DeveloperApplication):
     """Apply to become a verified developer"""
-    application_id = f"dev_app_{int(datetime.utcnow().timestamp())}"
+    application_id = f"dev_app_{int(datetime.now(datetime.UTC).timestamp())}"
     
     application_record = {
         "application_id": application_id,
@@ -247,7 +247,7 @@ async def apply_developer(application: DeveloperApplication):
         "github_username": application.github_username,
         "description": application.description,
         "status": "pending",
-        "submitted_at": datetime.utcnow().isoformat(),
+        "submitted_at": datetime.now(datetime.UTC).isoformat(),
         "reviewed_at": None,
         "reviewer_notes": None
     }
@@ -268,7 +268,7 @@ async def get_verified_developers_api():
     return {
         "verified_developers": get_verified_developers(),
         "total_developers": len(verified_developers),
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/revenue/{developer_id}")
@@ -278,7 +278,7 @@ async def get_developer_revenue(developer_id: str):
         "total_revenue": 0.0,
         "plugin_revenue": {},
         "monthly_revenue": {},
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(datetime.UTC).isoformat()
     })
     
     return developer_revenue
@@ -358,7 +358,7 @@ def get_recent_plugins(limit: int = 12) -> List[Dict]:
             "rating": 4.9,
             "downloads": 2340,
             "price": 199.99,
-            "created_at": (datetime.utcnow() - timedelta(days=3)).isoformat()
+            "created_at": (datetime.now(datetime.UTC) - timedelta(days=3)).isoformat()
         },
         {
             "plugin_id": "performance_monitor",
@@ -369,7 +369,7 @@ def get_recent_plugins(limit: int = 12) -> List[Dict]:
             "rating": 4.4,
             "downloads": 1890,
             "price": 59.99,
-            "created_at": (datetime.utcnow() - timedelta(days=7)).isoformat()
+            "created_at": (datetime.now(datetime.UTC) - timedelta(days=7)).isoformat()
         }
     ]
     
@@ -414,7 +414,7 @@ def get_plugin_details(plugin_id: str) -> Optional[Dict]:
             "downloads": 15420,
             "price": 99.99,
             "version": "2.1.0",
-            "last_updated": (datetime.utcnow() - timedelta(days=15)).isoformat(),
+            "last_updated": (datetime.now(datetime.UTC) - timedelta(days=15)).isoformat(),
             "repository_url": "https://github.com/aitbc-labs/ai-trading-bot",
             "homepage_url": "https://aitbc-trading-bot.com",
             "license": "MIT",
@@ -442,7 +442,7 @@ def get_plugin_reviews(plugin_id: str) -> List[Dict]:
             "pros": ["Easy to use", "Great performance", "Good documentation"],
             "cons": ["Initial setup complexity"],
             "helpful_votes": 23,
-            "created_at": (datetime.utcnow() - timedelta(days=10)).isoformat()
+            "created_at": (datetime.now(datetime.UTC) - timedelta(days=10)).isoformat()
         },
         {
             "review_id": "review_2",
@@ -453,7 +453,7 @@ def get_plugin_reviews(plugin_id: str) -> List[Dict]:
             "pros": ["Powerful features", "Good support"],
             "cons": ["UI could be better", "Learning curve"],
             "helpful_votes": 15,
-            "created_at": (datetime.utcnow() - timedelta(days=25)).isoformat()
+            "created_at": (datetime.now(datetime.UTC) - timedelta(days=25)).isoformat()
         }
     ]
     

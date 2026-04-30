@@ -7,7 +7,7 @@ Advanced Agent Performance API Endpoints
 REST API for meta-learning, resource optimization, and performance enhancement
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -319,7 +319,7 @@ async def adapt_model_to_task(
             "success": True,
             "model_id": model_id,
             "adaptation_results": results,
-            "adapted_at": datetime.utcnow().isoformat(),
+            "adapted_at": datetime.now(datetime.UTC).isoformat(),
         }
 
     except ValueError as e:
@@ -554,7 +554,7 @@ async def create_capability(
             skill_level=capability_request.skill_level,
             specialization_areas=capability_request.specialization_areas,
             proficiency_score=min(1.0, capability_request.skill_level / 10.0),
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(datetime.UTC),
         )
 
         session.add(capability)
@@ -718,7 +718,7 @@ async def health_check() -> Dict[str, Any]:
 
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0",
         "services": {
             "meta_learning_engine": "operational",

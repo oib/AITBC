@@ -10,7 +10,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -217,8 +217,8 @@ class CrossChainReputationService:
                 task_count=0,
                 success_count=0,
                 failure_count=0,
-                last_updated=datetime.utcnow(),
-                sync_timestamp=datetime.utcnow(),
+                last_updated=datetime.now(datetime.UTC),
+                sync_timestamp=datetime.now(datetime.UTC),
                 is_active=True,
             )
 
@@ -264,7 +264,7 @@ class CrossChainReputationService:
                 reputation.failure_count += 1
 
             reputation.task_count += 1
-            reputation.last_updated = datetime.utcnow()
+            reputation.last_updated = datetime.now(datetime.UTC)
             reputation.tier = reputation.calculate_tier()
 
             # Update chain reputation
@@ -291,7 +291,7 @@ class CrossChainReputationService:
             reputation = self.reputation_data[agent_id]
 
             # Check sync cooldown
-            time_since_sync = (datetime.utcnow() - reputation.sync_timestamp).total_seconds()
+            time_since_sync = (datetime.now(datetime.UTC) - reputation.sync_timestamp).total_seconds()
             if time_since_sync < self.sync_cooldown:
                 logger.warning(f"Sync cooldown not met for agent {agent_id}")
                 return False
@@ -305,7 +305,7 @@ class CrossChainReputationService:
                 source_chain=reputation.chain_id,
                 target_chain=target_chain,
                 reputation_score=reputation.score,
-                sync_timestamp=datetime.utcnow(),
+                sync_timestamp=datetime.now(datetime.UTC),
                 verification_hash=verification_hash,
                 is_verified=True,
             )
@@ -322,16 +322,16 @@ class CrossChainReputationService:
                     success_count=reputation.success_count,
                     failure_count=reputation.failure_count,
                     last_updated=reputation.last_updated,
-                    sync_timestamp=datetime.utcnow(),
+                    sync_timestamp=datetime.now(datetime.UTC),
                     is_active=True,
                 )
             else:
                 target_reputation = self.chain_reputations[agent_id][target_chain]
                 target_reputation.score = reputation.score
-                target_reputation.sync_timestamp = datetime.utcnow()
+                target_reputation.sync_timestamp = datetime.now(datetime.UTC)
 
             # Update sync timestamp
-            reputation.sync_timestamp = datetime.utcnow()
+            reputation.sync_timestamp = datetime.now(datetime.UTC)
 
             logger.info(f"Synced reputation for agent {agent_id} to chain {target_chain}")
             return True
@@ -360,8 +360,8 @@ class CrossChainReputationService:
                 agent_id=agent_id,
                 amount=amount,
                 lock_period=lock_period,
-                start_time=datetime.utcnow(),
-                end_time=datetime.utcnow() + timedelta(seconds=lock_period),
+                start_time=datetime.now(datetime.UTC),
+                end_time=datetime.now(datetime.UTC) + timedelta(seconds=lock_period),
                 is_active=True,
                 reward_rate=reward_rate,
                 multiplier=1.0 + (reputation.score / 10000) * 0.5,  # Up to 50% bonus
@@ -407,7 +407,7 @@ class CrossChainReputationService:
                 delegator=delegator,
                 delegate=delegate,
                 amount=amount,
-                start_time=datetime.utcnow(),
+                start_time=datetime.now(datetime.UTC),
                 is_active=True,
                 fee_rate=fee_rate,
             )
@@ -469,7 +469,7 @@ class CrossChainReputationService:
             delegation.amount for delegation in self.reputation_delegations.get(agent_id, []) if delegation.is_active
         )
         chain_count = len(self.chain_reputations.get(agent_id, {}))
-        reputation_age = (datetime.utcnow() - reputation.last_updated).days
+        reputation_age = (datetime.now(datetime.UTC) - reputation.last_updated).days
 
         return ReputationAnalytics(
             agent_id=agent_id,
@@ -543,7 +543,7 @@ class CrossChainReputationService:
         # In production, implement proper cross-chain signature verification
         import hashlib
 
-        hash_input = f"{agent_id}:{chain_id}:{datetime.utcnow().isoformat()}".encode()
+        hash_input = f"{agent_id}:{chain_id}:{datetime.now(datetime.UTC).isoformat()}".encode()
         return hashlib.sha256(hash_input).hexdigest()
 
     async def _get_total_delegated(self, agent_id: str) -> int:
@@ -601,7 +601,7 @@ class CrossChainReputationService:
 
     async def _distribute_stake_rewards(self):
         """Distribute rewards for active stakes"""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(datetime.UTC)
 
         for agent_id, stakes in self.reputation_stakes.items():
             for stake in stakes:
@@ -619,7 +619,7 @@ class CrossChainReputationService:
         """Clean up expired stakes and delegations"""
         while True:
             try:
-                current_time = datetime.utcnow()
+                current_time = datetime.now(datetime.UTC)
 
                 # Clean up expired stakes
                 for _agent_id, stakes in self.reputation_stakes.items():
@@ -657,7 +657,7 @@ class CrossChainReputationService:
             "chain_reputations": {k: {str(k2): asdict(v2) for k2, v2 in v.items()} for k, v in self.chain_reputations.items()},
             "reputation_stakes": {k: [asdict(s) for s in v] for k, v in self.reputation_stakes.items()},
             "reputation_delegations": {k: [asdict(d) for d in v] for k, v in self.reputation_delegations.items()},
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
         if format.lower() == "json":

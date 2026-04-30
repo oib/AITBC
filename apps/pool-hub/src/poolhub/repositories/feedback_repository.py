@@ -40,7 +40,7 @@ class FeedbackRepository:
             latency_ms=latency_ms,
             fail_code=fail_code,
             tokens_spent=tokens_spent,
-            created_at=dt.datetime.utcnow(),
+            created_at=dt.datetime.now(datetime.UTC),
         )
         self._session.add(feedback)
         await self._session.flush()

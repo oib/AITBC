@@ -3,7 +3,7 @@ Cross-Chain Reputation Aggregator
 Aggregates reputation data from multiple blockchains and normalizes scores
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from aitbc import get_logger
@@ -147,7 +147,7 @@ class CrossChainReputationAggregator:
                     {
                         "agent_id": agent_id,
                         "anomaly_type": "low_consistency",
-                        "detected_at": datetime.utcnow(),
+                        "detected_at": datetime.now(datetime.UTC),
                         "description": f"Low consistency score: {aggregation.consistency_score:.2f}",
                         "severity": "high" if aggregation.consistency_score < 0.5 else "medium",
                         "consistency_score": aggregation.consistency_score,
@@ -162,7 +162,7 @@ class CrossChainReputationAggregator:
                     {
                         "agent_id": agent_id,
                         "anomaly_type": "high_variance",
-                        "detected_at": datetime.utcnow(),
+                        "detected_at": datetime.now(datetime.UTC),
                         "description": f"High score variance: {aggregation.score_variance:.2f}",
                         "severity": "high" if aggregation.score_variance > 0.5 else "medium",
                         "score_variance": aggregation.score_variance,
@@ -180,7 +180,7 @@ class CrossChainReputationAggregator:
                     {
                         "agent_id": agent_id,
                         "anomaly_type": "missing_chain_data",
-                        "detected_at": datetime.utcnow(),
+                        "detected_at": datetime.now(datetime.UTC),
                         "description": f"Missing data for chains: {list(missing_chains)}",
                         "severity": "medium",
                         "missing_chains": list(missing_chains),
@@ -221,7 +221,7 @@ class CrossChainReputationAggregator:
                         # Update reputation
                         reputation.trust_score = new_score * 1000  # Convert to 0-1000 scale
                         reputation.reputation_level = self._determine_reputation_level(new_score)
-                        reputation.updated_at = datetime.utcnow()
+                        reputation.updated_at = datetime.now(datetime.UTC)
 
                         # Create event record
                         event = ReputationEvent(
@@ -231,7 +231,7 @@ class CrossChainReputationAggregator:
                             trust_score_before=reputation.trust_score,
                             trust_score_after=reputation.trust_score,
                             event_data=update,
-                            occurred_at=datetime.utcnow(),
+                            occurred_at=datetime.now(datetime.UTC),
                         )
 
                         self.session.add(event)
@@ -242,8 +242,8 @@ class CrossChainReputationAggregator:
                             agent_id=agent_id,
                             trust_score=new_score * 1000,
                             reputation_level=self._determine_reputation_level(new_score),
-                            created_at=datetime.utcnow(),
-                            updated_at=datetime.utcnow(),
+                            created_at=datetime.now(datetime.UTC),
+                            updated_at=datetime.now(datetime.UTC),
                         )
 
                         self.session.add(reputation)
@@ -316,7 +316,7 @@ class CrossChainReputationAggregator:
                 "reputation_distribution": distribution,
                 "total_transactions": total_transactions,
                 "success_rate": success_rate,
-                "last_updated": datetime.utcnow(),
+                "last_updated": datetime.now(datetime.UTC),
             }
 
         except Exception as e:
@@ -430,7 +430,7 @@ class CrossChainReputationAggregator:
                 aggregation.score_variance = variance
                 aggregation.score_range = score_range
                 aggregation.consistency_score = consistency_score
-                aggregation.last_updated = datetime.utcnow()
+                aggregation.last_updated = datetime.now(datetime.UTC)
             else:
                 aggregation = CrossChainReputationAggregation(
                     agent_id=agent_id,
@@ -441,8 +441,8 @@ class CrossChainReputationAggregator:
                     score_range=score_range,
                     consistency_score=consistency_score,
                     verification_status="pending",
-                    created_at=datetime.utcnow(),
-                    last_updated=datetime.utcnow(),
+                    created_at=datetime.now(datetime.UTC),
+                    last_updated=datetime.now(datetime.UTC),
                 )
 
                 self.session.add(aggregation)

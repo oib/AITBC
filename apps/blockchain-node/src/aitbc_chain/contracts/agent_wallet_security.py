@@ -8,7 +8,7 @@ of agent compromise.
 
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import json
 from eth_account import Account
 from eth_utils import to_checksum_address
@@ -37,7 +37,7 @@ class AgentSecurityProfile:
     
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.utcnow()
+            self.created_at = datetime.now(datetime.UTC)
 
 
 class AgentWalletSecurity:
@@ -423,7 +423,7 @@ class AgentWalletSecurity:
     def _log_security_event(self, **kwargs):
         """Log a security event"""
         event = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             **kwargs
         }
         self.security_events.append(event)
@@ -469,7 +469,7 @@ class AgentWalletSecurity:
             return {
                 "status": "disabled",
                 "agent_address": agent_address,
-                "disabled_at": datetime.utcnow().isoformat(),
+                "disabled_at": datetime.now(datetime.UTC).isoformat(),
                 "guardian": guardian_address
             }
             
@@ -527,7 +527,7 @@ def generate_security_report() -> Dict:
     recent_events = agent_wallet_security.get_security_events(limit=20)
     
     return {
-        "generated_at": datetime.utcnow().isoformat(),
+        "generated_at": datetime.now(datetime.UTC).isoformat(),
         "summary": {
             "total_protected_agents": total_agents,
             "active_agents": active_agents,
@@ -580,5 +580,5 @@ def detect_suspicious_activity(agent_address: str, hours: int = 24) -> Dict:
         "suspicious_activity": len(suspicious_patterns) > 0,
         "suspicious_patterns": suspicious_patterns,
         "analysis_period_hours": hours,
-        "analyzed_at": datetime.utcnow().isoformat()
+        "analyzed_at": datetime.now(datetime.UTC).isoformat()
     }

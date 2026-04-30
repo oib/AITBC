@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -265,7 +265,7 @@ async def create_agent_network(network_data: dict):
             raise HTTPException(status_code=400, detail="Agent list is required")
 
         # Create network record (simplified for now)
-        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        network_id = f"network_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}"
 
         network_response = {
             "id": network_id,
@@ -274,7 +274,7 @@ async def create_agent_network(network_data: dict):
             "agents": network_data["agents"],
             "coordination_strategy": network_data.get("coordination", "centralized"),
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "owner_id": "temp_user",
         }
 
@@ -302,11 +302,11 @@ async def get_execution_receipt(execution_id: str):
                 {
                     "coordinator_id": "coordinator_1",
                     "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(datetime.UTC).isoformat(),
                 }
             ],
             "minted_amount": 1000,
-            "recorded_at": datetime.utcnow().isoformat(),
+            "recorded_at": datetime.now(datetime.UTC).isoformat(),
             "verified": True,
             "block_hash": "0xmock_block_hash",
             "transaction_hash": "0xmock_tx_hash",

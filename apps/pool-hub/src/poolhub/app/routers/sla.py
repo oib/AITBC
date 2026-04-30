@@ -3,7 +3,7 @@ SLA and Billing API Endpoints for Pool-Hub
 Provides endpoints for SLA metrics, capacity planning, and billing integration.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Dict, List, Optional, Any
 from decimal import Decimal
 
@@ -165,7 +165,7 @@ async def get_capacity_snapshots(
 ):
     """Get capacity planning snapshots"""
     try:
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(datetime.UTC) - timedelta(hours=hours)
         stmt = (
             db.query(CapacitySnapshot)
             .filter(CapacitySnapshot.timestamp >= cutoff)
@@ -236,7 +236,7 @@ async def configure_capacity_alerts(
         return {
             "status": "configured",
             "alert_config": alert_config,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error configuring capacity alerts: {e}")
@@ -270,7 +270,7 @@ async def sync_billing_usage(
     try:
         if request.miner_id:
             # Sync specific miner
-            end_date = datetime.utcnow()
+            end_date = datetime.now(datetime.UTC)
             start_date = end_date - timedelta(hours=request.hours_back)
             result = await billing_integration.sync_miner_usage(
                 miner_id=request.miner_id, start_date=start_date, end_date=end_date
@@ -350,7 +350,7 @@ async def get_sla_status(db: Session = Depends(get_db)):
             "status": status,
             "active_violations": len(active_violations),
             "recent_metrics_count": len(recent_metrics),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
     except Exception as e:
         logger.error(f"Error getting SLA status: {e}")

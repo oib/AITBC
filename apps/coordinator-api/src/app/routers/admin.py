@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -55,7 +55,7 @@ async def create_test_miner(
         if existing_miner:
             # Update existing miner to ONLINE
             existing_miner.status = "ONLINE"
-            existing_miner.last_heartbeat = datetime.utcnow()
+            existing_miner.last_heartbeat = datetime.now(datetime.UTC)
             existing_miner.session_token = session_token
             session.add(existing_miner)
             session.commit()
@@ -79,7 +79,7 @@ async def create_test_miner(
             session_token=session_token,
             status="ONLINE",
             inflight=0,
-            last_heartbeat=datetime.utcnow(),
+            last_heartbeat=datetime.now(datetime.UTC),
         )
 
         session.add(miner)
@@ -223,7 +223,7 @@ async def get_system_status(
 
         # Get system info
         import sys
-        from datetime import datetime
+        from datetime import datetime, UTC
 
         import psutil
 
@@ -232,7 +232,7 @@ async def get_system_status(
             "memory_percent": psutil.virtual_memory().percent,
             "disk_percent": psutil.disk_usage("/").percent,
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
         return {
@@ -275,7 +275,7 @@ async def create_agent_network(network_data: dict):
             raise HTTPException(status_code=400, detail="Agent list is required")
 
         # Create network record (simplified for now)
-        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        network_id = f"network_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}"
 
         network_response = {
             "id": network_id,
@@ -284,7 +284,7 @@ async def create_agent_network(network_data: dict):
             "agents": network_data["agents"],
             "coordination_strategy": network_data.get("coordination", "centralized"),
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "owner_id": "temp_user",
         }
 
@@ -315,11 +315,11 @@ async def get_execution_receipt(execution_id: str):
                 {
                     "coordinator_id": "coordinator_1",
                     "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(datetime.UTC).isoformat(),
                 }
             ],
             "minted_amount": 1000,
-            "recorded_at": datetime.utcnow().isoformat(),
+            "recorded_at": datetime.now(datetime.UTC).isoformat(),
             "verified": True,
             "block_hash": "0xmock_block_hash",
             "transaction_hash": "0xmock_tx_hash",

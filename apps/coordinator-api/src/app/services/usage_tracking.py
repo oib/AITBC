@@ -5,7 +5,7 @@ Usage tracking and billing metrics service for multi-tenant AITBC coordinator
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -109,8 +109,8 @@ class UsageTrackingService:
             unit_price=unit_price,
             total_cost=total_cost,
             currency="USD",
-            usage_start=datetime.utcnow(),
-            usage_end=datetime.utcnow(),
+            usage_start=datetime.now(datetime.UTC),
+            usage_end=datetime.now(datetime.UTC),
             job_id=job_id,
             metadata=metadata or {},
         )
@@ -128,7 +128,7 @@ class UsageTrackingService:
                 unit_price=unit_price,
                 total_amount=total_cost,
                 currency="USD",
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(datetime.UTC),
                 metadata=metadata or {},
             )
         )
@@ -248,7 +248,7 @@ class UsageTrackingService:
 
         # Default to last 30 days
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(datetime.UTC)
         if not start_date:
             start_date = end_date - timedelta(days=30)
 
@@ -431,7 +431,7 @@ class UsageTrackingService:
             raise TenantError(f"Tenant not found: {tenant_id}")
 
         # Generate number: INV-{tenant.slug}-{YYYYMMDD}-{seq}
-        date_str = datetime.utcnow().strftime("%Y%m%d")
+        date_str = datetime.now(datetime.UTC).strftime("%Y%m%d")
 
         # Get sequence for today
         # In a real implementation, use Redis or sequence table
@@ -608,7 +608,7 @@ class BillingScheduler:
                 await self._process_pending_events()
 
                 # Wait until next day
-                now = datetime.utcnow()
+                now = datetime.now(datetime.UTC)
                 next_day = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
                 sleep_seconds = (next_day - now).total_seconds()
                 await asyncio.sleep(sleep_seconds)
@@ -622,7 +622,7 @@ class BillingScheduler:
         while self.running:
             try:
                 # Wait until first day of month
-                now = datetime.utcnow()
+                now = datetime.now(datetime.UTC)
                 if now.day != 1:
                     next_month = now.replace(day=1) + timedelta(days=32)
                     next_month = next_month.replace(day=1)
@@ -645,7 +645,7 @@ class BillingScheduler:
 
     async def _reset_daily_quotas(self):
         """Reset used_value to 0 for all expired daily quotas and advance their period."""
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         stmt = select(TenantQuota).where(
             and_(
                 TenantQuota.period_type == "daily",
@@ -671,7 +671,7 @@ class BillingScheduler:
 
     async def _generate_monthly_invoices(self):
         """Generate invoices for all active tenants for the previous month."""
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         # Previous month boundaries
         first_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         last_month_end = first_of_this_month - timedelta(seconds=1)

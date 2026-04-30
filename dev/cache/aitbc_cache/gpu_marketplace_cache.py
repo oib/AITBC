@@ -9,7 +9,7 @@ import asyncio
 import logging
 from typing import Dict, List, Optional, Any, Tuple
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import json
 
 from .event_driven_cache import (
@@ -110,7 +110,7 @@ class GPUMarketplaceCacheManager:
             'region': region,
             'gpu_type': gpu_type,
             'include_busy': include_busy,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         
         cached_data = await self.cache.get('gpu_availability', params)
@@ -153,7 +153,7 @@ class GPUMarketplaceCacheManager:
         for gpu in gpus:
             if gpu.gpu_id == gpu_id:
                 gpu.availability_status = new_status
-                gpu.last_updated = datetime.utcnow()
+                gpu.last_updated = datetime.now(datetime.UTC)
                 updated_gpu = gpu
                 break
         
@@ -175,7 +175,7 @@ class GPUMarketplaceCacheManager:
         params = {
             'gpu_type': gpu_type,
             'region': region,
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.now(datetime.UTC).isoformat()
         }
         
         cached_data = await self.cache.get('gpu_pricing', params)
@@ -307,7 +307,7 @@ class GPUMarketplaceCacheManager:
     
     async def get_market_stats(self) -> MarketStats:
         """Get current market statistics"""
-        params = {'timestamp': datetime.utcnow().isoformat()}
+        params = {'timestamp': datetime.now(datetime.UTC).isoformat()}
         
         cached_data = await self.cache.get('market_stats', params)
         if cached_data:
@@ -334,7 +334,7 @@ class GPUMarketplaceCacheManager:
             total_bookings_24h=0,  # Would be calculated from database
             total_volume_24h=0.0,  # Would be calculated from database
             utilization_rate=utilization_rate,
-            last_updated=datetime.utcnow()
+            last_updated=datetime.now(datetime.UTC)
         )
         
         # Cache the statistics

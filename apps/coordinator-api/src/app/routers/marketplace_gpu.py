@@ -5,7 +5,7 @@ GPU marketplace endpoints backed by persistent SQLModel tables.
 """
 
 import statistics
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -157,7 +157,7 @@ async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depe
 
     # Create GPU registry record
     import uuid
-    from datetime import datetime
+    from datetime import datetime, UTC
 
     gpu_id = f"gpu_{uuid.uuid4().hex[:8]}"
     
@@ -180,7 +180,7 @@ async def register_gpu(request: dict[str, Any], session: Annotated[Session, Depe
         capabilities=[],
         average_rating=0.0,
         total_reviews=0,
-        created_at=datetime.utcnow()
+        created_at=datetime.now(datetime.UTC)
     )
     
     session.add(gpu_record)
@@ -259,9 +259,9 @@ async def buy_gpu(
         )
 
     # Create booking for the purchase
-    from datetime import datetime, timedelta
+    from datetime import datetime, UTC, timedelta
     
-    start_time = datetime.utcnow()
+    start_time = datetime.now(datetime.UTC)
     end_time = start_time + timedelta(hours=request.duration_hours)
     
     # Calculate total cost
@@ -411,7 +411,7 @@ async def sell_gpu(
         "listing_price": request.listing_price,
         "status": "listed",
         "description": request.description,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(datetime.UTC).isoformat() + "Z",
     }
 
 
@@ -442,7 +442,7 @@ async def book_gpu(
             status_code=http_status.HTTP_400_BAD_REQUEST, detail="Booking duration cannot exceed 8760 hours (1 year)"
         )
 
-    start_time = datetime.utcnow()
+    start_time = datetime.now(datetime.UTC)
     end_time = start_time + timedelta(hours=request.duration_hours)
 
     # Validate booking end time is in the future
@@ -593,7 +593,7 @@ async def submit_ollama_task(
         )
 
     task_id = f"task_{uuid4().hex[:10]}"
-    submitted_at = datetime.utcnow().isoformat() + "Z"
+    submitted_at = datetime.now(datetime.UTC).isoformat() + "Z"
 
     return {
         "task_id": task_id,
@@ -619,7 +619,7 @@ async def send_payment(
         )
 
     tx_id = f"tx_{uuid4().hex[:10]}"
-    processed_at = datetime.utcnow().isoformat() + "Z"
+    processed_at = datetime.now(datetime.UTC).isoformat() + "Z"
 
     return {
         "tx_id": tx_id,
@@ -920,7 +920,7 @@ async def get_pricing(
         },
         "individual_gpu_pricing": dynamic_prices,
         "market_analysis": market_analysis,
-        "pricing_timestamp": datetime.utcnow().isoformat() + "Z",
+        "pricing_timestamp": datetime.now(datetime.UTC).isoformat() + "Z",
     }
 
 
@@ -935,5 +935,5 @@ async def bid_gpu(request: dict[str, Any], session: Session = Depends(get_sessio
         "gpu_id": request.get("gpu_id"),
         "bid_amount": request.get("bid_amount"),
         "duration_hours": request.get("duration_hours"),
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(datetime.UTC).isoformat() + "Z",
     }

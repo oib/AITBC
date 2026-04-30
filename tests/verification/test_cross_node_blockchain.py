@@ -6,7 +6,7 @@ Tests new blockchain features across aitbc and aitbc1 nodes
 
 import hashlib
 import subprocess
-from datetime import datetime
+from datetime import datetime, UTC
 import time
 from aitbc import AITBCHTTPClient, NetworkError
 
@@ -116,7 +116,7 @@ def test_cross_node_block_sync():
     aitbc_head = heads["aitbc"]
     height = aitbc_head["height"] + 10000000  # Use very high height to avoid conflicts
     parent_hash = aitbc_head["hash"]
-    timestamp = datetime.utcnow().isoformat() + "Z"
+    timestamp = datetime.now(datetime.UTC).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     client = AITBCHTTPClient(timeout=10)

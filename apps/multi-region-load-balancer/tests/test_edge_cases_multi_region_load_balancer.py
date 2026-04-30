@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, LoadBalancingRule, RegionHealth, LoadBalancingMetrics, GeographicRule, load_balancing_rules, region_health_status, balancing_metrics, geographic_rules
@@ -50,7 +50,7 @@ def test_region_health_negative_success_rate():
         response_time_ms=45.5,
         success_rate=-0.5,
         active_connections=100,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     assert health.success_rate == -0.5
 
@@ -64,7 +64,7 @@ def test_region_health_negative_connections():
         response_time_ms=45.5,
         success_rate=0.99,
         active_connections=-100,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     assert health.active_connections == -100
 
@@ -74,7 +74,7 @@ def test_load_balancing_metrics_negative_requests():
     """Test LoadBalancingMetrics with negative requests"""
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         total_requests=-1000,
         requests_per_region={},
         average_response_time=50.5,
@@ -89,7 +89,7 @@ def test_load_balancing_metrics_negative_response_time():
     """Test LoadBalancingMetrics with negative response time"""
     metrics = LoadBalancingMetrics(
         balancer_id="lb_123",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         total_requests=1000,
         requests_per_region={},
         average_response_time=-50.5,
