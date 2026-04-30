@@ -93,6 +93,7 @@ from aitbc import get_logger
 
 from .app_logging import configure_logging
 from .middleware.request_id import RequestIDMiddleware
+from .middleware.performance import PerformanceLoggingMiddleware
 from .exceptions import AITBCError, ErrorResponse
 
 # Configure structured logging
@@ -288,6 +289,9 @@ def create_app() -> FastAPI:
     
     # Add request ID correlation middleware
     app.add_middleware(RequestIDMiddleware)
+    
+    # Add performance logging middleware
+    app.add_middleware(PerformanceLoggingMiddleware)
 
     @app.middleware("http")
     async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
