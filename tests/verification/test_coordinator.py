@@ -27,7 +27,7 @@ for endpoint in endpoints:
             try:
                 data = response.json()
                 print(f"  Response: {json.dumps(data, indent=2)[:200]}...")
-            except:
+            except Exception:
                 print(f"  Response: {response.text[:100]}...")
     except Exception as e:
         print(f"{endpoint}: Error - {e}")

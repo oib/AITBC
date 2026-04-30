@@ -126,7 +126,7 @@ def check_vulnerabilities():
                 count = audit.get("metadata", {}).get("vulnerabilities", {}).get("total", 0)
                 if count > 0:
                     issues.append(f"Node dependencies: {count} vulnerabilities (npm audit)")
-            except:
+            except Exception:
                 issues.append("Node dependencies: npm audit failed to parse")
     return issues
 

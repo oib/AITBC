@@ -147,7 +147,7 @@ class AgentOnboarder:
             latency = (datetime.now(datetime.UTC) - start_time).total_seconds()
             capabilities['network_latency'] = latency
             logger.info(f"✅ Network latency: {latency:.2f}s")
-        except:
+        except Exception:
             capabilities['network_latency'] = None
             logger.warning("⚠️  Could not measure network latency")
         

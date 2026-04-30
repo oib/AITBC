@@ -120,7 +120,7 @@ class ExamplePlugin(BasePlugin):
         try:
             process = psutil.Process(os.getpid())
             self._memory_usage = process.memory_info().rss
-        except:
+        except Exception:
             self._memory_usage = 0
         
         uptime = None
