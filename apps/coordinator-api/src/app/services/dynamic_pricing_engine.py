@@ -107,7 +107,7 @@ class MarketConditions:
     utilization_rate: float
     competitor_prices: list[float] = field(default_factory=list)
     market_sentiment: float = 0.0  # -1 to 1
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass

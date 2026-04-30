@@ -40,7 +40,7 @@ class Miner(Base):
     miner_id: Mapped[str] = mapped_column(String(64), primary_key=True)
     api_key_hash: Mapped[str] = mapped_column(String(128), nullable=False)
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
     last_seen_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
     addr: Mapped[str] = mapped_column(String(256))
@@ -78,7 +78,7 @@ class MinerStatus(Base):
     uptime_pct: Mapped[Optional[float]] = mapped_column(Float)  # SLA metric
     last_heartbeat_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC), onupdate=dt.datetime.now(datetime.UTC)
     )
 
     miner: Mapped[Miner] = relationship(back_populates="status")
@@ -95,7 +95,7 @@ class MatchRequest(Base):
     hints: Mapped[Dict[str, object]] = mapped_column(JSON, default=dict)
     top_k: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
 
     results: Mapped[List["MatchResult"]] = relationship(
@@ -119,7 +119,7 @@ class MatchResult(Base):
     price: Mapped[Optional[float]] = mapped_column(Float)
 
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
 
     request: Mapped[MatchRequest] = relationship(back_populates="results")
@@ -140,7 +140,7 @@ class Feedback(Base):
     fail_code: Mapped[Optional[str]] = mapped_column(String(64))
     tokens_spent: Mapped[Optional[float]] = mapped_column(Float)
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
 
     miner: Mapped[Miner] = relationship(back_populates="feedback")
@@ -164,10 +164,10 @@ class ServiceConfig(Base):
     capabilities: Mapped[List[str]] = mapped_column(JSON, default=list)
     max_concurrent: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
     updated_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow, onupdate=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC), onupdate=dt.datetime.now(datetime.UTC)
     )
 
     # Add unique constraint for miner_id + service_type
@@ -192,7 +192,7 @@ class SLAMetric(Base):
     threshold: Mapped[float] = mapped_column(Float, nullable=False)
     is_violation: Mapped[bool] = mapped_column(Boolean, default=False)
     timestamp: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
     meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
 
@@ -217,7 +217,7 @@ class SLAViolation(Base):
     violation_duration_ms: Mapped[Optional[int]] = mapped_column(Integer)
     resolved_at: Mapped[Optional[dt.datetime]] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
     meta_data: Mapped[Dict[str, str]] = mapped_column(JSON, default=dict)
 
@@ -241,6 +241,6 @@ class CapacitySnapshot(Base):
     recommended_scaling: Mapped[str] = mapped_column(String(32), nullable=False)
     scaling_reason: Mapped[str] = mapped_column(Text)
     timestamp: Mapped[dt.datetime] = mapped_column(
-        DateTime(timezone=True), default=dt.datetime.utcnow
+        DateTime(timezone=True), default=dt.datetime.now(datetime.UTC)
     )
     meta_data: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)

@@ -18,7 +18,7 @@ class Miner(SQLModel, table=True):
     status: str = Field(default="ONLINE", index=True)
     inflight: int = Field(default=0)
     extra_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    last_heartbeat: datetime = Field(default_factory=datetime.utcnow, index=True)
+    last_heartbeat: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
     session_token: str | None = None
     last_job_at: datetime | None = Field(default=None, index=True)
     jobs_completed: int = Field(default=0)

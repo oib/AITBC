@@ -42,7 +42,7 @@ class Job:
     args: tuple = field(default_factory=tuple, compare=False)
     kwargs: dict = field(default_factory=dict, compare=False)
     status: JobStatus = field(default=JobStatus.PENDING, compare=False)
-    created_at: datetime = field(default_factory=datetime.utcnow, compare=False)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC), compare=False)
     started_at: Optional[datetime] = field(default=None, compare=False)
     completed_at: Optional[datetime] = field(default=None, compare=False)
     result: Any = field(default=None, compare=False)

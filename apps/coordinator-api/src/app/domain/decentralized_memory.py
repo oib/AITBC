@@ -55,5 +55,5 @@ class AgentMemoryNode(SQLModel, table=True):
     # Blockchain Anchoring
     anchor_tx_hash: str | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))

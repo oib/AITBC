@@ -25,7 +25,7 @@ class SpendingRecord(Base):
     period_key = Column(String, index=True)
     amount = Column(Float)
     transaction_hash = Column(String)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    timestamp = Column(DateTime, default=datetime.now(datetime.UTC))
     
     # Composite indexes for performance
     __table_args__ = (
@@ -45,7 +45,7 @@ class SpendingLimit(Base):
     per_week = Column(Float)
     time_lock_threshold = Column(Float)
     time_lock_delay_hours = Column(Integer)
-    updated_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.now(datetime.UTC))
     updated_by = Column(String)  # Guardian who updated
 
 
@@ -57,7 +57,7 @@ class GuardianAuthorization(Base):
     agent_address = Column(String, index=True)
     guardian_address = Column(String, index=True)
     is_active = Column(Boolean, default=True)
-    added_at = Column(DateTime, default=datetime.utcnow)
+    added_at = Column(DateTime, default=datetime.now(datetime.UTC))
     added_by = Column(String)
 
 

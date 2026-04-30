@@ -101,10 +101,10 @@ class TradeRequest(SQLModel, table=True):
     best_match_score: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    last_activity: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional metadata
     tags: list[str] = Field(default=[], sa_column=Column(JSON))
@@ -151,8 +151,8 @@ class TradeMatch(SQLModel, table=True):
     initial_terms: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
     last_interaction: datetime | None = None
 
@@ -202,8 +202,8 @@ class TradeNegotiation(SQLModel, table=True):
     auto_accept_threshold: float = Field(default=85.0, ge=0, le=100)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
     expires_at: datetime | None = None
@@ -260,9 +260,9 @@ class TradeAgreement(SQLModel, table=True):
     completion_percentage: float = Field(default=0.0, ge=0, le=100)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    signed_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    signed_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     completed_at: datetime | None = None
@@ -314,7 +314,7 @@ class TradeSettlement(SQLModel, table=True):
 
     # Status and timestamps
     status: TradeStatus = Field(default=TradeStatus.SETTLING)
-    initiated_at: datetime = Field(default_factory=datetime.utcnow)
+    initiated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     processed_at: datetime | None = None
     completed_at: datetime | None = None
     refunded_at: datetime | None = None
@@ -365,8 +365,8 @@ class TradeFeedback(SQLModel, table=True):
     moderator_notes: str = Field(default="", max_length=500)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     trade_completed_at: datetime
 
     # Additional data
@@ -421,8 +421,8 @@ class TradingAnalytics(SQLModel, table=True):
     repeat_trade_rate: float = Field(default=0.0, ge=0, le=100.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional analytics data
     analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

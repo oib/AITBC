@@ -48,7 +48,7 @@ class LoadMetrics:
     completed_tasks: int = 0
     failed_tasks: int = 0
     avg_response_time: float = 0.0
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=datetime.now(datetime.UTC))
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -94,7 +94,7 @@ class AgentWeight:
     capacity: int = 100
     performance_score: float = 1.0
     reliability_score: float = 1.0
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 class LoadBalancer:
     """Advanced load balancer for agent distribution"""

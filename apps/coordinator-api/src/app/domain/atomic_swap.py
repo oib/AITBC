@@ -60,5 +60,5 @@ class AtomicSwapOrder(SQLModel, table=True):
 
     status: SwapStatus = Field(default=SwapStatus.CREATED, index=True)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))

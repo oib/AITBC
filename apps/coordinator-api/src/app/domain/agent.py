@@ -68,8 +68,8 @@ class AIAgentWorkflow(SQLModel, table=True):
     is_public: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentStep(SQLModel, table=True):
@@ -102,8 +102,8 @@ class AgentStep(SQLModel, table=True):
     depends_on: str = Field(default="")  # JSON string of step IDs
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentExecution(SQLModel, table=True):
@@ -141,8 +141,8 @@ class AgentExecution(SQLModel, table=True):
     completed_steps: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentStepExecution(SQLModel, table=True):
@@ -180,8 +180,8 @@ class AgentStepExecution(SQLModel, table=True):
     completed_at: datetime | None = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentMarketplace(SQLModel, table=True):
@@ -219,8 +219,8 @@ class AgentMarketplace(SQLModel, table=True):
     last_execution_at: datetime | None = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 # Request/Response Models for API

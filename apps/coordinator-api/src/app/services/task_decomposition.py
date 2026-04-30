@@ -86,7 +86,7 @@ class SubTask:
     dependencies: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     inputs: list[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
@@ -106,7 +106,7 @@ class TaskDecomposition:
     estimated_total_cost: float
     confidence_score: float
     decomposition_strategy: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass
@@ -119,7 +119,7 @@ class TaskAggregation:
     input_sub_tasks: list[str]
     output_format: str
     aggregation_function: str
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 class TaskDecompositionEngine:
