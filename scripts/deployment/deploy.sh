@@ -42,12 +42,11 @@ check_prerequisites() {
 
     # Check if required tools are installed
     command -v kubectl >/dev/null 2>&1 || error "kubectl is not installed"
-    command -v helm >/dev/null 2>&1 || error "Helm is not installed"
 
     # Check if kubectl can connect to cluster
     kubectl cluster-info >/dev/null 2>&1 || error "Cannot connect to Kubernetes cluster"
 
-    success "Prerequisites check passed (Docker not required)"
+    success "Prerequisites check passed (Docker/Helm not required)"
 }
 
 # Build images (skipped - no Docker support)
@@ -96,26 +95,14 @@ deploy_kubernetes() {
     kubectl apply -f k8s/configmaps/ -n ${NAMESPACE} || error "Failed to apply configmaps"
     
     # Deploy database
-    log "Deploying database..."
-    helm repo add bitnami https://charts.bitnami.com/bitnami
-    helm upgrade --install postgres bitnami/postgresql \
-        --namespace ${NAMESPACE} \
-        --set auth.postgresPassword=${POSTGRES_PASSWORD} \
-        --set auth.database=aitbc \
-        --set primary.persistence.size=20Gi \
-        --set primary.resources.requests.memory=2Gi \
-        --set primary.resources.requests.cpu=1000m \
-        --wait || error "Failed to deploy database"
-    
+    log "Skipping Helm-based database deployment - Helm not supported"
+    log "Database should be deployed via systemd services or external PostgreSQL"
+    log "Use: sudo apt-get install postgresql for local deployment"
+
     # Deploy Redis
-    log "Deploying Redis..."
-    helm upgrade --install redis bitnami/redis \
-        --namespace ${NAMESPACE} \
-        --set auth.password=${REDIS_PASSWORD} \
-        --set master.persistence.size=8Gi \
-        --set master.resources.requests.memory=512Mi \
-        --set master.resources.requests.cpu=500m \
-        --wait || error "Failed to deploy Redis"
+    log "Skipping Helm-based Redis deployment - Helm not supported"
+    log "Redis should be deployed via systemd service or external Redis"
+    log "Use: sudo apt-get install redis-server for local deployment"
     
     # Deploy core services
     log "Deploying core services..."
