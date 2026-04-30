@@ -27,7 +27,7 @@ def test_nodes():
             response = httpx.get(f"{node['url']}/openapi.json", timeout=5)
             api_ok = response.status_code == 200
             print(f"  RPC API: {'✅' if api_ok else '❌'}")
-        except:
+        except Exception:
             api_ok = False
             print(f"  RPC API: ❌")
         
@@ -48,7 +48,7 @@ def test_nodes():
                     )
                     faucet_ok = response.status_code == 200
                     print(f"  Faucet: {'✅' if faucet_ok else '❌'}")
-                except:
+                except Exception:
                     faucet_ok = False
                     print(f"  Faucet: ❌")
                 
@@ -60,7 +60,7 @@ def test_nodes():
                 })
             else:
                 print(f"  Chain Head: ❌")
-        except:
+        except Exception:
             print(f"  Chain Head: ❌")
     
     # Summary

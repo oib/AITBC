@@ -26,7 +26,7 @@ def test_node_basic_functionality():
         try:
             response = httpx.get(f"{url}/openapi.json", timeout=5)
             print(f"  ✅ Node responsive")
-        except:
+        except Exception:
             print(f"  ❌ Node not responding")
             continue
         
@@ -38,7 +38,7 @@ def test_node_basic_functionality():
                 print(f"  ✅ Chain height: {head.get('height', 'unknown')}")
             else:
                 print(f"  ❌ Failed to get chain head")
-        except:
+        except Exception:
             print(f"  ❌ Error getting chain head")
         
         # Test faucet
@@ -52,7 +52,7 @@ def test_node_basic_functionality():
                 print(f"  ✅ Faucet working")
             else:
                 print(f"  ❌ Faucet failed: {response.status_code}")
-        except:
+        except Exception:
             print(f"  ❌ Error testing faucet")
 
 def show_networking_config():

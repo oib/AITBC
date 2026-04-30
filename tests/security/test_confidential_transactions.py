@@ -248,7 +248,7 @@ class TestConfidentialTransactionSecurity:
                     x25519.X25519PrivateKey.generate(),
                     x25519.X25519PrivateKey.generate().public_key(),
                 )
-            except:
+            except Exception:
                 pass  # Expected to fail with wrong keys
             end = time.perf_counter()
             times.append(end - start)

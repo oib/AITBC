@@ -146,7 +146,7 @@ class OnboardingMonitor:
             }
             
             return type_mapping.get(compute_type, 'unknown')
-        except:
+        except Exception:
             return 'unknown'
     
     def calculate_metrics(self):
