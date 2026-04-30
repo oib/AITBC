@@ -53,23 +53,89 @@ sudo systemctl enable governance-service
 
 ## Testing
 
-To test the governance service end-to-end with the gateway:
+### Prerequisites
 
-1. Start the governance service:
-   ```bash
-   python -m governance_service.main
-   ```
+- PostgreSQL running and aitbc_governance database created
+- Poetry dependencies installed
 
-2. Start the API gateway:
+### Database Setup
+
+```bash
+sudo -u postgres psql -f scripts/setup-database.sql
+```
+
+### Start Service (Development)
+
+```bash
+python -m governance_service.main
+```
+
+### Health Check
+
+```bash
+curl http://localhost:8105/health
+```
+
+Expected response:
+```json
+{"status": "healthy", "service": "governance-service"}
+```
+
+### Governance Status
+
+```bash
+curl http://localhost:8105/governance/status
+```
+
+Expected response:
+```json
+{
+  "status": "operational",
+  "service": "governance-service",
+  "message": "Governance service is running"
+}
+```
+
+### Get Governance Proposals
+
+```bash
+curl http://localhost:8105/v1/governance/proposals
+```
+
+Expected response:
+```json
+[]
+```
+
+### Create Governance Proposal
+
+```bash
+curl -X POST http://localhost:8105/v1/governance/proposals \
+  -H "Content-Type: application/json" \
+  -d '{
+    "proposer_id": "test_proposer",
+    "title": "Test Proposal",
+    "description": "Test description",
+    "category": "general",
+    "voting_starts": "2026-05-01T00:00:00Z",
+    "voting_ends": "2026-05-08T00:00:00Z"
+  }'
+```
+
+### Test Through Gateway
+
+1. Start the API gateway:
    ```bash
    python -m api_gateway.main
    ```
 
-3. Test governance endpoints through the gateway:
+2. Test governance endpoints through the gateway:
    ```bash
-   curl http://localhost:8080/governance/v1/governance/proposals
    curl http://localhost:8080/governance/health
+   curl http://localhost:8080/governance/v1/governance/proposals
    ```
+
+For comprehensive testing procedures, see [MICROSERVICES_TESTING_GUIDE.md](../docs/MICROSERVICES_TESTING_GUIDE.md).
 
 ## Service Configuration
 

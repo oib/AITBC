@@ -51,23 +51,87 @@ sudo systemctl enable trading-service
 
 ## Testing
 
-To test the trading service end-to-end with the gateway:
+### Prerequisites
 
-1. Start the trading service:
-   ```bash
-   python -m trading_service.main
-   ```
+- PostgreSQL running and aitbc_trading database created
+- Poetry dependencies installed
 
-2. Start the API gateway:
+### Database Setup
+
+```bash
+sudo -u postgres psql -f scripts/setup-database.sql
+```
+
+### Start Service (Development)
+
+```bash
+python -m trading_service.main
+```
+
+### Health Check
+
+```bash
+curl http://localhost:8104/health
+```
+
+Expected response:
+```json
+{"status": "healthy", "service": "trading-service"}
+```
+
+### Trading Status
+
+```bash
+curl http://localhost:8104/trading/status
+```
+
+Expected response:
+```json
+{
+  "status": "operational",
+  "service": "trading-service",
+  "message": "Trading service is running"
+}
+```
+
+### Get Trade Requests
+
+```bash
+curl http://localhost:8104/v1/trading/requests
+```
+
+Expected response:
+```json
+[]
+```
+
+### Create Trade Request
+
+```bash
+curl -X POST http://localhost:8104/v1/trading/requests \
+  -H "Content-Type: application/json" \
+  -d '{
+    "buyer_agent_id": "test_buyer",
+    "trade_type": "compute_resources",
+    "title": "Test Trade Request",
+    "description": "Test description"
+  }'
+```
+
+### Test Through Gateway
+
+1. Start the API gateway:
    ```bash
    python -m api_gateway.main
    ```
 
-3. Test trading endpoints through the gateway:
+2. Test trading endpoints through the gateway:
    ```bash
-   curl http://localhost:8080/trading/v1/trading/requests
    curl http://localhost:8080/trading/health
+   curl http://localhost:8080/trading/v1/trading/requests
    ```
+
+For comprehensive testing procedures, see [MICROSERVICES_TESTING_GUIDE.md](../docs/MICROSERVICES_TESTING_GUIDE.md).
 
 ## Service Configuration
 
