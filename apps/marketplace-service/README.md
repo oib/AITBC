@@ -49,23 +49,87 @@ sudo systemctl enable marketplace-service
 
 ## Testing
 
-To test the marketplace service end-to-end with the gateway:
+### Prerequisites
 
-1. Start the marketplace service:
-   ```bash
-   python -m marketplace_service.main
-   ```
+- PostgreSQL running and aitbc_marketplace database created
+- Poetry dependencies installed
 
-2. Start the API gateway:
+### Database Setup
+
+```bash
+sudo -u postgres psql -f scripts/setup-database.sql
+```
+
+### Start Service (Development)
+
+```bash
+python -m marketplace_service.main
+```
+
+### Health Check
+
+```bash
+curl http://localhost:8102/health
+```
+
+Expected response:
+```json
+{"status": "healthy", "service": "marketplace-service"}
+```
+
+### Marketplace Status
+
+```bash
+curl http://localhost:8102/marketplace/status
+```
+
+Expected response:
+```json
+{
+  "status": "operational",
+  "service": "marketplace-service",
+  "message": "Marketplace service is running"
+}
+```
+
+### Get Marketplace Offers
+
+```bash
+curl http://localhost:8102/v1/marketplace/offers
+```
+
+Expected response:
+```json
+[]
+```
+
+### Create Marketplace Offer
+
+```bash
+curl -X POST http://localhost:8102/v1/marketplace/offers \
+  -H "Content-Type: application/json" \
+  -d '{
+    "provider": "test_provider",
+    "capacity": 100,
+    "price": 0.5,
+    "gpu_model": "NVIDIA A100"
+  }'
+```
+
+### Test Through Gateway
+
+1. Start the API gateway:
    ```bash
    python -m api_gateway.main
    ```
 
-3. Test marketplace endpoints through the gateway:
+2. Test marketplace endpoints through the gateway:
    ```bash
-   curl http://localhost:8080/marketplace/v1/marketplace/offers
    curl http://localhost:8080/marketplace/health
+   curl http://localhost:8080/marketplace/v1/marketplace/offers
    ```
+
+For comprehensive testing procedures, see [MICROSERVICES_TESTING_GUIDE.md](../docs/MICROSERVICES_TESTING_GUIDE.md).
 
 ## Service Configuration
 
