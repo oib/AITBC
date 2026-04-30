@@ -1,7 +1,7 @@
 [project]
 name = "marketplace-service"
 version = "0.1.0"
-description = "AITBC Marketplace Service for GPU marketplace operations"
+description = "AITBC Marketplace Service for marketplace operations"
 authors = [
     {name = "AITBC Team", email = "team@aitbc.dev"}
 ]
@@ -14,6 +14,13 @@ dependencies = [
     "aitbc-core",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.25.0",
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -22,3 +29,6 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "marketplace_service", from = "src" }
 ]
+
+[tool.poetry.extras]
+test = ["pytest", "pytest-asyncio", "httpx"]
