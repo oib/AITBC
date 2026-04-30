@@ -107,8 +107,9 @@ async def proxy_request(path: str, request: Request) -> Response:
     
     # Build target URL
     target_path = path
-    if path.startswith(service_config["prefix"]):
-        target_path = path[len(service_config["prefix"]):].lstrip("/")
+    prefix = service_config["prefix"].lstrip("/")
+    if path.startswith(prefix):
+        target_path = path[len(prefix):].lstrip("/")
     
     target_url = f"{service_config['base_url']}/{target_path}"
     if request.url.query:
