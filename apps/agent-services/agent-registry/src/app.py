@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 import json
 import time
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import sqlite3
 from contextlib import contextmanager
 from contextlib import asynccontextmanager
@@ -144,7 +144,7 @@ async def list_agents(
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.utcnow()}
+    return {"status": "ok", "timestamp": datetime.now(datetime.UTC)}
 
 if __name__ == "__main__":
     import uvicorn

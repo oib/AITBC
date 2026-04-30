@@ -7,7 +7,7 @@ import json
 import os
 from typing import Any, Callable, Dict, Optional, TypeVar, Generic, List
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 from abc import ABC, abstractmethod
 import asyncio
@@ -304,7 +304,7 @@ class StateSnapshot:
         self.current_state = state_machine.current_state
         self.state_data = state_machine.state_data.copy()
         self.transitions = state_machine.transitions.copy()
-        self.timestamp = datetime.utcnow()
+        self.timestamp = datetime.now(datetime.UTC)
     
     def restore(self, state_machine: StateMachine) -> None:
         """Restore state machine from snapshot"""

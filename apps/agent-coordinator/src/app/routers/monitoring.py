@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -84,7 +84,7 @@ async def get_metrics_summary():
             "status": "success",
             "performance": summary,
             "system": system_metrics,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except Exception as e:
@@ -116,7 +116,7 @@ async def get_health_metrics():
                 "count": psutil.cpu_count()
             },
             "uptime": performance_monitor.get_performance_summary()["uptime_seconds"],
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
         return {

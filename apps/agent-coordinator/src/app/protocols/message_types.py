@@ -7,7 +7,7 @@ import json
 from enum import Enum
 from typing import Dict, List, Optional, Any, Callable, Union
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import uuid
 import hashlib
 from pydantic import BaseModel, Field, validator
@@ -77,7 +77,7 @@ class TaskMessage(BaseModel):
     
     @validator('deadline')
     def validate_deadline(cls, v):
-        if v and v < datetime.utcnow():
+        if v and v < datetime.now(datetime.UTC):
             raise ValueError("Deadline cannot be in the past")
         return v
 
@@ -156,7 +156,7 @@ class MessageRouter:
     
     async def route_message(self, message: AgentMessage) -> Optional[str]:
         """Route message based on routing rules"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         
         try:
             # Check if message is expired
@@ -192,7 +192,7 @@ class MessageRouter:
             self.routing_stats["messages_failed"] += 1
             return None
         finally:
-            routing_time = (datetime.utcnow() - start_time).total_seconds()
+            routing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
             self.routing_stats["routing_time_total"] += routing_time
     
     async def _apply_routing_rule(self, rule: RoutingRule, message: AgentMessage) -> Optional[str]:
@@ -244,7 +244,7 @@ class MessageRouter:
     
     def _is_message_expired(self, message: AgentMessage) -> bool:
         """Check if message is expired"""
-        age = (datetime.utcnow() - message.timestamp).total_seconds()
+        age = (datetime.now(datetime.UTC) - message.timestamp).total_seconds()
         return age > message.ttl
     
     async def get_routing_stats(self) -> Dict[str, Any]:
@@ -269,12 +269,12 @@ class LoadBalancer:
     def __init__(self):
         self.agent_loads: Dict[str, float] = {}
         self.agent_weights: Dict[str, float] = {}
-        self.last_updated = datetime.utcnow()
+        self.last_updated = datetime.now(datetime.UTC)
         
     def update_agent_load(self, agent_id: str, load: float):
         """Update agent load information"""
         self.agent_loads[agent_id] = load
-        self.last_updated = datetime.utcnow()
+        self.last_updated = datetime.now(datetime.UTC)
     
     def set_agent_weight(self, agent_id: str, weight: float):
         """Set agent weight for load balancing"""
@@ -421,7 +421,7 @@ class MessageProcessor:
     
     async def process_message(self, message: AgentMessage) -> bool:
         """Process a message"""
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         
         try:
             # Route message
@@ -440,7 +440,7 @@ class MessageProcessor:
             
             # Update stats
             self.processing_stats["messages_processed"] += 1
-            processing_time = (datetime.utcnow() - start_time).total_seconds()
+            processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
             self.processing_stats["processing_time_total"] += processing_time
             
             return True

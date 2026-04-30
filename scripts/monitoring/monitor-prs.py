@@ -11,7 +11,7 @@ import json
 import subprocess
 import tempfile
 import shutil
-from datetime import datetime, timezone
+from datetime import datetime, UTC, timezone
 
 GITEA_TOKEN = os.getenv('GITEA_TOKEN') or 'ffce3b62d583b761238ae00839dce7718acaad85'
 REPO = 'oib/aitbc'
@@ -80,7 +80,7 @@ def is_claim_expired(state):
     expires_at = state.get('expires_at')
     if not expires_at:
         return False
-    now_ts = datetime.utcnow().timestamp()
+    now_ts = datetime.now(datetime.UTC).timestamp()
     return now_ts > expires_at
 
 def get_open_prs():
@@ -135,7 +135,7 @@ def validate_pr_branch(pr):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 def main():
-    now = datetime.utcnow().replace(tzinfo=timezone.utc)
+    now = datetime.now(datetime.UTC).replace(tzinfo=timezone.utc)
     now_iso = now.isoformat()
     now_ts = now.timestamp()
     print(f"[{now_iso}] Monitoring PRs and claim locks...")
@@ -218,7 +218,7 @@ def main():
 def cleanup_global_expired_claims(now_ts=None):
     """Delete remote claim branches that are older than TTL, even if state file is gone."""
     if now_ts is None:
-        now_ts = datetime.utcnow().timestamp()
+        now_ts = datetime.now(datetime.UTC).timestamp()
     # List all remote claim branches
     result = subprocess.run(['git', 'ls-remote', '--heads', 'origin', 'claim/*'],
                             capture_output=True, text=True, cwd='/opt/aitbc')

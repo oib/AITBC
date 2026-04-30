@@ -6,7 +6,7 @@ Domain models for agent portfolio management, trading strategies, and risk asses
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -223,7 +223,7 @@ class StrategySignal(SQLModel, table=True):
     meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     is_executed: bool = Field(default=False, index=True)
     executed_at: datetime | None = Field(default=None)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
 
 
@@ -278,4 +278,4 @@ class MarketCondition(SQLModel, table=True):
     support_level: float = Field(default=0.0)  # Support level
     resistance_level: float = Field(default=0.0)  # Resistance level
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))

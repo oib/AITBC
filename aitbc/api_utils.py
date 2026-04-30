@@ -4,7 +4,7 @@ Provides standard response formatters, pagination helpers, error response builde
 """
 
 from typing import Any, Optional, List, Dict, Union
-from datetime import datetime
+from datetime import datetime, UTC
 from fastapi import HTTPException, status
 from pydantic import BaseModel
 
@@ -19,7 +19,7 @@ class APIResponse(BaseModel):
     
     def __init__(self, **data):
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.utcnow().isoformat()
+            data['timestamp'] = datetime.now(datetime.UTC).isoformat()
         super().__init__(**data)
 
 
@@ -33,7 +33,7 @@ class PaginatedResponse(BaseModel):
     
     def __init__(self, **data):
         if 'timestamp' not in data:
-            data['timestamp'] = datetime.utcnow().isoformat()
+            data['timestamp'] = datetime.now(datetime.UTC).isoformat()
         super().__init__(**data)
 
 
@@ -318,5 +318,5 @@ def build_request_metadata(request) -> Dict[str, str]:
         "client_ip": get_client_ip(request),
         "user_agent": get_user_agent(request),
         "request_id": request.headers.get("X-Request-ID", "unknown"),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(datetime.UTC).isoformat()
     }

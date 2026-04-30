@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -156,7 +156,7 @@ async def record_sla_metric(
             "status": "success",
             "message": f"SLA metric recorded for {sla_id}",
             "value": value,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
     except HTTPException:
@@ -206,7 +206,7 @@ async def get_system_status(current_user: Dict[str, Any] = Depends(get_current_u
                 "load_balancer": "running" if state.load_balancer else "stopped",
                 "task_distributor": "running" if state.task_distributor else "stopped"
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }
         
         return status

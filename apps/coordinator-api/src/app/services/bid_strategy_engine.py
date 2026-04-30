@@ -9,7 +9,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -206,7 +206,7 @@ class BidStrategyEngine:
             "urgency_preference": preferences.get("urgency_preference", 0.5),
             "max_wait_time": preferences.get("max_wait_time", 3600),  # 1 hour
             "min_success_probability": preferences.get("min_success_probability", 0.7),
-            "updated_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.now(datetime.UTC).isoformat(),
         }
 
         logger.info(f"Updated preferences for agent {agent_id}")
@@ -231,7 +231,7 @@ class BidStrategyEngine:
             "volatility_trend": volatility_trend,
             "future_prediction": asdict(future_conditions),
             "recommendations": await self._generate_market_recommendations(market_conditions),
-            "analysis_timestamp": datetime.utcnow().isoformat(),
+            "analysis_timestamp": datetime.now(datetime.UTC).isoformat(),
         }
 
     async def _select_optimal_strategy(
@@ -330,7 +330,7 @@ class BidStrategyEngine:
         # Time factor (urgency based on deadline)
         time_factor = 1.0
         if task_requirements.deadline:
-            time_remaining = (task_requirements.deadline - datetime.utcnow()).total_seconds() / 3600
+            time_remaining = (task_requirements.deadline - datetime.now(datetime.UTC)).total_seconds() / 3600
             if time_remaining < 2:  # Less than 2 hours
                 time_factor = 1.5
             elif time_remaining < 6:  # Less than 6 hours
@@ -418,7 +418,7 @@ class BidStrategyEngine:
         # Time factor
         time_factor = 1.0
         if task_requirements.deadline:
-            time_remaining = (task_requirements.deadline - datetime.utcnow()).total_seconds() / 3600
+            time_remaining = (task_requirements.deadline - datetime.now(datetime.UTC)).total_seconds() / 3600
             if time_remaining < 2:
                 time_factor = 0.7
             elif time_remaining < 6:
@@ -579,7 +579,7 @@ class BidStrategyEngine:
             price_volatility=0.12,
             demand_level=0.68,
             supply_level=0.72,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(datetime.UTC),
         )
 
     async def _load_market_history(self):
@@ -706,7 +706,7 @@ class BidStrategyEngine:
             price_volatility=current.price_volatility,
             demand_level=current.demand_level,
             supply_level=current.supply_level,
-            timestamp=datetime.utcnow() + timedelta(hours=hours_ahead),
+            timestamp=datetime.now(datetime.UTC) + timedelta(hours=hours_ahead),
         )
 
         # Apply trend adjustments

@@ -7,7 +7,7 @@ import hashlib
 import hmac
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -397,9 +397,9 @@ class ChainSync:
         """Append a block to the chain tip."""
         timestamp_str = block_data.get("timestamp", "")
         try:
-            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.utcnow()
+            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(datetime.UTC)
         except (ValueError, TypeError):
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(datetime.UTC)
 
         tx_count = block_data.get("tx_count", 0)
         if transactions:

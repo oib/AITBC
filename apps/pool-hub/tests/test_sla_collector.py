@@ -4,7 +4,7 @@ Tests for SLA Collector Service
 
 import sys
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from sqlalchemy.orm import Session
 
@@ -48,7 +48,7 @@ def sample_miner_status(db_session: Session, sample_miner: Miner) -> MinerStatus
         avg_latency_ms=150,
         temp_c=65,
         mem_free_gb=32.0,
-        last_heartbeat_at=datetime.utcnow(),
+        last_heartbeat_at=datetime.now(datetime.UTC),
     )
     db_session.add(status)
     db_session.commit()

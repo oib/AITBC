@@ -7,7 +7,7 @@ AI Agent API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for agent workflow management and execution
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
@@ -141,7 +141,7 @@ async def update_workflow(
         for field, value in update_data.items():
             setattr(workflow, field, value)
 
-        workflow.updated_at = datetime.utcnow()
+        workflow.updated_at = datetime.now(datetime.UTC)
         session.commit()
         session.refresh(workflow)
 
@@ -351,7 +351,7 @@ async def cancel_execution(
 
         # Cancel execution
         state_manager = AgentStateManager(session)
-        await state_manager.update_execution_status(execution_id, status=AgentStatus.CANCELLED, completed_at=datetime.utcnow())
+        await state_manager.update_execution_status(execution_id, status=AgentStatus.CANCELLED, completed_at=datetime.now(datetime.UTC))
 
         logger.info(f"Cancelled agent execution: {execution_id}")
         return {"message": "Execution cancelled successfully"}
@@ -424,7 +424,7 @@ async def get_execution_logs(
 @router.get("/test")
 async def test_endpoint():
     """Test endpoint to verify router is working"""
-    return {"message": "Agent router is working", "timestamp": datetime.utcnow().isoformat()}
+    return {"message": "Agent router is working", "timestamp": datetime.now(datetime.UTC).isoformat()}
 
 
 @router.post("/networks", response_model=dict, status_code=201)
@@ -444,7 +444,7 @@ async def create_agent_network(
             raise HTTPException(status_code=400, detail="Agent list is required")
 
         # Create network record (simplified for now)
-        network_id = f"network_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+        network_id = f"network_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}"
 
         network_response = {
             "id": network_id,
@@ -453,7 +453,7 @@ async def create_agent_network(
             "agents": network_data["agents"],
             "coordination_strategy": network_data.get("coordination", "centralized"),
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "owner_id": current_user,
         }
 
@@ -487,11 +487,11 @@ async def get_execution_receipt(
                 {
                     "coordinator_id": "coordinator_1",
                     "signature": "0xmock_attestation_1",
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(datetime.UTC).isoformat(),
                 }
             ],
             "minted_amount": 1000,
-            "recorded_at": datetime.utcnow().isoformat(),
+            "recorded_at": datetime.now(datetime.UTC).isoformat(),
             "verified": True,
             "block_hash": "0xmock_block_hash",
             "transaction_hash": "0xmock_tx_hash",

@@ -7,7 +7,7 @@ Reward System API Endpoints
 REST API for agent rewards, incentives, and performance-based earnings
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -368,13 +368,13 @@ async def get_reward_leaderboard(
     try:
         # Calculate date range based on period
         if period == "daily":
-            start_date = datetime.utcnow() - timedelta(days=1)
+            start_date = datetime.now(datetime.UTC) - timedelta(days=1)
         elif period == "weekly":
-            start_date = datetime.utcnow() - timedelta(days=7)
+            start_date = datetime.now(datetime.UTC) - timedelta(days=7)
         elif period == "monthly":
-            start_date = datetime.utcnow() - timedelta(days=30)
+            start_date = datetime.now(datetime.UTC) - timedelta(days=30)
         else:
-            start_date = datetime.utcnow() - timedelta(days=7)
+            start_date = datetime.now(datetime.UTC) - timedelta(days=7)
         
         # Query reward profiles
         query = select(AgentRewardProfile).where(

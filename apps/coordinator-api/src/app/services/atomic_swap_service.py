@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 from aitbc import get_logger
 from fastapi import HTTPException
@@ -44,7 +44,7 @@ class AtomicSwapService:
         # Standard HTLC uses SHA256 of the secret
         hashlock = "0x" + hashlib.sha256(secret.encode()).hexdigest()
 
-        now = datetime.utcnow()
+        now = datetime.now(datetime.UTC)
         source_timelock = int((now + timedelta(hours=request.source_timelock_hours)).timestamp())
         target_timelock = int((now + timedelta(hours=request.target_timelock_hours)).timestamp())
 
@@ -97,7 +97,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.INITIATED
         order.source_initiate_tx = request.tx_hash
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now(datetime.UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -116,7 +116,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.PARTICIPATING
         order.target_participate_tx = request.tx_hash
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now(datetime.UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -141,7 +141,7 @@ class AtomicSwapService:
         order.status = SwapStatus.COMPLETED
         order.target_complete_tx = request.tx_hash
         # Secret is now publicly known on the blockchain
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now(datetime.UTC)
 
         self.session.commit()
         self.session.refresh(order)
@@ -155,7 +155,7 @@ class AtomicSwapService:
         if not order:
             raise HTTPException(status_code=404, detail="Swap order not found")
 
-        now = int(datetime.utcnow().timestamp())
+        now = int(datetime.now(datetime.UTC).timestamp())
 
         if order.status == SwapStatus.INITIATED and now < order.source_timelock:
             raise HTTPException(status_code=400, detail="Source timelock has not expired yet")
@@ -165,7 +165,7 @@ class AtomicSwapService:
 
         order.status = SwapStatus.REFUNDED
         order.refund_tx = request.tx_hash
-        order.updated_at = datetime.utcnow()
+        order.updated_at = datetime.now(datetime.UTC)
 
         self.session.commit()
         self.session.refresh(order)

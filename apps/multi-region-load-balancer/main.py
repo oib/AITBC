@@ -5,7 +5,7 @@ Handles intelligent load distribution across global regions
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -68,7 +68,7 @@ async def root():
     return {
         "service": "AITBC Multi-Region Load Balancer",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -99,10 +99,10 @@ async def create_load_balancing_rule(rule: LoadBalancingRule):
         "failover_enabled": rule.failover_enabled,
         "session_affinity": rule.session_affinity,
         "status": "active",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "total_requests": 0,
         "failed_requests": 0,
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(datetime.UTC).isoformat()
     }
     
     load_balancing_rules[rule.rule_id] = rule_record
@@ -167,7 +167,7 @@ async def update_rule_weights(rule_id: str, weights: Dict[str, float]):
     
     # Update rule weights
     rule["weights"] = normalized_weights
-    rule["last_updated"] = datetime.utcnow().isoformat()
+    rule["last_updated"] = datetime.now(datetime.UTC).isoformat()
     
     logger.info(f"Weights updated for rule {rule_id}: {normalized_weights}")
     
@@ -193,7 +193,7 @@ async def register_region_health(health: RegionHealth):
     return {
         "region_id": health.region_id,
         "status": health.status,
-        "registered_at": datetime.utcnow().isoformat()
+        "registered_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/health")
@@ -224,7 +224,7 @@ async def create_geographic_rule(rule: GeographicRule):
         "priority": rule.priority,
         "latency_threshold_ms": rule.latency_threshold_ms,
         "status": "active",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "usage_count": 0
     }
     
@@ -256,14 +256,14 @@ async def get_optimal_region(client_region: str, rule_id: Optional[str] = None):
         "optimal_region": optimal_region,
         "rule_id": rule_id,
         "selection_reason": get_selection_reason(optimal_region, client_region, rule_id),
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.post("/api/v1/metrics/record")
 async def record_balancing_metrics(metrics: LoadBalancingMetrics):
     """Record load balancing performance metrics"""
     metrics_record = {
-        "metrics_id": f"metrics_{int(datetime.utcnow().timestamp())}",
+        "metrics_id": f"metrics_{int(datetime.now(datetime.UTC).timestamp())}",
         "balancer_id": metrics.balancer_id,
         "timestamp": metrics.timestamp.isoformat(),
         "total_requests": metrics.total_requests,
@@ -294,7 +294,7 @@ async def get_balancing_metrics(rule_id: str, hours: int = 24):
     if rule_id not in load_balancing_rules:
         raise HTTPException(status_code=404, detail="Load balancing rule not found")
     
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
     recent_metrics = [
         m for m in balancing_metrics.get(rule_id, [])
         if datetime.fromisoformat(m["timestamp"]) > cutoff_time
@@ -320,7 +320,7 @@ async def get_balancing_metrics(rule_id: str, hours: int = 24):
             "total_requests": int(total_requests),
             "total_samples": len(recent_metrics)
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/dashboard")
@@ -368,7 +368,7 @@ async def get_load_balancing_dashboard():
             "performance": performance_summary,
             "recent_activity": get_recent_activity()
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Core load balancing functions
@@ -534,7 +534,7 @@ def get_recent_activity() -> List[Dict]:
     
     # Recent health changes
     for region_id, health in region_health_status.items():
-        if (datetime.utcnow() - health.last_check).total_seconds() < 3600:  # Last hour
+        if (datetime.now(datetime.UTC) - health.last_check).total_seconds() < 3600:  # Last hour
             activity.append({
                 "type": "health_check",
                 "region": region_id,
@@ -544,7 +544,7 @@ def get_recent_activity() -> List[Dict]:
     
     # Recent rule updates
     for rule_id, rule in load_balancing_rules.items():
-        if (datetime.utcnow() - datetime.fromisoformat(rule["last_updated"])).total_seconds() < 3600:
+        if (datetime.now(datetime.UTC) - datetime.fromisoformat(rule["last_updated"])).total_seconds() < 3600:
             activity.append({
                 "type": "rule_update",
                 "rule_id": rule_id,
@@ -598,7 +598,7 @@ async def check_region_health(region_id: str):
         response_time_ms=response_time,
         success_rate=success_rate,
         active_connections=active_connections,
-        last_check=datetime.utcnow()
+        last_check=datetime.now(datetime.UTC)
     )
     
     region_health_status[region_id] = health
@@ -644,10 +644,10 @@ async def startup_event():
             "failover_enabled": rule.failover_enabled,
             "session_affinity": rule.session_affinity,
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "total_requests": 0,
             "failed_requests": 0,
-            "last_updated": datetime.utcnow().isoformat()
+            "last_updated": datetime.now(datetime.UTC).isoformat()
         }
         load_balancing_rules[rule.rule_id] = rule_record
         
@@ -681,7 +681,7 @@ async def startup_event():
             "priority": geo_rule.priority,
             "latency_threshold_ms": geo_rule.latency_threshold_ms,
             "status": "active",
-            "created_at": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
             "usage_count": 0
         }
         geographic_rules[geo_rule.rule_id] = geo_rule_record

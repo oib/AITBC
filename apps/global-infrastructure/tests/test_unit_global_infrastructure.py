@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, Region, GlobalDeployment, LoadBalancer, PerformanceMetrics
@@ -78,7 +78,7 @@ def test_performance_metrics_model():
     """Test PerformanceMetrics model"""
     metrics = PerformanceMetrics(
         region_id="us-east-1",
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         cpu_usage=50.5,
         memory_usage=60.2,
         network_io=1000.5,

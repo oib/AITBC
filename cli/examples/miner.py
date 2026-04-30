@@ -8,7 +8,7 @@ import httpx
 import json
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 
 # Configuration
@@ -108,7 +108,7 @@ class AITBCMiner:
             "status": "ONLINE",
             "inflight": 0,
             "metadata": {
-                "last_seen": datetime.utcnow().isoformat(),
+                "last_seen": datetime.now(datetime.UTC).isoformat(),
                 "gpu_utilization": 75,
                 "gpu_memory_used": 8000,
                 "gpu_temperature": 65

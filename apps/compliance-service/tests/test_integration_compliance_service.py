@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, KYCRequest, ComplianceReport, TransactionMonitoring, kyc_records, compliance_reports, suspicious_transactions, compliance_rules
@@ -171,7 +171,7 @@ def test_monitor_transaction():
         amount=1000.0,
         currency="BTC",
         counterparty="counterparty1",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
     assert response.status_code == 200
@@ -190,7 +190,7 @@ def test_monitor_suspicious_transaction():
         amount=100000.0,
         currency="BTC",
         counterparty="high_risk_entity_1",
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/monitoring/transaction", json=tx.model_dump(mode='json'))
     assert response.status_code == 200

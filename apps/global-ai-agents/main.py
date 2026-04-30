@@ -5,7 +5,7 @@ Handles cross-chain and cross-region AI agent communication with global optimiza
 
 import asyncio
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -74,7 +74,7 @@ async def root():
     return {
         "service": "AITBC Global AI Agent Communication Service",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -105,8 +105,8 @@ async def register_agent(agent: Agent):
         "languages": agent.languages,
         "specialization": agent.specialization,
         "performance_score": agent.performance_score,
-        "created_at": datetime.utcnow().isoformat(),
-        "last_active": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "last_active": datetime.now(datetime.UTC).isoformat(),
         "total_messages_sent": 0,
         "total_messages_received": 0,
         "collaborations_participated": 0,
@@ -188,7 +188,7 @@ async def send_message(message: AgentMessage):
         "timestamp": message.timestamp.isoformat(),
         "encryption_key": message.encryption_key,
         "status": "delivered",
-        "delivered_at": datetime.utcnow().isoformat(),
+        "delivered_at": datetime.now(datetime.UTC).isoformat(),
         "read_at": None
     }
     
@@ -285,16 +285,16 @@ async def create_collaboration(session: CollaborationSession):
     
     for participant_id in session.participants:
         message_record = {
-            "message_id": f"collab_{int(datetime.utcnow().timestamp())}",
+            "message_id": f"collab_{int(datetime.now(datetime.UTC).timestamp())}",
             "sender_id": "system",
             "recipient_id": participant_id,
             "message_type": "notification",
             "content": notification,
             "priority": "medium",
             "language": "english",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "status": "delivered",
-            "delivered_at": datetime.utcnow().isoformat()
+            "delivered_at": datetime.now(datetime.UTC).isoformat()
         }
         
         if participant_id not in agent_messages:
@@ -330,11 +330,11 @@ async def send_collaboration_message(session_id: str, sender_id: str, content: D
     
     # Create collaboration message
     message_record = {
-        "message_id": f"collab_msg_{int(datetime.utcnow().timestamp())}",
+        "message_id": f"collab_msg_{int(datetime.now(datetime.UTC).timestamp())}",
         "sender_id": sender_id,
         "session_id": session_id,
         "content": content,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "type": "collaboration_message"
     }
     
@@ -351,16 +351,16 @@ async def send_collaboration_message(session_id: str, sender_id: str, content: D
             }
             
             msg_record = {
-                "message_id": f"notif_{int(datetime.utcnow().timestamp())}",
+                "message_id": f"notif_{int(datetime.now(datetime.UTC).timestamp())}",
                 "sender_id": "system",
                 "recipient_id": participant_id,
                 "message_type": "notification",
                 "content": notification,
                 "priority": "medium",
                 "language": "english",
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(datetime.UTC).isoformat(),
                 "status": "delivered",
-                "delivered_at": datetime.utcnow().isoformat()
+                "delivered_at": datetime.now(datetime.UTC).isoformat()
             }
             
             if participant_id not in agent_messages:
@@ -381,7 +381,7 @@ async def record_agent_performance(performance: AgentPerformance):
     
     # Create performance record
     performance_record = {
-        "performance_id": f"perf_{int(datetime.utcnow().timestamp())}",
+        "performance_id": f"perf_{int(datetime.now(datetime.UTC).timestamp())}",
         "agent_id": performance.agent_id,
         "timestamp": performance.timestamp.isoformat(),
         "tasks_completed": performance.tasks_completed,
@@ -421,7 +421,7 @@ async def get_agent_performance(agent_id: str, hours: int = 24):
     if agent_id not in global_agents:
         raise HTTPException(status_code=404, detail="Agent not found")
     
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
     performance_records = agent_performance.get(agent_id, [])
     recent_performance = [
         p for p in performance_records
@@ -448,7 +448,7 @@ async def get_agent_performance(agent_id: str, hours: int = 24):
             "total_tasks_completed": int(total_tasks),
             "total_records": len(recent_performance)
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/network/dashboard")
@@ -476,7 +476,7 @@ async def get_network_dashboard():
     
     # Recent activity
     recent_messages = 0
-    cutoff_time = datetime.utcnow() - timedelta(hours=1)
+    cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=1)
     for messages in agent_messages.values():
         recent_messages += len([m for m in messages if datetime.fromisoformat(m["timestamp"]) > cutoff_time])
     
@@ -503,7 +503,7 @@ async def get_network_dashboard():
                 "total_tasks_completed": sum(a["tasks_completed"] for a in global_agents.values())
             }
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 @app.get("/api/v1/network/optimize")
@@ -554,7 +554,7 @@ async def optimize_network():
     
     return {
         "optimization_results": optimization_results,
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Background task for network monitoring
@@ -564,12 +564,12 @@ async def network_monitoring_task():
         await asyncio.sleep(300)  # Monitor every 5 minutes
         
         # Update network statistics
-        global_network_stats["last_update"] = datetime.utcnow().isoformat()
+        global_network_stats["last_update"] = datetime.now(datetime.UTC).isoformat()
         global_network_stats["total_agents"] = len(global_agents)
         global_network_stats["active_agents"] = len([a for a in global_agents.values() if a["status"] == "active"])
         
         # Check for expired collaboration sessions
-        current_time = datetime.utcnow()
+        current_time = datetime.now(datetime.UTC)
         for session_id, session in collaboration_sessions.items():
             if datetime.fromisoformat(session["expires_at"]) < current_time and session["status"] == "active":
                 session["status"] = "expired"
@@ -637,8 +637,8 @@ async def startup_event():
             "languages": agent.languages,
             "specialization": agent.specialization,
             "performance_score": agent.performance_score,
-            "created_at": datetime.utcnow().isoformat(),
-            "last_active": datetime.utcnow().isoformat(),
+            "created_at": datetime.now(datetime.UTC).isoformat(),
+            "last_active": datetime.now(datetime.UTC).isoformat(),
             "total_messages_sent": 0,
             "total_messages_received": 0,
             "collaborations_participated": 0,

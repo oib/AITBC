@@ -3,7 +3,7 @@ Community and Developer Ecosystem Services
 Services for managing OpenClaw developer tools, SDKs, and third-party solutions
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from aitbc import get_logger
@@ -49,7 +49,7 @@ class DeveloperEcosystemService:
         # Mocking SDK release data
         return {
             "latest_version": "v1.2.0",
-            "release_date": datetime.utcnow().isoformat(),
+            "release_date": datetime.now(datetime.UTC).isoformat(),
             "supported_languages": ["python", "typescript", "rust"],
             "download_urls": {"python": "pip install aitbc-agent-sdk", "typescript": "npm install @aitbc/agent-sdk"},
             "features": [
@@ -106,7 +106,7 @@ class ThirdPartySolutionService:
         # Auto-publish if free, otherwise manual review required
         if solution.price_model == "free":
             solution.status = SolutionStatus.PUBLISHED
-            solution.published_at = datetime.utcnow()
+            solution.published_at = datetime.now(datetime.UTC)
 
         self.session.add(solution)
         self.session.commit()
@@ -278,7 +278,7 @@ class CommunityPlatformService:
             theme=data.get("theme", ""),
             sponsor=data.get("sponsor", "AITBC Foundation"),
             prize_pool=data.get("prize_pool", 0.0),
-            registration_start=datetime.fromisoformat(data.get("registration_start", datetime.utcnow().isoformat())),
+            registration_start=datetime.fromisoformat(data.get("registration_start", datetime.now(datetime.UTC).isoformat())),
             registration_end=datetime.fromisoformat(data.get("registration_end")),
             event_start=datetime.fromisoformat(data.get("event_start")),
             event_end=datetime.fromisoformat(data.get("event_end")),

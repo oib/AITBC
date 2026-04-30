@@ -9,7 +9,7 @@ import time
 import json
 import hashlib
 from typing import Dict, List, Optional, Any, Callable, Awaitable
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 
 from aitbc import get_logger
@@ -465,5 +465,5 @@ class DistributedProcessingCoordinator:
                 "utilization_percent": round(utilization, 2),
                 "cache_size": len(self.result_cache)
             },
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(datetime.UTC).isoformat()
         }

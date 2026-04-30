@@ -7,7 +7,7 @@ import hashlib
 import json
 import secrets
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, UTC
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -124,7 +124,7 @@ class EnhancedWalletAdapter(ABC):
         """Securely sign a message"""
         try:
             # Add timestamp and nonce for replay protection
-            timestamp = str(int(datetime.utcnow().timestamp()))
+            timestamp = str(int(datetime.now(datetime.UTC).timestamp()))
             nonce = secrets.token_hex(16)
 
             message_to_sign = f"{message}:{timestamp}:{nonce}"
@@ -194,7 +194,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "chain_type": self.chain_type.value,
                 "owner_address": owner_address,
                 "security_level": self.security_level.value,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
                 "status": WalletStatus.ACTIVE.value,
                 "security_config": security_config,
                 "nonce": 0,
@@ -227,7 +227,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "chain_id": self.chain_id,
                 "eth_balance": eth_balance,
                 "token_balances": {},
-                "last_updated": datetime.utcnow().isoformat(),
+                "last_updated": datetime.now(datetime.UTC).isoformat(),
             }
 
             # Get token balances if specified
@@ -304,7 +304,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "gas_limit": gas_limit,
                 "gas_price": gas_price,
                 "status": TransactionStatus.PENDING.value,
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
             logger.info(f"Executed Ethereum transaction {tx_hash} from {from_address} to {to_address}")
@@ -331,7 +331,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                     "gas_used": None,
                     "effective_gas_price": None,
                     "logs": [],
-                    "created_at": datetime.utcnow().isoformat(),
+                    "created_at": datetime.now(datetime.UTC).isoformat(),
                 }
 
             # Get transaction details
@@ -348,7 +348,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 "from": tx_data.get("from"),
                 "to": tx_data.get("to"),
                 "value": int(tx_data.get("value", "0x0"), 16),
-                "created_at": datetime.utcnow().isoformat(),
+                "created_at": datetime.now(datetime.UTC).isoformat(),
             }
 
             return result

@@ -4,7 +4,7 @@ Tests for SLA API Endpoints
 
 import sys
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from decimal import Decimal
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -65,7 +65,7 @@ def sample_sla_metric(db_session: Session, sample_miner: Miner) -> SLAMetric:
         metric_value=98.5,
         threshold=95.0,
         is_violation=False,
-        timestamp=datetime.utcnow(),
+        timestamp=datetime.now(datetime.UTC),
         metadata={"test": "true"},
     )
     db_session.add(metric)
@@ -191,7 +191,7 @@ def test_record_usage(test_client: TestClient):
 
 def test_generate_invoice(test_client: TestClient):
     """Test triggering invoice generation"""
-    end_date = datetime.utcnow()
+    end_date = datetime.now(datetime.UTC)
     start_date = end_date - timedelta(days=30)
     
     request_data = {

@@ -6,7 +6,7 @@ Provides health monitoring for agent orchestration, edge computing, and ecosyste
 """
 
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 import psutil
@@ -43,7 +43,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
             "status": "healthy" if edge_status["available"] else "degraded",
             "service": "openclaw-enhanced",
             "port": 8007,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -95,7 +95,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
             "status": "unhealthy",
             "service": "openclaw-enhanced",
             "port": 8007,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Health check failed",
         }
 
@@ -162,7 +162,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
             "status": "healthy" if edge_status["available"] else "degraded",
             "service": "openclaw-enhanced",
             "port": 8007,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "feature_tests": feature_tests,
             "edge_computing": edge_status,
             "overall_health": (
@@ -178,7 +178,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
             "status": "unhealthy",
             "service": "openclaw-enhanced",
             "port": 8007,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(datetime.UTC).isoformat(),
             "error": "Deep health check failed",
         }
 

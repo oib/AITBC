@@ -4,7 +4,7 @@ Implements various consensus algorithms for distributed decision making
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from typing import Dict, List, Any, Optional, Set, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -59,7 +59,7 @@ class DistributedConsensus:
             node = ConsensusNode(
                 node_id=node_id,
                 endpoint=endpoint,
-                last_seen=datetime.utcnow(),
+                last_seen=datetime.now(datetime.UTC),
                 reputation_score=node_data.get('reputation_score', 1.0),
                 voting_power=node_data.get('voting_power', 1.0),
                 is_active=True
@@ -70,7 +70,7 @@ class DistributedConsensus:
             return {
                 'status': 'success',
                 'node_id': node_id,
-                'registered_at': datetime.utcnow().isoformat(),
+                'registered_at': datetime.now(datetime.UTC).isoformat(),
                 'total_nodes': len(self.nodes)
             }
             
@@ -98,8 +98,8 @@ class DistributedConsensus:
                 proposal_id=proposal_id,
                 proposer_id=proposer_id,
                 proposal_data=proposal_data.get('content', {}),
-                timestamp=datetime.utcnow(),
-                deadline=datetime.utcnow() + self.voting_timeout,
+                timestamp=datetime.now(datetime.UTC),
+                deadline=datetime.now(datetime.UTC) + self.voting_timeout,
                 required_votes=required_votes
             )
             
@@ -186,7 +186,7 @@ class DistributedConsensus:
             
             # Record vote
             proposal.current_votes[node_id] = vote
-            self.nodes[node_id].last_seen = datetime.utcnow()
+            self.nodes[node_id].last_seen = datetime.now(datetime.UTC)
             
             # Check if consensus is reached
             await self._check_consensus(proposal)
@@ -216,7 +216,7 @@ class DistributedConsensus:
             total_votes = len(proposal.current_votes)
             
             # Check if deadline passed
-            if datetime.utcnow() > proposal.deadline:
+            if datetime.now(datetime.UTC) > proposal.deadline:
                 proposal.status = 'expired'
                 await self._finalize_proposal(proposal, False, 'Deadline expired')
                 return
@@ -266,7 +266,7 @@ class DistributedConsensus:
                 'reason': reason,
                 'votes': dict(proposal.current_votes),
                 'required_votes': proposal.required_votes,
-                'finalized_at': datetime.utcnow().isoformat(),
+                'finalized_at': datetime.now(datetime.UTC).isoformat(),
                 'algorithm': self.current_algorithm
             }
             
@@ -283,7 +283,7 @@ class DistributedConsensus:
     async def _cleanup_old_proposals(self):
         """Clean up old and expired proposals"""
         try:
-            current_time = datetime.utcnow()
+            current_time = datetime.now(datetime.UTC)
             expired_proposals = [
                 pid for pid, proposal in self.proposals.items()
                 if proposal.deadline < current_time or proposal.status in ['approved', 'rejected', 'expired']
@@ -340,7 +340,7 @@ class DistributedConsensus:
             return {
                 'status': 'success',
                 'algorithm': algorithm,
-                'changed_at': datetime.utcnow().isoformat()
+                'changed_at': datetime.now(datetime.UTC).isoformat()
             }
             
         except Exception as e:
@@ -400,7 +400,7 @@ class DistributedConsensus:
                 'algorithm_performance': dict(algorithm_stats),
                 'node_participation': node_participation,
                 'active_proposals': len(self.proposals),
-                'last_updated': datetime.utcnow().isoformat()
+                'last_updated': datetime.now(datetime.UTC).isoformat()
             }
             
         except Exception as e:
@@ -414,13 +414,13 @@ class DistributedConsensus:
                 return {'status': 'error', 'message': 'Node not found'}
             
             self.nodes[node_id].is_active = is_active
-            self.nodes[node_id].last_seen = datetime.utcnow()
+            self.nodes[node_id].last_seen = datetime.now(datetime.UTC)
             
             return {
                 'status': 'success',
                 'node_id': node_id,
                 'is_active': is_active,
-                'updated_at': datetime.utcnow().isoformat()
+                'updated_at': datetime.now(datetime.UTC).isoformat()
             }
             
         except Exception as e:

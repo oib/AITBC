@@ -8,7 +8,7 @@ import json
 import subprocess
 import tempfile
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException, UploadFile, File
@@ -63,7 +63,7 @@ async def root():
     return {
         "service": "AITBC Plugin Security Service",
         "status": "running",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(datetime.UTC).isoformat(),
         "version": "1.0.0"
     }
 
@@ -80,7 +80,7 @@ async def health_check():
 @app.post("/api/v1/security/scan")
 async def initiate_security_scan(scan: SecurityScan):
     """Initiate a security scan for a plugin"""
-    scan_id = f"scan_{int(datetime.utcnow().timestamp())}"
+    scan_id = f"scan_{int(datetime.now(datetime.UTC).timestamp())}"
     
     # Create scan record
     scan_record = {
@@ -91,7 +91,7 @@ async def initiate_security_scan(scan: SecurityScan):
         "scan_type": scan.scan_type,
         "priority": scan.priority,
         "status": "queued",
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(datetime.UTC).isoformat(),
         "started_at": None,
         "completed_at": None,
         "duration": None,
@@ -182,7 +182,7 @@ async def list_vulnerabilities(severity: Optional[str] = None,
 @app.post("/api/v1/security/policies")
 async def create_security_policy(policy: Dict[str, Any]):
     """Create a new security policy"""
-    policy_id = f"policy_{int(datetime.utcnow().timestamp())}"
+    policy_id = f"policy_{int(datetime.now(datetime.UTC).timestamp())}"
     
     policy_record = {
         "policy_id": policy_id,
@@ -197,8 +197,8 @@ async def create_security_policy(policy: Dict[str, Any]):
         }),
         "plugin_types": policy.get("plugin_types", []),
         "active": True,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "updated_at": datetime.now(datetime.UTC).isoformat()
     }
     
     security_policies[policy_id] = policy_record
@@ -261,7 +261,7 @@ async def get_security_dashboard():
     """Get security dashboard data"""
     total_scans = len(scan_reports)
     recent_scans = [r for r in scan_reports.values() 
-                   if datetime.fromisoformat(r["scan_date"]) > datetime.utcnow() - timedelta(days=7)]
+                   if datetime.fromisoformat(r["scan_date"]) > datetime.now(datetime.UTC) - timedelta(days=7)]
     
     # Calculate statistics
     scan_results = list(scan_reports.values())
@@ -294,7 +294,7 @@ async def get_security_dashboard():
             "queue_size": len(scan_queue),
             "active_policies": len([p for p in security_policies.values() if p["active"]])
         },
-        "generated_at": datetime.utcnow().isoformat()
+        "generated_at": datetime.now(datetime.UTC).isoformat()
     }
 
 # Core security scanning functions
@@ -305,15 +305,15 @@ async def process_scan_file(scan_id: str, file_path: str, filename: str):
         for scan_record in scan_queue:
             if scan_record["scan_id"] == scan_id:
                 scan_record["status"] = "running"
-                scan_record["started_at"] = datetime.utcnow().isoformat()
+                scan_record["started_at"] = datetime.now(datetime.UTC).isoformat()
                 break
         
-        start_time = datetime.utcnow()
+        start_time = datetime.now(datetime.UTC)
         
         # Perform security scan
         scan_result = await perform_security_scan(file_path, filename)
         
-        end_time = datetime.utcnow()
+        end_time = datetime.now(datetime.UTC)
         duration = (end_time - start_time).total_seconds()
         
         # Create security report
@@ -360,7 +360,7 @@ async def process_scan_file(scan_id: str, file_path: str, filename: str):
         for scan_record in scan_queue:
             if scan_record["scan_id"] == scan_id:
                 scan_record["status"] = "failed"
-                scan_record["completed_at"] = datetime.utcnow().isoformat()
+                scan_record["completed_at"] = datetime.now(datetime.UTC).isoformat()
                 break
 
 async def perform_security_scan(file_path: str, filename: str) -> Dict[str, Any]:
@@ -392,7 +392,7 @@ async def perform_security_scan(file_path: str, filename: str) -> Dict[str, Any]
             "vulnerability_count": len(vulnerabilities),
             "severity_distribution": get_severity_distribution(vulnerabilities),
             "file_type": filename.split('.')[-1],
-            "scan_timestamp": datetime.utcnow().isoformat()
+            "scan_timestamp": datetime.now(datetime.UTC).isoformat()
         })
         
     except Exception as e:

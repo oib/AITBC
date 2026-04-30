@@ -5,7 +5,7 @@ import sys
 import sys
 from pathlib import Path
 from fastapi.testclient import TestClient
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 from main import app, PluginRegistration, PluginVersion, SecurityScan, plugins, plugin_versions, security_scans, analytics, downloads
@@ -74,7 +74,7 @@ def test_plugin_version_empty_changelog():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     assert version.changelog == ""
 
@@ -86,7 +86,7 @@ def test_security_scan_empty_vulnerabilities():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -104,7 +104,7 @@ def test_add_version_nonexistent_plugin():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     response = client.post("/api/v1/plugins/nonexistent/versions", json=version.model_dump(mode='json'))
     assert response.status_code == 404
@@ -152,7 +152,7 @@ def test_security_scan_nonexistent_plugin():
         scan_id="scan_123",
         plugin_id="nonexistent",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -187,7 +187,7 @@ def test_security_scan_nonexistent_version():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="2.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[],
         risk_score="low",
         passed=True
@@ -296,7 +296,7 @@ def test_security_scan_failed():
         download_url="https://github.com/test/plugin/archive/v1.0.0.tar.gz",
         checksum="abc123",
         aitbc_compatibility=["1.0.0"],
-        release_date=datetime.utcnow()
+        release_date=datetime.now(datetime.UTC)
     )
     client.post("/api/v1/plugins/test_plugin/versions", json=version.model_dump(mode='json'))
     
@@ -305,7 +305,7 @@ def test_security_scan_failed():
         scan_id="scan_123",
         plugin_id="test_plugin",
         version="1.0.0",
-        scan_date=datetime.utcnow(),
+        scan_date=datetime.now(datetime.UTC),
         vulnerabilities=[{"severity": "high", "description": "Critical issue"}],
         risk_score="high",
         passed=False

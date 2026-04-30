@@ -4,7 +4,7 @@ REST API endpoints for translation and language detection services
 """
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from aitbc import get_logger
@@ -454,11 +454,11 @@ async def health_check(
         all_healthy = all(services.values())
         status = "healthy" if all_healthy else "degraded" if any(services.values()) else "unhealthy"
 
-        return HealthResponse(status=status, services=services, timestamp=datetime.utcnow())
+        return HealthResponse(status=status, services=services, timestamp=datetime.now(datetime.UTC))
 
     except Exception as e:
         logger.error(f"Health check error: {e}")
-        return HealthResponse(status="unhealthy", services={"error": str(e)}, timestamp=datetime.utcnow())
+        return HealthResponse(status="unhealthy", services={"error": str(e)}, timestamp=datetime.now(datetime.UTC))
 
 
 @router.get("/cache/top-translations")

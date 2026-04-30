@@ -7,7 +7,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, Optional
 import uvicorn
-from datetime import datetime
+from datetime import datetime, UTC
 
 app = FastAPI(title="GPU Registry Demo")
 
@@ -37,8 +37,8 @@ async def register_gpu(miner_id: str, gpu_data: GPURegistration):
     """Register a GPU miner"""
     registered_gpus[miner_id] = {
         "id": miner_id,
-        "registered_at": datetime.utcnow().isoformat(),
-        "last_heartbeat": datetime.utcnow().isoformat(),
+        "registered_at": datetime.now(datetime.UTC).isoformat(),
+        "last_heartbeat": datetime.now(datetime.UTC).isoformat(),
         **gpu_data.dict()
     }
     return {"status": "ok", "message": f"GPU {miner_id} registered successfully"}
@@ -49,7 +49,7 @@ async def heartbeat(miner_id: str, heartbeat_data: Heartbeat):
     if miner_id not in registered_gpus:
         raise HTTPException(status_code=404, detail="GPU not registered")
     
-    registered_gpus[miner_id]["last_heartbeat"] = datetime.utcnow().isoformat()
+    registered_gpus[miner_id]["last_heartbeat"] = datetime.now(datetime.UTC).isoformat()
     registered_gpus[miner_id]["status"] = heartbeat_data.status
     registered_gpus[miner_id]["metadata"] = heartbeat_data.metadata
     

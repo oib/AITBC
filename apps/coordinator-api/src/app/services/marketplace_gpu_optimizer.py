@@ -10,7 +10,7 @@ import json
 import asyncio
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
-from datetime import datetime
+from datetime import datetime, UTC
 import threading
 import multiprocessing
 
@@ -422,7 +422,7 @@ class MarketplaceGPUOptimizer:
             'memory_required': memory_required,
             'computation_complexity': computation_complexity,
             'status': 'queued',
-            'submitted_at': datetime.utcnow().isoformat()
+            'submitted_at': datetime.now(datetime.UTC).isoformat()
         }
         
         # Calculate scores and find best GPU
@@ -552,7 +552,7 @@ class MarketplaceGPUOptimizer:
                 })
                 
             return {
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(datetime.UTC).isoformat(),
                 'active_jobs': len(self.active_jobs),
                 'metrics': {
                     'overall_utilization_pct': round(self.resource_metrics['total_utilization'] * 100, 2),

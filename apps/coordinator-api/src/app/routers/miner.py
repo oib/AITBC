@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -87,7 +87,7 @@ async def submit_result(
     metrics = dict(req.metrics or {})
     duration_ms = metrics.get("duration_ms")
     if duration_ms is None and job.requested_at:
-        duration_ms = int((datetime.utcnow() - job.requested_at).total_seconds() * 1000)
+        duration_ms = int((datetime.now(datetime.UTC) - job.requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
 
     receipt = receipt_service.create_receipt(job, miner_id, req.result, metrics)

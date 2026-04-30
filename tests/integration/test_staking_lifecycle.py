@@ -6,7 +6,7 @@ Test 3.1.1: Complete staking lifecycle integration test
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 
 import pytest
 
@@ -123,7 +123,7 @@ class TestStakingLifecycle:
         print("\n=== Step 3: Simulating lock period ===")
         # In a real scenario, this would be actual time passing
         # For testing, we'll just verify the logic works
-        stake.end_time = datetime.utcnow() - timedelta(days=1)  # Lock period ended
+        stake.end_time = datetime.now(datetime.UTC) - timedelta(days=1)  # Lock period ended
         staking_service.session.commit()
         print(f"✓ Lock period simulated as ended")
         
@@ -135,7 +135,7 @@ class TestStakingLifecycle:
         
         # Step 5: Simulate unbonding period
         print("\n=== Step 5: Simulating unbonding period ===")
-        unbonded_stake.unbonding_time = datetime.utcnow() - timedelta(days=8)  # 8 days ago
+        unbonded_stake.unbonding_time = datetime.now(datetime.UTC) - timedelta(days=8)  # 8 days ago
         staking_service.session.commit()
         print(f"✓ Unbonding period simulated as ended")
         
@@ -194,7 +194,7 @@ class TestStakingLifecycle:
         print(f"Initial rewards: {initial_rewards}")
         
         # Simulate time passing by updating last_reward_time
-        stake.last_reward_time = datetime.utcnow() - timedelta(days=10)
+        stake.last_reward_time = datetime.now(datetime.UTC) - timedelta(days=10)
         staking_service.session.commit()
         
         # Calculate rewards after 10 days

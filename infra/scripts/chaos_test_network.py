@@ -12,7 +12,7 @@ import time
 import logging
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Dict, List, Optional
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -244,7 +244,7 @@ class ChaosTestNetwork:
     async def run_test(self, partition_duration: int = 60, partition_ratio: float = 0.5):
         """Run the complete network partition chaos test"""
         logger.info("Starting network partition chaos test")
-        self.metrics["test_start"] = datetime.utcnow().isoformat()
+        self.metrics["test_start"] = datetime.now(datetime.UTC).isoformat()
         
         # Get all blockchain pods
         all_pods = self.get_blockchain_pods()
@@ -270,7 +270,7 @@ class ChaosTestNetwork:
         
         # Phase 3: Apply network partition
         logger.info("Phase 3: Applying network partition")
-        self.metrics["partition_start"] = datetime.utcnow().isoformat()
+        self.metrics["partition_start"] = datetime.now(datetime.UTC).isoformat()
         
         if not self.apply_network_partition(remaining_pods, partition_pods):
             logger.error("Failed to apply network partition")
@@ -287,7 +287,7 @@ class ChaosTestNetwork:
         
         # Phase 5: Remove partition and monitor recovery
         logger.info("Phase 5: Removing network partition")
-        self.metrics["partition_end"] = datetime.utcnow().isoformat()
+        self.metrics["partition_end"] = datetime.now(datetime.UTC).isoformat()
         
         if not self.remove_network_partition(all_pods):
             logger.error("Failed to remove network partition")
@@ -312,7 +312,7 @@ class ChaosTestNetwork:
         await self.generate_load(60)
         
         # Final metrics
-        self.metrics["test_end"] = datetime.utcnow().isoformat()
+        self.metrics["test_end"] = datetime.now(datetime.UTC).isoformat()
         self.metrics["mttr"] = self.metrics["recovery_time"]
         
         # Save results

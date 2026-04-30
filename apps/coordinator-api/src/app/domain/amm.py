@@ -6,7 +6,7 @@ Domain models for automated market making, liquidity pools, and swap transaction
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -122,7 +122,7 @@ class SwapTransaction(SQLModel, table=True):
     gas_price: float | None = Field(default=None)
     executed_at: datetime | None = Field(default=None, index=True)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    deadline: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=20))
+    deadline: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(minutes=20))
 
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="swaps")
@@ -169,7 +169,7 @@ class FeeStructure(SQLModel, table=True):
     liquidity_adjustment: float = Field(default=0.0)  # Liquidity-based adjustment
     time_adjustment: float = Field(default=0.0)  # Time-based adjustment
     adjusted_at: datetime = Field(default_factory=datetime.utcnow)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
     adjustment_reason: str = Field(default="")  # Reason for adjustment
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -193,7 +193,7 @@ class IncentiveProgram(SQLModel, table=True):
     vesting_period_days: int = Field(default=0)  # Vesting period (0 = no vesting)
     is_active: bool = Field(default=True, index=True)
     start_time: datetime = Field(default_factory=datetime.utcnow)
-    end_time: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(days=30))
+    end_time: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(days=30))
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
@@ -284,7 +284,7 @@ class PoolAlert(SQLModel, table=True):
     is_resolved: bool = Field(default=False, index=True)
     resolved_at: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
 
 
 class PoolSnapshot(SQLModel, table=True):
@@ -336,4 +336,4 @@ class ArbitrageOpportunity(SQLModel, table=True):
     execution_tx_hash: str | None = Field(default=None)
     actual_profit: float | None = Field(default=None)
     created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.utcnow() + timedelta(minutes=5))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(minutes=5))

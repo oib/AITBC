@@ -4,7 +4,7 @@ Exception classes and error response schemas for AITBC coordinator
 Provides structured error responses for consistent API error handling.
 """
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -22,7 +22,7 @@ class ErrorResponse(BaseModel):
     """Standardized error response for all API errors."""
 
     error: dict[str, Any] = Field(..., description="Error information")
-    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat() + "Z")
+    timestamp: str = Field(default_factory=lambda: datetime.now(datetime.UTC).isoformat() + "Z")
     request_id: str | None = Field(None, description="Request ID for tracing")
 
     class Config:
