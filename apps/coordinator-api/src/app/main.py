@@ -51,7 +51,6 @@ from .routers import (
     client,
     cross_chain_integration,
     developer_platform,
-    edge_gpu,
     exchange,
     explorer,
     global_marketplace,
@@ -331,7 +330,6 @@ def create_app() -> FastAPI:
     app.include_router(exchange, prefix="/v1")
     app.include_router(payments, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
-    app.include_router(edge_gpu)
 
     # Add standalone routers for tasks and payments
 
