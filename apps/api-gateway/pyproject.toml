@@ -13,6 +13,12 @@ dependencies = [
     "aitbc-core",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -21,3 +27,6 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "api_gateway", from = "src" }
 ]
+
+[tool.poetry.extras]
+test = ["pytest", "pytest-asyncio"]

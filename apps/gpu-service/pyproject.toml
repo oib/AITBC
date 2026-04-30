@@ -14,6 +14,13 @@ dependencies = [
     "aitbc-core",
 ]
 
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "httpx>=0.25.0",
+]
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
@@ -22,3 +29,6 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "gpu_service", from = "src" }
 ]
+
+[tool.poetry.extras]
+test = ["pytest", "pytest-asyncio", "httpx"]
