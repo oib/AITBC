@@ -196,7 +196,7 @@ add_ignore = ["D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 minversion = "8.0"
-addopts = "-ra -q --strict-markers --strict-config"
+addopts = "-ra -q --strict-markers --strict-config --cov=apps --cov=packages --cov=cli --cov-report=term-missing --cov-report=html --cov-fail-under=50"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
@@ -205,6 +205,27 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["apps", "packages", "cli"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/migrations/*",
+    "*/venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
 ]
 
 [build-system]
