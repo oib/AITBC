@@ -258,7 +258,7 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
                 time_str = service_health["response_time"].replace("s", "")
                 total_response_time += float(time_str)
                 response_time_count += 1
-            except:
+            except (ValueError, AttributeError):
                 pass
 
     # Determine overall status
