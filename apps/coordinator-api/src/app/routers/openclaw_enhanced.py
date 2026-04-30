@@ -41,7 +41,7 @@ async def route_agent_skill(
     routing_request: SkillRoutingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> SkillRoutingResponse:
     """Sophisticated agent skill routing"""
 
     try:
@@ -69,7 +69,7 @@ async def intelligent_job_offloading(
     offloading_request: JobOffloadingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> JobOffloadingResponse:
     """Intelligent job offloading strategies"""
 
     try:
@@ -98,7 +98,7 @@ async def coordinate_agent_collaboration(
     collaboration_request: AgentCollaborationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentCollaborationResponse:
     """Agent collaboration and coordination"""
 
     try:
@@ -127,7 +127,7 @@ async def optimize_hybrid_execution(
     execution_request: HybridExecutionRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> HybridExecutionResponse:
     """Hybrid execution optimization"""
 
     try:
@@ -155,7 +155,7 @@ async def deploy_to_edge(
     deployment_request: EdgeDeploymentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> EdgeDeploymentResponse:
     """Deploy agent to edge computing infrastructure"""
 
     try:
@@ -184,7 +184,7 @@ async def coordinate_edge_to_cloud(
     coordination_request: EdgeCoordinationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> EdgeCoordinationResponse:
     """Coordinate edge-to-cloud agent operations"""
 
     try:
@@ -213,7 +213,7 @@ async def develop_openclaw_ecosystem(
     ecosystem_request: EcosystemDevelopmentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> EcosystemDevelopmentResponse:
     """Build comprehensive OpenClaw ecosystem"""
 
     try:

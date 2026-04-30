@@ -1,6 +1,6 @@
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from ..domain.gpu_marketplace import ConsumerGPUProfile, EdgeGPUMetrics, GPUArchitecture
@@ -20,7 +20,7 @@ async def get_consumer_gpu_profiles(
     edge_optimized: bool | None = Query(default=None),
     min_memory_gb: int | None = Query(default=None),
     svc: EdgeGPUService = Depends(get_edge_service),
-):
+) -> list[ConsumerGPUProfile]:
     return svc.list_profiles(architecture=architecture, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
 
 
@@ -29,12 +29,12 @@ async def get_edge_gpu_metrics(
     gpu_id: str,
     limit: int = Query(default=100, ge=1, le=500),
     svc: EdgeGPUService = Depends(get_edge_service),
-):
+) -> list[EdgeGPUMetrics]:
     return svc.list_metrics(gpu_id=gpu_id, limit=limit)
 
 
 @router.post("/scan/{miner_id}")
-async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_service)):
+async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_service)) -> dict[str, Any]:
     """Scan and register edge GPUs for a miner"""
     try:
         result = await svc.discover_and_register_edge_gpus(miner_id)
@@ -51,7 +51,7 @@ async def scan_edge_gpus(miner_id: str, svc: EdgeGPUService = Depends(get_edge_s
 @router.post("/optimize/inference/{gpu_id}")
 async def optimize_inference(
     gpu_id: str, model_name: str, request_data: dict, svc: EdgeGPUService = Depends(get_edge_service)
-):
+) -> dict[str, Any]:
     """Optimize ML inference request for edge GPU"""
     try:
         optimized = await svc.optimize_inference_for_edge(gpu_id, model_name, request_data)

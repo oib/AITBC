@@ -47,7 +47,7 @@ class BountyCreateRequest(BaseModel):
     difficulty: Optional[str] = Field(default=None)
 
     @validator('deadline')
-    def validate_deadline(cls, v):
+    def validate_deadline(cls, v: datetime) -> datetime:
         if v <= datetime.now(datetime.UTC):
             raise ValueError('Deadline must be in the future')
         if v > datetime.now(datetime.UTC) + timedelta(days=365):
@@ -55,7 +55,7 @@ class BountyCreateRequest(BaseModel):
         return v
 
     @validator('reward_amount')
-    def validate_reward_amount(cls, v, values):
+    def validate_reward_amount(cls, v: float, values: dict[str, Any]) -> float:
         tier = values.get('tier', BountyTier.BRONZE)
         tier_minimums = {
             BountyTier.BRONZE: 100.0,
@@ -184,7 +184,7 @@ async def create_bounty(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> BountyResponse:
     """Create a new bounty"""
     try:
         logger.info(f"Creating bounty: {request.title} by user {current_user['address']}")
@@ -215,7 +215,7 @@ async def get_bounties(
     session: Session = Depends(get_session),
     filters: BountyFilterRequest = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> List[BountyResponse]:
     """Get filtered list of bounties"""
     try:
         bounties = await bounty_service.get_bounties(
@@ -244,7 +244,7 @@ async def get_bounty(
     bounty_id: str,
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> BountyResponse:
     """Get bounty details"""
     try:
         bounty = await bounty_service.get_bounty(bounty_id)
@@ -268,7 +268,7 @@ async def submit_bounty_solution(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> BountySubmissionResponse:
     """Submit a solution to a bounty"""
     try:
         logger.info(f"Submitting solution for bounty {bounty_id} by {current_user['address']}")
@@ -316,7 +316,7 @@ async def get_bounty_submissions(
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> List[BountySubmissionResponse]:
     """Get all submissions for a bounty"""
     try:
         # Check if user is bounty creator or has permission
@@ -347,7 +347,7 @@ async def verify_bounty_submission(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, str]:
     """Verify a bounty submission (oracle/admin only)"""
     try:
         # Check permissions
@@ -387,7 +387,7 @@ async def dispute_bounty_submission(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, str]:
     """Dispute a bounty submission"""
     try:
         # Create dispute
@@ -421,7 +421,7 @@ async def get_my_created_bounties(
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> List[BountyResponse]:
     """Get bounties created by the current user"""
     try:
         bounties = await bounty_service.get_user_created_bounties(
@@ -445,7 +445,7 @@ async def get_my_submissions(
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> List[BountySubmissionResponse]:
     """Get submissions made by the current user"""
     try:
         submissions = await bounty_service.get_user_submissions(
@@ -467,7 +467,7 @@ async def get_bounty_leaderboard(
     limit: int = Field(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> Dict[str, Any]:
     """Get bounty leaderboard"""
     try:
         leaderboard = await bounty_service.get_leaderboard(
@@ -486,7 +486,7 @@ async def get_bounty_stats(
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> BountyStatsResponse:
     """Get bounty statistics"""
     try:
         stats = await bounty_service.get_bounty_stats(period=period)
@@ -505,7 +505,7 @@ async def expire_bounty(
     bounty_service: BountyService = Depends(get_bounty_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, str]:
     """Expire a bounty (creator only)"""
     try:
         # Check if user is bounty creator
@@ -543,7 +543,7 @@ async def expire_bounty(
 async def get_bounty_categories(
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> Dict[str, Any]:
     """Get all bounty categories"""
     try:
         categories = await bounty_service.get_categories()
@@ -558,7 +558,7 @@ async def get_bounty_tags(
     limit: int = Field(default=100, ge=1, le=500),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> Dict[str, Any]:
     """Get popular bounty tags"""
     try:
         tags = await bounty_service.get_popular_tags(limit=limit)
@@ -575,7 +575,7 @@ async def search_bounties(
     limit: int = Field(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
-):
+) -> List[BountyResponse]:
     """Search bounties by text"""
     try:
         bounties = await bounty_service.search_bounties(

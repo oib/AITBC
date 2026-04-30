@@ -2,6 +2,8 @@
 Cache monitoring and management endpoints
 """
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -20,7 +22,7 @@ router = APIRouter(prefix="/cache", tags=["cache-management"])
 
 @router.get("/stats", summary="Get cache statistics")
 @limiter.limit(lambda: settings.rate_limit_admin_stats)
-async def get_cache_statistics(request: Request, admin_key: str = Depends(require_admin_key())):
+async def get_cache_statistics(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Get cache performance statistics"""
     try:
         stats = get_cache_stats()
@@ -32,7 +34,7 @@ async def get_cache_statistics(request: Request, admin_key: str = Depends(requir
 
 @router.post("/clear", summary="Clear cache entries")
 @limiter.limit(lambda: settings.rate_limit_admin_stats)
-async def clear_cache_entries(request: Request, pattern: str = None, admin_key: str = Depends(require_admin_key())):
+async def clear_cache_entries(request: Request, pattern: str = None, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Clear cache entries (all or matching pattern)"""
     try:
         result = clear_cache(pattern)
@@ -45,7 +47,7 @@ async def clear_cache_entries(request: Request, pattern: str = None, admin_key: 
 
 @router.post("/warm", summary="Warm up cache")
 @limiter.limit(lambda: settings.rate_limit_admin_stats)
-async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin_key())):
+async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Trigger cache warming for common queries"""
     try:
         result = warm_cache()
@@ -58,7 +60,7 @@ async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin
 
 @router.get("/health", summary="Get cache health status")
 @limiter.limit(lambda: settings.rate_limit_admin_stats)
-async def cache_health_check(request: Request, admin_key: str = Depends(require_admin_key())):
+async def cache_health_check(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Get detailed cache health information"""
     try:
         from ..utils.cache import cache_manager

@@ -135,7 +135,7 @@ def _gpu_to_dict(gpu: GPURegistry) -> dict[str, Any]:
     }
 
 
-def _get_gpu_or_404(session, gpu_id: str) -> GPURegistry:
+def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
     gpu = session.get(GPURegistry, gpu_id)
     if not gpu:
         raise HTTPException(

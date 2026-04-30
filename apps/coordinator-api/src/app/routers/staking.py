@@ -29,7 +29,7 @@ class StakeCreateRequest(BaseModel):
     auto_compound: bool = Field(default=False)
 
     @validator('amount')
-    def validate_amount(cls, v):
+    def validate_amount(cls, v: float) -> float:
         if v < 100.0:
             raise ValueError('Minimum stake amount is 100 AITBC')
         if v > 100000.0:
@@ -151,7 +151,7 @@ async def create_stake(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> StakeResponse:
     """Create a new stake on an agent wallet"""
     try:
         logger.info(f"Creating stake: {request.amount} AITBC on {request.agent_wallet} by {current_user['address']}")
@@ -191,7 +191,7 @@ async def get_stake(
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> StakeResponse:
     """Get stake details"""
     try:
         stake = await staking_service.get_stake(stake_id)
@@ -216,7 +216,7 @@ async def get_stakes(
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> List[StakeResponse]:
     """Get filtered list of user's stakes"""
     try:
         stakes = await staking_service.get_user_stakes(
@@ -246,7 +246,7 @@ async def add_to_stake(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> StakeResponse:
     """Add more tokens to an existing stake"""
     try:
         # Get stake and verify ownership
@@ -289,7 +289,7 @@ async def unbond_stake(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, str]:
     """Initiate unbonding for a stake"""
     try:
         # Get stake and verify ownership
@@ -331,7 +331,7 @@ async def complete_unbonding(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """Complete unbonding and return stake + rewards"""
     try:
         # Get stake and verify ownership
@@ -373,7 +373,7 @@ async def get_stake_rewards(
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """Get current rewards for a stake"""
     try:
         # Get stake and verify ownership
@@ -407,7 +407,7 @@ async def get_agent_metrics(
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> AgentMetricsResponse:
     """Get agent performance metrics"""
     try:
         metrics = await staking_service.get_agent_metrics(agent_wallet)
@@ -427,7 +427,7 @@ async def get_staking_pool(
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> StakingPoolResponse:
     """Get staking pool information for an agent"""
     try:
         pool = await staking_service.get_staking_pool(agent_wallet)
@@ -448,7 +448,7 @@ async def get_agent_apy(
     lock_period: int = Field(default=30, ge=1, le=365),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> Dict[str, Any]:
     """Get current APY for staking on an agent"""
     try:
         apy = await staking_service.calculate_apy(agent_wallet, lock_period)
@@ -474,7 +474,7 @@ async def update_agent_performance(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, str]:
     """Update agent performance metrics (oracle only)"""
     try:
         # Check permissions
@@ -512,7 +512,7 @@ async def distribute_agent_earnings(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """Distribute agent earnings to stakers"""
     try:
         # Check permissions
@@ -553,7 +553,7 @@ async def get_supported_agents(
     tier: Optional[PerformanceTier] = None,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> Dict[str, Any]:
     """Get list of supported agents for staking"""
     try:
         agents = await staking_service.get_supported_agents(
@@ -578,7 +578,7 @@ async def get_staking_stats(
     period: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> StakingStatsResponse:
     """Get staking system statistics"""
     try:
         stats = await staking_service.get_staking_stats(period=period)
@@ -596,7 +596,7 @@ async def get_staking_leaderboard(
     limit: int = Field(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> Dict[str, Any]:
     """Get staking leaderboard"""
     try:
         leaderboard = await staking_service.get_leaderboard(
@@ -620,7 +620,7 @@ async def get_my_staking_positions(
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> List[StakeResponse]:
     """Get current user's staking positions"""
     try:
         stakes = await staking_service.get_user_stakes(
@@ -643,7 +643,7 @@ async def get_my_staking_rewards(
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """Get current user's staking rewards"""
     try:
         rewards = await staking_service.get_user_rewards(
@@ -665,7 +665,7 @@ async def claim_staking_rewards(
     staking_service: StakingService = Depends(get_staking_service),
     blockchain_service: BlockchainService = Depends(get_blockchain_service),
     current_user: dict = Depends(get_current_user)
-):
+) -> Dict[str, Any]:
     """Claim accumulated rewards for multiple stakes"""
     try:
         # Verify ownership of all stakes
@@ -710,7 +710,7 @@ async def get_risk_assessment(
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
-):
+) -> Dict[str, Any]:
     """Get risk assessment for staking on an agent"""
     try:
         assessment = await staking_service.get_risk_assessment(agent_wallet)

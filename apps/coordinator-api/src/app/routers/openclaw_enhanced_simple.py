@@ -81,7 +81,7 @@ async def route_agent_skill(
     request: SkillRoutingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Route agent skill to appropriate agent"""
 
     try:
@@ -104,7 +104,7 @@ async def intelligent_job_offloading(
     request: JobOffloadingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Intelligent job offloading strategies"""
 
     try:
@@ -127,7 +127,7 @@ async def coordinate_agent_collaboration(
     request: AgentCollaborationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Agent collaboration and coordination"""
 
     try:
@@ -148,7 +148,7 @@ async def optimize_hybrid_execution(
     request: HybridExecutionRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Hybrid execution optimization"""
 
     try:
@@ -169,7 +169,7 @@ async def deploy_to_edge(
     request: EdgeDeploymentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Deploy agent to edge computing infrastructure"""
 
     try:
@@ -190,7 +190,7 @@ async def coordinate_edge_to_cloud(
     request: EdgeCoordinationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Coordinate edge-to-cloud agent operations"""
 
     try:
@@ -211,7 +211,7 @@ async def develop_openclaw_ecosystem(
     request: EcosystemDevelopmentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Build OpenClaw ecosystem components"""
 
     try:

@@ -84,7 +84,7 @@ class HackathonCreateRequest(BaseModel):
 
 # Endpoints - Developer Ecosystem
 @router.post("/developers", response_model=DeveloperProfile)
-async def create_developer_profile(request: DeveloperProfileCreate, session: Annotated[Session, Depends(get_session)]):
+async def create_developer_profile(request: DeveloperProfileCreate, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Register a new developer in the OpenClaw ecosystem"""
     service = DeveloperEcosystemService(session)
     try:
@@ -98,7 +98,7 @@ async def create_developer_profile(request: DeveloperProfileCreate, session: Ann
 
 
 @router.get("/developers/{developer_id}", response_model=DeveloperProfile)
-async def get_developer_profile(developer_id: str, session: Annotated[Session, Depends(get_session)]):
+async def get_developer_profile(developer_id: str, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Get a developer's profile and reputation"""
     service = DeveloperEcosystemService(session)
     profile = await service.get_developer_profile(developer_id)
@@ -108,7 +108,7 @@ async def get_developer_profile(developer_id: str, session: Annotated[Session, D
 
 
 @router.get("/sdk/latest")
-async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]):
+async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about the latest OpenClaw SDK releases"""
     service = DeveloperEcosystemService(session)
     return await service.get_sdk_release_info()
@@ -116,7 +116,7 @@ async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]):
 
 # Endpoints - Marketplace Solutions
 @router.post("/solutions/publish", response_model=AgentSolution)
-async def publish_solution(request: SolutionPublishRequest, session: Annotated[Session, Depends(get_session)]):
+async def publish_solution(request: SolutionPublishRequest, session: Annotated[Session, Depends(get_session)]) -> AgentSolution:
     """Publish a new third-party agent solution to the marketplace"""
     service = ThirdPartySolutionService(session)
     try:
@@ -131,7 +131,8 @@ async def publish_solution(request: SolutionPublishRequest, session: Annotated[S
 async def list_solutions(
     category: str | None = None,
     limit: int = 50,
-):
+    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
+) -> list[AgentSolution]:
     """List available third-party agent solutions"""
     service = ThirdPartySolutionService(session)
     return await service.list_published_solutions(category, limit)
@@ -140,7 +141,7 @@ async def list_solutions(
 @router.post("/solutions/{solution_id}/purchase")
 async def purchase_solution(
     solution_id: str, session: Annotated[Session, Depends(get_session)], buyer_id: str = Body(embed=True)
-):
+) -> dict[str, Any]:
     """Purchase or install a third-party solution"""
     service = ThirdPartySolutionService(session)
     try:
@@ -157,7 +158,8 @@ async def purchase_solution(
 async def propose_innovation_lab(
     researcher_id: str = Query(...),
     request: LabProposalRequest = Body(...),
-):
+    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
+) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
     service = InnovationLabService(session)
     try:
@@ -170,7 +172,7 @@ async def propose_innovation_lab(
 @router.post("/labs/{lab_id}/join")
 async def join_innovation_lab(
     lab_id: str, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
-):
+) -> InnovationLab:
     """Join an active innovation lab"""
     service = InnovationLabService(session)
     try:
@@ -183,7 +185,7 @@ async def join_innovation_lab(
 @router.post("/labs/{lab_id}/fund")
 async def fund_innovation_lab(
     lab_id: str, session: Annotated[Session, Depends(get_session)], amount: float = Body(embed=True)
-):
+) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)
     try:
@@ -198,7 +200,8 @@ async def fund_innovation_lab(
 async def create_community_post(
     author_id: str = Query(...),
     request: PostCreateRequest = Body(...),
-):
+    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
+) -> CommunityPost:
     """Create a new post in the community forum"""
     service = CommunityPlatformService(session)
     try:
@@ -212,14 +215,15 @@ async def create_community_post(
 async def get_community_feed(
     category: str | None = None,
     limit: int = 20,
-):
+    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
+) -> list[CommunityPost]:
     """Get the latest community posts and discussions"""
     service = CommunityPlatformService(session)
     return await service.get_feed(category, limit)
 
 
 @router.post("/platform/posts/{post_id}/upvote")
-async def upvote_community_post(post_id: str, session: Annotated[Session, Depends(get_session)]):
+async def upvote_community_post(post_id: str, session: Annotated[Session, Depends(get_session)]) -> CommunityPost:
     """Upvote a community post (rewards author reputation)"""
     service = CommunityPlatformService(session)
     try:
@@ -234,7 +238,8 @@ async def upvote_community_post(post_id: str, session: Annotated[Session, Depend
 async def create_hackathon(
     organizer_id: str = Query(...),
     request: HackathonCreateRequest = Body(...),
-):
+    session: Annotated[Session, Depends(get_session)] = Depends(get_session),
+) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
     service = CommunityPlatformService(session)
     try:
@@ -249,7 +254,7 @@ async def create_hackathon(
 @router.post("/hackathons/{hackathon_id}/register")
 async def register_for_hackathon(
     hackathon_id: str, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
-):
+) -> Hackathon:
     """Register for an upcoming or ongoing hackathon"""
     service = CommunityPlatformService(session)
     try:

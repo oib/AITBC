@@ -4,6 +4,8 @@
 OpenClaw Enhanced Service - FastAPI Entry Point
 """
 
+from typing import Any
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -32,12 +34,12 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     return {"status": "ok", "service": "openclaw-enhanced"}
 
 
 @app.get("/health/detailed")
-async def detailed_health():
+async def detailed_health() -> dict[str, Any]:
     """Simple health check without database dependency"""
     try:
         import psutil
