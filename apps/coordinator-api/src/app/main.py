@@ -94,6 +94,8 @@ from aitbc import get_logger
 from .app_logging import configure_logging
 from .middleware.request_id import RequestIDMiddleware
 from .middleware.performance import PerformanceLoggingMiddleware
+from .middleware.validation import RequestValidationMiddleware
+from .middleware.error_handler import ErrorHandlerMiddleware
 from .exceptions import AITBCError, ErrorResponse
 
 # Configure structured logging
@@ -292,6 +294,12 @@ def create_app() -> FastAPI:
     
     # Add performance logging middleware
     app.add_middleware(PerformanceLoggingMiddleware)
+    
+    # Add request validation middleware
+    app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
+    
+    # Add error handler middleware
+    app.add_middleware(ErrorHandlerMiddleware)
 
     @app.middleware("http")
     async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
