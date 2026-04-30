@@ -230,7 +230,7 @@ async def get_blocks(
         client = AITBCHTTPClient(timeout=5.0)
         try:
             blocks_data = client.get(
-                "http://10.1.223.93:8082/rpc/blocks-range", params={"start": offset, "end": offset + limit}
+                f"{settings.blockchain_rpc_url}/rpc/blocks-range", params={"start": offset, "end": offset + limit}
             )
             return {
                 "blocks": blocks_data.get("blocks", []),

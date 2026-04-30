@@ -35,7 +35,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         client_ip = request.client.host if request.client else "unknown"
         # Bypass rate limiting for localhost and internal network (sync/health internal traffic)
-        if client_ip in {"127.0.0.1", "::1", "10.1.223.93", "10.1.223.40"}:
+        trusted_ips = os.getenv("AITBC_TRUSTED_IPS", "127.0.0.1,::1").split(",")
+        if client_ip in trusted_ips:
             return await call_next(request)
         now = time.time()
         # Clean old entries
