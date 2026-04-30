@@ -66,7 +66,7 @@ async def initiate_cross_chain_settlement(
             created_at=asyncio.get_event_loop().time(),
         )
 
-    except Exception as e:
+    except (ValueError, KeyError, AttributeError) as e:
         raise HTTPException(status_code=500, detail=f"Settlement failed: {str(e)}")
 
 
@@ -91,7 +91,7 @@ async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_a
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (ValueError, KeyError, AttributeError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to get settlement: {str(e)}")
 
 
@@ -104,7 +104,7 @@ async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50,
 
         return {"settlements": settlements, "total": len(settlements), "limit": limit, "offset": offset}
 
-    except Exception as e:
+    except (ValueError, KeyError, AttributeError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to list settlements: {str(e)}")
 
 
@@ -122,5 +122,5 @@ async def cancel_settlement(settlement_id: str, api_key: str = Depends(get_api_k
 
     except HTTPException:
         raise
-    except Exception as e:
+    except (ValueError, KeyError, AttributeError) as e:
         raise HTTPException(status_code=500, detail=f"Failed to cancel settlement: {str(e)}")
