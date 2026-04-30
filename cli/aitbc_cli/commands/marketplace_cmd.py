@@ -12,6 +12,7 @@ from ..core.marketplace import (
     TransactionStatus
 )
 from ..utils import output, error, success
+from ..config import get_config
 
 @click.group()
 @click.option("--chain-id", help="Chain ID for multichain operations (e.g., ait-mainnet, ait-devnet)")
@@ -40,8 +41,8 @@ def marketplace(ctx, chain_id: Optional[str]):
 def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, currency, specs, metadata):
     """List a chain for sale in the marketplace"""
     try:
-        config = load_multichain_config()
-        marketplace = GlobalChainMarketplace(config)
+        config = get_config()
+        from aitbc import AITBCHTTPClient
         
         # Parse chain type
         try:
@@ -76,16 +77,32 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 error("Invalid JSON metadata")
                 raise click.Abort()
         
-        # Create listing
-        listing_id = asyncio.run(marketplace.create_listing(
-            chain_id, chain_name, chain_type_enum, description, 
-            seller_id, price_decimal, currency, chain_specs, metadata_dict
-        ))
+        # Create listing transaction
+        listing_id = f"chain_listing_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        listing_data = {
+            'type': 'marketplace',
+            'action': 'list',
+            'listing_id': listing_id,
+            'chain_id': chain_id,
+            'chain_name': chain_name,
+            'chain_type': chain_type,
+            'description': description,
+            'seller_id': seller_id,
+            'price': float(price),
+            'currency': currency,
+            'specs': chain_specs,
+            'metadata': metadata_dict,
+            'status': 'active',
+            'created_at': datetime.now().isoformat()
+        }
         
-        if listing_id:
+        # Submit transaction to marketplace service
+        try:
+            http_client = AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=10)
+            result = http_client.post("/v1/transactions", json=listing_data)
             success(f"Chain listed successfully! Listing ID: {listing_id}")
             
-            listing_data = {
+            listing_info = {
                 "Listing ID": listing_id,
                 "Chain ID": chain_id,
                 "Chain Name": chain_name,
@@ -96,9 +113,9 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
                 "Created": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
-            output(listing_data, ctx.obj.get('output_format', 'table'))
-        else:
-            error("Failed to create listing")
+            output(listing_info, ctx.obj.get('output_format', 'table'))
+        except Exception as e:
+            error(f"Error submitting transaction: {e}")
             raise click.Abort()
         
     except Exception as e:

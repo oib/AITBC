@@ -268,7 +268,7 @@ def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
                 try:
                     with httpx.Client() as client:
                         response = client.get(
-                            f"{config.coordinator_url}/explorer/transactions/{tx_hash}?chain_id={chain}",
+                            f"{config.trading_service_url}/explorer/transactions/{tx_hash}?chain_id={chain}",
                             headers={"X-Api-Key": config.api_key or ""},
                             timeout=5
                         )
@@ -299,7 +299,7 @@ def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
             
             with httpx.Client() as client:
                 response = client.get(
-                    f"{config.coordinator_url}/explorer/transactions/{tx_hash}?chain_id={target_chain}",
+                    f"{config.trading_service_url}/explorer/transactions/{tx_hash}?chain_id={target_chain}",
                     headers={"X-Api-Key": config.api_key or ""},
                     timeout=5
                 )

@@ -119,7 +119,7 @@ def jobs(ctx, limit: int, status: Optional[str]):
             
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/admin/jobs",
+                f"{config.ai_service_url}/admin/jobs",
                 params=params,
                 headers={"X-Api-Key": config.api_key or ""}
             )
@@ -144,7 +144,7 @@ def job_details(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{config.coordinator_url}/admin/jobs/{job_id}",
+                f"{config.ai_service_url}/admin/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -171,7 +171,7 @@ def delete_job(ctx, job_id: str):
     try:
         with httpx.Client() as client:
             response = client.delete(
-                f"{config.coordinator_url}/admin/jobs/{job_id}",
+                f"{config.ai_service_url}/admin/jobs/{job_id}",
                 headers={"X-Api-Key": config.api_key or ""}
             )
             
@@ -352,7 +352,7 @@ def prioritize_job(ctx, job_id: str, reason: Optional[str]):
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/admin/jobs/{job_id}/prioritize",
+                f"{config.ai_service_url}/admin/jobs/{job_id}/prioritize",
                 json={"reason": reason or "Admin priority"},
                 headers={"X-Api-Key": config.api_key or ""}
             )

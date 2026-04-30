@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "openclaw-service"
+version = "0.1.0"
+description = "AITBC OpenClaw Service for agent orchestration and edge computing"
+authors = ["AITBC Team"]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+sqlmodel = "^0.0.37"
+sqlalchemy = "^2.0.25"
+pydantic = "^2.6.0"
+pydantic-settings = "^2.1.0"
+httpx = "^0.28.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.24.0"
+black = "^24.0.0"
+ruff = "^0.1.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

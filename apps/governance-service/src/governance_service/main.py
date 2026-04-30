@@ -50,6 +50,12 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
 app.add_middleware(ErrorHandlerMiddleware)
 
 
+async def get_session_dep() -> AsyncIterator[AsyncSession]:
+    """Get database session dependency"""
+    async with get_session() as session:
+        yield session
+
+
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str
@@ -72,7 +78,7 @@ async def governance_status() -> dict[str, str]:
     }
 
 
-async def get_governance_service(session: AsyncSession = Depends(get_session)) -> GovernanceService:
+async def get_governance_service(session: AsyncSession = Depends(get_session_dep)) -> GovernanceService:
     """Get governance service instance"""
     return GovernanceService(session)
 
@@ -168,6 +174,87 @@ async def get_analytics(
 ):
     """Get governance analytics"""
     return await svc.get_analytics(period=period)
+
+
+@app.post("/v1/transactions")
+async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
+    """Submit governance transaction"""
+    from .domain.governance import Proposal, Vote
+    
+    # Validate transaction type
+    transaction_type = transaction_data.get('type')
+    action = transaction_data.get('action')
+    
+    if transaction_type != 'governance':
+        return {"error": "Invalid transaction type for governance service"}, 400
+    
+    try:
+        if action == 'propose':
+            proposal = Proposal(**transaction_data)
+            session.add(proposal)
+        elif action == 'vote':
+            vote = Vote(**transaction_data)
+            session.add(vote)
+        else:
+            return {"error": f"Invalid action: {action}. Only 'propose' and 'vote' are currently supported"}, 400
+        
+        await session.commit()
+        return {"status": "success", "transaction_id": transaction_data.get('proposal_id') or transaction_data.get('vote_id')}
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Transaction submission error: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.get("/v1/transactions")
+async def get_transactions(
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
+    session: AsyncSession = Depends(get_session_dep),
+):
+    """Query governance transactions"""
+    from .domain.governance import Proposal, Vote
+    from sqlalchemy import select
+    
+    try:
+        transactions = []
+        
+        # Query proposals
+        if action == 'propose' or not action:
+            result = await session.execute(select(Proposal))
+            proposals = result.scalars().all()
+            transactions.extend([{
+                "id": p.proposal_id,
+                "action": "propose",
+                "title": p.title,
+                "status": p.status,
+                "created_at": p.created_at.isoformat() if p.created_at else None
+            } for p in proposals])
+        
+        # Query votes
+        if action == 'vote' or not action:
+            result = await session.execute(select(Vote))
+            votes = result.scalars().all()
+            transactions.extend([{
+                "id": v.vote_id,
+                "action": "vote",
+                "proposal_id": v.proposal_id,
+                "vote_type": v.vote_type,
+                "created_at": v.created_at.isoformat() if v.created_at else None
+            } for v in votes])
+        
+        # Apply filters
+        if status:
+            transactions = [t for t in transactions if t.get('status') == status]
+        if island_id:
+            transactions = [t for t in transactions if t.get('island_id') == island_id]
+        
+        return transactions
+    except Exception as e:
+        logger.error(f"Transaction query error: {e}")
+        return {"error": str(e)}, 500
 
 
 if __name__ == "__main__":
