@@ -91,11 +91,13 @@ except ImportError:
     print("WARNING: ML ZK proofs router not available (missing dependencies)")
 from aitbc import get_logger
 
-from .app_logging import configure_logging
-from .middleware.request_id import RequestIDMiddleware
-from .middleware.performance import PerformanceLoggingMiddleware
-from .middleware.validation import RequestValidationMiddleware
-from .middleware.error_handler import ErrorHandlerMiddleware
+from aitbc.logging import configure_logging
+from aitbc import (
+    RequestIDMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestValidationMiddleware,
+    ErrorHandlerMiddleware,
+)
 from .exceptions import AITBCError, ErrorResponse
 
 # Configure structured logging
