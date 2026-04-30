@@ -1,0 +1,17 @@
+[Unit]
+Description=AITBC Trading Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=aitbc
+WorkingDirectory=/opt/aitbc/apps/trading-service
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/trading-service/src:/opt/aitbc"
+Environment="DATABASE_URL=postgresql+asyncpg://aitbc_trading:password@localhost:5432/aitbc_trading"
+ExecStart=/opt/aitbc/venv/bin/python -m trading_service.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
