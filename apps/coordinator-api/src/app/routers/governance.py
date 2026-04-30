@@ -9,7 +9,7 @@ REST API for OpenClaw DAO voting, proposals, and governance analytics
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 
 from aitbc import get_logger
 
@@ -59,7 +59,7 @@ class VoteRequest(BaseModel):
 
 # Endpoints - Profile & Delegation
 @router.post("/profiles", response_model=GovernanceProfile)
-async def init_governance_profile(request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)]):
+async def init_governance_profile(request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)]) -> GovernanceProfile:
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
     try:
@@ -73,7 +73,7 @@ async def init_governance_profile(request: ProfileInitRequest, session: Annotate
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
 async def delegate_voting_power(
     profile_id: str, request: DelegationRequest, session: Annotated[Session, Depends(get_session)]
-):
+) -> GovernanceProfile:
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
     try:
@@ -91,7 +91,7 @@ async def create_proposal(
     session: Annotated[Session, Depends(get_session)],
     proposer_id: str = Query(...),
     request: ProposalCreateRequest = Body(...),
-):
+) -> Proposal:
     """Submit a new governance proposal to the DAO"""
     service = GovernanceService(session)
     try:
@@ -109,7 +109,7 @@ async def cast_vote(
     session: Annotated[Session, Depends(get_session)],
     voter_id: str = Query(...),
     request: VoteRequest = Body(...),
-):
+) -> Vote:
     """Cast a vote on an active proposal"""
     service = GovernanceService(session)
     try:
@@ -124,7 +124,7 @@ async def cast_vote(
 
 
 @router.post("/proposals/{proposal_id}/process", response_model=Proposal)
-async def process_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)]):
+async def process_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)]) -> Proposal:
     """Manually trigger the lifecycle check of a proposal (e.g., tally votes when time ends)"""
     service = GovernanceService(session)
     try:
@@ -137,7 +137,7 @@ async def process_proposal(proposal_id: str, session: Annotated[Session, Depends
 
 
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
-async def execute_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)], executor_id: str = Query(...)):
+async def execute_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)], executor_id: str = Query(...)) -> Proposal:
     """Execute the payload of a succeeded proposal"""
     service = GovernanceService(session)
     try:
@@ -153,7 +153,7 @@ async def execute_proposal(proposal_id: str, session: Annotated[Session, Depends
 @router.post("/analytics/reports", response_model=TransparencyReport)
 async def generate_transparency_report(
     session: Annotated[Session, Depends(get_session)], period: str = Query(..., description="e.g., 2026-Q1")
-):
+) -> TransparencyReport:
     """Generate a governance analytics and transparency report"""
     service = GovernanceService(session)
     try:

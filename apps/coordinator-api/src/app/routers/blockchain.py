@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
@@ -11,7 +13,7 @@ router = APIRouter(tags=["blockchain"])
 
 
 @router.get("/status")
-async def blockchain_status():
+async def blockchain_status() -> dict[str, Any]:
     """Get blockchain status."""
     try:
         from ..config import settings
@@ -32,7 +34,7 @@ async def blockchain_status():
 
 
 @router.get("/sync-status")
-async def blockchain_sync_status():
+async def blockchain_sync_status() -> dict[str, Any]:
     """Get blockchain synchronization status."""
     try:
         from ..config import settings

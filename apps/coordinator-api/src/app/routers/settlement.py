@@ -3,6 +3,7 @@ Settlement router for cross-chain settlements
 """
 
 import asyncio
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -38,7 +39,7 @@ class CrossChainSettlementResponse(BaseModel):
 @router.post("/cross-chain", response_model=CrossChainSettlementResponse)
 async def initiate_cross_chain_settlement(
     request: CrossChainSettlementRequest, background_tasks: BackgroundTasks, api_key: str = Depends(get_api_key)
-):
+) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
         # Initialize settlement manager
@@ -70,7 +71,7 @@ async def initiate_cross_chain_settlement(
 
 
 @router.get("/cross-chain/{settlement_id}")
-async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_api_key)):
+async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
     """Get settlement status"""
     try:
         manager = BridgeManager()
@@ -95,7 +96,7 @@ async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_a
 
 
 @router.get("/cross-chain")
-async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0):
+async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
         manager = BridgeManager()
@@ -108,7 +109,7 @@ async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50,
 
 
 @router.delete("/cross-chain/{settlement_id}")
-async def cancel_settlement(settlement_id: str, api_key: str = Depends(get_api_key)):
+async def cancel_settlement(settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, str]:
     """Cancel a pending settlement"""
     try:
         manager = BridgeManager()

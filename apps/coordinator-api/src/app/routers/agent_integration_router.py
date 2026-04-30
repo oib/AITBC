@@ -37,7 +37,7 @@ async def create_deployment_config(
     deployment_config: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentDeploymentConfig:
     """Create deployment configuration for agent workflow"""
 
     try:
@@ -70,7 +70,7 @@ async def list_deployment_configs(
     status: DeploymentStatus | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentDeploymentConfig]:
     """List deployment configurations with filtering"""
 
     try:
@@ -103,7 +103,7 @@ async def get_deployment_config(
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentDeploymentConfig:
     """Get specific deployment configuration"""
 
     try:
@@ -131,7 +131,7 @@ async def deploy_workflow(
     target_environment: str = "production",
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Deploy agent workflow to target environment"""
 
     try:
@@ -164,7 +164,7 @@ async def get_deployment_health(
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get health status of deployment"""
 
     try:
@@ -195,7 +195,7 @@ async def scale_deployment(
     target_instances: int,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Scale deployment to target number of instances"""
 
     try:
@@ -228,7 +228,7 @@ async def rollback_deployment(
     config_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Rollback deployment to previous version"""
 
     try:
@@ -261,7 +261,7 @@ async def list_deployment_instances(
     status: DeploymentStatus | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> list[AgentDeploymentInstance]:
     """List deployment instances with filtering"""
 
     try:
@@ -299,7 +299,7 @@ async def get_deployment_instance(
     instance_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> AgentDeploymentInstance:
     """Get specific deployment instance"""
 
     try:
@@ -331,7 +331,7 @@ async def integrate_with_zk_system(
     verification_level: VerificationLevel = VerificationLevel.BASIC,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Integrate agent execution with ZK proof system"""
 
     try:
@@ -365,7 +365,7 @@ async def get_deployment_metrics(
     time_range: str = "1h",
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get metrics for deployment over time range"""
 
     try:
@@ -397,7 +397,7 @@ async def deploy_to_production(
     integration_config: dict | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Deploy agent workflow to production with full integration"""
 
     try:
@@ -427,7 +427,7 @@ async def deploy_to_production(
 @router.get("/production/dashboard")
 async def get_production_dashboard(
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
-):
+) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
 
     try:
@@ -481,7 +481,7 @@ async def get_production_dashboard(
 @router.get("/production/health")
 async def get_production_health(
     session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
-):
+) -> dict[str, Any]:
     """Get overall production health status"""
 
     try:
@@ -553,7 +553,7 @@ async def get_production_alerts(
     severity: str | None = None,
     limit: int = 50,
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get production alerts and notifications"""
 
     try:

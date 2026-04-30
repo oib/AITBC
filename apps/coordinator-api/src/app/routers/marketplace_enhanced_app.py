@@ -32,7 +32,7 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
     return {"status": "ok", "service": "marketplace-enhanced"}
 
 

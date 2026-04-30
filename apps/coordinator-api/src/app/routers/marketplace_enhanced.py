@@ -36,7 +36,7 @@ async def create_royalty_distribution(
     royalty_tiers: RoyaltyDistributionRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> RoyaltyDistributionResponse:
     """Create sophisticated royalty distribution for marketplace offer"""
 
     try:
@@ -72,7 +72,7 @@ async def calculate_royalties(
     transaction_id: str | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict:
     """Calculate and distribute royalties for a sale"""
 
     try:
@@ -102,7 +102,7 @@ async def create_model_license(
     license_request: ModelLicenseRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> ModelLicenseResponse:
     """Create model license and IP protection"""
 
     try:
@@ -143,7 +143,7 @@ async def verify_model(
     verification_request: ModelVerificationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> ModelVerificationResponse:
     """Perform advanced model verification"""
 
     try:
@@ -179,7 +179,7 @@ async def get_marketplace_analytics(
     metrics: list[str] | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> MarketplaceAnalyticsResponse:
     """Get comprehensive marketplace analytics"""
 
     try:

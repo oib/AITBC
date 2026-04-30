@@ -3,6 +3,9 @@
 Web Vitals API endpoint for collecting performance metrics
 """
 
+import logging
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -32,7 +35,7 @@ class WebVitalsMetric(BaseModel):
 
 
 @router.post("/web-vitals")
-async def collect_web_vitals(metric: WebVitalsMetric):
+async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
     """
     Collect Web Vitals performance metrics from the frontend.
     This endpoint receives Core Web Vitals (LCP, FID, CLS, TTFB, FCP) for monitoring.
@@ -70,6 +73,6 @@ async def collect_web_vitals(metric: WebVitalsMetric):
 
 # Health check for web vitals endpoint
 @router.get("/web-vitals/health")
-async def web_vitals_health():
+async def web_vitals_health() -> dict[str, str]:
     """Health check for web vitals collection endpoint"""
     return {"status": "healthy", "service": "web-vitals"}

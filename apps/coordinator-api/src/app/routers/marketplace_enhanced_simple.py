@@ -6,7 +6,7 @@ Enhanced Marketplace API Router - Simplified Version
 REST API endpoints for enhanced marketplace features
 """
 
-from typing import Any
+from typing import Annotated, Any
 
 from aitbc import get_logger
 
@@ -56,9 +56,9 @@ class MarketplaceAnalyticsRequest(BaseModel):
 async def create_royalty_distribution(
     request: RoyaltyDistributionRequest,
     offer_id: str,
-    session: Session = Depends(get_session),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Create royalty distribution for marketplace offer"""
 
     try:
@@ -78,9 +78,9 @@ async def create_royalty_distribution(
 async def calculate_royalties(
     offer_id: str,
     sale_amount: float,
-    session: Session = Depends(get_session),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Calculate royalties for a sale"""
 
     try:
@@ -98,9 +98,9 @@ async def calculate_royalties(
 async def create_model_license(
     request: ModelLicenseRequest,
     offer_id: str,
-    session: Session = Depends(get_session),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Create model license for marketplace offer"""
 
     try:
@@ -124,9 +124,9 @@ async def create_model_license(
 async def verify_model(
     request: ModelVerificationRequest,
     offer_id: str,
-    session: Session = Depends(get_session),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Verify model quality and performance"""
 
     try:
@@ -143,9 +143,9 @@ async def verify_model(
 @router.post("/analytics")
 async def get_marketplace_analytics(
     request: MarketplaceAnalyticsRequest,
-    session: Session = Depends(get_session),
+    session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
-):
+) -> dict[str, Any]:
     """Get marketplace analytics and insights"""
 
     try:

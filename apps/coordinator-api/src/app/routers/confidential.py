@@ -3,6 +3,11 @@ API endpoints for confidential transactions
 """
 
 from datetime import datetime, UTC
+from typing import Any
+
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer
@@ -74,7 +79,7 @@ def get_access_controller() -> AccessController:
 
 
 @router.post("/transactions", response_model=ConfidentialTransactionView)
-async def create_confidential_transaction(request: ConfidentialTransactionCreate, api_key: str = Depends(get_api_key)):
+async def create_confidential_transaction(request: ConfidentialTransactionCreate, api_key: str = Depends(get_api_key)) -> ConfidentialTransactionView:
     """Create a new confidential transaction with optional encryption"""
     try:
         # Generate transaction ID
@@ -144,7 +149,7 @@ async def create_confidential_transaction(request: ConfidentialTransactionCreate
 
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
-async def get_confidential_transaction(transaction_id: str, api_key: str = Depends(get_api_key)):
+async def get_confidential_transaction(transaction_id: str, api_key: str = Depends(get_api_key)) -> ConfidentialTransactionView:
     """Get confidential transaction metadata (without decrypting sensitive data)"""
     try:
         # Retrieve transaction (in production, query from database)
@@ -161,7 +166,7 @@ async def get_confidential_transaction(transaction_id: str, api_key: str = Depen
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
 async def access_confidential_data(
     request: ConfidentialAccessRequest, transaction_id: str, api_key: str = Depends(get_api_key)
-):
+) -> ConfidentialAccessResponse:
     """Request access to decrypt confidential transaction data"""
     try:
         # Validate request
@@ -242,7 +247,7 @@ async def access_confidential_data(
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
 async def audit_access_confidential_data(
     transaction_id: str, authorization: str, purpose: str = "compliance", api_key: str = Depends(get_api_key)
-):
+) -> ConfidentialAccessResponse:
     """Audit access to confidential transaction data"""
     try:
         # Get transaction
@@ -293,7 +298,7 @@ async def audit_access_confidential_data(
 
 
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
-async def register_encryption_key(request: KeyRegistrationRequest, api_key: str = Depends(get_api_key)):
+async def register_encryption_key(request: KeyRegistrationRequest, api_key: str = Depends(get_api_key)) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
     try:
         # Get key manager
@@ -336,7 +341,7 @@ async def register_encryption_key(request: KeyRegistrationRequest, api_key: str 
 
 
 @router.post("/keys/rotate")
-async def rotate_encryption_key(participant_id: str, api_key: str = Depends(get_api_key)):
+async def rotate_encryption_key(participant_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
     try:
         km = get_key_manager()
@@ -360,7 +365,7 @@ async def rotate_encryption_key(participant_id: str, api_key: str = Depends(get_
 
 
 @router.get("/access/logs", response_model=AccessLogResponse)
-async def get_access_logs(query: AccessLogQuery = Depends(), api_key: str = Depends(get_api_key)):
+async def get_access_logs(query: AccessLogQuery = Depends(), api_key: str = Depends(get_api_key)) -> AccessLogResponse:
     """Get access logs for confidential transactions"""
     try:
         # Query logs (in production, query from database)
@@ -373,7 +378,7 @@ async def get_access_logs(query: AccessLogQuery = Depends(), api_key: str = Depe
 
 
 @router.get("/status")
-async def get_confidential_status(api_key: str = Depends(get_api_key)):
+async def get_confidential_status(api_key: str = Depends(get_api_key)) -> dict[str, Any]:
     """Get status of confidential transaction system"""
     try:
         km = get_key_manager()
