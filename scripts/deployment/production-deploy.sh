@@ -92,37 +92,16 @@ build_production_images() {
 
 # Deploy database
 deploy_database() {
-    log "Deploying database..."
-    
-    # Deploy PostgreSQL
-    helm upgrade --install postgres bitnami/postgresql \
-        --namespace $NAMESPACE \
-        --set auth.postgresPassword=$POSTGRES_PASSWORD \
-        --set auth.database=aitbc_prod \
-        --set primary.persistence.size=100Gi \
-        --set primary.resources.requests.memory=8Gi \
-        --set primary.resources.requests.cpu=2000m \
-        --set primary.resources.limits.memory=16Gi \
-        --set primary.resources.limits.cpu=4000m \
-        --set readReplicas.replicaCount=1 \
-        --set readReplicas.persistence.size=50Gi \
-        --wait \
-        --timeout 10m || error "Failed to deploy PostgreSQL"
-    
+    log "Skipping Helm-based database deployment - Helm not supported"
+    log "Database should be deployed via systemd services or external PostgreSQL"
+    log "Use: sudo apt-get install postgresql for local deployment"
+
     # Deploy Redis
-    helm upgrade --install redis bitnami/redis \
-        --namespace $NAMESPACE \
-        --set auth.password=$REDIS_PASSWORD \
-        --set master.persistence.size=20Gi \
-        --set master.resources.requests.memory=2Gi \
-        --set master.resources.requests.cpu=1000m \
-        --set master.resources.limits.memory=4Gi \
-        --set master.resources.limits.cpu=2000m \
-        --set replica.replicaCount=2 \
-        --wait \
-        --timeout 5m || error "Failed to deploy Redis"
-    
-    success "Database deployed successfully"
+    log "Skipping Helm-based Redis deployment - Helm not supported"
+    log "Redis should be deployed via systemd service or external Redis"
+    log "Use: sudo apt-get install redis-server for local deployment"
+
+    success "Database deployment skipped (use systemd or external services)"
 }
 
 # Deploy core services
@@ -397,22 +376,12 @@ EOF
 
 # Deploy monitoring
 deploy_monitoring() {
-    log "Deploying monitoring stack..."
-    
-    # Deploy Prometheus
-    helm upgrade --install prometheus prometheus-community/kube-prometheus-stack \
-        --namespace $NAMESPACE \
-        --create-namespace \
-        --set prometheus.prometheus.spec.retention=30d \
-        --set prometheus.prometheus.spec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage=50Gi \
-        --set grafana.adminPassword=$GRAFANA_PASSWORD \
-        --set grafana.persistence.size=10Gi \
-        --set defaultRules.create=true \
-        --wait \
-        --timeout 10m || error "Failed to deploy monitoring"
-    
+    log "Skipping Helm-based monitoring deployment - Helm not supported"
+    log "Monitoring should be deployed via systemd services or external monitoring"
+    log "Use: sudo apt-get install prometheus-node-exporter for local monitoring"
+
     # Import Grafana dashboards
-    log "Importing Grafana dashboards..."
+    log "Skipping Grafana dashboard import - requires Helm deployment"
     
     # Create dashboard configmaps
     kubectl create configmap grafana-dashboards \
@@ -508,7 +477,6 @@ main() {
     
     # Check prerequisites
     command -v kubectl >/dev/null 2>&1 || error "kubectl is not installed"
-    command -v helm >/dev/null 2>&1 || error "Helm is not installed"
     kubectl cluster-info >/dev/null 2>&1 || error "Cannot connect to Kubernetes cluster"
     
     # Run deployment steps
