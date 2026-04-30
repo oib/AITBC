@@ -43,7 +43,7 @@ try:
         print("   🌐 URL: http://localhost:3002")
     else:
         print("   ❌ Trade Exchange not responding")
-except:
+except Exception:
     print("   ❌ Trade Exchange not accessible")
 
 # Check Blockchain
@@ -57,7 +57,7 @@ try:
         print(f"      Block Hash: {data.get('hash', 'Unknown')[:16]}...")
     else:
         print("   ❌ Blockchain Node not responding")
-except:
+except Exception:
     print("   ❌ Blockchain Node not accessible")
 
 # Show Integration Points

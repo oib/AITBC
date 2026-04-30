@@ -23,7 +23,7 @@ class AITBCWallet:
             try:
                 with open(self.wallet_file, 'r') as f:
                     return json.load(f)
-            except:
+            except Exception:
                 pass
         
         # Create new wallet
