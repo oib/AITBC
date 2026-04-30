@@ -1,0 +1,16 @@
+[Unit]
+Description=AITBC API Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=aitbc
+WorkingDirectory=/opt/aitbc/apps/api-gateway
+Environment="PATH=/opt/aitbc/venv/bin"
+Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"
+ExecStart=/opt/aitbc/venv/bin/python -m api_gateway.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
