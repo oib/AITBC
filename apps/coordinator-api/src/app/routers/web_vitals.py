@@ -66,7 +66,7 @@ async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
         # For now, just acknowledge receipt
         return {"status": "received", "metric": metric.name, "value": metric.value}
 
-    except Exception as e:
+    except (ValueError, AttributeError, KeyError) as e:
         logging.error(f"Error processing web vitals metric: {e}")
         raise HTTPException(status_code=500, detail="Failed to process metric")
 
