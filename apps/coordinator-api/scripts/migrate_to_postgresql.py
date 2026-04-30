@@ -276,7 +276,7 @@ def migrate_data():
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
-                        except:
+                        except Exception:
                             pass
                 elif key in ['balance', 'price', 'average_job_duration_ms']:
                     # Handle numeric fields

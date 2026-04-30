@@ -113,7 +113,7 @@ def _normalize_transaction_data(tx_data: Dict[str, Any], chain_id: str) -> Dict[
         try:
             import json
             payload = json.loads(payload)
-        except:
+        except Exception:
             payload = {}
     
     if not isinstance(payload, dict):
