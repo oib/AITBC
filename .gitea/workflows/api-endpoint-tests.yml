@@ -86,7 +86,7 @@ jobs:
         run: |
           echo "Waiting for AITBC services..."
           gateway_host=$(ip route 2>/dev/null | awk '/default/ {print $3; exit}')
-          host_candidates=(localhost host.docker.internal)
+          host_candidates=(localhost)
           if [[ -n "$gateway_host" ]]; then
             host_candidates+=("$gateway_host")
           fi

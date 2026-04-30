@@ -477,7 +477,7 @@ async def get_certification_types() -> list[dict[str, Any]]:
                 "name": "DevOps Engineering",
                 "levels": [level.value for level in CertificationLevel],
                 "description": "Development operations and infrastructure",
-                "skills_required": ["docker", "kubernetes", "ci-cd"],
+                "skills_required": ["kubernetes", "ci-cd"],
             },
         ]
 
