@@ -176,7 +176,7 @@ class AgentSandboxConfig(SQLModel, table=True):
     id: str = Field(default_factory=lambda: f"sandbox_{uuid4().hex[:8]}", primary_key=True)
 
     # Sandbox type
-    sandbox_type: str = Field(default="process")  # docker, vm, process, none
+    sandbox_type: str = Field(default="process")  # vm, process, none
     security_level: SecurityLevel = Field(default=SecurityLevel.PUBLIC)
 
     # Resource limits
@@ -559,13 +559,12 @@ class AgentSandboxManager:
         self.session.refresh(sandbox)
 
         # Sandbox environment creation requires integration with:
-        # 1. Docker/Podman for container isolation
+        # 1. Podman for container isolation
         # 2. Firecracker/gVisor for VM-level isolation
         # 3. Process isolation using seccomp, namespaces
         # 4. Network isolation using virtual networks
         # Currently storing configuration only - actual sandbox creation
         # would be implemented by the execution orchestrator.
-        # Future implementation: await self._create_docker_sandbox(sandbox)
 
         logger.info(f"Created sandbox configuration for execution {execution_id}")
         return sandbox
