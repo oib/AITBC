@@ -81,12 +81,12 @@ def migrate_all_data():
             for i, value in enumerate(row):
                 col_name = column_names[i]
                 # Handle special cases
-                if col_name in ['payload', 'constraints', 'result', 'receipt', 'capabilities', 
+                if col_name in ['payload', 'constraints', 'result', 'receipt', 'capabilities',
                               'extra_metadata', 'sla', 'attributes', 'metadata'] and value:
                     if isinstance(value, str):
                         try:
                             value = json.loads(value)
-                        except:
+                        except Exception:
                             pass
                 elif col_name in ['balance', 'price', 'average_job_duration_ms'] and value is not None:
                     value = Decimal(str(value))
