@@ -358,7 +358,7 @@ class PricingError(BaseModel):
     error_code: str = Field(..., description="Error code")
     message: str = Field(..., description="Error message")
     details: dict[str, Any] | None = Field(None, description="Additional error details")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), description="Error timestamp")
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat()}

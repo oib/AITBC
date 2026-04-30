@@ -36,7 +36,7 @@ class GPURegistry(SQLModel, table=True):
     capabilities: list = Field(default_factory=list, sa_column=Column(JSON, nullable=False))
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), nullable=False, index=True)
 
 
 class ConsumerGPUProfile(SQLModel, table=True):
@@ -84,8 +84,8 @@ class ConsumerGPUProfile(SQLModel, table=True):
     edge_premium_multiplier: float = Field(default=1.0)
     availability_score: float = Field(default=1.0)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class EdgeGPUMetrics(SQLModel, table=True):
@@ -119,7 +119,7 @@ class EdgeGPUMetrics(SQLModel, table=True):
     isp: str | None = Field(default=None)
     connection_type: str | None = Field(default=None)
 
-    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
 
 
 class GPUBooking(SQLModel, table=True):
@@ -135,9 +135,9 @@ class GPUBooking(SQLModel, table=True):
     duration_hours: float = Field(default=0.0)
     total_cost: float = Field(default=0.0)
     status: str = Field(default="active", index=True)  # active, completed, cancelled
-    start_time: datetime = Field(default_factory=datetime.utcnow)
+    start_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
     end_time: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), nullable=False)
 
 
 class GPUReview(SQLModel, table=True):
@@ -151,4 +151,4 @@ class GPUReview(SQLModel, table=True):
     user_id: str = Field(default="")
     rating: int = Field(ge=1, le=5)
     comment: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), nullable=False, index=True)

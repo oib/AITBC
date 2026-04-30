@@ -71,8 +71,8 @@ class RewardTierConfig(SQLModel, table=True):
     support_level: str = Field(default="basic")
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     is_active: bool = Field(default=True)
 
     # Additional configuration
@@ -112,9 +112,9 @@ class AgentRewardProfile(SQLModel, table=True):
     longest_streak: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_activity: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_activity: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional metadata
     reward_preferences: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -148,12 +148,12 @@ class RewardCalculation(SQLModel, table=True):
 
     # Calculation metadata
     calculation_period: str = Field(default="daily")  # daily, weekly, monthly
-    reference_date: datetime = Field(default_factory=datetime.utcnow)
+    reference_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
     trust_score_at_calculation: float = Field(ge=0, le=1000)
     performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    calculated_at: datetime = Field(default_factory=datetime.utcnow)
+    calculated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
 
     # Additional data
@@ -192,8 +192,8 @@ class RewardDistribution(SQLModel, table=True):
     error_message: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     scheduled_at: datetime | None = None
 
     # Additional data
@@ -228,7 +228,7 @@ class RewardEvent(SQLModel, table=True):
     verification_status: str = Field(default="pending")  # pending, verified, rejected
 
     # Timestamps
-    occurred_at: datetime = Field(default_factory=datetime.utcnow)
+    occurred_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     processed_at: datetime | None = None
     expires_at: datetime | None = None
 
@@ -266,8 +266,8 @@ class RewardMilestone(SQLModel, table=True):
     claimed_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
 
     # Additional data
@@ -314,8 +314,8 @@ class RewardAnalytics(SQLModel, table=True):
     average_processing_time: float = Field(default=0.0)  # milliseconds
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional analytics data
     analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

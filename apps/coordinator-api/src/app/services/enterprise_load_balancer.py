@@ -60,10 +60,10 @@ class BackendServer:
     request_count: int = 0
     error_count: int = 0
     health_status: HealthStatus = HealthStatus.HEALTHY
-    last_health_check: datetime = field(default_factory=datetime.utcnow)
+    last_health_check: datetime = field(default_factory=datetime.now(datetime.UTC))
     capabilities: dict[str, Any] = field(default_factory=dict)
     region: str = "default"
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass

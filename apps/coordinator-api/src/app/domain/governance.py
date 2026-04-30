@@ -51,7 +51,7 @@ class GovernanceProfile(SQLModel, table=True):
 
     delegate_to: str | None = Field(default=None)  # Profile ID they delegate their vote to
 
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
+    joined_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_voted_at: datetime | None = None
 
 
@@ -81,7 +81,7 @@ class Proposal(SQLModel, table=True):
     snapshot_block: int | None = Field(default=None)
     snapshot_timestamp: datetime | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     voting_starts: datetime
     voting_ends: datetime
     executed_at: datetime | None = None
@@ -102,7 +102,7 @@ class Vote(SQLModel, table=True):
     power_at_snapshot: float = Field(default=0.0)
     delegated_power_at_snapshot: float = Field(default=0.0)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class DaoTreasury(SQLModel, table=True):
@@ -117,7 +117,7 @@ class DaoTreasury(SQLModel, table=True):
 
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class TransparencyReport(SQLModel, table=True):
@@ -138,4 +138,4 @@ class TransparencyReport(SQLModel, table=True):
 
     metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    generated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))

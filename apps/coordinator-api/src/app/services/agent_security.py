@@ -57,7 +57,7 @@ class AgentAuditLog(SQLModel, table=True):
 
     # Event information
     event_type: AuditEventType = Field(index=True)
-    timestamp: datetime = Field(default_factory=datetime.utcnow, index=True)
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
 
     # Entity references
     workflow_id: str | None = Field(index=True)
@@ -85,7 +85,7 @@ class AgentAuditLog(SQLModel, table=True):
     signature_valid: bool | None = Field(default=None)
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentSecurityPolicy(SQLModel, table=True):
@@ -124,8 +124,8 @@ class AgentSecurityPolicy(SQLModel, table=True):
 
     # Status
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentTrustScore(SQLModel, table=True):
@@ -164,8 +164,8 @@ class AgentTrustScore(SQLModel, table=True):
     violation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentSandboxConfig(SQLModel, table=True):
@@ -208,8 +208,8 @@ class AgentSandboxConfig(SQLModel, table=True):
 
     # Status
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentAuditor:

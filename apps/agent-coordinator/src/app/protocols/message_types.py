@@ -52,7 +52,7 @@ class RoutingRule:
     target: Optional[str] = None
     priority: int = 0
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     
     def matches(self, message: AgentMessage) -> bool:
         """Check if message matches routing rule conditions"""
@@ -72,8 +72,8 @@ class TaskMessage(BaseModel):
     priority: Priority = Field(Priority.NORMAL, description="Task priority")
     assigned_agent: Optional[str] = Field(None, description="Assigned agent ID")
     status: str = Field("pending", description="Task status")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     
     @validator('deadline')
     def validate_deadline(cls, v):
@@ -90,8 +90,8 @@ class CoordinationMessage(BaseModel):
     decision_deadline: Optional[datetime] = Field(None, description="Decision deadline")
     consensus_threshold: float = Field(0.5, description="Consensus threshold")
     status: str = Field("pending", description="Coordination status")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 class StatusMessage(BaseModel):
     """Status update message structure"""
@@ -101,7 +101,7 @@ class StatusMessage(BaseModel):
     health_score: float = Field(1.0, description="Agent health score")
     load_metrics: Dict[str, float] = Field(default_factory=dict, description="Load metrics")
     capabilities: List[str] = Field(default_factory=list, description="Agent capabilities")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 class DiscoveryMessage(BaseModel):
     """Agent discovery message structure"""
@@ -111,7 +111,7 @@ class DiscoveryMessage(BaseModel):
     services: List[str] = Field(default_factory=list, description="Available services")
     endpoints: Dict[str, str] = Field(default_factory=dict, description="Service endpoints")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Additional metadata")
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 class ConsensusMessage(BaseModel):
     """Consensus message structure"""
@@ -122,8 +122,8 @@ class ConsensusMessage(BaseModel):
     voting_deadline: datetime = Field(..., description="Voting deadline")
     consensus_algorithm: str = Field("majority", description="Consensus algorithm")
     status: str = Field("pending", description="Consensus status")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 class MessageRouter:
     """Advanced message routing system"""

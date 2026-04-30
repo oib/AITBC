@@ -71,8 +71,8 @@ class MarketplaceRegion(SQLModel, table=True):
     error_rate: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Indexes
     __table_args__ = {
@@ -104,8 +104,8 @@ class GlobalMarketplaceConfig(SQLModel, table=True):
     allowed_values: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_modified_by: str | None = Field(default=None)
 
     # Indexes
@@ -153,8 +153,8 @@ class GlobalMarketplaceOffer(SQLModel, table=True):
     cross_chain_pricing: dict[int, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = Field(default=None)
 
     # Indexes
@@ -201,8 +201,8 @@ class GlobalMarketplaceTransaction(SQLModel, table=True):
     delivery_status: str = Field(default="pending")  # pending, delivered, failed
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
 
@@ -266,8 +266,8 @@ class GlobalMarketplaceAnalytics(SQLModel, table=True):
     analytics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Indexes
     __table_args__ = {
@@ -313,9 +313,9 @@ class GlobalMarketplaceGovernance(SQLModel, table=True):
     version: int = Field(default=1)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    effective_from: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    effective_from: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = Field(default=None)
 
     # Indexes

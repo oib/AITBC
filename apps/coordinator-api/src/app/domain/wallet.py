@@ -41,8 +41,8 @@ class AgentWallet(SQLModel, table=True):
     encrypted_private_key: str | None = Field(default=None)  # Only if managed internally
     kms_key_id: str | None = Field(default=None)  # Reference to external KMS
     meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     balances: List["TokenBalance"] = Relationship(back_populates="wallet")
@@ -78,7 +78,7 @@ class TokenBalance(SQLModel, table=True):
     token_address: str = Field(index=True)  # "native" for native currency
     token_symbol: str = Field()
     balance: float = Field(default=0.0)
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="balances")
@@ -109,8 +109,8 @@ class WalletTransaction(SQLModel, table=True):
     nonce: int | None = Field(default=None)
     status: TransactionStatus = Field(default=TransactionStatus.PENDING, index=True)
     error_message: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="transactions")
