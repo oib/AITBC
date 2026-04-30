@@ -3,6 +3,7 @@
 Deploy GPU Miner Integration to AITBC Container
 """
 
+import os
 import subprocess
 import sys
 
@@ -118,9 +119,10 @@ WantedBy=multi-user.target
     
     print("\n✅ GPU Miner deployed to container!")
     print("\n📊 Access URLs:")
-    print("   - Container IP: 10.1.223.93")
-    print("   - GPU Registry: http://10.1.223.93:8091/miners/list")
-    print("   - Coordinator API: http://10.1.223.93:8000")
+    container_ip = os.getenv("AITBC_CONTAINER_IP", "127.0.0.1")
+    print(f"   - Container IP: {container_ip}")
+    print(f"   - GPU Registry: http://{container_ip}:8091/miners/list")
+    print(f"   - Coordinator API: http://{container_ip}:8000")
     
     print("\n🔧 To manage services in container:")
     print("   incus exec aitbc -- sudo systemctl status gpu-miner")

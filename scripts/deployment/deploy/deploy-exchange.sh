@@ -4,7 +4,7 @@
 
 set -e
 
-SERVER="root@10.1.223.93"
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
 EXCHANGE_DIR="/root/aitbc/apps/trade-exchange"
 
 echo "🚀 Deploying AITBC Trade Exchange"
