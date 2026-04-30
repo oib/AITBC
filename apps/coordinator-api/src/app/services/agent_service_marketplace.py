@@ -113,7 +113,7 @@ class ServiceRequest:
     payment: float = 0.0
     rating: int = 0
     review: str = ""
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     results_hash: str | None = None
     priority: str = "normal"  # low, normal, high, urgent
     complexity: str = "medium"  # simple, medium, complex

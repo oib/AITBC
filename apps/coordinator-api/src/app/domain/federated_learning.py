@@ -55,8 +55,8 @@ class FederatedLearningSession(SQLModel, table=True):
 
     global_model_cid: str | None = Field(default=None)  # Final aggregated model
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     participants: List["TrainingParticipant"] = Relationship(back_populates="session")
@@ -79,8 +79,8 @@ class TrainingParticipant(SQLModel, table=True):
     reputation_score_at_join: float = Field(default=0.0)
     earned_reward: float = Field(default=0.0)
 
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    joined_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     session: FederatedLearningSession = Relationship(back_populates="participants")
@@ -102,7 +102,7 @@ class TrainingRound(SQLModel, table=True):
 
     metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # e.g. loss, accuracy
 
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     completed_at: datetime | None = Field(default=None)
 
     # Relationships
@@ -125,7 +125,7 @@ class LocalModelUpdate(SQLModel, table=True):
     is_aggregated: bool = Field(default=False)
     rejected_reason: str | None = Field(default=None)  # e.g. "outlier", "failed zk verification"
 
-    submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    submitted_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     round: TrainingRound = Relationship(back_populates="updates")

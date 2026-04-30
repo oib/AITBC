@@ -122,7 +122,7 @@ class ServiceRegistry(BaseModel):
     """Service registry containing all available services"""
 
     version: str = Field("1.0.0", description="Registry version")
-    last_updated: datetime = Field(default_factory=datetime.utcnow, description="Last update time")
+    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC), description="Last update time")
     services: dict[str, ServiceDefinition] = Field(..., description="Service definitions by ID")
 
     def get_service(self, service_id: str) -> ServiceDefinition | None:

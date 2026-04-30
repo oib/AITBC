@@ -87,7 +87,7 @@ class MarketMetric(SQLModel, table=True):
     metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+    recorded_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     period_start: datetime
     period_end: datetime
 
@@ -134,8 +134,8 @@ class MarketInsight(SQLModel, table=True):
     resolved_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
 
     # Additional data
@@ -184,9 +184,9 @@ class AnalyticsReport(SQLModel, table=True):
     recipients: list[str] = Field(default=[], sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    generated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    generated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     delivered_at: datetime | None = None
 
     # Additional data
@@ -230,8 +230,8 @@ class DashboardConfig(SQLModel, table=True):
     last_modified_by: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_viewed_at: datetime | None = None
 
     # Additional data
@@ -281,8 +281,8 @@ class DataCollectionJob(SQLModel, table=True):
     cpu_usage: float = Field(default=0.0)  # percentage
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     job_metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -331,8 +331,8 @@ class AlertRule(SQLModel, table=True):
     trigger_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     rule_metric_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -383,8 +383,8 @@ class AnalyticsAlert(SQLModel, table=True):
     delivery_status: dict[str, str] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
 
     # Additional data
@@ -434,8 +434,8 @@ class UserPreference(SQLModel, table=True):
     anonymous_usage: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_login: datetime | None = None
 
     # Additional preferences

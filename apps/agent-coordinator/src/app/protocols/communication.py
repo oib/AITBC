@@ -43,7 +43,7 @@ class AgentMessage:
     receiver_id: Optional[str] = None
     message_type: MessageType = MessageType.DIRECT
     priority: Priority = Priority.NORMAL
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=datetime.now(datetime.UTC))
     payload: Dict[str, Any] = field(default_factory=dict)
     correlation_id: Optional[str] = None
     reply_to: Optional[str] = None

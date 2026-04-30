@@ -31,7 +31,7 @@ class StateTransition:
     """Record of a state transition"""
     from_state: str
     to_state: str
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=datetime.now(datetime.UTC))
     data: Dict[str, Any] = field(default_factory=dict)
 
 

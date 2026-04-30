@@ -80,7 +80,7 @@ class AgentCertification(SQLModel, table=True):
 
     # Issuance information
     issued_by: str = Field(index=True)  # Who issued the certification
-    issued_at: datetime = Field(default_factory=datetime.utcnow)
+    issued_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expires_at: datetime | None = None
     verification_hash: str = Field(max_length=64)  # Blockchain verification hash
 
@@ -142,9 +142,9 @@ class CertificationRequirement(SQLModel, table=True):
     weight: float = Field(default=1.0)  # Importance weight
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    effective_date: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    effective_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
     expiry_date: datetime | None = None
 
     # Additional data
@@ -167,7 +167,7 @@ class VerificationRecord(SQLModel, table=True):
 
     # Request information
     requested_by: str = Field(index=True)
-    requested_at: datetime = Field(default_factory=datetime.utcnow)
+    requested_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     priority: str = Field(default="normal")  # low, normal, high, urgent
 
     # Verification process
@@ -242,8 +242,8 @@ class PartnershipProgram(SQLModel, table=True):
     current_participants: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     launched_at: datetime | None = None
     expires_at: datetime | None = None
 
@@ -268,7 +268,7 @@ class AgentPartnership(SQLModel, table=True):
     current_tier: str = Field(default="basic")
 
     # Application and approval
-    applied_at: datetime = Field(default_factory=datetime.utcnow)
+    applied_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     approved_by: str | None = None
     approved_at: datetime | None = None
     rejection_reasons: list[str] = Field(default=[], sa_column=Column(JSON))
@@ -294,8 +294,8 @@ class AgentPartnership(SQLModel, table=True):
     agreement_expires_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_activity: datetime | None = None
 
     # Additional data
@@ -339,9 +339,9 @@ class AchievementBadge(SQLModel, table=True):
     current_awards: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    available_from: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    available_from: datetime = Field(default_factory=datetime.now(datetime.UTC))
     available_until: datetime | None = None
 
     # Additional data
@@ -363,7 +363,7 @@ class AgentBadge(SQLModel, table=True):
 
     # Award details
     awarded_by: str = Field(index=True)  # System or user who awarded the badge
-    awarded_at: datetime = Field(default_factory=datetime.utcnow)
+    awarded_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     award_reason: str = Field(default="", max_length=500)
 
     # Achievement context
@@ -391,8 +391,8 @@ class AgentBadge(SQLModel, table=True):
     congratulation_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_viewed_at: datetime | None = None
 
     # Additional data
@@ -416,7 +416,7 @@ class CertificationAudit(SQLModel, table=True):
 
     # Audit scheduling
     scheduled_by: str = Field(index=True)
-    scheduled_at: datetime = Field(default_factory=datetime.utcnow)
+    scheduled_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     started_at: datetime | None = None
     completed_at: datetime | None = None
 
@@ -449,8 +449,8 @@ class CertificationAudit(SQLModel, table=True):
     evidence_documents: list[str] = Field(default=[], sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     audit_cert_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

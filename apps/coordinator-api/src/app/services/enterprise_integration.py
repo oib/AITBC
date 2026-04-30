@@ -64,7 +64,7 @@ class IntegrationConfig:
     retry_policy: Dict[str, Any] = field(default_factory=dict)
     rate_limits: Dict[str, int] = field(default_factory=dict)
     webhook_config: Optional[Dict[str, Any]] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     last_sync: Optional[datetime] = None
     status: str = "active"
 

@@ -61,8 +61,8 @@ class DeveloperProfile(SQLModel, table=True):
     github_handle: str | None = None
     website: str | None = None
 
-    joined_at: datetime = Field(default_factory=datetime.utcnow)
-    last_active: datetime = Field(default_factory=datetime.utcnow)
+    joined_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_active: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentSolution(SQLModel, table=True):
@@ -91,8 +91,8 @@ class AgentSolution(SQLModel, table=True):
 
     solution_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     published_at: datetime | None = None
 
 
@@ -116,7 +116,7 @@ class InnovationLab(SQLModel, table=True):
     milestones: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
     publications: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     target_completion: datetime | None = None
 
 
@@ -139,8 +139,8 @@ class CommunityPost(SQLModel, table=True):
 
     parent_post_id: str | None = Field(default=None, foreign_key="community_posts.post_id")
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class Hackathon(SQLModel, table=True):
@@ -165,4 +165,4 @@ class Hackathon(SQLModel, table=True):
     registration_end: datetime
     event_start: datetime
     event_end: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))

@@ -92,7 +92,7 @@ class StrategyRule:
     action: str  # Action to take when condition is met
     priority: StrategyPriority
     enabled: bool = True
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
     # Rule execution tracking
     execution_count: int = 0
@@ -124,8 +124,8 @@ class PricingStrategyConfig:
     regions: list[str] = field(default_factory=list)
 
     # Performance tracking
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     last_applied: datetime | None = None
 
     # Strategy effectiveness metrics

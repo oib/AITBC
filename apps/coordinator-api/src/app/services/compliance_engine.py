@@ -69,8 +69,8 @@ class ComplianceRule:
     requirements: dict[str, Any]
     validation_logic: str
     severity: str = "medium"
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass
@@ -101,7 +101,7 @@ class ComplianceAudit:
     findings: list[dict[str, Any]]
     recommendations: list[str]
     auditor: str
-    audit_date: datetime = field(default_factory=datetime.utcnow)
+    audit_date: datetime = field(default_factory=datetime.now(datetime.UTC))
     next_review_date: datetime | None = None
 
 
