@@ -6,7 +6,7 @@
 set -e
 
 CONTAINER_NAME="aitbc"
-CONTAINER_IP="10.1.223.93"
+CONTAINER_IP="${AITBC_CONTAINER_IP:-127.0.0.1}"
 PROJECT_DIR="/home/oib/windsurf/aitbc"
 
 echo "🚀 Deploying AITBC services to container: $CONTAINER_NAME"

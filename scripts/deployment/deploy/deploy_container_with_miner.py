@@ -3,6 +3,7 @@
 Deploy AITBC services to incus container with GPU miner integration
 """
 
+import os
 import subprocess
 import time
 import sys
@@ -20,7 +21,7 @@ def run_command(cmd, container=None):
 
 def deploy_to_container():
     container = "aitbc"
-    container_ip = "10.1.223.93"
+    container_ip = os.getenv("AITBC_CONTAINER_IP", "127.0.0.1")
     
     print("🚀 Deploying AITBC services to container with GPU miner...")
     

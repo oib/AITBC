@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Deploy AITBC services to the aitbc server (10.1.223.93)
+# Deploy AITBC services to the aitbc server
 
 set -e
 
-SERVER="root@10.1.223.93"
+SERVER="${AITBC_DEPLOY_SERVER:-root@127.0.0.1}"
 PROJECT_DIR="/root/aitbc"
 
 echo "🚀 Deploying AITBC to Server"
