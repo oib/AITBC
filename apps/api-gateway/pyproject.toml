@@ -1,0 +1,23 @@
+[project]
+name = "api-gateway"
+version = "0.1.0"
+description = "AITBC API Gateway for routing to microservices"
+authors = [
+    {name = "AITBC Team", email = "team@aitbc.dev"}
+]
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "httpx>=0.25.0",
+    "aitbc-core",
+]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "api_gateway", from = "src" }
+]
