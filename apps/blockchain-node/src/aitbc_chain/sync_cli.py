@@ -6,6 +6,7 @@ Usage: python -m aitbc_chain.sync_cli --source http://10.1.223.40:8006 [--batch-
 
 import argparse
 import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -19,8 +20,8 @@ from aitbc_chain.sync import ChainSync
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Bulk import blocks from a leader to catch up quickly")
-    parser.add_argument("--source", default="http://10.1.223.40:8006", help="Source RPC URL")
-    parser.add_argument("--import-url", default="http://127.0.0.1:8006", help="Local RPC URL for import")
+    parser.add_argument("--source", default=os.getenv("AITBC_SYNC_SOURCE", "http://127.0.0.1:8006"), help="Source RPC URL")
+    parser.add_argument("--import-url", default=os.getenv("AITBC_SYNC_IMPORT_URL", "http://127.0.0.1:8006"), help="Local RPC URL for import")
     parser.add_argument("--batch-size", type=int, default=100, help="Blocks per batch")
     parser.add_argument("--poll-interval", type=float, default=0.2, help="Seconds between batches")
     args = parser.parse_args()
