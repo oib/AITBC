@@ -33,8 +33,8 @@ class JobPayment(SQLModel, table=True):
     refund_transaction_hash: str | None = Field(default=None, max_length=100)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     escrowed_at: datetime | None = None
     released_at: datetime | None = None
     refunded_at: datetime | None = None
@@ -67,7 +67,7 @@ class PaymentEscrow(SQLModel, table=True):
     is_refunded: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     released_at: datetime | None = None
     refunded_at: datetime | None = None
     expires_at: datetime | None = None

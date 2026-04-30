@@ -18,8 +18,8 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     username: str = Field(unique=True, index=True)
     status: str = Field(default="active", max_length=20)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_login: datetime | None = None
 
     # Relationships
@@ -37,8 +37,8 @@ class Wallet(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
     balance: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     user: User = Relationship(back_populates="wallets")
@@ -60,7 +60,7 @@ class Transaction(SQLModel, table=True):
     fee: float = Field(default=0.0)
     description: str | None = None
     tx_metadata: str | None = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     confirmed_at: datetime | None = None
 
     # Relationships
@@ -78,5 +78,5 @@ class UserSession(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     token: str = Field(unique=True, index=True)
     expires_at: datetime
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    last_used: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_used: datetime = Field(default_factory=datetime.now(datetime.UTC))

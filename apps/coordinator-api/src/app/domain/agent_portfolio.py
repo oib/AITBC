@@ -47,8 +47,8 @@ class PortfolioStrategy(SQLModel, table=True):
     rebalance_frequency: int = Field(default=86400)  # Rebalancing frequency in seconds
     volatility_threshold: float = Field(default=15.0)  # Volatility threshold for rebalancing
     is_active: bool = Field(default=True, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     portfolios: List["AgentPortfolio"] = Relationship(back_populates="strategy")
@@ -68,9 +68,9 @@ class AgentPortfolio(SQLModel, table=True):
     risk_score: float = Field(default=0.0)  # Risk score (0-100)
     risk_tolerance: float = Field(default=50.0)  # Risk tolerance percentage
     is_active: bool = Field(default=True, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    last_rebalance: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_rebalance: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     strategy: PortfolioStrategy = Relationship(back_populates="portfolios")
@@ -93,8 +93,8 @@ class PortfolioAsset(SQLModel, table=True):
     current_allocation: float = Field(default=0.0)  # Current allocation percentage
     average_cost: float = Field(default=0.0)  # Average cost basis
     unrealized_pnl: float = Field(default=0.0)  # Unrealized profit/loss
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="assets")
@@ -116,7 +116,7 @@ class PortfolioTrade(SQLModel, table=True):
     status: TradeStatus = Field(default=TradeStatus.PENDING, index=True)
     transaction_hash: str | None = Field(default=None, index=True)
     executed_at: datetime | None = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
 
     # Relationships
     # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="trades")
@@ -140,7 +140,7 @@ class RiskMetrics(SQLModel, table=True):
     risk_level: RiskLevel = Field(default=RiskLevel.LOW, index=True)
     overall_risk_score: float = Field(default=0.0)  # Overall risk score (0-100)
     stress_test_results: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Relationships
     # DISABLED:     portfolio: AgentPortfolio = Relationship(back_populates="risk_metrics")
@@ -159,7 +159,7 @@ class RebalanceHistory(SQLModel, table=True):
     trades_executed: int = Field(default=0)
     rebalance_cost: float = Field(default=0.0)  # Cost of rebalancing
     execution_time_ms: int = Field(default=0)  # Execution time in milliseconds
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
 
 
 class PerformanceMetrics(SQLModel, table=True):
@@ -184,9 +184,9 @@ class PerformanceMetrics(SQLModel, table=True):
     beta: float = Field(default=0.0)  # Beta vs benchmark
     tracking_error: float = Field(default=0.0)  # Tracking error
     information_ratio: float = Field(default=0.0)  # Information ratio
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    period_start: datetime = Field(default_factory=datetime.utcnow)
-    period_end: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    period_start: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    period_end: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class PortfolioAlert(SQLModel, table=True):
@@ -202,7 +202,7 @@ class PortfolioAlert(SQLModel, table=True):
     meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     is_acknowledged: bool = Field(default=False, index=True)
     acknowledged_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
     resolved_at: datetime | None = Field(default=None)
 
 
@@ -224,7 +224,7 @@ class StrategySignal(SQLModel, table=True):
     is_executed: bool = Field(default=False, index=True)
     executed_at: datetime | None = Field(default=None)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
 
 
 class PortfolioSnapshot(SQLModel, table=True):
@@ -243,7 +243,7 @@ class PortfolioSnapshot(SQLModel, table=True):
     geographic_allocation: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     risk_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     performance_metrics: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class TradingRule(SQLModel, table=True):
@@ -258,8 +258,8 @@ class TradingRule(SQLModel, table=True):
     parameters: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
     is_active: bool = Field(default=True, index=True)
     priority: int = Field(default=0)  # Rule priority (higher = more important)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class MarketCondition(SQLModel, table=True):
@@ -277,5 +277,5 @@ class MarketCondition(SQLModel, table=True):
     trend_strength: float = Field(default=0.0)  # Trend strength
     support_level: float = Field(default=0.0)  # Support level
     resistance_level: float = Field(default=0.0)  # Resistance level
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
     expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))

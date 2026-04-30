@@ -15,4 +15,4 @@ class JobReceipt(SQLModel, table=True):
     job_id: str = Field(index=True, foreign_key="job.id")
     receipt_id: str = Field(index=True)
     payload: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)

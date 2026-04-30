@@ -104,8 +104,8 @@ class AgentDeploymentConfig(SQLModel, table=True):
     last_health_check: datetime | None = Field(default=None)
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentDeploymentInstance(SQLModel, table=True):
@@ -149,8 +149,8 @@ class AgentDeploymentInstance(SQLModel, table=True):
     health_check_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentIntegrationManager:

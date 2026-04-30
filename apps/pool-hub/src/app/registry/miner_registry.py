@@ -22,8 +22,8 @@ class MinerInfo:
     jobs_completed: int = 0
     jobs_failed: int = 0
     uptime_percent: float = 100.0
-    registered_at: datetime = field(default_factory=datetime.utcnow)
-    last_heartbeat: datetime = field(default_factory=datetime.utcnow)
+    registered_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    last_heartbeat: datetime = field(default_factory=datetime.now(datetime.UTC))
     gpu_utilization: float = 0.0
     memory_used_gb: float = 0.0
 
@@ -43,7 +43,7 @@ class PoolInfo:
     total_hashrate: float = 0.0
     jobs_completed_24h: int = 0
     earnings_24h: float = 0.0
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass
@@ -55,7 +55,7 @@ class JobAssignment:
     pool_id: str
     model: str
     status: str = "assigned"
-    assigned_at: datetime = field(default_factory=datetime.utcnow)
+    assigned_at: datetime = field(default_factory=datetime.now(datetime.UTC))
     deadline: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 

@@ -102,8 +102,8 @@ class AgentPerformanceProfile(SQLModel, table=True):
     percentile_rank: float | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_assessed: datetime | None = None
 
     # Additional data
@@ -152,8 +152,8 @@ class MetaLearningModel(SQLModel, table=True):
     success_rate: float = Field(default=0.0, ge=0, le=1.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     trained_at: datetime | None = None
     deployed_at: datetime | None = None
 
@@ -205,7 +205,7 @@ class ResourceAllocation(SQLModel, table=True):
     performance_improvement: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
@@ -259,8 +259,8 @@ class PerformanceOptimization(SQLModel, table=True):
     rollback_available: bool = Field(default=True)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     completed_at: datetime | None = None
 
     # Additional data
@@ -304,7 +304,7 @@ class AgentCapability(SQLModel, table=True):
     tool_proficiency: dict[str, float] = Field(default={}, sa_column=Column(JSON))
 
     # Development history
-    acquired_at: datetime = Field(default_factory=datetime.utcnow)
+    acquired_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     last_improved: datetime | None = None
     improvement_count: int = Field(default=0)
 
@@ -314,8 +314,8 @@ class AgentCapability(SQLModel, table=True):
     last_validated: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     capability_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -365,8 +365,8 @@ class FusionModel(SQLModel, table=True):
     performance_stability: float = Field(default=0.0, ge=0, le=1.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     trained_at: datetime | None = None
     deployed_at: datetime | None = None
 
@@ -420,8 +420,8 @@ class ReinforcementLearningConfig(SQLModel, table=True):
     deployment_performance: dict[str, float] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     trained_at: datetime | None = None
     deployed_at: datetime | None = None
 
@@ -476,8 +476,8 @@ class CreativeCapability(SQLModel, table=True):
     last_evaluation: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Additional data
     creative_profile_meta_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

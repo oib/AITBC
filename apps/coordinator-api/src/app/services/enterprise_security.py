@@ -59,8 +59,8 @@ class SecurityPolicy:
     access_control_requirements: list[str]
     audit_requirements: list[str]
     retention_period: timedelta
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass

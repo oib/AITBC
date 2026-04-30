@@ -58,7 +58,7 @@ class AgentCapability:
     performance_score: float  # 0-1
     cost_per_hour: float
     reliability_score: float  # 0-1
-    last_updated: datetime = field(default_factory=datetime.utcnow)
+    last_updated: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass
@@ -102,7 +102,7 @@ class OrchestrationPlan:
     resource_requirements: dict[ResourceType, int]
     estimated_cost: float
     confidence_score: float
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 class AgentOrchestrator:

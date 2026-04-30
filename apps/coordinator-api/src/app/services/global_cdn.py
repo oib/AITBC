@@ -64,7 +64,7 @@ class EdgeLocation:
     hit_rate: float = 0.0
     avg_response_time_ms: float = 0.0
     status: str = "active"
-    last_health_check: datetime = field(default_factory=datetime.utcnow)
+    last_health_check: datetime = field(default_factory=datetime.now(datetime.UTC))
 
 
 @dataclass
@@ -80,7 +80,7 @@ class CacheEntry:
     created_at: datetime
     expires_at: datetime
     access_count: int = 0
-    last_accessed: datetime = field(default_factory=datetime.utcnow)
+    last_accessed: datetime = field(default_factory=datetime.now(datetime.UTC))
     edge_locations: list[str] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
 

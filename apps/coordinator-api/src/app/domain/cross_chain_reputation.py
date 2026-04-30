@@ -38,8 +38,8 @@ class CrossChainReputationConfig(SQLModel, table=True):
     configuration_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 class CrossChainReputationAggregation(SQLModel, table=True):
@@ -72,8 +72,8 @@ class CrossChainReputationAggregation(SQLModel, table=True):
     verification_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    last_updated: datetime = Field(default_factory=datetime.utcnow)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
     # Indexes
     __table_args__ = {
@@ -111,7 +111,7 @@ class CrossChainReputationEvent(SQLModel, table=True):
     verified: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
     processed_at: datetime | None = None
 
     # Indexes
@@ -153,8 +153,8 @@ class ReputationMetrics(SQLModel, table=True):
     chain_diversity_score: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
 
 
 # Request/Response Models for Cross-Chain API
