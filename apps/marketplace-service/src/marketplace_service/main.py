@@ -51,6 +51,12 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
 app.add_middleware(ErrorHandlerMiddleware)
 
 
+async def get_session_dep() -> AsyncIterator[AsyncSession]:
+    """Get database session dependency"""
+    async with get_session() as session:
+        yield session
+
+
 class HealthResponse(BaseModel):
     """Health check response"""
     status: str
@@ -133,6 +139,96 @@ async def get_analytics(
 ):
     """Get marketplace analytics"""
     return await svc.get_analytics(period_type=period_type)
+
+
+@app.post("/v1/transactions")
+async def submit_transaction(transaction_data: dict, session: AsyncSession = Depends(get_session_dep)):
+    """Submit marketplace transaction"""
+    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
+    
+    # Validate transaction type
+    transaction_type = transaction_data.get('type')
+    action = transaction_data.get('action')
+    
+    if transaction_type != 'marketplace':
+        return {"error": "Invalid transaction type for marketplace service"}, 400
+    
+    try:
+        if action == 'offer':
+            offer = MarketplaceOffer(**transaction_data)
+            session.add(offer)
+        elif action == 'bid':
+            bid = MarketplaceBid(**transaction_data)
+            session.add(bid)
+        else:
+            return {"error": f"Invalid action: {action}. Only 'offer' and 'bid' are currently supported"}, 400
+        
+        await session.commit()
+        return {"status": "success"}
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"Transaction submission error: {e}")
+        return {"error": str(e)}, 500
+
+
+@app.get("/v1/transactions")
+async def get_transactions(
+    transaction_type: str | None = None,
+    action: str | None = None,
+    status: str | None = None,
+    island_id: str | None = None,
+    session: AsyncSession = Depends(get_session_dep),
+):
+    """Query marketplace transactions"""
+    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
+    from sqlalchemy import select
+    
+    try:
+        transactions = []
+        
+        # Query offers
+        if action == 'offer' or not action:
+            result = await session.execute(select(MarketplaceOffer))
+            offers = result.scalars().all()
+            transactions.extend([{
+                "id": o.id,
+                "action": "offer",
+                "provider": o.provider,
+                "capacity": o.capacity,
+                "price": o.price,
+                "status": o.status,
+                "gpu_model": o.gpu_model,
+                "gpu_memory_gb": o.gpu_memory_gb,
+                "gpu_count": o.gpu_count,
+                "price_per_hour": o.price_per_hour,
+                "region": o.region,
+                "created_at": o.created_at.isoformat() if o.created_at else None
+            } for o in offers])
+        
+        # Query bids
+        if action == 'bid' or not action:
+            result = await session.execute(select(MarketplaceBid))
+            bids = result.scalars().all()
+            transactions.extend([{
+                "id": b.id,
+                "action": "bid",
+                "provider": b.provider,
+                "capacity": b.capacity,
+                "price": b.price,
+                "status": b.status,
+                "submitted_at": b.submitted_at.isoformat() if b.submitted_at else None
+            } for b in bids])
+        
+        # Apply filters
+        if status:
+            transactions = [t for t in transactions if t.get('status') == status]
+        if island_id:
+            transactions = [t for t in transactions if t.get('provider') == island_id]
+        
+        return transactions
+    except Exception as e:
+        logger.error(f"Transaction query error: {e}")
+        return {"error": str(e)}, 500
 
 
 if __name__ == "__main__":

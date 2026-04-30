@@ -31,7 +31,7 @@ def miner(ctx):
 @click.pass_context
 def register(ctx, gpu: Optional[str], memory: Optional[int], 
              cuda_cores: Optional[int], miner_id: str):
-    """Register as a miner with the coordinator"""
+    """Register as a miner with the GPU service"""
     config = ctx.obj['config']
     
     # Build capabilities
@@ -57,20 +57,21 @@ def register(ctx, gpu: Optional[str], memory: Optional[int],
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/miners/register",
+                f"{config.gpu_service_url}/v1/miners/register",
                 headers={
                     "Content-Type": "application/json",
                     "X-Api-Key": config.api_key or "",
                     "X-Miner-ID": miner_id
                 },
-                json={"capabilities": capabilities}
+                json={"miner_id": miner_id, "capabilities": capabilities}
             )
             
             if response.status_code in (200, 204):
                 output({
                     "miner_id": miner_id,
                     "status": "registered",
-                    "capabilities": capabilities
+                    "capabilities": capabilities,
+                    "response": response.json()
                 }, ctx.obj['output_format'])
             else:
                 error(f"Failed to register: {response.status_code} - {response.text}")
@@ -194,18 +195,19 @@ def mine(ctx, jobs: int, miner_id: str):
 @click.option("--miner-id", default="cli-miner", help="Miner ID")
 @click.pass_context
 def heartbeat(ctx, miner_id: str):
-    """Send heartbeat to coordinator"""
+    """Send heartbeat to GPU service"""
     config = ctx.obj['config']
     
     try:
         with httpx.Client() as client:
             response = client.post(
-                f"{config.coordinator_url}/v1/miners/heartbeat",
+                f"{config.gpu_service_url}/v1/miners/heartbeat",
                 headers={
                     "X-Api-Key": config.api_key or "",
                     "X-Miner-ID": miner_id
                 },
                 json={
+                    "miner_id": miner_id,
                     "inflight": 0,
                     "status": "ONLINE",
                     "metadata": {}
@@ -216,7 +218,8 @@ def heartbeat(ctx, miner_id: str):
                 output({
                     "miner_id": miner_id,
                     "status": "heartbeat_sent",
-                    "timestamp": time.time()
+                    "timestamp": time.time(),
+                    "response": response.json()
                 }, ctx.obj['output_format'])
             else:
                 error(f"Failed to send heartbeat: {response.status_code}")
@@ -231,13 +234,35 @@ def status(ctx, miner_id: str):
     """Check miner status"""
     config = ctx.obj['config']
     
-    # This would typically query a miner status endpoint
-    # For now, we'll just show the miner info
-    output({
-        "miner_id": miner_id,
-        "coordinator": config.coordinator_url,
-        "status": "active"
-    }, ctx.obj['output_format'])
+    try:
+        with httpx.Client() as client:
+            response = client.get(
+                f"{config.gpu_service_url}/v1/miners/{miner_id}/gpus",
+                headers={"X-Api-Key": config.api_key or ""}
+            )
+            
+            if response.status_code in (200, 204):
+                data = response.json()
+                output({
+                    "miner_id": miner_id,
+                    "gpu_service": config.gpu_service_url,
+                    "status": "active",
+                    "gpus": data
+                }, ctx.obj['output_format'])
+            else:
+                output({
+                    "miner_id": miner_id,
+                    "gpu_service": config.gpu_service_url,
+                    "status": "active",
+                    "gpus": []
+                }, ctx.obj['output_format'])
+    except Exception as e:
+        output({
+            "miner_id": miner_id,
+            "gpu_service": config.gpu_service_url,
+            "status": "active",
+            "gpus": []
+        }, ctx.obj['output_format'])
 
 
 @miner.command()

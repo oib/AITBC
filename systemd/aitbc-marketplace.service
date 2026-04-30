@@ -1,44 +1,18 @@
 [Unit]
-Description=AITBC Production Marketplace Service
-After=network.target aitbc-blockchain-node.service postgresql.service redis.service
-Wants=aitbc-blockchain-node.service postgresql.service redis.service
+Description=AITBC Marketplace Service
+After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=root
-Group=root
-WorkingDirectory=/opt/aitbc
-Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/marketplace/scripts:/opt/aitbc/apps/marketplace/src:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
-EnvironmentFile=/etc/aitbc/.env
-EnvironmentFile=/etc/aitbc/node.env
-
-# Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-marketplace-wrapper.py
-ExecReload=/bin/kill -HUP $MAINPID
-KillMode=mixed
-TimeoutStopSec=10
-
-# Production reliability
+WorkingDirectory=/opt/aitbc/apps/marketplace-service
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/root/.local/bin/poetry run python -m marketplace_service.main
 Restart=always
-RestartSec=5
-StartLimitBurst=5
-StartLimitInterval=60
-
-# Production logging
+RestartSec=10
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-marketplace
-
-# Production security
-NoNewPrivileges=true
-ProtectHome=true
-
-# Production performance
-LimitNOFILE=65536
-LimitNPROC=4096
-MemoryMax=1G
-CPUQuota=25%
 
 [Install]
 WantedBy=multi-user.target

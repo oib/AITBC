@@ -32,6 +32,11 @@ def run_cli(argv, core):
     
     default_rpc_url = core["DEFAULT_RPC_URL"]
     default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:8000")
+    # New microservice URLs
+    default_gpu_url = core.get("DEFAULT_GPU_URL", "http://localhost:8101")
+    default_marketplace_url = core.get("DEFAULT_MARKETPLACE_URL", "http://localhost:8102")
+    default_trading_url = core.get("DEFAULT_TRADING_URL", "http://localhost:8104")
+    default_governance_url = core.get("DEFAULT_GOVERNANCE_URL", "http://localhost:8105")
     cli_version = core.get("CLI_VERSION", "0.0.0")
     create_wallet = core["create_wallet"]
     list_wallets = core["list_wallets"]
@@ -391,25 +396,25 @@ def run_cli(argv, core):
         network_handlers.handle_network_force_sync(args, default_rpc_url, render_mapping)
 
     def handle_market_listings(args):
-        market_handlers.handle_market_listings(args, default_coordinator_url, output_format, render_mapping)
+        market_handlers.handle_market_listings(args, default_marketplace_url, output_format, render_mapping)
 
     def handle_market_create(args):
-        market_handlers.handle_market_create(args, default_coordinator_url, read_password, render_mapping)
+        market_handlers.handle_market_create(args, default_marketplace_url, read_password, render_mapping)
 
     def handle_market_get(args):
         market_handlers.handle_market_get(args, default_rpc_url)
 
     def handle_market_delete(args):
-        market_handlers.handle_market_delete(args, default_coordinator_url, read_password, render_mapping)
+        market_handlers.handle_market_delete(args, default_marketplace_url, read_password, render_mapping)
 
     def handle_market_gpu_register(args):
-        market_handlers.handle_market_gpu_register(args, default_coordinator_url)
+        market_handlers.handle_market_gpu_register(args, default_gpu_url)
 
     def handle_market_gpu_list(args):
-        market_handlers.handle_market_gpu_list(args, default_coordinator_url, output_format)
+        market_handlers.handle_market_gpu_list(args, default_gpu_url, output_format)
 
     def handle_market_buy(args):
-        market_handlers.handle_market_buy(args, default_coordinator_url, read_password, render_mapping)
+        market_handlers.handle_market_buy(args, default_marketplace_url, read_password, render_mapping)
 
     def handle_ai_submit(args):
         ai_handlers.handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping)
