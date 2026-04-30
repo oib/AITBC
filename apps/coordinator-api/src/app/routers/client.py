@@ -253,7 +253,7 @@ async def get_blocks(
 
 # Temporary agent endpoints added to client router until agent router issue is resolved
 @router.post("/agents/networks", response_model=dict, status_code=201)
-async def create_agent_network(network_data: dict):
+async def create_agent_network(network_data: dict) -> dict:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -287,7 +287,7 @@ async def create_agent_network(network_data: dict):
 
 
 @router.get("/agents/executions/{execution_id}/receipt")
-async def get_execution_receipt(execution_id: str):
+async def get_execution_receipt(execution_id: str) -> dict:
     """Get verifiable receipt for completed execution"""
 
     try:
