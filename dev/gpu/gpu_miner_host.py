@@ -159,7 +159,7 @@ def wait_for_coordinator():
             if response.status_code == 200:
                 logger.info("Coordinator is available!")
                 return True
-        except:
+        except Exception:
             pass
         
         logger.info(f"Waiting for coordinator... ({i+1}/{MAX_RETRIES})")

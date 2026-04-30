@@ -41,6 +41,6 @@ class AITBCUser(HttpUser):
                 "payload": "0x",
                 "chain_id": "ait-mainnet"
             })
-        except:
+        except Exception:
             # Expected to fail due to invalid signature, but tests endpoint availability
             pass

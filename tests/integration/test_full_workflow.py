@@ -231,7 +231,7 @@ class TestMarketplaceIntegration:
                 if response.status_code == 200:
                     services = response.json()
                     assert isinstance(services, list)
-            except:
+            except Exception:
                 # API endpoint might not be available, that's OK
                 pass
             
