@@ -45,6 +45,22 @@ SERVICES = {
         "base_url": "http://localhost:8105",
         "prefix": "/governance",
     },
+    "ai": {
+        "base_url": "http://localhost:8106",
+        "prefix": "/ai",
+    },
+    "monitoring": {
+        "base_url": "http://localhost:8107",
+        "prefix": "/monitoring",
+    },
+    "openclaw": {
+        "base_url": "http://localhost:8108",
+        "prefix": "/openclaw",
+    },
+    "plugin": {
+        "base_url": "http://localhost:8109",
+        "prefix": "/plugin",
+    },
     "coordinator": {
         "base_url": "http://localhost:8000",
         "prefix": "/coordinator",

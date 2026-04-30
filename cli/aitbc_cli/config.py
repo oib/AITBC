@@ -25,10 +25,20 @@ class CLIConfig(BaseAITBCConfig):
     app_version: str = Field(default="2.1.0", description="CLI version")
     
     # Service URLs
-    coordinator_url: str = Field(default="http://localhost:8000", description="Coordinator API URL")
+    gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
+    marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
+    trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
+    governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
+    ai_service_url: str = Field(default="http://localhost:8106", description="AI Service URL")
+    monitoring_service_url: str = Field(default="http://localhost:8107", description="Monitoring Service URL")
+    openclaw_service_url: str = Field(default="http://localhost:8108", description="OpenClaw Service URL")
+    plugin_service_url: str = Field(default="http://localhost:8109", description="Plugin Service URL")
     wallet_daemon_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL (alias for compatibility)")
     blockchain_rpc_url: str = Field(default=f"http://localhost:{BLOCKCHAIN_RPC_PORT}", description="Blockchain RPC URL")
+    
+    # Legacy coordinator URL (deprecated, kept for backward compatibility during migration)
+    coordinator_url: str = Field(default="http://localhost:8000", description="Coordinator API URL (deprecated)")
     
     # Chain configuration
     chain_id: str = Field(default="ait-mainnet", description="Default chain ID for multichain operations")

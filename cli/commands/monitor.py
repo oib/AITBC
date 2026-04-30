@@ -125,9 +125,8 @@ def metrics(ctx, period: str, export_path: Optional[str]):
             # Job metrics
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/jobs",
-                    headers={"X-Api-Key": config.api_key or ""},
-                    params={"limit": 100}
+                    f"{config.monitoring_service_url}/dashboard",
+                    headers={"X-Api-Key": config.api_key or ""}
                 )
                 if resp.status_code == 200:
                     jobs = resp.json()
@@ -270,9 +269,8 @@ def history(ctx, period: str):
         with httpx.Client(timeout=10) as client:
             try:
                 resp = client.get(
-                    f"{config.coordinator_url}/jobs",
-                    headers={"X-Api-Key": config.api_key or ""},
-                    params={"limit": 500}
+                    f"{config.monitoring_service_url}/dashboard",
+                    headers={"X-Api-Key": config.api_key or ""}
                 )
                 if resp.status_code == 200:
                     jobs = resp.json()
