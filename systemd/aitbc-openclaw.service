@@ -7,7 +7,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/openclaw-service
 Environment="PYTHONPATH=/opt/aitbc/apps/openclaw-service/src:/opt/aitbc"
-ExecStart=/root/.cache/pypoetry/virtualenvs/openclaw-service-EVT8oC-7-py3.13/bin/python -m openclaw_service.main
+ExecStart=/root/.local/bin/poetry run python -m openclaw_service.main
 Restart=always
 RestartSec=10
 
