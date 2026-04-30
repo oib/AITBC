@@ -22,6 +22,8 @@ sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-crypto/src")
 sys.path.insert(0, "/opt/aitbc/packages/py/aitbc-sdk/src")
 
 
+from typing import AsyncIterator, Callable, Awaitable
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -98,7 +100,7 @@ from .storage.db import init_db
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""
     logger.info("Starting Coordinator API")
 
@@ -280,7 +282,7 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
-    async def request_metrics_middleware(request: Request, call_next):
+    async def request_metrics_middleware(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         start_time = __import__("time").perf_counter()
         metrics_collector.increment_api_requests()
         try:
@@ -394,7 +396,7 @@ def create_app() -> FastAPI:
         return JSONResponse(status_code=429, content=error_response.model_dump(), headers={"Retry-After": "60"})
 
     @app.get("/rate-limit-metrics")
-    async def rate_limit_metrics():
+    async def rate_limit_metrics() -> Response:
         """Rate limiting metrics endpoint."""
         return Response(content=generate_latest(rate_limit_registry), media_type=CONTENT_TYPE_LATEST)
 
