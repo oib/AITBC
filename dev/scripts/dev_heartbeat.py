@@ -14,8 +14,8 @@ REPO_ROOT = Path("/opt/aitbc")
 LOGS_DIR = REPO_ROOT / "logs"
 
 # AITBC blockchain config
-LOCAL_RPC = "http://localhost:8006"
-GENESIS_RPC = "http://10.1.223.93:8006"
+LOCAL_RPC = os.getenv("AITBC_LOCAL_RPC", "http://localhost:8006")
+GENESIS_RPC = os.getenv("AITBC_GENESIS_RPC", "http://localhost:8006")
 MAX_HEIGHT_DIFF = 10  # acceptable block height difference between nodes
 
 def sh(cmd, cwd=REPO_ROOT):

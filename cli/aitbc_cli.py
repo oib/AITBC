@@ -2849,7 +2849,9 @@ def legacy_main():
         elif args.network_action == "peers":
             print("Network peers:")
             print("  - genesis (localhost:8006) - Connected")
-            print("  - aitbc1 (10.1.223.40:8007) - Connected")
+            follower_host = os.getenv("AITBC_FOLLOWER_HOST", "aitbc1")
+            follower_port = os.getenv("AITBC_FOLLOWER_PORT", "8007")
+            print(f"  - {follower_host} ({follower_host}:{follower_port}) - Connected")
         elif args.network_action == "sync":
             if args.status:
                 print("Network sync status:")
