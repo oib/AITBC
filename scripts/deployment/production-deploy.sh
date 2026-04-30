@@ -85,32 +85,9 @@ backup_current_deployment() {
 
 # Build production images
 build_production_images() {
-    log "Building production images..."
-    
-    # Build CLI image
-    docker build -t aitbc/cli:$VERSION -f Dockerfile --target production . || error "Failed to build CLI image"
-    
-    # Build service images
-    for service_dir in apps/*/; do
-        if [ -f "$service_dir/Dockerfile" ]; then
-            service_name=$(basename "$service_dir")
-            log "Building $service_name image..."
-            docker build -t aitbc/$service_name:$VERSION -f "$service_dir/Dockerfile" "$service_dir" || error "Failed to build $service_name image"
-        fi
-    done
-    
-    # Push images to registry
-    log "Pushing images to registry..."
-    docker push aitbc/cli:$VERSION
-    
-    for service_dir in apps/*/; do
-        if [ -f "$service_dir/Dockerfile" ]; then
-            service_name=$(basename "$service_dir")
-            docker push aitbc/$service_name:$VERSION
-        fi
-    done
-    
-    success "Production images built and pushed"
+    log "Skipping Docker image build - Docker not supported in this environment"
+    log "Deployment will use systemd services instead"
+    success "Build step skipped (no Docker support)"
 }
 
 # Deploy database

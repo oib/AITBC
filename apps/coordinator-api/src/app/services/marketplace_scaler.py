@@ -203,7 +203,7 @@ class ResourceScaler:
         return None
 
     async def _execute_scaling(self, action: str, count: int, new_total: int) -> bool:
-        """Execute the actual scaling action (e.g. interacting with Kubernetes/Docker/Cloud provider)"""
+        """Execute the actual scaling action (e.g. interacting with Kubernetes/Cloud provider)"""
         # In this implementation, we simulate the scaling delay
         # In production, this would call cloud APIs (AWS AutoScaling, K8s Scale, etc.)
         logger.debug(f"Executing {action} by {count} nodes...")

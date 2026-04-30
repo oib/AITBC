@@ -39,40 +39,22 @@ warning() {
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
-    
+
     # Check if required tools are installed
-    command -v docker >/dev/null 2>&1 || error "Docker is not installed"
-    command -v docker-compose >/dev/null 2>&1 || error "Docker Compose is not installed"
     command -v kubectl >/dev/null 2>&1 || error "kubectl is not installed"
     command -v helm >/dev/null 2>&1 || error "Helm is not installed"
-    
-    # Check if Docker daemon is running
-    docker info >/dev/null 2>&1 || error "Docker daemon is not running"
-    
+
     # Check if kubectl can connect to cluster
     kubectl cluster-info >/dev/null 2>&1 || error "Cannot connect to Kubernetes cluster"
-    
-    success "Prerequisites check passed"
+
+    success "Prerequisites check passed (Docker not required)"
 }
 
-# Build Docker images
+# Build images (skipped - no Docker support)
 build_images() {
-    log "Building Docker images..."
-    
-    # Build CLI image
-    log "Building CLI image..."
-    docker build -t aitbc/cli:${VERSION} -f Dockerfile . || error "Failed to build CLI image"
-    
-    # Build service images
-    for service_dir in apps/*/; do
-        if [ -f "$service_dir/Dockerfile" ]; then
-            service_name=$(basename "$service_dir")
-            log "Building ${service_name} image..."
-            docker build -t aitbc/${service_name}:${VERSION} -f "$service_dir/Dockerfile" "$service_dir" || error "Failed to build ${service_name} image"
-        fi
-    done
-    
-    success "All Docker images built successfully"
+    log "Skipping Docker image build - Docker not supported in this environment"
+    log "Deployment will use systemd services instead"
+    success "Build step skipped (no Docker support)"
 }
 
 # Run tests
