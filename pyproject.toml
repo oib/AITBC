@@ -177,11 +177,15 @@ select = [
     "C4", # flake8-comprehensions
     "UP", # pyupgrade
     "E722", # bare except (explicitly enforce)
+    "G",  # logging-string-format (enforce f-strings in logging)
+    "LOG", # logging best practices
 ]
 ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
+    "G001",  # logging-string-format (allow for now, migration in progress)
+    "G002",  # logging-string-format (allow for now, migration in progress)
 ]
 
 [tool.ruff.lint.per-file-ignores]
