@@ -181,7 +181,7 @@ class ZKCircuitCache:
                     for file_path in entry.get('output_files', []):
                         try:
                             total_size += Path(file_path).stat().st_size
-                        except:
+                        except (OSError, FileNotFoundError):
                             pass
 
                 return {
