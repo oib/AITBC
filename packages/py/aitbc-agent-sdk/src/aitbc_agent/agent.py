@@ -5,7 +5,7 @@ Core Agent class for AITBC network participation
 import asyncio
 import json
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from cryptography.hazmat.primitives import hashes
@@ -154,7 +154,7 @@ class Agent:
                     "max_concurrent_jobs": self.capabilities.max_concurrent_jobs,
                     "specialization": self.capabilities.specialization,
                 },
-                "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             # Sign registration data
@@ -274,7 +274,7 @@ class Agent:
             "to": recipient_id,
             "type": message_type,
             "payload": payload,
-            "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Sign message
