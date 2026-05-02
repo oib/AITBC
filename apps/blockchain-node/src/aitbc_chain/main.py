@@ -137,18 +137,18 @@ class BlockchainNode:
                 block_sub = await gossip_broker.subscribe(block_topic)
                 logger.info(f"Successfully subscribed to {block_topic} topic")
                 
-                async def process_blocks_for_chain(chain_id=chain_id):
+                async def process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub):
                     last_bulk_sync_time = 0
-                    logger.info(f"Block processing task started for chain {chain_id}")
+                    logger.info(f"Block processing task started for chain {chain_id_param}")
                     while True:
                         try:
-                            block_data = await block_sub.queue.get()
-                            logger.info(f"Received block from gossip for chain {chain_id}")
+                            block_data = await block_sub_param.queue.get()
+                            logger.info(f"Received block from gossip for chain {chain_id_param}")
                             if isinstance(block_data, str):
                                 import json
                                 block_data = json.loads(block_data)
-                            logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
-                            sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
+                            logger.info(f"Importing block for chain {chain_id_param}: {block_data.get('height')}")
+                            sync = ChainSync(session_factory=session_scope, chain_id=chain_id_param)
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
                             
@@ -166,7 +166,7 @@ class BlockchainNode:
                                         time_since_last_sync = current_time - last_bulk_sync_time
                                         
                                         if time_since_last_sync >= settings.min_bulk_sync_interval:
-                                            logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync")
+                                            logger.warning(f"Gap detected: {gap_size} blocks, triggering automatic bulk sync (chain={chain_id_param})")
                                             
                                             # Get source URL from block metadata if available
                                             source_url = block_data.get("source_url")
@@ -177,7 +177,7 @@ class BlockchainNode:
                                             if source_url:
                                                 try:
                                                     imported = await sync.bulk_import_from(source_url)
-                                                    logger.info(f"Bulk sync completed: {imported} blocks imported")
+                                                    logger.info(f"Bulk sync completed: {imported} blocks imported (chain={chain_id_param})")
                                                     last_bulk_sync_time = current_time
                                                     
                                                     # Retry block import after bulk sync
@@ -194,7 +194,7 @@ class BlockchainNode:
                         except Exception as exc:
                             logger.error(f"Error processing block from gossip for chain {chain_id}: {exc}")
                 
-                asyncio.create_task(process_blocks_for_chain(chain_id))
+                asyncio.create_task(process_blocks_for_chain(chain_id_param=chain_id, block_sub_param=block_sub))
             except Exception as e:
                 logger.error(f"Failed to subscribe to blocks.{chain_id}: {e}")
                     
