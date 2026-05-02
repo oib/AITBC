@@ -7,7 +7,7 @@ import asyncio
 import json
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 from uuid import uuid4
@@ -64,7 +64,7 @@ class IntegrationConfig:
     retry_policy: Dict[str, Any] = field(default_factory=dict)
     rate_limits: Dict[str, int] = field(default_factory=dict)
     webhook_config: Optional[Dict[str, Any]] = None
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     last_sync: Optional[datetime] = None
     status: str = "active"
 
@@ -121,7 +121,7 @@ class ERPIntegration:
                 "data_type": data_type,
                 "records": [],
                 "count": 0,
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             return IntegrationResponse(
                 success=True,
@@ -254,7 +254,7 @@ class SAPIntegration(ERPIntegration):
                         data=mapped_data,
                         metadata={
                             "records_count": len(mapped_data.get("customers", [])),
-                            "sync_time": datetime.now(datetime.UTC).isoformat()
+                            "sync_time": datetime.now(timezone.utc).isoformat()
                         }
                     )
                 else:
@@ -297,7 +297,7 @@ class SAPIntegration(ERPIntegration):
                         data=mapped_data,
                         metadata={
                             "records_count": len(mapped_data.get("orders", [])),
-                            "sync_time": datetime.now(datetime.UTC).isoformat()
+                            "sync_time": datetime.now(timezone.utc).isoformat()
                         }
                     )
                 else:
@@ -340,7 +340,7 @@ class SAPIntegration(ERPIntegration):
                         data=mapped_data,
                         metadata={
                             "records_count": len(mapped_data.get("products", [])),
-                            "sync_time": datetime.now(datetime.UTC).isoformat()
+                            "sync_time": datetime.now(timezone.utc).isoformat()
                         }
                     )
                 else:
@@ -498,7 +498,7 @@ class OracleIntegration(ERPIntegration):
                         data=mapped_data,
                         metadata={
                             "records_count": len(mapped_data.get("customers", [])),
-                            "sync_time": datetime.now(datetime.UTC).isoformat()
+                            "sync_time": datetime.now(timezone.utc).isoformat()
                         }
                     )
                 else:
@@ -564,7 +564,7 @@ class CRMIntegration:
             mock_data = {
                 "contacts": [],
                 "count": 0,
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             return IntegrationResponse(
                 success=True,
@@ -584,7 +584,7 @@ class CRMIntegration:
             mock_data = {
                 "opportunities": [],
                 "count": 0,
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             return IntegrationResponse(
                 success=True,
@@ -733,7 +733,7 @@ class SalesforceIntegration(CRMIntegration):
                         data=mapped_data,
                         metadata={
                             "records_count": len(data.get("records", [])),
-                            "sync_time": datetime.now(datetime.UTC).isoformat()
+                            "sync_time": datetime.now(timezone.utc).isoformat()
                         }
                     )
                 else:
@@ -1037,7 +1037,7 @@ class EnterpriseIntegrationFramework:
             "provider": integration.config.provider.value,
             "endpoint_url": integration.config.endpoint_url,
             "status": "active",
-            "last_test": datetime.now(datetime.UTC).isoformat()
+            "last_test": datetime.now(timezone.utc).isoformat()
         }
     
     async def close_integration(self, integration_id: str):

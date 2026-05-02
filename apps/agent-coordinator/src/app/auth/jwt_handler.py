@@ -3,7 +3,7 @@ JWT Authentication Handler for AITBC Agent Coordinator
 Implements JWT token generation, validation, and management
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 import secrets
 
@@ -26,15 +26,15 @@ class JWTHandler:
 
         try:
             if expires_delta:
-                expire = datetime.now(datetime.UTC) + expires_delta
+                expire = datetime.now(timezone.utc) + expires_delta
             else:
-                expire = datetime.now(datetime.UTC) + self.token_expiry
+                expire = datetime.now(timezone.utc) + self.token_expiry
             
             # Add standard claims
             token_payload = {
                 **payload,
                 "exp": expire,
-                "iat": datetime.now(datetime.UTC),
+                "iat": datetime.now(timezone.utc),
                 "type": "access"
             }
             
@@ -57,12 +57,12 @@ class JWTHandler:
         import jwt
 
         try:
-            expire = datetime.now(datetime.UTC) + self.refresh_expiry
+            expire = datetime.now(timezone.utc) + self.refresh_expiry
             
             token_payload = {
                 **payload,
                 "exp": expire,
-                "iat": datetime.now(datetime.UTC),
+                "iat": datetime.now(timezone.utc),
                 "type": "refresh"
             }
             
@@ -227,7 +227,7 @@ class APIKeyManager:
             key_data = {
                 "user_id": user_id,
                 "permissions": permissions or [],
-                "created_at": datetime.now(datetime.UTC).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "last_used": None,
                 "usage_count": 0
             }
@@ -258,7 +258,7 @@ class APIKeyManager:
             key_data = self.api_keys[api_key]
             
             # Update usage statistics
-            key_data["last_used"] = datetime.now(datetime.UTC).isoformat()
+            key_data["last_used"] = datetime.now(timezone.utc).isoformat()
             key_data["usage_count"] += 1
             
             return {

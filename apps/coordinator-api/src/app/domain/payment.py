@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column, Numeric
@@ -33,8 +33,8 @@ class JobPayment(SQLModel, table=True):
     refund_transaction_hash: str | None = Field(default=None, max_length=100)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     escrowed_at: datetime | None = None
     released_at: datetime | None = None
     refunded_at: datetime | None = None
@@ -67,7 +67,7 @@ class PaymentEscrow(SQLModel, table=True):
     is_refunded: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     released_at: datetime | None = None
     refunded_at: datetime | None = None
     expires_at: datetime | None = None

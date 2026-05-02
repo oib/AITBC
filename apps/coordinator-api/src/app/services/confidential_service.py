@@ -2,7 +2,7 @@
 Confidential Transaction Service - Wrapper for existing confidential functionality
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from ..models.confidential import ConfidentialTransaction
@@ -40,7 +40,7 @@ class ConfidentialTransactionService:
             recipient=recipient,
             encrypted_payload=encrypted_data,
             viewing_key=viewing_key,
-            created_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
         )
 
     def decrypt_transaction(self, transaction: ConfidentialTransaction, viewing_key: str) -> dict[str, Any]:

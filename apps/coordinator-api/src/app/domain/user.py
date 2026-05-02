@@ -2,7 +2,7 @@
 User domain models for AITBC
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import JSON
 from sqlmodel import Column, Field, SQLModel
@@ -18,8 +18,8 @@ class User(SQLModel, table=True):
     email: str = Field(unique=True, index=True)
     username: str = Field(unique=True, index=True)
     status: str = Field(default="active", max_length=20)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_login: datetime | None = None
 
     # Relationships
@@ -37,8 +37,8 @@ class Wallet(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     address: str = Field(unique=True, index=True)
     balance: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     user: User = Relationship(back_populates="wallets")
@@ -60,7 +60,7 @@ class Transaction(SQLModel, table=True):
     fee: float = Field(default=0.0)
     description: str | None = None
     tx_metadata: str | None = Field(default=None, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confirmed_at: datetime | None = None
 
     # Relationships
@@ -78,5 +78,5 @@ class UserSession(SQLModel, table=True):
     user_id: str = Field(foreign_key="users.id")
     token: str = Field(unique=True, index=True)
     expires_at: datetime
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    last_used: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_used: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import uuid
 from typing import Any, Dict, List, Optional
 
@@ -50,7 +50,7 @@ async def submit_task(request: TaskSubmission, background_tasks: BackgroundTasks
             "message": "Task submitted successfully",
             "task_id": request.task_data.get("task_id", str(uuid.uuid4())),
             "priority": request.priority,
-            "submitted_at": datetime.now(datetime.UTC).isoformat()
+            "submitted_at": datetime.now(timezone.utc).isoformat()
         }
         
     except HTTPException:
@@ -72,7 +72,7 @@ async def get_task_status():
         return {
             "status": "success",
             "stats": stats,
-            "timestamp": datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:

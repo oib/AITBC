@@ -6,7 +6,7 @@ Domain models for managing the developer ecosystem, bounties, certifications, an
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
@@ -45,8 +45,8 @@ class DeveloperProfile(SQLModel, table=True):
     skills: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     certifications: List["DeveloperCertification"] = Relationship(back_populates="developer")
@@ -65,7 +65,7 @@ class DeveloperCertification(SQLModel, table=True):
     level: CertificationLevel = Field(default=CertificationLevel.BEGINNER)
 
     issued_by: str = Field()  # Could be an agent or a DAO entity
-    issued_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    issued_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = Field(default=None)
 
     ipfs_credential_cid: str | None = Field(default=None)  # Proof of certification
@@ -90,7 +90,7 @@ class RegionalHub(SQLModel, table=True):
     budget_allocation: float = Field(default=0.0)
     spent_budget: float = Field(default=0.0)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BountyTask(SQLModel, table=True):
@@ -114,8 +114,8 @@ class BountyTask(SQLModel, table=True):
     assigned_developer_id: str | None = Field(foreign_key="developer_profile.id", default=None)
 
     deadline: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     submissions: List["BountySubmission"] = Relationship(back_populates="bounty")
@@ -139,7 +139,7 @@ class BountySubmission(SQLModel, table=True):
 
     tx_hash_reward: str | None = Field(default=None)  # Hash of the reward payout transaction
 
-    submitted_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     reviewed_at: datetime | None = Field(default=None)
 
     # Relationships

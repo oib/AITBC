@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 from sqlalchemy import JSON, Column
@@ -18,7 +18,7 @@ class Miner(SQLModel, table=True):
     status: str = Field(default="ONLINE", index=True)
     inflight: int = Field(default=0)
     extra_metadata: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    last_heartbeat: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    last_heartbeat: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
     session_token: str | None = None
     last_job_at: datetime | None = Field(default=None, index=True)
     jobs_completed: int = Field(default=0)

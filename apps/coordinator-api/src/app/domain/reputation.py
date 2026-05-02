@@ -3,7 +3,7 @@ Agent Reputation and Trust System Domain Models
 Implements SQLModel definitions for agent reputation, trust scores, and economic metrics
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -66,9 +66,9 @@ class AgentReputation(SQLModel, table=True):
     specialization_tags: list[str] = Field(default=[], sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    last_activity: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Additional metadata
     reputation_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
@@ -103,7 +103,7 @@ class TrustScoreCalculation(SQLModel, table=True):
     confidence_level: float = Field(default=0.8, ge=0, le=1.0)
 
     # Timestamps
-    calculated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     effective_period: int = Field(default=86400)  # seconds
 
     # Additional data
@@ -140,7 +140,7 @@ class ReputationEvent(SQLModel, table=True):
     verification_status: str = Field(default="pending")  # pending, verified, rejected
 
     # Timestamps
-    occurred_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = None
     expires_at: datetime | None = None
 
@@ -176,8 +176,8 @@ class AgentEconomicProfile(SQLModel, table=True):
     liquidity_score: float = Field(default=0.0, ge=0, le=100.0)
 
     # Timestamps
-    profile_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    profile_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Historical data
     earnings_history: list[dict[str, Any]] = Field(default=[], sa_column=Column(JSON))
@@ -217,8 +217,8 @@ class CommunityFeedback(SQLModel, table=True):
     moderator_notes: str = Field(default="", max_length=500)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     helpful_votes: int = Field(default=0)
 
     # Additional metadata
@@ -247,8 +247,8 @@ class ReputationLevelThreshold(SQLModel, table=True):
     fee_discount: float = Field(default=0.0, ge=0, le=100.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = Field(default=True)
 
     # Additional configuration

@@ -7,7 +7,7 @@ Provides health monitoring for CUDA-optimized multi-modal processing
 
 import subprocess
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 import psutil
@@ -37,7 +37,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -86,7 +86,7 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
             "status": "unhealthy",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Health check failed",
         }
 
@@ -145,7 +145,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
             "status": "healthy" if gpu_info["available"] else "degraded",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "gpu_info": gpu_info,
             "cuda_tests": cuda_tests,
             "overall_health": (
@@ -161,7 +161,7 @@ async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_ses
             "status": "unhealthy",
             "service": "gpu-multimodal",
             "port": 8010,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Deep health check failed",
         }
 

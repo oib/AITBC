@@ -7,7 +7,7 @@ P2P Trading Protocol API Endpoints
 REST API for agent-to-agent trading, matching, negotiation, and settlement
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -634,9 +634,9 @@ async def get_trading_analytics(
             end_dt = datetime.fromisoformat(end_date)
         
         if not start_dt:
-            start_dt = datetime.now(datetime.UTC) - timedelta(days=30)
+            start_dt = datetime.now(timezone.utc) - timedelta(days=30)
         if not end_dt:
-            end_dt = datetime.now(datetime.UTC)
+            end_dt = datetime.now(timezone.utc)
         
         # Get analytics data (mock implementation)
         # In real implementation, this would query TradingAnalytics table

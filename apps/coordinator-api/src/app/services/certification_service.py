@@ -5,7 +5,7 @@ Implements certification framework, partnership programs, and badge system
 
 import hashlib
 import json
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -111,7 +111,7 @@ class CertificationSystem:
         certification_id = f"cert_{uuid4().hex[:8]}"
         verification_hash = self.generate_verification_hash(agent_id, level, certification_id)
 
-        expires_at = datetime.now(datetime.UTC) + timedelta(days=level_config["validity_days"])
+        expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])
 
         certification = AgentCertification(
             certification_id=certification_id,
@@ -130,7 +130,7 @@ class CertificationSystem:
             audit_log=[
                 {
                     "action": "issued",
-                    "timestamp": datetime.now(datetime.UTC).isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                     "performed_by": issued_by,
                     "details": f"Certification issued at {level.value} level",
                 }
@@ -200,7 +200,7 @@ class CertificationSystem:
                     AgentCertification.agent_id == agent_id,
                     AgentCertification.certification_level == target_level,
                     AgentCertification.status == CertificationStatus.ACTIVE,
-                    AgentCertification.expires_at > datetime.now(datetime.UTC),
+                    AgentCertification.expires_at > datetime.now(timezone.utc),
                 )
             )
         ).first()
@@ -512,7 +512,7 @@ class CertificationSystem:
             "agent_id": agent_id,
             "level": level.value,
             "certification_id": certification_id,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "nonce": uuid4().hex,
         }
 
@@ -567,9 +567,9 @@ class CertificationSystem:
             return False, f"Renewal requirements not met: {'; '.join(errors)}"
 
         # Update certification
-        certification.expires_at = datetime.now(datetime.UTC) + timedelta(days=level_config["validity_days"])
+        certification.expires_at = datetime.now(timezone.utc) + timedelta(days=level_config["validity_days"])
         certification.renewal_count += 1
-        certification.last_renewed_at = datetime.now(datetime.UTC)
+        certification.last_renewed_at = datetime.now(timezone.utc)
         certification.verification_hash = self.generate_verification_hash(
             certification.agent_id, certification.certification_level, certification.certification_id
         )
@@ -578,7 +578,7 @@ class CertificationSystem:
         certification.audit_log.append(
             {
                 "action": "renewed",
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "performed_by": renewed_by,
                 "details": f"Certification renewed for {level_config['validity_days']} days",
             }
@@ -664,7 +664,7 @@ class PartnershipManager:
             commission_structure=kwargs.get("commission_structure", type_config.get("commission_structure", {})),
             performance_metrics=kwargs.get("performance_metrics", ["sales_volume", "customer_satisfaction"]),
             max_participants=kwargs.get("max_participants"),
-            launched_at=datetime.now(datetime.UTC) if kwargs.get("launch_immediately", False) else None,
+            launched_at=datetime.now(timezone.utc) if kwargs.get("launch_immediately", False) else None,
         )
 
         session.add(program)
@@ -714,7 +714,7 @@ class PartnershipManager:
             program_id=program_id,
             partnership_type=program.program_type,
             current_tier="basic",
-            applied_at=datetime.now(datetime.UTC),
+            applied_at=datetime.now(timezone.utc),
             status="pending_approval",
             partnership_metadata={"application_data": application_data, "eligibility_results": eligibility_results},
         )
@@ -1101,7 +1101,7 @@ class BadgeSystem:
             display_properties=criteria.get("display_properties", {}),
             is_limited=criteria.get("is_limited", False),
             max_awards=criteria.get("max_awards"),
-            available_from=datetime.now(datetime.UTC),
+            available_from=datetime.now(timezone.utc),
             available_until=criteria.get("available_until"),
         )
 
@@ -1213,7 +1213,7 @@ class BadgeSystem:
             "context": {
                 "badge_name": badge.badge_name,
                 "badge_type": badge.badge_type.value,
-                "verification_date": datetime.now(datetime.UTC).isoformat(),
+                "verification_date": datetime.now(timezone.utc).isoformat(),
             },
         }
 

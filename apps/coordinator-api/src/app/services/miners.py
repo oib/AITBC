@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlmodel import Session, select
@@ -32,7 +32,7 @@ class MinerService:
             miner.region = payload.region
             miner.session_token = session_token
         miner.inflight = 0
-        miner.last_heartbeat = datetime.now(datetime.UTC)
+        miner.last_heartbeat = datetime.now(timezone.utc)
         miner.status = "ONLINE"
         self.session.commit()
         self.session.refresh(miner)
@@ -54,7 +54,7 @@ class MinerService:
         if payload.network_latency_ms is not None:
             metadata["network_latency_ms"] = payload.network_latency_ms
         miner.extra_metadata = metadata
-        miner.last_heartbeat = datetime.now(datetime.UTC)
+        miner.last_heartbeat = datetime.now(timezone.utc)
         self.session.add(miner)
         self.session.commit()
         self.session.refresh(miner)
@@ -73,8 +73,8 @@ class MinerService:
             return None
 
         miner.inflight += 1
-        miner.last_heartbeat = datetime.now(datetime.UTC)
-        miner.last_job_at = datetime.now(datetime.UTC)
+        miner.last_heartbeat = datetime.now(timezone.utc)
+        miner.last_job_at = datetime.now(timezone.utc)
         self.session.add(miner)
         self.session.commit()
         return job_service.to_assigned(job)

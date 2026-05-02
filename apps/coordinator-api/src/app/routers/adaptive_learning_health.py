@@ -6,7 +6,7 @@ Provides health monitoring for reinforcement learning frameworks
 """
 
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 import psutil
@@ -40,7 +40,7 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
             "status": "healthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -97,7 +97,7 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
             "status": "unhealthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Health check failed",
         }
 
@@ -177,7 +177,7 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
             "status": "healthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "algorithm_tests": algorithm_tests,
             "safety_tests": safety_tests,
             "overall_health": (
@@ -196,6 +196,6 @@ async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_
             "status": "unhealthy",
             "service": "adaptive-learning",
             "port": 8011,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Deep health check failed",
         }

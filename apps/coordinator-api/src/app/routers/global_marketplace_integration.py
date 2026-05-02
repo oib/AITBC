@@ -3,7 +3,7 @@ Global Marketplace Integration API Router
 REST API endpoints for integrated global marketplace with cross-chain capabilities
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -350,7 +350,7 @@ async def get_marketplace_integration_analytics(
             "active_regions": len(active_regions),
             "supported_chains": len(supported_chains),
             "integration_config": integration_service.integration_config,
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -394,7 +394,7 @@ async def get_integration_status(
                 "auto_bridge_execution": config["auto_bridge_execution"],
                 "multi_chain_wallet_support": config["multi_chain_wallet_support"],
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -463,7 +463,7 @@ async def get_integration_config(
                 }
                 for priority in TransactionPriority
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -492,7 +492,7 @@ async def update_integration_config(
         return {
             "updated_config": integration_service.integration_config,
             "updated_keys": list(config_updates.keys()),
-            "updated_at": datetime.now(datetime.UTC).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except ValueError as e:
@@ -554,7 +554,7 @@ async def get_integration_health(
         if health_status["issues"]:
             health_status["overall_status"] = "degraded"
 
-        health_status["last_updated"] = datetime.now(datetime.UTC).isoformat()
+        health_status["last_updated"] = datetime.now(timezone.utc).isoformat()
 
         return health_status
 
@@ -571,7 +571,7 @@ async def run_integration_diagnostics(
     """Run integration diagnostics"""
 
     try:
-        diagnostics = {"diagnostic_type": diagnostic_type, "started_at": datetime.now(datetime.UTC).isoformat(), "results": {}}
+        diagnostics = {"diagnostic_type": diagnostic_type, "started_at": datetime.now(timezone.utc).isoformat(), "results": {}}
 
         if diagnostic_type == "full" or diagnostic_type == "services":
             # Test services
@@ -617,9 +617,9 @@ async def run_integration_diagnostics(
                 "configuration": integration_service.integration_config,
             }
 
-        diagnostics["completed_at"] = datetime.now(datetime.UTC).isoformat()
+        diagnostics["completed_at"] = datetime.now(timezone.utc).isoformat()
         diagnostics["duration_seconds"] = (
-            datetime.now(datetime.UTC) - datetime.fromisoformat(diagnostics["started_at"])
+            datetime.now(timezone.utc) - datetime.fromisoformat(diagnostics["started_at"])
         ).total_seconds()
 
         return diagnostics

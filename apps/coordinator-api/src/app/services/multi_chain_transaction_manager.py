@@ -5,7 +5,7 @@ Advanced transaction management system for cross-chain operations with routing, 
 
 import asyncio
 from collections import defaultdict
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -129,7 +129,7 @@ class MultiChainTransactionManager:
                     "success_rate": 0.0,
                     "average_gas_price": 0.0,
                     "average_confirmation_time": 0.0,
-                    "last_updated": datetime.now(datetime.UTC),
+                    "last_updated": datetime.now(timezone.utc),
                 }
 
             # Initialize bridge service
@@ -200,8 +200,8 @@ class MultiChainTransactionManager:
                 "gas_price": gas_price,
                 "max_fee_per_gas": max_fee_per_gas,
                 "status": TransactionStatus.QUEUED.value,
-                "created_at": datetime.now(datetime.UTC),
-                "deadline": datetime.now(datetime.UTC) + timedelta(minutes=deadline_minutes),
+                "created_at": datetime.now(timezone.utc),
+                "deadline": datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
                 "metadata": metadata or {},
                 "retry_count": 0,
                 "submit_attempts": 0,
@@ -297,7 +297,7 @@ class MultiChainTransactionManager:
             # Update transaction status
             transaction["status"] = TransactionStatus.CANCELLED.value
             transaction["error_message"] = reason
-            transaction["updated_at"] = datetime.now(datetime.UTC)
+            transaction["updated_at"] = datetime.now(timezone.utc)
 
             # Remove from queues
             await self._remove_from_queues(transaction_id)
@@ -308,7 +308,7 @@ class MultiChainTransactionManager:
                 "transaction_id": transaction_id,
                 "status": TransactionStatus.CANCELLED.value,
                 "reason": reason,
-                "cancelled_at": datetime.now(datetime.UTC).isoformat(),
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -415,7 +415,7 @@ class MultiChainTransactionManager:
         """Get transaction statistics"""
 
         try:
-            cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=time_period_hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_period_hours)
 
             # Get all transactions
             all_transactions = []
@@ -476,7 +476,7 @@ class MultiChainTransactionManager:
                 "average_processing_time_seconds": avg_processing_time,
                 "gas_statistics": gas_stats,
                 "priority_distribution": dict(priority_distribution),
-                "generated_at": datetime.now(datetime.UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -532,7 +532,7 @@ class MultiChainTransactionManager:
                     "success_rate_weight": 0.2,
                     "queue_length_weight": 0.2,
                 },
-                "generated_at": datetime.now(datetime.UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -655,7 +655,7 @@ class MultiChainTransactionManager:
         """Process a single transaction"""
 
         try:
-            start_time = datetime.now(datetime.UTC)
+            start_time = datetime.now(timezone.utc)
 
             # Update status to processing
             transaction["status"] = TransactionStatus.PROCESSING.value
@@ -679,15 +679,15 @@ class MultiChainTransactionManager:
             transaction["transaction_hash"] = tx_result["transaction_hash"]
             transaction["status"] = TransactionStatus.SUBMITTED.value
             transaction["submit_attempts"] += 1
-            transaction["updated_at"] = datetime.now(datetime.UTC)
+            transaction["updated_at"] = datetime.now(timezone.utc)
 
             # Wait for confirmations
             await self._wait_for_confirmations(transaction)
 
             # Update final status
             transaction["status"] = TransactionStatus.COMPLETED.value
-            transaction["processing_time"] = (datetime.now(datetime.UTC) - start_time).total_seconds()
-            transaction["updated_at"] = datetime.now(datetime.UTC)
+            transaction["processing_time"] = (datetime.now(timezone.utc) - start_time).total_seconds()
+            transaction["updated_at"] = datetime.now(timezone.utc)
 
             # Update metrics
             self.metrics["successful_transactions"] += 1
@@ -732,7 +732,7 @@ class MultiChainTransactionManager:
         try:
             transaction["retry_count"] += 1
             transaction["error_message"] = error_message
-            transaction["updated_at"] = datetime.now(datetime.UTC)
+            transaction["updated_at"] = datetime.now(timezone.utc)
 
             # Check if should retry
             if transaction["retry_count"] < self.routing_config["max_retries"]:
@@ -779,7 +779,7 @@ class MultiChainTransactionManager:
         """Clean up old completed/failed transactions"""
 
         try:
-            cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=24)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=24)
 
             for chain_id in self.transaction_queues:
                 original_length = len(self.transaction_queues[chain_id])
@@ -812,7 +812,7 @@ class MultiChainTransactionManager:
                 chain_metrics["average_gas_price"] = (
                     chain_metrics["average_gas_price"] * 0.9 + gas_price * 0.1  # Moving average
                 )
-                chain_metrics["last_updated"] = datetime.now(datetime.UTC)
+                chain_metrics["last_updated"] = datetime.now(timezone.utc)
 
         except Exception as e:
             logger.error(f"Error updating performance metrics: {e}")
@@ -821,7 +821,7 @@ class MultiChainTransactionManager:
         """Check for stuck transactions"""
 
         try:
-            current_time = datetime.now(datetime.UTC)
+            current_time = datetime.now(timezone.utc)
             stuck_threshold = timedelta(minutes=30)
 
             for chain_id in self.transaction_queues:
@@ -853,7 +853,7 @@ class MultiChainTransactionManager:
             if tx_status.get("status") == TransactionStatus.COMPLETED.value:
                 transaction["status"] = TransactionStatus.COMPLETED.value
                 transaction["confirmations"] = await self._get_transaction_confirmations(transaction)
-                transaction["updated_at"] = datetime.now(datetime.UTC)
+                transaction["updated_at"] = datetime.now(timezone.utc)
 
         except Exception as e:
             logger.error(f"Error updating transaction status: {e}")

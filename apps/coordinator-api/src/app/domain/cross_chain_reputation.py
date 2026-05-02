@@ -3,7 +3,7 @@ Cross-Chain Reputation Extensions
 Extends the existing reputation system with cross-chain capabilities
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -38,8 +38,8 @@ class CrossChainReputationConfig(SQLModel, table=True):
     configuration_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class CrossChainReputationAggregation(SQLModel, table=True):
@@ -72,8 +72,8 @@ class CrossChainReputationAggregation(SQLModel, table=True):
     verification_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Indexes
     __table_args__ = {
@@ -111,7 +111,7 @@ class CrossChainReputationEvent(SQLModel, table=True):
     verified: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = None
 
     # Indexes
@@ -153,8 +153,8 @@ class ReputationMetrics(SQLModel, table=True):
     chain_diversity_score: float = Field(default=0.0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Request/Response Models for Cross-Chain API

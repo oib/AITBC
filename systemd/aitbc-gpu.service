@@ -1,0 +1,18 @@
+[Unit]
+Description=AITBC GPU Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/gpu-service
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/root/.local/bin/poetry run python -m gpu_service.main
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-gpu
+
+[Install]
+WantedBy=multi-user.target
