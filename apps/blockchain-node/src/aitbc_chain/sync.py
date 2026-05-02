@@ -295,7 +295,7 @@ class ChainSync:
                 else:
                     logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason})
                     # Stop on first failure to avoid gaps
-                    break
+                    return imported
 
             start_height = end_height + 1
             # Brief pause to avoid overwhelming the DB (use adaptive poll interval)
