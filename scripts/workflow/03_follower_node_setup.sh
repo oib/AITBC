@@ -28,13 +28,26 @@ cp /etc/aitbc/.env /etc/aitbc/.env.aitbc.backup 2>/dev/null || true
 # Update .env for aitbc follower node configuration
 echo "4. Updating environment configuration..."
 # Note: Don't overwrite auto-generated proposer_id or p2p_node_id - they must remain unique for P2P networking
-sed -i 's|keystore_path=/opt/aitbc/apps/blockchain-node/keystore|keystore_path=/var/lib/aitbc/keystore|g' /etc/aitbc/.env
-sed -i 's|keystore_password_file=/opt/aitbc/apps/blockchain-node/keystore/.password|keystore_password_file=/var/lib/aitbc/keystore/.password|g' /etc/aitbc/.env
-sed -i 's|db_path=./data/ait-mainnet/chain.db|db_path=/var/lib/aitbc/data/ait-mainnet/chain.db|g' /etc/aitbc/.env
-sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/.env
-sed -i 's|gossip_broadcast_url=redis://127.0.0.1:6379|gossip_broadcast_url=redis://10.1.223.40:6379|g' /etc/aitbc/.env
-sed -i 's|p2p_bind_port=8005|p2p_bind_port=7070|g' /etc/aitbc/.env
-sed -i 's|trusted_proposers=.*|trusted_proposers=ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96|g' /etc/aitbc/.env
+set_env() {
+    local key="$1"
+    local value="$2"
+
+    if grep -q "^${key}=" /etc/aitbc/.env; then
+        sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/.env
+    else
+        echo "${key}=${value}" >> /etc/aitbc/.env
+    fi
+}
+
+set_env keystore_path /var/lib/aitbc/keystore
+set_env keystore_password_file /var/lib/aitbc/keystore/.password
+set_env db_path /var/lib/aitbc/data/ait-mainnet/chain.db
+set_env enable_block_production false
+set_env gossip_backend broadcast
+set_env gossip_broadcast_url redis://10.1.223.40:6379
+set_env default_peer_rpc_url http://aitbc1:8006
+set_env p2p_bind_port 7070
+set_env trusted_proposers ait1apmaugx6csz50q07m99z8k44llry0zpl0yurl23hygarcey8z85qy4zr96
 
 # Ensure p2p_node_id exists in node.env (preserve if already set)
 if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then

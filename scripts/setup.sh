@@ -224,6 +224,17 @@ generate_uuid() {
 setup_node_identities() {
     log "Setting up unique node identities..."
 
+    set_env() {
+        local key="$1"
+        local value="$2"
+
+        if grep -q "^${key}=" /etc/aitbc/.env; then
+            sed -i "s|^${key}=.*|${key}=${value}|g" /etc/aitbc/.env
+        else
+            echo "${key}=${value}" >> /etc/aitbc/.env
+        fi
+    }
+
     # Generate unique proposer_id if not already set in /etc/aitbc/.env
     if [ ! -f "/etc/aitbc/.env" ]; then
         log "/etc/aitbc/.env does not exist, creating with unique IDs..."
@@ -234,18 +245,26 @@ setup_node_identities() {
 # Auto-generated unique node identities
 proposer_id=$PROPOSER_ID
 p2p_node_id=$P2P_NODE_ID
+gossip_backend=broadcast
+gossip_broadcast_url=redis://localhost:6379
+default_peer_rpc_url=http://127.0.0.1:8006
 EOF
         log "Created /etc/aitbc/.env with unique IDs"
     else
         # Check if proposer_id exists, if not add it
         if ! grep -q "^proposer_id=" /etc/aitbc/.env; then
             PROPOSER_ID="ait1$(generate_uuid | tr -d '-')"
-            echo "proposer_id=$PROPOSER_ID" >> /etc/aitbc/.env
+            set_env proposer_id "$PROPOSER_ID"
             log "Added unique proposer_id to /etc/aitbc/.env"
         else
             log "proposer_id already exists in /etc/aitbc/.env"
         fi
     fi
+
+    # Ensure blockchain gossip defaults exist even if the file was created from a minimal template
+    set_env gossip_backend broadcast
+    set_env gossip_broadcast_url redis://localhost:6379
+    set_env default_peer_rpc_url http://127.0.0.1:8006
 
     # Create /etc/aitbc/node.env with unique p2p_node_id if not exists
     if [ ! -f "/etc/aitbc/node.env" ]; then
