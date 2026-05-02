@@ -65,7 +65,7 @@ jobs:
 
           echo "✅ Linting completed"
 
-      - name: Run tests with coverage
+      - name: Run repository tests with coverage
         run: |
           cd /var/lib/aitbc-workspaces/python-tests/repo
 
@@ -73,20 +73,34 @@ jobs:
           venv/bin/python -m pip install -e packages/py/aitbc-crypto/
           venv/bin/python -m pip install -e packages/py/aitbc-sdk/
 
-          export PYTHONPATH="apps/coordinator-api/src:apps/blockchain-node/src:apps/wallet/src:packages/py/aitbc-crypto/src:packages/py/aitbc-sdk/src:."
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
+
+          venv/bin/python -m pytest tests/archived_phase_tests/ \
+            tests/cross_phase/ \
+            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            --tb=short -q --timeout=30 \
+            --cov=apps --cov=packages --cov=cli --cov-append
+
+      - name: Run app and package tests with coverage
+        run: |
+          cd /var/lib/aitbc-workspaces/python-tests/repo
+
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
 
           # Test if packages are importable
           venv/bin/python -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
           venv/bin/python -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
 
-          venv/bin/python -m pytest tests/archived_phase_tests/ \
-            tests/cross_phase/ \
-            apps/wallet/tests/ \
+          venv/bin/python -m pytest \
+            apps/coordinator-api/tests/ \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
-            apps/coordinator-api/tests/ \
-            --tb=short -q --timeout=30 --import-mode=importlib \
-            --cov=apps --cov=packages --cov=cli --cov-report=term-missing --cov-report=xml
+            -c /dev/null --rootdir "$PWD" --import-mode=importlib \
+            --tb=short -q --timeout=30 \
+            --cov=apps --cov=packages --cov=cli --cov-append
+
+          venv/bin/python -m coverage report --show-missing
+          venv/bin/python -m coverage xml
 
           echo "✅ Python tests completed with coverage"
 
