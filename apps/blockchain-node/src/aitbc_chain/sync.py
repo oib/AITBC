@@ -103,10 +103,6 @@ class ChainSync:
         self._session_factory = session_factory
         self._chain_id = chain_id
         self._logger = get_logger(__name__)
-        from .database import get_engine
-        from .config import settings
-        db_path = settings.get_db_path(chain_id)
-        print(f"[SYNC INIT] chain_id={chain_id}, db_path={db_path}")
         self._max_reorg_depth = max_reorg_depth
         self._validator = validator or ProposerSignatureValidator()
         self._validate_signatures = validate_signatures
@@ -298,9 +294,7 @@ class ChainSync:
                 if result.accepted:
                     imported += 1
                 else:
-                    print(f"[BULK SYNC FAILED] height={block_data.get('height')}, reason={result.reason}, hash={block_data.get('hash')}")
-                    logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason, "block_hash": block_data.get("hash")})
-                    # Stop on first failure to avoid gaps
+                    logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason})
                     return imported
 
             start_height = end_height + 1
@@ -367,14 +361,12 @@ class ChainSync:
                 select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
             our_height = our_head.height if our_head else -1
-            print(f"[DB QUERY] chain_id={self._chain_id}, our_head={our_head}, our_height={our_height}")
 
             # Case 1: Block extends our chain directly
             if height == our_height + 1:
                 parent_exists = session.exec(
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
-                print(f"[IMPORT DEBUG] height={height}, our_height={our_height}, parent_hash={parent_hash}, parent_exists={parent_exists is not None}")
                 if parent_exists or (height == 0 and parent_hash == "0x00"):
                     result = self._append_block(session, block_data, transactions)
                     duration = time.perf_counter() - start
