@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from sqlmodel import Session, select
 
+from .config import settings
 from .logger import get_logger
 
 logger = get_logger(__name__)
