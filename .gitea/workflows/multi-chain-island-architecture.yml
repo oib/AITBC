@@ -165,7 +165,6 @@ jobs:
 
       - name: Verify gossip subscriptions
         if: ${{ inputs.skip_ssh_checks != 'true' }}
-        if: always()
         run: |
           echo "🔍 Verifying Redis gossip subscriptions"
           
@@ -184,7 +183,6 @@ jobs:
 
       - name: Verify block production roles
         if: ${{ inputs.skip_ssh_checks != 'true' }}
-        if: always()
         run: |
           echo "🔍 Verifying block production roles"
           
