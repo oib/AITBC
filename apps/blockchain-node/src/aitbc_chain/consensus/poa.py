@@ -390,10 +390,11 @@ class PoAProposer:
             
             # Broadcast the new block
             tx_list = [tx.content for tx in processed_txs] if processed_txs else []
-            self._logger.info(f"Broadcasting block {block.height} to gossip")
+            gossip_topic = f"blocks.{self._config.chain_id}"
+            self._logger.info(f"[BROADCAST] block={block.height}, topic={gossip_topic}, config.chain_id={self._config.chain_id}, block.chain_id={block.chain_id}")
             try:
                 await gossip_broker.publish(
-                    f"blocks.{self._config.chain_id}",
+                    gossip_topic,
                     {
                         "chain_id": self._config.chain_id,
                         "height": block.height,
@@ -406,7 +407,7 @@ class PoAProposer:
                         "transactions": tx_list,
                     },
                 )
-                self._logger.info(f"Successfully broadcasted block {block.height}")
+                self._logger.info(f"[BROADCAST SUCCESS] block={block.height}, topic={gossip_topic}")
             except Exception as e:
                 self._logger.error(f"Failed to broadcast block {block.height}: {e}")
 
@@ -464,7 +465,7 @@ class PoAProposer:
 
             # Broadcast genesis block for initial sync
             await gossip_broker.publish(
-                "blocks",
+                f"blocks.{self._config.chain_id}",
                 {
                     "chain_id": self._config.chain_id,
                     "height": genesis.height,
