@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
@@ -65,4 +65,4 @@ class JobReceipt(SQLModel, table=True):
     result: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     metrics: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     signature: str = Field(default="")
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)
