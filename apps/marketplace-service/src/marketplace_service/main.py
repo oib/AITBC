@@ -69,6 +69,25 @@ async def health() -> HealthResponse:
     return HealthResponse(status="healthy", service="marketplace-service")
 
 
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    """Readiness check - verifies database connectivity"""
+    try:
+        async with get_session() as session:
+            # Test database connection
+            await session.execute("SELECT 1")
+        return {"status": "ready", "service": "marketplace-service"}
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return {"status": "not_ready", "service": "marketplace-service", "error": str(e)}
+
+
+@app.get("/live")
+async def live() -> dict[str, str]:
+    """Liveness check - verifies service is not stuck"""
+    return {"status": "alive", "service": "marketplace-service"}
+
+
 @app.get("/marketplace/status")
 async def marketplace_status() -> dict[str, str]:
     """Get marketplace status"""

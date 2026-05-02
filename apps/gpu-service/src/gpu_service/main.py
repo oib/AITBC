@@ -63,6 +63,25 @@ async def health() -> HealthResponse:
     return HealthResponse(status="healthy", service="gpu-service")
 
 
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    """Readiness check - verifies database connectivity"""
+    try:
+        async with get_session() as session:
+            # Test database connection
+            await session.execute("SELECT 1")
+        return {"status": "ready", "service": "gpu-service"}
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return {"status": "not_ready", "service": "gpu-service", "error": str(e)}
+
+
+@app.get("/live")
+async def live() -> dict[str, str]:
+    """Liveness check - verifies service is not stuck"""
+    return {"status": "alive", "service": "gpu-service"}
+
+
 @app.get("/gpu/status")
 async def gpu_status() -> dict[str, str]:
     """Get GPU status"""

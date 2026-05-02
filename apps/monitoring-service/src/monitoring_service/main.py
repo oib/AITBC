@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import FastAPI
@@ -81,7 +81,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         overall_metrics = calculate_overall_metrics(health_data)
 
         dashboard_data = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "overall_status": overall_metrics["overall_status"],
             "services": health_data,
             "metrics": overall_metrics,
@@ -90,7 +90,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
                 "healthy_services": len([s for s in health_data.values() if s.get("status") == "healthy"]),
                 "degraded_services": len([s for s in health_data.values() if s.get("status") == "degraded"]),
                 "unhealthy_services": len([s for s in health_data.values() if s.get("status") == "unhealthy"]),
-                "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             },
         }
 
@@ -101,7 +101,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         logger.error(f"Failed to generate monitoring dashboard: {e}")
         return {
             "error": "Failed to generate dashboard",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "services": SERVICES,
             "overall_status": "error",
             "summary": {
@@ -109,7 +109,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
                 "healthy_services": 0,
                 "degraded_services": 0,
                 "unhealthy_services": len(SERVICES),
-                "last_updated": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+                "last_updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"),
             },
         }
 
@@ -158,7 +158,7 @@ async def system_metrics() -> dict[str, Any]:
         network = psutil.net_io_counters()
 
         metrics = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "system": {
                 "cpu_percent": cpu_percent,
                 "cpu_count": psutil.cpu_count(),
@@ -205,7 +205,7 @@ async def collect_all_health_data() -> dict[str, Any]:
             health_data[service_id] = {
                 "status": "unhealthy",
                 "error": str(result),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         else:
             health_data[service_id] = result

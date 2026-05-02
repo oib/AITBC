@@ -2,6 +2,7 @@
 Database session management for GPU service
 """
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -13,7 +14,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = "postgresql+asyncpg://aitbc_gpu:password@10.1.223.40:5432/aitbc_gpu"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/gpu_service.db")
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
