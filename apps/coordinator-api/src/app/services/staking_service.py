@@ -21,6 +21,30 @@ class StakingService:
     def __init__(self, session: Session):
         self.session = session
 
+    @staticmethod
+    def _ensure_utc_datetime(value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    def _normalize_stake_datetimes(self, stake: AgentStake) -> AgentStake:
+        stake.start_time = self._ensure_utc_datetime(stake.start_time)  # type: ignore[assignment]
+        stake.end_time = self._ensure_utc_datetime(stake.end_time)  # type: ignore[assignment]
+        stake.last_reward_time = self._ensure_utc_datetime(stake.last_reward_time)  # type: ignore[assignment]
+        stake.unbonding_time = self._ensure_utc_datetime(stake.unbonding_time)  # type: ignore[assignment]
+        return stake
+
+    def _normalize_agent_metrics_datetimes(self, agent_metrics: AgentMetrics) -> AgentMetrics:
+        agent_metrics.last_update_time = self._ensure_utc_datetime(agent_metrics.last_update_time)  # type: ignore[assignment]
+        agent_metrics.first_submission_time = self._ensure_utc_datetime(agent_metrics.first_submission_time)  # type: ignore[assignment]
+        return agent_metrics
+
+    def _normalize_staking_pool_datetimes(self, staking_pool: StakingPool) -> StakingPool:
+        staking_pool.last_distribution_time = self._ensure_utc_datetime(staking_pool.last_distribution_time)  # type: ignore[assignment]
+        return staking_pool
+
     async def create_stake(
         self, staker_address: str, agent_wallet: str, amount: float, lock_period: int, auto_compound: bool
     ) -> AgentStake:
@@ -68,7 +92,7 @@ class StakingService:
             self.session.refresh(stake)
 
             logger.info(f"Created stake {stake.stake_id}: {amount} on {agent_wallet}")
-            return stake
+            return self._normalize_stake_datetimes(stake)
 
         except Exception as e:
             logger.error(f"Failed to create stake: {e}")
@@ -82,7 +106,7 @@ class StakingService:
             result = self.session.execute(stmt).scalar_one_or_none()
             if not result:
                 raise ValueError("Stake not found")
-            return result
+            return self._normalize_stake_datetimes(result)
 
         except ValueError:
             raise
@@ -128,7 +152,7 @@ class StakingService:
             query = query.offset(offset).limit(limit)
 
             result = self.session.execute(query).scalars().all()
-            return list(result)
+            return [self._normalize_stake_datetimes(stake) for stake in result]
 
         except Exception as e:
             logger.error(f"Failed to get user stakes: {e}")
@@ -270,7 +294,7 @@ class StakingService:
         try:
             stmt = select(AgentMetrics).where(AgentMetrics.agent_wallet == agent_wallet)
             result = self.session.execute(stmt).scalar_one_or_none()
-            return result
+            return self._normalize_agent_metrics_datetimes(result) if result else None
 
         except Exception as e:
             logger.error(f"Failed to get agent metrics: {e}")
@@ -281,7 +305,7 @@ class StakingService:
         try:
             stmt = select(StakingPool).where(StakingPool.agent_wallet == agent_wallet)
             result = self.session.execute(stmt).scalar_one_or_none()
-            return result
+            return self._normalize_staking_pool_datetimes(result) if result else None
 
         except Exception as e:
             logger.error(f"Failed to get staking pool: {e}")
