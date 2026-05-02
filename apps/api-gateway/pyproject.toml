@@ -12,7 +12,7 @@ httpx = "^0.25.0"
 aitbc-core = {path = "../../packages/py/aitbc-core", develop = true}
 
 [tool.poetry.group.test.dependencies]
-pytest = "^7.4.0"
+pytest = ">=7.4,<10.0"
 pytest-asyncio = "^0.21.0"
 
 [build-system]
