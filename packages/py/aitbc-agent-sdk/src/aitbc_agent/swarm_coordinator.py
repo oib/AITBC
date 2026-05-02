@@ -79,9 +79,9 @@ class SwarmCoordinator(Agent):
             self.joined_swarms[swarm_id] = {
                 "type": swarm_type,
                 "role": config.get("role", "participant"),
-                "joined_at": datetime.now(datetime.UTC).isoformat(),
+                "joined_at": datetime.now(datetime.timezone.utc).isoformat(),
                 "contribution_count": 0,
-                "last_activity": datetime.now(datetime.UTC).isoformat(),
+                "last_activity": datetime.now(datetime.timezone.utc).isoformat(),
             }
 
             # Initialize swarm reputation
@@ -115,7 +115,7 @@ class SwarmCoordinator(Agent):
                 await self._participate_in_decisions(swarm_id)
 
                 # Update activity timestamp
-                swarm_config["last_activity"] = datetime.now(datetime.UTC).isoformat()
+                swarm_config["last_activity"] = datetime.now(datetime.timezone.utc).isoformat()
 
             except Exception as e:
                 logger.error(f"Swarm participation error for {swarm_id}: {e}")
@@ -177,7 +177,7 @@ class SwarmCoordinator(Agent):
                 message_type="data_contribution",
                 priority="medium",
                 payload=data,
-                timestamp=datetime.now(datetime.UTC).isoformat(),
+                timestamp=datetime.now(datetime.timezone.utc).isoformat(),
                 swarm_signature="",  # Will be added in broadcast_to_swarm
             )
 
@@ -285,7 +285,7 @@ class SwarmCoordinator(Agent):
         try:
             # Create coordination proposal
             proposal = {
-                "task_id": f"task_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}",
+                "task_id": f"task_{datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                 "task_type": task,
                 "coordinator_id": self.identity.id,
                 "required_collaborators": collaborators,
@@ -320,7 +320,7 @@ class SwarmCoordinator(Agent):
                     message_type="intelligence_request",
                     priority="high",
                     payload={"request_type": "market_intelligence"},
-                    timestamp=datetime.now(datetime.UTC).isoformat(),
+                    timestamp=datetime.now(datetime.timezone.utc).isoformat(),
                     swarm_signature="",
                 )
 
