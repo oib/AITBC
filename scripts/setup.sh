@@ -147,6 +147,70 @@ setup_runtime_directories() {
     success "Runtime directories setup completed"
 }
 
+# Setup PostgreSQL databases
+setup_postgresql_databases() {
+    log "Setting up PostgreSQL databases..."
+
+    # Check if PostgreSQL is installed
+    if ! command -v psql >/dev/null 2>&1; then
+        warning "PostgreSQL is not installed, skipping database setup"
+        warning "To install PostgreSQL: apt install postgresql postgresql-contrib"
+        return 0
+    fi
+
+    # Check if PostgreSQL is running
+    if ! systemctl is-active --quiet postgresql.service; then
+        warning "PostgreSQL service is not running, skipping database setup"
+        warning "To start PostgreSQL: systemctl start postgresql.service"
+        return 0
+    fi
+
+    # Use centralized database setup script if available
+    if [ -f "/opt/aitbc/infra/scripts/setup_postgresql_databases.sh" ]; then
+        log "Using centralized PostgreSQL setup script..."
+        /opt/aitbc/infra/scripts/setup_postgresql_databases.sh
+    else
+        warning "Centralized PostgreSQL setup script not found"
+        warning "Creating individual databases manually..."
+
+        # Fallback to individual database creation
+        databases=(
+            "aitbc_coordinator:aitbc_user"
+            "aitbc_exchange:aitbc_user"
+            "aitbc_wallet:aitbc_user"
+            "aitbc_marketplace:aitbc_marketplace"
+            "aitbc_governance:aitbc_governance"
+            "aitbc_trading:aitbc_trading"
+            "aitbc_gpu:aitbc_gpu"
+            "aitbc_ai:aitbc_ai"
+        )
+
+        for db_user in "${databases[@]}"; do
+            db_name=$(echo "$db_user" | cut -d':' -f1)
+            db_user=$(echo "$db_user" | cut -d':' -f2)
+
+            # Create user if not exists
+            sudo -u postgres psql -c "DO \$\$
+            BEGIN
+                IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${db_user}') THEN
+                    CREATE USER ${db_user} WITH PASSWORD 'password';
+                END IF;
+            END
+            \$\$;" 2>/dev/null || true
+
+            # Create database if not exists
+            sudo -u postgres psql -c "SELECT 'CREATE DATABASE ${db_name} OWNER ${db_user}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${db_name}')\\gexec" 2>/dev/null || true
+
+            # Grant privileges
+            sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ${db_name} TO ${db_user};" 2>/dev/null || true
+
+            log "Database ${db_name} setup complete"
+        done
+    fi
+
+    success "PostgreSQL databases setup completed"
+}
+
 # Generate UUID
 generate_uuid() {
     if [ -f /proc/sys/kernel/random/uuid ]; then
@@ -471,6 +535,7 @@ main() {
     check_prerequisites
     clone_repo
     setup_runtime_directories
+    setup_postgresql_databases
     setup_node_identities
     setup_credentials
     setup_venvs
