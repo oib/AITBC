@@ -101,7 +101,12 @@ class ChainSync:
         poll_interval: float = 5.0,
     ) -> None:
         self._session_factory = session_factory
-        self._chain_id = chain_id or settings.chain_id
+        self._chain_id = chain_id
+        self._logger = get_logger(__name__)
+        from .database import get_engine
+        from .config import settings
+        db_path = settings.get_db_path(chain_id)
+        print(f"[SYNC INIT] chain_id={chain_id}, db_path={db_path}")
         self._max_reorg_depth = max_reorg_depth
         self._validator = validator or ProposerSignatureValidator()
         self._validate_signatures = validate_signatures
