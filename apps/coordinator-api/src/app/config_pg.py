@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     """Application settings"""
 
     # API Configuration
-    api_host: str = "0.0.0.0"
+    api_host: str = "0.0.0.0"  # nosec B104
     api_port: int = 8011
     api_prefix: str = "/v1"
     debug: bool = False

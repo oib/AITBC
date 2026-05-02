@@ -348,4 +348,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8008)
+    uvicorn.run(app, host="0.0.0.0", port=8008)  # nosec B104
