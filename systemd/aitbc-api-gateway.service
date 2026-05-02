@@ -6,8 +6,9 @@ After=network.target aitbc-gpu.service aitbc-marketplace.service aitbc-trading.s
 Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/api-gateway
-Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/root/.local/bin/poetry run python -m api_gateway.main
+Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PYTHONPATH=/opt/aitbc/apps/api-gateway/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
+ExecStart=/opt/aitbc/venv/bin/python -m api_gateway.main
 Restart=always
 RestartSec=10
 StandardOutput=journal
