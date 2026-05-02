@@ -79,6 +79,7 @@ redis = ">=5.2.1"
 psutil = ">=6.1.0"
 tenseal = ">=0.3.0"
 idna = ">=3.7"
+broadcaster = ">=0.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "9.0.3"
