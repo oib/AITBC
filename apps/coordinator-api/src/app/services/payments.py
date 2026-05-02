@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 """Payment service for job payments"""
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
 logger = get_logger(__name__)
@@ -34,7 +34,7 @@ class PaymentService:
                 amount=payment_data.amount,
                 currency=payment_data.currency,
                 payment_method=payment_data.payment_method,
-                expires_at=datetime.now(datetime.UTC) + timedelta(seconds=payment_data.escrow_timeout_seconds),
+                expires_at=datetime.now(timezone.utc) + timedelta(seconds=payment_data.escrow_timeout_seconds),
             )
 
             self.session.add(payment)
@@ -82,8 +82,8 @@ class PaymentService:
             escrow_data = response
             payment.escrow_address = escrow_data.get("escrow_id")
             payment.status = "escrowed"
-            payment.escrowed_at = datetime.now(datetime.UTC)
-            payment.updated_at = datetime.now(datetime.UTC)
+            payment.escrowed_at = datetime.now(timezone.utc)
+            payment.updated_at = datetime.now(timezone.utc)
 
             # Create escrow record
             escrow = PaymentEscrow(
@@ -91,7 +91,7 @@ class PaymentService:
                 amount=payment.amount,
                 currency=payment.currency,
                 address=escrow_data.get("escrow_id"),
-                expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
             )
             if escrow is not None:
                 self.session.add(escrow)
@@ -102,12 +102,12 @@ class PaymentService:
         except NetworkError as e:
             logger.error(f"Failed to create token escrow: {e}")
             payment.status = "failed"
-            payment.updated_at = datetime.now(datetime.UTC)
+            payment.updated_at = datetime.now(timezone.utc)
             self.session.commit()
         except Exception as e:
             logger.error(f"Error creating token escrow: {e}")
             payment.status = "failed"
-            payment.updated_at = datetime.now(datetime.UTC)
+            payment.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
     async def _create_bitcoin_escrow(self, payment: JobPayment) -> None:
@@ -122,8 +122,8 @@ class PaymentService:
                 )
                 payment.escrow_address = escrow_data["address"]
                 payment.status = "escrowed"
-                payment.escrowed_at = datetime.now(datetime.UTC)
-                payment.updated_at = datetime.now(datetime.UTC)
+                payment.escrowed_at = datetime.now(timezone.utc)
+                payment.updated_at = datetime.now(timezone.utc)
 
                 # Create escrow record
                 escrow = PaymentEscrow(
@@ -131,7 +131,7 @@ class PaymentService:
                     amount=payment.amount,
                     currency=payment.currency,
                     address=escrow_data["address"],
-                    expires_at=datetime.now(datetime.UTC) + timedelta(hours=1),
+                    expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
                 )
                 if escrow is not None:
                     self.session.add(escrow)
@@ -141,13 +141,13 @@ class PaymentService:
             except NetworkError as e:
                 logger.error(f"Failed to create Bitcoin escrow: {e}")
                 payment.status = "failed"
-                payment.updated_at = datetime.now(datetime.UTC)
+                payment.updated_at = datetime.now(timezone.utc)
                 self.session.commit()
 
         except Exception as e:
             logger.error(f"Error creating Bitcoin escrow: {e}")
             payment.status = "failed"
-            payment.updated_at = datetime.now(datetime.UTC)
+            payment.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
     async def release_payment(self, job_id: str, payment_id: str, reason: str | None = None) -> bool:
@@ -169,8 +169,8 @@ class PaymentService:
                     json={"address": payment.escrow_address, "reason": reason or "Job completed successfully"},
                 )
                 payment.status = "released"
-                payment.released_at = datetime.now(datetime.UTC)
-                payment.updated_at = datetime.now(datetime.UTC)
+                payment.released_at = datetime.now(timezone.utc)
+                payment.updated_at = datetime.now(timezone.utc)
                 payment.transaction_hash = release_data.get("transaction_hash")
 
                 # Update escrow record
@@ -182,7 +182,7 @@ class PaymentService:
 
                 if escrow:
                     escrow.is_released = True
-                    escrow.released_at = datetime.now(datetime.UTC)
+                    escrow.released_at = datetime.now(timezone.utc)
 
                 self.session.commit()
                 logger.info(f"Released payment {payment_id} for job {job_id}")
@@ -219,8 +219,8 @@ class PaymentService:
                     },
                 )
                 payment.status = "refunded"
-                payment.refunded_at = datetime.now(datetime.UTC)
-                payment.updated_at = datetime.now(datetime.UTC)
+                payment.refunded_at = datetime.now(timezone.utc)
+                payment.updated_at = datetime.now(timezone.utc)
                 payment.refund_transaction_hash = refund_data.get("transaction_hash")
 
                 # Update escrow record
@@ -232,7 +232,7 @@ class PaymentService:
 
                 if escrow:
                     escrow.is_refunded = True
-                    escrow.refunded_at = datetime.now(datetime.UTC)
+                    escrow.refunded_at = datetime.now(timezone.utc)
 
                 self.session.commit()
                 logger.info(f"Refunded payment {payment_id} for job {job_id}")

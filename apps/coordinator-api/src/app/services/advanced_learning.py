@@ -10,7 +10,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 import json
 from dataclasses import asdict, dataclass
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -231,8 +231,8 @@ class AdvancedLearningService:
                 performance_metrics={},
                 training_data_size=0,
                 validation_data_size=0,
-                created_at=datetime.now(datetime.UTC),
-                last_updated=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
+                last_updated=datetime.now(timezone.utc),
                 status=LearningStatus.INITIALIZING,
             )
 
@@ -251,7 +251,7 @@ class AdvancedLearningService:
                 computation_efficiency=0.0,
                 learning_rate=self.default_learning_rate,
                 convergence_speed=0.0,
-                last_evaluation=datetime.now(datetime.UTC),
+                last_evaluation=datetime.now(timezone.utc),
             )
 
             logger.info(f"Model created: {model_id} for agent {agent_id}")
@@ -298,7 +298,7 @@ class AdvancedLearningService:
                 model_id=model_id,
                 agent_id=model.agent_id,
                 learning_type=model.learning_type,
-                start_time=datetime.now(datetime.UTC),
+                start_time=datetime.now(timezone.utc),
                 end_time=None,
                 status=LearningStatus.INITIALIZING,
                 training_data=training_data,
@@ -316,7 +316,7 @@ class AdvancedLearningService:
 
             # Update model status
             model.status = LearningStatus.TRAINING
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
             # Start training
             asyncio.create_task(self._execute_learning_session(session_id))
@@ -349,7 +349,7 @@ class AdvancedLearningService:
                 model_id=model.id,
                 agent_id=agent_id,
                 learning_type=LearningType.META_LEARNING,
-                start_time=datetime.now(datetime.UTC),
+                start_time=datetime.now(timezone.utc),
                 end_time=None,
                 status=LearningStatus.TRAINING,
                 training_data=meta_data["training"],
@@ -400,7 +400,7 @@ class AdvancedLearningService:
                 model_id=model_id,
                 agent_id="federated",
                 learning_type=LearningType.FEDERATED,
-                start_time=datetime.now(datetime.UTC),
+                start_time=datetime.now(timezone.utc),
                 end_time=None,
                 status=LearningStatus.TRAINING,
                 training_data=[],
@@ -443,16 +443,16 @@ class AdvancedLearningService:
             if model.status != LearningStatus.ACTIVE:
                 raise ValueError(f"Model {model_id} not active")
 
-            start_time = datetime.now(datetime.UTC)
+            start_time = datetime.now(timezone.utc)
 
             # Simulate inference
             prediction = await self._simulate_inference(model, input_data)
 
             # Update analytics
-            inference_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
+            inference_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             analytics = self.learning_analytics[model_id]
             analytics.total_inference_time += inference_time
-            analytics.last_evaluation = datetime.now(datetime.UTC)
+            analytics.last_evaluation = datetime.now(timezone.utc)
 
             logger.info(f"Prediction made with model {model_id}")
             return prediction
@@ -480,7 +480,7 @@ class AdvancedLearningService:
 
             # Update model performance
             model.accuracy = adaptation_results.get("accuracy", model.accuracy)
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
             # Update analytics
             analytics = self.learning_analytics[model_id]
@@ -573,7 +573,7 @@ class AdvancedLearningService:
             # Update model
             model.accuracy = optimization_results.get("accuracy", model.accuracy)
             model.inference_time = optimization_results.get("inference_time", model.inference_time)
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
             logger.info(f"Model optimized: {model_id}")
             return True
@@ -625,12 +625,12 @@ class AdvancedLearningService:
             model.recall = np.random.uniform(0.7, 0.95)
             model.f1_score = np.random.uniform(0.7, 0.95)
             model.loss = session.results.get(f"epoch_{session.iterations}", {}).get("loss", 0.1)
-            model.training_time = (datetime.now(datetime.UTC) - session.start_time).total_seconds()
+            model.training_time = (datetime.now(timezone.utc) - session.start_time).total_seconds()
             model.inference_time = np.random.uniform(0.01, 0.1)
             model.status = LearningStatus.ACTIVE
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
-            session.end_time = datetime.now(datetime.UTC)
+            session.end_time = datetime.now(timezone.utc)
             session.status = LearningStatus.COMPLETED
 
             # Update analytics
@@ -673,9 +673,9 @@ class AdvancedLearningService:
             # Update model with meta-learning results
             model.accuracy = np.random.uniform(0.8, 0.98)
             model.status = LearningStatus.ACTIVE
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
-            session.end_time = datetime.now(datetime.UTC)
+            session.end_time = datetime.now(timezone.utc)
             session.status = LearningStatus.COMPLETED
 
             logger.info(f"Meta-learning completed: {session_id}")
@@ -713,9 +713,9 @@ class AdvancedLearningService:
             # Update model
             model.accuracy = np.random.uniform(0.75, 0.92)
             model.status = LearningStatus.ACTIVE
-            model.last_updated = datetime.now(datetime.UTC)
+            model.last_updated = datetime.now(timezone.utc)
 
-            session.end_time = datetime.now(datetime.UTC)
+            session.end_time = datetime.now(timezone.utc)
             session.status = LearningStatus.COMPLETED
 
             logger.info(f"Federated learning completed: {session_id}")
@@ -811,7 +811,7 @@ class AdvancedLearningService:
 
         while True:
             try:
-                current_time = datetime.now(datetime.UTC)
+                current_time = datetime.now(timezone.utc)
 
                 for session_id, session in self.learning_sessions.items():
                     if session.status == LearningStatus.TRAINING:
@@ -862,7 +862,7 @@ class AdvancedLearningService:
 
         while True:
             try:
-                current_time = datetime.now(datetime.UTC)
+                current_time = datetime.now(timezone.utc)
                 inactive_sessions = []
 
                 for session_id, session in self.learning_sessions.items():
@@ -905,7 +905,7 @@ class AdvancedLearningService:
             "models": {k: asdict(v) for k, v in self.models.items()},
             "sessions": {k: asdict(v) for k, v in self.learning_sessions.items()},
             "analytics": {k: asdict(v) for k, v in self.learning_analytics.items()},
-            "export_timestamp": datetime.now(datetime.UTC).isoformat(),
+            "export_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         if format.lower() == "json":

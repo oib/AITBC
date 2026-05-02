@@ -3,7 +3,7 @@ AI Agent Domain Models for Verifiable AI Agent Orchestration
 Implements SQLModel definitions for agent workflows, steps, and execution tracking
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -68,8 +68,8 @@ class AIAgentWorkflow(SQLModel, table=True):
     is_public: bool = Field(default=False)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentStep(SQLModel, table=True):
@@ -102,8 +102,8 @@ class AgentStep(SQLModel, table=True):
     depends_on: str = Field(default="")  # JSON string of step IDs
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentExecution(SQLModel, table=True):
@@ -141,8 +141,8 @@ class AgentExecution(SQLModel, table=True):
     completed_steps: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentStepExecution(SQLModel, table=True):
@@ -180,8 +180,8 @@ class AgentStepExecution(SQLModel, table=True):
     completed_at: datetime | None = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentMarketplace(SQLModel, table=True):
@@ -219,8 +219,8 @@ class AgentMarketplace(SQLModel, table=True):
     last_execution_at: datetime | None = Field(default=None)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # Request/Response Models for API

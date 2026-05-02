@@ -23,6 +23,7 @@
 - **🚀 [Advanced Documentation](advanced/README.md)** - Deep technical topics
 - **🎓 [Expert Documentation](expert/README.md)** - Specialized content
 - **📁 [Project Documentation](project/README.md)** - Project-level guides and completion tracking
+- **🎭 [Agent Scenarios](scenarios/README.md)** - OpenClaw agent scenarios for all AITBC features
 
 ## 🎉 **PROJECT STATUS: 100% COMPLETED - April 13, 2026**
 

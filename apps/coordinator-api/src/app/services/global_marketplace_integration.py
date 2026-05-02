@@ -3,7 +3,7 @@ Global Marketplace Integration Service
 Integration service that combines global marketplace operations with cross-chain capabilities
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -146,7 +146,7 @@ class GlobalMarketplaceIntegrationService:
                 regions_available=regions_available,
                 supported_chains=supported_chains,
                 dynamic_pricing_enabled=self.integration_config["regional_pricing_enabled"],
-                expires_at=datetime.now(datetime.UTC) + timedelta(minutes=deadline_minutes),
+                expires_at=datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
             )
 
             global_offer = await self.marketplace_service.create_global_offer(offer_request, None)
@@ -249,7 +249,7 @@ class GlobalMarketplaceIntegrationService:
             # Update offer capacity
             offer.available_capacity -= quantity
             offer.total_transactions += 1
-            offer.updated_at = datetime.now(datetime.UTC)
+            offer.updated_at = datetime.now(timezone.utc)
 
             # Execute cross-chain bridge if needed and enabled
             bridge_transaction_id = None
@@ -365,7 +365,7 @@ class GlobalMarketplaceIntegrationService:
             # Get base marketplace analytics
             from ..domain.global_marketplace import GlobalMarketplaceAnalyticsRequest
 
-            end_time = datetime.now(datetime.UTC)
+            end_time = datetime.now(timezone.utc)
             start_time = end_time - timedelta(hours=time_period_hours)
 
             analytics_request = GlobalMarketplaceAnalyticsRequest(
@@ -398,7 +398,7 @@ class GlobalMarketplaceIntegrationService:
                 "transaction_statistics": tx_stats,
                 "cross_chain_metrics": cross_chain_metrics,
                 "integration_metrics": self.metrics,
-                "generated_at": datetime.now(datetime.UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -431,7 +431,7 @@ class GlobalMarketplaceIntegrationService:
             # Update offer with optimized pricing
             offer.price_per_region = optimized_pricing["regional_pricing"]
             offer.cross_chain_pricing = optimized_pricing["cross_chain_pricing"]
-            offer.updated_at = datetime.now(datetime.UTC)
+            offer.updated_at = datetime.now(timezone.utc)
 
             self.session.commit()
 
@@ -507,7 +507,7 @@ class GlobalMarketplaceIntegrationService:
                     "currency": offer.currency,
                     "capacity": offer.available_capacity,
                     "status": CrossChainOfferStatus.AVAILABLE.value,
-                    "created_at": datetime.now(datetime.UTC).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 }
                 listings.append(listing)
 

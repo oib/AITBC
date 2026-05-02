@@ -6,7 +6,7 @@ Domain models for managing trustless cross-chain atomic swaps between agents.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
@@ -60,5 +60,5 @@ class AtomicSwapOrder(SQLModel, table=True):
 
     status: SwapStatus = Field(default=SwapStatus.CREATED, index=True)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

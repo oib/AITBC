@@ -1,0 +1,18 @@
+[Unit]
+Description=AITBC API Gateway
+After=network.target aitbc-gpu.service aitbc-marketplace.service aitbc-trading.service aitbc-governance.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/api-gateway
+Environment="PATH=/root/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/root/.local/bin/poetry run python -m api_gateway.main
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-api-gateway
+
+[Install]
+WantedBy=multi-user.target

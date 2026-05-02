@@ -3,7 +3,7 @@ Agent Identity Domain Models for Cross-Chain Agent Identity Management
 Implements SQLModel definitions for unified agent identity across multiple blockchains
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -80,8 +80,8 @@ class AgentIdentity(SQLModel, table=True):
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Indexes for performance
     __table_args__ = {
@@ -122,8 +122,8 @@ class CrossChainMapping(SQLModel, table=True):
     transaction_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Unique constraint
     __table_args__ = {
@@ -162,8 +162,8 @@ class IdentityVerification(SQLModel, table=True):
     verification_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Indexes
     __table_args__ = {
@@ -208,8 +208,8 @@ class AgentWallet(SQLModel, table=True):
     transaction_count: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Indexes
     __table_args__ = {

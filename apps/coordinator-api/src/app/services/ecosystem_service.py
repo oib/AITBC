@@ -3,7 +3,7 @@ Ecosystem Analytics Service
 Business logic for developer ecosystem metrics and analytics
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, select
@@ -30,13 +30,13 @@ class EcosystemService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get total earnings from completed bounties
             earnings_stmt = select(
@@ -114,13 +114,13 @@ class EcosystemService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get agent metrics
             agents_stmt = select(
@@ -196,13 +196,13 @@ class EcosystemService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get bounty fees (treasury inflow)
             inflow_stmt = select(
@@ -252,13 +252,13 @@ class EcosystemService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get staking metrics
             staking_stmt = select(
@@ -335,13 +335,13 @@ class EcosystemService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get bounty counts
             bounty_stmt = select(
@@ -455,9 +455,9 @@ class EcosystemService:
         """Get time-series ecosystem metrics"""
         try:
             if not start_date:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             if not end_date:
-                end_date = datetime.now(datetime.UTC)
+                end_date = datetime.now(timezone.utc)
 
             # This is a simplified implementation
             # In production, you'd want more sophisticated time-series aggregation
@@ -651,7 +651,7 @@ class EcosystemService:
                     "type": "performance",
                     "severity": "medium",
                     "message": "Agent utilization dropped below 70%",
-                    "timestamp": datetime.now(datetime.UTC) - timedelta(hours=2),
+                    "timestamp": datetime.now(timezone.utc) - timedelta(hours=2),
                     "resolved": False,
                 },
                 {
@@ -659,7 +659,7 @@ class EcosystemService:
                     "type": "financial",
                     "severity": "low",
                     "message": "Bounty completion rate decreased by 5%",
-                    "timestamp": datetime.now(datetime.UTC) - timedelta(hours=6),
+                    "timestamp": datetime.now(timezone.utc) - timedelta(hours=6),
                     "resolved": False,
                 },
             ]
@@ -762,12 +762,12 @@ class EcosystemService:
             metrics = await self.get_time_series_metrics(period_type, start_date, end_date)
 
             # Mock export URL generation
-            export_url = f"/exports/ecosystem_data_{datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}.{format}"
+            export_url = f"/exports/ecosystem_data_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.{format}"
 
             return {
                 "url": export_url,
                 "file_size": len(str(metrics)) * 0.001,  # Mock file size in KB
-                "expires_at": datetime.now(datetime.UTC) + timedelta(hours=24),
+                "expires_at": datetime.now(timezone.utc) + timedelta(hours=24),
                 "record_count": len(metrics),
             }
 

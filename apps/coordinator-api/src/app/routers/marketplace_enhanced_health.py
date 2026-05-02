@@ -6,14 +6,14 @@ Provides health monitoring for royalties, licensing, verification, and analytics
 """
 
 import sys
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 import psutil
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from ..app_logging import get_logger
+from aitbc import get_logger
 from ..services.marketplace_enhanced import EnhancedMarketplaceService
 from ..storage import get_session
 
@@ -41,7 +41,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
             "status": "healthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             # System metrics
             "system": {
@@ -98,7 +98,7 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
             "status": "unhealthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Health check failed",
         }
 
@@ -173,7 +173,7 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
             "status": "healthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "feature_tests": feature_tests,
             "overall_health": "pass" if all(test.get("status") == "pass" for test in feature_tests.values()) else "degraded",
         }
@@ -184,6 +184,6 @@ async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(g
             "status": "unhealthy",
             "service": "marketplace-enhanced",
             "port": 8002,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Deep health check failed",
         }

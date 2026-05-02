@@ -1,0 +1,16 @@
+[Unit]
+Description=AITBC AI Service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/ai-service
+Environment="PYTHONPATH=/opt/aitbc/apps/ai-service/src:/opt/aitbc"
+Environment="AI_SERVICE_DATABASE_URL=postgresql+asyncpg://aitbc_ai:password@localhost:5432/aitbc_ai"
+ExecStart=/root/.cache/pypoetry/virtualenvs/ai-service-sQ1o_lO3-py3.13/bin/python -m ai_service.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

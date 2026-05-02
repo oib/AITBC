@@ -1,4 +1,4 @@
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
@@ -30,7 +30,7 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "agent-coordinator",
-        "timestamp": datetime.now(datetime.UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0"
     }
 

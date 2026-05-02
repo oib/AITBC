@@ -5,7 +5,7 @@ Implements comprehensive alerting with multiple channels and SLA monitoring
 
 import asyncio
 import smtplib
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional, Callable
 from dataclasses import dataclass, field
 from enum import Enum
@@ -134,7 +134,7 @@ class SLAMonitor:
             return
         
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
         
         rule = self.sla_rules[sla_id]
         
@@ -188,7 +188,7 @@ class SLAMonitor:
         # Get recent violations
         recent_violations = [
             v for v in self.violations[sla_id]
-            if v["timestamp"] > datetime.now(datetime.UTC) - timedelta(hours=24)
+            if v["timestamp"] > datetime.now(timezone.utc) - timedelta(hours=24)
         ]
         
         return {
@@ -375,7 +375,7 @@ Annotations: {json.dumps(alert.annotations, indent=2)}
                 payload = {
                     "alert": alert.to_dict(),
                     "message": message,
-                    "timestamp": datetime.now(datetime.UTC).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
                 response = requests.post(
@@ -499,7 +499,7 @@ class AlertManager:
             
             try:
                 condition_met = self._evaluate_condition(rule.condition, metrics, rule.threshold)
-                current_time = datetime.now(datetime.UTC)
+                current_time = datetime.now(timezone.utc)
                 
                 if condition_met:
                     # Check if condition has been met for required duration
@@ -543,7 +543,7 @@ class AlertManager:
     
     def _trigger_alert(self, rule: AlertRule, metrics: Dict[str, Any]):
         """Trigger an alert"""
-        alert_id = f"{rule.rule_id}_{int(datetime.now(datetime.UTC).timestamp())}"
+        alert_id = f"{rule.rule_id}_{int(datetime.now(timezone.utc).timestamp())}"
         
         # Check if similar alert is already active
         existing_alert = self._find_similar_active_alert(rule)
@@ -556,8 +556,8 @@ class AlertManager:
             description=rule.description,
             severity=rule.severity,
             status=AlertStatus.ACTIVE,
-            created_at=datetime.now(datetime.UTC),
-            updated_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
             labels=rule.labels.copy(),
             annotations=rule.annotations.copy()
         )
@@ -607,8 +607,8 @@ class AlertManager:
         
         alert = self.alerts[alert_id]
         alert.status = AlertStatus.RESOLVED
-        alert.resolved_at = datetime.now(datetime.UTC)
-        alert.updated_at = datetime.now(datetime.UTC)
+        alert.resolved_at = datetime.now(timezone.utc)
+        alert.updated_at = datetime.now(timezone.utc)
         
         return {"status": "success", "alert": alert.to_dict()}
     

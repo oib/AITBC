@@ -11,7 +11,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 from dataclasses import dataclass
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -123,9 +123,9 @@ class MemoryManager:
                 # Set expiration for temporary memories
                 expires_at = None
                 if priority == MemoryPriority.TEMPORARY:
-                    expires_at = datetime.now(datetime.UTC) + timedelta(days=expires_in_days or 7)
+                    expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days or 7)
                 elif expires_in_days:
-                    expires_at = datetime.now(datetime.UTC) + timedelta(days=expires_in_days)
+                    expires_at = datetime.now(timezone.utc) + timedelta(days=expires_in_days)
 
                 # Determine pinning based on priority
                 should_pin = priority in [MemoryPriority.CRITICAL, MemoryPriority.HIGH]
@@ -191,7 +191,7 @@ class MemoryManager:
                     raise ValueError(f"Memory record not found for CID: {cid}")
 
                 # Check expiration
-                if memory_record.expires_at and memory_record.expires_at < datetime.now(datetime.UTC):
+                if memory_record.expires_at and memory_record.expires_at < datetime.now(timezone.utc):
                     raise ValueError(f"Memory has expired: {cid}")
 
                 # Retrieve from IPFS
@@ -266,7 +266,7 @@ class MemoryManager:
                             continue
 
                         # Filter expired memories
-                        if memory_record.expires_at and memory_record.expires_at < datetime.now(datetime.UTC):
+                        if memory_record.expires_at and memory_record.expires_at < datetime.now(timezone.utc):
                             continue
 
                         memories.append(memory_record)
@@ -376,7 +376,7 @@ class MemoryManager:
                 optimization_results = {"archived": 0, "deduplicated": 0, "compressed": 0, "errors": []}
 
                 # Archive old low-priority memories
-                cutoff_date = datetime.now(datetime.UTC) - timedelta(days=self.config.auto_cleanup_days)
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=self.config.auto_cleanup_days)
 
                 for cid, memory_record in list(self.memory_records.items()):
                     if (
@@ -421,7 +421,7 @@ class MemoryManager:
         memory_record = self.memory_records.get(cid)
         if memory_record:
             memory_record.access_count += 1
-            memory_record.last_accessed = datetime.now(datetime.UTC)
+            memory_record.last_accessed = datetime.now(timezone.utc)
             await self._save_memory_record(memory_record)
 
     async def _enforce_memory_limit(self, agent_id: str):
@@ -458,7 +458,7 @@ class MemoryManager:
             try:
                 await asyncio.sleep(3600)  # Run every hour
 
-                current_time = datetime.now(datetime.UTC)
+                current_time = datetime.now(timezone.utc)
                 expired_cids = []
 
                 for cid, memory_record in self.memory_records.items():
@@ -497,4 +497,4 @@ class MemoryManager:
     async def _get_upload_result(self, cid: str) -> IPFSUploadResult:
         """Get upload result for existing CID"""
         # In real implementation, this would retrieve from database
-        return IPFSUploadResult(cid=cid, size=0, compressed_size=0, upload_time=datetime.now(datetime.UTC))
+        return IPFSUploadResult(cid=cid, size=0, compressed_size=0, upload_time=datetime.now(timezone.utc))

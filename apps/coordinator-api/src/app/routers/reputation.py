@@ -7,7 +7,7 @@ Reputation Management API Endpoints
 REST API for agent reputation, trust scores, and economic profiles
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -272,7 +272,7 @@ async def get_trust_score_breakdown(
             security_score=security_score,
             economic_score=economic_score,
             reputation_level=reputation_level.value,
-            calculated_at=datetime.now(datetime.UTC).isoformat()
+            calculated_at=datetime.now(timezone.utc).isoformat()
         )
         
     except Exception as e:
@@ -348,7 +348,7 @@ async def get_reputation_metrics(
         ]
         
         # Recent activity (last 24 hours)
-        recent_cutoff = datetime.now(datetime.UTC) - timedelta(days=1)
+        recent_cutoff = datetime.now(timezone.utc) - timedelta(days=1)
         recent_events = session.execute(
             select(func.count(ReputationEvent.id)).where(
                 ReputationEvent.occurred_at >= recent_cutoff
@@ -474,7 +474,7 @@ async def update_specialization(
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         
         reputation.specialization_tags = specialization_tags
-        reputation.updated_at = datetime.now(datetime.UTC)
+        reputation.updated_at = datetime.now(timezone.utc)
         
         session.commit()
         session.refresh(reputation)
@@ -510,7 +510,7 @@ async def update_region(
             raise HTTPException(status_code=404, detail="Reputation profile not found")
         
         reputation.geographic_region = region
-        reputation.updated_at = datetime.now(datetime.UTC)
+        reputation.updated_at = datetime.now(timezone.utc)
         
         session.commit()
         session.refresh(reputation)
@@ -568,7 +568,7 @@ async def get_cross_chain_reputation(
                     "last_updated": reputation.updated_at.isoformat()
                 }
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat()
+            "last_updated": datetime.now(timezone.utc).isoformat()
         }
         
     except HTTPException:
@@ -601,7 +601,7 @@ async def sync_cross_chain_reputation(
             "agent_id": agent_id,
             "sync_status": "completed",
             "chains_synced": [1],
-            "sync_timestamp": datetime.now(datetime.UTC).isoformat(),
+            "sync_timestamp": datetime.now(timezone.utc).isoformat(),
             "message": "Cross-chain reputation synchronized successfully"
         }
         
@@ -651,7 +651,7 @@ async def get_cross_chain_leaderboard(
             "total_count": len(agents),
             "limit": limit,
             "min_score": min_score,
-            "last_updated": datetime.now(datetime.UTC).isoformat()
+            "last_updated": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:
@@ -691,7 +691,7 @@ async def submit_cross_chain_event(
         new_score = max(0, min(1000, old_score + (impact * 1000)))
         
         reputation.trust_score = new_score
-        reputation.updated_at = datetime.now(datetime.UTC)
+        reputation.updated_at = datetime.now(timezone.utc)
         
         # Update reputation level if needed
         if new_score >= 900:
@@ -708,13 +708,13 @@ async def submit_cross_chain_event(
         session.commit()
         
         return {
-            "event_id": f"event_{datetime.now(datetime.UTC).strftime('%Y%m%d%H%M%S')}",
+            "event_id": f"event_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
             "agent_id": agent_id,
             "event_type": event_data['event_type'],
             "impact_score": impact,
             "old_score": old_score / 1000.0,
             "new_score": new_score / 1000.0,
-            "processed_at": datetime.now(datetime.UTC).isoformat()
+            "processed_at": datetime.now(timezone.utc).isoformat()
         }
         
     except HTTPException:
@@ -785,7 +785,7 @@ async def get_cross_chain_analytics(
                 "average_consistency_score": 1.0,
                 "chain_diversity_score": 0.0  # No cross-chain diversity yet
             },
-            "generated_at": datetime.now(datetime.UTC).isoformat()
+            "generated_at": datetime.now(timezone.utc).isoformat()
         }
         
     except Exception as e:

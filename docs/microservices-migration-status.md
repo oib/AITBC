@@ -230,17 +230,11 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 ### Legacy Services
 
-6. **Coordinator API** (port 8000)
-   - Still running for backward compatibility
-   - Contains remaining functionality not yet migrated:
-     - Miner operations
-     - AI job operations
-     - Explorer operations
-     - Plugin operations
-     - OpenClaw operations
-     - Multimodal operations
-     - Optimization operations
-     - Monitoring operations
+**Coordinator API** (port 8000) - **DISABLED**
+   - Previously ran for backward compatibility
+   - All functionality has been migrated to dedicated microservices
+   - Service has been stopped and disabled on all nodes (aitbc, aitbc1, gitea-runner)
+   - Can be safely removed from systemd
 
 ## CLI Configuration
 
@@ -312,46 +306,37 @@ coordinator_url: str = "http://localhost:8000"  # Deprecated, for backward compa
 - All microservices are operational and tested
 - API Gateway routing is fully configured
 - CLI integration is complete
-- Coordinator API can be decommissioned
+- Coordinator API has been disabled on all nodes (aitbc, aitbc1, gitea-runner)
 
 ## Next Steps
 
-### Recommended Approach
+### Migration Complete
 
-Given the complexity of the remaining coordinator-api functionality, a phased migration approach is recommended:
+The microservices migration is now complete. All coordinator-api functionality has been migrated to dedicated microservices, and the legacy coordinator-api service has been disabled on all nodes.
 
-1. **Phase 16**: Document coordinator-api router structure
-   - Document all routers and their endpoints
-   - Identify dependencies between routers
-   - Prioritize high-usage endpoints
+### Optional Cleanup
 
-2. **Phase 17**: Create dedicated microservices for remaining functionality
-   - Miner Service (for miner operations)
-   - AI Service (for AI job operations)
-   - Explorer Service (for blockchain explorer operations)
-   - Plugin Service (for plugin operations)
-   - OpenClaw Service (for OpenClaw operations)
+The following optional cleanup steps can be performed:
 
-3. **Phase 18**: Migrate CLI to use new microservices
-   - Update CLI configuration
-   - Update CLI commands
-   - Test CLI with new microservices
-
-4. **Phase 19**: Decommission coordinator-api
-   - Verify all functionality migrated
-   - Update documentation
-   - Remove coordinator-api service
+1. **Remove coordinator-api service files** from all nodes
+2. **Drop legacy database** (aitbc) if no longer needed
+3. **Update API Gateway** to remove coordinator-api routing
+4. **Update CLI configuration** to remove coordinator_url reference
 
 ## Systemd Services
 
 All microservices are managed by systemd:
 
-- `aitbc-gpu.service` - GPU Service
-- `aitbc-marketplace.service` - Marketplace Service
-- `aitbc-trading.service` - Trading Service
-- `aitbc-governance.service` - Governance Service
-- `aitbc-api-gateway.service` - API Gateway
-- `aitbc-coordinator-api.service` - Legacy Coordinator API
+- `aitbc-gpu.service` - GPU Service (port 8101)
+- `aitbc-marketplace.service` - Marketplace Service (port 8102)
+- `aitbc-trading.service` - Trading Service (port 8104)
+- `aitbc-governance.service` - Governance Service (port 8105)
+- `aitbc-ai.service` - AI Service (port 8106)
+- `aitbc-monitoring.service` - Monitoring Service (port 8107)
+- `aitbc-openclaw.service` - OpenClaw Service (port 8108)
+- `aitbc-plugin.service` - Plugin Service (port 8109)
+- `aitbc-api-gateway.service` - API Gateway (port 8080)
+- `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8000) - **DISABLED**
 
 ## Database Schema
 

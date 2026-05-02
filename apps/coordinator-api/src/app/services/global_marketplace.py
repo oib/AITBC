@@ -9,7 +9,7 @@ Global Marketplace Services
 Core services for global marketplace operations, multi-region support, and cross-chain integration
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -126,7 +126,7 @@ class GlobalMarketplaceService:
             offers = self.session.execute(stmt).all()
 
             # Filter out expired offers
-            current_time = datetime.now(datetime.UTC)
+            current_time = datetime.now(timezone.utc)
             valid_offers = []
 
             for offer in offers:
@@ -203,7 +203,7 @@ class GlobalMarketplaceService:
             # Update offer capacity
             offer.available_capacity -= request.quantity
             offer.total_transactions += 1
-            offer.updated_at = datetime.now(datetime.UTC)
+            offer.updated_at = datetime.now(timezone.utc)
 
             self.session.add(transaction)
             self.session.commit()
@@ -382,7 +382,7 @@ class GlobalMarketplaceService:
         """Get recent analytics for a region"""
 
         try:
-            cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
             stmt = (
                 select(GlobalMarketplaceAnalytics)
@@ -460,7 +460,7 @@ class RegionManager:
             region.average_response_time = health_metrics.get("average_response_time", 0.0)
             region.request_rate = health_metrics.get("request_rate", 0.0)
             region.error_rate = health_metrics.get("error_rate", 0.0)
-            region.last_health_check = datetime.now(datetime.UTC)
+            region.last_health_check = datetime.now(timezone.utc)
 
             # Update status based on health score
             if region.health_score < 0.5:

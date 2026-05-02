@@ -7,7 +7,7 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 from dataclasses import dataclass, field
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -86,7 +86,7 @@ class SubTask:
     dependencies: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     inputs: list[str] = field(default_factory=list)
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
@@ -106,7 +106,7 @@ class TaskDecomposition:
     estimated_total_cost: float
     confidence_score: float
     decomposition_strategy: str
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -119,7 +119,7 @@ class TaskAggregation:
     input_sub_tasks: list[str]
     output_format: str
     aggregation_function: str
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TaskDecompositionEngine:
@@ -228,7 +228,7 @@ class TaskDecompositionEngine:
     ) -> TaskAggregation:
         """Create aggregation configuration for combining sub-task results"""
 
-        aggregation_id = f"agg_{parent_task_id}_{datetime.now(datetime.UTC).timestamp()}"
+        aggregation_id = f"agg_{parent_task_id}_{datetime.now(timezone.utc).timestamp()}"
 
         aggregation = TaskAggregation(
             aggregation_id=aggregation_id,
@@ -262,9 +262,9 @@ class TaskDecompositionEngine:
 
         # Update timestamps
         if status == SubTaskStatus.IN_PROGRESS and old_status != SubTaskStatus.IN_PROGRESS:
-            sub_task.started_at = datetime.now(datetime.UTC)
+            sub_task.started_at = datetime.now(timezone.utc)
         elif status == SubTaskStatus.COMPLETED:
-            sub_task.completed_at = datetime.now(datetime.UTC)
+            sub_task.completed_at = datetime.now(timezone.utc)
         elif status == SubTaskStatus.FAILED:
             sub_task.retry_count += 1
 

@@ -12,7 +12,7 @@ import asyncio
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -76,7 +76,7 @@ class MultiModalAgentService:
             Processing results with performance metrics
         """
 
-        start_time = datetime.now(datetime.UTC)
+        start_time = datetime.now(timezone.utc)
 
         try:
             # Validate input modalities
@@ -104,7 +104,7 @@ class MultiModalAgentService:
                 raise ValueError(f"Unsupported processing mode: {processing_mode}")
 
             # Calculate performance metrics
-            processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             performance_metrics = await self._performance_tracker.calculate_metrics(context, results, processing_time)
 
             # Update agent execution record
@@ -117,7 +117,7 @@ class MultiModalAgentService:
                 "results": results,
                 "performance_metrics": performance_metrics,
                 "processing_time_seconds": processing_time,
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -557,7 +557,7 @@ class MultiModalAgentService:
             if execution:
                 execution.results = results
                 execution.performance_metrics = performance_metrics
-                execution.updated_at = datetime.now(datetime.UTC)
+                execution.updated_at = datetime.now(timezone.utc)
                 self.session.commit()
         except Exception as e:
             logger.error(f"Failed to update agent execution: {e}")

@@ -4,7 +4,7 @@ Database models for AI agent bounty system with ZK-proof verification
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -70,7 +70,7 @@ class Bounty(SQLModel, table=True):
 
     # Timing
     deadline: datetime = Field(index=True)
-    creation_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    creation_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Limits
     max_submissions: int = Field(default=100)
@@ -137,7 +137,7 @@ class BountySubmission(SQLModel, table=True):
     dispute_resolved: bool = Field(default=False)
 
     # Timing
-    submission_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    submission_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Metadata
     submission_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
@@ -168,13 +168,13 @@ class AgentStake(SQLModel, table=True):
     # Stake details
     amount: float = Field(index=True)
     lock_period: int = Field(default=30)  # days
-    start_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     end_time: datetime
 
     # Status and rewards
     status: StakeStatus = Field(default=StakeStatus.ACTIVE)
     accumulated_rewards: float = Field(default=0.0)
-    last_reward_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_reward_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # APY and performance
     current_apy: float = Field(default=5.0)  # percentage
@@ -226,7 +226,7 @@ class AgentMetrics(SQLModel, table=True):
     reputation_score: float = Field(default=0.0)
 
     # Timing
-    last_update_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_update_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     first_submission_time: datetime | None = Field(default=None)
 
     # Additional metrics
@@ -271,7 +271,7 @@ class StakingPool(SQLModel, table=True):
     active_stakers: list[str] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Distribution
-    last_distribution_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_distribution_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     distribution_frequency: int = Field(default=1)  # days
 
     # Pool configuration
@@ -309,7 +309,7 @@ class BountyIntegration(SQLModel, table=True):
 
     # Status and timing
     status: BountyStatus = Field(default=BountyStatus.CREATED)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = Field(default=None)
 
     # Processing information
@@ -393,7 +393,7 @@ class EcosystemMetrics(SQLModel, table=True):
     metrics_id: str = Field(primary_key=True, default_factory=lambda: f"eco_{uuid.uuid4().hex[:8]}")
 
     # Time period
-    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
     period_type: str = Field(default="hourly")  # hourly, daily, weekly
 
     # Developer metrics

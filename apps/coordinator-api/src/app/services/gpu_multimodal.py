@@ -16,7 +16,7 @@ import torch.nn.functional as F
 
 logger = get_logger(__name__)
 import time
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
@@ -501,7 +501,7 @@ class GPUAcceleratedMultiModal:
     ) -> dict[str, Any]:
         """CPU fallback for attention processing"""
 
-        start_time = datetime.now(datetime.UTC)
+        start_time = datetime.now(timezone.utc)
 
         # Simple CPU attention computation
         attended_features = {}
@@ -527,7 +527,7 @@ class GPUAcceleratedMultiModal:
             attended_features[modality] = attended
             attention_matrices[f"{modality}_self"] = attention_matrix
 
-        processing_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
+        processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
 
         return {
             "attended_features": attended_features,
@@ -706,7 +706,7 @@ class GPUFeatureCache:
         self._cache[cache_key] = {
             "features": features,
             "priority": priority,
-            "timestamp": datetime.now(datetime.UTC),
+            "timestamp": datetime.now(timezone.utc),
             "size_mb": features.nbytes / (1024 * 1024),
         }
 
