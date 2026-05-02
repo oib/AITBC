@@ -155,6 +155,21 @@ Documentation about the documentation system itself:
 | [📄 Agent API Spec](11_agents/agent-api-spec.json) | API contract for registry, marketplace, and swarm coordination |
 | [🧾 Agent Manifest](11_agents/agent-manifest.json) | Canonical agent types, prerequisites, and quick commands |
 
+### **🎭 [Agent Scenarios](scenarios/)**
+**45 OpenClaw agent scenarios covering all AITBC features:**
+
+| Level | Scenarios | Content |
+|-------|-----------|---------|
+| [🟢 Beginner](scenarios/README.md#beginner-scenarios) | 20 scenarios | Single-feature focus scenarios (01-20) |
+| [🟠 Intermediate](scenarios/README.md#intermediate-scenarios) | 15 scenarios | 2-3 feature combinations (21-35) |
+| [🔴 Advanced](scenarios/README.md#advanced-scenarios) | 10 scenarios | 4+ feature combinations (36-40) |
+
+Each scenario includes:
+- Overview and prerequisites
+- Step-by-step workflow with CLI commands
+- Code examples using Agent SDK
+- Expected outcomes and related resources
+
 ---
 
 ## 🗂️ **Archive & History**

@@ -4,7 +4,7 @@ Resource quota enforcement service for multi-tenant AITBC coordinator
 
 import json
 from contextlib import asynccontextmanager
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import redis
@@ -85,8 +85,8 @@ class QuotaEnforcementService:
             unit_price=await self._get_unit_price(resource_type),
             total_cost=await self._calculate_cost(resource_type, quantity),
             currency="USD",
-            usage_start=datetime.now(datetime.UTC),
-            usage_end=datetime.now(datetime.UTC),
+            usage_start=datetime.now(timezone.utc),
+            usage_end=datetime.now(timezone.utc),
             metadata=metadata or {},
         )
 
@@ -194,7 +194,7 @@ class QuotaEnforcementService:
         """Context manager for temporary quota reservation"""
 
         tenant_id = tenant_id or get_current_tenant_id()
-        reservation_id = f"reserve:{tenant_id}:{resource_type}:{datetime.now(datetime.UTC).timestamp()}"
+        reservation_id = f"reserve:{tenant_id}:{resource_type}:{datetime.now(timezone.utc).timestamp()}"
 
         try:
             # Reserve quota
@@ -206,7 +206,7 @@ class QuotaEnforcementService:
                     "tenant_id": tenant_id,
                     "resource_type": resource_type,
                     "quantity": quantity,
-                    "created_at": datetime.now(datetime.UTC).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
                 }
                 self.redis.setex(f"reservation:{reservation_id}", timeout, json.dumps(reservation_data))
 
@@ -231,7 +231,7 @@ class QuotaEnforcementService:
             return
 
         # Calculate new period
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         if quota.period_type == "monthly":
             period_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             period_end = (period_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
@@ -320,7 +320,7 @@ class QuotaEnforcementService:
                 quota_data = json.loads(cached)
                 quota = TenantQuota(**quota_data)
                 # Check if still valid
-                if quota.period_end >= datetime.now(datetime.UTC):
+                if quota.period_end >= datetime.now(timezone.utc):
                     return quota
 
         # Query database
@@ -329,8 +329,8 @@ class QuotaEnforcementService:
                 TenantQuota.tenant_id == tenant_id,
                 TenantQuota.resource_type == resource_type,
                 TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(datetime.UTC),
-                TenantQuota.period_end >= datetime.now(datetime.UTC),
+                TenantQuota.period_start <= datetime.now(timezone.utc),
+                TenantQuota.period_end >= datetime.now(timezone.utc),
             )
         )
 

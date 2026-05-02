@@ -7,7 +7,7 @@ Provides portfolio creation, rebalancing, risk assessment, and trading strategy 
 
 from __future__ import annotations
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from aitbc import get_logger
 from fastapi import HTTPException
@@ -86,8 +86,8 @@ class AgentPortfolioManager:
                 initial_capital=portfolio_data.initial_capital,
                 risk_tolerance=portfolio_data.risk_tolerance,
                 is_active=True,
-                created_at=datetime.now(datetime.UTC),
-                last_rebalance=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
+                last_rebalance=datetime.now(timezone.utc),
             )
 
             self.session.add(portfolio)
@@ -154,7 +154,7 @@ class AgentPortfolioManager:
                 price=trade_result.price,
                 status=TradeStatus.EXECUTED,
                 transaction_hash=trade_result.transaction_hash,
-                executed_at=datetime.now(datetime.UTC),
+                executed_at=datetime.now(timezone.utc),
             )
 
             self.session.add(trade)
@@ -213,7 +213,7 @@ class AgentPortfolioManager:
                     continue
 
             # Update portfolio rebalance timestamp
-            portfolio.last_rebalance = datetime.now(datetime.UTC)
+            portfolio.last_rebalance = datetime.now(timezone.utc)
             self.session.commit()
 
             logger.info(f"Rebalanced portfolio {portfolio.id} with {len(executed_trades)} trades")
@@ -250,10 +250,10 @@ class AgentPortfolioManager:
                 existing_metrics.sharpe_ratio = risk_metrics.sharpe_ratio
                 existing_metrics.var_95 = risk_metrics.var_95
                 existing_metrics.risk_level = risk_metrics.risk_level
-                existing_metrics.updated_at = datetime.now(datetime.UTC)
+                existing_metrics.updated_at = datetime.now(timezone.utc)
             else:
                 risk_metrics.portfolio_id = portfolio.id
-                risk_metrics.updated_at = datetime.now(datetime.UTC)
+                risk_metrics.updated_at = datetime.now(timezone.utc)
                 self.session.add(risk_metrics)
 
             # Update portfolio risk score
@@ -301,7 +301,7 @@ class AgentPortfolioManager:
                 max_drawdown=strategy_data.max_drawdown,
                 rebalance_frequency=strategy_data.rebalance_frequency,
                 is_active=True,
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
             )
 
             self.session.add(strategy)
@@ -343,7 +343,7 @@ class AgentPortfolioManager:
                     target_allocation=allocation,
                     current_allocation=0.0,
                     balance=0,
-                    created_at=datetime.now(datetime.UTC),
+                    created_at=datetime.now(timezone.utc),
                 )
                 self.session.add(asset)
 
@@ -412,7 +412,7 @@ class AgentPortfolioManager:
 
         if sell_asset:
             sell_asset.balance -= trade.sell_amount
-            sell_asset.updated_at = datetime.now(datetime.UTC)
+            sell_asset.updated_at = datetime.now(timezone.utc)
 
         # Update buy asset
         buy_asset = self.session.execute(
@@ -423,7 +423,7 @@ class AgentPortfolioManager:
 
         if buy_asset:
             buy_asset.balance += trade.buy_amount
-            buy_asset.updated_at = datetime.now(datetime.UTC)
+            buy_asset.updated_at = datetime.now(timezone.utc)
         else:
             # Create new asset if it doesn't exist
             new_asset = PortfolioAsset(
@@ -432,7 +432,7 @@ class AgentPortfolioManager:
                 target_allocation=0.0,
                 current_allocation=0.0,
                 balance=trade.buy_amount,
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
             )
             self.session.add(new_asset)
 
@@ -449,10 +449,10 @@ class AgentPortfolioManager:
                 price = await self.price_service.get_price(asset.token_symbol)
                 asset_value = asset.balance * price
                 asset.current_allocation = (asset_value / portfolio_value) * 100
-                asset.updated_at = datetime.now(datetime.UTC)
+                asset.updated_at = datetime.now(timezone.utc)
 
         portfolio.total_value = portfolio_value
-        portfolio.updated_at = datetime.now(datetime.UTC)
+        portfolio.updated_at = datetime.now(timezone.utc)
 
     async def _calculate_portfolio_value(self, portfolio: AgentPortfolio) -> float:
         """Calculate total portfolio value"""
@@ -475,7 +475,7 @@ class AgentPortfolioManager:
         if not strategy:
             return False
 
-        time_since_rebalance = datetime.now(datetime.UTC) - portfolio.last_rebalance
+        time_since_rebalance = datetime.now(timezone.utc) - portfolio.last_rebalance
         if time_since_rebalance > timedelta(seconds=strategy.rebalance_frequency):
             return True
 
@@ -548,7 +548,7 @@ class AgentPortfolioManager:
             "current_value": current_value,
             "initial_value": initial_value,
             "total_trades": len(trades),
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
 

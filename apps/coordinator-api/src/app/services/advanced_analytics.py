@@ -7,7 +7,7 @@ Real-time analytics dashboard, market insights, and performance metrics
 import asyncio
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 

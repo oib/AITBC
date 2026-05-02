@@ -3,7 +3,7 @@ Agent Reputation and Trust Service
 Implements reputation management, trust score calculations, and economic profiling
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from aitbc import get_logger
@@ -43,7 +43,7 @@ class TrustScoreCalculator:
         """Calculate performance-based trust score component"""
 
         # Get recent job completions
-        cutoff_date = datetime.now(datetime.UTC) - time_window
+        cutoff_date = datetime.now(timezone.utc) - time_window
 
         # Query performance metrics
         select(func.count()).where(
@@ -102,7 +102,7 @@ class TrustScoreCalculator:
     def calculate_community_score(self, agent_id: str, session: Session, time_window: timedelta = timedelta(days=90)) -> float:
         """Calculate community-based trust score component"""
 
-        cutoff_date = datetime.now(datetime.UTC) - time_window
+        cutoff_date = datetime.now(timezone.utc) - time_window
 
         # Get recent community feedback
         feedback_query = select(CommunityFeedback).where(
@@ -263,8 +263,8 @@ class ReputationService:
             performance_rating=3.0,
             reliability_score=50.0,
             community_rating=3.0,
-            created_at=datetime.now(datetime.UTC),
-            updated_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.session.add(reputation)
@@ -298,8 +298,8 @@ class ReputationService:
             reputation_level_before=old_reputation_level,
             reputation_level_after=new_reputation_level,
             event_data=impact_data,
-            occurred_at=datetime.now(datetime.UTC),
-            processed_at=datetime.now(datetime.UTC),
+            occurred_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(timezone.utc),
         )
 
         self.session.add(event)
@@ -307,12 +307,12 @@ class ReputationService:
         # Update reputation profile
         reputation.trust_score = new_trust_score
         reputation.reputation_level = new_reputation_level
-        reputation.updated_at = datetime.now(datetime.UTC)
-        reputation.last_activity = datetime.now(datetime.UTC)
+        reputation.updated_at = datetime.now(timezone.utc)
+        reputation.last_activity = datetime.now(timezone.utc)
 
         # Add to reputation history
         history_entry = {
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event_type": event_type,
             "trust_score_change": new_trust_score - old_trust_score,
             "new_trust_score": new_trust_score,
@@ -364,8 +364,8 @@ class ReputationService:
         elif not success or response_time > 10000:  # Poor performance
             reputation.performance_rating = max(1.0, reputation.performance_rating - 0.1)
 
-        reputation.updated_at = datetime.now(datetime.UTC)
-        reputation.last_activity = datetime.now(datetime.UTC)
+        reputation.updated_at = datetime.now(timezone.utc)
+        reputation.last_activity = datetime.now(timezone.utc)
 
         # Create trust score update event
         impact_data = {
@@ -397,7 +397,7 @@ class ReputationService:
             value_rating=ratings.get("value", 3.0),
             feedback_text=feedback_text,
             feedback_tags=tags or [],
-            created_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
         )
 
         self.session.add(feedback)
@@ -442,7 +442,7 @@ class ReputationService:
 
             if reputation:
                 reputation.community_rating = avg_rating
-                reputation.updated_at = datetime.now(datetime.UTC)
+                reputation.updated_at = datetime.now(timezone.utc)
                 self.session.commit()
 
     async def get_reputation_summary(self, agent_id: str) -> dict[str, Any]:
@@ -458,7 +458,7 @@ class ReputationService:
             select(ReputationEvent)
             .where(
                 and_(
-                    ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(datetime.UTC) - timedelta(days=30)
+                    ReputationEvent.agent_id == agent_id, ReputationEvent.occurred_at >= datetime.now(timezone.utc) - timedelta(days=30)
                 )
             )
             .order_by(ReputationEvent.occurred_at.desc())

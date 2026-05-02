@@ -5,7 +5,7 @@ Intelligent traffic distribution with AI-powered auto-scaling and performance op
 
 import statistics
 from dataclasses import dataclass, field
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -60,10 +60,10 @@ class BackendServer:
     request_count: int = 0
     error_count: int = 0
     health_status: HealthStatus = HealthStatus.HEALTHY
-    last_health_check: datetime = field(default_factory=datetime.now(datetime.UTC))
+    last_health_check: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     capabilities: dict[str, Any] = field(default_factory=dict)
     region: str = "default"
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -117,7 +117,7 @@ class PredictiveScaler:
         self.traffic_history.append(traffic_record)
 
         # Keep only last 30 days of history
-        cutoff = datetime.now(datetime.UTC) - timedelta(days=30)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
         self.traffic_history = [record for record in self.traffic_history if record["timestamp"] > cutoff]
 
         # Update traffic patterns
@@ -170,7 +170,7 @@ class PredictiveScaler:
         """Predict traffic for the next time window"""
 
         try:
-            current_time = datetime.now(datetime.UTC)
+            current_time = datetime.now(timezone.utc)
             current_time + prediction_window
 
             # Get current pattern
@@ -244,7 +244,7 @@ class PredictiveScaler:
                 "predicted_error_rate": 0.01,
                 "confidence_score": 0.1,
                 "pattern_based": False,
-                "prediction_timestamp": datetime.now(datetime.UTC).isoformat(),
+                "prediction_timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         # Calculate recent averages
@@ -261,7 +261,7 @@ class PredictiveScaler:
             "predicted_error_rate": avg_error_rate,
             "confidence_score": 0.3,
             "pattern_based": False,
-            "prediction_timestamp": datetime.now(datetime.UTC).isoformat(),
+            "prediction_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     def _get_seasonal_factor(self, timestamp: datetime) -> float:
@@ -321,7 +321,7 @@ class PredictiveScaler:
                 "current_capacity_per_server": current_capacity_per_server,
                 "confidence_score": prediction["confidence_score"],
                 "reason": f"Predicted {predicted_requests} requests/hour vs current capacity {current_servers * current_capacity_per_server}",
-                "recommendation_timestamp": datetime.now(datetime.UTC).isoformat(),
+                "recommendation_timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -329,7 +329,7 @@ class PredictiveScaler:
             return {
                 "scaling_action": "none",
                 "reason": f"Prediction failed: {str(e)}",
-                "recommendation_timestamp": datetime.now(datetime.UTC).isoformat(),
+                "recommendation_timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
 
@@ -358,7 +358,7 @@ class AdvancedLoadBalancer:
                 "error_rate": 0.0,
                 "throughput": 0.0,
                 "uptime": 1.0,
-                "last_updated": datetime.now(datetime.UTC),
+                "last_updated": datetime.now(timezone.utc),
             }
 
             self.logger.info(f"Backend server added: {server.server_id}")
@@ -603,7 +603,7 @@ class AdvancedLoadBalancer:
         """Record request metrics"""
 
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
 
         # Update backend server metrics
         if server_id in self.backends:
@@ -644,7 +644,7 @@ class AdvancedLoadBalancer:
             server.cpu_usage = cpu_usage
             server.memory_usage = memory_usage
             server.current_connections = current_connections
-            server.last_health_check = datetime.now(datetime.UTC)
+            server.last_health_check = datetime.now(timezone.utc)
 
     async def get_load_balancing_metrics(self) -> dict[str, Any]:
         """Get comprehensive load balancing metrics"""
@@ -691,7 +691,7 @@ class AdvancedLoadBalancer:
                 "algorithm": self.algorithm.value,
                 "backend_distribution": backend_distribution,
                 "scaling_recommendation": scaling_recommendation,
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -725,7 +725,7 @@ class AdvancedLoadBalancer:
                 "target_servers": target_servers,
                 "confidence": recommendation.get("confidence_score", 0.0),
                 "reason": recommendation.get("reason", ""),
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             # In production, implement actual scaling logic here

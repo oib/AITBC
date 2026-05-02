@@ -2,7 +2,7 @@ import asyncio
 import hashlib
 import json
 import re
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, ContextManager, Optional
 
@@ -168,8 +168,10 @@ class PoAProposer:
         head = self._fetch_chain_head()
         if head is None:
             return
-        now = datetime.now(datetime.UTC)
-        elapsed = (now - head.timestamp).total_seconds()
+        now = datetime.now(timezone.utc)
+        # Ensure head.timestamp is timezone-aware
+        head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=timezone.utc)
+        elapsed = (now - head_timestamp).total_seconds()
         sleep_for = max(self._config.interval_seconds - elapsed, 0.1)
         if sleep_for <= 0:
             sleep_for = 0.1
@@ -201,7 +203,9 @@ class PoAProposer:
             elif block_generation_mode == "hybrid":
                 # Hybrid mode: check heartbeat interval
                 if self._last_block_timestamp:
-                    time_since_last_block = (datetime.now(datetime.UTC) - self._last_block_timestamp).total_seconds()
+                    # Ensure last_block_timestamp is timezone-aware
+                    last_timestamp = self._last_block_timestamp if self._last_block_timestamp.tzinfo is not None else self._last_block_timestamp.replace(tzinfo=timezone.utc)
+                    time_since_last_block = (datetime.now(timezone.utc) - last_timestamp).total_seconds()
                     if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
                         self._logger.debug(f"[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain={self._config.chain_id}, mode=hybrid, idle_time={time_since_last_block:.1f}s)")
                         metrics_registry.increment("sync_empty_blocks_skipped_total")
@@ -224,9 +228,11 @@ class PoAProposer:
             if head is not None:
                 next_height = head.height + 1
                 parent_hash = head.hash
-                interval_seconds = (datetime.now(datetime.UTC) - head.timestamp).total_seconds()
+                # Ensure head.timestamp is timezone-aware
+                head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=timezone.utc)
+                interval_seconds = (datetime.now(timezone.utc) - head_timestamp).total_seconds()
 
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
             
             # Pull transactions from mempool
             max_txs = self._config.max_txs_per_block

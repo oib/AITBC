@@ -4,7 +4,7 @@ Database models for OpenClaw DAO, voting, proposals, and governance analytics
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 
@@ -51,7 +51,7 @@ class GovernanceProfile(SQLModel, table=True):
 
     delegate_to: str | None = Field(default=None)  # Profile ID they delegate their vote to
 
-    joined_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    joined_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_voted_at: datetime | None = None
 
 
@@ -81,7 +81,7 @@ class Proposal(SQLModel, table=True):
     snapshot_block: int | None = Field(default=None)
     snapshot_timestamp: datetime | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     voting_starts: datetime
     voting_ends: datetime
     executed_at: datetime | None = None
@@ -102,7 +102,7 @@ class Vote(SQLModel, table=True):
     power_at_snapshot: float = Field(default=0.0)
     delegated_power_at_snapshot: float = Field(default=0.0)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class DaoTreasury(SQLModel, table=True):
@@ -117,7 +117,7 @@ class DaoTreasury(SQLModel, table=True):
 
     asset_breakdown: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class TransparencyReport(SQLModel, table=True):
@@ -138,4 +138,4 @@ class TransparencyReport(SQLModel, table=True):
 
     metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
-    generated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    generated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

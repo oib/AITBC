@@ -6,7 +6,7 @@ Integrates agent orchestration with existing ML ZK proof system and provides dep
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -104,8 +104,8 @@ class AgentDeploymentConfig(SQLModel, table=True):
     last_health_check: datetime | None = Field(default=None)
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentDeploymentInstance(SQLModel, table=True):
@@ -149,8 +149,8 @@ class AgentDeploymentInstance(SQLModel, table=True):
     health_check_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentIntegrationManager:
@@ -380,7 +380,7 @@ class AgentDeploymentManager:
 
             # Update deployment status
             config.status = DeploymentStatus.DEPLOYING
-            config.deployment_time = datetime.now(datetime.UTC)
+            config.deployment_time = datetime.now(timezone.utc)
             self.session.commit()
 
             deployment_result = {
@@ -469,7 +469,7 @@ class AgentDeploymentManager:
             instance.status = DeploymentStatus.DEPLOYED
             instance.health_status = "healthy"
             instance.endpoint_url = f"http://localhost:{instance.port}"
-            instance.last_health_check = datetime.now(datetime.UTC)
+            instance.last_health_check = datetime.now(timezone.utc)
 
             self.session.commit()
 
@@ -554,11 +554,11 @@ class AgentDeploymentManager:
 
             # Update instance health status
             instance.health_status = health_status
-            instance.last_health_check = datetime.now(datetime.UTC)
+            instance.last_health_check = datetime.now(timezone.utc)
 
             # Add to health check history
             health_check_record = {
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": health_status,
                 "response_time": response_time,
             }
@@ -582,7 +582,7 @@ class AgentDeploymentManager:
 
             # Mark as unhealthy
             instance.health_status = "unhealthy"
-            instance.last_health_check = datetime.now(datetime.UTC)
+            instance.last_health_check = datetime.now(timezone.utc)
             instance.consecutive_failures += 1
             self.session.commit()
 

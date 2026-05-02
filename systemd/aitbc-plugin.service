@@ -1,0 +1,15 @@
+[Unit]
+Description=AITBC Plugin Service
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/aitbc/apps/plugin-service
+Environment="PYTHONPATH=/opt/aitbc/apps/plugin-service/src:/opt/aitbc"
+ExecStart=/root/.local/bin/poetry run python -m plugin_service.main
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

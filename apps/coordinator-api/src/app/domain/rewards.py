@@ -3,7 +3,7 @@ Agent Reward System Domain Models
 Implements SQLModel definitions for performance-based rewards, incentives, and distributions
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -71,8 +71,8 @@ class RewardTierConfig(SQLModel, table=True):
     support_level: str = Field(default="basic")
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = Field(default=True)
 
     # Additional configuration
@@ -112,9 +112,9 @@ class AgentRewardProfile(SQLModel, table=True):
     longest_streak: int = Field(default=0)
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    last_activity: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_activity: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Additional metadata
     reward_preferences: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
@@ -148,12 +148,12 @@ class RewardCalculation(SQLModel, table=True):
 
     # Calculation metadata
     calculation_period: str = Field(default="daily")  # daily, weekly, monthly
-    reference_date: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    reference_date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     trust_score_at_calculation: float = Field(ge=0, le=1000)
     performance_metrics: dict[str, Any] = Field(default={}, sa_column=Column(JSON))
 
     # Timestamps
-    calculated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    calculated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
 
     # Additional data
@@ -192,8 +192,8 @@ class RewardDistribution(SQLModel, table=True):
     error_message: str | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     scheduled_at: datetime | None = None
 
     # Additional data
@@ -228,7 +228,7 @@ class RewardEvent(SQLModel, table=True):
     verification_status: str = Field(default="pending")  # pending, verified, rejected
 
     # Timestamps
-    occurred_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    occurred_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     processed_at: datetime | None = None
     expires_at: datetime | None = None
 
@@ -266,8 +266,8 @@ class RewardMilestone(SQLModel, table=True):
     claimed_at: datetime | None = None
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     expires_at: datetime | None = None
 
     # Additional data
@@ -314,8 +314,8 @@ class RewardAnalytics(SQLModel, table=True):
     average_processing_time: float = Field(default=0.0)  # milliseconds
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Additional analytics data
     analytics_data: dict[str, Any] = Field(default={}, sa_column=Column(JSON))

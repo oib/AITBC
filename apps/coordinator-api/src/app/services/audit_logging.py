@@ -8,7 +8,7 @@ import hashlib
 import json
 import os
 from dataclasses import asdict, dataclass
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -95,7 +95,7 @@ class AuditLogger:
         """Log access to confidential data (synchronous for tests)."""
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             event_type="access",
             participant_id=participant_id,
             transaction_id=transaction_id,
@@ -127,7 +127,7 @@ class AuditLogger:
         """Log key management operations (synchronous for tests)."""
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             event_type="key_operation",
             participant_id=participant_id,
             transaction_id=None,
@@ -165,7 +165,7 @@ class AuditLogger:
         """Log access policy changes"""
         event = AuditEvent(
             event_id=self._generate_event_id(),
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             event_type="policy_change",
             participant_id=participant_id,
             transaction_id=None,
@@ -262,7 +262,7 @@ class AuditLogger:
     def verify_integrity(self, start_date: datetime | None = None) -> dict[str, Any]:
         """Verify integrity of audit logs"""
         if start_date is None:
-            start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+            start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
         results = {
             "verified_files": 0,
@@ -316,7 +316,7 @@ class AuditLogger:
                     "start_time": start_time.isoformat(),
                     "end_time": end_time.isoformat(),
                     "event_count": len(events),
-                    "exported_at": datetime.now(datetime.UTC).isoformat(),
+                    "exported_at": datetime.now(timezone.utc).isoformat(),
                     "include_signatures": include_signatures,
                 },
                 "events": [],
@@ -429,7 +429,7 @@ class AuditLogger:
 
     def _rotate_if_needed(self):
         """Rotate log file if needed"""
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         today = now.date()
 
         # Check if we need a new file
@@ -449,7 +449,7 @@ class AuditLogger:
         # Write header with metadata
         if not self.current_file.exists():
             header = {
-                "created_at": datetime.now(datetime.UTC).isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0",
                 "format": "jsonl",
                 "previous_hash": self.chain_hash,
@@ -460,7 +460,7 @@ class AuditLogger:
 
     def _generate_event_id(self) -> str:
         """Generate unique event ID"""
-        return f"evt_{datetime.now(datetime.UTC).timestamp()}_{os.urandom(4).hex()}"
+        return f"evt_{datetime.now(timezone.utc).timestamp()}_{os.urandom(4).hex()}"
 
     def _sign_event(self, event: AuditEvent) -> str:
         """Sign event for tamper-evidence"""

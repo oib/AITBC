@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict
 from uuid import uuid4
 
@@ -20,8 +20,8 @@ class Job(SQLModel, table=True):
     constraints: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     ttl_seconds: int = Field(default=900)
-    requested_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    expires_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     assigned_miner_id: str | None = Field(default=None, index=True)
 

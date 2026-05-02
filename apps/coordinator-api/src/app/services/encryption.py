@@ -5,7 +5,7 @@ Encryption service for confidential transactions
 import base64
 import json
 import os
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from cryptography.hazmat.backends import default_backend
@@ -313,7 +313,7 @@ class EncryptionService:
                 "transaction_id": transaction_id,
                 "participant_id": participant_id,
                 "purpose": purpose,
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "success": success,
                 "error": error,
                 "authorization": authorization,

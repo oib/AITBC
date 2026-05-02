@@ -3,7 +3,7 @@ Enhanced Governance API Router
 REST API endpoints for multi-jurisdictional DAO governance, regional councils, treasury management, and staking
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -433,7 +433,7 @@ async def check_compliance_status(
             "jurisdiction": jurisdiction,
             "is_compliant": True,
             "compliance_level": "full",
-            "last_check": datetime.now(datetime.UTC).isoformat(),
+            "last_check": datetime.now(timezone.utc).isoformat(),
             "requirements_met": {
                 "kyc_verified": True,
                 "aml_screened": True,
@@ -441,7 +441,7 @@ async def check_compliance_status(
                 "minimum_stake_met": True,
             },
             "restrictions": [],
-            "next_review_date": (datetime.now(datetime.UTC) + timedelta(days=365)).isoformat(),
+            "next_review_date": (datetime.now(timezone.utc) + timedelta(days=365)).isoformat(),
         }
 
         return compliance_status
@@ -490,7 +490,7 @@ async def get_governance_system_health(
                 "treasury_balance": analytics["treasury"]["total_allocations"],
                 "staking_pools": analytics["staking"]["active_pools"],
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
         return health_data
@@ -539,7 +539,7 @@ async def get_governance_platform_status(
                 "treasury_utilization": f"{analytics['treasury']['utilization_rate']}%",
                 "staking_apy": f"{analytics['staking']['average_apy']}%",
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
         return status_data

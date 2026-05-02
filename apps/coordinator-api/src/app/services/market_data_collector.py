@@ -7,7 +7,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 
@@ -123,7 +123,7 @@ class MarketDataCollector:
     async def get_recent_data(self, source: DataSource, minutes: int = 60) -> list[MarketDataPoint]:
         """Get recent data from a specific source"""
 
-        cutoff_time = datetime.now(datetime.UTC) - timedelta(minutes=minutes)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=minutes)
 
         return [point for point in self.raw_data if point.source == source and point.timestamp >= cutoff_time]
 
@@ -167,8 +167,8 @@ class MarketDataCollector:
 
             for region in regions:
                 # Simulate GPU metrics
-                utilization = 0.6 + (hash(region + str(datetime.now(datetime.UTC).minute)) % 100) / 200
-                available_gpus = 100 + (hash(region + str(datetime.now(datetime.UTC).hour)) % 50)
+                utilization = 0.6 + (hash(region + str(datetime.now(timezone.utc).minute)) % 100) / 200
+                available_gpus = 100 + (hash(region + str(datetime.now(timezone.utc).hour)) % 50)
                 total_gpus = 150
 
                 supply_level = available_gpus / total_gpus
@@ -179,7 +179,7 @@ class MarketDataCollector:
                     resource_id=f"gpu_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=utilization,
                     metadata={"available_gpus": available_gpus, "total_gpus": total_gpus, "supply_level": supply_level},
                 )
@@ -198,7 +198,7 @@ class MarketDataCollector:
 
             for region in regions:
                 # Simulate recent bookings
-                recent_bookings = hash(region + str(datetime.now(datetime.UTC).minute)) % 20
+                recent_bookings = hash(region + str(datetime.now(timezone.utc).minute)) % 20
                 total_capacity = 100
                 booking_rate = recent_bookings / total_capacity
 
@@ -210,7 +210,7 @@ class MarketDataCollector:
                     resource_id=f"bookings_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=booking_rate,
                     metadata={
                         "recent_bookings": recent_bookings,
@@ -233,7 +233,7 @@ class MarketDataCollector:
 
             for region in regions:
                 # Simulate demand based on time of day and region
-                hour = datetime.now(datetime.UTC).hour
+                hour = datetime.now(timezone.utc).hour
 
                 # Different regions have different peak times
                 if region == "asia":
@@ -260,7 +260,7 @@ class MarketDataCollector:
                     resource_id=f"demand_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=demand_level,
                     metadata={"hour": hour, "peak_hours": peak_hours, "demand_multiplier": demand_multiplier},
                 )
@@ -294,7 +294,7 @@ class MarketDataCollector:
                     resource_id=f"competitors_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=avg_competitor_price,
                     metadata={"competitor_prices": competitor_prices, "price_count": len(competitor_prices)},
                 )
@@ -324,7 +324,7 @@ class MarketDataCollector:
                     resource_id=f"performance_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=performance_score,
                     metadata={
                         "completion_rate": completion_rate,
@@ -360,7 +360,7 @@ class MarketDataCollector:
                     resource_id=f"sentiment_{region}",
                     resource_type="gpu",
                     region=region,
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     value=sentiment,
                     metadata={"recent_activity": recent_activity, "price_trend": price_trend, "volume_change": volume_change},
                 )
@@ -420,7 +420,7 @@ class MarketDataCollector:
 
         try:
             # Get recent data for this resource type and region
-            cutoff_time = datetime.now(datetime.UTC) - timedelta(minutes=30)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(minutes=30)
             relevant_data = [
                 point
                 for point in self.raw_data
@@ -456,7 +456,7 @@ class MarketDataCollector:
             return AggregatedMarketData(
                 resource_type=resource_type,
                 region=region,
-                timestamp=datetime.now(datetime.UTC),
+                timestamp=datetime.now(timezone.utc),
                 demand_level=demand_level,
                 supply_level=supply_level,
                 average_price=average_price,
@@ -595,7 +595,7 @@ class MarketDataCollector:
         source_confidence = min(1.0, len(data_sources) / 4.0)  # 4 sources available
 
         # Data freshness confidence
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         freshness_scores = []
 
         for _source, points in source_data.items():
@@ -621,7 +621,7 @@ class MarketDataCollector:
 
         while True:
             try:
-                cutoff_time = datetime.now(datetime.UTC) - self.max_data_age
+                cutoff_time = datetime.now(timezone.utc) - self.max_data_age
 
                 # Remove old raw data
                 self.raw_data = [point for point in self.raw_data if point.timestamp >= cutoff_time]
@@ -643,7 +643,7 @@ class MarketDataCollector:
             """Handle WebSocket connections"""
             try:
                 # Store connection
-                connection_id = f"{websocket.remote_address}_{datetime.now(datetime.UTC).timestamp()}"
+                connection_id = f"{websocket.remote_address}_{datetime.now(timezone.utc).timestamp()}"
                 self.websocket_connections[connection_id] = websocket
 
                 logger.info(f"WebSocket client connected: {connection_id}")

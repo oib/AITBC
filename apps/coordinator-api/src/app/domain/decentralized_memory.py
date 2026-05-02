@@ -6,7 +6,7 @@ Domain models for managing agent memory and knowledge graphs on IPFS/Filecoin.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 from uuid import uuid4
 
@@ -55,5 +55,5 @@ class AgentMemoryNode(SQLModel, table=True):
     # Blockchain Anchoring
     anchor_tx_hash: str | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

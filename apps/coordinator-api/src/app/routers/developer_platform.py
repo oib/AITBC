@@ -3,7 +3,7 @@ Developer Platform API Router
 REST API endpoints for the developer ecosystem including bounties, certifications, and regional hubs
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -440,7 +440,7 @@ async def verify_certification(certification_id: str, session: Session = Depends
             "issued_by": certification.issued_by,
             "granted_at": certification.granted_at.isoformat(),
             "is_valid": True,
-            "verification_timestamp": datetime.now(datetime.UTC).isoformat(),
+            "verification_timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except HTTPException:
@@ -746,7 +746,7 @@ async def get_platform_overview(
                 "regions_covered": 12,  # Mock data
             },
             "staking": {"total_staked": 1000000.0, "active_stakers": 500, "average_apy": 7.5},  # Mock data
-            "generated_at": datetime.now(datetime.UTC).isoformat(),
+            "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -785,7 +785,7 @@ async def get_platform_health(session: Session = Depends(get_session)) -> dict[s
                 "pending_submissions": 8,  # Mock data
                 "system_uptime": "99.9%",
             },
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:

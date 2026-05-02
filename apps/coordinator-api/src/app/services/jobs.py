@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from sqlmodel import Session, select
 
@@ -16,7 +16,7 @@ class JobService:
 
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         job = Job(
             client_id=client_id,
             payload=req.payload,
@@ -112,7 +112,7 @@ class JobService:
 
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
-            now = datetime.now(datetime.UTC)
+            now = datetime.now(timezone.utc)
             statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())
 
             jobs = self.session.scalars(statement).all()
@@ -146,7 +146,7 @@ class JobService:
             raise  # Propagate for caller to handle
 
     def _ensure_not_expired(self, job: Job) -> Job:
-        if job.state in {JobState.queued, JobState.running} and job.expires_at <= datetime.now(datetime.UTC):
+        if job.state in {JobState.queued, JobState.running} and job.expires_at <= datetime.now(timezone.utc):
             job.state = JobState.expired
             job.error = "job expired"
             self.session.add(job)

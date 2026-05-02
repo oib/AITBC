@@ -3,11 +3,12 @@ Agent Identity API Router
 REST API endpoints for agent identity management and cross-chain operations
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
+from sqlmodel import Session
 
 from ..agent_identity.manager import AgentIdentityManager
 from ..domain.agent_identity import (
@@ -85,7 +86,7 @@ async def deactivate_agent_identity(
         success = await manager.deactivate_agent_identity(agent_id, reason)
         if not success:
             raise HTTPException(status_code=400, detail="Deactivation failed")
-        return {"agent_id": agent_id, "deactivated": True, "reason": reason, "timestamp": datetime.now(datetime.UTC).isoformat()}
+        return {"agent_id": agent_id, "deactivated": True, "reason": reason, "timestamp": datetime.now(timezone.utc).isoformat()}
     except HTTPException:
         raise
     except Exception as e:
@@ -164,7 +165,7 @@ async def update_cross_chain_mapping(
             "chain_id": chain_id,
             "new_address": new_address,
             "updated": True,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except HTTPException:
         raise
@@ -255,7 +256,7 @@ async def get_wallet_balance(agent_id: str, chain_id: int, manager: AgentIdentit
             "agent_id": agent_id,
             "chain_id": chain_id,
             "balance": str(balance),
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail="Failed to create agent identity")
@@ -427,7 +428,7 @@ async def cleanup_expired_verifications(manager: AgentIdentityManager = Depends(
     """Clean up expired verification records"""
     try:
         cleaned_count = await manager.registry.cleanup_expired_verifications()
-        return {"cleaned_verifications": cleaned_count, "timestamp": datetime.now(datetime.UTC).isoformat()}
+        return {"cleaned_verifications": cleaned_count, "timestamp": datetime.now(timezone.utc).isoformat()}
     except Exception as e:
         raise HTTPException(status_code=500, detail="Operation failed")
 

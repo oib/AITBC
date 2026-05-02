@@ -3,7 +3,7 @@ Bounty Management Service
 Business logic for AI agent bounty system with ZK-proof verification
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select
@@ -175,7 +175,7 @@ class BountyService:
             if bounty.status != BountyStatus.ACTIVE:
                 raise ValueError("Bounty is not active")
 
-            if datetime.now(datetime.UTC) > bounty.deadline:
+            if datetime.now(timezone.utc) > bounty.deadline:
                 raise ValueError("Bounty deadline has passed")
 
             if bounty.submission_count >= bounty.max_submissions:
@@ -257,7 +257,7 @@ class BountyService:
 
             # Update submission
             submission.status = SubmissionStatus.VERIFIED if verified else SubmissionStatus.REJECTED
-            submission.verification_time = datetime.now(datetime.UTC)
+            submission.verification_time = datetime.now(timezone.utc)
             submission.verifier_address = verifier_address
 
             # If verified, check if it meets bounty requirements
@@ -297,13 +297,13 @@ class BountyService:
             if submission.status != SubmissionStatus.VERIFIED:
                 raise ValueError("Can only dispute verified submissions")
 
-            if datetime.now(datetime.UTC) - submission.verification_time > timedelta(days=1):
+            if datetime.now(timezone.utc) - submission.verification_time > timedelta(days=1):
                 raise ValueError("Dispute window expired")
 
             # Update submission
             submission.status = SubmissionStatus.DISPUTED
             submission.dispute_reason = dispute_reason
-            submission.dispute_time = datetime.now(datetime.UTC)
+            submission.dispute_time = datetime.now(timezone.utc)
 
             # Update bounty status
             bounty = await self.get_bounty(bounty_id)
@@ -369,13 +369,13 @@ class BountyService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
 
             # Get top performers
             stmt = (
@@ -419,13 +419,13 @@ class BountyService:
         try:
             # Calculate time period
             if period == "daily":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=1)
+                start_date = datetime.now(timezone.utc) - timedelta(days=1)
             elif period == "weekly":
-                start_date = datetime.now(datetime.UTC) - timedelta(weeks=1)
+                start_date = datetime.now(timezone.utc) - timedelta(weeks=1)
             elif period == "monthly":
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
             else:
-                start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+                start_date = datetime.now(timezone.utc) - timedelta(days=30)
 
             # Get statistics
             total_stmt = select(func.count(Bounty.bounty_id)).where(Bounty.creation_time >= start_date)
@@ -484,7 +484,7 @@ class BountyService:
 
             stats = BountyStats(
                 period_start=start_date,
-                period_end=datetime.now(datetime.UTC),
+                period_end=datetime.now(timezone.utc),
                 period_type=period,
                 total_bounties=total_bounties,
                 active_bounties=active_bounties,
@@ -570,7 +570,7 @@ class BountyService:
             if bounty.status != BountyStatus.ACTIVE:
                 raise ValueError("Bounty is not active")
 
-            if datetime.now(datetime.UTC) <= bounty.deadline:
+            if datetime.now(timezone.utc) <= bounty.deadline:
                 raise ValueError("Deadline has not passed")
 
             bounty.status = BountyStatus.EXPIRED
