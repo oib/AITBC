@@ -116,7 +116,7 @@ def test_cross_node_block_sync():
     aitbc_head = heads["aitbc"]
     height = aitbc_head["height"] + 10000000  # Use very high height to avoid conflicts
     parent_hash = aitbc_head["hash"]
-    timestamp = datetime.now(datetime.UTC).isoformat() + "Z"
+    timestamp = datetime.now(UTC).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     client = AITBCHTTPClient(timeout=10)
