@@ -23,7 +23,7 @@
 
 ## 📚 **What’s in this directory?**
 
-This directory contains 50 scenario documents demonstrating how OpenClaw agents use AITBC features in various combinations, organized by progressive complexity:
+This directory contains 51 scenario documents demonstrating how OpenClaw agents use AITBC features in various combinations, organized by progressive complexity:
 
 ### **Beginner Scenarios (Single-Feature Focus) - 20 scenarios**
 Each scenario focuses on one core feature category for learning fundamentals.
@@ -68,7 +68,7 @@ Combine 2-3 features for more complex workflows.
 - [`34_compliance_agent.md`](./34_compliance_agent.md) - Governance + security + analytics
 - [`35_edge_compute_agent.md`](./35_edge_compute_agent.md) - GPU marketplace + island operations + database
 
-### **Advanced Scenarios (4+ Feature Combinations) - 15 scenarios**
+### **Advanced Scenarios (4+ Feature Combinations) - 16 scenarios**
 Complex autonomous workflows combining multiple features.
 
 - [`36_autonomous_compute_provider.md`](./36_autonomous_compute_provider.md) - GPU listing + marketplace + wallet + staking + monitoring + security
@@ -81,6 +81,7 @@ Complex autonomous workflows combining multiple features.
 - [`43_knowledge_graph_market.md`](./43_knowledge_graph_market.md) - IPFS storage + marketplace bidding + agent registration + knowledge graph
 - [`44_dispute_resolution.md`](./44_dispute_resolution.md) - Marketplace bidding + security setup + agent registration + governance
 - [`45_zero_knowledge_proofs.md`](./45_zero_knowledge_proofs.md) - AI job submission + security setup + IPFS storage + monitoring + ZK verification
+- [`46_multi_chain_island_architecture.md`](./46_multi_chain_island_architecture.md) - Multi-chain island setup + gossip sync + Redis Pub/Sub + blockchain node configuration
 
 ---
 
@@ -175,7 +176,7 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ## 📊 **Quality Metrics**
 - **Structure**: 10/10 - Progressive complexity with clear organization
-- **Content**: 10/10 - 50 scenarios covering all 20 feature categories + smart contracts
+- **Content**: 10/10 - 51 scenarios covering all 20 feature categories + smart contracts + infrastructure
 - **Navigation**: 10/10 - Clear cross-references and learning paths
 - **Status**: Active scenario documentation hub
 
@@ -183,4 +184,4 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 *Last updated: 2026-05-02*  
 *Version: 1.0*  
-*Status: Active index for 50 agent scenarios*
+*Status: Active index for 51 agent scenarios*
