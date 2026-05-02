@@ -122,7 +122,7 @@ async def services_summary() -> dict[str, Any]:
     try:
         health_data = await collect_all_health_data()
 
-        summary = {"timestamp": datetime.utcnow().isoformat(), "services": {}}
+        summary = {"timestamp": datetime.now(timezone.utc).isoformat(), "services": {}}
 
         for service_id, service_info in SERVICES.items():
             health = health_data.get(service_id, {})
@@ -138,7 +138,7 @@ async def services_summary() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to generate services summary: {e}")
-        return {"error": "Failed to generate summary", "timestamp": datetime.utcnow().isoformat()}
+        return {"error": "Failed to generate summary", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @app.get("/dashboard/metrics")
@@ -185,7 +185,7 @@ async def system_metrics() -> dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Failed to collect system metrics: {e}")
-        return {"error": "Failed to collect metrics", "timestamp": datetime.utcnow().isoformat()}
+        return {"error": "Failed to collect metrics", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 async def collect_all_health_data() -> dict[str, Any]:
@@ -224,7 +224,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
             return {
                 "status": "healthy",
                 "response_time": 0.1,
-                "last_check": datetime.utcnow().isoformat(),
+                "last_check": datetime.now(timezone.utc).isoformat(),
                 "details": response.json(),
             }
     except Exception as e:
@@ -232,7 +232,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
         return {
             "status": "unhealthy",
             "error": str(e),
-            "last_check": datetime.utcnow().isoformat(),
+            "last_check": datetime.now(timezone.utc).isoformat(),
         }
 
 
