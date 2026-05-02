@@ -35,7 +35,7 @@ def test_block_import():
     print("\n1. Testing valid block import...")
     height = base_height
     parent_hash = head["hash"]
-    timestamp = datetime.now(datetime.UTC).isoformat() + "Z"
+    timestamp = datetime.now(UTC).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     response = requests.post(

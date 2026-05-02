@@ -122,8 +122,8 @@ class MarketplaceUser(HttpUser):
                 "ram": random.choice(["16GB", "32GB", "64GB", "128GB"]),
             },
             "availability": {
-                "start_time": (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat(),
-                "end_time": (datetime.now(datetime.UTC) + timedelta(days=30)).isoformat(),
+                "start_time": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                "end_time": (datetime.now(UTC) + timedelta(days=30)).isoformat(),
             },
         }
         

@@ -23,7 +23,7 @@ class MockDecisionEngine:
             'decision_id': decision_id,
             'status': 'completed',
             'result': decision_data.get('proposal', 'approved'),
-            'timestamp': datetime.now(datetime.UTC).isoformat()
+            'timestamp': datetime.now(UTC).isoformat()
         }
     
     async def submit_vote(self, vote_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -32,7 +32,7 @@ class MockDecisionEngine:
         return {
             'vote_id': vote_id,
             'status': 'recorded',
-            'timestamp': datetime.now(datetime.UTC).isoformat()
+            'timestamp': datetime.now(UTC).isoformat()
         }
 
 class MockConsensusAlgorithm:
@@ -50,7 +50,7 @@ class MockConsensusAlgorithm:
             'consensus_id': consensus_id,
             'status': 'consensus_reached',
             'agreement': True,
-            'timestamp': datetime.now(datetime.UTC).isoformat()
+            'timestamp': datetime.now(UTC).isoformat()
         }
 
 class TestDecisionEngine:
@@ -102,7 +102,7 @@ class TestDecisionEngine:
                 'amounts': {'cpu': 50, 'memory': 2048, 'storage': 100}
             },
             'participants': ['agent_001', 'agent_002', 'agent_003'],
-            'deadline': (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat()
+            'deadline': (datetime.now(UTC) + timedelta(hours=1)).isoformat()
         }
         
         result = await self.decision_engine.make_decision(decision_data)
@@ -157,7 +157,7 @@ class TestConsensusAlgorithm:
                     {'rule': 'priority_based', 'weight': 0.6},
                     {'rule': 'fair_share', 'weight': 0.4}
                 ],
-                'effective_date': datetime.now(datetime.UTC).isoformat()
+                'effective_date': datetime.now(UTC).isoformat()
             }
         }
         
@@ -260,7 +260,7 @@ class TestAgentLifecycleManagement:
             'agent_id': 'agent_001',
             'capabilities': ['decision_making', 'voting'],
             'status': 'active',
-            'join_time': datetime.now(datetime.UTC).isoformat()
+            'join_time': datetime.now(UTC).isoformat()
         }
         
         self.agents[agent_data['agent_id']] = agent_data
@@ -276,12 +276,12 @@ class TestAgentLifecycleManagement:
         self.agents[agent_id] = {
             'agent_id': agent_id,
             'status': 'active',
-            'last_update': datetime.now(datetime.UTC).isoformat()
+            'last_update': datetime.now(UTC).isoformat()
         }
         
         # Update agent status
         self.agents[agent_id]['status'] = 'busy'
-        self.agents[agent_id]['last_update'] = datetime.now(datetime.UTC).isoformat()
+        self.agents[agent_id]['last_update'] = datetime.now(UTC).isoformat()
         
         assert self.agents[agent_id]['status'] == 'busy'
         assert 'last_update' in self.agents[agent_id]
