@@ -393,7 +393,7 @@ class PoAProposer:
             self._logger.info(f"Broadcasting block {block.height} to gossip")
             try:
                 await gossip_broker.publish(
-                    "blocks",
+                    f"blocks.{self._config.chain_id}",
                     {
                         "chain_id": self._config.chain_id,
                         "height": block.height,
