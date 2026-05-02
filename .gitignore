@@ -52,6 +52,8 @@ dev/config/
 dev/test-nodes/*/data/
 # Keep coordinator-api data directory (contains application code)
 !apps/coordinator-api/src/app/data/
+# Keep gpu-service data directory (contains consumer GPU profiles)
+!apps/gpu-service/src/gpu_service/data/
 
 # ===================
 # Runtime Directories (System Standard)
