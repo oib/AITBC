@@ -230,6 +230,7 @@ packages/solidity/aitbc-token/node_modules/
 contracts/artifacts/
 *.dbg.json
 cli/build/
+cli/dist/
 dev/test-nodes/*.log
 
 # Local test fixtures and E2E testing
