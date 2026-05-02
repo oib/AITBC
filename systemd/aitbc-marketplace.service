@@ -7,7 +7,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aitbc/apps/marketplace-service
 Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="PYTHONPATH=/opt/aitbc/apps/marketplace-service/src:/opt/aitbc/packages/py:$PYTHONPATH"
+Environment="PYTHONPATH=/opt/aitbc/apps/marketplace-service/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
 ExecStart=/opt/aitbc/venv/bin/python -m marketplace_service.main
 Restart=always
 RestartSec=10
