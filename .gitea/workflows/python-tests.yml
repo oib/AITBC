@@ -52,7 +52,7 @@ jobs:
             --venv-dir "$PWD/venv" \
             --skip-requirements \
             --mode copy \
-            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn sqlmodel>=0.0.38"
+            --extra-packages "pytest pytest-cov pytest-mock pytest-timeout pytest-asyncio locust pydantic-settings fastapi uvicorn aiohttp>=3.12.14 sqlmodel>=0.0.38"
           echo "✅ Python environment ready"
 
       - name: Run linting
@@ -73,7 +73,7 @@ jobs:
           venv/bin/python -m pip install -e packages/py/aitbc-crypto/
           venv/bin/python -m pip install -e packages/py/aitbc-sdk/
 
-          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
+          export PYTHONPATH="$PWD/apps/agent-coordinator/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
 
           venv/bin/python -m pytest tests/archived_phase_tests/ \
             tests/cross_phase/ \
@@ -85,14 +85,16 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/python-tests/repo
 
-          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
+          export PYTHONPATH="$PWD/apps/agent-coordinator:$PWD/apps/agent-coordinator/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
 
           # Test if packages are importable
           venv/bin/python -c "import aitbc_crypto; print('✅ aitbc_crypto imported')"
           venv/bin/python -c "import aitbc_sdk; print('✅ aitbc_sdk imported')"
+          venv/bin/python -c "import src.app; print('✅ agent-coordinator src.app imported')"
+          venv/bin/python -c "import app; print('✅ agent-coordinator app imported')"
 
           venv/bin/python -m pytest \
-            apps/coordinator-api/tests/ \
+            apps/agent-coordinator/tests/test_communication.py \
             packages/py/aitbc-crypto/tests/ \
             packages/py/aitbc-sdk/tests/ \
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \

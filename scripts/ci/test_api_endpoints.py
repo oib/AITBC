@@ -12,7 +12,7 @@ import sys
 API_HOST = os.environ.get("AITBC_API_HOST", "localhost")
 
 SERVICES = {
-    "coordinator": {"url": f"http://{API_HOST}:8000", "endpoints": ["/", "/health", "/info"]},
+    "agent_coordinator": {"url": f"http://{API_HOST}:9001", "endpoints": ["/", "/health"]},
     "exchange": {"url": f"http://{API_HOST}:8001", "endpoints": ["/", "/api/health", "/health", "/info"]},
     "wallet": {"url": f"http://{API_HOST}:8003", "endpoints": ["/", "/health", "/wallets"]},
     "blockchain_rpc": {"url": f"http://{API_HOST}:8006", "endpoints": ["/health", "/rpc/head", "/rpc/head?chain_id=ait-mainnet", "/rpc/head?chain_id=ait-testnet", "/rpc/mempool"]},
@@ -79,7 +79,7 @@ def main():
 
     print("\n⚡ Performance tests...")
     perf = test_performance([
-        ("Coordinator", f"http://{API_HOST}:8000/health"),
+        ("Agent Coordinator", f"http://{API_HOST}:9001/health"),
         ("Exchange", f"http://{API_HOST}:8001/api/health"),
         ("Wallet", f"http://{API_HOST}:8003/health"),
         ("Blockchain RPC", f"http://{API_HOST}:8006/health"),
