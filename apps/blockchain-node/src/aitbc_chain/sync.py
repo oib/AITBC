@@ -14,6 +14,7 @@ import httpx
 from sqlmodel import Session, select
 
 from .config import settings
+from .metrics import metrics_registry
 from .logger import get_logger
 
 logger = get_logger(__name__)
