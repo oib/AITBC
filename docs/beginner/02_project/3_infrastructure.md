@@ -441,17 +441,42 @@ Config: `/etc/nginx/sites-enabled/aitbc`
 
 ```
 /opt/aitbc/apps/coordinator-api/          # Coordinator application
-├── src/coordinator.db         # Main database
+├── src/coordinator.db         # Main database (SQLite - legacy)
 └── .venv/                     # Python environment
 
 /opt/aitbc/apps/blockchain-node/          # Blockchain Node 1
-├── data/chain.db              # Chain database
+├── data/chain.db              # Chain database (SQLite - legacy)
 └── .venv/                     # Python environment
 
 /opt/aitbc/apps/exchange/                 # Exchange API
 ├── data/                      # Exchange data
 └── .venv/                     # Python environment
 ```
+
+### Database Architecture (Updated May 2, 2026)
+
+**Mixed Database Infrastructure:**
+
+**PostgreSQL Databases:**
+- **aitbc_coordinator** - Coordinator API relational data
+- **aitbc_exchange** - Exchange API trading data
+- **aitbc_marketplace** - Marketplace service listings and bids
+- **aitbc_wallet** - Wallet service account data
+
+**SQLite Databases:**
+- **Blockchain Node** - Chain-specific databases for each blockchain network
+  - `/var/lib/aitbc/data/ait-mainnet/chain.db` - Mainnet blockchain data
+  - `/var/lib/aitbc/data/ait-testnet/chain.db` - Testnet blockchain data
+  - Chain-specific databases allow for multi-chain support with isolated data
+
+**Database Connection Details:**
+- PostgreSQL: Host `localhost:5432`, user `aitbc_user` (coordinator, exchange, wallet), user `aitbc_marketplace` (marketplace)
+- SQLite: File-based databases in `/var/lib/aitbc/data/{chain_id}/chain.db`
+- Migration: Blockchain node migrated from single chain.db to chain-specific databases (May 2, 2026)
+
+**Rationale for Mixed Architecture:**
+- **SQLite for Blockchain**: Lightweight, portable, suitable for chain data that doesn't require complex relational queries
+- **PostgreSQL for Applications**: Robust relational features, ACID compliance, better suited for application services with complex data relationships
 
 ### Configuration (container)
 - Node 1: `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py`
