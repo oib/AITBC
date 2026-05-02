@@ -87,7 +87,7 @@ jobs:
         run: |
           echo "Waiting for services..."
           services_available=true
-          for port in 8000 8001 8003 8006 9001; do
+          for port in 9001 8001 8003 8006; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://localhost:$port/health" 2>/dev/null) || code=0
@@ -142,7 +142,7 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           source venv/bin/activate
-          export PYTHONPATH="apps/coordinator-api/src:apps/wallet/src:apps/exchange/src:$PYTHONPATH"
+          export PYTHONPATH="apps/agent-coordinator/src:apps/wallet/src:apps/exchange/src:$PYTHONPATH"
 
           # Skip if services not available
           if [ "${{ steps.wait-services.outputs.services_available }}" != "true" ]; then
