@@ -94,7 +94,7 @@ def generate_agent_metrics(tier: str = "GOLD") -> Dict[str, Any]:
         "total_staked": 0.0,
         "staker_count": 0,
         "total_rewards_distributed": 0.0,
-        "last_update_time": datetime.now(datetime.UTC).isoformat()
+        "last_update_time": datetime.now(UTC).isoformat()
     }
 
 
@@ -128,7 +128,7 @@ def generate_stake_data(
     lock_period_days = LOCK_PERIOD_MULTIPLIERS[lock_period_category]["days"]
     expected_apy = calculate_expected_apy(tier, lock_period_days)
     
-    start_time = datetime.now(datetime.UTC)
+    start_time = datetime.now(UTC)
     end_time = start_time + timedelta(days=lock_period_days)
     
     return {
@@ -158,7 +158,7 @@ def generate_staking_pool(agent_wallet: str, total_staked: float) -> Dict[str, A
         "pool_apy": 5.0,
         "staker_count": 0,
         "active_stakers": [],
-        "last_distribution_time": datetime.now(datetime.UTC).isoformat(),
+        "last_distribution_time": datetime.now(UTC).isoformat(),
         "distribution_frequency": 1
     }
 
@@ -167,7 +167,7 @@ def generate_test_scenario(num_agents: int = 5, num_stakes_per_agent: int = 3) -
     """Generate a complete test scenario with multiple agents and stakes"""
     scenario = {
         "scenario_id": f"scenario_{random.randint(1000, 9999)}",
-        "generated_at": datetime.now(datetime.UTC).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "agents": [],
         "stakes": [],
         "pools": []
@@ -310,7 +310,7 @@ def generate_unbonding_scenarios() -> List[Dict[str, Any]]:
         generate_staker_address(),
         lock_period_category="medium"
     )
-    stake["end_time"] = (datetime.now(datetime.UTC) - timedelta(days=1)).isoformat()
+    stake["end_time"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     scenarios.append({
         "name": "Unbond After Lock Period",
         "description": "Test unbonding after lock period ends (should succeed)",
@@ -326,9 +326,9 @@ def generate_unbonding_scenarios() -> List[Dict[str, Any]]:
         generate_staker_address(),
         lock_period_category="medium"
     )
-    stake["end_time"] = (datetime.now(datetime.UTC) - timedelta(days=1)).isoformat()
+    stake["end_time"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     stake["status"] = "UNBONDING"
-    stake["unbonding_time"] = (datetime.now(datetime.UTC) - timedelta(days=10)).isoformat()
+    stake["unbonding_time"] = (datetime.now(UTC) - timedelta(days=10)).isoformat()
     scenarios.append({
         "name": "Complete Unbonding With Penalty",
         "description": "Test completing unbonding within 30 days (10% penalty)",
@@ -344,9 +344,9 @@ def generate_unbonding_scenarios() -> List[Dict[str, Any]]:
         generate_staker_address(),
         lock_period_category="medium"
     )
-    stake["end_time"] = (datetime.now(datetime.UTC) - timedelta(days=1)).isoformat()
+    stake["end_time"] = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     stake["status"] = "UNBONDING"
-    stake["unbonding_time"] = (datetime.now(datetime.UTC) - timedelta(days=35)).isoformat()
+    stake["unbonding_time"] = (datetime.now(UTC) - timedelta(days=35)).isoformat()
     scenarios.append({
         "name": "Complete Unbonding No Penalty",
         "description": "Test completing unbonding after 30 days (no penalty)",
