@@ -655,6 +655,45 @@ operational.
   - **Workflow Creation**: Established `/organize-project-files` workflow for
     future maintenance
 
+## Recent Updates (2026-05-02)
+
+### Python 3.13 Compatibility Fixes & Database Migration
+
+- ✅ **datetime.UTC to timezone.utc Migration** - Fixed Python 3.13 compatibility across all services
+  - **Blockchain Node**: Fixed `datetime.UTC` in poa.py, logger.py, models.py with lambda wrappers
+  - **Coordinator API**: Bulk fix across domain, routers, services directories
+  - **Agent Coordinator**: Bulk fix across entire directory
+  - **Database Model Fixes**: Changed `default_factory=datetime.now(timezone.utc)` to `default_factory=lambda: datetime.now(timezone.utc)`
+  - **Datetime Subtraction Fix**: Added timezone awareness checks for offset-naive vs offset-aware datetime operations
+  - **Committed**: Multiple commits (90b190c7, a864dfbe, 5fa5d3b9, e49f9a63, eff9857b)
+  - **Services Restarted**: All services running successfully on both aitbc and aitbc1
+
+- ✅ **Marketplace Service Configuration** - Fixed service startup and database credentials
+  - **PYTHONPATH Fix**: Added `/opt/aitbc/apps/marketplace-service/src` and `/opt/aitbc/packages/py/aitbc-core/src`
+  - **Database Setup**: Created PostgreSQL user `aitbc_marketplace` and database
+  - **Credentials Update**: Changed hardcoded password to proper database credentials
+  - **Service Status**: Running successfully on http://0.0.0.0:8102
+
+- ✅ **Systemd Service Symlinking** - Applied link-systemd.sh on aitbc1
+  - **27 Services Symlinked**: All systemd files now use symlinks to /opt/aitbc/systemd/
+  - **New Services**: ai-service, api-gateway, governance, gpu, monitoring, plugin, trading
+  - **Daemon Reload**: Systemd daemon reloaded successfully
+  - **Consistency**: Active systemd files always match repository
+
+- ✅ **Blockchain Database Migration** - Migrated from single chain.db to chain-specific databases
+  - **Old Database**: `/var/lib/aitbc/data/chain.db` (3565 blocks for ait-mainnet)
+  - **New Structure**: Chain-specific databases in `/var/lib/aitbc/data/{chain_id}/chain.db`
+  - **Migration**: Copied old chain.db to `/var/lib/aitbc/data/ait-mainnet/chain.db`
+  - **Cross-Chain Fix**: Removed ait-mainnet blocks from ait-testnet database
+  - **Conflict Resolution**: Deleted conflicting blocks from height 3475 onwards in ait-testnet
+  - **RPC Endpoint**: `/rpc/head?chain_id=ait-mainnet` now returns data successfully
+
+- ✅ **Mixed Database Architecture Documentation** - Documented PostgreSQL + SQLite infrastructure
+  - **PostgreSQL**: coordinator-api, exchange-api, marketplace-service, wallet-service
+  - **SQLite**: Blockchain node with chain-specific databases (ait-mainnet, ait-testnet)
+  - **Rationale**: SQLite for blockchain (portable, simple), PostgreSQL for applications (ACID, relational)
+  - **Documentation Updated**: `docs/beginner/02_project/3_infrastructure.md` with database architecture section
+
 ## Recent Updates (2026-02-12)
 
 ### Persistent GPU Marketplace ✅
