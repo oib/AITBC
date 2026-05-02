@@ -6,6 +6,7 @@ import sys
 import pytest
 from datetime import datetime, UTC
 from contextlib import contextmanager
+from unittest.mock import AsyncMock, Mock
 
 from sqlmodel import Session, SQLModel, create_engine, select
 
@@ -203,6 +204,65 @@ class TestChainSyncAppend:
         })
         assert result.accepted is False
         assert "Gap" in result.reason
+
+
+class TestChainSyncBulkImport:
+
+    @pytest.mark.asyncio
+    async def test_bulk_import_stops_on_first_failed_block(self):
+        local_head = Mock(height=349)
+        session_result = Mock(first=Mock(return_value=local_head))
+        session = Mock(exec=Mock(return_value=session_result))
+
+        @contextmanager
+        def session_factory():
+            yield session
+
+        sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
+        sync._calculate_dynamic_batch_size = lambda gap: 2
+        sync._get_adaptive_bulk_sync_interval = lambda gap: 0
+        sync._get_adaptive_poll_interval = lambda gap: 0
+
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"height": 353}
+
+        sync._client.get = AsyncMock(return_value=FakeResponse())
+
+        fetch_calls = []
+
+        async def fake_fetch_blocks_range(start, end, source_url):
+            fetch_calls.append((start, end, source_url))
+            if start == 350:
+                return [
+                    {"height": 350, "hash": "0x350", "parent_hash": "0x349"},
+                    {"height": 351, "hash": "0x351", "parent_hash": "0x350"},
+                ]
+            raise AssertionError(f"unexpected fetch for range {start}-{end}")
+
+        sync.fetch_blocks_range = fake_fetch_blocks_range
+
+        import_calls = []
+
+        def fake_import_block(block_data):
+            import_calls.append(block_data["height"])
+            return ImportResult(
+                accepted=False,
+                height=block_data["height"],
+                block_hash=block_data["hash"],
+                reason="Gap detected (our height: 349, received: 350)",
+            )
+
+        sync.import_block = fake_import_block
+
+        imported = await sync.bulk_import_from("http://peer.example")
+
+        assert imported == 0
+        assert fetch_calls == [(350, 351, "http://peer.example")]
+        assert import_calls == [350]
 
     def test_append_with_transactions(self, session_factory):
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
