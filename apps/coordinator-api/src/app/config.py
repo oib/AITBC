@@ -130,7 +130,7 @@ class Settings(BaseSettings):
 
     # CORS
     allow_origins: list[str] = [
-        "http://localhost:8000",  # Coordinator API
+        "http://localhost:8011",  # Coordinator API
         "http://localhost:8001",  # Exchange API
         "http://localhost:8002",  # Blockchain Node
         "http://localhost:8003",  # Blockchain RPC

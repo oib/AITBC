@@ -62,7 +62,7 @@ SERVICES = {
         "prefix": "/plugin",
     },
     "coordinator": {
-        "base_url": "http://localhost:8000",
+        "base_url": "http://localhost:8011",
         "prefix": "/coordinator",
     },
 }

@@ -67,7 +67,7 @@ genesis_block_initialization() {
     if ssh aitbc1 "curl -s http://localhost:8006/rpc/info" > /dev/null 2>&1; then
         print_success "Follower Node RPC also accessible on port 8006"
     else
-        print_warning "Follower Node RPC not accessible on port 8006 (may only be on 8007)"
+        print_warning "Follower Node RPC not accessible on port 8006 (check follower node health)"
     fi
     
     print_status "Funding training wallet from genesis block initial coins..."

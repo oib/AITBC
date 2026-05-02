@@ -36,7 +36,7 @@ chains_data = {
             "chain_id": "ait-mainnet",
             "name": "AITBC Mainnet",
             "status": "active",
-            "coordinator_url": "http://localhost:8000",
+            "coordinator_url": "http://localhost:8011",
             "blockchain_url": BLOCKCHAIN_RPC_URL,
             "created_at": "2026-01-01T00:00:00Z",
             "updated_at": datetime.now().isoformat(),

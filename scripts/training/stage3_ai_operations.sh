@@ -15,6 +15,7 @@ WALLET_NAME="openclaw-trainee"
 WALLET_PASSWORD="trainee123"
 TEST_PROMPT="Analyze the performance of AITBC blockchain system"
 TEST_PAYMENT=100
+AGENT_COORDINATOR_URL="${AGENT_COORDINATOR_URL:-http://localhost:9001}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -43,6 +44,37 @@ print_error() {
 
 print_warning() {
     echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+submit_ai_task() {
+    local task_id="$1"
+    local prompt="$2"
+    local model="${3:-llama2}"
+    local task_payload
+
+    task_payload=$(jq -n \
+        --arg task_id "$task_id" \
+        --arg prompt "$prompt" \
+        --arg model "$model" \
+        '{
+            task_data: {
+                task_id: $task_id,
+                task_type: "inference",
+                data: {
+                    model: $model,
+                    prompt: $prompt
+                },
+                required_capabilities: ["ai_inference"]
+            },
+            priority: "high",
+            requirements: {
+                model: $model
+            }
+        }')
+
+    curl -s -X POST "${AGENT_COORDINATOR_URL}/tasks/submit" \
+        -H "Content-Type: application/json" \
+        -d "$task_payload"
 }
 
 # Check prerequisites
@@ -77,40 +109,37 @@ check_prerequisites() {
 ai_job_submission() {
     print_status "3.1 AI Job Submission"
     
-    print_status "Submitting AI job..."
-    # Use coordinator API directly for job submission
-    JOB_ID=$(curl -s -X POST http://localhost:8000/v1/jobs \
-        -H "Content-Type: application/json" \
-        -H "X-Api-Key: test-key" \
-        -d "{\"payload\":{\"type\":\"inference\",\"prompt\":\"$TEST_PROMPT\"},\"ttl_seconds\":900}" \
-        | jq -r '.job_id' 2>/dev/null || echo "")
-    
-    if [ -n "$JOB_ID" ]; then
-        print_success "AI job submitted with ID: $JOB_ID"
-        log "AI job submitted: $JOB_ID"
+    print_status "Submitting AI task..."
+    TASK_ID="ai_training_$(date +%s)"
+    TASK_RESPONSE=$(submit_ai_task "$TASK_ID" "$TEST_PROMPT")
+    SUBMITTED_TASK_ID=$(echo "$TASK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")
+
+    if [ -n "$SUBMITTED_TASK_ID" ]; then
+        print_success "AI task submitted with ID: $SUBMITTED_TASK_ID"
+        log "AI task submitted: $SUBMITTED_TASK_ID"
     else
-        print_warning "AI job submission may have failed"
-        JOB_ID="job_test_$(date +%s)"
+        print_warning "AI task submission may have failed"
+        SUBMITTED_TASK_ID="task_test_$(date +%s)"
     fi
     
-    print_status "Checking job status..."
-    curl -s http://localhost:8000/v1/jobs/$JOB_ID 2>/dev/null || print_warning "Job status command not available"
-    log "Job status checked for $JOB_ID"
+    print_status "Checking task status..."
+    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task status command not available"
+    log "Task status checked for $SUBMITTED_TASK_ID"
     
-    print_status "Monitoring job processing..."
+    print_status "Monitoring task processing..."
     for i in {1..5}; do
-        print_status "Check $i/5 - Job status..."
-        curl -s http://localhost:8000/v1/jobs/$JOB_ID 2>/dev/null || print_warning "Job status check failed"
+        print_status "Check $i/5 - Task status..."
+        curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task status check failed"
         sleep 2
     done
     
-    print_status "Getting job results..."
-    curl -s http://localhost:8000/v1/jobs/$JOB_ID/result 2>/dev/null || print_warning "Job result command not available"
-    log "Job results retrieved for $JOB_ID"
+    print_status "Getting task status summary..."
+    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task summary command not available"
+    log "Task summary retrieved for $SUBMITTED_TASK_ID"
     
-    print_status "Listing all jobs..."
-    curl -s http://localhost:8000/v1/jobs 2>/dev/null || print_warning "Job list command not available"
-    log "All jobs listed"
+    print_status "Listing task submissions..."
+    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null || print_warning "Task list command not available"
+    log "Task list checked"
     
     print_success "3.1 AI Job Submission completed"
 }
@@ -188,21 +217,36 @@ ai_service_integration() {
     $CLI_PATH ai service list 2>/dev/null || print_warning "AI service list command not available"
     log "AI services listed"
     
-    print_status "Checking coordinator API service..."
-    $CLI_PATH ai service status --name coordinator 2>/dev/null || print_warning "Coordinator service status command not available"
-    log "Coordinator service status checked"
+    print_status "Checking Agent Coordinator service health..."
+    coordinator_health=$(curl -s "${AGENT_COORDINATOR_URL}/health" 2>/dev/null)
+    if [ -n "$coordinator_health" ]; then
+        coordinator_service=$(echo "$coordinator_health" | jq -r '.service // empty' 2>/dev/null || echo "")
+        if [ "$coordinator_service" = "agent-coordinator" ]; then
+            print_success "Agent Coordinator service is running"
+            log "Agent Coordinator service: RUNNING"
+        else
+            print_warning "Agent Coordinator service returned unexpected response"
+            log "Agent Coordinator service: UNEXPECTED RESPONSE"
+        fi
+    else
+        print_error "Agent Coordinator service is not accessible"
+        log "Agent Coordinator service: NOT ACCESSIBLE"
+        return 1
+    fi
     
-    print_status "Testing AI service endpoints..."
-    $CLI_PATH ai service test --name coordinator 2>/dev/null || print_warning "AI service test command not available"
-    log "AI service test completed"
+    print_status "Testing Agent Coordinator task endpoint..."
+    if curl -s "${AGENT_COORDINATOR_URL}/tasks/status" > /dev/null 2>&1; then
+        print_success "Agent Coordinator task endpoint is accessible"
+        log "Agent Coordinator task endpoint tested"
+    else
+        print_error "Agent Coordinator task endpoint is not accessible"
+        log "Agent Coordinator task endpoint: NOT ACCESSIBLE"
+        return 1
+    fi
     
-    print_status "Testing AI API endpoints..."
-    curl -s http://localhost:8000/health 2>/dev/null > /dev/null || print_warning "API test command not available"
-    log "AI API endpoint tested"
-    
-    print_status "Monitoring AI API status..."
-    $CLI_PATH ai status --job-id test 2>/dev/null || print_warning "API monitor command not available"
-    log "AI API status monitored"
+    print_status "Monitoring Agent Coordinator task status..."
+    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null > /dev/null || print_warning "Agent Coordinator task status unavailable"
+    log "Agent Coordinator task status monitored"
     
     print_success "3.4 AI Service Integration completed"
 }
@@ -210,66 +254,72 @@ ai_service_integration() {
 # Node-specific AI operations
 node_specific_ai() {
     print_status "Node-Specific AI Operations"
-    
+
     print_status "Testing AI operations on Genesis Node (port 8006)..."
-    curl -s -X POST http://localhost:8000/v1/jobs \
-        -H "Content-Type: application/json" \
-        -H "X-Api-Key: test-key" \
-        -d "{\"payload\":{\"type\":\"inference\",\"prompt\":\"Genesis node test\"},\"ttl_seconds\":900}" \
-        2>/dev/null || print_warning "Genesis node AI job submission failed"
+    GENESIS_TASK_RESPONSE=$(submit_ai_task "genesis-node-$(date +%s)" "Genesis node test")
+    if [ -n "$(echo "$GENESIS_TASK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")" ]; then
+        print_success "Genesis node AI task submission succeeded"
+        GENESIS_STATUS="available"
+    else
+        print_warning "Genesis node AI task submission failed"
+        GENESIS_STATUS="unavailable"
+    fi
     log "Genesis node AI operations tested"
-    
+
     print_status "Testing AI operations on Follower Node (port 8006 on aitbc1)..."
-    curl -s -X POST http://localhost:8000/v1/jobs \
-        -H "Content-Type: application/json" \
-        -H "X-Api-Key: test-key" \
-        -d "{\"payload\":{\"type\":\"inference\",\"prompt\":\"Follower node test\"},\"ttl_seconds\":900}" \
-        2>/dev/null || print_warning "Follower node AI job submission failed"
+    FOLLOWER_TASK_RESPONSE=$(submit_ai_task "follower-node-$(date +%s)" "Follower node test")
+    if [ -n "$(echo "$FOLLOWER_TASK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")" ]; then
+        print_success "Follower node AI task submission succeeded"
+        FOLLOWER_STATUS="available"
+    else
+        print_warning "Follower node AI task submission failed"
+        FOLLOWER_STATUS="unavailable"
+    fi
     log "Follower node AI operations tested"
-    
+
     print_status "Comparing AI service availability between nodes..."
-    GENESIS_STATUS="unavailable"
-    FOLLOWER_STATUS="unavailable"
-    
     print_status "Genesis AI services: $GENESIS_STATUS"
     print_status "Follower AI services: $FOLLOWER_STATUS"
     log "Node AI services comparison: Genesis=$GENESIS_STATUS, Follower=$FOLLOWER_STATUS"
-    
+
     print_success "Node-specific AI operations completed"
 }
 
 # Performance benchmarking
 performance_benchmarking() {
     print_status "AI Performance Benchmarking"
-    
-    print_status "Running AI job performance benchmark..."
-    
-    # Test job submission speed
+
+    print_status "Running AI task performance benchmark..."
+
+    # Test task submission speed
     START_TIME=$(date +%s.%N)
-    curl -s -X POST http://localhost:8000/v1/jobs \
-        -H "Content-Type: application/json" \
-        -H "X-Api-Key: test-key" \
-        -d "{\"payload\":{\"type\":\"inference\",\"prompt\":\"Performance test\"},\"ttl_seconds\":900}" \
-        > /dev/null 2>&1
+    BENCHMARK_RESPONSE=$(submit_ai_task "benchmark-$(date +%s)" "Performance test")
     END_TIME=$(date +%s.%N)
     if command -v bc > /dev/null 2>&1; then
         SUBMISSION_TIME=$(echo "$END_TIME - $START_TIME" | bc -l)
     else
         SUBMISSION_TIME="2.0"
     fi
-    
-    print_status "AI job submission time: ${SUBMISSION_TIME}s"
-    log "Performance benchmark: AI job submission ${SUBMISSION_TIME}s"
-    
+
+    if [ -n "$(echo "$BENCHMARK_RESPONSE" | jq -r '.task_id // empty' 2>/dev/null || echo "")" ]; then
+        print_status "AI task submission completed successfully"
+        log "Benchmark task submitted successfully"
+    else
+        print_warning "AI task benchmark submission did not return a task ID"
+    fi
+
+    print_status "AI task submission time: ${SUBMISSION_TIME}s"
+    log "Performance benchmark: AI task submission ${SUBMISSION_TIME}s"
+
     # Test resource status check speed
     START_TIME=$(date +%s.%N)
     print_warning "Resource status command not available - skipping benchmark"
     END_TIME=$(date +%s.%N)
     RESOURCE_TIME="0.0"
-    
+
     print_status "Resource status check time: ${RESOURCE_TIME}s (skipped)"
     log "Performance benchmark: Resource status ${RESOURCE_TIME}s (skipped)"
-    
+
     # Test Ollama response time
     if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
         START_TIME=$(date +%s.%N)

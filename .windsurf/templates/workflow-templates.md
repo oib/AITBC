@@ -1,5 +1,7 @@
 # OpenClaw AITBC Workflow Templates
 
+> **Canonical validation**: For end-to-end node coverage, use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) and `scripts/workflow/44_comprehensive_multi_node_scenario.sh`.
+
 ## Multi-Node Health Check Workflow
 ```yaml
 name: multi-node-health-check

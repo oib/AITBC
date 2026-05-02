@@ -29,7 +29,7 @@ async def basic_identity_example():
     
     # Initialize the client
     async with AgentIdentityClient(
-        base_url="http://localhost:8000/v1",
+        base_url="http://localhost:8011/v1",
         api_key="demo_api_key"
     ) as client:
         
@@ -176,7 +176,7 @@ async def advanced_transaction_example():
     print("=" * 60)
     
     async with AgentIdentityClient(
-        base_url="http://localhost:8000/v1",
+        base_url="http://localhost:8011/v1",
         api_key="demo_api_key"
     ) as client:
         
@@ -261,7 +261,7 @@ async def search_and_discovery_example():
     print("=" * 65)
     
     async with AgentIdentityClient(
-        base_url="http://localhost:8000/v1",
+        base_url="http://localhost:8011/v1",
         api_key="demo_api_key"
     ) as client:
         
@@ -347,7 +347,7 @@ async def main():
     print("including identity management, cross-chain operations, and search functionality.")
     print()
     print("Note: This example requires a running Agent Identity API server.")
-    print("Make sure the API is running at http://localhost:8000/v1")
+    print("Make sure the API is running at http://localhost:8011/v1")
     print()
     
     try:

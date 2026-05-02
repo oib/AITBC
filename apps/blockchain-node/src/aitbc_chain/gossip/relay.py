@@ -73,7 +73,7 @@ def create_app() -> Starlette:
         Middleware(
             CORSMiddleware, 
             allow_origins=[
-                "http://localhost:8000",  # Coordinator API
+                "http://localhost:8011",  # Coordinator API
                 "http://localhost:8001",  # Exchange API
                 "http://localhost:8002",  # Blockchain Node
                 "http://localhost:8003",  # Blockchain RPC

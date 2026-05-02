@@ -24,7 +24,8 @@ export FOLLOWER_NODE="http://aitbc1:8006"
 
 # Service endpoints
 export SERVICES=(
-    "8000:Coordinator"
+    "8001:Exchange"
+    "9001:Agent-Coordinator"
     "8006:Genesis-Node"
     "8006:Follower-Node"
     "11434:Ollama"

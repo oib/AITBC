@@ -247,6 +247,8 @@ python3 /opt/aitbc/plugins/ollama/client_plugin.py --model llama2 --prompt "Gene
 
 ## OpenClaw Agent Coordination
 
+> **Canonical validation**: Use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) and `scripts/workflow/44_comprehensive_multi_node_scenario.sh` for the current 3-node test path.
+
 ### OpenClaw AI Agent Setup
 ```bash
 # Initialize OpenClaw AI agent

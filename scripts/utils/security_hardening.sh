@@ -118,7 +118,7 @@ configure_firewall() {
         ufw allow 443/tcp
         
         # Allow internal services (restricted to localhost)
-        ufw allow from 127.0.0.1 to any port 8000
+        ufw allow from 127.0.0.1 to any port 8011
         ufw allow from 127.0.0.1 to any port 8082
         
         # Enable firewall

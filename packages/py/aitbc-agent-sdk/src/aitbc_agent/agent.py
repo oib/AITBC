@@ -98,7 +98,7 @@ class Agent:
         self.registered = False
         self.reputation_score = 0.0
         self.earnings = 0.0
-        self.coordinator_url = coordinator_url or "http://localhost:8001"
+        self.coordinator_url = coordinator_url or "http://localhost:9001"
         self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
     @classmethod
