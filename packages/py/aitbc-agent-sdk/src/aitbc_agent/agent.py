@@ -154,7 +154,7 @@ class Agent:
                     "max_concurrent_jobs": self.capabilities.max_concurrent_jobs,
                     "specialization": self.capabilities.specialization,
                 },
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
             }
 
             # Sign registration data
@@ -274,7 +274,7 @@ class Agent:
             "to": recipient_id,
             "type": message_type,
             "payload": payload,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(datetime.timezone.utc).isoformat(),
         }
 
         # Sign message

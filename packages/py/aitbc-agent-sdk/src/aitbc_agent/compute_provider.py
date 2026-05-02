@@ -233,7 +233,7 @@ class ComputeProvider(Agent):
             job = JobExecution(
                 job_id=job_request["job_id"],
                 consumer_id=job_request["consumer_id"],
-                start_time=datetime.now(datetime.UTC),
+                start_time=datetime.now(datetime.timezone.utc),
                 expected_duration=timedelta(hours=job_request["estimated_hours"]),
             )
 
@@ -286,7 +286,7 @@ class ComputeProvider(Agent):
         notification = {
             "job_id": job.job_id,
             "status": job.status,
-            "completion_time": datetime.now(datetime.UTC).isoformat(),
+            "completion_time": datetime.now(datetime.timezone.utc).isoformat(),
             "duration_hours": (
                 job.actual_duration.total_seconds() / 3600
                 if job.actual_duration
