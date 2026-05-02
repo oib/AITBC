@@ -368,6 +368,7 @@ class ChainSync:
                 parent_exists = session.exec(
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
+                print(f"[IMPORT DEBUG] height={height}, our_height={our_height}, parent_hash={parent_hash}, parent_exists={parent_exists is not None}")
                 if parent_exists or (height == 0 and parent_hash == "0x00"):
                     result = self._append_block(session, block_data, transactions)
                     duration = time.perf_counter() - start
