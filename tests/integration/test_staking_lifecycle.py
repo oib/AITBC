@@ -76,6 +76,7 @@ def agent_metrics(db_session, agent_wallet):
     return metrics
 
 
+@pytest.mark.asyncio
 class TestStakingLifecycle:
     """Test 3.1.1: Complete staking lifecycle integration test"""
 

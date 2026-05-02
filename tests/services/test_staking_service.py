@@ -79,6 +79,7 @@ def staking_pool(db_session, agent_metrics):
     return pool
 
 
+@pytest.mark.asyncio
 class TestStakingService:
     """Test 2.1.1: Create stake via service"""
 
