@@ -196,10 +196,10 @@ ssh gitea-runner 'journalctl -u aitbc-blockchain-node --no-pager | grep "Receive
 
 ## 🧪 **Validation
 
-Validate this scenario with the shared 3-node harness:
+Validate this scenario with the dedicated multi-chain island test script:
 
 ```bash
-bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
+bash scripts/workflow/46_multi_chain_island_test.sh
 ```
 
 **Node coverage**:
