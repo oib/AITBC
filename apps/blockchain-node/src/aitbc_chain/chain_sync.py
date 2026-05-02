@@ -158,10 +158,11 @@ class ChainSyncService:
             return
             
         pubsub = self._redis.pubsub()
-        await pubsub.subscribe("blocks")
+        channel = f"blocks.{self.chain_id}" if self.chain_id else "blocks"
+        await pubsub.subscribe(channel)
         self._receiver_ready.set()
         
-        logger.info("Subscribed to block broadcasts")
+        logger.info(f"Subscribed to block broadcasts on channel: {channel}")
         
         async for message in pubsub.listen():
             if self._stop_event.is_set():
@@ -257,6 +258,7 @@ async def run_chain_sync(
     source_port: int = None,
     import_host: str = "127.0.0.1",
     import_port: int = None,
+    chain_id: str = "",
 ):
     """Run chain synchronization service"""
     service = ChainSyncService(
@@ -268,6 +270,7 @@ async def run_chain_sync(
         source_port=source_port,
         import_host=import_host,
         import_port=import_port,
+        chain_id=chain_id,
     )
     await service.start()
 
@@ -283,6 +286,7 @@ def main():
     parser.add_argument("--source-port", type=int, help="Port to poll for head/blocks")
     parser.add_argument("--import-host", default="127.0.0.1", help="Host to import blocks into")
     parser.add_argument("--import-port", type=int, help="Port to import blocks into")
+    parser.add_argument("--chain-id", default="", help="Chain ID to sync (e.g., ait-testnet)")
     
     args = parser.parse_args()
     
@@ -298,6 +302,7 @@ def main():
             args.source_port,
             args.import_host,
             args.import_port,
+            args.chain_id,
         ))
     except KeyboardInterrupt:
         logger.info("Chain sync service stopped by user")
