@@ -30,6 +30,7 @@ source_host = os.getenv("SYNC_SOURCE_HOST", "127.0.0.1")
 source_port = os.getenv("SYNC_SOURCE_PORT", "8006")
 import_host = os.getenv("SYNC_IMPORT_HOST", "127.0.0.1")
 import_port = os.getenv("SYNC_IMPORT_PORT", "8006")
+chain_id = os.getenv("SYNC_CHAIN_ID", "ait-testnet")
 
 # Execute the actual service
 exec_cmd = [
@@ -43,6 +44,7 @@ exec_cmd = [
     "--source-host", source_host,
     "--source-port", source_port,
     "--import-host", import_host,
-    "--import-port", import_port
+    "--import-port", import_port,
+    "--chain-id", chain_id
 ]
 os.execvp(exec_cmd[0], exec_cmd)
