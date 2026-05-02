@@ -148,7 +148,6 @@ class BlockchainNode:
                                 import json
                                 block_data = json.loads(block_data)
                             logger.info(f"Importing block for chain {chain_id}: {block_data.get('height')}")
-                            print(f"[GOSSIP BLOCK] chain_id={chain_id}, height={block_data.get('height')}, source_url={block_data.get('source_url')}, proposer={block_data.get('proposer')}")
                             sync = ChainSync(session_factory=session_scope, chain_id=chain_id)
                             res = sync.import_block(block_data, transactions=block_data.get("transactions"))
                             logger.info(f"Import result: accepted={res.accepted}, reason={res.reason}")
