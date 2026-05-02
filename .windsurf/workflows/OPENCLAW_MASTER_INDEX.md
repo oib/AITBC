@@ -240,7 +240,7 @@ OpenClaw Agent Ecosystem:
 1. **Agent Recovery**: Restart OpenClaw gateway, check agent status
 2. **Network Recovery**: Check node connectivity, restart P2P service
 3. **Blockchain Recovery**: Check node sync, verify transaction pool
-4. **Service Recovery**: Restart coordinator, Ollama, GPU miner
+4. **Service Recovery**: Restart Agent Coordinator, Ollama, GPU miner
 
 ## 📚 Additional Resources
 

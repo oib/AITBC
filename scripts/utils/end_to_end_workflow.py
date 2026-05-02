@@ -11,7 +11,7 @@ import sys
 from typing import Dict, List
 
 class MarketplaceWorkflow:
-    def __init__(self, coordinator_url: str = "http://localhost:8000"):
+    def __init__(self, coordinator_url: str = "http://localhost:8011"):
         self.coordinator_url = coordinator_url
         self.workflow_steps = []
     

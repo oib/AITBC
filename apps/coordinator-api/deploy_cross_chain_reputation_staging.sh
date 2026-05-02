@@ -270,7 +270,7 @@ if [[ $? -eq 0 ]]; then
     echo "🚀 Next Steps:"
     echo "   1. Apply database migration: alembic upgrade head"
     echo "   2. Start API server: uvicorn src.app.main:app --reload"
-    echo "   3. Test API endpoints: curl http://localhost:8000/v1/reputation/health"
+    echo "   3. Test API endpoints: curl http://localhost:8011/v1/reputation/health"
     echo "   4. Monitor performance and logs"
     echo ""
     echo "✅ System is ready for staging environment testing!"

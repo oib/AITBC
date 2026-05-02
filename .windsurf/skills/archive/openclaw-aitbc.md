@@ -8,24 +8,21 @@ version: 6.0 - DEPRECATED
 
 ⚠️ **This skill has been split into focused skills for better organization:**
 
-## 📚 New Split Skills
+## 📚 Current Active OpenClaw Skills
 
-### 1. OpenClaw Agent Management Skill
-**File**: `openclaw-management.md`
+This legacy bundle now maps to the current atomic OpenClaw skill files:
 
-**Focus**: Pure OpenClaw agent operations, communication, and coordination
-- Agent creation and management
-- Session-based workflows  
-- Cross-agent communication
-- Performance optimization
-- Error handling and debugging
+- **`openclaw-agent-communicator.md`** — agent message handling and responses
+- **`openclaw-session-manager.md`** — session creation and context management
+- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`openclaw-performance-optimizer.md`** — agent performance tuning and optimization
+- **`openclaw-error-handler.md`** — error detection and recovery procedures
+- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
 
-**Use for**: Agent orchestration, workflow coordination, multi-agent systems
-
-### 2. AITBC Blockchain Operations Skill  
+### Archived Blockchain Companion
 **File**: `aitbc-blockchain.md`
 
-**Focus**: Pure AITBC blockchain operations and integration
+**Focus**: AITBC blockchain operations and integration retained as an archived companion
 - Wallet management and transactions
 - AI operations and marketplace
 - Node coordination and monitoring
@@ -164,7 +161,15 @@ cd /opt/aitbc && source venv/bin/activate
 
 **Recommendation**: Use the new split skills for all new development. This legacy skill is maintained for backward compatibility but will be deprecated in future versions.
 
-## Quick Links to New Skills
+## Quick Links to Current Active Skills
 
-- **OpenClaw Agent Management**: [openclaw-management.md](openclaw-management.md)
+- **OpenClaw Agent Communicator**: [../openclaw-agent-communicator.md](../openclaw-agent-communicator.md)
+- **OpenClaw Session Manager**: [../openclaw-session-manager.md](../openclaw-session-manager.md)
+- **OpenClaw Coordination Orchestrator**: [../openclaw-coordination-orchestrator.md](../openclaw-coordination-orchestrator.md)
+- **OpenClaw Performance Optimizer**: [../openclaw-performance-optimizer.md](../openclaw-performance-optimizer.md)
+- **OpenClaw Error Handler**: [../openclaw-error-handler.md](../openclaw-error-handler.md)
+- **OpenClaw Agent Testing Skill**: [../openclaw-agent-testing-skill.md](../openclaw-agent-testing-skill.md)
+
+## Archived Blockchain Companion
+
 - **AITBC Blockchain Operations**: [aitbc-blockchain.md](aitbc-blockchain.md)

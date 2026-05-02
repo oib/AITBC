@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8006"
-COORDINATOR_PORT="8000"
+COORDINATOR_PORT="8011"
 
 # Test agents
 AGENT_1_ID="agent_forum_test_1"
@@ -208,7 +208,7 @@ try:
         
         # Create communication client
         client = AgentCommunicationClient(
-            base_url="http://localhost:8000",
+            base_url="http://localhost:8011",
             agent_id="test_sdk_agent",
             private_key="test_private_key"
         )

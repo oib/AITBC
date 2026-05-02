@@ -133,6 +133,37 @@ All 20 AITBC feature categories are covered across the scenarios:
 
 ---
 
+## 🧪 **Scenario Validation**
+
+Every scenario in this directory should be validated with scripts that exercise all 3 nodes:
+
+- **`aitbc1`**
+  - Genesis authority node
+  - Primary blockchain and sync validation
+
+- **`aitbc`**
+  - Follower / local integration node
+  - Scenario behavior and transaction flow validation
+
+- **`gitea-runner`**
+  - CI / automation node
+  - Workflow execution and third-node coverage
+
+### **Canonical Validation Guide**
+- [Scenario Validation Guide](./VALIDATION.md)
+
+### **Canonical 3-Node Harness**
+```bash
+bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
+```
+
+### **Supporting Setup Scripts**
+- [Multi-Node Blockchain Setup](../../scripts/workflow/setup_multinode_blockchain.sh)
+- [Comprehensive Blockchain Testing](../../scripts/workflow/25_comprehensive_testing.sh)
+- [Consensus Testing](../../scripts/workflow/31_consensus_testing.sh)
+
+---
+
 ## 🔗 **Where to go next**
 
 - [Agent SDK Documentation](../agent-sdk/README.md)

@@ -8,7 +8,7 @@ version: 1.0
 
 ## Current Skill Analysis
 
-### File: `aitbc-blockchain.md`
+### File: `aitbc-blockchain.md` (archived legacy)
 
 #### **IDENTIFIED WEAKNESSES:**
 
@@ -39,11 +39,22 @@ version: 1.0
 5. `aitbc-node-coordinator` - Cross-node coordination and messaging
 6. `aitbc-analytics-analyzer` - Blockchain analytics and performance metrics
 
+#### **CURRENT ACTIVE SKILL SET**
+
+The active OpenClaw-style split skills now live in `.windsurf/skills/` and include:
+
+- `openclaw-agent-communicator`
+- `openclaw-session-manager`
+- `openclaw-coordination-orchestrator`
+- `openclaw-performance-optimizer`
+- `openclaw-error-handler`
+- `openclaw-agent-testing-skill`
+
 ---
 
 ## Current Skill Analysis
 
-### File: `openclaw-aitbc.md`
+### File: `openclaw-aitbc.md` (archived legacy)
 
 #### **IDENTIFIED WEAKNESSES:**
 
@@ -53,14 +64,23 @@ version: 1.0
 
 #### **RECOMMENDED ACTION:**
 
-- **DELETE** - This skill is deprecated and serves no purpose
-- **Migration already completed** - Skills are properly split
+- **ARCHIVE** - This skill is deprecated and serves no purpose
+- **Migration already completed** - The active skill set now uses the atomic OpenClaw skills listed below
+
+#### **CURRENT ACTIVE SKILL SET**
+
+- `openclaw-agent-communicator`
+- `openclaw-session-manager`
+- `openclaw-coordination-orchestrator`
+- `openclaw-performance-optimizer`
+- `openclaw-error-handler`
+- `openclaw-agent-testing-skill`
 
 ---
 
 ## Current Skill Analysis
 
-### File: `openclaw-management.md`
+### File: `openclaw-management.md` (archived legacy)
 
 #### **IDENTIFIED WEAKNESSES:**
 
@@ -83,6 +103,17 @@ version: 1.0
 3. `openclaw-coordination-orchestrator` - Multi-agent workflow coordination
 4. `openclaw-performance-optimizer` - Agent performance tuning and optimization
 5. `openclaw-error-handler` - Error detection and recovery procedures
+
+#### **CURRENT ACTIVE SKILL SET**
+
+These are the actual active files in `.windsurf/skills/`:
+
+- `openclaw-agent-communicator`
+- `openclaw-session-manager`
+- `openclaw-coordination-orchestrator`
+- `openclaw-performance-optimizer`
+- `openclaw-error-handler`
+- `openclaw-agent-testing-skill`
 
 ---
 

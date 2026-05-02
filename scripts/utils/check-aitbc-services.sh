@@ -117,7 +117,7 @@ done
 
 # Port scan summary
 print_status "Port Scan Summary:"
-ports=("8001:Coordinator API" "8002:Wallet Daemon" "8003:Blockchain RPC" "8000:Coordinator API (alt)")
+ports=("8001:Coordinator API" "8002:Wallet Daemon" "8003:Blockchain RPC" "8011:Coordinator API (alt)")
 
 for port_info in "${ports[@]}"; do
     port=$(echo "$port_info" | cut -d: -f1)

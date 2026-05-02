@@ -71,7 +71,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         # agent sdk register
         agent_sdk_register_parser = agent_sdk_subparsers.add_parser("register", help="Register agent with coordinator")
         agent_sdk_register_parser.add_argument("--agent-id", required=True, help="Agent ID")
-        agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:8001", help="Coordinator URL")
+        agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:9001", help="Coordinator URL")
         agent_sdk_register_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="register")
     
         # agent sdk list

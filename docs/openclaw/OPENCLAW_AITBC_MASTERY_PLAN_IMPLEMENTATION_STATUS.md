@@ -39,7 +39,7 @@ The OpenClaw AITBC Mastery Plan has been successfully implemented. All 5 trainin
 **Key Achievements**:
 - Successfully created `openclaw-trainee` wallet
 - Verified service health on both nodes
-- Tested node-specific operations on ports 8006 and 8007
+- Tested node-specific operations on both nodes over port 8006
 - Nodes confirmed synchronized at height 22502
 
 **Log File**: `/var/log/aitbc/training_stage1_foundation.log`
@@ -133,15 +133,15 @@ The OpenClaw AITBC Mastery Plan has been successfully implemented. All 5 trainin
 
 ### Node Configuration
 - **Genesis Node**: Port 8006 ✅
-- **Follower Node**: Port 8007 ✅
+- **Follower Node**: Port 8006 ✅
 - **Blockchain Height**: 22502 (synchronized)
 - **Chain ID**: ait-mainnet
 
 ### Services Status
-- **Coordinator**: Port 8001 ✅
-- **Exchange**: Port 8000 ✅
+- **Agent Coordinator**: Port 9001 ✅
+- **Exchange**: Port 8001 ✅
 - **Ollama**: Port 11434 ✅
-- **Blockchain RPC**: Ports 8006/8007 ✅
+- **Blockchain RPC**: Port 8006 on both nodes ✅
 
 ---
 

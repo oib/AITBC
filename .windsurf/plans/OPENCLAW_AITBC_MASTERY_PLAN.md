@@ -1,7 +1,7 @@
 ---
 description: Comprehensive OpenClaw agent training plan for AITBC software mastery from beginner to expert level
 title: OPENCLAW_AITBC_MASTERY_PLAN
-version: 2.0
+version: 2.1
 ---
 
 # OpenClaw AITBC Mastery Plan
@@ -44,7 +44,7 @@ AITBC Multi-Node Setup:
 ├── Genesis Node (aitbc) - Port 8006 (Primary, IP: 10.1.223.40)
 ├── Follower Node (aitbc1) - Port 8006 (Secondary, different IP)
 ├── CLI Tool: /opt/aitbc/aitbc-cli
-├── Services: Coordinator (8001), Exchange (8000), Blockchain RPC (8006 on both nodes)
+├── Services: Agent Coordinator (9001), Exchange (8001), Blockchain RPC (8006 on both nodes)
 ├── AI Operations: Ollama integration, job processing, marketplace
 └── Node Synchronization: Gitea-based git pull/push (NOT SCP)
 ```
@@ -79,7 +79,7 @@ ssh aitbc1 'cd /opt/aitbc && git reset --hard origin/main'
 **GitHub Mirror**: `https://github.com/oib/AITBC.git` (push only after milestones)
 
 ### � **Workflow Integration**
-**Multi-Node Workflows**: Comprehensive workflow suite for deployment and operations
+**Multi-Node Workflow Integration**: Comprehensive workflow suite for deployment and operations
 - **Master Index**: [`/opt/aitbc/.windsurf/workflows/MULTI_NODE_MASTER_INDEX.md`](../workflows/MULTI_NODE_MASTER_INDEX.md)
 - **Core Setup**: [`multi-node-blockchain-setup-core.md`](../workflows/multi-node-blockchain-setup-core.md) - Prerequisites and basic node configuration
 - **Operations**: [`multi-node-blockchain-operations.md`](../workflows/multi-node-blockchain-operations.md) - Daily operations and monitoring
@@ -89,6 +89,7 @@ ssh aitbc1 'cd /opt/aitbc && git reset --hard origin/main'
 - **Reference**: [`multi-node-blockchain-reference.md`](../workflows/multi-node-blockchain-reference.md) - Configuration reference
 - **OpenClaw Setup**: [`multi-node-blockchain-setup-openclaw.md`](../workflows/multi-node-blockchain-setup-openclaw.md) - OpenClaw-specific deployment
 - **Communication Test**: [`blockchain-communication-test.md`](../workflows/blockchain-communication-test.md) - Cross-node verification
+- **Scenario Validation**: [`VALIDATION.md`](../scenarios/VALIDATION.md) - Canonical 3-node validation guide and harness
 
 **Test Phases**: Structured test suite for comprehensive validation
 - **Phase 1**: Consensus testing ([`/opt/aitbc/tests/phase1/consensus`](../../tests/phase1/consensus))
@@ -350,7 +351,7 @@ cd /opt/aitbc/scripts/training
   # AI service operations (debug mode)
   ./aitbc-cli ai service list --verbose --output json
   ./aitbc-cli ai service status --name ollama --debug
-  ./aitbc-cli ai service test --name coordinator --verbose
+  ./aitbc-cli ai service test --name agent-coordinator --verbose
 
   # API integration (non-interactive)
   ./aitbc-cli api test --endpoint /ai/job --yes --no-confirm
@@ -565,8 +566,8 @@ export NODE_URL=http://<aitbc1-ip>:8006  # Follower node
 export CLI_PATH=/opt/aitbc/aitbc-cli
 
 # Service endpoints
-export COORDINATOR_URL=http://localhost:8001
-export EXCHANGE_URL=http://localhost:8000
+export AGENT_COORDINATOR_URL=http://localhost:9001
+export EXCHANGE_URL=http://localhost:8001
 export OLLAMA_URL=http://localhost:11434
 
 # Authentication
@@ -577,7 +578,7 @@ export WALLET_PASSWORD=<secure_password>
 ### **Service Dependencies**
 - **AITBC CLI**: `/opt/aitbc/aitbc-cli` accessible
 - **Blockchain Services**: Port 8006 on both nodes (different IPs)
-- **AI Services**: Ollama (11434), Coordinator (8001), Exchange (8000)
+- **AI Services**: Ollama (11434), Agent Coordinator (9001), Exchange (8001)
 - **Network Connectivity**: Both nodes can communicate
 - **Sufficient Balance**: Test wallet with adequate AIT tokens
 
@@ -709,14 +710,14 @@ chmod +x /opt/aitbc/aitbc-cli
 ```bash
 # Check service status
 systemctl status aitbc-blockchain-rpc
-systemctl status aitbc-coordinator
+systemctl status aitbc-agent-coordinator.service
 
 # Restart services if needed
 systemctl restart aitbc-blockchain-rpc
-systemctl restart aitbc-coordinator
+systemctl restart aitbc-agent-coordinator.service
 
 # Verify ports
-netstat -tlnp | grep -E '800[0167]|11434'
+netstat -tlnp | grep -E '9001|8001|8006|11434'
 ```
 
 #### **Node Connectivity Issues**
@@ -745,7 +746,7 @@ curl http://localhost:11434/api/tags
 /opt/aitbc/aitbc-cli balance --name openclaw-trainee
 
 # Check AI service status
-/opt/aitbc/aitbc-cli ai --service --status --name coordinator
+/opt/aitbc/aitbc-cli ai service status --name agent-coordinator
 ```
 
 #### **Script Execution Timeout**
@@ -889,14 +890,14 @@ systemctl restart aitbc-*
 # Verify system health
 curl http://10.1.223.40:8006/health
 curl http://<aitbc1-ip>:8006/health
+curl http://10.1.223.40:9001/health
 curl http://10.1.223.40:8001/health
-curl http://10.1.223.40:8000/health
 ```
 
 ---
 
-**Training Plan Version**: 1.1  
-**Last Updated**: 2026-04-02  
+**Training Plan Version**: 2.1  
+**Last Updated**: 2026-05-02  
 **Target Audience**: OpenClaw Agents  
 **Difficulty**: Beginner to Expert (5 Stages)  
 **Estimated Duration**: 4 weeks  

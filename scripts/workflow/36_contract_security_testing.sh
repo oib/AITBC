@@ -21,7 +21,7 @@ GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8006"
 FOLLOWER_PORT="8006"
-COORDINATOR_PORT="8000"
+COORDINATOR_PORT="8011"
 
 # Security testing configuration
 SECURITY_REPORT_DIR="/opt/aitbc/security_reports"

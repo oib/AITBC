@@ -272,7 +272,7 @@ ssh aitbc1 'systemctl is-active aitbc-blockchain-{node,rpc}.service'
 openclaw agent --agent main --message "Report multi-node blockchain health" --thinking medium
 
 # Integration test
-/opt/aitbc/.windsurf/skills/openclaw-aitbc/setup.sh test
+/opt/aitbc/scripts/workflow/44_comprehensive_multi_node_scenario.sh
 ```
 
 ## Documentation

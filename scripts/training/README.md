@@ -94,7 +94,7 @@ cd /opt/aitbc/scripts/training
 
 All scripts are designed to work with both AITBC nodes:
 - **Genesis Node (aitbc)**: Port 8006 - Primary operations
-- **Follower Node (aitbc1)**: Port 8007 - Secondary operations
+- **Follower Node (aitbc1)**: Port 8006 - Secondary operations
 
 ### Node-Specific Operations
 Each stage includes node-specific testing using the training library:
@@ -103,7 +103,7 @@ Each stage includes node-specific testing using the training library:
 NODE_URL="http://localhost:8006" ./aitbc-cli wallet balance wallet
 
 # Follower node operations  
-NODE_URL="http://localhost:8007" ./aitbc-cli wallet balance wallet
+NODE_URL="http://localhost:8006" ./aitbc-cli wallet balance wallet
 
 # Using training library functions
 cli_cmd_node "$GENESIS_NODE" "balance --name $WALLET_NAME"
@@ -137,7 +137,7 @@ cli_cmd_node "$FOLLOWER_NODE" "blockchain --info"
 
 ### System Requirements
 - **AITBC CLI**: `/opt/aitbc/aitbc-cli` accessible and executable
-- **Services**: Ports 8000, 8001, 8006, 8007 running and accessible
+- **Services**: Ports 8001, 9001, 8006 running and accessible
 - **Ollama**: Port 11434 for AI operations (Stage 3+)
 - **Bash**: Version 4.0+ for associative array support
 - **Standard Tools**: bc (for calculations), curl, timeout
@@ -272,7 +272,8 @@ print_progress 3 10 "Step name"  # Print progress (current, total, name)
 ```bash
 check_cli              # Verify CLI availability and permissions
 check_wallet "name"    # Check if wallet exists
-check_service 8000 "Exchange" 5  # Check service on port
+check_service 8001 "Exchange" 5  # Check Exchange service on port
+check_service 9001 "Agent-Coordinator" 5  # Check Agent Coordinator service on port
 check_all_services     # Check all required services
 check_prerequisites_full  # Comprehensive prerequisites check
 ```

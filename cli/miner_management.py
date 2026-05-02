@@ -15,7 +15,7 @@ import requests
 from typing import Optional, Dict, Any
 
 # Default configuration
-DEFAULT_COORDINATOR_URL = "http://localhost:8000"
+DEFAULT_COORDINATOR_URL = "http://localhost:8011"
 DEFAULT_API_KEY = "miner_prod_key_use_real_value"
 
 
