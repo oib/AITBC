@@ -1,0 +1,160 @@
+name: Multi-Chain Island Architecture Tests
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/src/**'
+      - 'scripts/workflow/46_multi_chain_island_test.sh'
+      - 'docs/scenarios/46_multi_chain_island_architecture.md'
+      - '.gitea/workflows/multi-chain-island-architecture.yml'
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+    inputs:
+      test_duration:
+        description: 'Test duration in seconds'
+        required: false
+        default: '120'
+        type: string
+      skip_wait:
+        description: 'Skip wait time for faster CI'
+        required: false
+        default: 'false'
+        type: string
+
+concurrency:
+  group: multi-chain-island-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-multi-chain-island:
+    runs-on: debian
+    timeout-minutes: 15
+
+    steps:
+      - name: Clone repository
+        run: |
+          WORKSPACE="/var/lib/aitbc-workspaces/multi-chain-island"
+          rm -rf "$WORKSPACE"
+          mkdir -p "$WORKSPACE"
+          cd "$WORKSPACE"
+          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+
+      - name: Initialize job logging
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-chain-island/repo
+          bash scripts/ci/setup-job-logging.sh
+
+      - name: Check multi-node connectivity
+        run: |
+          echo "🔍 Checking multi-node connectivity"
+          
+          # Check aitbc1 connectivity
+          if ssh -o ConnectTimeout=5 aitbc1 'echo "aitbc1 reachable"'; then
+            echo "✅ aitbc1 reachable"
+          else
+            echo "❌ aitbc1 not reachable"
+            exit 1
+          fi
+          
+          # Check gitea-runner connectivity
+          if ssh -o ConnectTimeout=5 gitea-runner 'echo "gitea-runner reachable"'; then
+            echo "✅ gitea-runner reachable"
+          else
+            echo "❌ gitea-runner not reachable"
+            exit 1
+          fi
+
+      - name: Check Redis connectivity
+        run: |
+          echo "🔍 Checking Redis connectivity"
+          
+          if redis-cli -h 10.1.223.93 -p 6379 PING; then
+            echo "✅ Redis reachable"
+          else
+            echo "❌ Redis not reachable"
+            exit 1
+          fi
+
+      - name: Run multi-chain island architecture test
+        run: |
+          cd /var/lib/aitbc-workspaces/multi-chain-island/repo
+          
+          TEST_DURATION="${{ inputs.test_duration || '120' }}"
+          SKIP_WAIT="${{ inputs.skip_wait || 'false' }}"
+          
+          echo "🧪 Running multi-chain island architecture test"
+          echo "Test duration: ${TEST_DURATION}s"
+          echo "Skip wait: ${SKIP_WAIT}"
+          
+          # Run the test script
+          if [ "$SKIP_WAIT" = "true" ]; then
+            # Modify the test script to skip wait times for faster CI
+            sed -i 's/sleep 60/sleep 5/g' scripts/workflow/46_multi_chain_island_test.sh
+            sed -i 's/sleep 30/sleep 2/g' scripts/workflow/46_multi_chain_island_test.sh
+            sed -i 's/sleep 120/sleep 10/g' scripts/workflow/46_multi_chain_island_test.sh
+          fi
+          
+          bash scripts/workflow/46_multi_chain_island_test.sh
+
+      - name: Test report
+        if: always()
+        run: |
+          echo "=== Multi-Chain Island Architecture Test Report ==="
+          
+          if [ -f /var/log/aitbc/multi_chain_island_test_*.log ]; then
+            echo "📋 Test logs:"
+            tail -100 /var/log/aitbc/multi_chain_island_test_*.log
+          fi
+          
+          if [ -f /var/log/aitbc/multi_chain_island_test_errors_*.log ]; then
+            echo "❌ Error logs:"
+            cat /var/log/aitbc/multi_chain_island_test_errors_*.log
+          fi
+
+      - name: Verify gossip subscriptions
+        if: always()
+        run: |
+          echo "🔍 Verifying Redis gossip subscriptions"
+          
+          MAINNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
+          TESTNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
+          
+          echo "blocks.ait-mainnet subscribers: $MAINNET_SUBS"
+          echo "blocks.ait-testnet subscribers: $TESTNET_SUBS"
+          
+          if [ "$MAINNET_SUBS" = "3" ] && [ "$TESTNET_SUBS" = "3" ]; then
+            echo "✅ Gossip subscriptions correct (3 per topic)"
+          else
+            echo "❌ Gossip subscriptions incorrect (expected 3 per topic)"
+            exit 1
+          fi
+
+      - name: Verify block production roles
+        if: always()
+        run: |
+          echo "🔍 Verifying block production roles"
+          
+          # Check aitbc block production
+          AITBC_PRODUCTION=$(grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
+          echo "aitbc block_production_chains: $AITBC_PRODUCTION"
+          
+          # Check aitbc1 block production
+          AITBC1_PRODUCTION=$(ssh aitbc1 'grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
+          echo "aitbc1 block_production_chains: $AITBC1_PRODUCTION"
+          
+          # Check gitea-runner block production
+          GITEA_PRODUCTION=$(ssh gitea-runner 'grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
+          echo "gitea-runner block_production_chains: $GITEA_PRODUCTION"
+          
+          if [ "$AITBC_PRODUCTION" = "ait-mainnet" ] && [ "$AITBC1_PRODUCTION" = "ait-testnet" ] && [ -z "$GITEA_PRODUCTION" ]; then
+            echo "✅ Block production roles correct"
+          else
+            echo "❌ Block production roles incorrect"
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf /var/lib/aitbc-workspaces/multi-chain-island
