@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Depends
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -73,7 +74,10 @@ async def ready() -> dict[str, str]:
         return {"status": "ready", "service": "gpu-service"}
     except Exception as e:
         logger.error(f"Readiness check failed: {e}")
-        return {"status": "not_ready", "service": "gpu-service", "error": str(e)}
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "service": "gpu-service", "error": str(e)},
+        )
 
 
 @app.get("/live")
