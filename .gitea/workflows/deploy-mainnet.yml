@@ -232,16 +232,6 @@ jobs:
           
           echo "✅ Monitoring verification passed"
 
-      - name: Send deployment notification
-        run: |
-          cd /var/lib/aitbc-workspaces/post-deployment/repo
-          
-          # Send notification about mainnet deployment
-          STATUS=${{ needs.deploy-mainnet.result }}
-          bash scripts/notifications/send-deployment-notification.sh mainnet $STATUS
-          
-          echo "✅ Deployment notification sent"
-
       - name: Cleanup
         if: always()
         run: rm -rf /var/lib/aitbc-workspaces/post-deployment
