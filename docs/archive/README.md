@@ -2,7 +2,7 @@
 
 **Purpose**: Historical documentation and completed work  
 **Status**: Organized and accessible  
-**Last Updated**: 2026-04-27  
+**Last Updated**: 2026-05-02  
 
 ## 🎯 **Archive Overview**
 
@@ -116,28 +116,28 @@ The archive is organized by content categories for easy access:
 ## 📊 **Archive Statistics:**
 
 ```
-Total Files: 156+ documents
+Total Files: 59+ documents
 Total Categories: 10 categories
-Largest Category: Summaries (42 files)
+Largest Category: Completed (8 subdirectories, 50+ files)
 Smallest Category: Backend (3 files)
-Average Files per Category: 15.6 files
+Average Files per Category: 5.9 files
 ```
 
 ### **File Distribution:**
-- **Summaries**: 42 files (26.9%)
 - **Completed**: 8 subdirectories (50+ files total)
-- **Expert**: 4 subdirectories (41+ files total)
+- **Summaries**: 40+ files
+- **Expert**: 4 subdirectories (40+ files total)
   - completed_phases: 22 files
   - 2026-02-issues: 10 files
   - other-issues: 5 files
   - port-migrations: 4 files
-- **General**: 16 files (10.3%)
-- **CLI**: 16 files (10.3%)
-- **Infrastructure**: 10 files (6.4%)
-- **Security**: 7 files (4.5%)
-- **Analytics**: 6 files (3.8%)
-- **Core Planning**: 5 files (3.2%)
-- **Backend**: 3 files (1.9%)
+- **CLI**: 16 files
+- **General**: 16 files
+- **Infrastructure**: 10 files
+- **Analytics**: 6 files
+- **Security**: 7 files
+- **Core Planning**: 5 files
+- **Backend**: 3 files
 
 ---
 
@@ -272,6 +272,6 @@ The archive is now properly organized, accessible, and ready for use. The pathol
 
 ---
 
-*Last updated: 2026-03-26*  
+*Last updated: 2026-05-02*  
 *Status: Archive structure optimized*  
-*Total files: 65 documents across 7 categories*
+*Total files: 59+ documents across 10 categories*
