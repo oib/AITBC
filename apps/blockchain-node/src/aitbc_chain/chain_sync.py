@@ -208,6 +208,10 @@ class ChainSyncService:
             if block_data.get('proposer') == self.node_id:
                 return
             
+            # Add chain_id to block_data if not present
+            if 'chain_id' not in block_data and self.chain_id:
+                block_data['chain_id'] = self.chain_id
+            
             # Determine target host - if we're a follower, import to leader, else import locally
             target_host = self.import_host
             target_port = self.import_port
@@ -225,7 +229,7 @@ class ChainSyncService:
                         ) as resp:
                             if resp.status == 200:
                                 result = await resp.json()
-                                if result.get('accepted'):
+                                if result.get('accepted') or result.get('success'):
                                     logger.info(f"Imported block {block_data.get('height')} from {block_data.get('proposer')}")
                                 else:
                                     logger.info(f"Rejected block {block_data.get('height')}: {result.get('reason')}")
