@@ -367,6 +367,7 @@ class ChainSync:
                 select(Block).where(Block.chain_id == self._chain_id).order_by(Block.height.desc()).limit(1)
             ).first()
             our_height = our_head.height if our_head else -1
+            print(f"[DB QUERY] chain_id={self._chain_id}, our_head={our_head}, our_height={our_height}")
 
             # Case 1: Block extends our chain directly
             if height == our_height + 1:
