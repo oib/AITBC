@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from .config import settings
 from .metrics import metrics_registry
-from .models import Block, Transaction as ChainTransaction
+from .models import Block, Transaction as ChainTransaction, Account
 from .logger import get_logger
 from .state.merkle_patricia_trie import StateManager
 
