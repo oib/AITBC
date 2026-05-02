@@ -40,7 +40,7 @@ class Job(SQLModel, table=True):
     payment_status: str = Field(default="none", index=True)
     
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), nullable=False, index=True)
     requested_at: datetime | None = Field(default=None)
     started_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
