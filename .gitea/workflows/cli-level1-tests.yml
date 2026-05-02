@@ -48,7 +48,7 @@ jobs:
             --repo-dir "$PWD" \
             --venv-dir "$PWD/venv" \
             --requirements-file "$PWD/cli/requirements-cli.txt" \
-            --extra-packages "PyYAML requests cryptography"
+            --extra-packages "PyYAML requests cryptography pydantic"
           echo "✅ Python environment ready"
 
       - name: Verify CLI imports
