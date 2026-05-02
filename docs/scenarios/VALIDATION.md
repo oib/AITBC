@@ -31,6 +31,9 @@ Use these scripts as the baseline when validating scenarios:
 - **Full 3-node scenario harness**
   - `scripts/workflow/44_comprehensive_multi_node_scenario.sh`
 
+- **Multi-Chain Island Architecture test**
+  - `scripts/workflow/46_multi_chain_island_test.sh`
+
 ## ✅ Validation Rule for Scenario Docs
 
 Every scenario document should include a short validation section that answers:
