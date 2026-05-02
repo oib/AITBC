@@ -416,10 +416,12 @@ Two-Node AITBC Blockchain:
 ## 📚 Additional Resources
 
 ### Documentation Files
-- **AI Operations Reference**: `openclaw-aitbc/ai-operations-reference.md`
-- **Agent Templates**: `openclaw-aitbc/agent-templates.md`
-- **Workflow Templates**: `openclaw-aitbc/workflow-templates.md`
-- **Setup Scripts**: `openclaw-aitbc/setup.sh`
+- **OpenClaw Agent Communicator**: `../skills/openclaw-agent-communicator.md`
+- **OpenClaw Coordination Orchestrator**: `../skills/openclaw-coordination-orchestrator.md`
+- **OpenClaw Session Manager**: `../skills/openclaw-session-manager.md`
+- **OpenClaw Agent Testing**: `../skills/openclaw-agent-testing-skill.md`
+- **OpenClaw Error Handler**: `../skills/openclaw-error-handler.md`
+- **OpenClaw Performance Optimizer**: `../skills/openclaw-performance-optimizer.md`
 
 ### External Resources
 - **AITBC Repository**: GitHub repository

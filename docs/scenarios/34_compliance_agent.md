@@ -475,6 +475,30 @@ After completing this scenario, you should be able to:
 
 ---
 
+## 🧪 **Validation**
+
+Validate this scenario with the shared 3-node harness:
+
+```bash
+bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
+```
+
+**Node coverage**:
+- `aitbc1`: genesis / primary node checks
+- `aitbc`: follower / local node checks
+- `gitea-runner`: automation / CI node checks
+
+**Validation guide**:
+- [Scenario Validation Guide](./VALIDATION.md)
+
+**Expected result**:
+- Scenario-specific commands complete successfully
+- Cross-node health checks pass
+- Blockchain heights remain in sync
+- Any node-specific step is documented in the scenario workflow
+
+---
+
 ## 🔗 **Related Resources**
 
 ### **AITBC Documentation**

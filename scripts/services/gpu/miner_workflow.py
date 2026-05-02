@@ -9,7 +9,7 @@ import time
 from datetime import datetime
 
 # Configuration
-COORDINATOR_URL = "http://localhost:8001"
+COORDINATOR_URL = "http://localhost:8011"
 MINER_API_KEY = "${MINER_API_KEY}"
 MINER_ID = "localhost-gpu-miner"
 

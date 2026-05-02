@@ -6,6 +6,15 @@ description: Complete Ollama GPU provider test workflow from client submission t
 
 This workflow executes the complete end-to-end test for Ollama GPU inference jobs, including payment processing and blockchain transaction recording.
 
+## Current Active Skill Mapping
+
+This archived workflow maps to these active OpenClaw skills when you need agent coordination or validation support:
+
+- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
+- **`openclaw-agent-communicator.md`** — agent message handling and responses
+- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`openclaw-session-manager.md`** — session creation and context management
+
 ## Prerequisites
 
 // turbo

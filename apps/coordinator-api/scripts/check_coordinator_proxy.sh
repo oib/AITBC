@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-HEALTH_URL="http://127.0.0.1:8000/v1/health"
+HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8011/v1/health}"
 MAX_RETRIES=10
 RETRY_DELAY=2
 

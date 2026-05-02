@@ -1,5 +1,7 @@
 # OpenClaw AITBC Agent Templates
 
+> **Canonical validation**: Use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) with `scripts/workflow/44_comprehensive_multi_node_scenario.sh` when validating these templates.
+
 ## Blockchain Monitor Agent
 ```json
 {

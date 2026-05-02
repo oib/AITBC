@@ -8,6 +8,16 @@ version: 1.0
 
 This module covers OpenClaw agent functionality testing, multi-agent coordination, session management, and agent workflow validation.
 
+## Current Active Skill Mapping
+
+This archived workflow maps to these active split skill files:
+
+- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
+- **`openclaw-agent-communicator.md`** — agent message handling and responses
+- **`openclaw-session-manager.md`** — session creation and context management
+- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`openclaw-performance-optimizer.md`** — agent performance tuning and optimization
+
 ## Prerequisites
 
 ### Required Setup
