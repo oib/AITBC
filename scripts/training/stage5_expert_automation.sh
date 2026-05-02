@@ -285,7 +285,7 @@ expert_performance_analysis() {
     $CLI_PATH wallet balance "$WALLET_NAME" > /dev/null 2>&1 &
     $CLI_PATH blockchain info > /dev/null 2>&1 &
     $CLI_PATH market list > /dev/null 2>&1 &
-    $CLI_PATH ai status --name coordinator > /dev/null 2>&1 &
+    curl -s http://localhost:9001/health > /dev/null 2>&1 &
     
     wait  # Wait for all background jobs
     
@@ -296,11 +296,15 @@ expert_performance_analysis() {
     log "Performance analysis: Concurrent operations ${CONCURRENT_TIME}s"
     
     # Test individual operation performance
-    OPERATIONS=("wallet balance $WALLET_NAME" "blockchain info" "market list" "ai status")
+    OPERATIONS=("wallet balance $WALLET_NAME" "blockchain info" "market list" "curl -s http://localhost:9001/health")
     
     for op in "${OPERATIONS[@]}"; do
         START_TIME=$(date +%s.%N)
-        $CLI_PATH $op > /dev/null 2>&1
+        if [[ "$op" == curl\ * ]]; then
+            eval "$op" > /dev/null 2>&1
+        else
+            $CLI_PATH $op > /dev/null 2>&1
+        fi
         END_TIME=$(date +%s.%N)
         OP_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "1.0")
         

@@ -8,6 +8,17 @@ version: 1.0
 
 This skill provides comprehensive OpenClaw agent management, communication, and coordination capabilities. Focus on agent operations, session management, and cross-agent workflows.
 
+## Current Active OpenClaw Skills
+
+This archived management skill is now represented by the following active atomic skill files:
+
+- **`openclaw-agent-communicator.md`** — agent message handling and responses
+- **`openclaw-session-manager.md`** — session creation and context management
+- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`openclaw-performance-optimizer.md`** — agent performance tuning and optimization
+- **`openclaw-error-handler.md`** — error detection and recovery procedures
+- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
+
 ## Prerequisites
 
 - OpenClaw 2026.3.24+ installed and gateway running
@@ -342,3 +353,12 @@ openclaw config --show --agent main
 - Implement proper session cleanup
 
 This OpenClaw Agent Management skill provides the foundation for effective agent coordination, communication, and workflow orchestration across any domain or application.
+
+## Quick Links to Current Active Skills
+
+- **OpenClaw Agent Communicator**: [../openclaw-agent-communicator.md](../openclaw-agent-communicator.md)
+- **OpenClaw Session Manager**: [../openclaw-session-manager.md](../openclaw-session-manager.md)
+- **OpenClaw Coordination Orchestrator**: [../openclaw-coordination-orchestrator.md](../openclaw-coordination-orchestrator.md)
+- **OpenClaw Performance Optimizer**: [../openclaw-performance-optimizer.md](../openclaw-performance-optimizer.md)
+- **OpenClaw Error Handler**: [../openclaw-error-handler.md](../openclaw-error-handler.md)
+- **OpenClaw Agent Testing Skill**: [../openclaw-agent-testing-skill.md](../openclaw-agent-testing-skill.md)

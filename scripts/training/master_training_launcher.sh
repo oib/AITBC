@@ -84,7 +84,7 @@ show_overview() {
     
     echo -e "${BOLD}🏗️ Two-Node Architecture:${NC}"
     echo "• Genesis Node (aitbc) - Port 8006 - Primary operations"
-    echo "• Follower Node (aitbc1) - Port 8007 - Secondary operations"
+    echo "• Follower Node (aitbc1) - Port 8006 - Secondary operations"
     echo "• CLI Tool: $CLI_PATH"
     echo
     
@@ -100,7 +100,7 @@ show_overview() {
     
     echo -e "${BOLD}📊 Prerequisites:${NC}"
     echo "• AITBC CLI accessible at $CLI_PATH"
-    echo "• Services running on ports 8000, 8001, 8006, 8007"
+    echo "• Services running on ports 8001 (Exchange), 9001 (Agent-Coordinator), 8006 (Blockchain RPC)"
     echo "• Basic computer skills and command-line familiarity"
     echo
 }
@@ -120,7 +120,7 @@ check_system_readiness() {
     fi
     
     # Check service availability
-    local services=("8001:Exchange" "8000:Coordinator" "8006:Genesis-Node" "8006:Follower-Node")
+    local services=("8001:Exchange" "9001:Agent-Coordinator" "8006:Genesis-Node" "8006:Follower-Node")
     for service in "${services[@]}"; do
         local port=$(echo "$service" | cut -d: -f1)
         local name=$(echo "$service" | cut -d: -f2)

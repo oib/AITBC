@@ -388,7 +388,7 @@ try:
     
     @agent.command()
     @click.argument('agent_id')
-    @click.option('--coordinator-url', default='http://localhost:8001', help='Coordinator URL')
+    @click.option('--coordinator-url', default='http://localhost:9001', help='Coordinator URL')
     @click.option('--format', type=click.Choice(['table', 'json']), default='table', help='Output format')
     @click.pass_context
     def register(ctx, agent_id, coordinator_url, format):

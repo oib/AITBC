@@ -243,7 +243,7 @@ export AITBC_DEBUG=1
 export AITBC_LOG_LEVEL=DEBUG
 
 # Service URLs (development)
-export AITBC_COORDINATOR_URL=http://localhost:8000
+export AITBC_COORDINATOR_URL=http://localhost:8011
 export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
 export AITBC_WEB_UI=http://localhost:3000
 

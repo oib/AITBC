@@ -20,7 +20,7 @@ NC='\033[0m' # No Color
 GENESIS_NODE="localhost"
 FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8006"
-COORDINATOR_PORT="8000"
+COORDINATOR_PORT="8011"
 
 echo "🚀 PRODUCTION DEPLOYMENT"
 echo "Complete production deployment with all AITBC features"
@@ -244,7 +244,7 @@ run_test_verbose "Production validation" "
     
     echo 'Production validation checklist:'
     echo \"✅ Blockchain RPC: \$(curl -s http://localhost:8006/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ Coordinator API: \$(curl -s http://localhost:8000/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ Coordinator API: \$(curl -s http://localhost:8011/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Marketplace: \$(curl -s http://localhost:8006/rpc/marketplace/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ AI Service: \$(ssh aitbc 'curl -s http://localhost:8006/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Agent Communication: \$(curl -s http://localhost:8006/rpc/messaging/topics >/dev/null && echo 'PASS' || echo 'FAIL')\"
