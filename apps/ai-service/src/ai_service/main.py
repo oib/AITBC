@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import FastAPI, Depends, HTTPException, status
@@ -88,7 +88,7 @@ async def submit_job(
             payment_amount=req.payment_amount,
             priority=req.priority,
             state=JobState.PENDING,
-            created_at=datetime.utcnow()
+            created_at=datetime.now(timezone.utc)
         )
         
         session.add(job)
@@ -200,7 +200,7 @@ async def cancel_job(
             raise HTTPException(status_code=400, detail="Job already completed")
         
         job.state = JobState.CANCELED
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(timezone.utc)
         
         await session.commit()
         await session.refresh(job)
@@ -308,7 +308,7 @@ async def multimodal_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "multimodal-agent",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "capabilities": {
             "text_processing": True,
             "image_processing": True,
@@ -335,7 +335,7 @@ async def multimodal_deep_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "multimodal-agent",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "modality_tests": {
             "text": {"status": "pass", "processing_time": "0.02s", "accuracy": "92%"},
             "image": {"status": "pass", "processing_time": "0.15s", "accuracy": "87%"},
@@ -386,7 +386,7 @@ async def optimization_health() -> dict[str, Any]:
     return {
         "status": "healthy",
         "service": "modality-optimization",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "capabilities": {
             "text_optimization": True,
             "image_optimization": True,

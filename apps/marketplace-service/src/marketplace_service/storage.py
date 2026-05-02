@@ -2,6 +2,7 @@
 Database session management for Marketplace service
 """
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -13,7 +14,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = "postgresql+asyncpg://aitbc_marketplace:aitbc_marketplace_password@localhost:5432/aitbc_marketplace"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/marketplace_service.db")
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)

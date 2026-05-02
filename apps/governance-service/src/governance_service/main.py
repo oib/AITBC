@@ -68,6 +68,25 @@ async def health() -> HealthResponse:
     return HealthResponse(status="healthy", service="governance-service")
 
 
+@app.get("/ready")
+async def ready() -> dict[str, str]:
+    """Readiness check - verifies database connectivity"""
+    try:
+        async with get_session() as session:
+            # Test database connection
+            await session.execute("SELECT 1")
+        return {"status": "ready", "service": "governance-service"}
+    except Exception as e:
+        logger.error(f"Readiness check failed: {e}")
+        return {"status": "not_ready", "service": "governance-service", "error": str(e)}
+
+
+@app.get("/live")
+async def live() -> dict[str, str]:
+    """Liveness check - verifies service is not stuck"""
+    return {"status": "alive", "service": "governance-service"}
+
+
 @app.get("/governance/status")
 async def governance_status() -> dict[str, str]:
     """Get governance status"""

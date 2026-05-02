@@ -2,6 +2,7 @@
 Database session management for Trading service
 """
 
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
@@ -13,7 +14,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = "postgresql+asyncpg://aitbc_trading:password@10.1.223.40:5432/aitbc_trading"
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/trading_service.db")
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
