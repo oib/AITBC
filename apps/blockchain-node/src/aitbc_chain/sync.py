@@ -293,6 +293,7 @@ class ChainSync:
                 if result.accepted:
                     imported += 1
                 else:
+                    print(f"[BULK SYNC FAILED] height={block_data.get('height')}, reason={result.reason}, hash={block_data.get('hash')}")
                     logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason, "block_hash": block_data.get("hash")})
                     # Stop on first failure to avoid gaps
                     return imported
