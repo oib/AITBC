@@ -15,6 +15,7 @@ from sqlmodel import Session, select
 
 from .config import settings
 from .metrics import metrics_registry
+from .models import Block, Transaction as ChainTransaction
 from .logger import get_logger
 
 logger = get_logger(__name__)
