@@ -18,7 +18,7 @@ class CrossChainSync:
             self.sync_status[chain] = {
                 "synced": True,
                 "height": 0,
-                "last_sync": datetime.now(datetime.UTC).isoformat(),
+                "last_sync": datetime.now(UTC).isoformat(),
             }
 
 
@@ -36,5 +36,5 @@ class MultiChainConsensus:
                 "consensus_reached": True,
                 "height": 0,
                 "validators": 1,
-                "last_consensus": datetime.now(datetime.UTC).isoformat(),
+                "last_consensus": datetime.now(UTC).isoformat(),
             }
