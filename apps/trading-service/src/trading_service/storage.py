@@ -13,7 +13,7 @@ from aitbc import get_logger
 logger = get_logger(__name__)
 
 # Database URL from environment variable or default
-DATABASE_URL = "postgresql+asyncpg://aitbc_trading:password@localhost:5432/aitbc_trading"
+DATABASE_URL = "postgresql+asyncpg://aitbc_trading:password@aitbc1:5432/aitbc_trading"
 
 # Create async engine
 engine = create_async_engine(DATABASE_URL, echo=False)
