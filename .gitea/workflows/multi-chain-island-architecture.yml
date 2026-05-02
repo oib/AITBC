@@ -22,11 +22,6 @@ on:
         required: false
         default: 'false'
         type: string
-      skip_ssh_checks:
-        description: 'Skip SSH connectivity checks (for CI)'
-        required: false
-        default: 'true'
-        type: string
 
 concurrency:
   group: multi-chain-island-${{ github.ref }}
@@ -50,27 +45,6 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/multi-chain-island/repo
           bash scripts/ci/setup-job-logging.sh
-
-      - name: Check multi-node connectivity
-        if: ${{ inputs.skip_ssh_checks != 'true' }}
-        run: |
-          echo "🔍 Checking multi-node connectivity"
-          
-          # Check aitbc1 connectivity
-          if ssh -o ConnectTimeout=5 aitbc1 'echo "aitbc1 reachable"'; then
-            echo "✅ aitbc1 reachable"
-          else
-            echo "❌ aitbc1 not reachable"
-            exit 1
-          fi
-          
-          # Check gitea-runner connectivity
-          if ssh -o ConnectTimeout=5 gitea-runner 'echo "gitea-runner reachable"'; then
-            echo "✅ gitea-runner reachable"
-          else
-            echo "❌ gitea-runner not reachable"
-            exit 1
-          fi
 
       - name: Check Redis connectivity
         run: |
@@ -162,48 +136,6 @@ jobs:
           echo "Note: Full multi-node validation requires SSH access to aitbc1 and gitea-runner."
           echo "Run the test script locally on aitbc for full validation:"
           echo "  bash scripts/workflow/46_multi_chain_island_test.sh"
-
-      - name: Verify gossip subscriptions
-        if: ${{ inputs.skip_ssh_checks != 'true' }}
-        run: |
-          echo "🔍 Verifying Redis gossip subscriptions"
-          
-          MAINNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
-          TESTNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
-          
-          echo "blocks.ait-mainnet subscribers: $MAINNET_SUBS"
-          echo "blocks.ait-testnet subscribers: $TESTNET_SUBS"
-          
-          if [ "$MAINNET_SUBS" = "3" ] && [ "$TESTNET_SUBS" = "3" ]; then
-            echo "✅ Gossip subscriptions correct (3 per topic)"
-          else
-            echo "❌ Gossip subscriptions incorrect (expected 3 per topic)"
-            exit 1
-          fi
-
-      - name: Verify block production roles
-        if: ${{ inputs.skip_ssh_checks != 'true' }}
-        run: |
-          echo "🔍 Verifying block production roles"
-          
-          # Check aitbc block production
-          AITBC_PRODUCTION=$(grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
-          echo "aitbc block_production_chains: $AITBC_PRODUCTION"
-          
-          # Check aitbc1 block production
-          AITBC1_PRODUCTION=$(ssh aitbc1 'grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
-          echo "aitbc1 block_production_chains: $AITBC1_PRODUCTION"
-          
-          # Check gitea-runner block production
-          GITEA_PRODUCTION=$(ssh gitea-runner 'grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
-          echo "gitea-runner block_production_chains: $GITEA_PRODUCTION"
-          
-          if [ "$AITBC_PRODUCTION" = "ait-mainnet" ] && [ "$AITBC1_PRODUCTION" = "ait-testnet" ] && [ -z "$GITEA_PRODUCTION" ]; then
-            echo "✅ Block production roles correct"
-          else
-            echo "❌ Block production roles incorrect"
-            exit 1
-          fi
 
       - name: Cleanup
         if: always()
