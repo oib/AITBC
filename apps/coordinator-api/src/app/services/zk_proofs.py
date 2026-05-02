@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ..app_logging import get_logger
+from aitbc import get_logger
 from ..schemas import JobResult, Receipt
 
 logger = get_logger(__name__)

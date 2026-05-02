@@ -5,7 +5,7 @@ Zero-trust architecture with HSM integration and advanced security controls
 
 import secrets
 from dataclasses import dataclass, field
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -59,8 +59,8 @@ class SecurityPolicy:
     access_control_requirements: list[str]
     audit_requirements: list[str]
     retention_period: timedelta
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 @dataclass
@@ -122,7 +122,7 @@ class HSMManager:
                 "key": key,
                 "iv": iv if algorithm in [EncryptionAlgorithm.AES_256_GCM, EncryptionAlgorithm.AES_256_CBC] else None,
                 "nonce": nonce if algorithm == EncryptionAlgorithm.CHACHA20_POLY1305 else None,
-                "created_at": datetime.now(datetime.UTC),
+                "created_at": datetime.now(timezone.utc),
                 "key_size": key_size,
             }
 
@@ -151,7 +151,7 @@ class HSMManager:
 
         # Update key with rotation timestamp
         new_key["rotated_from"] = key_id
-        new_key["rotation_timestamp"] = datetime.now(datetime.UTC)
+        new_key["rotation_timestamp"] = datetime.now(timezone.utc)
 
         return new_key
 
@@ -491,7 +491,7 @@ class ZeroTrustArchitecture:
             event_type="trust_decision",
             severity=ThreatLevel.LOW if decision else ThreatLevel.MEDIUM,
             source="zero_trust",
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             user_id=user_id,
             resource_id=resource_id,
             details={"action": action, "trust_score": trust_score, "decision": decision},
@@ -539,7 +539,7 @@ class ThreatDetectionSystem:
                     event_type="threat_detected",
                     severity=pattern["severity"],
                     source="threat_detection",
-                    timestamp=datetime.now(datetime.UTC),
+                    timestamp=datetime.now(timezone.utc),
                     user_id=event_data.get("user_id"),
                     resource_id=event_data.get("resource_id"),
                     details={

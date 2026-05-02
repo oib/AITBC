@@ -2,7 +2,7 @@
 API endpoints for confidential transactions
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from aitbc import get_logger
@@ -83,13 +83,13 @@ async def create_confidential_transaction(request: ConfidentialTransactionCreate
     """Create a new confidential transaction with optional encryption"""
     try:
         # Generate transaction ID
-        transaction_id = f"ctx-{datetime.now(datetime.UTC).timestamp()}"
+        transaction_id = f"ctx-{datetime.now(timezone.utc).timestamp()}"
 
         # Create base transaction
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id=request.job_id,
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             status="created",
             amount=request.amount,
             pricing=request.pricing,
@@ -178,7 +178,7 @@ async def access_confidential_data(
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id="test-job",
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             status="completed",
             confidential=True,
             participants=["client-456", "miner-789"],
@@ -205,7 +205,7 @@ async def access_confidential_data(
             return ConfidentialAccessResponse(
                 success=True,
                 data={"amount": "1000", "pricing": {"rate": "0.1"}},
-                access_id=f"access-{datetime.now(datetime.UTC).timestamp()}",
+                access_id=f"access-{datetime.now(timezone.utc).timestamp()}",
             )
 
         # Decrypt data
@@ -230,7 +230,7 @@ async def access_confidential_data(
             )
 
             return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"access-{datetime.now(datetime.UTC).timestamp()}"
+                success=True, data=decrypted_data, access_id=f"access-{datetime.now(timezone.utc).timestamp()}"
             )
 
         except Exception as e:
@@ -254,7 +254,7 @@ async def audit_access_confidential_data(
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id="test-job",
-            timestamp=datetime.now(datetime.UTC),
+            timestamp=datetime.now(timezone.utc),
             status="completed",
             confidential=True,
         )
@@ -283,7 +283,7 @@ async def audit_access_confidential_data(
             )
 
             return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"audit-{datetime.now(datetime.UTC).timestamp()}"
+                success=True, data=decrypted_data, access_id=f"audit-{datetime.now(timezone.utc).timestamp()}"
             )
 
         except Exception as e:
@@ -313,7 +313,7 @@ async def register_encryption_key(request: KeyRegistrationRequest, api_key: str 
                     success=True,
                     participant_id=request.participant_id,
                     key_version=1,  # Would get from storage
-                    registered_at=datetime.now(datetime.UTC),
+                    registered_at=datetime.now(timezone.utc),
                     error=None,
                 )
         except:
@@ -333,7 +333,7 @@ async def register_encryption_key(request: KeyRegistrationRequest, api_key: str 
     except KeyManagementError as e:
         logger.error(f"Key registration failed: {e}")
         return KeyRegistrationResponse(
-            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(datetime.UTC), error=str(e)
+            success=False, participant_id=request.participant_id, key_version=0, registered_at=datetime.now(timezone.utc), error=str(e)
         )
     except Exception as e:
         logger.error(f"Failed to register key: {e}")

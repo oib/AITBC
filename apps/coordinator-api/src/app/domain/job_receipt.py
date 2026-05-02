@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from sqlalchemy import JSON, Column
@@ -15,4 +15,4 @@ class JobReceipt(SQLModel, table=True):
     job_id: str = Field(index=True, foreign_key="job.id")
     receipt_id: str = Field(index=True)
     payload: dict = Field(sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)

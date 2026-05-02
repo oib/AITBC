@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from typing import List, Optional
 
@@ -33,7 +33,7 @@ class Block(SQLModel, table=True):
     hash: str = Field(index=True, unique=True)
     parent_hash: str
     proposer: str
-    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    timestamp: datetime = Field(default_factory=datetime.now(timezone.utc), index=True)
     tx_count: int = 0
     state_root: Optional[str] = None
     block_metadata: Optional[str] = Field(default=None)
@@ -89,7 +89,7 @@ class Transaction(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=datetime.now(timezone.utc), index=True)
     
     # New fields added to schema
     nonce: int = Field(default=0)
@@ -140,7 +140,7 @@ class Receipt(SQLModel, table=True):
         sa_column=Column(JSON, nullable=False),
     )
     minted_amount: Optional[int] = None
-    recorded_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    recorded_at: datetime = Field(default_factory=datetime.now(timezone.utc), index=True)
     status: str = Field(default="pending", index=True)  # pending, claimed, invalid
     claimed_at: Optional[datetime] = None
     claimed_by: Optional[str] = None
@@ -168,7 +168,7 @@ class Account(SQLModel, table=True):
     address: str = Field(primary_key=True)
     balance: int = 0
     nonce: int = 0
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=datetime.now(timezone.utc))
 
 class Escrow(SQLModel, table=True):
     __tablename__ = "escrow"
@@ -177,5 +177,5 @@ class Escrow(SQLModel, table=True):
     buyer: str = Field(foreign_key="account.address")
     provider: str = Field(foreign_key="account.address")
     amount: int
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=datetime.now(timezone.utc))
     released_at: Optional[datetime] = None

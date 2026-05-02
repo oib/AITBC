@@ -6,7 +6,7 @@ Domain models for cross-chain asset transfers, bridge requests, and validator ma
 
 from __future__ import annotations
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -75,12 +75,12 @@ class BridgeRequest(SQLModel, table=True):
     required_confirmations: int = Field(default=3)  # Required confirmations
     dispute_reason: str | None = Field(default=None)
     resolution_action: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     resolved_at: datetime | None = Field(default=None)
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
 
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="bridge_request")
@@ -107,8 +107,8 @@ class SupportedToken(SQLModel, table=True):
     original_token: str | None = Field(default=None)  # Original token address for wrapped tokens
     supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     bridge_contracts: dict[int, str] = Field(default_factory=dict, sa_column=Column(JSON))  # Chain ID -> Contract address
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ChainConfig(SQLModel, table=True):
@@ -135,8 +135,8 @@ class ChainConfig(SQLModel, table=True):
     is_testnet: bool = Field(default=False)
     requires_validator: bool = Field(default=True)  # Whether validator confirmation is required
     validator_threshold: float = Field(default=0.67)  # Validator threshold percentage
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Validator(SQLModel, table=True):
@@ -162,8 +162,8 @@ class Validator(SQLModel, table=True):
     is_active: bool = Field(default=True, index=True)
     supported_chains: list[int] = Field(default_factory=list, sa_column=Column(JSON))
     val_meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # transactions: List["BridgeTransaction"] = Relationship(back_populates="validator")
@@ -190,7 +190,7 @@ class BridgeTransaction(SQLModel, table=True):
     is_successful: bool = Field(default=False)
     error_message: str | None = Field(default=None)
     retry_count: int = Field(default=0)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
     confirmed_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
 
@@ -219,8 +219,8 @@ class BridgeDispute(SQLModel, table=True):
     investigator_address: str | None = Field(default=None)
     investigation_notes: str | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     resolved_at: datetime | None = Field(default=None)
 
     # Relationships
@@ -241,8 +241,8 @@ class MerkleProof(SQLModel, table=True):
     tree_depth: int = Field(default=0)  # Tree depth
     is_valid: bool = Field(default=False)
     verified_at: datetime | None = Field(default=None)
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BridgeStatistics(SQLModel, table=True):
@@ -264,7 +264,7 @@ class BridgeStatistics(SQLModel, table=True):
     unique_users: int = Field(default=0)  # Unique users for the day
     peak_hour_volume: float = Field(default=0.0)  # Peak hour volume
     peak_hour_transactions: int = Field(default=0)  # Peak hour transactions
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BridgeAlert(SQLModel, table=True):
@@ -290,8 +290,8 @@ class BridgeAlert(SQLModel, table=True):
     is_resolved: bool = Field(default=False, index=True)
     resolved_at: datetime | None = Field(default=None)
     resolution_notes: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
 
 
 class BridgeConfiguration(SQLModel, table=True):
@@ -305,8 +305,8 @@ class BridgeConfiguration(SQLModel, table=True):
     config_type: str = Field(default="string")  # string, number, boolean, json
     description: str = Field(default="")
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class LiquidityPool(SQLModel, table=True):
@@ -323,9 +323,9 @@ class LiquidityPool(SQLModel, table=True):
     utilized_liquidity: float = Field(default=0.0)  # Utilized liquidity
     utilization_rate: float = Field(default=0.0)  # Utilization rate
     interest_rate: float = Field(default=0.0)  # Interest rate
-    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_active: bool = Field(default=True, index=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BridgeSnapshot(SQLModel, table=True):
@@ -347,7 +347,7 @@ class BridgeSnapshot(SQLModel, table=True):
     bridge_utilization: float = Field(default=0.0)
     top_tokens: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))
     top_chains: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ValidatorReward(SQLModel, table=True):
@@ -365,4 +365,4 @@ class ValidatorReward(SQLModel, table=True):
     is_claimed: bool = Field(default=False, index=True)
     claimed_at: datetime | None = Field(default=None)
     claim_transaction_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)

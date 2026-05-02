@@ -6,7 +6,7 @@ Production-ready cross-chain bridge service with atomic swap protocol implementa
 import asyncio
 import hashlib
 import secrets
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any
@@ -153,9 +153,9 @@ class CrossChainBridgeService:
                 bridge_fee=bridge_fee,
                 network_fee=network_fee,
                 total_fee=total_fee,
-                deadline=datetime.now(datetime.UTC) + timedelta(minutes=deadline_minutes),
+                deadline=datetime.now(timezone.utc) + timedelta(minutes=deadline_minutes),
                 status=BridgeRequestStatus.PENDING,
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
             )
 
             self.session.add(bridge_request)
@@ -274,7 +274,7 @@ class CrossChainBridgeService:
             # Update status
             bridge_request.status = BridgeRequestStatus.CANCELLED
             bridge_request.cancellation_reason = reason
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.updated_at = datetime.now(timezone.utc)
 
             self.session.commit()
 
@@ -288,7 +288,7 @@ class CrossChainBridgeService:
                 "bridge_request_id": bridge_request_id,
                 "status": BridgeRequestStatus.CANCELLED.value,
                 "reason": reason,
-                "cancelled_at": datetime.now(datetime.UTC).isoformat(),
+                "cancelled_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -300,7 +300,7 @@ class CrossChainBridgeService:
         """Get bridge statistics for the specified time period"""
 
         try:
-            cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=time_period_hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_period_hours)
 
             # Get total requests
             total_requests = (
@@ -378,7 +378,7 @@ class CrossChainBridgeService:
                 "total_fees": total_fees,
                 "average_processing_time_minutes": avg_processing_time / 60,
                 "chain_distribution": chain_distribution,
-                "generated_at": datetime.now(datetime.UTC).isoformat(),
+                "generated_at": datetime.now(timezone.utc).isoformat(),
             }
 
         except Exception as e:
@@ -401,7 +401,7 @@ class CrossChainBridgeService:
                     "utilization_rate": pool.get("utilization_rate", 0),
                     "apr": pool.get("apr", 0),
                     "fee_rate": pool.get("fee_rate", 0.005),
-                    "last_updated": pool.get("last_updated", datetime.now(datetime.UTC).isoformat()),
+                    "last_updated": pool.get("last_updated", datetime.now(timezone.utc).isoformat()),
                 }
 
                 pools.append(pool_info)
@@ -426,7 +426,7 @@ class CrossChainBridgeService:
 
             # Update status to confirmed
             bridge_request.status = BridgeRequestStatus.CONFIRMED
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
             # Execute bridge based on protocol
@@ -446,7 +446,7 @@ class CrossChainBridgeService:
                 stmt = (
                     update(BridgeRequest)
                     .where(BridgeRequest.id == bridge_request_id)
-                    .values(status=BridgeRequestStatus.FAILED, error_message=str(e), updated_at=datetime.now(datetime.UTC))
+                    .values(status=BridgeRequestStatus.FAILED, error_message=str(e), updated_at=datetime.now(timezone.utc))
                 )
                 self.session.execute(stmt)
                 self.session.commit()
@@ -476,7 +476,7 @@ class CrossChainBridgeService:
 
             # Update bridge request with source transaction
             bridge_request.source_transaction_hash = source_tx["transaction_hash"]
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
             # Wait for confirmations
@@ -496,8 +496,8 @@ class CrossChainBridgeService:
             # Update bridge request with target transaction
             bridge_request.target_transaction_hash = target_tx["transaction_hash"]
             bridge_request.status = BridgeRequestStatus.COMPLETED
-            bridge_request.completed_at = datetime.now(datetime.UTC)
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.completed_at = datetime.now(timezone.utc)
+            bridge_request.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
             logger.info(f"Completed atomic swap for bridge request {bridge_request.id}")
@@ -535,8 +535,8 @@ class CrossChainBridgeService:
             # Update bridge request
             bridge_request.source_transaction_hash = source_tx["transaction_hash"]
             bridge_request.status = BridgeRequestStatus.COMPLETED
-            bridge_request.completed_at = datetime.now(datetime.UTC)
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.completed_at = datetime.now(timezone.utc)
+            bridge_request.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
             logger.info(f"Completed liquidity pool swap for bridge request {bridge_request.id}")
@@ -568,7 +568,7 @@ class CrossChainBridgeService:
             # Update bridge request
             bridge_request.source_transaction_hash = source_tx["transaction_hash"]
             bridge_request.secret_hash = secret_hash
-            bridge_request.updated_at = datetime.now(datetime.UTC)
+            bridge_request.updated_at = datetime.now(timezone.utc)
             self.session.commit()
 
             # Create HTLC contract on target chain
@@ -627,8 +627,8 @@ class CrossChainBridgeService:
             f"0x{hashlib.sha256(f'htlc_complete_{bridge_request.id}_{secret}'.encode()).hexdigest()}"
         )
         bridge_request.status = BridgeRequestStatus.COMPLETED
-        bridge_request.completed_at = datetime.now(datetime.UTC)
-        bridge_request.updated_at = datetime.now(datetime.UTC)
+        bridge_request.completed_at = datetime.now(timezone.utc)
+        bridge_request.updated_at = datetime.now(timezone.utc)
         self.session.commit()
 
     async def _estimate_network_fee(self, chain_id: int, amount: float, token_address: str | None) -> float:
@@ -751,7 +751,7 @@ class CrossChainBridgeService:
                 "utilization_rate": 0.0,
                 "apr": 0.05,  # 5% APR
                 "fee_rate": 0.005,  # 0.5% fee
-                "last_updated": datetime.now(datetime.UTC),
+                "last_updated": datetime.now(timezone.utc),
             }
 
             logger.info(f"Initialized liquidity pool for chain {chain_id}")

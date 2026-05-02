@@ -6,7 +6,7 @@ Domain models for automated market making, liquidity pools, and swap transaction
 
 from __future__ import annotations
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -59,8 +59,8 @@ class LiquidityPool(SQLModel, table=True):
     is_active: bool = Field(default=True, index=True)
     status: PoolStatus = Field(default=PoolStatus.ACTIVE, index=True)
     created_by: str = Field(index=True)  # Creator address
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_trade_time: datetime | None = Field(default=None)
 
     # Relationships
@@ -88,8 +88,8 @@ class LiquidityPosition(SQLModel, table=True):
     fees_earned: float = Field(default=0.0)  # Fees earned
     impermanent_loss: float = Field(default=0.0)  # Impermanent loss
     status: LiquidityPositionStatus = Field(default=LiquidityPositionStatus.ACTIVE, index=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     last_deposit: datetime | None = Field(default=None)
     last_withdrawal: datetime | None = Field(default=None)
 
@@ -121,8 +121,8 @@ class SwapTransaction(SQLModel, table=True):
     gas_used: int | None = Field(default=None)
     gas_price: float | None = Field(default=None)
     executed_at: datetime | None = Field(default=None, index=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    deadline: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(minutes=20))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    deadline: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(minutes=20))
 
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="swaps")
@@ -149,7 +149,7 @@ class PoolMetrics(SQLModel, table=True):
     impermanent_loss_24h: float = Field(default=0.0)  # 24h impermanent loss
     liquidity_provider_count: int = Field(default=0)  # Number of liquidity providers
     top_lps: dict[str, float] = Field(default_factory=dict, sa_column=Column(JSON))  # Top LPs by share
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="metrics")
@@ -168,10 +168,10 @@ class FeeStructure(SQLModel, table=True):
     volume_adjustment: float = Field(default=0.0)  # Volume-based adjustment
     liquidity_adjustment: float = Field(default=0.0)  # Liquidity-based adjustment
     time_adjustment: float = Field(default=0.0)  # Time-based adjustment
-    adjusted_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
+    adjusted_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
     adjustment_reason: str = Field(default="")  # Reason for adjustment
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class IncentiveProgram(SQLModel, table=True):
@@ -192,10 +192,10 @@ class IncentiveProgram(SQLModel, table=True):
     maximum_liquidity: float = Field(default=0.0)  # Maximum liquidity cap (0 = no cap)
     vesting_period_days: int = Field(default=0)  # Vesting period (0 = no vesting)
     is_active: bool = Field(default=True, index=True)
-    start_time: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    end_time: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(days=30))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    start_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    end_time: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(days=30))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     pool: LiquidityPool = Relationship(back_populates="incentives")
@@ -220,7 +220,7 @@ class LiquidityReward(SQLModel, table=True):
     claim_transaction_hash: str | None = Field(default=None)
     vesting_start: datetime | None = Field(default=None)
     vesting_end: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
 
     # Relationships
     # DISABLED:     program: IncentiveProgram = Relationship(back_populates="rewards")
@@ -243,7 +243,7 @@ class FeeClaim(SQLModel, table=True):
     is_claimed: bool = Field(default=False, index=True)
     claimed_at: datetime | None = Field(default=None)
     claim_transaction_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
 
     # Relationships
     # DISABLED:     position: LiquidityPosition = Relationship(back_populates="fee_claims")
@@ -260,8 +260,8 @@ class PoolConfiguration(SQLModel, table=True):
     config_value: str = Field(default="")
     config_type: str = Field(default="string")  # string, number, boolean, json
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class PoolAlert(SQLModel, table=True):
@@ -283,8 +283,8 @@ class PoolAlert(SQLModel, table=True):
     acknowledged_at: datetime | None = Field(default=None)
     is_resolved: bool = Field(default=False, index=True)
     resolved_at: datetime | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(hours=24))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(hours=24))
 
 
 class PoolSnapshot(SQLModel, table=True):
@@ -310,7 +310,7 @@ class PoolSnapshot(SQLModel, table=True):
     average_slippage: float = Field(default=0.0)
     average_price_impact: float = Field(default=0.0)
     impermanent_loss: float = Field(default=0.0)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class ArbitrageOpportunity(SQLModel, table=True):
@@ -335,5 +335,5 @@ class ArbitrageOpportunity(SQLModel, table=True):
     executed_at: datetime | None = Field(default=None)
     execution_tx_hash: str | None = Field(default=None)
     actual_profit: float | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC) + timedelta(minutes=5))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
+    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc) + timedelta(minutes=5))

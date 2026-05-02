@@ -4,7 +4,7 @@ Tenant management service for multi-tenant AITBC coordinator
 
 import hashlib
 import secrets
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, or_, select, update
@@ -153,7 +153,7 @@ class TenantManagementService:
             if hasattr(tenant, key):
                 setattr(tenant, key, value)
 
-        tenant.updated_at = datetime.now(datetime.UTC)
+        tenant.updated_at = datetime.now(timezone.utc)
 
         # Log update
         await self._log_audit_event(
@@ -184,8 +184,8 @@ class TenantManagementService:
             return tenant
 
         tenant.status = TenantStatus.ACTIVE.value
-        tenant.activated_at = datetime.now(datetime.UTC)
-        tenant.updated_at = datetime.now(datetime.UTC)
+        tenant.activated_at = datetime.now(timezone.utc)
+        tenant.updated_at = datetime.now(timezone.utc)
 
         # Log activation
         await self._log_audit_event(
@@ -219,8 +219,8 @@ class TenantManagementService:
 
         old_status = tenant.status
         tenant.status = TenantStatus.INACTIVE.value
-        tenant.deactivated_at = datetime.now(datetime.UTC)
-        tenant.updated_at = datetime.now(datetime.UTC)
+        tenant.deactivated_at = datetime.now(timezone.utc)
+        tenant.updated_at = datetime.now(timezone.utc)
 
         # Revoke all API keys
         await self._revoke_all_api_keys(tenant_id)
@@ -254,7 +254,7 @@ class TenantManagementService:
 
         old_status = tenant.status
         tenant.status = TenantStatus.SUSPENDED.value
-        tenant.updated_at = datetime.now(datetime.UTC)
+        tenant.updated_at = datetime.now(timezone.utc)
 
         # Log suspension
         await self._log_audit_event(
@@ -293,7 +293,7 @@ class TenantManagementService:
 
         # Create tenant user
         tenant_user = TenantUser(
-            tenant_id=tenant_id, user_id=user_id, role=role, permissions=permissions or [], joined_at=datetime.now(datetime.UTC)
+            tenant_id=tenant_id, user_id=user_id, role=role, permissions=permissions or [], joined_at=datetime.now(timezone.utc)
         )
 
         self.db.add(tenant_user)
@@ -417,7 +417,7 @@ class TenantManagementService:
             return False
 
         api_key.is_active = False
-        api_key.revoked_at = datetime.now(datetime.UTC)
+        api_key.revoked_at = datetime.now(timezone.utc)
 
         # Log revocation
         await self._log_audit_event(
@@ -449,7 +449,7 @@ class TenantManagementService:
 
         # Default to last 30 days
         if not end_date:
-            end_date = datetime.now(datetime.UTC)
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
 
@@ -498,8 +498,8 @@ class TenantManagementService:
                 TenantQuota.tenant_id == tenant_id,
                 TenantQuota.resource_type == resource_type,
                 TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(datetime.UTC),
-                TenantQuota.period_end >= datetime.now(datetime.UTC),
+                TenantQuota.period_start <= datetime.now(timezone.utc),
+                TenantQuota.period_end >= datetime.now(timezone.utc),
             )
         )
 
@@ -526,8 +526,8 @@ class TenantManagementService:
                 TenantQuota.tenant_id == tenant_id,
                 TenantQuota.resource_type == resource_type,
                 TenantQuota.is_active,
-                TenantQuota.period_start <= datetime.now(datetime.UTC),
-                TenantQuota.period_end >= datetime.now(datetime.UTC),
+                TenantQuota.period_start <= datetime.now(timezone.utc),
+                TenantQuota.period_end >= datetime.now(timezone.utc),
             )
         )
 
@@ -596,7 +596,7 @@ class TenantManagementService:
         quotas = quota_templates.get(plan, quota_templates["trial"])
 
         # Create quota records
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         period_end = now.replace(day=1) + timedelta(days=32)  # Next month
         period_end = period_end.replace(day=1) - timedelta(days=1)  # Last day of current month
 
@@ -618,7 +618,7 @@ class TenantManagementService:
         stmt = (
             update(TenantApiKey)
             .where(and_(TenantApiKey.tenant_id == tenant_id, TenantApiKey.is_active))
-            .values(is_active=False, revoked_at=datetime.now(datetime.UTC))
+            .values(is_active=False, revoked_at=datetime.now(timezone.utc))
         )
 
         self.db.execute(stmt)

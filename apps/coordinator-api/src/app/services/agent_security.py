@@ -9,7 +9,7 @@ import json
 from aitbc import get_logger
 
 logger = get_logger(__name__)
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import StrEnum
 from typing import Any
 from uuid import uuid4
@@ -57,7 +57,7 @@ class AgentAuditLog(SQLModel, table=True):
 
     # Event information
     event_type: AuditEventType = Field(index=True)
-    timestamp: datetime = Field(default_factory=datetime.now(datetime.UTC), index=True)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
 
     # Entity references
     workflow_id: str | None = Field(index=True)
@@ -85,7 +85,7 @@ class AgentAuditLog(SQLModel, table=True):
     signature_valid: bool | None = Field(default=None)
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentSecurityPolicy(SQLModel, table=True):
@@ -124,8 +124,8 @@ class AgentSecurityPolicy(SQLModel, table=True):
 
     # Status
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentTrustScore(SQLModel, table=True):
@@ -164,8 +164,8 @@ class AgentTrustScore(SQLModel, table=True):
     violation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
     # Metadata
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentSandboxConfig(SQLModel, table=True):
@@ -208,8 +208,8 @@ class AgentSandboxConfig(SQLModel, table=True):
 
     # Status
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AgentAuditor:
@@ -425,13 +425,13 @@ class AgentTrustManager:
 
         if security_violation:
             trust_score.security_violations += 1
-            trust_score.last_violation = datetime.now(datetime.UTC)
-            trust_score.violation_history.append({"timestamp": datetime.now(datetime.UTC).isoformat(), "type": "security_violation"})
+            trust_score.last_violation = datetime.now(timezone.utc)
+            trust_score.violation_history.append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "security_violation"})
 
         if policy_violation:
             trust_score.policy_violations += 1
-            trust_score.last_violation = datetime.now(datetime.UTC)
-            trust_score.violation_history.append({"timestamp": datetime.now(datetime.UTC).isoformat(), "type": "policy_violation"})
+            trust_score.last_violation = datetime.now(timezone.utc)
+            trust_score.violation_history.append({"timestamp": datetime.now(timezone.utc).isoformat(), "type": "policy_violation"})
 
         # Calculate scores
         trust_score.trust_score = self._calculate_trust_score(trust_score)
@@ -449,8 +449,8 @@ class AgentTrustManager:
                     trust_score.average_execution_time * (trust_score.total_executions - 1) + execution_time
                 ) / trust_score.total_executions
 
-        trust_score.last_execution = datetime.now(datetime.UTC)
-        trust_score.updated_at = datetime.now(datetime.UTC)
+        trust_score.last_execution = datetime.now(timezone.utc)
+        trust_score.updated_at = datetime.now(timezone.utc)
 
         self.session.commit()
         self.session.refresh(trust_score)
@@ -477,7 +477,7 @@ class AgentTrustManager:
 
         # Recency bonus (recent successful executions)
         if trust_score.last_execution:
-            days_since_last = (datetime.now(datetime.UTC) - trust_score.last_execution).days
+            days_since_last = (datetime.now(timezone.utc) - trust_score.last_execution).days
             if days_since_last < 7:
                 base_score += 5  # Recent activity bonus
             elif days_since_last > 30:
@@ -735,7 +735,7 @@ class AgentSandboxManager:
             if sandbox:
                 # Mark as inactive
                 sandbox.is_active = False
-                sandbox.updated_at = datetime.now(datetime.UTC)
+                sandbox.updated_at = datetime.now(timezone.utc)
                 self.session.commit()
 
                 # Sandbox cleanup requires integration with:

@@ -3,7 +3,7 @@ Agent Reward Engine Service
 Implements performance-based reward calculations, distributions, and tier management
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -180,7 +180,7 @@ class RewardCalculator:
 
             # Mark as claimed
             milestone.is_claimed = True
-            milestone.claimed_at = datetime.now(datetime.UTC)
+            milestone.claimed_at = datetime.now(timezone.utc)
 
         return total_bonus
 
@@ -241,8 +241,8 @@ class RewardEngine:
             agent_id=agent_id,
             current_tier=RewardTier.BRONZE,
             tier_progress=0.0,
-            created_at=datetime.now(datetime.UTC),
-            updated_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
         )
 
         self.session.add(profile)
@@ -280,10 +280,10 @@ class RewardEngine:
             milestone_bonus=reward_calculation["milestone_bonus"],
             total_reward=reward_calculation["total_reward"],
             effective_multiplier=reward_calculation["effective_multiplier"],
-            reference_date=reference_date or datetime.now(datetime.UTC),
+            reference_date=reference_date or datetime.now(timezone.utc),
             trust_score_at_calculation=reward_calculation["trust_score"],
             performance_metrics=performance_metrics,
-            calculated_at=datetime.now(datetime.UTC),
+            calculated_at=datetime.now(timezone.utc),
         )
 
         self.session.add(calculation)
@@ -297,8 +297,8 @@ class RewardEngine:
             reward_amount=reward_calculation["total_reward"],
             reward_type=reward_type,
             status=RewardStatus.PENDING,
-            created_at=datetime.now(datetime.UTC),
-            scheduled_at=datetime.now(datetime.UTC),
+            created_at=datetime.now(timezone.utc),
+            scheduled_at=datetime.now(timezone.utc),
         )
 
         self.session.add(distribution)
@@ -352,8 +352,8 @@ class RewardEngine:
             distribution.transaction_hash = transaction_hash
             distribution.transaction_status = "confirmed"
             distribution.status = RewardStatus.DISTRIBUTED
-            distribution.processed_at = datetime.now(datetime.UTC)
-            distribution.confirmed_at = datetime.now(datetime.UTC)
+            distribution.processed_at = datetime.now(timezone.utc)
+            distribution.confirmed_at = datetime.now(timezone.utc)
 
             self.session.commit()
             self.session.refresh(distribution)
@@ -388,7 +388,7 @@ class RewardEngine:
 
         # Update reward count and streak
         profile.rewards_distributed += 1
-        profile.last_reward_date = datetime.now(datetime.UTC)
+        profile.last_reward_date = datetime.now(timezone.utc)
         profile.current_streak += 1
         if profile.current_streak > profile.longest_streak:
             profile.longest_streak = profile.current_streak
@@ -399,8 +399,8 @@ class RewardEngine:
         # Check for tier upgrade
         await self.check_and_update_tier(agent_id)
 
-        profile.updated_at = datetime.now(datetime.UTC)
-        profile.last_activity = datetime.now(datetime.UTC)
+        profile.updated_at = datetime.now(timezone.utc)
+        profile.last_activity = datetime.now(timezone.utc)
 
         self.session.commit()
 
@@ -426,7 +426,7 @@ class RewardEngine:
         if new_tier != old_tier:
             # Update tier
             profile.current_tier = new_tier
-            profile.updated_at = datetime.now(datetime.UTC)
+            profile.updated_at = datetime.now(timezone.utc)
 
             # Create tier upgrade event
             await self.create_reward_event(agent_id, "tier_upgrade", RewardType.SPECIAL_BONUS, 0.0, tier_impact=new_tier)
@@ -467,8 +467,8 @@ class RewardEngine:
             tier_impact=tier_impact,
             related_calculation_id=calculation_id,
             related_distribution_id=distribution_id,
-            occurred_at=datetime.now(datetime.UTC),
-            processed_at=datetime.now(datetime.UTC),
+            occurred_at=datetime.now(timezone.utc),
+            processed_at=datetime.now(timezone.utc),
         )
 
         self.session.add(event)
@@ -488,7 +488,7 @@ class RewardEngine:
             .where(
                 and_(
                     RewardCalculation.agent_id == agent_id,
-                    RewardCalculation.calculated_at >= datetime.now(datetime.UTC) - timedelta(days=30),
+                    RewardCalculation.calculated_at >= datetime.now(timezone.utc) - timedelta(days=30),
                 )
             )
             .order_by(RewardCalculation.calculated_at.desc())
@@ -501,7 +501,7 @@ class RewardEngine:
             .where(
                 and_(
                     RewardDistribution.agent_id == agent_id,
-                    RewardDistribution.created_at >= datetime.now(datetime.UTC) - timedelta(days=30),
+                    RewardDistribution.created_at >= datetime.now(timezone.utc) - timedelta(days=30),
                 )
             )
             .order_by(RewardDistribution.created_at.desc())
@@ -545,7 +545,7 @@ class RewardEngine:
         pending_distributions = self.session.execute(
             select(RewardDistribution)
             .where(
-                and_(RewardDistribution.status == RewardStatus.PENDING, RewardDistribution.scheduled_at <= datetime.now(datetime.UTC))
+                and_(RewardDistribution.status == RewardStatus.PENDING, RewardDistribution.scheduled_at <= datetime.now(timezone.utc))
             )
             .order_by(RewardDistribution.priority.asc(), RewardDistribution.created_at.asc())
             .limit(limit)
@@ -570,9 +570,9 @@ class RewardEngine:
         """Get reward system analytics"""
 
         if not start_date:
-            start_date = datetime.now(datetime.UTC) - timedelta(days=30)
+            start_date = datetime.now(timezone.utc) - timedelta(days=30)
         if not end_date:
-            end_date = datetime.now(datetime.UTC)
+            end_date = datetime.now(timezone.utc)
 
         # Get distributions in period
         distributions = self.session.execute(

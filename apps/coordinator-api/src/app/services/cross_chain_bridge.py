@@ -7,7 +7,7 @@ Enables bridging of assets between different blockchain networks.
 
 from __future__ import annotations
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from aitbc import get_logger
 from fastapi import HTTPException
@@ -119,8 +119,8 @@ class CrossChainBridgeService:
                 total_amount=total_amount,
                 status=BridgeRequestStatus.PENDING,
                 zk_proof=zk_proof.proof,
-                created_at=datetime.now(datetime.UTC),
-                expires_at=datetime.now(datetime.UTC) + timedelta(seconds=self.bridge_timeout),
+                created_at=datetime.now(timezone.utc),
+                expires_at=datetime.now(timezone.utc) + timedelta(seconds=self.bridge_timeout),
             )
 
             self.session.add(bridge_request)
@@ -156,7 +156,7 @@ class CrossChainBridgeService:
             # Update local status if different
             if contract_status.status != bridge_request.status.value:
                 bridge_request.status = BridgeRequestStatus(contract_status.status)
-                bridge_request.updated_at = datetime.now(datetime.UTC)
+                bridge_request.updated_at = datetime.now(timezone.utc)
                 self.session.commit()
 
             # Get confirmation details
@@ -217,7 +217,7 @@ class CrossChainBridgeService:
             # Record dispute resolution
             bridge_request.dispute_reason = dispute_reason
             bridge_request.resolution_action = resolution_action.action_type
-            bridge_request.resolved_at = datetime.now(datetime.UTC)
+            bridge_request.resolved_at = datetime.now(timezone.utc)
             bridge_request.status = BridgeRequestStatus.RESOLVED
 
             self.session.commit()
@@ -273,7 +273,7 @@ class CrossChainBridgeService:
                 transaction_type="confirmation",
                 transaction_hash=confirm_request.lock_tx_hash,
                 signature=confirm_request.signature,
-                confirmed_at=datetime.now(datetime.UTC),
+                confirmed_at=datetime.now(timezone.utc),
             )
 
             self.session.add(confirmation)
@@ -285,7 +285,7 @@ class CrossChainBridgeService:
             if total_confirmations >= required_confirmations:
                 # Update bridge request status
                 bridge_request.status = BridgeRequestStatus.CONFIRMED
-                bridge_request.confirmed_at = datetime.now(datetime.UTC)
+                bridge_request.confirmed_at = datetime.now(timezone.utc)
 
                 # Generate Merkle proof for completion
                 merkle_proof = await self._generate_merkle_proof(bridge_request)
@@ -338,14 +338,14 @@ class CrossChainBridgeService:
                 transaction_type="completion",
                 transaction_hash=complete_request.unlock_tx_hash,
                 merkle_proof=complete_request.merkle_proof,
-                completed_at=datetime.now(datetime.UTC),
+                completed_at=datetime.now(timezone.utc),
             )
 
             self.session.add(completion)
 
             # Update bridge request status
             bridge_request.status = BridgeRequestStatus.COMPLETED
-            bridge_request.completed_at = datetime.now(datetime.UTC)
+            bridge_request.completed_at = datetime.now(timezone.utc)
             bridge_request.unlock_tx_hash = complete_request.unlock_tx_hash
 
             self.session.commit()
@@ -386,7 +386,7 @@ class CrossChainBridgeService:
                 fee_percentage=token_request.fee_percentage,
                 requires_whitelist=token_request.requires_whitelist,
                 is_active=True,
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
             )
 
             self.session.add(supported_token)
@@ -422,7 +422,7 @@ class CrossChainBridgeService:
                 min_confirmations=chain_request.min_confirmations,
                 avg_block_time=chain_request.avg_block_time,
                 is_active=True,
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
             )
 
             self.session.add(chain_config)
@@ -489,7 +489,7 @@ class CrossChainBridgeService:
             "amount": transfer_request.amount,
             "source_chain": transfer_request.source_chain_id,
             "target_chain": transfer_request.target_chain_id,
-            "timestamp": int(datetime.now(datetime.UTC).timestamp()),
+            "timestamp": int(datetime.now(timezone.utc).timestamp()),
         }
 
         # Generate ZK proof

@@ -6,7 +6,7 @@ Domain models for managing agent wallets across multiple blockchain networks.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import StrEnum
 
 from sqlalchemy import JSON, Column
@@ -41,8 +41,8 @@ class AgentWallet(SQLModel, table=True):
     encrypted_private_key: str | None = Field(default=None)  # Only if managed internally
     kms_key_id: str | None = Field(default=None)  # Reference to external KMS
     meta_data: dict[str, str] = Field(default_factory=dict, sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     balances: List["TokenBalance"] = Relationship(back_populates="wallet")
@@ -78,7 +78,7 @@ class TokenBalance(SQLModel, table=True):
     token_address: str = Field(index=True)  # "native" for native currency
     token_symbol: str = Field()
     balance: float = Field(default=0.0)
-    last_updated: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="balances")
@@ -109,8 +109,8 @@ class WalletTransaction(SQLModel, table=True):
     nonce: int | None = Field(default=None)
     status: TransactionStatus = Field(default=TransactionStatus.PENDING, index=True)
     error_message: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
-    updated_at: datetime = Field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relationships
     # DISABLED:     wallet: AgentWallet = Relationship(back_populates="transactions")

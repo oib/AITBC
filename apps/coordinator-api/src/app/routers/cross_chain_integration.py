@@ -3,7 +3,7 @@ Cross-Chain Integration API Router
 REST API endpoints for enhanced multi-chain wallet adapter, cross-chain bridge service, and transaction manager
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
@@ -217,7 +217,7 @@ async def verify_signature(
             "message": message,
             "address": address,
             "chain_id": chain_id,
-            "verified_at": datetime.now(datetime.UTC).isoformat(),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -606,7 +606,7 @@ async def get_cross_chain_health(session: Session = Depends(get_session)) -> dic
             "transaction_success_rate": tx_stats["success_rate"],
             "average_processing_time": tx_stats["average_processing_time_minutes"],
             "active_liquidity_pools": len(await bridge_service.get_liquidity_pools()),
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -675,7 +675,7 @@ async def get_cross_chain_config(session: Session = Depends(get_session)) -> dic
             "transaction_priorities": transaction_priorities,
             "routing_strategies": routing_strategies,
             "security_levels": [level.value for level in SecurityLevel],
-            "last_updated": datetime.now(datetime.UTC).isoformat(),
+            "last_updated": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:

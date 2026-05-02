@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Tuple, Any, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from enum import Enum
 import statistics
 import uuid
@@ -48,7 +48,7 @@ class LoadMetrics:
     completed_tasks: int = 0
     failed_tasks: int = 0
     avg_response_time: float = 0.0
-    last_updated: datetime = field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -94,7 +94,7 @@ class AgentWeight:
     capacity: int = 100
     performance_score: float = 1.0
     reliability_score: float = 1.0
-    last_updated: datetime = field(default_factory=datetime.now(datetime.UTC))
+    last_updated: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 class LoadBalancer:
     """Advanced load balancer for agent distribution"""
@@ -132,7 +132,7 @@ class LoadBalancer:
     def update_agent_metrics(self, agent_id: str, metrics: LoadMetrics):
         """Update agent load metrics"""
         self.agent_metrics[agent_id] = metrics
-        self.agent_metrics[agent_id].last_updated = datetime.now(datetime.UTC)
+        self.agent_metrics[agent_id].last_updated = datetime.now(timezone.utc)
         
         # Update performance score based on metrics
         self._update_performance_score(agent_id, metrics)
@@ -196,7 +196,7 @@ class LoadBalancer:
             assignment = TaskAssignment(
                 task_id=task_id,
                 agent_id=selected_agent,
-                assigned_at=datetime.now(datetime.UTC)
+                assigned_at=datetime.now(timezone.utc)
             )
             
             # Record assignment
@@ -226,7 +226,7 @@ class LoadBalancer:
                 return
             
             assignment = self.task_assignments[task_id]
-            assignment.completed_at = datetime.now(datetime.UTC)
+            assignment.completed_at = datetime.now(timezone.utc)
             assignment.status = "completed"
             assignment.success = success
             assignment.response_time = response_time
@@ -580,7 +580,7 @@ class TaskDistributor:
             "task_data": task_data,
             "priority": priority,
             "requirements": requirements,
-            "submitted_at": datetime.now(datetime.UTC)
+            "submitted_at": datetime.now(timezone.utc)
         }
         
         await self.priority_queues[priority].put(task_info)
@@ -612,7 +612,7 @@ class TaskDistributor:
     
     async def _distribute_task(self, task_info: Dict[str, Any]):
         """Distribute a single task"""
-        start_time = datetime.now(datetime.UTC)
+        start_time = datetime.now(timezone.utc)
         
         try:
             # Assign task
@@ -648,7 +648,7 @@ class TaskDistributor:
         
         finally:
             # Update distribution time
-            distribution_time = (datetime.now(datetime.UTC) - start_time).total_seconds()
+            distribution_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             total_distributed = self.distribution_stats["tasks_distributed"]
             self.distribution_stats["avg_distribution_time"] = (
                 (self.distribution_stats["avg_distribution_time"] * (total_distributed - 1) + distribution_time) / total_distributed

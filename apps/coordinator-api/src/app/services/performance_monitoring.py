@@ -6,7 +6,7 @@ Real-time performance tracking and optimization recommendations
 import json
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 import psutil
@@ -124,7 +124,7 @@ class PerformanceMonitor:
         )
 
         # Store in history
-        self.system_resources.append({"timestamp": datetime.now(datetime.UTC), "data": system_resource})
+        self.system_resources.append({"timestamp": datetime.now(timezone.utc), "data": system_resource})
 
         return system_resource
 
@@ -151,7 +151,7 @@ class PerformanceMonitor:
         )
 
         # Store in history
-        self.model_performance[model_id].append({"timestamp": datetime.now(datetime.UTC), "data": performance})
+        self.model_performance[model_id].append({"timestamp": datetime.now(timezone.utc), "data": performance})
 
         # Check for performance alerts
         await self._check_model_alerts(model_id, performance)
@@ -233,7 +233,7 @@ class PerformanceMonitor:
     async def get_performance_summary(self, hours: int = 1) -> dict[str, Any]:
         """Get performance summary for specified time period"""
 
-        cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
         # System metrics summary
         system_metrics = []
@@ -283,7 +283,7 @@ class PerformanceMonitor:
 
         return {
             "time_period_hours": hours,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "system_metrics": {
                 "avg_cpu_percent": avg_cpu,
                 "avg_memory_percent": avg_memory,
@@ -300,9 +300,9 @@ class PerformanceMonitor:
         """Get current optimization recommendations"""
 
         # Filter recent recommendations (last hour)
-        cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=1)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=1)
         recent_recommendations = [
-            rec for rec in self.optimization_recommendations if rec.get("timestamp", datetime.now(datetime.UTC)) > cutoff_time
+            rec for rec in self.optimization_recommendations if rec.get("timestamp", datetime.now(timezone.utc)) > cutoff_time
         ]
 
         return recent_recommendations
@@ -313,7 +313,7 @@ class PerformanceMonitor:
         if model_id not in self.model_performance:
             return {"error": f"Model {model_id} not found"}
 
-        cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         entries = [e for e in self.model_performance[model_id] if e["timestamp"] > cutoff_time]
 
         if not entries:
@@ -365,7 +365,7 @@ class PerformanceMonitor:
             },
             "averages": {"avg_inference_time_ms": avg_inference, "avg_throughput_rps": avg_throughput},
             "sample_count": len(performances),
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def export_metrics(self, format: str = "json", hours: int = 24) -> Union[str, dict[str, Any]]:
@@ -380,7 +380,7 @@ class PerformanceMonitor:
             csv_lines = ["timestamp,model_id,inference_time_ms,throughput_rps,accuracy,memory_usage_mb"]
 
             for model_id, entries in self.model_performance.items():
-                cutoff_time = datetime.now(datetime.UTC) - timedelta(hours=hours)
+                cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
                 recent_entries = [e for e in entries if e["timestamp"] > cutoff_time]
 
                 for entry in recent_entries:
@@ -420,7 +420,7 @@ class AutoOptimizer:
                 success = await self._apply_optimization(optimization)
 
                 self.optimization_history.append(
-                    {"timestamp": datetime.now(datetime.UTC), "optimization": optimization, "success": success, "impact": "pending"}
+                    {"timestamp": datetime.now(timezone.utc), "optimization": optimization, "success": success, "impact": "pending"}
                 )
 
         except Exception as e:

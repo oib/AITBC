@@ -5,7 +5,7 @@ Dynamic Pricing API Router
 Provides RESTful endpoints for dynamic pricing management
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -147,7 +147,7 @@ async def get_price_forecast(
             accuracy_score=(
                 sum(point.confidence for point in forecast_points) / len(forecast_points) if forecast_points else 0.0
             ),
-            generated_at=datetime.now(datetime.UTC).isoformat(),
+            generated_at=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
@@ -197,7 +197,7 @@ async def set_pricing_strategy(
             provider_id=provider_id,
             strategy=request.strategy,
             constraints=request.constraints,
-            set_at=datetime.now(datetime.UTC).isoformat(),
+            set_at=datetime.now(timezone.utc).isoformat(),
             status="active",
         )
 
@@ -239,7 +239,7 @@ async def get_pricing_strategy(
             provider_id=provider_id,
             strategy=strategy.value,
             constraints=constraints_dict,
-            set_at=datetime.now(datetime.UTC).isoformat(),
+            set_at=datetime.now(timezone.utc).isoformat(),
             status="active",
         )
 
@@ -531,7 +531,7 @@ async def get_price_history(
             )
 
         # Filter history by period
-        cutoff_time = datetime.now(datetime.UTC) - timedelta(days=days)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
         filtered_history = [point for point in engine.pricing_history[resource_id] if point.timestamp >= cutoff_time]
 
         # Calculate statistics
@@ -637,7 +637,7 @@ async def bulk_pricing_update(
             success_count=success_count,
             error_count=error_count,
             results=results,
-            processed_at=datetime.now(datetime.UTC).isoformat(),
+            processed_at=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
@@ -691,7 +691,7 @@ async def pricing_health_check(
 
         return {
             "status": overall_status,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "services": {
                 "pricing_engine": {
                     "status": engine_status,
@@ -710,4 +710,4 @@ async def pricing_health_check(
 
     except Exception as e:
         logger.error(f"Dynamic pricing health check failed: {e}")
-        return {"status": "unhealthy", "timestamp": datetime.now(datetime.UTC).isoformat(), "error": "Health check failed"}
+        return {"status": "unhealthy", "timestamp": datetime.now(timezone.utc).isoformat(), "error": "Health check failed"}

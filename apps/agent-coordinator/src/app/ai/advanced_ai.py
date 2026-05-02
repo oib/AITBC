@@ -10,7 +10,7 @@ try:
     import numpy as np
 except ImportError:  # pragma: no cover - optional dependency for runtime AI features
     np = None
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from collections import defaultdict
@@ -93,7 +93,7 @@ class AdvancedAIIntegration:
                     'hidden_sizes': hidden_sizes,
                     'output_size': output_size
                 },
-                'created_at': datetime.now(datetime.UTC).isoformat()
+                'created_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -187,7 +187,7 @@ class AdvancedAIIntegration:
                 'final_loss': losses[-1] if losses else 0,
                 'accuracy': accuracy,
                 'training_data_size': len(training_data),
-                'trained_at': datetime.now(datetime.UTC).isoformat()
+                'trained_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -218,7 +218,7 @@ class AdvancedAIIntegration:
                 'network_id': network_id,
                 'features': features,
                 'prediction': float(prediction[0][0]),
-                'timestamp': datetime.now(datetime.UTC).isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }
             self.predictions_history.append(prediction_record)
             
@@ -227,7 +227,7 @@ class AdvancedAIIntegration:
                 'network_id': network_id,
                 'prediction': float(prediction[0][0]),
                 'confidence': max(prediction[0][0], 1 - prediction[0][0]),
-                'predicted_at': datetime.now(datetime.UTC).isoformat()
+                'predicted_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -261,7 +261,7 @@ class AdvancedAIIntegration:
                 'model_type': model_type,
                 'features': features,
                 'target': target,
-                'created_at': datetime.now(datetime.UTC).isoformat()
+                'created_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -286,7 +286,7 @@ class AdvancedAIIntegration:
             
             model.accuracy = accuracy
             model.training_data_size = len(training_data)
-            model.last_trained = datetime.now(datetime.UTC)
+            model.last_trained = datetime.now(timezone.utc)
             
             # Store performance
             self.model_performance[model_id].append(accuracy)
@@ -405,7 +405,7 @@ class AdvancedAIIntegration:
                 'model_id': model_id,
                 'features': features,
                 'prediction': prediction,
-                'timestamp': datetime.now(datetime.UTC).isoformat()
+                'timestamp': datetime.now(timezone.utc).isoformat()
             }
             self.predictions_history.append(prediction_record)
             
@@ -414,7 +414,7 @@ class AdvancedAIIntegration:
                 'model_id': model_id,
                 'prediction': prediction,
                 'confidence': min(1.0, max(0.0, prediction)) if model.model_type == 'logistic_regression' else None,
-                'predicted_at': datetime.now(datetime.UTC).isoformat()
+                'predicted_at': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:
@@ -451,7 +451,7 @@ class AdvancedAIIntegration:
                 'model_performance': model_stats,
                 'training_data_sizes': training_stats,
                 'available_model_types': list(set(model.model_type for model in self.models.values())),
-                'last_updated': datetime.now(datetime.UTC).isoformat()
+                'last_updated': datetime.now(timezone.utc).isoformat()
             }
             
         except Exception as e:

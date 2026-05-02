@@ -5,14 +5,14 @@ Staking Management API
 REST API for AI agent staking system with reputation-based yield farming
 """
 
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
-from ..app_logging import get_logger
+from aitbc import get_logger
 from ..auth import get_current_user
 from ..domain.bounty import AgentMetrics, AgentStake, EcosystemMetrics, PerformanceTier, StakeStatus, StakingPool
 from ..services.blockchain_service import BlockchainService
@@ -303,7 +303,7 @@ async def unbond_stake(
         if stake.status != StakeStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Stake is not active")
         
-        if datetime.now(datetime.UTC) < stake.end_time:
+        if datetime.now(timezone.utc) < stake.end_time:
             raise HTTPException(status_code=400, detail="Lock period has not ended")
         
         # Initiate unbonding
