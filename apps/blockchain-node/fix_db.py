@@ -1,8 +1,9 @@
-from aitbc_chain.database import engine, init_db
+from aitbc_chain.database import get_engine, init_db
 from sqlalchemy import text
 
 def fix():
     init_db()
+    engine = get_engine()
     with engine.connect() as conn:
         try:
             conn.execute(text('ALTER TABLE "transaction" ADD COLUMN metadata TEXT'))

@@ -4,12 +4,13 @@ Core Agent class for AITBC network participation
 
 import asyncio
 import json
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.asymmetric import rsa, ed25519
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
@@ -301,6 +302,26 @@ class Agent:
             logger.error(f"Error sending message: {e}")
             return False
 
+    async def _fetch_sender_public_key(self, sender_id: str) -> Optional[str]:
+        """Fetch sender's public key from coordinator API"""
+        try:
+            coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8011")
+            client = AITBCHTTPClient(timeout=5.0)
+            
+            response = client.get(f"{coordinator_url}/v1/agent-identity/{sender_id}")
+            
+            if response and "public_key" in response:
+                return response["public_key"]
+            else:
+                logger.warning(f"No public key found for agent {sender_id}")
+                return None
+        except NetworkError as e:
+            logger.error(f"Failed to fetch public key for {sender_id}: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Error fetching public key: {e}")
+            return None
+
     async def receive_message(self, message: Dict[str, Any]) -> bool:
         """Process a received message from another agent"""
         # Verify signature
@@ -316,13 +337,27 @@ class Agent:
         message_to_verify = message.copy()
         message_to_verify.pop("signature", None)
         
-        # In a real implementation, we would fetch the sender's public key
-        # For now, we'll assume the signature is valid if present
-        # TODO: Fetch sender's public key from coordinator API and verify
-        logger.info(
-            f"Received message from {sender_id}: {message.get('type')}"
-        )
-        return True
+        # Fetch sender's public key from coordinator API
+        public_key_hex = await self._fetch_sender_public_key(sender_id)
+        if not public_key_hex:
+            logger.error(f"Failed to fetch public key for {sender_id}, rejecting message")
+            return False
+        
+        # Verify signature using ed25519
+        try:
+            public_key_bytes = bytes.fromhex(public_key_hex)
+            public_key = ed25519.Ed25519PublicKey.from_public_bytes(public_key_bytes)
+            
+            message_bytes = json.dumps(message_to_verify, sort_keys=True).encode('utf-8')
+            public_key.verify(signature, message_bytes)
+            
+            logger.info(
+                f"Received message from {sender_id}: {message.get('type')} (signature verified)"
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Signature verification failed for {sender_id}: {e}")
+            return False
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert agent to dictionary representation"""
