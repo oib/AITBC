@@ -355,11 +355,11 @@ def create_app() -> FastAPI:
     # Add blockchain router for CLI compatibility
     app.include_router(blockchain, prefix="/v1")
     
-    # Add edge GPU router
-    app.include_router(edge_gpu, prefix="/v1")
+    # TODO: Add edge GPU router (disabled due to startup hang)
+    # app.include_router(edge_gpu, prefix="/v1")
     
-    # Add multi-modal RL router
-    app.include_router(multi_modal_rl, prefix="/v1")
+    # TODO: Add multi-modal RL router (disabled due to startup hang)
+    # app.include_router(multi_modal_rl, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
