@@ -30,6 +30,11 @@ class ChainSettings(BaseSettings):
     db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
     db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
 
+    # Auto-resync configuration for Phase 1.3
+    auto_resync_enabled: bool = True  # Enable automatic re-sync on rejection threshold
+    auto_resync_after_rejections: int = 3  # Trigger re-sync after N consecutive rejections
+    auto_resync_source_url: Optional[str] = None  # Trusted peer URL for auto re-sync (fallback to default_peer_rpc_url)
+
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.
         

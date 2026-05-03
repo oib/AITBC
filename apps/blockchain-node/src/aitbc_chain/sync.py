@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import time
 from dataclasses import dataclass
 from datetime import datetime, UTC
@@ -113,10 +114,106 @@ class ChainSync:
         self._client = httpx.AsyncClient(timeout=10.0)
         self._last_bulk_sync_time = 0
         self._min_bulk_sync_interval = getattr(settings, 'min_bulk_sync_interval', 60)
+        # Re-sync rejection counter for Phase 1.3
+        self._rejection_counts: Dict[str, int] = {}
 
     async def close(self) -> None:
         """Close HTTP client."""
         await self._client.aclose()
+
+    def _validate_genesis_metadata(self, block_data: Dict[str, Any], session: Session) -> Tuple[bool, str]:
+        """Validate genesis block metadata by computing expected state root from allocations.
+
+        Args:
+            block_data: Block data dictionary
+            session: Database session
+
+        Returns:
+            Tuple of (is_valid, reason)
+        """
+        try:
+            metadata_str = block_data.get("block_metadata")
+            if not metadata_str:
+                return False, "Genesis block missing block_metadata"
+
+            metadata = json.loads(metadata_str)
+            allocations = metadata.get("allocations", [])
+            if not allocations:
+                return False, "Genesis block metadata missing allocations"
+
+            # Create temporary account state from allocations
+            state_manager = StateManager()
+            temp_accounts = {}
+            for alloc in allocations:
+                address = alloc.get("address")
+                balance = alloc.get("balance", 0)
+                if address:
+                    temp_accounts[address] = {"balance": balance}
+
+            # Compute expected state root from allocations
+            computed_root = state_manager.compute_state_root(temp_accounts)
+
+            # Get expected state root from block
+            expected_root_hex = block_data.get("state_root", "")
+            try:
+                expected_root = bytes.fromhex(expected_root_hex.replace("0x", ""))
+            except ValueError:
+                return False, f"Invalid state_root format: {expected_root_hex}"
+
+            # Verify computed root matches expected root
+            if computed_root != expected_root:
+                return False, f"State root mismatch: computed {computed_root.hex()}, expected {expected_root.hex()}"
+
+            return True, "Valid"
+
+        except json.JSONDecodeError as e:
+            return False, f"Invalid JSON in block_metadata: {e}"
+        except Exception as e:
+            return False, f"Genesis metadata validation error: {e}"
+
+    def _track_rejection(self, chain_id: str) -> None:
+        """Track a state root rejection for the given chain."""
+        self._rejection_counts[chain_id] = self._rejection_counts.get(chain_id, 0) + 1
+
+    def _reset_rejection_counter(self, chain_id: str) -> None:
+        """Reset rejection counter on successful block import."""
+        if chain_id in self._rejection_counts:
+            del self._rejection_counts[chain_id]
+
+    def _check_and_trigger_resync(self, chain_id: str) -> bool:
+        """Check if rejection threshold reached and trigger auto re-sync.
+
+        Returns:
+            True if re-sync was triggered, False otherwise
+        """
+        if not settings.auto_resync_enabled:
+            return False
+
+        threshold = settings.auto_resync_after_rejections
+        current_count = self._rejection_counts.get(chain_id, 0)
+
+        if current_count >= threshold:
+            logger.warning(
+                f"State root rejection threshold reached ({current_count}/{threshold}), "
+                f"triggering auto re-sync for chain {chain_id}"
+            )
+            # Trigger re-sync from trusted peer
+            source_url = settings.auto_resync_source_url or settings.default_peer_rpc_url
+            if source_url:
+                try:
+                    # Use asyncio to run the async bulk_import_from method
+                    import asyncio
+                    loop = asyncio.get_event_loop()
+                    imported = loop.run_until_complete(self.bulk_import_from(source_url))
+                    logger.info(f"Auto re-sync completed: {imported} blocks imported")
+                    # Reset counter after successful re-sync
+                    self._reset_rejection_counter(chain_id)
+                    return True
+                except Exception as e:
+                    logger.error(f"Auto re-sync failed: {e}")
+            else:
+                logger.warning("No source URL available for auto re-sync")
+        return False
 
     def _calculate_dynamic_batch_size(self, gap_size: int) -> int:
         """Calculate dynamic batch size based on gap size.
@@ -351,17 +448,14 @@ class ChainSync:
         with self._session_factory() as session:
             # Validate genesis block metadata if present
             if height == 0 and block_data.get("block_metadata"):
-                try:
-                    metadata = json.loads(block_data["block_metadata"])
-                    allocations = metadata.get("allocations", [])
-                    if not allocations:
-                        logger.warning("Genesis block metadata missing allocations", extra={"height": height, "hash": block_hash})
-                        return ImportResult(accepted=False, height=height, block_hash=block_hash,
-                                          reason="Genesis block metadata missing allocations")
-                except json.JSONDecodeError:
-                    logger.warning("Genesis block metadata invalid JSON", extra={"height": height, "hash": block_hash})
-                    return ImportResult(accepted=False, height=height, block_hash=block_hash,
-                                      reason="Genesis block metadata invalid JSON")
+                is_valid, reason = self._validate_genesis_metadata(block_data, session)
+                if not is_valid:
+                    if settings.enforce_state_root_validation:
+                        metrics_registry.increment("sync_state_root_rejected_total")
+                        logger.error(f"Genesis block metadata validation failed: {reason}", extra={"height": height, "hash": block_hash})
+                        return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
+                    else:
+                        logger.warning(f"Genesis block metadata validation failed (enforcement disabled): {reason}", extra={"height": height, "hash": block_hash})
             
             # Check for duplicate
             existing = session.exec(
@@ -506,10 +600,13 @@ class ChainSync:
                 if settings.enforce_state_root_validation:
                     metrics_registry.increment("sync_state_root_rejected_total")
                     session.rollback()
+                    self._track_rejection(self._chain_id)
                     logger.error(
                         f"[SYNC] Invalid state root at height {block_data['height']}: "
                         f"{block_data.get('state_root')} - BLOCK REJECTED"
                     )
+                    # Check if re-sync should be triggered
+                    self._check_and_trigger_resync(self._chain_id)
                     return ImportResult(
                         accepted=False,
                         height=block_data["height"],
@@ -524,10 +621,13 @@ class ChainSync:
                 if settings.enforce_state_root_validation:
                     metrics_registry.increment("sync_state_root_rejected_total")
                     session.rollback()
+                    self._track_rejection(self._chain_id)
                     logger.error(
                         f"[SYNC] State root mismatch at height {block_data['height']}: "
                         f"expected {expected_root.hex()}, computed {computed_root.hex()} - BLOCK REJECTED"
                     )
+                    # Check if re-sync should be triggered
+                    self._check_and_trigger_resync(self._chain_id)
                     return ImportResult(
                         accepted=False,
                         height=block_data["height"],
@@ -541,6 +641,9 @@ class ChainSync:
                     )
 
         session.commit()
+
+        # Reset rejection counter on successful block import
+        self._reset_rejection_counter(self._chain_id)
 
         metrics_registry.increment("sync_blocks_accepted_total")
         metrics_registry.set_gauge("sync_chain_height", float(block_data["height"]))
