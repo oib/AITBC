@@ -125,5 +125,13 @@ async def health() -> dict[str, Any]:
         return {
             "status": "degraded",
             "router": "multi-modal-rl",
-            "ai_service": "unreachable"
+            "ai_service": "unreachable",
+            "note": "AI service not available on this node"
+        }
+    except Exception:
+        return {
+            "status": "degraded",
+            "router": "multi-modal-rl",
+            "ai_service": "error",
+            "note": "AI service check failed"
         }
