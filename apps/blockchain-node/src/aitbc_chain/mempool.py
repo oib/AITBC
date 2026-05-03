@@ -8,7 +8,7 @@ from threading import Lock
 from typing import Any, Dict, List, Optional
 
 from sqlmodel import Session, SQLModel, create_engine, select, Field, text
-from sqlalchemy import Column, String, Integer, Float, Text, Index, MetaData, Table
+from sqlalchemy import Column, String, Integer, Float, Text, Index, MetaData, Table, func
 
 from .metrics import metrics_registry
 
@@ -226,8 +226,8 @@ class DatabaseMempool:
 
                 # Evict if full
                 count = session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
-                ).count()
+                    select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                ).one()
                 if count >= self._max_size:
                     to_evict = session.exec(
                         select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
@@ -340,9 +340,10 @@ class DatabaseMempool:
             chain_id = settings.chain_id
         with self._lock:
             with Session(self._engine) as session:
-                return session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
-                ).count()
+                count = session.exec(
+                    select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
+                ).one()
+                return count
 
     def get_pending_transactions(self, chain_id: str = None, limit: int = 100) -> List[Dict[str, Any]]:
         """Get pending transactions for RPC endpoint"""
