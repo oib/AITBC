@@ -30,3 +30,7 @@ def setup_logger(
 def get_logger(name: str) -> logging.Logger:
     """Get a logger instance"""
     return logging.getLogger(name)
+
+def configure_logging(level: str = "INFO") -> None:
+    """Configure root logging level"""
+    logging.basicConfig(level=getattr(logging, level.upper()))

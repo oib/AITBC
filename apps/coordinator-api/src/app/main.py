@@ -90,7 +90,7 @@ except ImportError:
     print("WARNING: ML ZK proofs router not available (missing dependencies)")
 from aitbc import get_logger
 
-from aitbc.logging import configure_logging
+from aitbc.aitbc_logging import configure_logging
 from aitbc import (
     RequestIDMiddleware,
     PerformanceLoggingMiddleware,
