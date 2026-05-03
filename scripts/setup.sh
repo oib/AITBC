@@ -183,6 +183,7 @@ setup_postgresql_databases() {
             "aitbc_trading:aitbc_trading"
             "aitbc_gpu:aitbc_gpu"
             "aitbc_ai:aitbc_ai"
+            "aitbc_mempool:aitbc_mempool"
         )
 
         for db_user in "${databases[@]}"; do
