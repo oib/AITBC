@@ -81,6 +81,7 @@ class ChainSettings(BaseSettings):
 
     # Mempool settings
     mempool_backend: str = "database"  # "database" or "memory" (database recommended for persistence)
+    mempool_db_url: str = "postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool"  # PostgreSQL URL for mempool (can be overridden by MEMPOOL_DB_URL env var)
     mempool_max_size: int = 10_000
     mempool_eviction_interval: int = 60  # seconds
 
