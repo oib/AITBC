@@ -431,6 +431,9 @@ class PoAProposer:
                 self._logger.info(f"Genesis block with hash {block_hash} already exists, skipping creation")
                 return
             
+            # Load genesis allocations for embedding in metadata
+            genesis_allocations = self._load_genesis_allocations_for_metadata()
+            
             # Compute state root for genesis block
             state_root = _compute_state_root(session, self._config.chain_id)
             
@@ -443,6 +446,7 @@ class PoAProposer:
                 timestamp=timestamp,
                 tx_count=0,
                 state_root=state_root,
+                block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
             )
             session.add(genesis)
             try:
@@ -479,10 +483,28 @@ class PoAProposer:
             )
 
     async def _initialize_genesis_allocations(self, session: Session) -> None:
-        """Create Account entries from the genesis allocations file."""
-        # Use standardized data directory from configuration
-        from ..config import settings
+        """Create Account entries from the genesis allocations file or RPC bootstrap."""
+        # Try local file first
+        local_allocations = self._load_genesis_allocations_from_file()
+        if local_allocations:
+            self._logger.info("Using local genesis allocations file")
+            self._create_accounts_from_allocations(session, local_allocations)
+            return
         
+        # Try RPC bootstrap
+        self._logger.info("Local genesis file not found, attempting RPC bootstrap")
+        try:
+            rpc_allocations = await self._load_genesis_allocations_from_rpc()
+            if rpc_allocations:
+                self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap")
+                self._create_accounts_from_allocations(session, rpc_allocations)
+            else:
+                self._logger.warning("RPC bootstrap returned no allocations, skipping account initialization")
+        except Exception as e:
+            self._logger.warning(f"RPC bootstrap failed: {e}, skipping account initialization")
+    
+    def _load_genesis_allocations_from_file(self) -> list:
+        """Load genesis allocations from local file."""
         genesis_paths = [
             Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
         ]
@@ -494,35 +516,94 @@ class PoAProposer:
                 break
         
         if not genesis_path:
-            self._logger.warning("Genesis allocations file not found; skipping account initialization", extra={"paths": str(genesis_paths)})
-            return
+            return []
+        
+        try:
+            with open(genesis_path) as f:
+                genesis_data = json.load(f)
+            return genesis_data.get("allocations", [])
+        except Exception as e:
+            self._logger.warning(f"Failed to load genesis allocations file: {e}")
+            return []
 
-        with open(genesis_path) as f:
-            genesis_data = json.load(f)
+    def _load_genesis_allocations_for_metadata(self) -> list:
+        """Load genesis allocations from file for embedding in genesis block metadata."""
+        genesis_paths = [
+            Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
+        ]
+        
+        genesis_path = None
+        for path in genesis_paths:
+            if path.exists():
+                genesis_path = path
+                break
+        
+        if not genesis_path:
+            self._logger.warning("Genesis allocations file not found; genesis block will not contain allocation metadata", extra={"paths": str(genesis_paths)})
+            return []
+        
+        try:
+            with open(genesis_path) as f:
+                genesis_data = json.load(f)
+            return genesis_data.get("allocations", [])
+        except Exception as e:
+            self._logger.warning(f"Failed to load genesis allocations file: {e}")
+            return []
 
-        allocations = genesis_data.get("allocations", [])
+    async def _load_genesis_allocations_from_rpc(self) -> list:
+        """Load genesis allocations from trusted peer via RPC."""
+        import httpx
+        
+        # Try multiple trusted peers
+        trusted_peers = [
+            f"http://{self._config.default_peer_rpc_url}",
+            "http://localhost:8006",
+        ]
+        
+        for peer_url in trusted_peers:
+            try:
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        f"{peer_url}/rpc/genesis_allocations",
+                        params={"chain_id": self._config.chain_id}
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    allocations = data.get("allocations", [])
+                    if allocations:
+                        self._logger.info(f"Successfully loaded {len(allocations)} allocations from {peer_url}")
+                        return allocations
+            except Exception as e:
+                self._logger.debug(f"Failed to fetch allocations from {peer_url}: {e}")
+                continue
+        
+        return []
+
+    def _create_accounts_from_allocations(self, session: Session, allocations: list) -> None:
+        """Create Account entries from allocation data."""
         created = 0
         for alloc in allocations:
             addr = alloc["address"]
             balance = int(alloc["balance"])
             nonce = int(alloc.get("nonce", 0))
             # Check if account already exists (idempotent)
-            acct = session.get(Account, (self._config.chain_id, addr))
-            if acct is None:
-                acct = Account(chain_id=self._config.chain_id, address=addr, balance=balance, nonce=nonce)
-                session.add(acct)
-                created += 1
-        session.commit()
-        self._logger.info("Initialized genesis accounts", extra={"count": created, "total": len(allocations), "path": str(genesis_path)})
-
-    def _fetch_chain_head(self) -> Optional[Block]:
-        with self._session_factory() as session:
-            return session.exec(
-                select(Block)
-                .where(Block.chain_id == self._config.chain_id)
-                .order_by(Block.height.desc())
-                .limit(1)
+            existing = session.exec(
+                select(Account).where(Account.chain_id == self._config.chain_id).where(Account.address == addr)
             ).first()
+            if existing:
+                continue
+            
+            account = Account(
+                chain_id=self._config.chain_id,
+                address=addr,
+                balance=balance,
+                nonce=nonce,
+            )
+            session.add(account)
+            created += 1
+        
+        session.commit()
+        self._logger.info(f"Created {created} accounts from genesis allocations")
 
     def _compute_block_hash(self, height: int, parent_hash: str, timestamp: datetime, transactions: list = None) -> str:
         # Include transaction hashes in block hash computation
