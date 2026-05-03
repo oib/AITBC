@@ -48,9 +48,11 @@ from .routers import (
     admin,
     agent_identity,
     agent_router,
+    blockchain,
     client,
     cross_chain_integration,
     developer_platform,
+    edge_gpu,
     exchange,
     explorer,
     global_marketplace,
@@ -60,6 +62,7 @@ from .routers import (
     marketplace_gpu,
     marketplace_offers,
     miner,
+    multi_modal_rl,
     payments,
     services,
     users,
@@ -351,6 +354,12 @@ def create_app() -> FastAPI:
 
     # Add blockchain router for CLI compatibility
     app.include_router(blockchain, prefix="/v1")
+    
+    # Add edge GPU router
+    app.include_router(edge_gpu, prefix="/v1")
+    
+    # Add multi-modal RL router
+    app.include_router(multi_modal_rl, prefix="/v1")
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
