@@ -1,17 +1,21 @@
 [Unit]
 Description=AITBC Agent Registry Service
-After=network.target
+After=network.target redis.service
 
 [Service]
 Type=simple
 User=root
 Group=root
 WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-agent-registry-wrapper.py
 Restart=always
-RestartSec=10
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-agent-registry
 
 [Install]
 WantedBy=multi-user.target
