@@ -295,7 +295,7 @@ class ChainSync:
                 if result.accepted:
                     imported += 1
                 else:
-                    logger.warning("Block import failed during bulk", extra={"height": block_data.get("height"), "reason": result.reason})
+                    logger.warning(f"Block import failed during bulk at height {block_data.get('height')}: {result.reason}", extra={"height": block_data.get("height"), "reason": result.reason})
                     return imported
 
             start_height = end_height + 1
@@ -518,14 +518,25 @@ class ChainSync:
         """
         fork_height = block_data.get("height", -1)
         our_height = our_head.height
+        fork_chain_id = block_data.get("chain_id", "")
 
         metrics_registry.increment("sync_forks_detected_total")
-        logger.warning("Fork detected", extra={
+        logger.warning(f"Fork detected at height {fork_height} (our height: {our_height}, fork hash: {block_data.get('hash')[:16]}..., our hash: {our_head.hash[:16]}...)", extra={
             "fork_height": fork_height,
             "our_height": our_height,
             "fork_hash": block_data.get("hash"),
             "our_hash": our_head.hash,
+            "fork_chain_id": fork_chain_id,
+            "our_chain_id": self._chain_id,
         })
+
+        # Check if chains are incompatible (different chain_id)
+        if fork_chain_id and fork_chain_id != self._chain_id:
+            return ImportResult(
+                accepted=False, height=fork_height,
+                block_hash=block_data.get("hash", ""),
+                reason=f"Incompatible chain: block from chain '{fork_chain_id}' does not match our chain '{self._chain_id}' (heights: {fork_height} vs {our_height})"
+            )
 
         # Simple longest-chain: only reorg if incoming chain is strictly longer
         # and within max reorg depth
