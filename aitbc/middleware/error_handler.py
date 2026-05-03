@@ -43,7 +43,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             logger.error(
                 "Unhandled exception",
-                error=str(e),
+                exc=str(e),
                 path=request.url.path,
                 method=request.method,
                 exc_info=True,
