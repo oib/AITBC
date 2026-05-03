@@ -18,6 +18,7 @@ from .metrics import metrics_registry
 from .models import Block, Transaction as ChainTransaction, Account
 from .logger import get_logger
 from .state.merkle_patricia_trie import StateManager
+from .state.state_transition import get_state_transition
 
 logger = get_logger(__name__)
 
