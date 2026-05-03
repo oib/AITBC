@@ -52,6 +52,75 @@ class TestStateRootVerification:
         trie.delete(key)
         assert trie.get(key) is None
     
+    def test_merkle_patricia_trie_shared_prefix_keys(self):
+        trie = MerklePatriciaTrie()
+        entries = {
+            b"account:alice": b"1000:0",
+            b"account:alicia": b"2000:1",
+            b"account:bob": b"3000:2",
+        }
+        
+        for key, value in entries.items():
+            trie.put(key, value)
+        
+        for key, value in entries.items():
+            assert trie.get(key) == value
+        
+        assert trie.get(b"account:unknown") is None
+        assert trie.get_root() != b'\x00' * 32
+    
+    def test_merkle_patricia_trie_update_changes_value_and_root(self):
+        trie = MerklePatriciaTrie()
+        trie.put(b"account:alice", b"1000:0")
+        initial_root = trie.get_root()
+        
+        trie.put(b"account:alice", b"1500:1")
+        
+        assert trie.get(b"account:alice") == b"1500:1"
+        assert trie.get_root() != initial_root
+    
+    def test_merkle_patricia_trie_deterministic_insertion_order(self):
+        entries = [
+            (b"account:alice", b"1000:0"),
+            (b"account:alicia", b"2000:1"),
+            (b"account:bob", b"3000:2"),
+            (b"account:charlie", b"4000:3"),
+        ]
+        first = MerklePatriciaTrie()
+        second = MerklePatriciaTrie()
+        
+        for key, value in entries:
+            first.put(key, value)
+        for key, value in reversed(entries):
+            second.put(key, value)
+        
+        assert first.get_root() == second.get_root()
+    
+    def test_merkle_patricia_trie_delete_compacts_prefixes(self):
+        trie = MerklePatriciaTrie()
+        trie.put(b"account:alice", b"1000:0")
+        trie.put(b"account:alicia", b"2000:1")
+        trie.put(b"account:bob", b"3000:2")
+        
+        trie.delete(b"account:alicia")
+        
+        assert trie.get(b"account:alicia") is None
+        assert trie.get(b"account:alice") == b"1000:0"
+        assert trie.get(b"account:bob") == b"3000:2"
+        assert trie.get_root() != b'\x00' * 32
+    
+    def test_merkle_patricia_trie_proof_verification(self):
+        trie = MerklePatriciaTrie()
+        trie.put(b"account:alice", b"1000:0")
+        trie.put(b"account:bob", b"2000:1")
+        
+        proof = trie.get_proof(b"account:alice")
+        
+        assert proof
+        assert trie.verify_proof(b"account:alice", b"1000:0", proof)
+        assert not trie.verify_proof(b"account:alice", b"9999:0", proof)
+        assert not trie.verify_proof(b"account:unknown", b"1000:0", proof)
+    
     def test_state_manager_compute_state_root(self):
         """Test that StateManager computes state root from accounts."""
         state_manager = StateManager()
@@ -102,3 +171,19 @@ class TestStateRootVerification:
         
         # Different balances should produce different roots
         assert root1 != root2
+    
+    def test_state_manager_root_is_order_independent(self):
+        state_manager = StateManager()
+        
+        accounts1 = {
+            "address1": Account(chain_id="test", address="address1", balance=1000, nonce=0),
+            "address2": Account(chain_id="test", address="address2", balance=2000, nonce=1),
+            "address3": Account(chain_id="test", address="address3", balance=3000, nonce=2),
+        }
+        accounts2 = {
+            "address3": Account(chain_id="test", address="address3", balance=3000, nonce=2),
+            "address1": Account(chain_id="test", address="address1", balance=1000, nonce=0),
+            "address2": Account(chain_id="test", address="address2", balance=2000, nonce=1),
+        }
+        
+        assert state_manager.compute_state_root(accounts1) == state_manager.compute_state_root(accounts2)
