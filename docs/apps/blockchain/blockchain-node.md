@@ -127,7 +127,8 @@ The node can run multiple chains simultaneously by setting `supported_chains` in
 ## Keystore Management
 
 ### Encrypted Keystore Format
-- Uses Web3 keystore format (AES‑256‑GCM + PBKDF2).
+- Uses Web3 keystore format (AES‑256‑GCM + PBKDF2 + HMAC-SHA256 MAC).
+- MAC computed over derived_key[16:32] + ciphertext for password validation.
 - Password stored in `keystore/.password` (chmod 600).
 - Private keys are **never** stored in plaintext.
 

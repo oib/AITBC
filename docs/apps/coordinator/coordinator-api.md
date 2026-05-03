@@ -66,6 +66,28 @@ The multi-modal RL router proxies to the AI service for job management:
 
 All endpoints use `AITBCHTTPClient` to proxy requests to the AI service (default port 8106). When the AI service is unavailable, endpoints return error responses indicating the service is unreachable.
 
+## Agent Integration Service
+
+The agent integration service provides deployment and management capabilities for agent instances:
+
+- **Systemd-based Deployment**: Agent instances are deployed as systemd services with automatic startup and monitoring
+- **Health Checks**: HTTP health checks combined with systemd status monitoring for instance health tracking
+- **Instance Lifecycle**: Full lifecycle management including deployment, removal, and rollback to previous versions
+- **Metrics Collection**: Automatic metrics collection from agent endpoints with database fallback for monitoring
+- **Alerting Rules**: Configurable alerting thresholds for CPU, memory, error rate, and response time monitoring
+
+### Deployment Features
+- Dynamic systemd service file generation
+- Service enablement and automatic startup
+- Startup monitoring with active status verification
+- Graceful failure handling with cleanup
+
+### Monitoring Features
+- Multi-source health checks (systemd + HTTP endpoints)
+- Historical health check tracking (last 100 checks)
+- Metrics aggregation with fallback to database values
+- Configurable alert thresholds and channels
+
 ## Development Setup
 
 1. Create a virtual environment in `apps/coordinator-api/.venv`.
