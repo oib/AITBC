@@ -109,6 +109,14 @@ class PoAProposer:
         self._last_proposer_id: Optional[str] = None
         self._last_block_timestamp: Optional[datetime] = None
 
+    def _fetch_chain_head(self) -> Optional[Block]:
+        """Fetch the current chain head block from the database."""
+        from ..database import session_scope
+        with session_scope(self._config.chain_id) as session:
+            return session.exec(
+                select(Block).where(Block.chain_id == self._config.chain_id).order_by(Block.height.desc()).limit(1)
+            ).first()
+
     async def start(self) -> None:
         if self._task is not None:
             return
