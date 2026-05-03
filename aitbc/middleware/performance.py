@@ -28,11 +28,7 @@ class PerformanceLoggingMiddleware(BaseHTTPMiddleware):
         
         # Log performance metrics
         logger.info(
-            "Request performance",
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            duration_ms=round(duration * 1000, 2),
+            f"Request performance - Method: {request.method}, Path: {request.url.path}, Status: {response.status_code}, Duration: {round(duration * 1000, 2)}ms"
         )
         
         # Add performance header
