@@ -72,11 +72,13 @@ jobs:
           # Install packages in development mode
           venv/bin/python -m pip install -e packages/py/aitbc-crypto/
           venv/bin/python -m pip install -e packages/py/aitbc-sdk/
+          venv/bin/python -m pip install -e packages/py/aitbc-agent-sdk/
 
-          export PYTHONPATH="$PWD/apps/agent-coordinator/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD:$PYTHONPATH"
+          export PYTHONPATH="$PWD/apps/agent-coordinator/src:$PWD/apps/blockchain-node/src:$PWD/apps/wallet/src:$PWD/packages/py/aitbc-crypto/src:$PWD/packages/py/aitbc-sdk/src:$PWD/packages/py/aitbc-agent-sdk/src:$PWD:$PYTHONPATH"
 
           venv/bin/python -m pytest tests/archived_phase_tests/ \
             tests/cross_phase/ \
+            tests/verification/ \
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
             --cov=apps --cov=packages --cov=cli --cov-append
