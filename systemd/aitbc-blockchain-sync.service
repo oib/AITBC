@@ -1,6 +1,6 @@
 [Unit]
 Description=AITBC Blockchain Sync Service
-After=network.target postgresql.service
+After=network.target postgresql.service aitbc-blockchain-rpc.service
 
 [Service]
 Type=simple
