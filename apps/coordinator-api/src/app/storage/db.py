@@ -70,12 +70,13 @@ def init_db() -> Engine:
     engine = get_engine()
 
     # DEVELOPMENT ONLY: Try to drop all tables first to ensure clean schema.
+    # DISABLED: This causes startup hangs when database is large
     # If drop fails due to FK constraints or missing tables, ignore and continue.
-    if "sqlite" in str(engine.url):
-        try:
-            SQLModel.metadata.drop_all(engine)
-        except Exception as e:
-            logger.warning(f"Drop all failed (non-fatal): {e}")
+    # if "sqlite" in str(engine.url):
+    #     try:
+    #         SQLModel.metadata.drop_all(engine)
+    #     except Exception as e:
+    #         logger.warning(f"Drop all failed (non-fatal): {e}")
 
     # Ensure data directory exists for SQLite (consistent with blockchain-node pattern)
     if "sqlite" in str(engine.url):
