@@ -59,7 +59,7 @@ API_KEY=your-api-key
 
 ### Running the Service
 ```bash
-.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 9001
 ```
 
 ## Developer Guide

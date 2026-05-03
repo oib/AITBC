@@ -40,7 +40,7 @@ The archive is organized by content categories for easy access:
 
 ### **🧠 Expert** (`/expert/`)
 - **Content**: Expert-level issues and completed phases
-- **Files**: 4 subdirectories
+- **Files**: 4 subdirectories (issues, tasks, completed, phase reports)
 - **Topics**: Completed phases, 2026-02 issues, port migrations, other resolved issues
 - **Relevance**: Expert-level task completion history
 
@@ -144,19 +144,20 @@ Average Files per Category: 5.9 files
 ## 🔗 **Related Documentation:**
 
 ### **Current Documentation:**
-- **Beginner Topics**: `/docs/beginner/` - Current learning materials
-- **Intermediate Topics**: `/docs/intermediate/` - Current intermediate content
-- **Advanced Topics**: `/docs/advanced/` - Current advanced materials
-- **Expert Topics**: `/docs/expert/` - Current expert content
+- **Getting Started**: `/docs/guides/getting-started/` - Current learning materials
+- **Project**: `/docs/project/` - Current project content
+- **Agents**: `/docs/agents/` - Current agent content
+- **Blockchain**: `/docs/blockchain/` - Current blockchain materials
+- **Archive**: `/docs/archive/expert/` - Historical expert content
 
 ### **Project Documentation:**
 - **Completed Work**: `/docs/completed/` - Recently completed tasks
 - **Project Status**: `/docs/project/` - Current project information
 - **Security**: `/docs/security/` - Current security documentation
-- **Policies**: `/docs/policies/` - Current project policies
+- **Policies**: `/docs/security/policies/` - Current project policies
 
 ### **Technical Documentation:**
-- **CLI Technical**: `/docs/cli-technical` - Current CLI technical docs
+- **CLI Technical**: `/docs/cli` - Current CLI technical docs
 - **API Documentation**: Available via external symlinks
 - **Architecture**: Current system architecture docs
 - **Development**: Current development guides

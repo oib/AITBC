@@ -11,6 +11,24 @@ from .middleware import (
     ErrorHandlerMiddleware,
 )
 
+# Re-export constants for compatibility
+from .constants import (
+    DATA_DIR,
+    LOG_DIR,
+    CONFIG_DIR,
+    REPO_DIR,
+    KEYSTORE_DIR,
+    BLOCKCHAIN_DATA_DIR,
+    MARKETPLACE_DATA_DIR,
+    ENV_FILE,
+    NODE_ENV_FILE,
+    BLOCKCHAIN_RPC_PORT,
+    BLOCKCHAIN_P2P_PORT,
+    AGENT_COORDINATOR_PORT,
+    MARKETPLACE_PORT,
+    PACKAGE_VERSION,
+)
+
 __all__ = [
     "logging",
     "configure_logging",
@@ -19,4 +37,18 @@ __all__ = [
     "PerformanceLoggingMiddleware",
     "RequestValidationMiddleware",
     "ErrorHandlerMiddleware",
+    "DATA_DIR",
+    "LOG_DIR",
+    "CONFIG_DIR",
+    "REPO_DIR",
+    "KEYSTORE_DIR",
+    "BLOCKCHAIN_DATA_DIR",
+    "MARKETPLACE_DATA_DIR",
+    "ENV_FILE",
+    "NODE_ENV_FILE",
+    "BLOCKCHAIN_RPC_PORT",
+    "BLOCKCHAIN_P2P_PORT",
+    "AGENT_COORDINATOR_PORT",
+    "MARKETPLACE_PORT",
+    "PACKAGE_VERSION",
 ]

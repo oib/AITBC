@@ -64,10 +64,10 @@ Successfully sorted 6 documentation files into appropriate subfolders based on c
 │   └── openclaw-dao-governance.md
 ├── security/                    # Security documentation (9 files)
 │   └── security_audit_summary.md
-├── advanced/                    # Advanced documentation
-├── beginner/                    # Beginner documentation
-├── intermediate/                # Intermediate documentation
-├── expert/                      # Expert documentation
+├── blockchain/                    # Blockchain documentation
+├── guides/                      # Getting started guides
+├── project/                     # Project documentation
+├── agents/                      # Agent documentation
 └── [other existing folders...]
 ```
 

@@ -248,7 +248,7 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ### **AITBC Documentation**
 - [Wallet App Documentation](../apps/wallet/README.md)
-- [CLI Wallet Commands](../beginner/05_cli/README.md)
+- [CLI Wallet Commands](../cli/)
 - [Security Best Practices](../security/README.md)
 
 ### **External Resources**

@@ -8,16 +8,15 @@ import sys
 import os
 from pathlib import Path
 
-# Add aitbc to path
+# Add aitbc package to path (parent directory of aitbc package)
 sys.path.insert(0, str(Path("/opt/aitbc")))
-sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
 
 from aitbc import ENV_FILE, NODE_ENV_FILE, REPO_DIR, DATA_DIR, LOG_DIR
 
 # Set up environment using aitbc constants
 os.environ["AITBC_ENV_FILE"] = str(ENV_FILE)
 os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
-os.environ["PYTHONPATH"] = f"{REPO_DIR}:{REPO_DIR}/apps/coordinator-api/src"
+os.environ["PYTHONPATH"] = f"{Path('/opt/aitbc')}:{REPO_DIR}/apps/coordinator-api/src"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 

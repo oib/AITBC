@@ -6,7 +6,7 @@
 
 | Port | Service | Endpoint | Status | Description |
 |------|---------|----------|--------|-------------|
-| 8000 | Coordinator API | `http://localhost:8000/health` | ✅ Active | Main orchestration and coordination |
+| 8000 | Coordinator API | `http://localhost:8000/health` | ⚠️ Legacy | **DEPRECATED** - Use Agent Coordinator (9001) or microservices |
 | 8001 | Exchange API | `http://localhost:8001/api/health` | ✅ Active | Trading and exchange functionality |
 | 8002 | Marketplace API | `http://localhost:8002/health` | ✅ Active | GPU compute marketplace |
 | 8003 | Wallet API | `http://localhost:8003/health` | ✅ Active | Digital wallet management |

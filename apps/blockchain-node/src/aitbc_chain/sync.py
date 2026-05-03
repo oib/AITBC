@@ -489,7 +489,7 @@ class ChainSync:
 
         # Verify state root if provided
         if block_data.get("state_root"):
-            from ..config import settings
+            from aitbc_chain.config import settings
             state_manager = StateManager()
             accounts = session.exec(
                 select(Account).where(Account.chain_id == self._chain_id)

@@ -46,6 +46,12 @@ from .exceptions import (
     RetryError,
     ValidationError,
 )
+from .middleware import (
+    RequestIDMiddleware,
+    PerformanceLoggingMiddleware,
+    RequestValidationMiddleware,
+    ErrorHandlerMiddleware,
+)
 from .paths import (
     ensure_dir,
     ensure_file_dir,

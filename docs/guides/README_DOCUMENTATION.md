@@ -257,10 +257,10 @@ AITBC Ecosystem
 Our documentation has achieved **perfect 10/10 quality score** and provides comprehensive guidance for all users:
 
 ### **🎯 Learning Paths:**
-- **👤 [Beginner Guide](docs/beginner/README.md)** - Start here (8-15 hours)
-- **🌉 [Intermediate Topics](docs/intermediate/README.md)** - Bridge concepts (18-28 hours)
-- **🚀 [Advanced Documentation](docs/advanced/README.md)** - Deep technical (20-30 hours)
-- **🎓 [Expert Topics](docs/expert/README.md)** - Specialized expertise (24-48 hours)
+- **👤 [Getting Started](docs/guides/getting-started/)** - Start here (8-15 hours)
+- **📁 [Project Documentation](docs/project/)** - Project overview (18-28 hours)
+- **🤖 [Agent Documentation](docs/agents/)** - Agent development (24-48 hours)
+- **🎓 [Archive](docs/archive/README.md)** - Historical content (24-48 hours)
 - **🤖 [OpenClaw Agent Capabilities](docs/openclaw/OPENCLAW_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agents (15-25 hours)
 
 ### **📚 Quick Access:**
@@ -271,7 +271,7 @@ Our documentation has achieved **perfect 10/10 quality score** and provides comp
 - **🦞 [OpenClaw Documentation](docs/openclaw/)** - Advanced AI agent ecosystem
 
 ### **🔗 External Documentation:**
-- **💻 [CLI Technical Docs](docs/cli-technical/)** - Deep CLI documentation
+- **💻 [CLI Technical Docs](docs/cli/)** - Deep CLI documentation
 - **📜 [Smart Contracts](docs/contracts/)** - Contract documentation
 - **🧪 [Testing](docs/testing/)** - Test documentation
 - **🌐 [Website](docs/website/)** - Website documentation
@@ -690,11 +690,11 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 **🎯 Ready to dive in?** Choose your path:
 
-1. **👤 [I'm a User](docs/beginner/README.md)** - Start using AITBC
-2. **👨‍💻 [I'm a Developer](docs/beginner/02_project/)** - Build on AITBC
-3. **⛏️ [I'm a Miner](docs/beginner/04_miners/)** - Run mining operations
-4. **🔧 [I'm an Admin](docs/beginner/05_cli/)** - Manage systems
-5. **🎓 [I'm an Expert](docs/expert/README.md)** - Deep expertise
+1. **👤 [I'm a User](docs/guides/getting-started/)** - Start using AITBC
+2. **👨‍💻 [I'm a Developer](docs/project/)** - Build on AITBC
+3. **⛏️ [I'm a Miner](docs/mining/)** - Run mining operations
+4. **🔧 [I'm an Admin](docs/cli/)** - Manage systems
+5. **🎓 [I'm an Expert](docs/archive/expert/)** - Deep expertise
 
 ---
 

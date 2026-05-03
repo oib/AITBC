@@ -583,7 +583,7 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ### **AITBC Documentation**
 - [AI Engine](../apps/ai-engine/README.md)
-- [Messaging Service](../apps/messaging-service/README.md)
+- [Agent Services](../apps/agent-services/README.md)
 - [IPFS Integration](../plugins/ipfs/README.md)
 
 ### **External Resources**

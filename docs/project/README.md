@@ -16,8 +16,8 @@
 ## 🎯 **See Also:**
 - **📖 [About Documentation](../about/README.md)** - Template standard and compliance audit
 - **🧭 [Master Index](../MASTER_INDEX.md)** - Full documentation catalog
-- **📚 [Beginner Documentation](../beginner/README.md)** - Entry-level learning path
-- **🚀 [Advanced Documentation](../advanced/README.md)** - Deep technical topics
+- **📚 [Getting Started](../guides/getting-started/)** - Entry-level learning path
+- **🚀 [Blockchain Documentation](../blockchain/)** - Deep technical topics
 
 ---
 
