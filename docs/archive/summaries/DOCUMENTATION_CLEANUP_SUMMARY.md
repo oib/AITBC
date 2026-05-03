@@ -85,7 +85,7 @@ expert/
    - Archived: `/docs/archive/duplicates/3_cli_OLD_duplicate.md`
 
 2. **Gift Certificate Duplicate**
-   - Original: `/docs/trail/GIFT_CERTIFICATE_newuser.md`
+   - Original: `/docs/archive/trail/GIFT_CERTIFICATE_newuser.md`
    - Current: `/docs/beginner/06_github_resolution/GIFT_CERTIFICATE_newuser.md`
    - Archived: `/docs/archive/duplicates/GIFT_CERTIFICATE_newuser_trail_duplicate.md`
 

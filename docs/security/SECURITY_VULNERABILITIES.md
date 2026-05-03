@@ -204,8 +204,84 @@ This vulnerability represents a fundamental security flaw that must be addressed
   - `/opt/aitbc/apps/blockchain-node/tests/security/test_state_transition.py`
   - `/opt/aitbc/apps/blockchain-node/tests/security/test_state_root.py`
 
-**Phase 2 (Short-Term) - PENDING**
-- Database encryption with SQLCipher (integrated with Phase 1.1)
+**Phase 2 (Short-Term) - COMPLETED - May 3, 2026**
+
+**✅ 2.1 Database Encryption Implementation - SQLCIPHER ENCRYPTION SUCCESSFULLY IMPLEMENTED**
+
+**Solution:** SQLCipher database-level encryption (replacing failed file-level encryption approach).
+
+**Why SQLCipher:**
+- SQLite extension that supports encryption at the database level
+- Maintains SQLite's internal format while encrypting data
+- Resolves the corruption issues with file-level encryption
+- Compatible with SQLAlchemy/SQLModel
+
+**Implementation Details:**
+- **Dependency:** Added `sqlcipher3-binary >= 1.2.0` to `/opt/aitbc/pyproject.toml`
+- **Configuration:** Added `db_encryption_enabled` flag to `ChainSettings` in `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py`
+- **Database Layer:** Updated `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/database.py` to use SQLCipher when enabled:
+  - Uses sqlcipher3 as SQLite module
+  - Sets encryption key via connection event (`PRAGMA key`)
+  - Only applies to ait-mainnet chain
+- **Migration Tool:** Created `/opt/aitbc/apps/blockchain-node/scripts/migrate_to_sqlcipher.py`:
+  - Uses SQLCipher's built-in `sqlcipher_export` function
+  - Properly encrypts existing databases without corruption
+  - Creates backup before migration
+
+**Key Management:**
+- Encryption key stored in `/etc/aitbc/secrets/db_encryption.key` (32-byte AES-256 key)
+- Key file permissions: 600 (owner read/write only)
+- Key format: Raw binary bytes, converted to hex for SQLCipher
+- Configuration: `db_encryption_enabled=true` in `/etc/aitbc/.env`
+
+**Migration Process:**
+```bash
+# Stop service
+systemctl stop aitbc-blockchain-node.service
+
+# Generate encryption key
+python3 /opt/aitbc/apps/blockchain-node/scripts/migrate_database_encryption.py generate-key --key-path /etc/aitbc/secrets/db_encryption.key
+
+# Migrate database to SQLCipher
+python3 /opt/aitbc/apps/blockchain-node/scripts/migrate_to_sqlcipher.py --db-path /var/lib/aitbc/data/ait-mainnet/chain.db --key-path /etc/aitbc/secrets/db_encryption.key
+
+# Enable encryption in config
+echo "db_encryption_enabled=true" >> /etc/aitbc/.env
+
+# Start service
+systemctl start aitbc-blockchain-node.service
+```
+
+**Testing Results:**
+- ✅ SQLCipher encryption module installed and functional
+- ✅ Migration tool created and functional
+- ✅ Database successfully migrated to SQLCipher format
+- ✅ Service starts and operates correctly with encrypted database
+- ✅ Database integrity verified (all 5 tables accessible: block, transaction, receipt, account, escrow)
+- ✅ No corruption issues
+- ✅ Service logs show normal operation (genesis block at height 0, head at height 38, block processing tasks started)
+
+**Implemented Components:**
+- `/opt/aitbc/pyproject.toml` - Added sqlcipher3-binary dependency
+- `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/database_encryption.py` - Key management (retained for other file types)
+- `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/config.py` - db_encryption_enabled flag and db_encryption_key_path
+- `/opt/aitbc/apps/blockchain-node/src/aitbc_chain/database.py` - SQLCipher integration with connection event
+- `/opt/aitbc/apps/blockchain-node/scripts/migrate_database_encryption.py` - Key generation (retained)
+- `/opt/aitbc/apps/blockchain-node/scripts/migrate_to_sqlcipher.py` - SQLCipher migration tool
+- `/opt/aitbc/apps/blockchain-node/tests/security/test_database_encryption.py` - Unit tests (21/21 passing, retained for key management)
+
+**Comparison with File-Level Encryption:**
+- ❌ File-level encryption: Corrupted SQLite databases due to incompatible file structure
+- ✅ SQLCipher: Encrypts at database level, maintains SQLite internal structure
+- ❌ File-level encryption: Manual encryption/decryption workflow
+- ✅ SQLCipher: Transparent to application, automatic encryption on connection
+
+**Current Status:**
+- SQLCipher encryption successfully implemented and operational
+- Database encrypted at rest using AES-256
+- Service operating normally with encrypted database
+- No corruption or performance issues observed
+- Ready for deployment to other mainnet nodes
 
 **Phase 3 (Medium-Term) - PENDING**
 - Derived state architecture redesign

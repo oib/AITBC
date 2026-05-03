@@ -172,7 +172,8 @@ blockchain-node/
 │   ├── database.py      # DB init + session mgmt
 │   ├── mempool.py       # Transaction mempool
 │   ├── gossip/          # P2P message bus
-│   ├── consensus/       # PoA proposer logic
+│   ├── consensus/       # Hybrid PoA/PoS consensus (multi-validator, PBFT, rotation)
+│   ├── network/         # P2P networking and multi-chain manager
 │   ├── rpc/             # RPC endpoints
 │   └── models.py        # SQLModel definitions
 ├── data/

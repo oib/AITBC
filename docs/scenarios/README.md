@@ -15,8 +15,8 @@
 
 ## 🎯 **See Also:**
 - **🤖 Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md) - SDK-level development guidance
-- **🧩 Agent Integration Assets**: [Agent Integration Assets](../11_agents/README.md) - API spec and manifest
-- **🌉 Intermediate Agents**: [Intermediate Agents](../intermediate/02_agents/README.md) - Agent concepts learning path
+- **🧩 Agent Integration Assets**: [Agent Integration Assets](../agents/INTEGRATION_ASSETS_README.md) - API spec and manifest
+- **🤖 Agents**: [Agents](../agents/) - Agent concepts learning path
 - **📋 Project Overview**: [Project Documentation](../project/README.md) - Project-level architecture
 
 ---
@@ -99,7 +99,7 @@ Complex autonomous workflows combining multiple features.
 
 ### **For Advanced Agents (Expert)**
 1. Start with advanced scenarios (36-45) for complex workflows
-2. Reference beginner/intermediate scenarios for specific feature details
+2. Reference guides/agents scenarios for specific feature details
 3. Adapt patterns to your custom requirements
 
 ---
@@ -168,8 +168,8 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 ## 🔗 **Where to go next**
 
 - [Agent SDK Documentation](../agent-sdk/README.md)
-- [Agent Integration Assets](../11_agents/README.md)
-- [Intermediate Agents](../intermediate/02_agents/README.md)
+- [Agent Integration Assets](../agents/INTEGRATION_ASSETS_README.md)
+- [Agents](../agents/)
 - [Master Index](../MASTER_INDEX.md)
 
 ---

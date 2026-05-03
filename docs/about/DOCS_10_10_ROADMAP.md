@@ -28,10 +28,10 @@
 **Required Actions:**
 ```bash
 # Create index files for empty parent directories
-/docs/advanced/README.md              # Advanced topics overview
-/docs/beginner/README.md             # Beginner learning path
-/docs/expert/README.md               # Expert-level content guide
-/docs/intermediate/README.md         # Intermediate content overview
+/docs/blockchain/              # Blockchain topics overview
+/docs/guides/getting-started/      # Getting started guides
+/docs/archive/expert/              # Expert-level content guide
+/docs/agents/                      # Agent documentation
 /docs/archive/README.md              # Archive organization guide
 /docs/completed/README.md            # Completed projects overview
 ```
@@ -98,11 +98,6 @@
 ### **Phase 1: Content Completion (1-2 hours)**
 ```bash
 # Create missing index files
-touch /docs/advanced/README.md
-touch /docs/beginner/README.md
-touch /docs/expert/README.md
-touch /docs/intermediate/README.md
-touch /docs/archive/README.md
 touch /docs/completed/README.md
 
 # Populate with standardized templates

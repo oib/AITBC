@@ -31,7 +31,7 @@ This section documents the AITBC infrastructure components, runtime architecture
 ### 🔧 Infrastructure Components
 
 #### Core Services
-- **Coordinator API**: Central orchestration (Port 8000)
+- **Coordinator API**: Central orchestration (Port 8000) - **⚠️ LEGACY - DISABLED, use Agent Coordinator (9001)**
 - **Blockchain Node**: Core blockchain (Port 8545) 
 - **Exchange API**: Trading services (Port 8001)
 - **Wallet Service**: Wallet management (Port 8003)

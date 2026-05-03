@@ -44,7 +44,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 
 ### Active Services (as of 2026-03-29)
 ```bash
-✅ Port 8000 - Coordinator API (aitbc-coordinator-api.service)
+⚠️ Port 8000 - Coordinator API (aitbc-coordinator-api.service) - **LEGACY - DISABLED**
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)  
 ✅ Port 8003 - Wallet Service (aitbc-wallet.service)
 ✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
