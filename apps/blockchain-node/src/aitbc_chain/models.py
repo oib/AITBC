@@ -25,12 +25,16 @@ def _validate_optional_hex(value: Optional[str], field_name: str) -> Optional[st
 
 class Block(SQLModel, table=True):
     __tablename__ = "block"
-    __table_args__ = (UniqueConstraint("chain_id", "height", name="uix_block_chain_height"), {"extend_existing": True})
+    __table_args__ = (
+        UniqueConstraint("chain_id", "height", name="uix_block_chain_height"),
+        UniqueConstraint("chain_id", "hash", name="uix_block_chain_hash"),
+        {"extend_existing": True}
+    )
     
     id: Optional[int] = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
     height: int = Field(index=True)
-    hash: str = Field(index=True, unique=True)
+    hash: str = Field(index=True)
     parent_hash: str
     proposer: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), index=True)
