@@ -28,7 +28,7 @@ Cross-chain exchange and trading platform supporting multiple blockchain network
 
 ### Prerequisites
 - Python 3.13+
-- PostgreSQL database
+- PostgreSQL database (production default)
 - Redis for caching
 - Access to blockchain RPC endpoints
 

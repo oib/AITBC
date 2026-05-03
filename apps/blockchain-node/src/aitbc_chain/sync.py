@@ -450,12 +450,9 @@ class ChainSync:
             if height == 0 and block_data.get("block_metadata"):
                 is_valid, reason = self._validate_genesis_metadata(block_data, session)
                 if not is_valid:
-                    if settings.enforce_state_root_validation:
-                        metrics_registry.increment("sync_state_root_rejected_total")
-                        logger.error(f"Genesis block metadata validation failed: {reason}", extra={"height": height, "hash": block_hash})
-                        return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
-                    else:
-                        logger.warning(f"Genesis block metadata validation failed (enforcement disabled): {reason}", extra={"height": height, "hash": block_hash})
+                    metrics_registry.increment("sync_state_root_rejected_total")
+                    logger.error(f"Genesis block metadata validation failed: {reason}", extra={"height": height, "hash": block_hash})
+                    return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
             
             # Check for duplicate
             existing = session.exec(
@@ -597,48 +594,37 @@ class ChainSync:
                 expected_root = None
             
             if expected_root is None or len(expected_root) != 32:
-                if settings.enforce_state_root_validation:
-                    metrics_registry.increment("sync_state_root_rejected_total")
-                    session.rollback()
-                    self._track_rejection(self._chain_id)
-                    logger.error(
-                        f"[SYNC] Invalid state root at height {block_data['height']}: "
-                        f"{block_data.get('state_root')} - BLOCK REJECTED"
-                    )
-                    # Check if re-sync should be triggered
-                    self._check_and_trigger_resync(self._chain_id)
-                    return ImportResult(
-                        accepted=False,
-                        height=block_data["height"],
-                        block_hash=block_hash,
-                        reason=f"Invalid state root: {block_data.get('state_root')}"
-                    )
-                logger.warning(
+                metrics_registry.increment("sync_state_root_rejected_total")
+                session.rollback()
+                self._track_rejection(self._chain_id)
+                logger.error(
                     f"[SYNC] Invalid state root at height {block_data['height']}: "
-                    f"{block_data.get('state_root')}"
+                    f"{block_data.get('state_root')} - BLOCK REJECTED"
+                )
+                # Check if re-sync should be triggered
+                self._check_and_trigger_resync(self._chain_id)
+                return ImportResult(
+                    accepted=False,
+                    height=block_data["height"],
+                    block_hash=block_hash,
+                    reason=f"Invalid state root: {block_data.get('state_root')}"
                 )
             elif computed_root != expected_root:
-                if settings.enforce_state_root_validation:
-                    metrics_registry.increment("sync_state_root_rejected_total")
-                    session.rollback()
-                    self._track_rejection(self._chain_id)
-                    logger.error(
-                        f"[SYNC] State root mismatch at height {block_data['height']}: "
-                        f"expected {expected_root.hex()}, computed {computed_root.hex()} - BLOCK REJECTED"
-                    )
-                    # Check if re-sync should be triggered
-                    self._check_and_trigger_resync(self._chain_id)
-                    return ImportResult(
-                        accepted=False,
-                        height=block_data["height"],
-                        block_hash=block_hash,
-                        reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}"
-                    )
-                else:
-                    logger.warning(
-                        f"[SYNC] State root mismatch at height {block_data['height']}: "
-                        f"expected {expected_root.hex()}, computed {computed_root.hex()}"
-                    )
+                metrics_registry.increment("sync_state_root_rejected_total")
+                session.rollback()
+                self._track_rejection(self._chain_id)
+                logger.error(
+                    f"[SYNC] State root mismatch at height {block_data['height']}: "
+                    f"expected {expected_root.hex()}, computed {computed_root.hex()} - BLOCK REJECTED"
+                )
+                # Check if re-sync should be triggered
+                self._check_and_trigger_resync(self._chain_id)
+                return ImportResult(
+                    accepted=False,
+                    height=block_data["height"],
+                    block_hash=block_hash,
+                    reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}"
+                )
 
         session.commit()
 
