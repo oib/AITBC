@@ -107,7 +107,7 @@ websockets>=14.1.0
 
 # Image Processing (for AI services)
 pillow>=11.1.0
-opencv-python>=4.11.0
+opencv-python>=4.13.0.92
 
 # Additional Dependencies
 redis>=5.2.1
