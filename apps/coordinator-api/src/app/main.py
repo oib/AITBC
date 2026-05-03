@@ -471,13 +471,7 @@ def create_app() -> FastAPI:
         """Handle FastAPI validation errors with structured error responses."""
         request_id = request.headers.get("X-Request-ID")
         logger.warning(
-            f"Validation error: {exc}",
-            extra={
-                "request_id": request_id,
-                "path": request.url.path,
-                "method": request.method,
-                "validation_errors": exc.errors(),
-            },
+            f"Validation error: {exc}, Request ID: {request_id}, Path: {request.url.path}, Method: {request.method}"
         )
 
         details = []
