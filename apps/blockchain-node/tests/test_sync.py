@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, Mock
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from aitbc_chain.models import Block, Transaction
+from aitbc_chain.sync import settings as sync_settings
 from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.sync import ChainSync, ProposerSignatureValidator, ImportResult
 
@@ -285,6 +286,29 @@ class TestChainSyncBulkImport:
         with session_factory() as session:
             stored_txs = session.exec(select(Transaction).where(Transaction.block_height == 1)).all()
             assert len(stored_txs) == 2
+
+    def test_enforced_state_root_mismatch_rolls_back_block(self, session_factory, monkeypatch):
+        monkeypatch.setattr(sync_settings, "enforce_state_root_validation", True)
+        sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
+        blocks = _seed_chain(session_factory, count=1, chain_id="test")
+        last = blocks[-1]
+        ts = datetime(2026, 1, 1, 0, 0, 1)
+        bh = _make_block_hash("test", 1, last["hash"], ts)
+        
+        result = sync.import_block({
+            "height": 1,
+            "hash": bh,
+            "parent_hash": last["hash"],
+            "proposer": "node-a",
+            "timestamp": ts.isoformat(),
+            "state_root": "0x" + "11" * 32,
+        })
+        
+        assert result.accepted is False
+        assert "State root mismatch" in result.reason
+        with session_factory() as session:
+            stored_block = session.exec(select(Block).where(Block.chain_id == "test", Block.height == 1)).first()
+            assert stored_block is None
 
 
 class TestChainSyncSignatureValidation:

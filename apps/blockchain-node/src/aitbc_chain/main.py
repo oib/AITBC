@@ -96,12 +96,46 @@ class BlockchainNode:
         self._stop_event = asyncio.Event()
         self._proposers: dict[str, PoAProposer] = {}
 
+    @staticmethod
+    def _env_value(*names: str) -> Optional[str]:
+        for name in names:
+            value = os.getenv(name)
+            if value is not None:
+                return value
+        return None
+
+    def _block_production_enabled(self) -> bool:
+        override = self._env_value("AITBC_FORCE_ENABLE_BLOCK_PRODUCTION", "ENABLE_BLOCK_PRODUCTION", "enable_block_production")
+        if override is not None:
+            return override.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(getattr(settings, "enable_block_production", True))
+
+    def _supported_chains(self) -> list[str]:
+        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
+        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        if not chains and settings.chain_id:
+            chains = [settings.chain_id]
+        return chains
+
+    def _proposer_config(self, chain_id: str) -> ProposerConfig:
+        return ProposerConfig(
+            chain_id=chain_id,
+            proposer_id=settings.proposer_id,
+            interval_seconds=settings.block_time_seconds,
+            max_block_size_bytes=settings.max_block_size_bytes,
+            max_txs_per_block=settings.max_txs_per_block,
+        )
+
+    async def _ensure_genesis_for_chains(self) -> None:
+        for chain_id in self._supported_chains():
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_scope)
+            await proposer._ensure_genesis_block()
+
     async def _setup_gossip_subscribers(self) -> None:
         logger.info("Setting up gossip subscribers")
         
         # Parse supported chains
-        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
-        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        chains = self._supported_chains()
         
         # Transactions (single topic for all chains)
         try:
@@ -213,8 +247,7 @@ class BlockchainNode:
         logger.info("Gossip backend initialized successfully")
         
         # Parse supported chains
-        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
-        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        chains = self._supported_chains()
         logger.info(f"Initializing databases for chains: {chains}")
         
         # Initialize database for each supported chain
@@ -224,12 +257,13 @@ class BlockchainNode:
         
         init_mempool(
             backend=settings.mempool_backend,
-            db_path=str(settings.db_path.parent / "mempool.db"),
+            db_url=settings.mempool_db_url,
             max_size=settings.mempool_max_size,
             min_fee=settings.min_fee,
         )
+        await self._ensure_genesis_for_chains()
         # Start proposers only if enabled (followers set enable_block_production=False)
-        if getattr(settings, "enable_block_production", True):
+        if self._block_production_enabled():
             self._start_proposers()
         else:
             logger.info("Block production disabled on this node", extra={"proposer_id": settings.proposer_id})
@@ -245,11 +279,12 @@ class BlockchainNode:
         await self._shutdown()
 
     def _start_proposers(self) -> None:
-        chains_str = getattr(settings, 'supported_chains', settings.chain_id)
-        chains = [c.strip() for c in chains_str.split(",") if c.strip()]
+        chains = self._supported_chains()
         
         # Get chains that should produce blocks (if specified, otherwise all supported chains)
-        production_chains_str = getattr(settings, 'block_production_chains', chains_str)
+        production_chains_str = self._env_value("AITBC_FORCE_BLOCK_PRODUCTION_CHAINS", "BLOCK_PRODUCTION_CHAINS", "block_production_chains")
+        if production_chains_str is None:
+            production_chains_str = getattr(settings, 'block_production_chains', ",".join(chains))
         production_chains = [c.strip() for c in production_chains_str.split(",") if c.strip()]
         
         for chain_id in chains:
@@ -261,15 +296,7 @@ class BlockchainNode:
             if chain_id in self._proposers:
                 continue
 
-            proposer_config = ProposerConfig(
-                chain_id=chain_id,
-                proposer_id=settings.proposer_id,
-                interval_seconds=settings.block_time_seconds,
-                max_block_size_bytes=settings.max_block_size_bytes,
-                max_txs_per_block=settings.max_txs_per_block,
-            )
-            
-            proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+            proposer = PoAProposer(config=self._proposer_config(chain_id), session_factory=session_scope)
             self._proposers[chain_id] = proposer
             asyncio.create_task(proposer.start())
 
