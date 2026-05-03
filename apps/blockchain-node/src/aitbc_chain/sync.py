@@ -348,6 +348,20 @@ class ChainSync:
                 return ImportResult(accepted=False, height=height, block_hash=block_hash, reason=reason)
 
         with self._session_factory() as session:
+            # Validate genesis block metadata if present
+            if height == 0 and block_data.get("block_metadata"):
+                try:
+                    metadata = json.loads(block_data["block_metadata"])
+                    allocations = metadata.get("allocations", [])
+                    if not allocations:
+                        logger.warning("Genesis block metadata missing allocations", extra={"height": height, "hash": block_hash})
+                        return ImportResult(accepted=False, height=height, block_hash=block_hash,
+                                          reason="Genesis block metadata missing allocations")
+                except json.JSONDecodeError:
+                    logger.warning("Genesis block metadata invalid JSON", extra={"height": height, "hash": block_hash})
+                    return ImportResult(accepted=False, height=height, block_hash=block_hash,
+                                      reason="Genesis block metadata invalid JSON")
+            
             # Check for duplicate
             existing = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
@@ -475,6 +489,7 @@ class ChainSync:
 
         # Verify state root if provided
         if block_data.get("state_root"):
+            from ..config import settings
             state_manager = StateManager()
             accounts = session.exec(
                 select(Account).where(Account.chain_id == self._chain_id)
@@ -485,11 +500,23 @@ class ChainSync:
             expected_root = bytes.fromhex(block_data.get("state_root").replace("0x", ""))
             
             if computed_root != expected_root:
-                logger.warning(
-                    f"[SYNC] State root mismatch at height {block_data['height']}: "
-                    f"expected {expected_root.hex()}, computed {computed_root.hex()}"
-                )
-                # For now, log warning but accept block (to be enforced in Phase 1.3)
+                if settings.enforce_state_root_validation:
+                    metrics_registry.increment("sync_state_root_rejected_total")
+                    logger.error(
+                        f"[SYNC] State root mismatch at height {block_data['height']}: "
+                        f"expected {expected_root.hex()}, computed {computed_root.hex()} - BLOCK REJECTED"
+                    )
+                    return ImportResult(
+                        accepted=False,
+                        height=block_data["height"],
+                        block_hash=block_hash,
+                        reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}"
+                    )
+                else:
+                    logger.warning(
+                        f"[SYNC] State root mismatch at height {block_data['height']}: "
+                        f"expected {expected_root.hex()}, computed {computed_root.hex()}"
+                    )
 
         metrics_registry.increment("sync_blocks_accepted_total")
         metrics_registry.set_gauge("sync_chain_height", float(block_data["height"]))
