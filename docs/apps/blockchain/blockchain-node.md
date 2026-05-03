@@ -16,6 +16,9 @@ Production-ready blockchain node for AITBC with fixed supply and secure key mana
 - PostgreSQL mempool persistence (production nodes)
 - SQLite chain database with Alembic migrations
 - Multi-chain support (separate data directories per chain ID)
+- **State root validation enforcement** (Phase 1.3) - Validates state roots on block import
+- **Genesis metadata validation** - Verifies genesis block allocation metadata
+- **Auto-re-sync trigger** - Automatic re-sync after consecutive state root rejections
 
 ## Architecture
 
