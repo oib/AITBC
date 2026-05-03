@@ -1,17 +1,21 @@
 [Unit]
 Description=AITBC AI Service
-After=network.target postgresql.service
+After=network.target redis.service postgresql.service
 
 [Service]
 Type=simple
 User=root
+Group=root
 WorkingDirectory=/opt/aitbc/apps/ai-service
-Environment="PATH=/opt/aitbc/venv/bin:/usr/local/bin:/usr/bin:/bin"
-Environment="PYTHONPATH=/opt/aitbc/apps/ai-service/src:/opt/aitbc/packages/py/aitbc-core/src:$PYTHONPATH"
-Environment="AI_SERVICE_DATABASE_URL=postgresql+asyncpg://aitbc_ai:password@localhost:5432/aitbc_ai"
-ExecStart=/opt/aitbc/venv/bin/python -m ai_service.main
+Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app:app --host 0.0.0.0 --port 8005
 Restart=always
-RestartSec=10
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-ai
 
 [Install]
 WantedBy=multi-user.target
