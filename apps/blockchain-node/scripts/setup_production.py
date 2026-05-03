@@ -11,6 +11,8 @@ No admin minting; fixed supply at genesis.
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -56,6 +58,11 @@ def encrypt_private_key(private_bytes: bytes, password: str, salt: bytes) -> dic
     nonce = os.urandom(12)
     ciphertext = aesgcm.encrypt(nonce, private_bytes, None)
 
+    # Compute MAC for web3 keystore format (HMAC-SHA256)
+    # MAC is computed over derived_key[16:32] + ciphertext
+    mac_data = key[16:32] + ciphertext
+    mac = hmac.new(key[:16], mac_data, hashlib.sha256).hexdigest()
+
     return {
         "crypto": {
             "cipher": "aes-256-gcm",
@@ -68,7 +75,7 @@ def encrypt_private_key(private_bytes: bytes, password: str, salt: bytes) -> dic
                 "c": 100_000,
                 "prf": "hmac-sha256"
             },
-            "mac": "TODO"  # In production, compute proper MAC
+            "mac": mac
         },
         "address": None,
         "keytype": "ed25519",
