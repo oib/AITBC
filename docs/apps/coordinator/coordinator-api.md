@@ -35,6 +35,14 @@ Set `VITE_DATA_MODE=live` and `VITE_COORDINATOR_API` in the explorer web app to 
 
 Expects environment variables defined in `.env` (see `docs/bootstrap/coordinator_api.md`).
 
+### Database
+
+Production deployments use PostgreSQL for persistence. Configure via:
+- `DATABASE_ADAPTER=postgresql`
+- `DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/aitbc_coordinator`
+
+SQLite fallback is available for development or nodes without PostgreSQL.
+
 ### Signed receipts (optional)
 
 - Generate an Ed25519 key:
