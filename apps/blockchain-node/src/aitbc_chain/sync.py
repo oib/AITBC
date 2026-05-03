@@ -414,6 +414,7 @@ class ChainSync:
     def _append_block(self, session: Session, block_data: Dict[str, Any],
                       transactions: Optional[List[Dict[str, Any]]] = None) -> ImportResult:
         """Append a block to the chain tip."""
+        block_hash = block_data["hash"]
         timestamp_str = block_data.get("timestamp", "")
         try:
             timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(datetime.UTC)
@@ -486,11 +487,9 @@ class ChainSync:
                 )
                 session.add(tx)
 
-        session.commit()
-
         # Verify state root if provided
         if block_data.get("state_root"):
-            from aitbc_chain.config import settings
+            session.flush()
             state_manager = StateManager()
             accounts = session.exec(
                 select(Account).where(Account.chain_id == self._chain_id)
@@ -498,11 +497,33 @@ class ChainSync:
             account_dict = {acc.address: acc for acc in accounts}
             
             computed_root = state_manager.compute_state_root(account_dict)
-            expected_root = bytes.fromhex(block_data.get("state_root").replace("0x", ""))
+            try:
+                expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
+            except ValueError:
+                expected_root = None
             
-            if computed_root != expected_root:
+            if expected_root is None or len(expected_root) != 32:
                 if settings.enforce_state_root_validation:
                     metrics_registry.increment("sync_state_root_rejected_total")
+                    session.rollback()
+                    logger.error(
+                        f"[SYNC] Invalid state root at height {block_data['height']}: "
+                        f"{block_data.get('state_root')} - BLOCK REJECTED"
+                    )
+                    return ImportResult(
+                        accepted=False,
+                        height=block_data["height"],
+                        block_hash=block_hash,
+                        reason=f"Invalid state root: {block_data.get('state_root')}"
+                    )
+                logger.warning(
+                    f"[SYNC] Invalid state root at height {block_data['height']}: "
+                    f"{block_data.get('state_root')}"
+                )
+            elif computed_root != expected_root:
+                if settings.enforce_state_root_validation:
+                    metrics_registry.increment("sync_state_root_rejected_total")
+                    session.rollback()
                     logger.error(
                         f"[SYNC] State root mismatch at height {block_data['height']}: "
                         f"expected {expected_root.hex()}, computed {computed_root.hex()} - BLOCK REJECTED"
@@ -518,6 +539,8 @@ class ChainSync:
                         f"[SYNC] State root mismatch at height {block_data['height']}: "
                         f"expected {expected_root.hex()}, computed {computed_root.hex()}"
                     )
+
+        session.commit()
 
         metrics_registry.increment("sync_blocks_accepted_total")
         metrics_registry.set_gauge("sync_chain_height", float(block_data["height"]))
