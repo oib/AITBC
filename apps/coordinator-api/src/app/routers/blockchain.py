@@ -56,3 +56,124 @@ async def blockchain_sync_status() -> dict[str, Any]:
     except Exception as e:
         logger.error(f"Blockchain sync status error: {e}")
         return {"status": "error", "error": "Failed to get sync status"}
+
+
+@router.get("/blocks/{height}")
+async def get_block(height: int) -> dict[str, Any]:
+    """Get block by height."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/blocks/{height}")
+        return response
+    except NetworkError as e:
+        logger.error(f"Get block error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/blocks/hash/{block_hash}")
+async def get_block_by_hash(block_hash: str) -> dict[str, Any]:
+    """Get block by hash."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/blocks/hash/{block_hash}")
+        return response
+    except NetworkError as e:
+        logger.error(f"Get block by hash error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/transactions/{tx_hash}")
+async def get_transaction(tx_hash: str) -> dict[str, Any]:
+    """Get transaction by hash."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/transactions/{tx_hash}")
+        return response
+    except NetworkError as e:
+        logger.error(f"Get transaction error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/accounts/{address}")
+async def get_account(address: str) -> dict[str, Any]:
+    """Get account balance and state."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        response = client.get(f"{rpc_url}/rpc/accounts/{address}")
+        return response
+    except NetworkError as e:
+        logger.error(f"Get account error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/validators")
+async def get_validators() -> dict[str, Any]:
+    """List validators."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        # PoA proposers are the validators
+        response = client.get(f"{rpc_url}/rpc/head")
+        proposer = response.get("proposer", "genesis")
+        return {
+            "validators": [{"address": proposer, "status": "active"}],
+            "total": 1
+        }
+    except NetworkError as e:
+        logger.error(f"Get validators error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/supply")
+async def get_supply() -> dict[str, Any]:
+    """Get token supply."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        # Calculate supply from genesis allocations
+        response = client.get(f"{rpc_url}/rpc/genesis_allocations")
+        allocations = response.get("allocations", [])
+        total_supply = sum(alloc.get("balance", 0) for alloc in allocations)
+        return {
+            "total_supply": total_supply,
+            "circulating_supply": total_supply,
+            "unit": "AIT"
+        }
+    except NetworkError as e:
+        logger.error(f"Get supply error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
+
+
+@router.get("/state/dump")
+async def get_state_dump() -> dict[str, Any]:
+    """Get state dump."""
+    try:
+        from ..config import settings
+
+        rpc_url = settings.blockchain_rpc_url.rstrip("/")
+        client = AITBCHTTPClient(timeout=5.0)
+        # Get recent blocks as state snapshot
+        response = client.get(f"{rpc_url}/rpc/blocks-range?start=0&end=10")
+        return {
+            "state": response,
+            "timestamp": response.get("timestamp", "")
+        }
+    except NetworkError as e:
+        logger.error(f"Get state dump error: {e}")
+        return {"status": "error", "error": f"RPC connection failed: {e}"}
