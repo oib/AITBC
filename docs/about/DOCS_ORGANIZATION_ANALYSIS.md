@@ -33,17 +33,17 @@
 │   ├── infrastructure/          # Infrastructure and deployment
 │   └── security/                # Security and compliance
 ├── [learning paths/]           # Structured learning paths
-│   ├── beginner/                # Beginner-friendly content
-│   ├── intermediate/            # Intermediate level content
-│   ├── advanced/                # Advanced topics
-│   └── expert/                  # Expert-level content
+│   ├── guides/                  # Getting started guides
+│   ├── project/                 # Project documentation
+│   └── agents/                  # Agent documentation topics
+│   └── archive/expert/          # Expert-level content
 ├── [topic areas/]               # Topic-specific documentation
 │   ├── blockchain/              # Blockchain documentation
 │   ├── security/                # Security documentation
 │   ├── governance/              # Governance documentation
 │   └── policies/                # Policy documentation
 ├── [symlinks to external docs]  # Centralized access to external docs
-│   ├── cli-technical -> /cli/docs
+│   ├── cli/
 │   ├── contracts -> /contracts/docs
 │   ├── testing -> /tests/docs
 │   └── website -> /website/docs
@@ -76,7 +76,7 @@ Several directories have minimal content and could be consolidated:
 
 #### **2. Empty Parent Directories**
 Some learning path directories are empty containers:
-- `/advanced/`, `/beginner/`, `/expert/`, `/intermediate/` - These are structural
+- `/blockchain/`, `/guides/`, `/project/`, `/agents/` - These are structural
 - `/archive/`, `/completed/` - These are organizational containers
 
 #### **3. Naming Consistency**

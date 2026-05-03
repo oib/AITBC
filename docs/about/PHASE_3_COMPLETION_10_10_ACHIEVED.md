@@ -72,10 +72,11 @@
 ├── 🏠 README.md                    # 10/10 - Main entry point
 ├── 📚 MASTER_INDEX.md              # 10/10 - Complete catalog
 ├── 📖 about/                       # 10/10 - Meta documentation
-├── 🎯 beginner/                    # 10/10 - Beginner learning path
-├── 🌉 intermediate/                # 10/10 - Intermediate bridge
-├── 🚀 advanced/                   # 10/10 - Advanced technical
-├── 🎓 expert/                      # 10/10 - Expert specialization
+├── 📚 guides/                     # 10/10 - Getting started guides
+├── 📁 project/                     # 10/10 - Project documentation
+├── 🤖 agents/                      # 10/10 - Agent documentation
+├── � blockchain/                  # 10/10 - Blockchain documentation
+├── 📁 archive/expert/              # 10/10 - Expert specialization (archived)
 ├── 🗂️ archive/                     # 10/10 - Historical content
 ├── ✅ completed/                   # 10/10 - Project tracking
 └── [topic areas]                  # 10/10 - Subject-specific docs

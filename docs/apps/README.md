@@ -35,9 +35,13 @@ Complete documentation for all AITBC applications and services.
 - [Plugins](plugins/) - Plugin system (analytics, marketplace, registry, security)
 - [Crypto](crypto/) - Cryptographic services (zk-circuits)
 - [Compliance](compliance/) - Compliance services
-- [Mining](mining/) - Mining services
+- [Mining](miner/) - Mining services
 - [Global AI](global-ai/) - Global AI agents
 - [Explorer](explorer/) - Blockchain explorer services
+
+## Migration Status
+
+- [Microservices Migration](../infrastructure/migration/microservices-migration-status.md) - Track migration from monolithic coordinator to microservices architecture
 
 ## Quick Links
 
@@ -108,7 +112,7 @@ Each app documentation includes:
 
 ---
 
-*Last updated: 2026-04-27*<br>
-*Version: 1.1*<br>
+*Last updated: 2026-05-03*<br>
+*Version: 1.2*<br>
 *Status: Apps documentation hub*<br>
 *Tags: apps, services, documentation, overview*

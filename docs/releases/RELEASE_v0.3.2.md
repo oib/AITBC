@@ -59,7 +59,7 @@ This release focuses on resolving pytest import conflicts through test file nami
   - docs/releases/ - Release notes
   - docs/security/ - Security documentation
   - docs/testing/ - Testing documentation
-  - docs/nodes/ - Node-specific documentation
+  - docs/deployment/ - Node-specific documentation
   - docs/openclaw/ - OpenClaw documentation
 - **Benefits**: Improved documentation organization and discoverability
 
@@ -74,8 +74,8 @@ This release focuses on resolving pytest import conflicts through test file nami
 ## 📝 Node Documentation
 
 ### ✅ **Node-Specific Documentation**
-- Moved AITBC1_TEST_COMMANDS.md to docs/nodes/
-- Moved AITBC1_UPDATED_COMMANDS.md to docs/nodes/
+- Moved AITBC1_TEST_COMMANDS.md to docs/deployment/
+- Moved AITBC1_UPDATED_COMMANDS.md to docs/deployment/
 - Benefits: Clear separation of node-specific documentation
 
 ## 🤖 OpenClaw Documentation
