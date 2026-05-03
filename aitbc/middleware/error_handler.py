@@ -41,13 +41,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                 },
             )
         except Exception as e:
-            logger.error(
-                "Unhandled exception",
-                exc=str(e),
-                path=request.url.path,
-                method=request.method,
-                exc_info=True,
-            )
+            logger.error(f"Unhandled exception: {e} at {request.url.path}")
             return JSONResponse(
                 status_code=500,
                 content={
