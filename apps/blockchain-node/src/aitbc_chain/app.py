@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI):
     init_db()
     init_mempool(
         backend=settings.mempool_backend,
-        db_path=str(settings.db_path.parent / "mempool.db"),
+        db_url=settings.mempool_db_url,
         max_size=settings.mempool_max_size,
         min_fee=settings.min_fee,
     )

@@ -137,7 +137,8 @@ def main() -> None:
 
     # Ensure mempool DB exists (though not needed for genesis)
     mempool_path = settings.db_path.parent / "mempool.db"
-    init_mempool(backend="database", db_path=str(mempool_path), max_size=10000, min_fee=0)
+    mempool_url = f"sqlite:///{mempool_path}"
+    init_mempool(backend="database", db_url=mempool_url, max_size=10000, min_fee=0)
     print(f"[*] Mempool initialized at {mempool_path}")
 
     # Create genesis block

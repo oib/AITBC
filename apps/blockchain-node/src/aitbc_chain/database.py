@@ -72,9 +72,16 @@ def get_engine(chain_id: str = "") -> object:
             @event.listens_for(engine, "connect")
             def set_encryption_key(dbapi_connection, connection_record):
                 dbapi_connection.execute(f"PRAGMA key = '{key_hex}'")
+                dbapi_connection.execute("PRAGMA journal_mode=WAL")
+                dbapi_connection.execute("PRAGMA synchronous=NORMAL")
         else:
             # Use standard SQLite
             engine = create_engine(f"sqlite:///{db_path}", echo=False)
+            
+            @event.listens_for(engine, "connect")
+            def set_wal_mode(dbapi_connection, connection_record):
+                dbapi_connection.execute("PRAGMA journal_mode=WAL")
+                dbapi_connection.execute("PRAGMA synchronous=NORMAL")
         
         _engines[resolved_chain_id] = engine
     
@@ -87,8 +94,7 @@ _engine = create_engine(f"sqlite:///{settings.db_path}", echo=False)
 @event.listens_for(_engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
     cursor = dbapi_connection.cursor()
-    # WAL mode disabled due to issues on btrfs raid (CoW already disabled on data directory)
-    # cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA cache_size=-64000")
     cursor.execute("PRAGMA temp_store=MEMORY")

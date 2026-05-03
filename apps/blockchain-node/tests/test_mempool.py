@@ -250,6 +250,7 @@ class TestInitMempool:
 
     def test_init_database(self, tmp_path):
         db_path = str(tmp_path / "init.db")
-        init_mempool(backend="database", db_path=db_path, max_size=50, min_fee=0)
+        db_url = f"sqlite:///{db_path}"
+        init_mempool(backend="database", db_url=db_url, max_size=50, min_fee=0)
         pool = get_mempool()
         assert isinstance(pool, DatabaseMempool)
