@@ -437,15 +437,16 @@ def create_app() -> FastAPI:
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
         """Handle all unhandled exceptions with structured error responses."""
         request_id = request.headers.get("X-Request-ID")
-        logger.error(
-            f"Unhandled exception: {exc}",
-            extra={
-                "request_id": request_id,
-                "path": request.url.path,
-                "method": request.method,
-                "error_type": type(exc).__name__,
-            },
-        )
+        # Avoid using 'extra' parameter to prevent logger._log() errors
+        # logger.error(
+        #     f"Unhandled exception: {exc}",
+        #     extra={
+        #         "request_id": request_id,
+        #         "path": request.url.path,
+        #         "method": request.method,
+        #         "error_type": type(exc).__name__,
+        #     },
+        # )
 
         error_response = ErrorResponse(
             error={
