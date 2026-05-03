@@ -28,15 +28,9 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         # Add request ID to request state for use in endpoints
         request.state.request_id = request_id
         
-        # Bind request ID to logger context
-        logger = get_logger(__name__).bind(request_id=request_id)
-        
-        # Log request start
+        # Log request start (standard logging doesn't support .bind())
         logger.info(
-            "Incoming request",
-            method=request.method,
-            path=request.url.path,
-            client=request.client.host if request.client else "unknown",
+            f"Incoming request - ID: {request_id}, Method: {request.method}, Path: {request.url.path}, Client: {request.client.host if request.client else 'unknown'}"
         )
         
         # Process request
@@ -47,8 +41,7 @@ class RequestIDMiddleware(BaseHTTPMiddleware):
         
         # Log request completion
         logger.info(
-            "Request completed",
-            status_code=response.status_code,
+            f"Request completed - ID: {request_id}, Status: {response.status_code}"
         )
         
         return response
