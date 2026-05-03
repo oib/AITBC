@@ -14,6 +14,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import os
 import sys
@@ -62,6 +64,11 @@ def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) ->
     nonce = os.urandom(12)
     encrypted = aesgcm.encrypt(nonce, private_key_bytes, None)
 
+    # Compute MAC for web3 keystore format (HMAC-SHA256)
+    # MAC is computed over derived_key[16:32] + ciphertext
+    mac_data = key[16:32] + encrypted
+    mac = hmac.new(key[:16], mac_data, hashlib.sha256).hexdigest()
+
     return {
         "crypto": {
             "cipher": "aes-256-gcm",
@@ -74,7 +81,7 @@ def encrypt_private_key(private_key_bytes: bytes, password: str, salt: bytes) ->
                 "c": 100_000,
                 "prf": "hmac-sha256"
             },
-            "mac": "TODO"  # In production, compute MAC over ciphertext and KDF params
+            "mac": mac
         },
         "address": None,  # to be filled
         "keytype": "ed25519",
