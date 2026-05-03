@@ -16,6 +16,9 @@ The AITBC Blockchain Node is the core infrastructure component that maintains th
 - Comprehensive observability with Prometheus metrics
 - SQLModel-based data persistence
 - Built-in devnet tooling and scripts
+- **State root validation enforcement** (Phase 1.3) - Validates state roots on block import
+- **Genesis metadata validation** - Verifies genesis block allocation metadata
+- **Auto-re-sync trigger** - Automatic re-sync after consecutive state root rejections
 
 ## Architecture
 
