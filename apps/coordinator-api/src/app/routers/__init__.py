@@ -11,12 +11,7 @@ from .agent_identity import router as agent_identity
 from .blockchain import router as blockchain
 from .cache_management import router as cache_management
 from .client import router as client
-
-try:
-    from .edge_gpu import router as edge_gpu
-except ImportError:
-    edge_gpu = None
-    print("WARNING: Edge GPU router not available (missing module)")
+from .edge_gpu import router as edge_gpu
 
 from .exchange import router as exchange
 from .explorer import router as explorer
@@ -28,6 +23,7 @@ from .payments import router as payments
 from .services import router as services
 from .users import router as users
 from .web_vitals import router as web_vitals
+from .multi_modal_rl import router as multi_modal_rl
 
 # from .registry import router as registry
 
