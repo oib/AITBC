@@ -238,7 +238,3 @@ def shutdown_db(chain_id: str = "") -> None:
     if resolved_chain_id in _engines:
         _engines[resolved_chain_id].dispose()
         del _engines[resolved_chain_id]
-
-# Backward compatibility - expose engine for escrow routes (to be removed in Phase 1.3)
-# TODO: Remove this in Phase 1.3 when escrow routes are updated
-engine = _engine_internal
