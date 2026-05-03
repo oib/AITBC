@@ -393,13 +393,7 @@ def create_app() -> FastAPI:
         rate_limit_hits_total.labels(endpoint=endpoint, method=method, limit=limit_detail).inc()
 
         logger.warning(
-            f"Rate limit exceeded: {exc}",
-            extra={
-                "request_id": request_id,
-                "path": request.url.path,
-                "method": request.method,
-                "rate_limit_detail": limit_detail,
-            },
+            f"Rate limit exceeded: {exc}, Request ID: {request_id}, Path: {request.url.path}, Method: {request.method}, Limit Detail: {limit_detail}"
         )
 
         error_response = ErrorResponse(
