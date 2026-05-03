@@ -26,6 +26,7 @@ class ChainSettings(BaseSettings):
     chain_id: str = ""
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
     db_path: Path = DATA_DIR / "data" / "chain.db"
+    enforce_state_root_validation: bool = False  # Phase 1.3 enforcement flag
 
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.

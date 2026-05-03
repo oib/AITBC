@@ -252,6 +252,38 @@ class EstimateFeeRequest(BaseModel):
 
 
 
+@router.get("/genesis_allocations", summary="Get genesis allocations from blockchain")
+async def get_genesis_allocations(chain_id: str = None) -> Dict[str, Any]:
+    """Get genesis allocations from genesis block metadata for RPC bootstrap"""
+    chain_id = get_chain_id(chain_id)
+    engine = get_chain_db(chain_id)
+    
+    with session_scope(engine) as session:
+        # Get genesis block (height 0)
+        genesis = session.exec(
+            select(Block).where(Block.chain_id == chain_id).where(Block.height == 0)
+        ).first()
+        
+        if not genesis:
+            raise HTTPException(status_code=404, detail=f"Genesis block not found for chain {chain_id}")
+        
+        # Extract allocations from block metadata
+        if not genesis.block_metadata:
+            raise HTTPException(status_code=404, detail=f"Genesis block metadata not found for chain {chain_id}")
+        
+        try:
+            metadata = json.loads(genesis.block_metadata)
+            allocations = metadata.get("allocations", [])
+            return {
+                "chain_id": chain_id,
+                "allocations": allocations,
+                "genesis_hash": genesis.hash,
+                "genesis_height": genesis.height,
+            }
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=500, detail=f"Failed to parse genesis block metadata: {e}")
+
+
 @router.get("/head", summary="Get current chain head")
 async def get_head(chain_id: str = None) -> Dict[str, Any]:
     """Get current chain head"""
