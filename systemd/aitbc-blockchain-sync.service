@@ -1,20 +1,21 @@
 [Unit]
-Description=AITBC Blockchain Chain Synchronization Service
-After=network.target redis.service aitbc-blockchain-node.service aitbc-blockchain-rpc.service
+Description=AITBC Blockchain Sync Service
+After=network.target postgresql.service
 
 [Service]
 Type=simple
 User=root
 Group=root
 WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
-Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-blockchain-sync-wrapper.py
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=aitbc-blockchain-sync
 
 [Install]
 WantedBy=multi-user.target

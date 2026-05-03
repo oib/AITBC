@@ -5,11 +5,17 @@ After=network.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/opt/aitbc/apps/plugin-service
-Environment="PYTHONPATH=/opt/aitbc/apps/plugin-service/src:/opt/aitbc"
-ExecStart=/root/.local/bin/poetry run python -m plugin_service.main
+Group=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/node.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-plugin-wrapper.py
 Restart=always
-RestartSec=10
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aitbc-plugin
 
 [Install]
 WantedBy=multi-user.target

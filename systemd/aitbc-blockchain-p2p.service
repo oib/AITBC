@@ -15,6 +15,7 @@ Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=aitbc-blockchain-p2p
 
 [Install]
 WantedBy=multi-user.target
