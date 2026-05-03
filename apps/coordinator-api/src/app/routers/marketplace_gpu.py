@@ -757,7 +757,7 @@ async def add_gpu_review(
         # Log error and rollback transaction
         logger.error(
             f"Failed to add review for GPU {gpu_id}: {str(e)}",
-            extra={"gpu_id": gpu_id, "error": str(e), "error_type": type(e).__name__},
+            extra={"gpu_id": gpu_id, "exc": str(e), "error_type": type(e).__name__},
         )
 
         # Rollback on error

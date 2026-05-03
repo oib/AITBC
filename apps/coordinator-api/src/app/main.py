@@ -538,7 +538,7 @@ def create_app() -> FastAPI:
                 "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             }
         except Exception as e:
-            logger.error("Readiness check failed", extra={"error": str(e)})
+            logger.error("Readiness check failed", extra={"exc": str(e)})
             return JSONResponse(status_code=503, content={"status": "not ready", "error": "Service not ready"})
 
     return app
