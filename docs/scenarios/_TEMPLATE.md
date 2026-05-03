@@ -1,6 +1,6 @@
 # [SCENARIO TITLE]
 
-**Level**: [Beginner/Intermediate/Advanced]  
+**Level**: [Getting Started/Blockchain/Expert]  
 **Prerequisites**: [List prerequisites]  
 **Estimated Time**: [X minutes]  
 **Last Updated**: 2026-05-02  

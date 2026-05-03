@@ -27,6 +27,8 @@ class ChainSettings(BaseSettings):
     supported_chains: str = "ait-mainnet" # Comma-separated list of supported chain IDs
     db_path: Path = DATA_DIR / "data" / "chain.db"
     enforce_state_root_validation: bool = False  # Phase 1.3 enforcement flag
+    db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
+    db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
 
     def get_db_path(self, chain_id: str = "") -> Path:
         """Get database path for a specific chain.

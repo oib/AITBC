@@ -1,52 +1,50 @@
-# Deployment Documentation
+# Node Documentation
 
 **Level**: Intermediate  
-**Prerequisites**: Basic familiarity with AITBC services and environments  
-**Estimated Time**: 20-40 minutes  
+**Prerequisites**: Basic familiarity with AITBC node operations  
+**Estimated Time**: 10-15 minutes  
 **Last Updated**: 2026-04-27  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../README.md)** → **🚀 Deployment** → *You are here*
+**🏠 [Documentation Home](../README.md)** → **🖧 Nodes** → *You are here*
 
-**breadcrumb**: Home → Deployment → Overview
+**breadcrumb**: Home → Nodes → Overview
 
 ---
 
 ## 🎯 **See Also:**
-- **🏗️ [Infrastructure Documentation](../infrastructure/README.md)** - Runtime and ops guidance
-- **📋 [Project Documentation](../project/README.md)** - Project-level context
-- **📈 [Release Notes](../releases/README.md)** - Versioned rollout history
-- **📚 [Documentation Home](../README.md)** - Main entry point
+- **⛓️ [Blockchain Documentation](../blockchain/README.md)** - Node and chain background
+- **📖 [Reference Documentation](../reference/README.md)** - Operational reference material
+- **🏠 [Documentation Home](../README.md)** - Main docs entry point
 
 ---
 
 ## 📦 **Contents**
 
-- **[SETUP_PRODUCTION.md](SETUP_PRODUCTION.md)** - Production deployment setup and operational checklist
-- **[SMART_CONTRACT_DEPLOYMENT.md](SMART_CONTRACT_DEPLOYMENT.md)** - Smart contract deployment guide for testnet and mainnet
+- **[AITBC1_TEST_COMMANDS.md](AITBC1_TEST_COMMANDS.md)** - Test command reference for AITBC1
+- **[AITBC1_UPDATED_COMMANDS.md](AITBC1_UPDATED_COMMANDS.md)** - Updated operational commands for AITBC1
 
 ---
 
 ## 🧱 **Purpose**
 
-Use this directory for deployment-oriented documentation such as:
+This directory holds node-specific operational notes and command references, especially for:
 
-- production setup and rollout steps
-- environment preparation and verification
-- deployment-safe operational checklists
-- release-adjacent instructions for operators
+- node verification and testing
+- updated operational command sets
+- node-focused troubleshooting and runbooks
 
 ---
 
 ## 🚀 **Next Steps**
 
-- Start with `SETUP_PRODUCTION.md` for the production workflow.
-- Cross-check `../infrastructure/README.md` for runtime structure.
-- Review `../releases/README.md` before promoting changes.
+- Use `AITBC1_TEST_COMMANDS.md` to verify current node behavior.
+- Use `AITBC1_UPDATED_COMMANDS.md` as the authoritative updated command reference.
+- Cross-check command usage with `../reference/README.md`.
 
 ---
 
 *Last updated: 2026-04-27*  
 *Version: 1.0*  
-*Status: Deployment entry point*
+*Status: Node operations index*

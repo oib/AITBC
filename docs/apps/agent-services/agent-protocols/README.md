@@ -11,7 +11,7 @@ This service provides communication protocols for agent interactions.
 
 ## Related Documentation
 - [Agent SDK](../../agent-sdk/README.md)
-- [Agent Integration Assets](../../11_agents/README.md)
+- [Agent Integration Assets](../../agents/INTEGRATION_ASSETS_README.md)
 
 ---
 

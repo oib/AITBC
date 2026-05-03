@@ -38,26 +38,21 @@ This checklist tracks the current remediation target:
 
 ### Required directory indexes
 - [x] `about/README.md`
-- [x] `11_agents/README.md`
 - [x] `agent-sdk/README.md`
-- [x] `advanced/README.md`
 - [x] `analytics/README.md`
 - [x] `apps/README.md`
 - [x] `archive/README.md`
 - [x] `backend/README.md`
-- [x] `beginner/README.md`
 - [x] `blockchain/README.md`
 - [x] `contracts/README.md`
 - [x] `deployment/README.md`
 - [x] `development/README.md`
 - [x] `exchange/README.md`
-- [x] `expert/README.md`
 - [x] `general/README.md`
 - [x] `guides/README.md`
 - [x] `governance/README.md`
 - [x] `implementation/README.md`
 - [x] `infrastructure/README.md`
-- [x] `intermediate/README.md`
 - [x] `maintenance/README.md`
 - [x] `mobile/README.md`
 - [x] `nodes/README.md`
@@ -73,7 +68,7 @@ This checklist tracks the current remediation target:
 - [x] `workflows/README.md`
 
 ### Documented exceptions
-- [x] `cli-technical/` is a special external technical entry point with a compliant landing page
+- [x] `cli/` is a special external technical entry point with a compliant landing page
 - [x] `testing/` is a special external documentation entry point with a compliant landing page
 
 ---
@@ -84,10 +79,6 @@ This checklist tracks the current remediation target:
 - [x] `docs/README.md` has `Level`, `Prerequisites`, `Estimated Time`, `Last Updated`, `Version`
 - [x] `docs/README.md` has a navigation path and breadcrumb
 - [x] `docs/README.md` links to `MASTER_INDEX.md` and the core learning paths
-- [x] `docs/beginner/README.md` has standardized metadata and cross-links
-- [x] `docs/intermediate/README.md` has standardized metadata and cross-links
-- [x] `docs/advanced/README.md` has standardized metadata and cross-links
-- [x] `docs/expert/README.md` has standardized metadata and cross-links
 - [x] `docs/project/README.md` has standardized metadata and cross-links
 - [x] `docs/apps/README.md` has standardized metadata and cross-links
 - [x] `docs/about/README.md` links to the template standard and audit checklist
