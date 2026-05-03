@@ -13,7 +13,8 @@ Production-ready blockchain node for AITBC with fixed supply and secure key mana
 - RESTful RPC API (`/rpc/*`)
 - Prometheus metrics (`/metrics`)
 - Health check endpoint (`/health`)
-- SQLite persistence with Alembic migrations
+- PostgreSQL mempool persistence (production nodes)
+- SQLite chain database with Alembic migrations
 - Multi-chain support (separate data directories per chain ID)
 
 ## Architecture
