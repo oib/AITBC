@@ -10,7 +10,7 @@ fi
 echo "Provisioning node: $NODE_NAME"
 
 # Install dependencies
-apt update && apt install -y python3 python3-venv redis-server
+apt update && apt install -y python3 python3-venv redis-server postgresql postgresql-contrib
 
 # Setup directories
 mkdir -p /var/lib/aitbc/{data,keystore}
@@ -24,6 +24,12 @@ scp aitbc1:/opt/aitbc/aitbc-cli-final /opt/aitbc/
 # Pull code
 cd /opt/aitbc
 git pull origin main
+
+# Install psycopg for PostgreSQL
+/opt/aitbc/venv/bin/pip install psycopg
+
+# Setup PostgreSQL databases
+/opt/aitbc/infra/scripts/setup_postgresql_databases.sh
 
 # Setup as follower
 sed -i 's|enable_block_production=true|enable_block_production=false|g' /etc/aitbc/blockchain.env

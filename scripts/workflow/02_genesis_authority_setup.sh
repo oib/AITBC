@@ -16,7 +16,11 @@ git pull origin main
 
 # Install/update dependencies
 echo "2. Installing/updating dependencies..."
-/opt/aitbc/venv/bin/pip install -r requirements.txt
+/opt/aitbc/venv/bin/pip install -r requirements.txt psycopg
+
+# Setup PostgreSQL databases
+echo "2.5. Setting up PostgreSQL databases..."
+/opt/aitbc/infra/scripts/setup_postgresql_databases.sh
 
 # Check and create required directories if they don't exist
 echo "3. Creating required directories..."

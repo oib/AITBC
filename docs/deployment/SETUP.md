@@ -40,12 +40,19 @@ sudo ./setup.sh
      - `/etc/aitbc/` - Configuration files
    - Sets proper permissions and ownership
 
-5. **Systemd Services**
+5. **PostgreSQL Databases**
+   - Installs PostgreSQL if not present
+   - Creates databases: aitbc_coordinator, aitbc_exchange, aitbc_wallet, aitbc_marketplace, aitbc_governance, aitbc_trading, aitbc_gpu, aitbc_ai, aitbc_mempool
+   - Creates dedicated users for each database
+   - Grants necessary privileges
+   - Uses centralized script: `/opt/aitbc/infra/scripts/setup_postgresql_databases.sh`
+
+6. **Systemd Services**
    - Installs service files to `/etc/systemd/system/`
    - Enables auto-start on boot
    - Provides fallback manual startup
 
-6. **Service Management**
+7. **Service Management**
    - Creates `/opt/aitbc/start-services.sh` for manual control
    - Creates `/opt/aitbc/health-check.sh` for monitoring
    - Sets up logging to `/var/log/aitbc-*.log`
