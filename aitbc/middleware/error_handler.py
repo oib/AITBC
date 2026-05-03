@@ -23,11 +23,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
             return response
         except HTTPException as e:
             logger.warning(
-                "HTTP exception",
-                status_code=e.status_code,
-                detail=e.detail,
-                path=request.url.path,
-                method=request.method,
+                f"HTTP exception - Status: {e.status_code}, Detail: {e.detail}, Path: {request.url.path}, Method: {request.method}"
             )
             return JSONResponse(
                 status_code=e.status_code,
