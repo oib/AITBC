@@ -10,7 +10,7 @@ WorkingDirectory=/opt/aitbc/apps/ai-service
 Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.app:app --host 0.0.0.0 --port 8005
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.ai_service.main:app --host 0.0.0.0 --port 8005
 Restart=always
 RestartSec=5
 StandardOutput=journal
