@@ -20,6 +20,7 @@ from handlers import system as system_handlers
 from handlers import pool_hub as pool_hub_handlers
 from handlers import bridge as bridge_handlers
 from handlers import account as account_handlers
+from handlers import contract as contract_handlers
 from parser_context import ParserContext
 from parsers import register_all
 
@@ -711,6 +712,18 @@ def run_cli(argv, core):
         except Exception as e:
             print(f"❌ Error restarting blockchain event bridge service: {e}")
 
+    def handle_contract_list(args):
+        contract_handlers.handle_contract_list(args, default_rpc_url)
+
+    def handle_contract_deploy(args):
+        contract_handlers.handle_contract_deploy(args, default_rpc_url, read_password, render_mapping)
+
+    def handle_contract_call(args):
+        contract_handlers.handle_contract_call(args, default_rpc_url, read_password)
+
+    def handle_contract_verify(args):
+        contract_handlers.handle_contract_verify(args, default_rpc_url, read_password)
+
     handlers = {
         "handle_wallet_create": handle_wallet_create,
         "handle_wallet_list": handle_wallet_list,
@@ -794,6 +807,10 @@ def run_cli(argv, core):
         "handle_bridge_config": globals()["handle_bridge_config"],
         "handle_bridge_restart": globals()["handle_bridge_restart"],
         "handle_genesis_init": globals()["handle_genesis_init"],
+        "handle_contract_list": handle_contract_list,
+        "handle_contract_deploy": handle_contract_deploy,
+        "handle_contract_call": handle_contract_call,
+        "handle_contract_verify": handle_contract_verify,
         "handle_genesis_verify": globals()["handle_genesis_verify"],
         "handle_genesis_info": globals()["handle_genesis_info"],
     }
