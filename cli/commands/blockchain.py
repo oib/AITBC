@@ -10,7 +10,7 @@ def _get_node_endpoint(ctx):
         # Use the new blockchain_rpc_url from config
         return config.blockchain_rpc_url
     except:
-        return "http://127.0.0.1:8005"  # Use HTTP RPC port (not blockchain protocol port)
+        return "http://127.0.0.1:8006"  # Default blockchain RPC port
 
 from typing import Optional, List
 from utils import output, error
