@@ -1,7 +1,7 @@
 ---
 description: Comprehensive OpenClaw agent training plan for AITBC software mastery from beginner to expert level
 title: OPENCLAW_AITBC_MASTERY_PLAN
-version: 2.1
+version: 2.2
 ---
 
 # OpenClaw AITBC Mastery Plan
@@ -43,8 +43,14 @@ Comprehensive training plan for OpenClaw agents to master AITBC software on both
 AITBC Multi-Node Setup:
 ├── Genesis Node (aitbc) - Port 8006 (Primary, IP: 10.1.223.40)
 ├── Follower Node (aitbc1) - Port 8006 (Secondary, different IP)
+├── Gitea-Runner Node - Port 8006 (CI/CD runner, IP: 10.1.223.93)
 ├── CLI Tool: /opt/aitbc/aitbc-cli
-├── Services: Agent Coordinator (9001), Exchange (8001), Blockchain RPC (8006 on both nodes)
+├── Services:
+│   ├── Coordinator API (8011) - Agent registration, marketplace, job submission
+│   ├── Agent Coordinator (9001) - AI agent task coordination
+│   ├── Exchange API (8001) - Trading and economic operations
+│   ├── Blockchain RPC (8006) - Blockchain node RPC on all nodes
+│   └── Ollama (11434) - AI model serving
 ├── AI Operations: Ollama integration, job processing, marketplace
 └── Node Synchronization: Gitea-based git pull/push (NOT SCP)
 ```
@@ -205,13 +211,19 @@ cd /opt/aitbc/scripts/training
   ./aitbc-cli service status --verbose
   ./aitbc-cli service health --debug --output json
 
+  # Check specific service health
+  curl -s http://localhost:8011/health/live | python3 -m json.tool
+  curl -s http://localhost:8011/v1/health | python3 -m json.tool
+  curl -s http://localhost:9001/health | python3 -m json.tool
+  curl -s http://localhost:8001/health | python3 -m json.tool
+
   # Node connectivity (non-interactive)
   ./aitbc-cli network status --format table
   ./aitbc-cli network peers --verbose
   ./aitbc-cli network ping --node aitbc1 --host <aitbc1-ip> --port 8006 --debug
   ```
 
-**Stage 1 Validation**: Successfully create wallet, check balance, send transaction, verify service health on both nodes
+**Stage 1 Validation**: Successfully create wallet, check balance, send transaction, verify service health on all three nodes
 
 **🚀 Training Script**: Execute `./stage1_foundation.sh` for hands-on practice
 - **Cross-Reference**: [`/opt/aitbc/scripts/training/stage1_foundation.sh`](../scripts/training/stage1_foundation.sh)
@@ -284,7 +296,95 @@ cd /opt/aitbc/scripts/training
   ./aitbc-cli network propagate --data <data> --dry-run
   ```
 
-**Stage 2 Validation**: Successful multi-wallet management, blockchain mining, contract interaction, and network operations on both nodes
+#### **2.5 Keystore Security and MAC Computation**
+- **Objective**: Understand and verify keystore security features including HMAC-SHA256 MAC computation
+- **Security Features**:
+  - **MAC Computation**: HMAC-SHA256 over `derived_key[16:32] + ciphertext` for password validation
+  - **Web3 Keystore Format**: Encrypted JSON keystore with MAC field for integrity verification
+  - **Password Validation**: MAC validation detects incorrect password attempts
+- **Verification Commands**:
+  ```bash
+  # Verify MAC computation in keystore generation
+  cd /opt/aitbc/apps/blockchain-node/scripts
+  python3 -c "
+  from keystore import encrypt_private_key
+  from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+  import hmac
+  import hashlib
+  # Test MAC computation
+  private_key = b'test_key_32_bytes_long_for_testing'
+  password = b'test_password'
+  salt = b'salt_16_bytes_long'
+  kdf = PBKDF2HMAC(algorithm=hashlib.sha256, length=32, salt=salt, iterations=100000)
+  derived_key = kdf.derive(password)
+  mac = hmac.new(derived_key[16:32], b'ciphertext', hashlib.sha256).hexdigest()
+  print(f'MAC: {mac}')
+  "
+
+  # Verify keystore MAC field
+  python3 -c "
+  import json
+  keystore_path = '/var/lib/aitbc/keystore/test_keystore.json'
+  with open(keystore_path) as f:
+      keystore = json.load(f)
+  print(f'Keystore has MAC field: {\"mac\" in keystore}')
+  print(f'MAC value: {keystore.get(\"mac\", \"N/A\")[:16]}...')
+  "
+
+  # Test MAC validation with wrong password
+  python3 -c "
+  from keystore import decrypt_private_key
+  try:
+      decrypt_private_key('keystore_path', 'wrong_password')
+  except Exception as e:
+      print(f'MAC validation error (expected): {str(e)[:50]}')
+  "
+  ```
+
+#### **2.6 Agent SDK Signature Verification**
+- **Objective**: Understand agent SDK signature verification using ed25519 and Coordinator API
+- **Security Features**:
+  - **ed25519 Signatures**: Cryptographic signatures for agent message authentication
+  - **Public Key Fetch**: Fetch sender's public key from Coordinator API for verification
+  - **Signature Validation**: Verify message signatures before processing
+- **Verification Commands**:
+  ```bash
+  # Test signature generation and verification
+  python3 -c "
+  from cryptography.hazmat.primitives.asymmetric import ed25519
+  from cryptography.hazmat.primitives import serialization
+  import hashlib
+
+  # Generate ed25519 keypair
+  private_key = ed25519.Ed25519PrivateKey.generate()
+  public_key = private_key.public_key()
+
+  # Sign a message
+  message = b'Test message for signature'
+  signature = private_key.sign(message)
+  print(f'Signature length: {len(signature)} bytes')
+
+  # Verify signature
+  try:
+      public_key.verify(signature, message)
+      print('✅ Signature verification successful')
+  except Exception as e:
+      print(f'❌ Signature verification failed: {e}')
+  "
+
+  # Test public key fetch from Coordinator API
+  curl -s http://localhost:8011/v1/agents/test-agent/public-key | python3 -m json.tool
+
+  # Test receive_message with signature verification
+  python3 -c "
+  from aitbc_agent.agent import Agent
+  agent = Agent(agent_id='test-agent', coordinator_url='http://localhost:8011')
+  # Test signature verification flow
+  print('Agent signature verification initialized')
+  "
+  ```
+
+**Stage 2 Validation**: Successful multi-wallet management, blockchain mining, contract interaction, network operations, keystore security verification, and signature verification on both nodes
 
 **🚀 Training Script**: Execute `./stage2_intermediate.sh` for hands-on practice
 - **Cross-Reference**: [`/opt/aitbc/scripts/training/stage2_intermediate.sh`](../scripts/training/stage2_intermediate.sh)
@@ -507,7 +607,55 @@ cd /opt/aitbc/scripts/training
   ./aitbc-cli compliance report --format detailed --output json
   ```
 
-**Stage 5 Validation**: Successful automation implementation, multi-node coordination, performance optimization, and security management
+#### **5.5 Agent Integration Service Management**
+- **Objective**: Deploy and manage agent instances using systemd-based integration service
+- **Integration Features**:
+  - **Systemd Deployment**: Dynamic service file generation for agent instances
+  - **Health Checks**: Combined systemd status and HTTP health endpoint monitoring
+  - **Metrics Collection**: CPU, memory, error rate, and response time metrics from agent endpoints
+  - **Alerting Rules**: Configurable thresholds for CPU, memory, error rate, and response time
+  - **Lifecycle Management**: Deployment, rollback, and instance removal operations
+- **Management Commands**:
+  ```bash
+  # Deploy agent instance via Coordinator API
+  curl -X POST http://localhost:8011/v1/agent-integration/deploy \
+    -H "Content-Type: application/json" \
+    -d '{
+      "agent_id": "test-agent-1",
+      "agent_type": "ai-worker",
+      "config": {"gpu_required": true}
+    }'
+
+  # Check agent instance health
+  curl http://localhost:8011/v1/agent-integration/instances/test-agent-1/health
+
+  # Collect metrics from agent instance
+  curl http://localhost:8011/v1/agent-integration/instances/test-agent-1/metrics
+
+  # Configure alerting rules
+  curl -X POST http://localhost:8011/v1/agent-integration/alerting/rules \
+    -H "Content-Type: application/json" \
+    -d '{
+      "cpu_threshold": 80,
+      "memory_threshold": 70,
+      "error_rate_threshold": 5,
+      "response_time_threshold": 1000
+    }'
+
+  # Rollback deployment
+  curl -X POST http://localhost:8011/v1/agent-integration/instances/test-agent-1/rollback
+
+  # Remove agent instance
+  curl -X DELETE http://localhost:8011/v1/agent-integration/instances/test-agent-1
+
+  # Check systemd service status
+  systemctl status aitbc-agent-test-agent-1.service --no-pager
+
+  # View agent service logs
+  journalctl -u aitbc-agent-test-agent-1.service -n 50 --no-pager
+  ```
+
+**Stage 5 Validation**: Successful automation implementation, multi-node coordination, performance optimization, security management, and agent integration service management
 
 **🚀 Training Script**: Execute `./stage5_expert_automation.sh` for hands-on practice and certification
 - **Cross-Reference**: [`/opt/aitbc/scripts/training/stage5_expert_automation.sh`](../scripts/training/stage5_expert_automation.sh)
@@ -566,9 +714,10 @@ export NODE_URL=http://<aitbc1-ip>:8006  # Follower node
 export CLI_PATH=/opt/aitbc/aitbc-cli
 
 # Service endpoints
-export AGENT_COORDINATOR_URL=http://localhost:9001
-export EXCHANGE_URL=http://localhost:8001
-export OLLAMA_URL=http://localhost:11434
+export COORDINATOR_API_URL=http://localhost:8011  # Coordinator API
+export AGENT_COORDINATOR_URL=http://localhost:9001  # Agent Coordinator
+export EXCHANGE_URL=http://localhost:8001  # Exchange API
+export OLLAMA_URL=http://localhost:11434  # Ollama
 
 # Authentication
 export WALLET_NAME=openclaw-wallet
@@ -578,8 +727,9 @@ export WALLET_PASSWORD=<secure_password>
 ### **Service Dependencies**
 - **AITBC CLI**: `/opt/aitbc/aitbc-cli` accessible
 - **Blockchain Services**: Port 8006 on both nodes (different IPs)
+- **Coordinator API**: Port 8011 for agent registration, marketplace, job submission
 - **AI Services**: Ollama (11434), Agent Coordinator (9001), Exchange (8001)
-- **Network Connectivity**: Both nodes can communicate
+- **Network Connectivity**: All three nodes can communicate
 - **Sufficient Balance**: Test wallet with adequate AIT tokens
 
 ---
