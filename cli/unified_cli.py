@@ -32,10 +32,10 @@ def run_cli(argv, core):
     # Extended features interception removed - replaced with actual RPC calls
     
     default_rpc_url = core["DEFAULT_RPC_URL"]
-    default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:8011")
+    default_coordinator_url = core.get("DEFAULT_COORDINATOR_URL", "http://localhost:9001")
     # New microservice URLs
     default_gpu_url = core.get("DEFAULT_GPU_URL", "http://localhost:8101")
-    default_marketplace_url = core.get("DEFAULT_MARKETPLACE_URL", "http://localhost:8102")
+    default_marketplace_url = core.get("DEFAULT_MARKETPLACE_URL", "http://localhost:8001")
     default_trading_url = core.get("DEFAULT_TRADING_URL", "http://localhost:8104")
     default_governance_url = core.get("DEFAULT_GOVERNANCE_URL", "http://localhost:8105")
     cli_version = core.get("CLI_VERSION", "0.0.0")
@@ -256,8 +256,38 @@ def run_cli(argv, core):
             return [*direct_map[command], *rest]
 
         if command == "marketplace":
+            if "--list" in rest:
+                rest.remove("--list")
+                return ["market", "list", *rest]
             action = extract_option(rest, "--action")
             return ["market", *([action] if action else []), *rest]
+
+        if command == "analytics":
+            if rest and not rest[0].startswith("-"):
+                return normalized
+            for flag, mapped_action in (
+                ("--report", "report"),
+                ("--metrics", "metrics"),
+                ("--export", "export"),
+                ("--predict", "predict"),
+                ("--optimize", "optimize"),
+            ):
+                if flag in rest:
+                    rest.remove(flag)
+                    return ["analytics", mapped_action, *rest]
+
+        if command == "economics":
+            if rest and not rest[0].startswith("-"):
+                return normalized
+            for flag, mapped_action in (
+                ("--model", "model"),
+                ("--market", "market"),
+                ("--distributed", "distributed"),
+                ("--strategy", "strategy"),
+            ):
+                if flag in rest:
+                    rest.remove(flag)
+                    return ["economics", mapped_action, *rest]
 
         if command == "ai-ops":
             action = extract_option(rest, "--action")
@@ -403,7 +433,7 @@ def run_cli(argv, core):
         market_handlers.handle_market_create(args, default_marketplace_url, read_password, render_mapping)
 
     def handle_market_get(args):
-        market_handlers.handle_market_get(args, default_rpc_url)
+        market_handlers.handle_market_get(args, default_marketplace_url)
 
     def handle_market_delete(args):
         market_handlers.handle_market_delete(args, default_marketplace_url, read_password, render_mapping)
@@ -416,6 +446,12 @@ def run_cli(argv, core):
 
     def handle_market_buy(args):
         market_handlers.handle_market_buy(args, default_marketplace_url, read_password, render_mapping)
+
+    def handle_market_sell(args):
+        market_handlers.handle_market_sell(args, default_marketplace_url, read_password, render_mapping)
+
+    def handle_market_orders(args):
+        market_handlers.handle_market_orders(args, default_marketplace_url, output_format, render_mapping)
 
     def handle_ai_submit(args):
         ai_handlers.handle_ai_submit(args, default_rpc_url, first, read_password, render_mapping)
@@ -440,6 +476,9 @@ def run_cli(argv, core):
 
     def handle_ai_service_test(args):
         ai_handlers.handle_ai_service_test(args, ai_operations, render_mapping)
+
+    def handle_ai_status(args):
+        ai_handlers.handle_ai_status(args, default_coordinator_url, default_rpc_url, output_format, render_mapping)
 
     def handle_economics_action(args):
         system_handlers.handle_economics_action(args, render_mapping)
@@ -772,6 +811,8 @@ def run_cli(argv, core):
         "handle_market_gpu_register": handle_market_gpu_register,
         "handle_market_gpu_list": handle_market_gpu_list,
         "handle_market_buy": handle_market_buy,
+        "handle_market_sell": handle_market_sell,
+        "handle_market_orders": handle_market_orders,
         "handle_ai_submit": handle_ai_submit,
         "handle_ai_jobs": handle_ai_jobs,
         "handle_ai_job": handle_ai_job,
@@ -780,6 +821,7 @@ def run_cli(argv, core):
         "handle_ai_service_list": handle_ai_service_list,
         "handle_ai_service_status": handle_ai_service_status,
         "handle_ai_service_test": handle_ai_service_test,
+        "handle_ai_status": handle_ai_status,
         "handle_economics_action": handle_economics_action,
         "handle_cluster_action": handle_cluster_action,
         "handle_performance_action": handle_performance_action,
