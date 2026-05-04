@@ -1,6 +1,6 @@
 """Parser registration modules for the unified CLI."""
 
-from . import ai, agent, blockchain, bridge, contract, genesis, market, messaging, network, openclaw, pool_hub, resource, system, wallet, workflow
+from . import ai, agent, analytics, blockchain, bridge, contract, genesis, market, messaging, network, openclaw, pool_hub, resource, script, system, wallet, workflow
 
 def register_all(subparsers, ctx):
     wallet.register(subparsers, ctx)
@@ -9,6 +9,8 @@ def register_all(subparsers, ctx):
     network.register(subparsers, ctx)
     market.register(subparsers, ctx)
     ai.register(subparsers, ctx)
+    analytics.register(subparsers, ctx)
+    script.register(subparsers, ctx)
     system.register(subparsers, ctx)
     agent.register(subparsers, ctx)
     openclaw.register(subparsers, ctx)

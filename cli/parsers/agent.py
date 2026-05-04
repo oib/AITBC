@@ -57,6 +57,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         # agent sdk create
         agent_sdk_create_parser = agent_sdk_subparsers.add_parser("create", help="Create a new agent using Agent SDK")
         agent_sdk_create_parser.add_argument("--name", required=True, help="Agent name")
+        agent_sdk_create_parser.add_argument("--workflow", help="Agent workflow type")
         agent_sdk_create_parser.add_argument("--type", choices=["provider", "consumer", "general"], default="provider", help="Agent type")
         agent_sdk_create_parser.add_argument("--compute-type", default="inference", help="Compute type")
         agent_sdk_create_parser.add_argument("--gpu-memory", type=int, help="GPU memory in GB")

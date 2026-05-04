@@ -29,44 +29,6 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         mining_rewards_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
         mining_rewards_parser.set_defaults(handler=ctx.handle_mining_action, mining_action="rewards")
     
-        analytics_parser = subparsers.add_parser("analytics", help="Blockchain analytics and statistics")
-        analytics_parser.set_defaults(handler=lambda parsed, parser=analytics_parser: parser.print_help())
-        analytics_subparsers = analytics_parser.add_subparsers(dest="analytics_action")
-    
-        analytics_blocks_parser = analytics_subparsers.add_parser("blocks", help="Block analytics")
-        analytics_blocks_parser.add_argument("--limit", type=int, default=10)
-        analytics_blocks_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_blocks_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="blocks")
-    
-        analytics_report_parser = analytics_subparsers.add_parser("report", help="Generate analytics report")
-        analytics_report_parser.add_argument("--type", dest="report_type", choices=["performance", "transactions", "all"], default="all")
-        analytics_report_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_report_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="report")
-    
-        analytics_metrics_parser = analytics_subparsers.add_parser("metrics", help="Show performance metrics")
-        analytics_metrics_parser.add_argument("--limit", type=int, default=10)
-        analytics_metrics_parser.add_argument("--period", default="24h")
-        analytics_metrics_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_metrics_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="metrics")
-    
-        analytics_export_parser = analytics_subparsers.add_parser("export", help="Export analytics data")
-        analytics_export_parser.add_argument("--format", choices=["json", "csv"], default="json")
-        analytics_export_parser.add_argument("--output")
-        analytics_export_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_export_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="export")
-    
-        analytics_predict_parser = analytics_subparsers.add_parser("predict", help="Run predictive analytics")
-        analytics_predict_parser.add_argument("--model", default="lstm")
-        analytics_predict_parser.add_argument("--target", default="job-completion")
-        analytics_predict_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_predict_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="predict")
-    
-        analytics_optimize_parser = analytics_subparsers.add_parser("optimize", help="Optimize system parameters")
-        analytics_optimize_parser.add_argument("--parameters", action="store_true")
-        analytics_optimize_parser.add_argument("--target", default="efficiency")
-        analytics_optimize_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        analytics_optimize_parser.set_defaults(handler=ctx.handle_analytics, analytics_type="optimize")
-    
         system_parser = subparsers.add_parser("system", help="System health and overview")
         system_parser.set_defaults(handler=ctx.handle_system_status)
         system_subparsers = system_parser.add_subparsers(dest="system_action")
@@ -108,15 +70,15 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     
         cluster_status_parser = cluster_subparsers.add_parser("status", help="Show cluster status")
         cluster_status_parser.add_argument("--nodes", nargs="*", default=["aitbc", "aitbc1"])
-        cluster_status_parser.set_defaults(handler=ctx.handle_network_status)
+        cluster_status_parser.set_defaults(handler=ctx.handle_cluster_status)
     
         cluster_sync_parser = cluster_subparsers.add_parser("sync", help="Sync cluster nodes")
         cluster_sync_parser.add_argument("--all", action="store_true")
-        cluster_sync_parser.set_defaults(handler=ctx.handle_cluster_action)
+        cluster_sync_parser.set_defaults(handler=ctx.handle_cluster_sync)
     
         cluster_balance_parser = cluster_subparsers.add_parser("balance", help="Balance workload across nodes")
         cluster_balance_parser.add_argument("--workload", action="store_true")
-        cluster_balance_parser.set_defaults(handler=ctx.handle_cluster_action)
+        cluster_balance_parser.set_defaults(handler=ctx.handle_cluster_balance)
     
         performance_parser = subparsers.add_parser("performance", help="Performance optimization")
         performance_parser.set_defaults(handler=lambda parsed, parser=performance_parser: parser.print_help())
@@ -124,16 +86,16 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     
         performance_benchmark_parser = performance_subparsers.add_parser("benchmark", help="Run performance benchmark")
         performance_benchmark_parser.add_argument("--suite", choices=["comprehensive", "quick", "custom"], default="comprehensive")
-        performance_benchmark_parser.set_defaults(handler=ctx.handle_performance_action)
+        performance_benchmark_parser.set_defaults(handler=ctx.handle_performance_benchmark)
     
         performance_optimize_parser = performance_subparsers.add_parser("optimize", help="Optimize performance")
         performance_optimize_parser.add_argument("--target", choices=["latency", "throughput", "all"], default="all")
-        performance_optimize_parser.set_defaults(handler=ctx.handle_performance_action)
+        performance_optimize_parser.set_defaults(handler=ctx.handle_performance_optimize)
     
         performance_tune_parser = performance_subparsers.add_parser("tune", help="Tune system parameters")
         performance_tune_parser.add_argument("--parameters", action="store_true")
         performance_tune_parser.add_argument("--aggressive", action="store_true")
-        performance_tune_parser.set_defaults(handler=ctx.handle_performance_action)
+        performance_tune_parser.set_defaults(handler=ctx.handle_performance_tune)
     
         security_parser = subparsers.add_parser("security", help="Security audit and scanning")
         security_parser.set_defaults(handler=lambda parsed, parser=security_parser: parser.print_help())
@@ -157,11 +119,11 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     
         compliance_check_parser = compliance_subparsers.add_parser("check", help="Check compliance status")
         compliance_check_parser.add_argument("--standard", choices=["gdpr", "hipaa", "soc2", "all"], default="gdpr")
-        compliance_check_parser.set_defaults(handler=ctx.handle_system_status)
+        compliance_check_parser.set_defaults(handler=ctx.handle_compliance_check)
     
         compliance_report_parser = compliance_subparsers.add_parser("report", help="Generate compliance report")
         compliance_report_parser.add_argument("--format", choices=["detailed", "summary", "json"], default="detailed")
-        compliance_report_parser.set_defaults(handler=ctx.handle_system_status)
+        compliance_report_parser.set_defaults(handler=ctx.handle_compliance_report)
     
         simulate_parser = subparsers.add_parser("simulate", help="Simulation utilities")
         simulate_parser.set_defaults(handler=lambda parsed, parser=simulate_parser: parser.print_help())

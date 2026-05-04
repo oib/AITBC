@@ -23,12 +23,14 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         ai_submit_parser.add_argument("--password-file")
         ai_submit_parser.add_argument("--chain-id", help="Chain ID")
         ai_submit_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
+        ai_submit_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
         ai_submit_parser.set_defaults(handler=ctx.handle_ai_submit)
     
         ai_jobs_parser = ai_subparsers.add_parser("jobs", help="List AI jobs")
         ai_jobs_parser.add_argument("--limit", type=int, default=10)
         ai_jobs_parser.add_argument("--chain-id", help="Chain ID")
         ai_jobs_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
+        ai_jobs_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
         ai_jobs_parser.set_defaults(handler=ctx.handle_ai_jobs)
     
         ai_status_parser = ai_subparsers.add_parser("status", help="Show AI job status")
