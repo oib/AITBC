@@ -231,7 +231,7 @@ def config(test_mode):
         if test_mode:
             # Mock data for testing
             mock_config = {
-                "blockchain_rpc_url": "http://localhost:8005",
+                "blockchain_rpc_url": "http://localhost:8006",
                 "gossip_backend": "redis",
                 "gossip_broadcast_url": "redis://localhost:6379",
                 "coordinator_api_url": "http://localhost:8011",

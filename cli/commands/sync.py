@@ -17,8 +17,8 @@ def sync():
 
 
 @sync.command()
-@click.option('--source', default=lambda: os.getenv('AITBC_SYNC_SOURCE_URL', 'http://127.0.0.1:8005'), help='Source RPC URL (leader)')
-@click.option('--import-url', default='http://127.0.0.1:8005', help='Local RPC URL for import')
+@click.option('--source', default=lambda: os.getenv('AITBC_SYNC_SOURCE_URL', 'http://127.0.0.1:8006'), help='Source RPC URL (leader)')
+@click.option('--import-url', default='http://127.0.0.1:8006', help='Local RPC URL for import')
 @click.option('--batch-size', type=int, default=100, help='Blocks per batch')
 @click.option('--poll-interval', type=float, default=0.2, help='Seconds between batches')
 def bulk(source, import_url, batch_size, poll_interval):
