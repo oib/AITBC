@@ -1,6 +1,7 @@
 """Wallet command handlers."""
 
 import json
+import requests
 import sys
 from aitbc.paths import get_data_path
 
