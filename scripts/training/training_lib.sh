@@ -19,15 +19,15 @@ export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
 export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
 export TRAINING_TIMEOUT="${TRAINING_TIMEOUT:-300}"
-export GENESIS_NODE="http://localhost:8006"
-export FOLLOWER_NODE="http://aitbc1:8006"
+export GENESIS_NODE="http://localhost:8005"
+export FOLLOWER_NODE="http://aitbc1:8005"
 
 # Service endpoints
 export SERVICES=(
     "8001:Exchange"
     "9001:Agent-Coordinator"
-    "8006:Genesis-Node"
-    "8006:Follower-Node"
+    "8005:Genesis-Node-RPC"
+    "8005:Follower-Node-RPC"
     "11434:Ollama"
 )
 
