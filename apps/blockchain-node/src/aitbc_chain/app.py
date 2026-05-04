@@ -23,6 +23,14 @@ from .rpc.websocket import router as websocket_router
 _app_logger = get_logger("aitbc_chain.app")
 
 
+def _env_value(*names: str) -> str | None:
+    for name in names:
+        value = os.getenv(name)
+        if value is not None:
+            return value
+    return None
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Simple in-memory rate limiter per client IP."""
 
@@ -105,9 +113,11 @@ async def lifespan(app: FastAPI):
     await gossip_broker.set_backend(backend)
     _app_logger.info("Gossip backend initialized successfully")
     proposers = []
-    block_production_override = os.getenv("enable_block_production")
-    if block_production_override is None:
-        block_production_override = os.getenv("ENABLE_BLOCK_PRODUCTION")
+    block_production_override = _env_value(
+        "AITBC_FORCE_ENABLE_BLOCK_PRODUCTION",
+        "ENABLE_BLOCK_PRODUCTION",
+        "enable_block_production",
+    )
     block_production_enabled = settings.enable_block_production
     if block_production_override is not None:
         block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}

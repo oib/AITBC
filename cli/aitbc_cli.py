@@ -760,15 +760,27 @@ def get_balance(wallet_name: str, rpc_url: str = DEFAULT_RPC_URL, chain_id_overr
         
         # Get account info from RPC
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-            account_info = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
+            response = requests.get(
+                f"{rpc_url.rstrip('/')}/rpc/account/{address}",
+                params={"chain_id": chain_id},
+                timeout=10,
+            )
+            if response.status_code == 404:
+                return {
+                    "wallet_name": wallet_name,
+                    "address": address,
+                    "balance": 0,
+                    "nonce": 0
+                }
+            response.raise_for_status()
+            account_info = response.json()
             return {
                 "wallet_name": wallet_name,
                 "address": address,
                 "balance": account_info["balance"],
                 "nonce": account_info["nonce"]
             }
-        except NetworkError as e:
+        except requests.RequestException as e:
             print(f"Error getting balance: {e}")
             return None
         except Exception as e:

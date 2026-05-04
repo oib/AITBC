@@ -20,6 +20,9 @@ os.environ["AITBC_NODE_ENV_FILE"] = str(NODE_ENV_FILE)
 os.environ["PYTHONPATH"] = f"{REPO_DIR}/apps/blockchain-node/src:{REPO_DIR}/apps/blockchain-node/scripts"
 os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
+os.environ["AITBC_FORCE_ENABLE_BLOCK_PRODUCTION"] = "false"
+os.environ["ENABLE_BLOCK_PRODUCTION"] = "false"
+os.environ["enable_block_production"] = "false"
 
 # Get RPC configuration from environment or use defaults
 rpc_host = os.getenv("rpc_bind_host", "0.0.0.0")
