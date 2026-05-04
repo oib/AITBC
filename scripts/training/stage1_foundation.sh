@@ -30,7 +30,7 @@ genesis_block_initialization() {
     return 0
     
     print_status "Initializing blockchain on Follower Node..."
-    if NODE_URL="http://aitbc1:8006" cli_cmd "blockchain init --force"; then
+    if NODE_URL="http://aitbc1:8005" cli_cmd "blockchain init --force"; then
         print_success "Blockchain initialized on Follower Node"
     else
         print_warning "Blockchain may already be initialized on Follower Node"
@@ -60,24 +60,24 @@ genesis_block_initialization() {
     print_status "Funding training wallet from genesis block initial coins..."
     # The genesis block contains actual AIT coins - mine a block to get the reward
     print_status "Starting mining to get genesis block reward..."
-    if NODE_URL="http://localhost:8006" cli_cmd "mining start --wallet $WALLET_NAME"; then
+    if NODE_URL="http://localhost:8005" cli_cmd "mining start --wallet $WALLET_NAME"; then
         print_success "Mining started for wallet $WALLET_NAME"
         sleep 5  # Wait for mining to produce a block
         
         print_status "Checking mining status..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
+        NODE_URL="http://localhost:8005" cli_cmd "mining status --wallet $WALLET_NAME" || print_warning "Mining status check failed"
         
         print_status "Checking mining rewards..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
+        NODE_URL="http://localhost:8005" cli_cmd "mining rewards --wallet $WALLET_NAME" || print_warning "Mining rewards check failed"
         
         print_status "Stopping mining after obtaining genesis reward..."
-        NODE_URL="http://localhost:8006" cli_cmd "mining stop" || print_warning "Mining stop failed"
+        NODE_URL="http://localhost:8005" cli_cmd "mining stop" || print_warning "Mining stop failed"
     else
         print_warning "Mining start failed - wallet may not have initial funds"
     fi
     
     print_status "Verifying wallet balance after mining genesis block..."
-    NODE_URL="http://localhost:8006" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
+    NODE_URL="http://localhost:8005" cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
     
     update_progress "Genesis Block Initialization"
 }
