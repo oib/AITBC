@@ -1,0 +1,217 @@
+{
+  "stage": "stage6_agent_identity_sdk",
+  "agent_type": "coordinator",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "agent_create",
+        "parameters": {
+          "name": "training-agent",
+          "description": "Training agent"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "name"]
+        }
+      },
+      {
+        "operation": "agent_list",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "agents": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agents", "total_count"]
+        }
+      },
+      {
+        "operation": "agent_status",
+        "parameters": {
+          "agent_id": "agent_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_status": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "status", "uptime"]
+        }
+      },
+      {
+        "operation": "agent_capabilities",
+        "parameters": {
+          "agent_id": "agent_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "capabilities": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["gpu_available", "supported_models"]
+        }
+      },
+      {
+        "operation": "agent_message",
+        "parameters": {
+          "agent": "agent_*",
+          "message": "test message",
+          "wallet": "training-wallet",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "message_sent": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["message_sent", "message_id"]
+        }
+      },
+      {
+        "operation": "agent_messages",
+        "parameters": {
+          "agent": "agent_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "messages": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["messages", "total_count"]
+        }
+      },
+      {
+        "operation": "agent_sdk_create",
+        "parameters": {
+          "name": "training-agent",
+          "workflow": "basic",
+          "type": "provider"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "name", "type"]
+        }
+      },
+      {
+        "operation": "agent_sdk_register",
+        "parameters": {
+          "agent_id": "agent_*",
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_result": {
+          "status": "success",
+          "registered": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["registered", "coordinator"]
+        }
+      },
+      {
+        "operation": "agent_sdk_list",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "agents": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agents", "total_count"]
+        }
+      },
+      {
+        "operation": "agent_sdk_status",
+        "parameters": {
+          "agent_id": "agent_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_status": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "status", "uptime"]
+        }
+      },
+      {
+        "operation": "agent_sdk_capabilities",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "capabilities": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["gpu_available", "supported_models"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Create agent using SDK",
+        "operation": "agent_sdk_create",
+        "test_case": {
+          "name": "exam-agent",
+          "workflow": "basic",
+          "type": "provider"
+        },
+        "expected_output": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Register agent with coordinator",
+        "operation": "agent_sdk_register",
+        "test_case": {
+          "agent_id": "agent_*",
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_output": {
+          "status": "success",
+          "registered": true
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "List agents",
+        "operation": "agent_sdk_list",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "agents": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Check agent status",
+        "operation": "agent_sdk_status",
+        "test_case": {
+          "agent_id": "agent_*"
+        },
+        "expected_output": {
+          "status": "success",
+          "agent_status": "active"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}
