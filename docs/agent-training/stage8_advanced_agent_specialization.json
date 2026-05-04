@@ -1,0 +1,156 @@
+{
+  "stage": "stage8_advanced_agent_specialization",
+  "agent_type": "specialized",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "bounty_system",
+        "parameters": {
+          "wallet": "training-wallet",
+          "bounty_title": "Test bounty",
+          "bounty_amount": "100",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "bounty": "created"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["bounty", "bounty_id", "escrow_address"]
+        }
+      },
+      {
+        "operation": "portfolio_management",
+        "parameters": {
+          "wallet": "training-wallet",
+          "strategy": "balanced",
+          "rebalance_threshold": "0.05"
+        },
+        "expected_result": {
+          "status": "success",
+          "portfolio": "managed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["portfolio", "portfolio_id", "allocation"]
+        }
+      },
+      {
+        "operation": "knowledge_graph_market",
+        "parameters": {
+          "wallet": "training-wallet",
+          "knowledge_graph": "QmXxx",
+          "license": "commercial",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "knowledge_graph": "listed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["knowledge_graph", "listing_id"]
+        }
+      },
+      {
+        "operation": "dispute_resolution",
+        "parameters": {
+          "wallet": "training-wallet",
+          "dispute_id": "dispute_*",
+          "vote": "favor_claimant",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "vote": "recorded"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["vote", "vote_id"]
+        }
+      },
+      {
+        "operation": "zero_knowledge_proofs",
+        "parameters": {
+          "wallet": "training-wallet",
+          "ai_job_id": "job_*",
+          "zk_verify": true,
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "zk_verified": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["zk_verified", "proof_id"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Create bounty system",
+        "operation": "bounty_system",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "bounty_title": "Exam bounty",
+          "bounty_amount": "100",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "bounty": "created"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Set up portfolio management",
+        "operation": "portfolio_management",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "strategy": "balanced",
+          "rebalance_threshold": "0.05"
+        },
+        "expected_output": {
+          "status": "success",
+          "portfolio": "managed"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "List knowledge graph on market",
+        "operation": "knowledge_graph_market",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "knowledge_graph": "QmXxx",
+          "license": "commercial",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "knowledge_graph": "listed"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Verify zero-knowledge proof",
+        "operation": "zero_knowledge_proofs",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "ai_job_id": "job_*",
+          "zk_verify": true,
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "zk_verified": true
+        },
+        "weight": 2
+      }
+    ],
+    "passing_score": 80
+  }
+}

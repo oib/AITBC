@@ -1,0 +1,179 @@
+{
+  "stage": "stage4_marketplace_economics",
+  "agent_type": "wallet",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "market_gpu_register",
+        "parameters": {
+          "wallet": "training-wallet",
+          "gpu_model": "RTX4090",
+          "price": "0.5",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "registered": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["registered", "gpu_id"]
+        }
+      },
+      {
+        "operation": "market_gpu_list",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "gpus": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["gpus", "total_count"]
+        }
+      },
+      {
+        "operation": "market_bid",
+        "parameters": {
+          "wallet": "training-wallet",
+          "listing_id": "listing_*",
+          "bid_price": "0.6",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "bid": "placed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["bid", "bid_id"]
+        }
+      },
+      {
+        "operation": "market_list",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "listings": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["listings"]
+        }
+      },
+      {
+        "operation": "market_buy",
+        "parameters": {
+          "wallet": "training-wallet",
+          "listing_id": "listing_*",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "purchase": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["purchase", "order_id"]
+        }
+      },
+      {
+        "operation": "market_sell",
+        "parameters": {
+          "wallet": "training-wallet",
+          "resource": "compute",
+          "quantity": 1,
+          "price": "0.1",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "listing": "created"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["listing", "listing_id"]
+        }
+      },
+      {
+        "operation": "market_orders",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "orders": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["orders"]
+        }
+      },
+      {
+        "operation": "economics_distributed",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "distribution": "calculated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["distribution", "metrics"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "List marketplace items",
+        "operation": "market_list",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "listings": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Create marketplace listing",
+        "operation": "market_sell",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "resource": "compute",
+          "quantity": 1,
+          "price": "0.1",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "listing": "created"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Query orders",
+        "operation": "market_orders",
+        "test_case": {
+          "wallet": "exam-wallet"
+        },
+        "expected_output": {
+          "status": "success",
+          "orders": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Calculate economic distribution",
+        "operation": "economics_distributed",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "distribution": "calculated"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}

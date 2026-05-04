@@ -1,0 +1,226 @@
+{
+  "stage": "stage1_foundation",
+  "agent_type": "general",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "wallet_create",
+        "parameters": {
+          "name": "training-wallet",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "wallet_id": "training-wallet"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["wallet_id", "address"]
+        }
+      },
+      {
+        "operation": "wallet_import",
+        "parameters": {
+          "private_key": "0x1234567890abcdef"
+        },
+        "expected_result": {
+          "status": "success",
+          "imported": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["imported", "wallet_id"]
+        }
+      },
+      {
+        "operation": "wallet_list",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "wallets": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["wallets", "total_count"]
+        }
+      },
+      {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": "0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "address"]
+        }
+      },
+      {
+        "operation": "transaction_send",
+        "parameters": {
+          "wallet": "training-wallet",
+          "to": "recipient-address",
+          "amount": "10",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "transaction_id": "tx_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["transaction_id", "amount"]
+        }
+      },
+      {
+        "operation": "genesis_init",
+        "parameters": {
+          "force": true
+        },
+        "expected_result": {
+          "status": "success",
+          "genesis": "initialized"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["genesis", "block_hash"]
+        }
+      },
+      {
+        "operation": "messaging_send",
+        "parameters": {
+          "topic": "test-topic",
+          "message": "test message"
+        },
+        "expected_result": {
+          "status": "success",
+          "message_sent": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["message_sent", "message_id"]
+        }
+      },
+      {
+        "operation": "island_create",
+        "parameters": {
+          "name": "training-island"
+        },
+        "expected_result": {
+          "status": "success",
+          "island_id": "island_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["island_id", "name"]
+        }
+      },
+      {
+        "operation": "blockchain_status",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "chain_height": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["chain_height", "block_hash"]
+        }
+      },
+      {
+        "operation": "service_status",
+        "parameters": {
+          "service": "agent-coordinator"
+        },
+        "expected_result": {
+          "status": "success",
+          "service_state": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["service_state", "port"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Create wallet with custom name",
+        "operation": "wallet_create",
+        "test_case": {
+          "name": "exam-wallet",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "wallet_id": "exam-wallet"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "List all wallets",
+        "operation": "wallet_list",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "wallets": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Query wallet balance",
+        "operation": "wallet_balance",
+        "test_case": {
+          "wallet": "exam-wallet"
+        },
+        "expected_output": {
+          "status": "success",
+          "balance": "0"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Send transaction",
+        "operation": "transaction_send",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "to": "recipient-address",
+          "amount": "10",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "transaction_id": "tx_*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Check blockchain status",
+        "operation": "blockchain_status",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "chain_height": ">0"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Verify agent coordinator service",
+        "operation": "service_status",
+        "test_case": {
+          "service": "agent-coordinator"
+        },
+        "expected_output": {
+          "status": "success",
+          "service_state": "active"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}

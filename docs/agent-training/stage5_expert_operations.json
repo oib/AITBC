@@ -1,0 +1,397 @@
+{
+  "stage": "stage5_expert_operations",
+  "agent_type": "coordinator",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "workflow_run",
+        "parameters": {
+          "workflow_id": "workflow_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "execution": "started"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["execution", "execution_id"]
+        }
+      },
+      {
+        "operation": "workflow_create",
+        "parameters": {
+          "name": "training-workflow",
+          "description": "Training workflow"
+        },
+        "expected_result": {
+          "status": "success",
+          "workflow_id": "workflow_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["workflow_id", "name"]
+        }
+      },
+      {
+        "operation": "workflow_schedule",
+        "parameters": {
+          "workflow_id": "workflow_*",
+          "schedule": "0 0 * * *"
+        },
+        "expected_result": {
+          "status": "success",
+          "scheduled": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["scheduled", "schedule"]
+        }
+      },
+      {
+        "operation": "workflow_monitor",
+        "parameters": {
+          "workflow_id": "workflow_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "status": "running|completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["status", "executions"]
+        }
+      },
+      {
+        "operation": "resource_optimize",
+        "parameters": {
+          "resource": "gpu"
+        },
+        "expected_result": {
+          "status": "success",
+          "optimized": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["optimized", "efficiency_gain"]
+        }
+      },
+      {
+        "operation": "resource_benchmark",
+        "parameters": {
+          "resource": "gpu"
+        },
+        "expected_result": {
+          "status": "success",
+          "benchmark": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["benchmark", "score"]
+        }
+      },
+      {
+        "operation": "resource_monitor",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "monitoring": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["monitoring", "utilization"]
+        }
+      },
+      {
+        "operation": "analytics_report",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "report": "generated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["report", "report_id"]
+        }
+      },
+      {
+        "operation": "analytics_export",
+        "parameters": {
+          "format": "json"
+        },
+        "expected_result": {
+          "status": "success",
+          "exported": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["exported", "file_path"]
+        }
+      },
+      {
+        "operation": "performance_benchmark",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "benchmark": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["benchmark", "score"]
+        }
+      },
+      {
+        "operation": "performance_optimize",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "optimized": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["optimized", "improvement"]
+        }
+      },
+      {
+        "operation": "security_scan",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "scan": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["scan", "vulnerabilities_found"]
+        }
+      },
+      {
+        "operation": "security_patch",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "patches": "applied"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["patches", "patch_count"]
+        }
+      },
+      {
+        "operation": "compliance_check",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "compliance": "checked"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["compliance", "score"]
+        }
+      },
+      {
+        "operation": "compliance_report",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "report": "generated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["report", "report_id"]
+        }
+      },
+      {
+        "operation": "monitoring_blockchain",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "monitoring": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["monitoring", "block_height", "peers"]
+        }
+      },
+      {
+        "operation": "governance_vote",
+        "parameters": {
+          "wallet": "training-wallet",
+          "proposal_id": "proposal_*",
+          "vote": "yes",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "voted": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["voted", "vote_id"]
+        }
+      },
+      {
+        "operation": "governance_propose",
+        "parameters": {
+          "wallet": "training-wallet",
+          "title": "Test proposal",
+          "description": "Test proposal description",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "proposed": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["proposed", "proposal_id"]
+        }
+      },
+      {
+        "operation": "security_jwt_setup",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "jwt_configured": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["jwt_configured", "token"]
+        }
+      },
+      {
+        "operation": "cross_chain_bridge",
+        "parameters": {
+          "source_chain": "aitbc",
+          "target_chain": "ethereum",
+          "amount": "10",
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "bridged": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["bridged", "bridge_tx_id"]
+        }
+      },
+      {
+        "operation": "island_join",
+        "parameters": {
+          "island_id": "island_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "joined": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["joined", "island_id"]
+        }
+      },
+      {
+        "operation": "resource_status",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "resources": "available"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["resources", "cpu", "memory"]
+        }
+      },
+      {
+        "operation": "resource_allocate",
+        "parameters": {
+          "resource": "gpu",
+          "quantity": 1
+        },
+        "expected_result": {
+          "status": "success",
+          "allocated": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["allocated", "allocation_id"]
+        }
+      },
+      {
+        "operation": "analytics_metrics",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "metrics": "calculated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["metrics", "timestamp"]
+        }
+      },
+      {
+        "operation": "security_audit",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "audit": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["audit", "findings"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Create workflow",
+        "operation": "workflow_create",
+        "test_case": {
+          "name": "exam-workflow",
+          "description": "Exam workflow"
+        },
+        "expected_output": {
+          "status": "success",
+          "workflow_id": "workflow_*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Schedule workflow",
+        "operation": "workflow_schedule",
+        "test_case": {
+          "workflow_id": "workflow_*",
+          "schedule": "0 0 * * *"
+        },
+        "expected_output": {
+          "status": "success",
+          "scheduled": true
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Check resource status",
+        "operation": "resource_status",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "resources": "available"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Run security audit",
+        "operation": "security_audit",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "audit": "completed"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}
