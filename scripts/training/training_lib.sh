@@ -322,8 +322,8 @@ validate_stage() {
     
     # Count successes and failures
     local success_count fail_count total_count success_rate
-    success_count=$(grep -c "SUCCESS" "$log_file" 2>/dev/null || echo "0")
-    fail_count=$(grep -c "ERROR" "$log_file" 2>/dev/null || echo "0")
+    success_count=$(grep -c "SUCCESS" "$log_file" 2>/dev/null) || success_count=0
+    fail_count=$(grep -c "ERROR" "$log_file" 2>/dev/null) || fail_count=0
     total_count=$((success_count + fail_count))
     
     if [[ $total_count -gt 0 ]]; then
