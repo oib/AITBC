@@ -39,7 +39,7 @@ advanced_wallet_management() {
     log "Wallet backup attempted for $WALLET_NAME"
     
     print_status "Exporting wallet data..."
-    $CLI_PATH wallet export --name "$WALLET_NAME" 2>/dev/null || print_warning "Wallet export command not available"
+    $CLI_PATH wallet export "$WALLET_NAME" 2>/dev/null || print_warning "Wallet export command not available"
     log "Wallet export attempted for $WALLET_NAME"
     
     print_status "Syncing all wallets..."
@@ -67,21 +67,21 @@ blockchain_operations() {
     
     print_status "Getting latest block information..."
     LATEST_BLOCK=$($CLI_PATH blockchain height 2>/dev/null | grep -o '[0-9]*' | head -1 || echo "1")
-    $CLI_PATH blockchain block --number "$LATEST_BLOCK" 2>/dev/null || print_warning "Block info command not available"
+    $CLI_PATH blockchain block "$LATEST_BLOCK" 2>/dev/null || print_warning "Block info command not available"
     log "Block information retrieved for block $LATEST_BLOCK"
     
     print_status "Starting mining operations..."
-    $CLI_PATH mining --start 2>/dev/null || print_warning "Mining start command not available"
+    $CLI_PATH mining start 2>/dev/null || print_warning "Mining start command not available"
     log "Mining start attempted"
     
     sleep 2
     
     print_status "Checking mining status..."
-    $CLI_PATH mining --status 2>/dev/null || print_warning "Mining status command not available"
+    $CLI_PATH mining status 2>/dev/null || print_warning "Mining status command not available"
     log "Mining status checked"
     
     print_status "Stopping mining operations..."
-    $CLI_PATH mining --stop 2>/dev/null || print_warning "Mining stop command not available"
+    $CLI_PATH mining stop 2>/dev/null || print_warning "Mining stop command not available"
     log "Mining stop attempted"
     
     print_success "2.2 Blockchain Operations completed"
@@ -111,11 +111,11 @@ smart_contract_interaction() {
     fi
     
     print_status "Testing agent messaging..."
-    $CLI_PATH agent --message --to "test-agent" --content "Hello from OpenClaw training" 2>/dev/null || print_warning "Agent message command not available"
+    $CLI_PATH agent message --agent "test-agent" --message "Hello from OpenClaw training" --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Agent message command not available"
     log "Agent message sent"
     
     print_status "Checking agent messages..."
-    $CLI_PATH agent --messages --from "$WALLET_NAME" 2>/dev/null || print_warning "Agent messages command not available"
+    $CLI_PATH agent messages 2>/dev/null || print_warning "Agent messages command not available"
     log "Agent messages checked"
     
     print_success "2.3 Smart Contract Interaction completed"
@@ -134,7 +134,7 @@ network_operations() {
     log "Network peers checked"
     
     print_status "Testing network sync status..."
-    $CLI_PATH network sync --status 2>/dev/null || print_warning "Network sync status command not available"
+    $CLI_PATH network sync 2>/dev/null || print_warning "Network sync status command not available"
     log "Network sync status checked"
     
     print_status "Pinging follower node..."
