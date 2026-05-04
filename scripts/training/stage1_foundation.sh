@@ -135,15 +135,21 @@ basic_transaction_operations() {
     
     # Get wallet address for self-transfer test
     local wallet_address
-    wallet_address=$(cli_cmd_output "wallet balance $WALLET_NAME" | grep "Address:" | awk '{print $2}')
+    local wallet_balance
+    local balance_output
+    balance_output=$(cli_cmd_output "wallet balance $WALLET_NAME")
+    wallet_address=$(echo "$balance_output" | grep "Address:" | awk '{print $2}')
+    wallet_balance=$(echo "$balance_output" | grep "Balance:" | awk '{print $2}')
     
-    if [[ -n "$wallet_address" ]]; then
+    if [[ -n "$wallet_address" && "${wallet_balance:-0}" -gt 0 ]]; then
         print_status "Sending test transaction (self-transfer)..."
         if cli_cmd "wallet send $WALLET_NAME $wallet_address 0 $WALLET_PASSWORD"; then
             print_success "Test transaction sent successfully"
         else
             print_warning "Transaction may have failed (insufficient balance or other issue)"
         fi
+    elif [[ -n "$wallet_address" ]]; then
+        print_warning "Skipping transaction test because wallet has no on-chain balance"
     else
         print_warning "Could not get wallet address for transaction test"
     fi
