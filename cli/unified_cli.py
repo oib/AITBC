@@ -321,7 +321,7 @@ def run_cli(argv, core):
         blockchain_handlers.handle_blockchain_height(args, get_chain_info)
 
     def handle_blockchain_block(args):
-        blockchain_handlers.handle_blockchain_block(args)
+        blockchain_handlers.handle_blockchain_block(args, default_rpc_url)
 
     def handle_blockchain_init(args):
         blockchain_handlers.handle_blockchain_init(args, default_rpc_url)
