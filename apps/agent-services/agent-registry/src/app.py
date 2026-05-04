@@ -10,10 +10,15 @@ from typing import List, Optional, Dict, Any
 import json
 import time
 import uuid
+import os
 from datetime import datetime, UTC, timedelta
 import sqlite3
 from contextlib import contextmanager
 from contextlib import asynccontextmanager
+
+# Database path - use DATA_DIR environment variable or fallback to /var/lib/aitbc
+DATA_DIR = os.environ.get('DATA_DIR', '/var/lib/aitbc')
+DB_PATH = os.path.join(DATA_DIR, 'agent_registry.db')
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,7 +32,7 @@ app = FastAPI(title="AITBC Agent Registry API", version="1.0.0", lifespan=lifesp
 
 # Database setup
 def get_db():
-    conn = sqlite3.connect('agent_registry.db')
+    conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
