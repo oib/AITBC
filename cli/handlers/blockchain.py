@@ -28,14 +28,14 @@ def handle_blockchain_block(args, default_rpc_url):
         sys.exit(1)
     
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    chain_id = getattr(args, 'chain_id', os.getenv('CHAIN_ID', 'ait-mainnet'))
+    chain_id = getattr(args, 'chain_id', None) or os.getenv('CHAIN_ID', 'ait-mainnet')
     print(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id})...")
     
     try:
         params = {}
         if chain_id:
             params['chain_id'] = chain_id
-        response = requests.get(f"{rpc_url}/blocks/{args.number}", params=params, timeout=10)
+        response = requests.get(f"{rpc_url}/rpc/blocks/{args.number}", params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
             print(f"Block #{args.number}:")
@@ -58,7 +58,7 @@ def handle_blockchain_init(args, default_rpc_url):
     
     try:
         # Check if blockchain is already initialized by checking for genesis block (block 0)
-        response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
+        response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
         if response.status_code == 200:
             data = response.json()
             print("Blockchain already initialized")
@@ -83,7 +83,7 @@ def handle_blockchain_genesis(args, default_rpc_url):
         print(f"Creating genesis block on {rpc_url}...")
         try:
             # Check if genesis block already exists
-            response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
+            response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 print("Genesis block already exists")
@@ -103,7 +103,7 @@ def handle_blockchain_genesis(args, default_rpc_url):
     else:
         print(f"Inspecting genesis block on {rpc_url}...")
         try:
-            response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
+            response = requests.get(f"{rpc_url}/rpc/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 print("Genesis block information:")
