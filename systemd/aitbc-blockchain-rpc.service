@@ -12,6 +12,7 @@ ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
 EnvironmentFile=/run/aitbc/secrets/.env
 EnvironmentFile=/etc/aitbc/.env
 EnvironmentFile=/etc/aitbc/node.env
+Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
 Environment=enable_block_production=false
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-blockchain-rpc-wrapper.py
 Restart=always
