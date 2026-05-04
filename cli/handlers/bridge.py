@@ -87,7 +87,7 @@ def handle_bridge_config(args):
         
         if args.test_mode:
             print("⚙️  Blockchain Event Bridge Configuration (test mode):")
-            print("🔗 Blockchain RPC URL: http://localhost:8006")
+            print("🔗 Blockchain RPC URL: http://localhost:8005")
             print("💬 Gossip Backend: redis")
             return
         
