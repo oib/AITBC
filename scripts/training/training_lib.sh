@@ -77,7 +77,7 @@ log() {
     local message=$2
     local log_file="${CURRENT_LOG:-$LOG_DIR/training.log}"
     
-    echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" | tee -a "$log_file"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') [$level] $message" | tee "$log_file"
 }
 
 # Convenience logging functions

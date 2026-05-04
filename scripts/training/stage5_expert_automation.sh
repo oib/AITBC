@@ -10,20 +10,14 @@ set -e
 
 # Training configuration
 TRAINING_STAGE="Stage 5: Expert Operations & Automation"
-LOG_FILE="/var/log/aitbc/training_stage5.log"
+SCRIPT_NAME="stage5_expert_automation"
+CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
 WALLET_NAME="openclaw-trainee"
 WALLET_PASSWORD="trainee123"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
 # Logging function
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee "$CURRENT_LOG"
 }
 
 # Print colored output
