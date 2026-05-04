@@ -78,9 +78,9 @@ def status(service):
     output(f"📊 Deployment Status Check for {service or 'All Services'}", None)
     
     checks = [
-        "Coordinator API: http://localhost:8000/health",
-        "Blockchain Node: http://localhost:8006/status", 
-        "Marketplace: http://localhost:8002/health",
+        "Coordinator API: http://localhost:8011/health",
+        "Blockchain Node RPC: http://localhost:8005/health", 
+        "Marketplace: http://localhost:8001/health",
         "Wallet Service: http://localhost:8003/status"
     ]
     

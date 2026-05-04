@@ -151,7 +151,7 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     
     # Handle chain_id with auto-detection
     from aitbc_cli.utils.chain_id import get_chain_id, get_default_chain_id
-    default_rpc_url = url.replace('/api', '') if url else 'http://localhost:8006'
+    default_rpc_url = url.replace('/api', '') if url else 'http://localhost:8005'
     ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
 
 # Add commands to CLI

@@ -267,7 +267,7 @@ def pay(ctx, booking_id: str, amount: float, from_wallet: str, to_wallet: str, t
         
         # Get wallet balance from blockchain
         from aitbc_cli.utils.chain_id import get_chain_id
-        rpc_url = config.get('rpc_url', 'http://localhost:8006')
+        rpc_url = config.get('rpc_url', 'http://localhost:8005')
         chain_id = get_chain_id(rpc_url)
         balance_response = httpx.Client().get(f"{rpc_url}/rpc/account/{address}?chain_id={chain_id}", timeout=5)
         if balance_response.status_code != 200:
