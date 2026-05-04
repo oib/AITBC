@@ -4,12 +4,13 @@ import click
 import httpx
 
 def _get_node_endpoint(ctx):
+    """Get the blockchain node RPC endpoint from context or config."""
     try:
         config = ctx.obj['config']
         # Use the new blockchain_rpc_url from config
         return config.blockchain_rpc_url
     except:
-        return "http://127.0.0.1:8006"  # Use new blockchain RPC port
+        return "http://127.0.0.1:8005"  # Use HTTP RPC port (not blockchain protocol port)
 
 from typing import Optional, List
 from utils import output, error
