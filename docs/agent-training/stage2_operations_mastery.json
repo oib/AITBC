@@ -1,0 +1,386 @@
+{
+  "stage": "stage2_operations_mastery",
+  "agent_type": "general",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "wallet_export",
+        "parameters": {
+          "wallet": "training-wallet",
+          "password": "training123",
+          "output": "/tmp/wallet-export.json"
+        },
+        "expected_result": {
+          "status": "success",
+          "exported": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["exported", "file_path"]
+        }
+      },
+      {
+        "operation": "wallet_import",
+        "parameters": {
+          "input": "/tmp/wallet-export.json"
+        },
+        "expected_result": {
+          "status": "success",
+          "imported": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["imported", "wallet_id"]
+        }
+      },
+      {
+        "operation": "wallet_send",
+        "parameters": {
+          "wallet": "training-wallet",
+          "to": "recipient-address",
+          "amount": "10",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "transaction_id": "tx_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["transaction_id", "amount"]
+        }
+      },
+      {
+        "operation": "wallet_backup",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "backup": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["backup", "backup_path"]
+        }
+      },
+      {
+        "operation": "wallet_sync",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "sync": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["sync", "balance"]
+        }
+      },
+      {
+        "operation": "blockchain_block",
+        "parameters": {
+          "height": 1
+        },
+        "expected_result": {
+          "status": "success",
+          "block": {
+            "height": 1
+          }
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["block", "height", "hash"]
+        }
+      },
+      {
+        "operation": "mining_start",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "mining": "started"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["mining", "status"]
+        }
+      },
+      {
+        "operation": "mining_status",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "mining": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["mining", "blocks_mined"]
+        }
+      },
+      {
+        "operation": "mining_stop",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "mining": "stopped"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["mining", "status"]
+        }
+      },
+      {
+        "operation": "mining_rewards",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "rewards": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["rewards", "total_blocks"]
+        }
+      },
+      {
+        "operation": "network_status",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "network": "connected"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["network", "peers_count"]
+        }
+      },
+      {
+        "operation": "network_sync",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "sync": "completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["sync", "block_height"]
+        }
+      },
+      {
+        "operation": "network_peers",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "peers": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["peers", "peer_count"]
+        }
+      },
+      {
+        "operation": "staking_stake",
+        "parameters": {
+          "wallet": "training-wallet",
+          "amount": "100",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "staked": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["staked", "stake_id"]
+        }
+      },
+      {
+        "operation": "staking_rewards",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "rewards": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["rewards", "total_staked"]
+        }
+      },
+      {
+        "operation": "plugin_create",
+        "parameters": {
+          "name": "training-plugin",
+          "type": "ollama"
+        },
+        "expected_result": {
+          "status": "success",
+          "plugin_id": "plugin_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["plugin_id", "name"]
+        }
+      },
+      {
+        "operation": "ipfs_store",
+        "parameters": {
+          "file": "/tmp/test-file.txt"
+        },
+        "expected_result": {
+          "status": "success",
+          "stored": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["stored", "ipfs_hash"]
+        }
+      },
+      {
+        "operation": "ipfs_retrieve",
+        "parameters": {
+          "ipfs_hash": "QmXxx"
+        },
+        "expected_result": {
+          "status": "success",
+          "retrieved": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["retrieved", "file_path"]
+        }
+      },
+      {
+        "operation": "database_host",
+        "parameters": {
+          "name": "training-db",
+          "type": "sqlite"
+        },
+        "expected_result": {
+          "status": "success",
+          "hosted": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["hosted", "database_id"]
+        }
+      },
+      {
+        "operation": "database_query",
+        "parameters": {
+          "database_id": "db_*",
+          "query": "SELECT * FROM test"
+        },
+        "expected_result": {
+          "status": "success",
+          "results": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["results", "row_count"]
+        }
+      },
+      {
+        "operation": "network_ping",
+        "parameters": {
+          "node": "aitbc1"
+        },
+        "expected_result": {
+          "status": "success",
+          "ping": "<100ms"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["ping", "latency_ms"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Export wallet to file",
+        "operation": "wallet_export",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "password": "exam123",
+          "output": "/tmp/exam-wallet-export.json"
+        },
+        "expected_output": {
+          "status": "success",
+          "exported": true
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Send transaction",
+        "operation": "wallet_send",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "to": "recipient-address",
+          "amount": "10",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "transaction_id": "tx_*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Query specific block",
+        "operation": "blockchain_block",
+        "test_case": {
+          "height": 10
+        },
+        "expected_output": {
+          "status": "success",
+          "block": {
+            "height": 10
+          }
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Start mining",
+        "operation": "mining_start",
+        "test_case": {
+          "wallet": "exam-wallet"
+        },
+        "expected_output": {
+          "status": "success",
+          "mining": "started"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Check network status",
+        "operation": "network_status",
+        "test_case": {},
+        "expected_output": {
+          "status": "success",
+          "network": "connected"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Ping remote node",
+        "operation": "network_ping",
+        "test_case": {
+          "node": "aitbc1"
+        },
+        "expected_output": {
+          "status": "success",
+          "ping": "<100ms"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}

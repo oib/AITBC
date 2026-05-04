@@ -59,7 +59,7 @@ def run_cli(argv, core):
     ai_operations = core["ai_operations"]
     mining_operations = core["mining_operations"]
     agent_operations = core["agent_operations"]
-    openclaw_operations = core["openclaw_operations"]
+    openclaw_training_operations = core["openclaw_training_operations"]
     workflow_operations = core["workflow_operations"]
     resource_operations = core["resource_operations"]
     simulate_blockchain = core["simulate_blockchain"]
@@ -577,8 +577,8 @@ def run_cli(argv, core):
     def handle_agent_sdk_action(args):
         system_handlers.handle_agent_sdk_action(args, render_mapping)
 
-    def handle_openclaw_action(args):
-        system_handlers.handle_openclaw_action(args, openclaw_operations, first, render_mapping)
+    def handle_openclaw_training_action(args):
+        system_handlers.handle_openclaw_training_action(args, openclaw_training_operations, first, render_mapping)
 
     def handle_workflow_action(args):
         system_handlers.handle_workflow_action(args, workflow_operations, render_mapping)
@@ -739,7 +739,7 @@ def run_cli(argv, core):
         "handle_analytics": handle_analytics,
         "handle_agent_action": handle_agent_action,
         "handle_agent_sdk_action": handle_agent_sdk_action,
-        "handle_openclaw_action": handle_openclaw_action,
+        "handle_openclaw_training_action": handle_openclaw_training_action,
         "handle_workflow_action": handle_workflow_action,
         "handle_resource_action": handle_resource_action,
         "handle_simulate_action": handle_simulate_action,

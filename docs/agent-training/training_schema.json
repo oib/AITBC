@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Agent Training Data Schema",
+  "description": "Schema for OpenClaw agent training data on AITBC operations",
+  "type": "object",
+  "required": ["stage", "agent_type", "training_data", "validation"],
+  "properties": {
+    "stage": {
+      "type": "string",
+      "description": "Training stage identifier",
+      "enum": [
+        "stage1_foundation",
+        "stage2_operations_mastery",
+        "stage3_ai_operations",
+        "stage4_marketplace_economics",
+        "stage5_expert_operations",
+        "stage6_agent_identity_sdk",
+        "stage7_cross_node_training"
+      ]
+    },
+    "agent_type": {
+      "type": "string",
+      "description": "Type of agent being trained",
+      "enum": ["coordinator", "genesis", "follower", "wallet", "general"]
+    },
+    "training_data": {
+      "type": "object",
+      "required": ["operations"],
+      "properties": {
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["operation", "parameters", "expected_result", "success_criteria"],
+            "properties": {
+              "operation": {
+                "type": "string",
+                "description": "AITBC operation name"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "Operation parameters"
+              },
+              "expected_result": {
+                "type": "object",
+                "description": "Expected operation result"
+              },
+              "success_criteria": {
+                "type": "object",
+                "description": "Criteria for operation success",
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": ["success", "error"]
+                  },
+                  "response_fields": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Required fields in response"
+                  },
+                  "performance": {
+                    "type": "object",
+                    "properties": {
+                      "max_duration_ms": {"type": "number"},
+                      "min_success_rate": {"type": "number"}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "validation": {
+      "type": "object",
+      "required": ["exam_tests", "passing_score"],
+      "properties": {
+        "exam_tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["test_name", "operation", "test_case", "expected_output"],
+            "properties": {
+              "test_name": {
+                "type": "string",
+                "description": "Test name"
+              },
+              "operation": {
+                "type": "string",
+                "description": "Operation to test"
+              },
+              "test_case": {
+                "type": "object",
+                "description": "Test input parameters"
+              },
+              "expected_output": {
+                "type": "object",
+                "description": "Expected test output"
+              },
+              "weight": {
+                "type": "number",
+                "description": "Test weight for scoring",
+                "default": 1
+              }
+            }
+          }
+        },
+        "passing_score": {
+          "type": "number",
+          "description": "Minimum score percentage to pass",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 80
+        }
+      }
+    }
+  }
+}
