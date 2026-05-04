@@ -214,7 +214,7 @@ economic_performance_testing() {
     
     # Test economic modeling speed
     START_TIME=$(date +%s.%N)
-    $CLI_PATH economics --model --type cost-optimization > /dev/null 2>&1
+    $CLI_PATH economics --model --type cost-optimization > /dev/null 2>&1 || print_warning "Economic modeling command failed"
     END_TIME=$(date +%s.%N)
     MODELING_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "3.0")
     
@@ -223,7 +223,7 @@ economic_performance_testing() {
     
     # Test marketplace operations speed
     START_TIME=$(date +%s.%N)
-    $CLI_PATH market list > /dev/null 2>&1
+    $CLI_PATH market list > /dev/null 2>&1 || print_warning "Marketplace list command failed"
     END_TIME=$(date +%s.%N)
     MARKETPLACE_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "1.5")
     
@@ -232,7 +232,7 @@ economic_performance_testing() {
     
     # Test analytics generation speed
     START_TIME=$(date +%s.%N)
-    $CLI_PATH analytics --report --type performance > /dev/null 2>&1
+    $CLI_PATH analytics --report --type performance > /dev/null 2>&1 || print_warning "Analytics report command failed"
     END_TIME=$(date +%s.%N)
     ANALYTICS_TIME=$(echo "$END_TIME - $START_TIME" | bc -l 2>/dev/null || echo "2.5")
     
