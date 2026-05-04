@@ -149,7 +149,43 @@ basic_transaction_operations() {
             print_warning "Transaction may have failed (insufficient balance or other issue)"
         fi
     elif [[ -n "$wallet_address" ]]; then
-        print_warning "Skipping transaction test because wallet has no on-chain balance"
+        print_status "Wallet has no on-chain balance - funding from genesis wallet..."
+        
+        # Get genesis wallet info
+        local genesis_output
+        local genesis_address
+        local genesis_balance
+        genesis_output=$(cli_cmd_output "wallet balance genesis")
+        genesis_address=$(echo "$genesis_output" | grep "Address:" | awk '{print $2}')
+        genesis_balance=$(echo "$genesis_output" | grep "Balance:" | awk '{print $2}')
+        
+        if [[ -n "$genesis_address" && "${genesis_balance:-0}" -gt 0 ]]; then
+            print_status "Sending 100 AIT from genesis wallet to training wallet..."
+            if cli_cmd "wallet send genesis $wallet_address 100"; then
+                print_success "Funding transaction sent successfully"
+                sleep 2  # Wait for transaction to be processed
+                
+                # Re-check training wallet balance
+                balance_output=$(cli_cmd_output "wallet balance $WALLET_NAME")
+                wallet_balance=$(echo "$balance_output" | grep "Balance:" | awk '{print $2}')
+                
+                if [[ "${wallet_balance:-0}" -gt 0 ]]; then
+                    print_status "Training wallet now funded (Balance: ${wallet_balance} AIT)"
+                    print_status "Sending test transaction (self-transfer)..."
+                    if cli_cmd "wallet send $WALLET_NAME $wallet_address 0 $WALLET_PASSWORD"; then
+                        print_success "Test transaction sent successfully"
+                    else
+                        print_warning "Transaction may have failed (insufficient balance or other issue)"
+                    fi
+                else
+                    print_warning "Funding transaction sent but balance not updated yet"
+                fi
+            else
+                print_warning "Funding transaction from genesis wallet failed"
+            fi
+        else
+            print_warning "Genesis wallet has no balance to fund training wallet"
+        fi
     else
         print_warning "Could not get wallet address for transaction test"
     fi
