@@ -107,7 +107,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Invalid path")
             return
         
-        if self.path == '/api/health':
+        if self.path == '/health' or self.path == '/api/health':
             self.health_check()
         elif self.path.startswith('/api/trades/recent'):
             parsed = urllib.parse.urlparse(self.path)

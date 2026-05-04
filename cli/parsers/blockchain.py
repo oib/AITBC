@@ -20,6 +20,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
     
         blockchain_block_parser = blockchain_subparsers.add_parser("block", help="Inspect a block")
         blockchain_block_parser.add_argument("number", nargs="?", type=int)
+        blockchain_block_parser.add_argument("--chain-id", help="Chain ID for the block")
         blockchain_block_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
         blockchain_block_parser.set_defaults(handler=ctx.handle_blockchain_block)
     
