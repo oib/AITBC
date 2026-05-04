@@ -161,7 +161,9 @@ basic_transaction_operations() {
         
         if [[ -n "$genesis_address" && "${genesis_balance:-0}" -gt 0 ]]; then
             print_status "Sending 100 AIT from genesis wallet to training wallet..."
-            if cli_cmd "wallet send genesis $wallet_address 100 genesis"; then
+            local genesis_password
+            genesis_password=$(cat /var/lib/aitbc/keystore/.genesis_password 2>/dev/null || echo "genesis")
+            if cli_cmd "wallet send genesis $wallet_address 100 $genesis_password"; then
                 print_success "Funding transaction sent successfully"
                 sleep 2  # Wait for transaction to be processed
                 
