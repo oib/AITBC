@@ -43,6 +43,18 @@ Complete training script suite for OpenClaw agents to master AITBC software oper
 - **Dependencies**: `training_lib.sh`, Stage 4 completion
 - **Features**: Advanced automation, multi-node coordination, security audits, certification exam
 
+#### **Stage 6: OpenClaw Master Agent Development** (`stage6_agent_development.sh`)
+- **Duration**: 40-80 minutes (automated)
+- **Focus**: Agent identity, multi-agent coordination, advanced operations, security, performance
+- **Dependencies**: `training_lib.sh`, Stage 5 completion
+- **Features**: Agent SDK, swarm coordination, custom model deployment, security auditing, performance optimization
+
+#### **Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration** (`stage7_cross_node_training.sh`)
+- **Duration**: 45-90 minutes (automated)
+- **Focus**: Cross-node training, multi-agent coordination strategies, swarm management, distributed learning, agent communication
+- **Dependencies**: `training_lib.sh`, Stage 6 completion
+- **Features**: Cross-node agent training, coordination strategies, swarm management, distributed learning, agent-to-agent communication
+
 ### 🛠️ Training Library
 - **File**: `training_lib.sh`
 - **Purpose**: Common utilities and functions shared across all training scripts

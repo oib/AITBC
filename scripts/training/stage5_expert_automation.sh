@@ -200,8 +200,8 @@ def automated_job_submission():
     """Automated AI job submission with monitoring"""
     logger.info("Starting automated job submission...")
     
-    # Submit inference job
-    success, output, error = run_command(f"{CLI_PATH} ai submit --prompt 'Automated analysis'")
+    # Submit inference job with required parameters
+    success, output, error = run_command(f"{CLI_PATH} ai submit openclaw-trainee inference 'Automated analysis' 10 --password 'trainee123'")
     
     if success:
         logger.info(f"Job submitted successfully: {output}")
