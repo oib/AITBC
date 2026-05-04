@@ -28,17 +28,21 @@ def handle_blockchain_block(args, default_rpc_url):
         sys.exit(1)
     
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    print(f"Querying block #{args.number} from {rpc_url}...")
+    chain_id = getattr(args, 'chain_id', os.getenv('CHAIN_ID', 'ait-mainnet'))
+    print(f"Querying block #{args.number} from {rpc_url} (chain: {chain_id})...")
     
     try:
-        response = requests.get(f"{rpc_url}/blocks/{args.number}", timeout=10)
+        params = {}
+        if chain_id:
+            params['chain_id'] = chain_id
+        response = requests.get(f"{rpc_url}/blocks/{args.number}", params=params, timeout=10)
         if response.status_code == 200:
             data = response.json()
             print(f"Block #{args.number}:")
             print(f"  Hash: {data.get('hash', 'N/A')}")
             print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
-            print(f"  Transactions: {data.get('transaction_count', len(data.get('transactions', [])))}")
-            print(f"  Miner: {data.get('miner', 'N/A')}")
+            print(f"  Transactions: {data.get('tx_count', len(data.get('transactions', [])))}")
+            print(f"  Miner: {data.get('proposer', 'N/A')}")
         else:
             print(f"Failed to get block: {response.status_code}")
             sys.exit(1)
