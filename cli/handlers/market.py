@@ -8,7 +8,7 @@ import requests
 def handle_market_listings(args, default_coordinator_url, output_format, render_mapping):
     """Handle marketplace listings command."""
     # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
     chain_id = getattr(args, "chain_id", None)
     
     print(f"Getting marketplace listings from {marketplace_url}...")
@@ -47,7 +47,7 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
 def handle_market_create(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace create command."""
     # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.wallet or not args.item_type or not args.price:
@@ -87,7 +87,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
 def handle_market_get(args, default_rpc_url):
     """Handle marketplace get command."""
     # Use marketplace service URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.listing_id:
@@ -113,7 +113,7 @@ def handle_market_get(args, default_rpc_url):
 def handle_market_delete(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace delete command."""
     # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
     chain_id = getattr(args, "chain_id", None)
     
     if not args.listing_id or not args.wallet:
@@ -297,7 +297,7 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace buy command via marketplace service."""
     # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8102')
+    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
 
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
