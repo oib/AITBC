@@ -218,3 +218,67 @@ def handle_ai_service_test(args, ai_operations, render_mapping):
         render_mapping("Service Test:", result)
     else:
         sys.exit(1)
+
+
+def handle_ai_status(args, default_coordinator_url, default_rpc_url, output_format, render_mapping):
+    """Handle AI service status check (combined Agent Coordinator and Blockchain AI)."""
+    coordinator_url = getattr(args, 'coordinator_url', None) or default_coordinator_url
+    rpc_url = args.rpc_url or default_rpc_url
+    
+    combined_status = {
+        "agent_coordinator": {"status": "unavailable"},
+        "blockchain_ai": {"status": "unavailable"},
+        "overall": "unavailable"
+    }
+    
+    # Check Agent Coordinator health
+    print(f"Checking Agent Coordinator at {coordinator_url}...")
+    try:
+        response = requests.get(f"{coordinator_url}/health", timeout=10)
+        if response.status_code == 200:
+            coordinator_data = response.json()
+            combined_status["agent_coordinator"] = coordinator_data
+            print(f"  Agent Coordinator: {coordinator_data.get('status', 'unknown')} (v{coordinator_data.get('version', 'N/A')})")
+        else:
+            print(f"  Agent Coordinator: Failed (HTTP {response.status_code})")
+    except Exception as e:
+        print(f"  Agent Coordinator: Error - {e}")
+    
+    # Check Blockchain AI stats
+    print(f"Checking Blockchain AI stats at {rpc_url}...")
+    try:
+        params = {}
+        if hasattr(args, "chain_id") and args.chain_id:
+            params["chain_id"] = args.chain_id
+        response = requests.get(f"{rpc_url}/rpc/ai/stats", params=params, timeout=10)
+        if response.status_code == 200:
+            stats_data = response.json()
+            combined_status["blockchain_ai"] = stats_data
+            print(f"  Blockchain AI Stats: Available")
+        else:
+            print(f"  Blockchain AI Stats: Not available (HTTP {response.status_code})")
+    except Exception as e:
+        print(f"  Blockchain AI Stats: Error - {e}")
+    
+    # Calculate overall status
+    if combined_status["agent_coordinator"].get("status") == "healthy" and combined_status["blockchain_ai"].get("status") != "unavailable":
+        combined_status["overall"] = "operational"
+    elif combined_status["agent_coordinator"].get("status") == "healthy" or combined_status["blockchain_ai"].get("status") != "unavailable":
+        combined_status["overall"] = "partially_operational"
+    
+    # Render output
+    if output_format(args) == "json":
+        print(json.dumps(combined_status, indent=2))
+    else:
+        print(f"\nOverall Status: {combined_status['overall']}")
+        if combined_status["agent_coordinator"].get("status") == "healthy":
+            print("  Agent Coordinator: Operational")
+        elif combined_status["agent_coordinator"].get("status") != "unavailable":
+            print(f"  Agent Coordinator: {combined_status['agent_coordinator'].get('status')}")
+        else:
+            print("  Agent Coordinator: Unavailable")
+        
+        if combined_status["blockchain_ai"].get("status") != "unavailable":
+            print("  Blockchain AI: Operational")
+        else:
+            print("  Blockchain AI: Unavailable")

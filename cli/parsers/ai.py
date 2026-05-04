@@ -37,7 +37,8 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         ai_status_parser.add_argument("--wallet")
         ai_status_parser.add_argument("--chain-id", help="Chain ID")
         ai_status_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        ai_status_parser.set_defaults(handler=ctx.handle_ai_job)
+        ai_status_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        ai_status_parser.set_defaults(handler=ctx.handle_ai_status)
     
         ai_service_parser = ai_subparsers.add_parser("service", help="AI service management")
         ai_service_subparsers = ai_service_parser.add_subparsers(dest="ai_service_action")
