@@ -14,7 +14,8 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         workflow_create_parser.add_argument("--name", required=True)
         workflow_create_parser.add_argument("--template")
         workflow_create_parser.add_argument("--config-file")
-        workflow_create_parser.set_defaults(handler=ctx.handle_workflow_action)
+        workflow_create_parser.add_argument("--steps", type=int, default=5)
+        workflow_create_parser.set_defaults(handler=ctx.handle_workflow_create)
     
         workflow_run_parser = workflow_subparsers.add_parser("run", help="Run a workflow")
         workflow_run_parser.add_argument("--name", required=True)
@@ -23,12 +24,13 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         workflow_run_parser.set_defaults(handler=ctx.handle_workflow_action)
     
         workflow_schedule_parser = workflow_subparsers.add_parser("schedule", help="Schedule a workflow")
-        workflow_schedule_parser.add_argument("--name", required=True)
+        workflow_schedule_parser.add_argument("--name")
         workflow_schedule_parser.add_argument("--cron", required=True)
+        workflow_schedule_parser.add_argument("--command")
         workflow_schedule_parser.add_argument("--params")
-        workflow_schedule_parser.set_defaults(handler=ctx.handle_workflow_action, workflow_action="schedule")
+        workflow_schedule_parser.set_defaults(handler=ctx.handle_workflow_schedule)
     
         workflow_monitor_parser = workflow_subparsers.add_parser("monitor", help="Monitor workflow execution")
         workflow_monitor_parser.add_argument("--name")
         workflow_monitor_parser.add_argument("--execution-id")
-        workflow_monitor_parser.set_defaults(handler=ctx.handle_workflow_action, workflow_action="monitor")
+        workflow_monitor_parser.set_defaults(handler=ctx.handle_workflow_monitor)

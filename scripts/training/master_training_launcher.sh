@@ -27,7 +27,7 @@ NC='\033[0m' # No Color
 
 # Progress tracking
 CURRENT_STAGE=0
-TOTAL_STAGES=5
+TOTAL_STAGES=7
 START_TIME=$(date +%s)
 
 # Logging function
@@ -246,7 +246,7 @@ run_complete_training() {
     
     local completed_stages=0
     
-    for stage in {1..5}; do
+    for stage in {1..7}; do
         echo
         print_progress $stage "Starting"
         
@@ -255,7 +255,7 @@ run_complete_training() {
             print_success "Stage $stage completed successfully"
             
             # Ask if user wants to continue
-            if [ $stage -lt 5 ]; then
+            if [ $stage -lt 7 ]; then
                 echo
                 echo -n "Continue to next stage? [Y/n]: "
                 read -r continue_choice
@@ -287,11 +287,13 @@ run_individual_stage() {
     echo "3. AI Operations Mastery"
     echo "4. Marketplace & Economics"
     echo "5. Expert Operations & Automation"
+    echo "6. OpenClaw Master Agent Development"
+    echo "7. Cross-Node Agent Training & Multi-Agent Orchestration"
     echo
-    echo -n "Select stage [1-5]: "
+    echo -n "Select stage [1-7]: "
     read -r stage_choice
     
-    if [[ "$stage_choice" =~ ^[1-5]$ ]]; then
+    if [[ "$stage_choice" =~ ^[1-7]$ ]]; then
         echo
         run_stage $stage_choice
     else
@@ -350,9 +352,11 @@ view_logs() {
     echo "4. Stage 3: AI Operations"
     echo "5. Stage 4: Marketplace & Economics"
     echo "6. Stage 5: Expert Operations"
-    echo "7. Return to menu"
+    echo "7. Stage 6: OpenClaw Master Agent"
+    echo "8. Stage 7: Cross-Node Training"
+    echo "9. Return to menu"
     echo
-    echo -n "Select log to view [1-7]: "
+    echo -n "Select log to view [1-9]: "
     read -r log_choice
     
     case $log_choice in
@@ -399,6 +403,20 @@ view_logs() {
             fi
             ;;
         7)
+            if [ -f "$LOG_DIR/training_stage6_agent_development.log" ]; then
+                less "$LOG_DIR/training_stage6_agent_development.log"
+            else
+                print_error "Stage 6 log file not found"
+            fi
+            ;;
+        8)
+            if [ -f "$LOG_DIR/training_stage7_cross_node_training.log" ]; then
+                less "$LOG_DIR/training_stage7_cross_node_training.log"
+            else
+                print_error "Stage 7 log file not found"
+            fi
+            ;;
+        9)
             return
             ;;
         *)
@@ -492,43 +510,75 @@ main() {
 
 # Handle command line arguments
 case "${1:-}" in
-    --overview)
         show_overview
-        ;;
-    --check)
-        check_system_readiness
-        ;;
-    --stage)
-        if [[ "$2" =~ ^[1-5]$ ]]; then
-            run_stage "$2"
-        else
-            echo "Usage: $0 --stage [1-5]"
-            exit 1
+        
+        # Check system readiness
+        if ! check_system_readiness; then
+            echo
+            print_warning "Some system checks failed. You may still proceed with training,"
+            print_warning "but some features may not work correctly."
+            echo
+            echo -n "Continue anyway? [Y/n]: "
+            read -r continue_choice
+            if [[ "$continue_choice" =~ ^[Nn]$ ]]; then
+                print_status "Training program exited"
+                exit 1
+            fi
         fi
-        ;;
-    --complete)
-        run_complete_training
-        ;;
-    --help|-h)
-        echo "OpenClaw AITBC Mastery Training Launcher"
+        
         echo
-        echo "Usage: $0 [OPTION]"
-        echo
-        echo "Options:"
-        echo "  --overview    Show training overview"
-        echo "  --check       Check system readiness"
-        echo "  --stage N     Run specific stage (1-5)"
-        echo "  --complete    Run complete training program"
-        echo "  --help, -h    Show this help message"
-        echo
-        echo "Without arguments, starts interactive menu"
-        ;;
-    "")
-        main
-        ;;
-    *)
-        echo "Unknown option: $1"
-        echo "Use --help for usage information"
-        exit 1
-        ;;
-esac
+        echo -n "Ready to start training? [Y/n]: "
+        read -r start_choice
+        
+        if [[ ! "$start_choice" =~ ^[Nn]$ ]]; then
+            show_menu
+        else
+            print_status "Training program exited"
+        fi
+    }
+
+    # Handle command line arguments
+    case "${1:-}" in
+        --overview)
+            show_overview
+            ;;
+        --check)
+            check_system_readiness
+            ;;
+        --stage)
+            if [[ "$2" =~ ^[1-7]$ ]]; then
+                run_stage "$2"
+            else
+                echo "Usage: $0 --stage [1-7]"
+                exit 1
+            fi
+            ;;
+        --complete)
+            run_complete_training
+            ;;
+        --help|-h)
+            echo "OpenClaw AITBC Mastery Training Launcher"
+            echo
+            echo "Usage: $0 [OPTION]"
+            echo
+            echo "Options:"
+            echo "  --overview    Show training overview"
+            echo "  --check       Check system readiness"
+            echo "  --stage N     Run specific stage (1-7)"
+            echo "  --complete    Run complete training program"
+            echo "  --help, -h    Show this help message"
+            echo
+            echo "Without arguments, starts interactive menu"
+            ;;
+        "")
+            main
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+}
+
+main
