@@ -18,6 +18,7 @@ from ..models import Account, Block, Receipt, Transaction
 from ..logger import get_logger
 from ..sync import ChainSync
 from ..contracts.agent_messaging_contract import messaging_contract
+from .contract_service import contract_service
 
 _logger = get_logger(__name__)
 
@@ -635,6 +636,71 @@ async def deploy_messaging_contract(deploy_data: dict) -> Dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
     contract_address = "0xagent_messaging_001"
     return {"success": True, "contract_address": contract_address, "status": "deployed"}
+
+@router.get("/contracts", summary="List deployed contracts")
+async def list_contracts() -> Dict[str, Any]:
+    """List all deployed contracts"""
+    return contract_service.list_contracts()
+
+@router.post("/contracts/deploy", summary="Deploy a smart contract")
+async def deploy_contract(deploy_data: dict) -> Dict[str, Any]:
+    """Deploy a new smart contract to the blockchain"""
+    contract_name = deploy_data.get("name")
+    contract_type = deploy_data.get("type", "zk-verifier")
+    
+    if not contract_name:
+        return {"success": False, "error": "Contract name is required"}
+    
+    # Generate a mock contract address for now
+    contract_address = f"0x{contract_name.lower()}_{int(time.time())}"
+    
+    return {
+        "success": True,
+        "contract_address": contract_address,
+        "name": contract_name,
+        "type": contract_type,
+        "status": "deployed",
+        "deployed_at": datetime.now(UTC).isoformat()
+    }
+
+@router.post("/contracts/call", summary="Call a contract method")
+async def call_contract(call_data: dict) -> Dict[str, Any]:
+    """Call a method on a deployed contract"""
+    contract_address = call_data.get("address")
+    method = call_data.get("method")
+    params = call_data.get("params")
+    
+    if not contract_address:
+        return {"success": False, "error": "Contract address is required"}
+    if not method:
+        return {"success": False, "error": "Method name is required"}
+    
+    # Mock call result for now
+    return {
+        "success": True,
+        "result": f"Called {method} on {contract_address}",
+        "address": contract_address,
+        "method": method
+    }
+
+@router.post("/contracts/verify", summary="Verify a ZK proof")
+async def verify_contract(verify_data: dict) -> Dict[str, Any]:
+    """Verify a ZK proof against a contract"""
+    contract_address = verify_data.get("address")
+    proof = verify_data.get("proof")
+    
+    if not contract_address:
+        return {"success": False, "error": "Contract address is required"}
+    
+    # Mock verification result for now
+    return {
+        "success": True,
+        "result": {
+            "valid": True,
+            "receipt_hash": "0xmock_receipt_hash",
+            "address": contract_address
+        }
+    }
 
 @router.get("/contracts/messaging/state", summary="Get messaging contract state")
 async def get_messaging_contract_state() -> Dict[str, Any]:

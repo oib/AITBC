@@ -39,7 +39,7 @@ advanced_wallet_management() {
     log "Wallet backup attempted for $WALLET_NAME"
     
     print_status "Exporting wallet data..."
-    $CLI_PATH wallet export "$WALLET_NAME" 2>/dev/null || print_warning "Wallet export command not available"
+    $CLI_PATH wallet export "$WALLET_NAME" "$WALLET_PASSWORD" >/dev/null 2>/dev/null || print_warning "Wallet export command not available"
     log "Wallet export attempted for $WALLET_NAME"
     
     print_status "Syncing all wallets..."
@@ -92,30 +92,30 @@ smart_contract_interaction() {
     print_status "2.3 Smart Contract Interaction"
     
     print_status "Listing available contracts..."
-    $CLI_PATH contract --list 2>/dev/null || print_warning "Contract list command not available"
+    $CLI_PATH contract list 2>/dev/null || print_warning "Contract list command not available"
     log "Contract list retrieved"
     
     print_status "Attempting to deploy a test contract..."
-    $CLI_PATH contract --deploy --name test-contract 2>/dev/null || print_warning "Contract deploy command not available"
+    $CLI_PATH contract deploy --name test-contract --type zk-verifier --password "$WALLET_PASSWORD" 2>/dev/null || print_warning "Contract deploy command not available"
     log "Contract deployment attempted"
     
     # Get a contract address for testing
-    CONTRACT_ADDR=$($CLI_PATH contract --list 2>/dev/null | grep -o '0x[a-fA-F0-9]*' | head -1 || echo "")
+    CONTRACT_ADDR=$($CLI_PATH contract list 2>/dev/null | grep -o '0x[a-fA-F0-9_]*' | head -1 || echo "")
     
     if [ -n "$CONTRACT_ADDR" ]; then
         print_status "Testing contract call on $CONTRACT_ADDR..."
-        $CLI_PATH contract --call --address "$CONTRACT_ADDR" --method "test" 2>/dev/null || print_warning "Contract call command not available"
+        $CLI_PATH contract call --address "$CONTRACT_ADDR" --method "test" --password "$WALLET_PASSWORD" 2>/dev/null || print_warning "Contract call command not available"
         log "Contract call attempted on $CONTRACT_ADDR"
     else
         print_warning "No contract address found for testing"
     fi
     
     print_status "Testing agent messaging..."
-    $CLI_PATH agent message --agent "test-agent" --message "Hello from OpenClaw training" --wallet "$WALLET_NAME" 2>/dev/null || print_warning "Agent message command not available"
+    $CLI_PATH agent message --agent "test-agent" --message "Hello from OpenClaw training" --wallet "$WALLET_NAME" --password "$WALLET_PASSWORD" 2>/dev/null || print_warning "Agent message command not available"
     log "Agent message sent"
     
     print_status "Checking agent messages..."
-    $CLI_PATH agent messages 2>/dev/null || print_warning "Agent messages command not available"
+    $CLI_PATH agent messages --agent "test-agent" 2>/dev/null || print_warning "Agent messages command not available"
     log "Agent messages checked"
     
     print_success "2.3 Smart Contract Interaction completed"
