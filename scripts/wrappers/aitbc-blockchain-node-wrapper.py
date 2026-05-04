@@ -22,9 +22,10 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Execute the actual service
+# Use combined_main to run both blockchain node and HTTP RPC server
 exec_cmd = [
     "/opt/aitbc/venv/bin/python",
     "-m",
-    "aitbc_chain.main"
+    "aitbc_chain.combined_main"
 ]
 os.execvp(exec_cmd[0], exec_cmd)
