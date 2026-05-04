@@ -1,0 +1,200 @@
+{
+  "stage": "stage3_ai_operations",
+  "agent_type": "coordinator",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "ai_training_agent",
+        "parameters": {
+          "wallet": "training-wallet",
+          "base_model": "llama2",
+          "dataset": "training-data",
+          "gpu_listing": "listing_*",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "training": "initiated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["training", "training_id"]
+        }
+      },
+      {
+        "operation": "ai_power_advertiser",
+        "parameters": {
+          "wallet": "training-wallet",
+          "ad_budget": "100",
+          "target_audience": "ml_researchers",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "advertising": "active"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["advertising", "campaign_id"]
+        }
+      },
+      {
+        "operation": "distributed_ai_training",
+        "parameters": {
+          "model": "llama2",
+          "nodes": ["aitbc", "aitbc1"],
+          "epochs": 10,
+          "ipfs_dataset": "QmXxx"
+        },
+        "expected_result": {
+          "status": "success",
+          "distributed_training": "started"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["distributed_training", "coordination_id"]
+        }
+      },
+      {
+        "operation": "ai_submit",
+        "parameters": {
+          "wallet": "training-wallet",
+          "task_type": "inference",
+          "model": "llama2",
+          "prompt": "test prompt",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "job_id": "job_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["job_id", "status"],
+          "performance": {
+            "max_duration_ms": 10000
+          }
+        }
+      },
+      {
+        "operation": "ai_status",
+        "parameters": {
+          "job_id": "job_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "job_status": "pending|running|completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["job_id", "job_status", "progress"]
+        }
+      },
+      {
+        "operation": "ai_jobs",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_result": {
+          "status": "success",
+          "jobs": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["jobs"]
+        }
+      },
+      {
+        "operation": "finetune_submit",
+        "parameters": {
+          "wallet": "training-wallet",
+          "base_model": "llama2",
+          "dataset": "training-data",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "finetune_id": "finetune_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["finetune_id", "status"]
+        }
+      },
+      {
+        "operation": "finetune_status",
+        "parameters": {
+          "finetune_id": "finetune_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "finetune_status": "training|completed"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["finetune_id", "finetune_status", "progress"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Submit AI inference job",
+        "operation": "ai_submit",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "task_type": "inference",
+          "model": "llama2",
+          "prompt": "exam test prompt",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "job_id": "job_*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Check AI job status",
+        "operation": "ai_status",
+        "test_case": {
+          "job_id": "job_*"
+        },
+        "expected_output": {
+          "status": "success",
+          "job_status": "pending|running|completed"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "List AI jobs",
+        "operation": "ai_jobs",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_output": {
+          "status": "success",
+          "jobs": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Submit fine-tuning job",
+        "operation": "finetune_submit",
+        "test_case": {
+          "wallet": "exam-wallet",
+          "base_model": "llama2",
+          "dataset": "exam-data",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "finetune_id": "finetune_*"
+        },
+        "weight": 2
+      }
+    ],
+    "passing_score": 80
+  }
+}

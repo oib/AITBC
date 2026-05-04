@@ -1,0 +1,152 @@
+{
+  "stage": "stage9_multi_chain_architecture",
+  "agent_type": "architect",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "multi_chain_island_setup",
+        "parameters": {
+          "chains": ["aitbc", "ethereum", "polygon"],
+          "island_name": "multi-chain-island",
+          "gossip_protocol": "true",
+          "redis_pubsub": "true"
+        },
+        "expected_result": {
+          "status": "success",
+          "multi_chain_island": "configured"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["multi_chain_island", "island_id", "chain_count"]
+        }
+      },
+      {
+        "operation": "blockchain_node_config",
+        "parameters": {
+          "node": "aitbc",
+          "chain": "aitbc",
+          "config_type": "validator"
+        },
+        "expected_result": {
+          "status": "success",
+          "node_configured": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["node_configured", "node_id"]
+        }
+      },
+      {
+        "operation": "gossip_sync_config",
+        "parameters": {
+          "island_id": "island_*",
+          "sync_interval": "5s",
+          "peer_discovery": "true"
+        },
+        "expected_result": {
+          "status": "success",
+          "gossip_sync": "configured"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["gossip_sync", "sync_config_id"]
+        }
+      },
+      {
+        "operation": "redis_pubsub_config",
+        "parameters": {
+          "island_id": "island_*",
+          "channels": ["events", "transactions", "blocks"],
+          "redis_host": "localhost"
+        },
+        "expected_result": {
+          "status": "success",
+          "redis_pubsub": "configured"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["redis_pubsub", "pubsub_config_id"]
+        }
+      },
+      {
+        "operation": "cross_chain_validator_setup",
+        "parameters": {
+          "wallet": "training-wallet",
+          "chains": ["aitbc", "ethereum", "polygon"],
+          "validator_type": "light_client",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "cross_chain_validator": "configured"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["cross_chain_validator", "validator_id"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Set up multi-chain island",
+        "operation": "multi_chain_island_setup",
+        "test_case": {
+          "chains": ["aitbc", "ethereum"],
+          "island_name": "exam-multi-chain-island",
+          "gossip_protocol": "true",
+          "redis_pubsub": "true"
+        },
+        "expected_output": {
+          "status": "success",
+          "multi_chain_island": "configured"
+        },
+        "weight": 3
+      },
+      {
+        "test_name": "Configure blockchain node",
+        "operation": "blockchain_node_config",
+        "test_case": {
+          "node": "aitbc",
+          "chain": "aitbc",
+          "config_type": "validator"
+        },
+        "expected_output": {
+          "status": "success",
+          "node_configured": true
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Configure gossip sync",
+        "operation": "gossip_sync_config",
+        "test_case": {
+          "island_id": "island_*",
+          "sync_interval": "5s",
+          "peer_discovery": "true"
+        },
+        "expected_output": {
+          "status": "success",
+          "gossip_sync": "configured"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Configure Redis Pub/Sub",
+        "operation": "redis_pubsub_config",
+        "test_case": {
+          "island_id": "island_*",
+          "channels": ["events", "transactions"],
+          "redis_host": "localhost"
+        },
+        "expected_output": {
+          "status": "success",
+          "redis_pubsub": "configured"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}
