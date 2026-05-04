@@ -729,7 +729,27 @@ def get_transactions(wallet_name: str, keystore_dir: Path = DEFAULT_KEYSTORE_DIR
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
             tx_data = http_client.get(f"/rpc/transactions?address={address}&limit={limit}")
-            return tx_data.get("transactions", [])
+            if isinstance(tx_data, list):
+                transactions = tx_data
+            else:
+                transactions = tx_data.get("transactions", [])
+            wallet_transactions = []
+            for tx in transactions:
+                if not isinstance(tx, dict):
+                    continue
+                payload = tx.get("payload") if isinstance(tx.get("payload"), dict) else {}
+                if (
+                    tx.get("sender") == address
+                    or tx.get("recipient") == address
+                    or payload.get("from") == address
+                    or payload.get("to") == address
+                    or payload.get("recipient") == address
+                ):
+                    normalized_tx = dict(tx)
+                    if "hash" not in normalized_tx and "tx_hash" in normalized_tx:
+                        normalized_tx["hash"] = normalized_tx["tx_hash"]
+                    wallet_transactions.append(normalized_tx)
+            return wallet_transactions
         except NetworkError as e:
             print(f"Error getting transactions: {e}")
             return []
