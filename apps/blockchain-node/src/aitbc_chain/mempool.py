@@ -4,7 +4,7 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass, field
-from threading import Lock
+from threading import Lock, RLock
 from typing import Any, Dict, List, Optional
 
 from sqlmodel import Session, SQLModel, create_engine, select, Field, text
@@ -179,7 +179,7 @@ class DatabaseMempool:
         self._max_size = max_size
         self._min_fee = min_fee
         self._engine = create_engine(db_url, echo=False, pool_pre_ping=True)
-        self._lock = Lock()
+        self._lock = RLock()
         self._init_table()
 
     def _init_table(self) -> None:
