@@ -49,25 +49,25 @@ genesis_block_initialization() {
         print_warning "Blockchain may already be initialized on Follower Node"
     fi
     
-    print_status "Verifying RPC connectivity to Genesis Node (port 8006)..."
-    if curl -s http://localhost:8006/rpc/info > /dev/null 2>&1; then
-        print_success "Genesis Node RPC (port 8006) is accessible"
+    print_status "Verifying RPC connectivity to Genesis Node (port 8005)..."
+    if curl -s --max-time 5 http://localhost:8005/health > /dev/null 2>&1; then
+        print_success "Genesis Node RPC (port 8005) is accessible"
     else
-        print_warning "Genesis Node RPC (port 8006) is not accessible"
+        print_warning "Genesis Node RPC (port 8005) is not accessible"
     fi
     
-    print_status "Verifying RPC connectivity to Follower Node (port 8006 on aitbc1)..."
-    if curl -s http://aitbc1:8006/rpc/info > /dev/null 2>&1; then
-        print_success "Follower Node RPC (port 8006 on aitbc1) is accessible"
+    print_status "Verifying RPC connectivity to Follower Node (port 8005 on aitbc1)..."
+    if curl -s --max-time 5 http://aitbc1:8005/health > /dev/null 2>&1; then
+        print_success "Follower Node RPC (port 8005 on aitbc1) is accessible"
     else
-        print_warning "Follower Node RPC (port 8006 on aitbc1) is not accessible"
+        print_warning "Follower Node RPC (port 8005 on aitbc1) is not accessible"
     fi
     
-    print_status "Verifying Follower Node RPC also runs on port 8006..."
-    if ssh aitbc1 "curl -s http://localhost:8006/rpc/info" > /dev/null 2>&1; then
-        print_success "Follower Node RPC also accessible on port 8006"
+    print_status "Verifying Follower Node RPC also runs on port 8005..."
+    if ssh aitbc1 "curl -s --max-time 5 http://localhost:8005/health" > /dev/null 2>&1; then
+        print_success "Follower Node RPC also accessible on port 8005"
     else
-        print_warning "Follower Node RPC not accessible on port 8006 (check follower node health)"
+        print_warning "Follower Node RPC not accessible on port 8005 (check follower node health)"
     fi
     
     print_status "Funding training wallet from genesis block initial coins..."
