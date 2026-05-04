@@ -21,48 +21,54 @@ def handle_blockchain_height(args, get_chain_info):
     print(chain_info.get("height", 0) if chain_info else 0)
 
 
-def handle_blockchain_block(args):
+def handle_blockchain_block(args, default_rpc_url):
     """Handle blockchain block command."""
     if args.number is None:
         print("Error: block number is required")
         sys.exit(1)
-    print(f"Block #{args.number}:")
-    print(f"  Hash: 0x{args.number:016x}")
-    print("  Timestamp: $(date)")
-    print(f"  Transactions: {args.number % 100}")
-    print(f"  Gas used: {args.number * 1000}")
+    
+    rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
+    print(f"Querying block #{args.number} from {rpc_url}...")
+    
+    try:
+        response = requests.get(f"{rpc_url}/blocks/{args.number}", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            print(f"Block #{args.number}:")
+            print(f"  Hash: {data.get('hash', 'N/A')}")
+            print(f"  Timestamp: {data.get('timestamp', 'N/A')}")
+            print(f"  Transactions: {data.get('transaction_count', len(data.get('transactions', [])))}")
+            print(f"  Miner: {data.get('miner', 'N/A')}")
+        else:
+            print(f"Failed to get block: {response.status_code}")
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error getting block: {e}")
+        sys.exit(1)
 
 
 def handle_blockchain_init(args, default_rpc_url):
     """Handle blockchain init command."""
     rpc_url = args.rpc_url or os.getenv("NODE_URL", default_rpc_url)
-    print(f"Initializing blockchain on {rpc_url}...")
+    print(f"Checking blockchain status on {rpc_url}...")
     
     try:
-        response = requests.post(f"{rpc_url}/rpc/init", json={}, timeout=10)
+        # Check if blockchain is already initialized by checking for genesis block (block 0)
+        response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
         if response.status_code == 200:
             data = response.json()
-            print("Blockchain initialized successfully")
-            print(f"Genesis block hash: {data.get('genesis_hash', 'N/A')}")
-            print(f"Initial reward: {data.get('initial_reward', 'N/A')} AIT")
+            print("Blockchain already initialized")
+            print(f"Genesis block hash: {data.get('hash', 'N/A')}")
+            print(f"Block number: {data.get('number', 0)}")
+            if args.force:
+                print("Force flag ignored - blockchain already initialized")
         else:
-            print(f"Initialization failed: {response.status_code}")
+            print(f"Blockchain not initialized or endpoint unavailable: {response.status_code}")
             sys.exit(1)
     except Exception as e:
-        print(f"Error initializing blockchain: {e}")
-        print("Note: Blockchain may already be initialized")
-        if args.force:
-            print("Force reinitialization requested - attempting...")
-            try:
-                response = requests.post(f"{rpc_url}/rpc/init?force=true", json={}, timeout=10)
-                if response.status_code == 200:
-                    print("Blockchain reinitialized successfully")
-                else:
-                    print(f"Reinitialization failed: {response.status_code}")
-                    sys.exit(1)
-            except Exception as e2:
-                print(f"Error reinitializing blockchain: {e2}")
-                sys.exit(1)
+        print(f"Error checking blockchain status: {e}")
+        print("Note: Blockchain may not be initialized or RPC endpoint unavailable")
+        sys.exit(1)
 
 
 def handle_blockchain_genesis(args, default_rpc_url):
@@ -72,23 +78,28 @@ def handle_blockchain_genesis(args, default_rpc_url):
     if args.create:
         print(f"Creating genesis block on {rpc_url}...")
         try:
-            response = requests.post(f"{rpc_url}/rpc/genesis", json={}, timeout=10)
+            # Check if genesis block already exists
+            response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                print("Genesis block created successfully")
+                print("Genesis block already exists")
                 print(f"Block hash: {data.get('hash', 'N/A')}")
                 print(f"Block number: {data.get('number', 0)}")
                 print(f"Timestamp: {data.get('timestamp', 'N/A')}")
+                print("Skipping genesis block creation")
+                return
             else:
-                    print(f"Genesis block creation failed: {response.status_code}")
-                    sys.exit(1)
+                print(f"Cannot create genesis block - endpoint not available: {response.status_code}")
+                print("Note: Genesis block creation may not be supported in current RPC implementation")
+                sys.exit(1)
         except Exception as e:
-            print(f"Error creating genesis block: {e}")
+            print(f"Error checking genesis block: {e}")
+            print("Note: Genesis block creation may not be supported in current RPC implementation")
             sys.exit(1)
     else:
         print(f"Inspecting genesis block on {rpc_url}...")
         try:
-            response = requests.get(f"{rpc_url}/rpc/block/0", timeout=10)
+            response = requests.get(f"{rpc_url}/blocks/0", timeout=10)
             if response.status_code == 200:
                 data = response.json()
                 print("Genesis block information:")
