@@ -38,10 +38,10 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
         else:
             print(f"Query failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error getting listings: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_create(args, default_coordinator_url, read_password, render_mapping):
@@ -52,7 +52,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     
     if not args.wallet or not args.item_type or not args.price:
         print("Error: --wallet, --type, and --price are required")
-        sys.exit(1)
+        return
     
     # Get auth headers
     password = read_password(args)
@@ -78,10 +78,10 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
         else:
             print(f"Creation failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error creating listing: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_get(args, default_rpc_url):
@@ -92,7 +92,7 @@ def handle_market_get(args, default_rpc_url):
     
     if not args.listing_id:
         print("Error: --listing-id is required")
-        sys.exit(1)
+        return
     
     print(f"Getting listing {args.listing_id} from {marketplace_url}...")
     try:
@@ -104,10 +104,10 @@ def handle_market_get(args, default_rpc_url):
         else:
             print(f"Query failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error getting listing: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_delete(args, default_coordinator_url, read_password, render_mapping):
@@ -118,7 +118,7 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
     
     if not args.listing_id or not args.wallet:
         print("Error: --listing-id and --wallet are required")
-        sys.exit(1)
+        return
     
     # Get auth headers
     password = read_password(args)
@@ -142,10 +142,10 @@ def handle_market_delete(args, default_coordinator_url, read_password, render_ma
         else:
             print(f"Deletion failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error deleting listing: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_gpu_register(args, default_coordinator_url):
@@ -198,11 +198,11 @@ def handle_market_gpu_register(args, default_coordinator_url):
     if not gpu_name or memory_gb is None:
         print("Error: Could not auto-detect GPU specs. Please provide --name and --memory manually.")
         print("  Example: aitbc-cli market gpu register --name 'NVIDIA GeForce RTX 4060 Ti' --memory 16 --price-per-hour 0.05")
-        sys.exit(1)
+        return
     
     if not args.price_per_hour:
         print("Error: --price-per-hour is required (in AIT coins)")
-        sys.exit(1)
+        return
     
     # Build GPU specs
     gpu_specs = {
@@ -235,10 +235,10 @@ def handle_market_gpu_register(args, default_coordinator_url):
         else:
             print(f"Registration failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error registering GPU: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_gpu_list(args, default_coordinator_url, output_format):
@@ -288,10 +288,10 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
         else:
             print(f"Query failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error listing GPUs: {e}")
-        sys.exit(1)
+        return
 
 
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
@@ -301,7 +301,7 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
 
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
-        sys.exit(1)
+        return
 
     # Submit purchase to marketplace service
     purchase_data = {
@@ -318,7 +318,7 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
         else:
             print(f"Purchase failed: {response.status_code}")
             print(f"Error: {response.text}")
-            sys.exit(1)
+            return
     except Exception as e:
         print(f"Error submitting purchase: {e}")
-        sys.exit(1)
+        return
