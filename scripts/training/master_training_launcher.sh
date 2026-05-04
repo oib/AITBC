@@ -11,8 +11,10 @@ set -e
 # Training configuration
 TRAINING_PROGRAM="OpenClaw AITBC Mastery Training"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LOG_DIR="/var/log/aitbc"
 WALLET_NAME="openclaw-trainee"
+
+# Initialize logging for master launcher
+CURRENT_LOG=$(init_logging "training_master")
 
 # Colors for output
 RED='\033[0;31m'
@@ -30,7 +32,7 @@ START_TIME=$(date +%s)
 
 # Logging function
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_DIR/training_master.log"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee "$CURRENT_LOG"
 }
 
 # Print colored output

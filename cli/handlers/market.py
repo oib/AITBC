@@ -1,14 +1,41 @@
 """Marketplace command handlers."""
 
 import json
+import os
 import sys
 import requests
 
 
+def _marketplace_url(args, fallback=None):
+    explicit_url = getattr(args, "marketplace_url", None)
+    if explicit_url:
+        return explicit_url
+    env_url = os.getenv("AITBC_MARKETPLACE_URL") or os.getenv("EXCHANGE_API_URL")
+    if env_url:
+        return env_url
+    if fallback and not fallback.endswith(":8011") and not fallback.endswith(":8102"):
+        return fallback
+    return "http://localhost:8001"
+
+
+def _auth_headers(args, read_password):
+    wallet = getattr(args, "wallet", None)
+    password = read_password(args)
+    password_file = getattr(args, "password_file", None)
+    if wallet and (password or password_file):
+        try:
+            from keystore_auth import get_auth_headers
+            return get_auth_headers(wallet, password, password_file)
+        except Exception:
+            return {"X-Wallet": wallet}
+    if wallet:
+        return {"X-Wallet": wallet}
+    return {}
+
+
 def handle_market_listings(args, default_coordinator_url, output_format, render_mapping):
     """Handle marketplace listings command."""
-    # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
     chain_id = getattr(args, "chain_id", None)
     
     print(f"Getting marketplace listings from {marketplace_url}...")
@@ -46,23 +73,24 @@ def handle_market_listings(args, default_coordinator_url, output_format, render_
 
 def handle_market_create(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace create command."""
-    # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
     chain_id = getattr(args, "chain_id", None)
+    wallet = getattr(args, "wallet", None)
+    item = getattr(args, "item", None)
+    item_type = getattr(args, "item_type", None) or item or "service"
+    price = getattr(args, "price", None)
     
-    if not args.wallet or not args.item_type or not args.price:
-        print("Error: --wallet, --type, and --price are required")
+    if not wallet or price is None:
+        print("Error: --wallet and --price are required")
         return
     
-    # Get auth headers
-    password = read_password(args)
-    from ..keystore_auth import get_auth_headers
-    headers = get_auth_headers(args.wallet, password, args.password_file)
+    headers = _auth_headers(args, read_password)
     
     listing_data = {
-        "wallet": args.wallet,
-        "item_type": args.item_type,
-        "price": args.price,
+        "wallet": wallet,
+        "item": item or item_type,
+        "item_type": item_type,
+        "price": price,
         "description": getattr(args, "description", ""),
     }
     if chain_id:
@@ -71,7 +99,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
     print(f"Creating marketplace listing on {marketplace_url}...")
     try:
         response = requests.post(f"{marketplace_url}/v1/marketplace/offers", json=listing_data, headers=headers, timeout=30)
-        if response.status_code == 200:
+        if response.status_code in (200, 201):
             result = response.json()
             print("Listing created successfully")
             render_mapping("Listing:", result)
@@ -86,8 +114,7 @@ def handle_market_create(args, default_coordinator_url, read_password, render_ma
 
 def handle_market_get(args, default_rpc_url):
     """Handle marketplace get command."""
-    # Use marketplace service URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
+    marketplace_url = _marketplace_url(args, default_rpc_url)
     chain_id = getattr(args, "chain_id", None)
     
     if not args.listing_id:
@@ -112,32 +139,22 @@ def handle_market_get(args, default_rpc_url):
 
 def handle_market_delete(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace delete command."""
-    # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
-    chain_id = getattr(args, "chain_id", None)
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
+    listing_id = getattr(args, "listing_id", None) or getattr(args, "order", None)
     
-    if not args.listing_id or not args.wallet:
-        print("Error: --listing-id and --wallet are required")
+    if not listing_id:
+        print("Error: --listing-id or --order is required")
         return
     
-    # Get auth headers
-    password = read_password(args)
-    from ..keystore_auth import get_auth_headers
-    headers = get_auth_headers(args.wallet, password, args.password_file)
+    headers = _auth_headers(args, read_password)
+    endpoint_type = "orders" if str(listing_id).startswith("order_") else "offers"
     
-    delete_data = {
-        "listing_id": args.listing_id,
-        "wallet": args.wallet,
-    }
-    if chain_id:
-        delete_data["chain_id"] = chain_id
-    
-    print(f"Deleting listing {args.listing_id} on {marketplace_url}...")
+    print(f"Deleting {endpoint_type[:-1]} {listing_id} on {marketplace_url}...")
     try:
-        response = requests.delete(f"{marketplace_url}/v1/marketplace/offers/{args.listing_id}", json=delete_data, headers=headers, timeout=30)
+        response = requests.delete(f"{marketplace_url}/v1/marketplace/{endpoint_type}/{listing_id}", headers=headers, timeout=30)
         if response.status_code == 200:
             result = response.json()
-            print("Listing deleted successfully")
+            print("Marketplace item deleted successfully")
             render_mapping("Delete result:", result)
         else:
             print(f"Deletion failed: {response.status_code}")
@@ -296,21 +313,21 @@ def handle_market_gpu_list(args, default_coordinator_url, output_format):
 
 def handle_market_buy(args, default_coordinator_url, read_password, render_mapping):
     """Handle marketplace buy command via marketplace service."""
-    # Use marketplace service URL instead of coordinator URL
-    marketplace_url = getattr(args, 'marketplace_url', 'http://localhost:8001')
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
 
     if not args.item or not args.wallet:
         print("Error: --item and --wallet are required")
         return
 
-    # Submit purchase to marketplace service
     purchase_data = {
-        "duration_hours": 1.0
+        "duration_hours": 1.0,
+        "wallet": args.wallet,
+        "price": getattr(args, "price", None)
     }
 
     print(f"Submitting purchase to {marketplace_url}...")
     try:
-        response = requests.post(f"{marketplace_url}/v1/marketplace/offers/{args.item}/book", json=purchase_data, timeout=30)
+        response = requests.post(f"{marketplace_url}/v1/marketplace/offers/{args.item}/book", json=purchase_data, headers=_auth_headers(args, read_password), timeout=30)
         if response.status_code in (200, 201):
             result = response.json()
             print("Purchase submitted successfully")
@@ -321,4 +338,46 @@ def handle_market_buy(args, default_coordinator_url, read_password, render_mappi
             return
     except Exception as e:
         print(f"Error submitting purchase: {e}")
+        return
+
+
+def handle_market_sell(args, default_coordinator_url, read_password, render_mapping):
+    """Handle marketplace sell command."""
+    handle_market_create(args, default_coordinator_url, read_password, render_mapping)
+
+
+def handle_market_orders(args, default_coordinator_url, output_format, render_mapping):
+    """Handle marketplace orders command."""
+    marketplace_url = _marketplace_url(args, default_coordinator_url)
+    params = {}
+    wallet = getattr(args, "wallet", None)
+    if wallet:
+        params["wallet"] = wallet
+
+    print(f"Getting marketplace orders from {marketplace_url}...")
+    try:
+        response = requests.get(f"{marketplace_url}/v1/marketplace/orders", params=params, timeout=10)
+        if response.status_code == 200:
+            orders = response.json()
+            if output_format(args) == "json":
+                print(json.dumps(orders, indent=2))
+                return
+            if isinstance(orders, dict):
+                orders = orders.get("orders", [])
+            print("Active marketplace orders:")
+            if not orders:
+                print("  No active orders found")
+                return
+            for order in orders:
+                print(f"  - ID: {order.get('id', 'N/A')}")
+                print(f"    Type: {order.get('order_type', 'N/A')}")
+                print(f"    Item: {order.get('item', 'N/A')}")
+                print(f"    Price: {order.get('price', 0)} AIT")
+                print(f"    Status: {order.get('status', 'N/A')}")
+        else:
+            print(f"Query failed: {response.status_code}")
+            print(f"Error: {response.text}")
+            return
+    except Exception as e:
+        print(f"Error getting orders: {e}")
         return
