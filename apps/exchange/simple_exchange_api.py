@@ -5,7 +5,7 @@ Simple FastAPI backend for the AITBC Trade Exchange (Python 3.13 compatible)
 
 import sqlite3
 import json
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import random
@@ -57,6 +57,31 @@ def init_db():
         )
     ''')
     
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS marketplace_offers (
+            id TEXT PRIMARY KEY,
+            item TEXT NOT NULL,
+            item_type TEXT NOT NULL,
+            price REAL NOT NULL,
+            wallet TEXT,
+            status TEXT DEFAULT 'active',
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS marketplace_orders (
+            id TEXT PRIMARY KEY,
+            order_type TEXT NOT NULL,
+            item TEXT NOT NULL,
+            price REAL NOT NULL,
+            wallet TEXT,
+            status TEXT DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
     # Add columns if they don't exist (for existing databases)
     try:
         cursor.execute('ALTER TABLE orders ADD COLUMN user_address TEXT')
@@ -84,7 +109,7 @@ def create_mock_trades():
         return
     
     # Create mock trades
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(UTC)
     for i in range(20):
         amount = random.uniform(10, 500)
         price = random.uniform(0.000009, 0.000012)
@@ -107,30 +132,247 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Invalid path")
             return
         
-        if self.path == '/health' or self.path == '/api/health':
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        
+        if path == '/health' or path == '/api/health':
             self.health_check()
-        elif self.path.startswith('/api/trades/recent'):
-            parsed = urllib.parse.urlparse(self.path)
+        elif path.startswith('/api/trades/recent'):
             self.get_recent_trades(parsed)
-        elif self.path.startswith('/api/orders/orderbook'):
+        elif path.startswith('/api/orders/orderbook'):
             self.get_orderbook()
-        elif self.path.startswith('/api/wallet/balance'):
+        elif path.startswith('/api/wallet/balance'):
             self.handle_wallet_balance()
-        elif self.path == '/api/total-supply':
+        elif path == '/api/total-supply':
             self.handle_total_supply()
-        elif self.path == '/api/treasury-balance':
+        elif path == '/api/treasury-balance':
             self.handle_treasury_balance()
+        elif path == '/v1/marketplace/offers':
+            self.handle_marketplace_offers(parsed)
+        elif path.startswith('/v1/marketplace/offers/'):
+            self.handle_marketplace_offer(path)
+        elif path == '/v1/marketplace/orders':
+            self.handle_marketplace_orders(parsed)
         else:
             self.send_error(404, "Not Found")
     
     def do_POST(self):
         """Handle POST requests"""
-        if self.path == '/api/orders':
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        
+        if path == '/api/orders':
             self.handle_place_order()
-        elif self.path == '/api/wallet/connect':
+        elif path == '/api/wallet/connect':
             self.handle_wallet_connect()
+        elif path == '/v1/marketplace/offers':
+            self.handle_marketplace_create_offer()
+        elif path.startswith('/v1/marketplace/offers/') and path.endswith('/book'):
+            self.handle_marketplace_book_offer(path)
         else:
             self.send_error(404, "Not Found")
+    
+    def do_DELETE(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        
+        if path.startswith('/v1/marketplace/orders/'):
+            self.handle_marketplace_delete_order(path)
+        elif path.startswith('/v1/marketplace/offers/'):
+            self.handle_marketplace_delete_offer(path)
+        else:
+            self.send_error(404, "Not Found")
+    
+    def _read_json_body(self):
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length <= 0:
+            return {}
+        post_data = self.rfile.read(content_length)
+        if not post_data:
+            return {}
+        return json.loads(post_data.decode('utf-8'))
+    
+    def _new_marketplace_id(self, prefix):
+        return f"{prefix}_{int(datetime.now(UTC).timestamp() * 1000)}{random.randint(100, 999)}"
+    
+    def _marketplace_offer_row(self, row):
+        return {
+            "id": row[0],
+            "address": row[0],
+            "item": row[1],
+            "item_type": row[2],
+            "model": row[2],
+            "price": row[3],
+            "price_per_hour": row[3],
+            "wallet": row[4],
+            "status": row[5],
+            "description": row[6],
+            "created_at": row[7],
+            "deployed_at": row[7],
+        }
+    
+    def _marketplace_order_row(self, row):
+        return {
+            "id": row[0],
+            "order_type": row[1],
+            "item": row[2],
+            "price": row[3],
+            "wallet": row[4],
+            "status": row[5],
+            "created_at": row[6],
+        }
+    
+    def handle_marketplace_offers(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        status_filter = query.get('status', [None])[0]
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        if status_filter:
+            cursor.execute('''
+                SELECT id, item, item_type, price, wallet, status, description, created_at
+                FROM marketplace_offers
+                WHERE status = ?
+                ORDER BY created_at DESC
+            ''', (status_filter,))
+        else:
+            cursor.execute('''
+                SELECT id, item, item_type, price, wallet, status, description, created_at
+                FROM marketplace_offers
+                ORDER BY created_at DESC
+            ''')
+        offers = [self._marketplace_offer_row(row) for row in cursor.fetchall()]
+        conn.close()
+        self.send_json_response(offers)
+    
+    def handle_marketplace_offer(self, path):
+        offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, item, item_type, price, wallet, status, description, created_at
+            FROM marketplace_offers
+            WHERE id = ?
+        ''', (offer_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            self.send_json_response(self._marketplace_offer_row(row))
+        else:
+            self.send_error(404, "Offer not found")
+    
+    def handle_marketplace_create_offer(self):
+        try:
+            data = self._read_json_body()
+            item = data.get('item') or data.get('item_type') or 'service'
+            item_type = data.get('item_type') or item
+            price = float(data.get('price') or data.get('price_per_hour') or 0)
+            wallet = data.get('wallet')
+            description = data.get('description', '')
+            offer_id = self._new_marketplace_id('offer')
+            order_id = self._new_marketplace_id('order')
+            db_path = get_db_path()
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO marketplace_offers (id, item, item_type, price, wallet, status, description)
+                VALUES (?, ?, ?, ?, ?, 'active', ?)
+            ''', (offer_id, item, item_type, price, wallet, description))
+            cursor.execute('''
+                INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
+                VALUES (?, 'SELL', ?, ?, ?, 'open')
+            ''', (order_id, item, price, wallet))
+            conn.commit()
+            cursor.execute('''
+                SELECT id, item, item_type, price, wallet, status, description, created_at
+                FROM marketplace_offers
+                WHERE id = ?
+            ''', (offer_id,))
+            offer = self._marketplace_offer_row(cursor.fetchone())
+            conn.close()
+            offer["order_id"] = order_id
+            self.send_json_response(offer, status=201)
+        except Exception as e:
+            self.send_json_response({"success": False, "error": str(e)}, status=400)
+    
+    def handle_marketplace_book_offer(self, path):
+        try:
+            offer_id = urllib.parse.unquote(path[len('/v1/marketplace/offers/'): -len('/book')])
+            data = self._read_json_body()
+            wallet = data.get('wallet')
+            db_path = get_db_path()
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT item, price
+                FROM marketplace_offers
+                WHERE id = ? OR item = ?
+            ''', (offer_id, offer_id))
+            row = cursor.fetchone()
+            item = row[0] if row else offer_id
+            price = float(data.get('price') or (row[1] if row else 0) or 0)
+            order_id = self._new_marketplace_id('order')
+            cursor.execute('''
+                INSERT INTO marketplace_orders (id, order_type, item, price, wallet, status)
+                VALUES (?, 'BUY', ?, ?, ?, 'open')
+            ''', (order_id, item, price, wallet))
+            conn.commit()
+            cursor.execute('''
+                SELECT id, order_type, item, price, wallet, status, created_at
+                FROM marketplace_orders
+                WHERE id = ?
+            ''', (order_id,))
+            order = self._marketplace_order_row(cursor.fetchone())
+            conn.close()
+            self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)
+        except Exception as e:
+            self.send_json_response({"success": False, "error": str(e)}, status=400)
+    
+    def handle_marketplace_orders(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        wallet = query.get('wallet', [None])[0]
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        if wallet:
+            cursor.execute('''
+                SELECT id, order_type, item, price, wallet, status, created_at
+                FROM marketplace_orders
+                WHERE wallet = ?
+                ORDER BY created_at DESC
+            ''', (wallet,))
+        else:
+            cursor.execute('''
+                SELECT id, order_type, item, price, wallet, status, created_at
+                FROM marketplace_orders
+                ORDER BY created_at DESC
+            ''')
+        orders = [self._marketplace_order_row(row) for row in cursor.fetchall()]
+        conn.close()
+        self.send_json_response({"orders": orders})
+    
+    def handle_marketplace_delete_order(self, path):
+        order_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE marketplace_orders SET status = 'cancelled' WHERE id = ?", (order_id,))
+        conn.commit()
+        deleted = cursor.rowcount
+        conn.close()
+        self.send_json_response({"success": True, "order_id": order_id, "deleted": deleted})
+    
+    def handle_marketplace_delete_offer(self, path):
+        offer_id = urllib.parse.unquote(path.rsplit('/', 1)[-1])
+        db_path = get_db_path()
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("UPDATE marketplace_offers SET status = 'cancelled' WHERE id = ?", (offer_id,))
+        conn.commit()
+        deleted = cursor.rowcount
+        conn.close()
+        self.send_json_response({"success": True, "offer_id": offer_id, "deleted": deleted})
     
     def get_recent_trades(self, parsed):
         """Get recent trades"""
@@ -172,7 +414,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         cursor.execute('''
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
             FROM orders
-            WHERE order_type = 'SELL' AND status = 'OPEN'
+            WHERE order_type = 'SELL' AND status = 'open'
             ORDER BY price ASC
             LIMIT 20
         ''')
@@ -195,7 +437,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         cursor.execute('''
             SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
             FROM orders
-            WHERE order_type = 'BUY' AND status = 'OPEN'
+            WHERE order_type = 'BUY' AND status = 'open'
             ORDER BY price DESC
             LIMIT 20
         ''')
@@ -358,14 +600,14 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
             # Match with sell orders
             cursor.execute('''
                 SELECT * FROM orders
-                WHERE order_type = 'SELL' AND status = 'OPEN' AND price <= ?
+                WHERE order_type = 'SELL' AND status = 'open' AND price <= ?
                 ORDER BY price ASC, created_at ASC
             ''', (new_order['price'],))
         else:
             # Match with buy orders
             cursor.execute('''
                 SELECT * FROM orders
-                WHERE order_type = 'BUY' AND status = 'OPEN' AND price >= ?
+                WHERE order_type = 'BUY' AND status = 'open' AND price >= ?
                 ORDER BY price DESC, created_at ASC
             ''', (new_order['price'],))
         
@@ -413,7 +655,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                     # Close order if fully filled
                     if new_remaining <= 0:
                         cursor.execute('''
-                            UPDATE orders SET status = 'FILLED' WHERE id = ?
+                            UPDATE orders SET status = 'filled' WHERE id = ?
                         ''', (order_row[0],))
                     
                 except Exception as e:
@@ -427,7 +669,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         # Update new order in database
         if new_order['remaining'] <= 0:
             cursor.execute('''
-                UPDATE orders SET status = 'FILLED', remaining = 0, filled = ?
+                UPDATE orders SET status = 'filled', remaining = 0, filled = ?
                 WHERE id = ?
             ''', (new_order['filled'], new_order['id']))
         else:
@@ -477,7 +719,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
         """Health check"""
         self.send_json_response({
             'status': 'ok',
-            'timestamp': datetime.now(datetime.UTC).isoformat()
+            'timestamp': datetime.now(UTC).isoformat()
         })
     
     def handle_wallet_balance(self):

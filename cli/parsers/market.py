@@ -39,6 +39,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_list_parser = market_subparsers.add_parser("list", help="List marketplace items")
         market_list_parser.add_argument("--chain-id", help="Chain ID")
         market_list_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        market_list_parser.add_argument("--marketplace-url")
         market_list_parser.set_defaults(handler=ctx.handle_market_listings)
     
         market_create_parser = market_subparsers.add_parser("create", help="Create a marketplace listing")
@@ -50,6 +51,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_create_parser.add_argument("--password-file")
         market_create_parser.add_argument("--chain-id", help="Chain ID")
         market_create_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        market_create_parser.add_argument("--marketplace-url")
         market_create_parser.set_defaults(handler=ctx.handle_market_create)
     
         market_search_parser = market_subparsers.add_parser("search", help="Search marketplace items")
@@ -65,22 +67,27 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_get_parser.add_argument("--listing-id", required=True)
         market_get_parser.add_argument("--chain-id", help="Chain ID")
         market_get_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
+        market_get_parser.add_argument("--marketplace-url")
         market_get_parser.set_defaults(handler=ctx.handle_market_get)
     
         market_delete_parser = market_subparsers.add_parser("delete", help="Delete listing")
-        market_delete_parser.add_argument("--listing-id", required=True)
-        market_delete_parser.add_argument("--wallet", required=True)
+        market_delete_parser.add_argument("--listing-id")
+        market_delete_parser.add_argument("--order")
+        market_delete_parser.add_argument("--wallet")
         market_delete_parser.add_argument("--password")
         market_delete_parser.add_argument("--password-file")
         market_delete_parser.add_argument("--chain-id", help="Chain ID")
         market_delete_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        market_delete_parser.add_argument("--marketplace-url")
         market_delete_parser.set_defaults(handler=ctx.handle_market_delete)
     
         market_buy_parser = market_subparsers.add_parser("buy", help="Buy from marketplace")
         market_buy_parser.add_argument("--item", required=True)
+        market_buy_parser.add_argument("--price", type=float)
         market_buy_parser.add_argument("--wallet", required=True)
         market_buy_parser.add_argument("--password")
         market_buy_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
+        market_buy_parser.add_argument("--marketplace-url")
         market_buy_parser.set_defaults(handler=ctx.handle_market_buy)
     
         market_sell_parser = market_subparsers.add_parser("sell", help="Sell on marketplace")
@@ -89,9 +96,11 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         market_sell_parser.add_argument("--wallet", required=True)
         market_sell_parser.add_argument("--password")
         market_sell_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        market_sell_parser.set_defaults(handler=ctx.handle_market_create)  # Reuse create
+        market_sell_parser.add_argument("--marketplace-url")
+        market_sell_parser.set_defaults(handler=ctx.handle_market_sell)
     
         market_orders_parser = market_subparsers.add_parser("orders", help="Show marketplace orders")
         market_orders_parser.add_argument("--wallet")
         market_orders_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
-        market_orders_parser.set_defaults(handler=ctx.handle_market_listings)  # Reuse listings for now
+        market_orders_parser.add_argument("--marketplace-url")
+        market_orders_parser.set_defaults(handler=ctx.handle_market_orders)
