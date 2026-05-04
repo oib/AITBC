@@ -55,6 +55,9 @@ init_logging() {
     mkdir -p "$LOG_DIR"
     export CURRENT_LOG="$log_file"
     
+    # Truncate log file to only contain current run
+    : > "$log_file"
+    
     {
         echo "========================================"
         echo "AITBC Training - $stage_name"
