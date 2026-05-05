@@ -17,13 +17,8 @@
       "re": "training-w1"
     },
     {
-      "cmd": "wallet create",
-      "args": ["faucet", "faucetpw"],
-      "exit_code": 0
-    },
-    {
       "cmd": "wallet send",
-      "args": ["genesis", "faucet", "500000", "EzE4d8cLJo20E9FlquSXq7hqy-e6p4M7Q1ZkM5eLpmY"],
+      "args": ["genesis", "proposer", "1000000", "EzE4d8cLJo20E9FlquSXq7hqy-e6p4M7Q1ZkM5eLpmY"],
       "exit_code": 0
     },
     {
@@ -33,12 +28,12 @@
     },
     {
       "cmd": "sleep",
-      "args": ["10"],
+      "args": ["15"],
       "exit_code": 0
     },
     {
       "cmd": "wallet send",
-      "args": ["faucet", "training-w1", "100", "faucetpw"],
+      "args": ["proposer", "training-w1", "100", ""],
       "exit_code": 0
     },
     {
@@ -48,7 +43,7 @@
     },
     {
       "cmd": "sleep",
-      "args": ["10"],
+      "args": ["15"],
       "exit_code": 0
     },
     {
