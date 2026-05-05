@@ -1399,82 +1399,62 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
                             }
                         }
                         
-                        # Execute AITBC CLI command for production training
+                        # Execute training via OpenClaw agent with allowlist enabled
                         start_time = time.time()
                         try:
-                            # Build AITBC CLI command based on operation type
-                            cmd = ["./aitbc-cli"]
-                            cmd_args = []
+                            # Build prompt for OpenClaw agent to execute AITBC command
+                            prompt_message = f"Execute AITBC CLI command: {operation}"
+                            if parameters:
+                                prompt_message += f" with parameters: {json.dumps(parameters)}"
                             
-                            if operation == "wallet_create":
-                                cmd.extend(["wallet", "create", parameters.get("name", "training-wallet"), parameters.get("password", "")])
-                            elif operation == "wallet_import":
-                                # Skip - invalid private key in training data
-                                reply = {"status": "skipped", "note": "wallet_import skipped - invalid private key in training data"}
-                                log_entry["reply"] = reply
-                                log_entry["status"] = "skipped"
-                                log_entry["duration_ms"] = 0
-                                continue
-                            elif operation == "wallet_list":
-                                cmd.extend(["wallet", "list"])
-                            elif operation == "wallet_balance":
-                                # Skip - wallet name vs address mismatch
-                                reply = {"status": "skipped", "note": "wallet_balance skipped - requires address not wallet name"}
-                                log_entry["reply"] = reply
-                                log_entry["status"] = "skipped"
-                                log_entry["duration_ms"] = 0
-                                continue
-                            elif operation == "transaction_send":
-                                # Skip - transaction requires file/json input
-                                reply = {"status": "skipped", "note": "transaction_send requires file/json input, not available in CLI training"}
-                                log_entry["reply"] = reply
-                                log_entry["status"] = "skipped"
-                                log_entry["duration_ms"] = 0
-                                continue
-                            elif operation == "genesis_init":
-                                cmd.extend(["blockchain", "genesis"])
-                            elif operation == "messaging_send":
-                                cmd.extend(["agent", "message", "--agent", parameters.get("agent", "agent-1"), "--message", parameters.get("message", ""), "--wallet", parameters.get("wallet", "genesis")])
-                            elif operation == "island_create":
-                                # Skip - island command doesn't exist in AITBC CLI
-                                reply = {"status": "skipped", "note": "island command not available in AITBC CLI"}
-                                log_entry["reply"] = reply
-                                log_entry["status"] = "skipped"
-                                log_entry["duration_ms"] = 0
-                                continue
-                            elif operation == "blockchain_status":
-                                cmd.extend(["blockchain", "info"])
-                            elif operation == "service_status":
-                                cmd.extend(["system", "status"])
-                            else:
-                                # Generic operation - try to execute via CLI
-                                cmd.extend([operation])
+                            # Use OpenClaw agent with allowlist (AITBC CLI now allowed)
+                            cmd = ["openclaw", "agent", "--message", prompt_message, "--agent", "main"]
                             
-                            # Execute AITBC CLI command
-                            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30, cwd="/opt/aitbc")
-                            
-                            duration_ms = int((time.time() - start_time) * 1000)
-                            
-                            if result.returncode == 0:
-                                reply = {
-                                    "status": "completed",
-                                    "result": result.stdout.strip() if result.stdout else "Command executed successfully",
-                                    "cli_output": result.stdout.strip()
-                                }
-                                log_entry["status"] = "completed"
-                                completed_ops += 1
-                            else:
+                            try:
+                                result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+                                
+                                duration_ms = int((time.time() - start_time) * 1000)
+                                
+                                if result.returncode == 0:
+                                    reply = {
+                                        "status": "completed",
+                                        "result": result.stdout.strip() if result.stdout else "Command executed successfully",
+                                        "cli_output": result.stdout.strip()
+                                    }
+                                    log_entry["status"] = "completed"
+                                    completed_ops += 1
+                                else:
+                                    reply = {
+                                        "status": "error",
+                                        "error": result.stderr.strip() if result.stderr else "Command failed",
+                                        "cli_output": result.stdout.strip(),
+                                        "cli_error": result.stderr.strip()
+                                    }
+                                    log_entry["status"] = "failed"
+                                    failed_ops += 1
+                                
+                                log_entry["reply"] = reply
+                                log_entry["duration_ms"] = duration_ms
+                            except subprocess.TimeoutExpired:
+                                duration_ms = int((time.time() - start_time) * 1000)
                                 reply = {
                                     "status": "error",
-                                    "error": result.stderr.strip() if result.stderr else "Command failed",
-                                    "cli_output": result.stdout.strip(),
-                                    "cli_error": result.stderr.strip()
+                                    "error": "Command timed out after 30 seconds"
                                 }
+                                log_entry["reply"] = reply
                                 log_entry["status"] = "failed"
+                                log_entry["duration_ms"] = duration_ms
                                 failed_ops += 1
-                            
-                            log_entry["reply"] = reply
-                            log_entry["duration_ms"] = duration_ms
+                            except Exception as e:
+                                duration_ms = int((time.time() - start_time) * 1000)
+                                reply = {
+                                    "status": "error",
+                                    "error": f"Command execution failed: {str(e)}"
+                                }
+                                log_entry["reply"] = reply
+                                log_entry["status"] = "failed"
+                                log_entry["duration_ms"] = duration_ms
+                                failed_ops += 1
                             
                         except Exception as e:
                             duration_ms = int((time.time() - start_time) * 1000)

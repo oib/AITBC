@@ -21,6 +21,9 @@ from aitbc.constants import DATA_DIR, LOG_DIR
 # Import new testing utilities
 from aitbc.testing import MockFactory, TestDataGenerator, MockResponse, MockDatabase, MockCache
 
+# Import training setup utilities
+from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
+
 # Add necessary source paths
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-crypto" / "src"))
@@ -331,3 +334,76 @@ def test_wallet_data():
 def test_ethereum_address():
     """Generate a test Ethereum address using MockFactory"""
     return MockFactory.generate_ethereum_address()
+
+
+# Training environment setup fixtures
+@pytest.fixture(scope="session")
+def training_env():
+    """
+    Session-scoped fixture for training environment setup.
+    Sets up the training environment once per test session.
+    """
+    env = TrainingEnvironment()
+    try:
+        # Check prerequisites only, don't do full setup in tests
+        env.check_prerequisites()
+        yield env
+    except TrainingSetupError as e:
+        pytest.skip(f"Training prerequisites not met: {e}")
+
+
+@pytest.fixture
+def training_env_mock():
+    """
+    Function-scoped fixture for mocked training environment.
+    Uses mocked subprocess calls for faster, isolated tests.
+    """
+    from unittest.mock import patch, MagicMock
+    
+    env = TrainingEnvironment()
+    
+    # Mock subprocess.run to avoid actual CLI calls
+    def mock_subprocess_run(*args, **kwargs):
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "success"
+        mock_result.stderr = ""
+        return mock_result
+    
+    with patch('subprocess.run', side_effect=mock_subprocess_run):
+        yield env
+
+
+@pytest.fixture
+def mock_faucet_response():
+    """Mock faucet API response for testing"""
+    return {
+        "status": "success",
+        "address": "ait1testaddress",
+        "amount": 1000,
+        "transaction_id": "tx_test123",
+        "timestamp": "2026-05-05T12:00:00"
+    }
+
+
+@pytest.fixture
+def training_stage_data():
+    """Sample training stage data for testing"""
+    return {
+        "stage": "stage1_foundation",
+        "agent_type": "general",
+        "training_data": {
+            "prerequisites": {
+                "description": "Test prerequisites",
+                "setup_script": "/opt/aitbc/scripts/training/setup_training_env.sh",
+                "requirements": ["AITBC node running", "Funded accounts"]
+            },
+            "operations": [
+                {
+                    "operation": "wallet_create",
+                    "parameters": {"name": "test-wallet"},
+                    "expected_result": {"status": "success"}
+                }
+            ]
+        }
+    }

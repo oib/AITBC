@@ -2,6 +2,20 @@
   "stage": "stage1_foundation",
   "agent_type": "general",
   "training_data": {
+    "prerequisites": {
+      "description": "Stage 1 requires a configured mainnet environment with funded accounts and messaging authentication. Wallet creation stores keys locally but does not automatically register accounts on-chain. Transactions require sender accounts to exist and be funded on the blockchain.",
+      "setup_method": "python",
+      "setup_module": "aitbc.training_setup",
+      "setup_class": "TrainingEnvironment",
+      "setup_function": "setup_full_environment",
+      "requirements": [
+        "AITBC node running on mainnet",
+        "At least one funded account on blockchain (via faucet or genesis allocation)",
+        "Messaging service configured and authenticated",
+        "Wallet keys stored locally for funded accounts",
+        "Network connectivity to mainnet peers"
+      ]
+    },
     "operations": [
       {
         "operation": "wallet_create",

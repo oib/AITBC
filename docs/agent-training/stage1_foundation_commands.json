@@ -1,0 +1,73 @@
+{
+  "stage": 1,
+  "title": "Foundation – Wallets & Accounts",
+  "prerequisites": [
+    "AITBC node running",
+    "Genesis wallet funded (999,999,890 AIT)"
+  ],
+  "commands": [
+    {
+      "cmd": "wallet create",
+      "args": ["training-w1", "--password", "abc123"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "wallet list",
+      "args": [],
+      "re": "training-w1"
+    },
+    {
+      "cmd": "wallet create",
+      "args": ["faucet", "faucetpw"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "wallet send",
+      "args": ["genesis", "faucet", "500000", "EzE4d8cLJo20E9FlquSXq7hqy-e6p4M7Q1ZkM5eLpmY"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "mining",
+      "args": ["start"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "sleep",
+      "args": ["10"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "wallet send",
+      "args": ["faucet", "training-w1", "100", "faucetpw"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "mining",
+      "args": ["start"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "sleep",
+      "args": ["10"],
+      "exit_code": 0
+    },
+    {
+      "cmd": "wallet balance",
+      "args": ["training-w1"],
+      "re": "100"
+    }
+  ],
+  "expected": {
+    "wallet_exists": {
+      "type": "value",
+      "value": true
+    },
+    "balance": {
+      "type": "value",
+      "value": {
+        "symbol": "AIT",
+        "amount": 100
+      }
+    }
+  }
+}
