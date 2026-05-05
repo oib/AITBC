@@ -81,6 +81,7 @@ jobs:
             tests/verification/ \
             -c /dev/null --rootdir "$PWD" --import-mode=importlib \
             --tb=short -q --timeout=30 \
+            -o asyncio_mode=auto \
             --cov=apps --cov=packages --cov=cli --cov-append
 
       - name: Run app and package tests with coverage
