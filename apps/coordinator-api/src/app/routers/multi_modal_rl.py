@@ -3,12 +3,15 @@ Multi-modal RL Router
 Handles multi-modal reinforcement learning endpoints by proxying to AI service
 """
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter
 from pydantic import BaseModel
 
 from aitbc import AITBCHTTPClient, NetworkError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/multi-modal-rl", tags=["multi-modal-rl"])
 
@@ -45,9 +48,11 @@ async def submit_job(req: JobCreate, client_id: str = "default_client") -> dict[
         response = client.post(f"{ai_url}/jobs", json=job_data)
         return response
     except NetworkError as e:
-        return {"error": f"AI service connection failed: {e}"}
+        logger.error(f"AI service connection failed: {e}")
+        return {"error": "AI service connection failed"}
     except Exception as e:
-        return {"error": f"Failed to submit job: {e}"}
+        logger.error(f"Failed to submit job: {e}")
+        return {"error": "Failed to submit job"}
 
 
 @router.get("/jobs/{job_id}")
@@ -59,9 +64,11 @@ async def get_job(job_id: str, client_id: str = "default_client") -> dict[str, A
         response = client.get(f"{ai_url}/jobs/{job_id}", params={"client_id": client_id})
         return response
     except NetworkError as e:
-        return {"error": f"AI service connection failed: {e}"}
+        logger.error(f"AI service connection failed: {e}")
+        return {"error": "AI service connection failed"}
     except Exception as e:
-        return {"error": f"Failed to get job: {e}"}
+        logger.error(f"Failed to get job: {e}")
+        return {"error": "Failed to get job"}
 
 
 @router.get("/jobs/{job_id}/result")
@@ -73,9 +80,11 @@ async def get_job_result(job_id: str, client_id: str = "default_client") -> dict
         response = client.get(f"{ai_url}/jobs/{job_id}/result", params={"client_id": client_id})
         return response
     except NetworkError as e:
-        return {"error": f"AI service connection failed: {e}"}
+        logger.error(f"AI service connection failed: {e}")
+        return {"error": "AI service connection failed"}
     except Exception as e:
-        return {"error": f"Failed to get job result: {e}"}
+        logger.error(f"Failed to get job result: {e}")
+        return {"error": "Failed to get job result"}
 
 
 @router.post("/jobs/{job_id}/cancel")
@@ -87,9 +96,11 @@ async def cancel_job(job_id: str, client_id: str = "default_client") -> dict[str
         response = client.post(f"{ai_url}/jobs/{job_id}/cancel", params={"client_id": client_id})
         return response
     except NetworkError as e:
-        return {"error": f"AI service connection failed: {e}"}
+        logger.error(f"AI service connection failed: {e}")
+        return {"error": "AI service connection failed"}
     except Exception as e:
-        return {"error": f"Failed to cancel job: {e}"}
+        logger.error(f"Failed to cancel job: {e}")
+        return {"error": "Failed to cancel job"}
 
 
 @router.get("/jobs")
@@ -104,9 +115,11 @@ async def list_jobs(client_id: str = "default_client", limit: int = 10, state: s
         response = client.get(f"{ai_url}/jobs", params=params)
         return response
     except NetworkError as e:
-        return {"error": f"AI service connection failed: {e}"}
+        logger.error(f"AI service connection failed: {e}")
+        return {"error": "AI service connection failed"}
     except Exception as e:
-        return {"error": f"Failed to list jobs: {e}"}
+        logger.error(f"Failed to list jobs: {e}")
+        return {"error": "Failed to list jobs"}
 
 
 @router.get("/health")
@@ -128,7 +141,8 @@ async def health() -> dict[str, Any]:
             "ai_service": "unreachable",
             "note": "AI service not available on this node"
         }
-    except Exception:
+    except Exception as e:
+        logger.error(f"AI service check failed: {e}")
         return {
             "status": "degraded",
             "router": "multi-modal-rl",

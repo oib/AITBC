@@ -190,7 +190,7 @@ async def get_role_permissions(
         raise
     except Exception as e:
         logger.error(f"Error getting role permissions: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get role permissions")
 
 @router.get("/auth/stats")
 async def get_permission_stats(current_user: Dict[str, Any] = Depends(get_current_user)):
@@ -208,7 +208,7 @@ async def get_permission_stats(current_user: Dict[str, Any] = Depends(get_curren
         raise
     except Exception as e:
         logger.error(f"Error getting permission stats: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get permission stats")
 
 # Protected endpoint example
 @router.get("/protected/admin")
