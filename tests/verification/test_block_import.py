@@ -7,6 +7,7 @@ Tests the /rpc/blocks/import POST endpoint functionality
 import json
 import hashlib
 from datetime import datetime, UTC
+import requests
 
 # Test configuration
 BASE_URL = "https://aitbc.bubuit.net/rpc"
@@ -24,8 +25,8 @@ def test_block_import():
     print("=" * 50)
     
     # Get current head to work with existing blockchain
-    client = AITBCHTTPClient()
-    head = client.get(f"{BASE_URL}/head")
+    head_response = requests.get(f"{BASE_URL}/head")
+    head = head_response.json()
     print(f"Current head: height={head['height']}, hash={head['hash']}")
     
     # Use very high heights to avoid conflicts with existing chain

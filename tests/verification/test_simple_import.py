@@ -5,6 +5,7 @@ Simple test for block import endpoint without transactions
 
 import json
 import hashlib
+import requests
 from aitbc import AITBCHTTPClient, NetworkError
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
