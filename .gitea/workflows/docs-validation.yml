@@ -58,40 +58,29 @@ jobs:
               docs/about/**/*.md
               docs/agents/**/*.md
               docs/agent-sdk/**/*.md
-              docs/advanced/**/*.md
-              docs/analytics/**/*.md
+              docs/agent-training/**/*.md
               docs/apps/**/*.md
               docs/archive/**/*.md
+              docs/architecture/**/*.md
               docs/backend/**/*.md
-              docs/beginner/**/*.md
               docs/blockchain/**/*.md
-              docs/completed/**/*.md
+              docs/cli/**/*.md
               docs/contracts/**/*.md
-              docs/cli-technical/README.md
               docs/deployment/**/*.md
               docs/development/**/*.md
-              docs/exchange/**/*.md
-              docs/expert/**/*.md
-              docs/general/**/*.md
-              docs/governance/**/*.md
+              docs/enterprise/**/*.md
               docs/guides/**/*.md
-              docs/implementation/**/*.md
               docs/infrastructure/**/*.md
-              docs/intermediate/**/*.md
-              docs/mobile/**/*.md
-              docs/nodes/**/*.md
-              docs/maintenance/**/*.md
+              docs/mining/**/*.md
               docs/openclaw/**/*.md
-              docs/policies/**/*.md
+              docs/packages/**/*.md
+              docs/project/**/*.md
               docs/reference/**/*.md
               docs/releases/**/*.md
               docs/reports/**/*.md
-              docs/project/**/*.md
+              docs/scenarios/**/*.md
               docs/security/**/*.md
-              docs/summaries/**/*.md
-              docs/trail/**/*.md
-              docs/testing/README.md
-              docs/website/**/*.md
+              docs/testing/**/*.md
               docs/workflows/**/*.md
             )
 
@@ -116,42 +105,30 @@ jobs:
             docs/MASTER_INDEX.md
             docs/about/README.md
             docs/agents/README.md
-            docs/advanced/README.md
-            docs/analytics/README.md
             docs/agent-sdk/README.md
+            docs/agent-training/README.md
             docs/apps/README.md
             docs/archive/README.md
-            docs/archive/completed/README.md
-            docs/archive/summaries/README.md
+            docs/architecture/README.md
             docs/backend/README.md
-            docs/beginner/README.md
             docs/blockchain/README.md
+            docs/cli/README.md
             docs/contracts/README.md
-            docs/cli-technical/README.md
             docs/deployment/README.md
             docs/development/README.md
-            docs/exchange/README.md
-            docs/expert/README.md
-            docs/general/README.md
+            docs/enterprise/README.md
             docs/guides/README.md
-            docs/governance/README.md
-            docs/implementation/README.md
             docs/infrastructure/README.md
-            docs/intermediate/README.md
-            docs/maintenance/README.md
-            docs/mobile/README.md
-            docs/nodes/README.md
+            docs/mining/README.md
             docs/openclaw/README.md
             docs/packages/README.md
-            docs/policies/README.md
             docs/project/README.md
             docs/reference/README.md
             docs/releases/README.md
             docs/reports/README.md
+            docs/scenarios/README.md
             docs/security/README.md
-            docs/trail/README.md
             docs/testing/README.md
-            docs/website/README.md
             docs/workflows/README.md
           )
 
@@ -194,12 +171,11 @@ jobs:
           priority_docs=(
             docs/README.md
             docs/about/README.md
-            docs/beginner/README.md
-            docs/intermediate/README.md
-            docs/expert/README.md
+            docs/agent-sdk/README.md
+            docs/blockchain/README.md
             docs/project/README.md
             docs/apps/README.md
-            docs/cli-technical/README.md
+            docs/cli/README.md
             docs/testing/README.md
           )
 
