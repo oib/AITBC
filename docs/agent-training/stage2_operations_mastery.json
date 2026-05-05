@@ -2,6 +2,20 @@
   "stage": "stage2_operations_mastery",
   "agent_type": "general",
   "training_data": {
+    "prerequisites": {
+      "description": "Stage 2 requires mining setup and network connectivity on mainnet. Mining operations require a funded wallet registered on-chain. Network operations require peer connectivity and synchronization.",
+      "setup_method": "python",
+      "setup_module": "aitbc.training_setup",
+      "setup_class": "TrainingEnvironment",
+      "setup_function": "setup_full_environment",
+      "requirements": [
+        "Stage 1 prerequisites completed",
+        "Mining wallet funded and registered on-chain",
+        "Mining service configured and running",
+        "Network peer connectivity established",
+        "Blockchain synchronization active"
+      ]
+    },
     "operations": [
       {
         "operation": "wallet_export",
@@ -62,6 +76,21 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["backup", "backup_path"]
+        }
+      },
+      {
+        "operation": "wallet_delete",
+        "parameters": {
+          "wallet": "training-wallet",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "deleted": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["deleted", "wallet_id"]
         }
       },
       {

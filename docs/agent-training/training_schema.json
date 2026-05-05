@@ -27,6 +27,25 @@
       "type": "object",
       "required": ["operations"],
       "properties": {
+        "prerequisites": {
+          "type": "object",
+          "description": "Environment setup prerequisites for this training stage",
+          "properties": {
+            "description": {
+              "type": "string",
+              "description": "Description of required environment setup"
+            },
+            "setup_script": {
+              "type": "string",
+              "description": "Path to setup script for this stage"
+            },
+            "requirements": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "List of required environment conditions"
+            }
+          }
+        },
         "operations": {
           "type": "array",
           "items": {
