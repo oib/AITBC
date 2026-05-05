@@ -32,7 +32,7 @@ async def register_consensus_node(node_data: Dict[str, Any]):
         return result
     except Exception as e:
         logger.error(f"Error registering consensus node: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to register consensus node")
 
 @router.post("/consensus/proposal/create")
 async def create_consensus_proposal(proposal_data: Dict[str, Any]):
@@ -42,7 +42,7 @@ async def create_consensus_proposal(proposal_data: Dict[str, Any]):
         return result
     except Exception as e:
         logger.error(f"Error creating consensus proposal: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to create consensus proposal")
 
 @router.post("/consensus/proposal/{proposal_id}/vote")
 async def cast_consensus_vote(proposal_id: str, node_id: str, vote: bool):
@@ -52,7 +52,7 @@ async def cast_consensus_vote(proposal_id: str, node_id: str, vote: bool):
         return result
     except Exception as e:
         logger.error(f"Error casting consensus vote: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to cast consensus vote")
 
 @router.get("/consensus/proposal/{proposal_id}")
 async def get_proposal_status(proposal_id: str):
@@ -62,7 +62,7 @@ async def get_proposal_status(proposal_id: str):
         return result
     except Exception as e:
         logger.error(f"Error getting proposal status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get proposal status")
 
 @router.put("/consensus/algorithm")
 async def set_consensus_algorithm(algorithm: str = Query(..., description="Consensus algorithm")):
@@ -72,7 +72,7 @@ async def set_consensus_algorithm(algorithm: str = Query(..., description="Conse
         return result
     except Exception as e:
         logger.error(f"Error setting consensus algorithm: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to set consensus algorithm")
 
 @router.get("/consensus/statistics")
 async def get_consensus_statistics():
@@ -82,7 +82,7 @@ async def get_consensus_statistics():
         return result
     except Exception as e:
         logger.error(f"Error getting consensus statistics: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get consensus statistics")
 
 @router.put("/consensus/node/{node_id}/status")
 async def update_node_status(node_id: str, is_active: bool):
@@ -92,7 +92,7 @@ async def update_node_status(node_id: str, is_active: bool):
         return result
     except Exception as e:
         logger.error(f"Error updating node status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to update node status")
 
 # Advanced features status endpoint
 @router.get("/advanced-features/status")
@@ -130,4 +130,4 @@ async def get_advanced_features_status():
         }
     except Exception as e:
         logger.error(f"Error getting advanced features status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Failed to get advanced features status")

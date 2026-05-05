@@ -58,7 +58,8 @@ async def blockchain_sync_status() -> dict[str, Any]:
         else:
             return {"status": "synced", "block": response.get("current_block", 0)}
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
     except Exception as e:
         return {"status": "error", "error": "Failed to get sync status"}
 
@@ -73,7 +74,8 @@ async def get_block(height: int) -> dict[str, Any]:
         response = client.get(f"{rpc_url}/rpc/blocks/{height}")
         return response
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/blocks/hash/{block_hash}")
@@ -87,7 +89,8 @@ async def get_block_by_hash(block_hash: str) -> dict[str, Any]:
         response = client.get(f"{rpc_url}/rpc/blocks/hash/{block_hash}")
         return response
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/transactions/{tx_hash}")
@@ -101,7 +104,8 @@ async def get_transaction(tx_hash: str) -> dict[str, Any]:
         response = client.get(f"{rpc_url}/rpc/transactions/{tx_hash}")
         return response
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/accounts/{address}")
@@ -115,7 +119,8 @@ async def get_account(address: str) -> dict[str, Any]:
         response = client.get(f"{rpc_url}/rpc/accounts/{address}")
         return response
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/validators")
@@ -134,7 +139,8 @@ async def get_validators() -> dict[str, Any]:
             "total": 1
         }
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/supply")
@@ -155,7 +161,8 @@ async def get_supply() -> dict[str, Any]:
             "unit": "AIT"
         }
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
 
 
 @router.get("/state/dump")
@@ -173,4 +180,5 @@ async def get_state_dump() -> dict[str, Any]:
             "timestamp": response.get("timestamp", "")
         }
     except NetworkError as e:
-        return {"status": "error", "error": f"RPC connection failed: {e}"}
+        logger.error(f"RPC connection failed: {e}")
+        return {"status": "error", "error": "RPC connection failed"}
