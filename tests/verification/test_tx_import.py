@@ -5,6 +5,7 @@ Test transaction import specifically
 
 import json
 import hashlib
+import requests
 from aitbc import AITBCHTTPClient, NetworkError
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
