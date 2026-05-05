@@ -31,6 +31,23 @@ class GPUMetrics(BaseModel):
 
 def run_nvidia_smi(args: list[str]) -> str:
     """Run nvidia-smi command and return output"""
+    # Validate args to prevent command injection
+    # Only allow specific safe nvidia-smi arguments
+    safe_args_prefixes = {
+        "--query-gpu",
+        "--format",
+        "--id",
+        "--help",
+        "-q",
+        "-h"
+    }
+    
+    for arg in args:
+        # Check if arg starts with a safe prefix
+        if not any(arg.startswith(prefix) for prefix in safe_args_prefixes):
+            # Reject unsafe arguments
+            return ""
+    
     try:
         result = subprocess.run(
             ["nvidia-smi"] + args,
