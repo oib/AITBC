@@ -75,3 +75,15 @@ def get_session():
     from .storage import get_session
 
     return get_session()
+
+
+# Legacy APIKeyValidator class for backward compatibility with tests
+class APIKeyValidator:
+    """Legacy API key validator class for backward compatibility."""
+
+    def __init__(self, allowed_keys: list[str]):
+        self.allowed_keys = allowed_keys
+
+    def __call__(self, api_key: str | None = None) -> str:
+        """Validate API key."""
+        return _validate_api_key(self.allowed_keys, api_key)
