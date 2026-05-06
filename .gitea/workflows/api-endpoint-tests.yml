@@ -116,7 +116,8 @@ jobs:
           echo "Using service host: $service_host"
           echo "services_available=true" > /var/lib/aitbc-workspaces/api-tests/status
 
-          for port in 9001 8001 8003 8006; do
+          # Check only the services needed for API endpoint tests (exclude blockchain RPC)
+          for port in 9001 8001 8003; do
             port_ready=0
             for i in $(seq 1 15); do
               code=$(curl -so /dev/null -w '%{http_code}' "http://$service_host:$port/health" 2>/dev/null) || code=0
