@@ -17,8 +17,8 @@
       "re": "training-w1"
     },
     {
-      "cmd": "wallet send",
-      "args": ["genesis", "proposer", "1000000", "EzE4d8cLJo20E9FlquSXq7hqy-e6p4M7Q1ZkM5eLpmY"],
+      "cmd": "wallet",
+      "args": ["--wallet-name", "genesis", "send", "proposer", "1000000", "--fee", "10", "--password", ""],
       "exit_code": 0
     },
     {
@@ -32,8 +32,8 @@
       "exit_code": 0
     },
     {
-      "cmd": "wallet send",
-      "args": ["proposer", "training-w1", "100", ""],
+      "cmd": "wallet",
+      "args": ["--wallet-name", "proposer", "send", "training-w1", "100", "--fee", "10", "--password", ""],
       "exit_code": 0
     },
     {
