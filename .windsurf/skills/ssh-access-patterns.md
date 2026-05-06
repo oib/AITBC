@@ -29,6 +29,18 @@ ssh gitea-runner
 ssh gitea-runner "command"
 ```
 
+### aitbc2 (via gitea-runner)
+aitbc2 blockchain node is hosted on the gitea-runner machine. Access via SSH to gitea-runner.
+```bash
+# Access aitbc2 via gitea-runner
+ssh gitea-runner
+# aitbc2 blockchain node runs on this host
+
+# Execute aitbc2-specific commands
+ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
+ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
+```
+
 ## Common Operations
 
 ### Check service status on aitbc1
