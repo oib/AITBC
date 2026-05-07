@@ -31,6 +31,7 @@ TOTAL_STAGES=10
 START_TIME=$(date +%s)
 PROGRESS_FILE="$SCRIPT_DIR/.training_progress"
 STATE_DIR="$SCRIPT_DIR/.training_state"
+CERT_DIR="$STATE_DIR/certificates"
 
 # Logging function
 log() {
@@ -195,6 +196,12 @@ run_stage() {
     if bash "$script_file"; then
         print_progress $stage_num "Completed successfully"
         log "Stage $stage_num completed successfully"
+        
+        # Generate certificate
+        mkdir -p "$CERT_DIR"
+        generate_certificate $stage_num
+        display_badge $stage_num
+        
         return 0
     else
         print_error "Stage $stage_num failed"
@@ -230,6 +237,7 @@ reset_training_state() {
     echo -e "${YELLOW}⚠️  This will:${NC}"
     echo "• Clear all stage progress"
     echo "• Remove sandbox state directory"
+    echo "• Remove all certificates"
     echo "• Reset progress tracking"
     echo
     echo -n "Are you sure you want to reset? [yes/NO]: "
@@ -256,6 +264,7 @@ reset_training_state() {
     
     # Recreate state directory
     mkdir -p "$STATE_DIR"
+    mkdir -p "$CERT_DIR"
     
     log "Training state reset"
     print_success "Training state reset successfully"
@@ -279,6 +288,148 @@ check_prerequisites() {
     else
         print_warning "Prerequisite check script not found, skipping validation"
         return 0
+    fi
+}
+
+# Get stage name
+get_stage_name() {
+    local stage_num=$1
+    case $stage_num in
+        0) echo "Environment Setup" ;;
+        1) echo "Foundation" ;;
+        2) echo "Operations Mastery" ;;
+        3) echo "AI Operations" ;;
+        4) echo "Marketplace & Economics" ;;
+        5) echo "Expert Operations" ;;
+        6) echo "Agent Identity SDK" ;;
+        7) echo "Cross-Node Training" ;;
+        8) echo "Advanced Agent Specialization" ;;
+        9) echo "Multi-Chain Architecture" ;;
+        *) echo "Unknown Stage" ;;
+    esac
+}
+
+# Generate stage certificate
+generate_certificate() {
+    local stage_num=$1
+    local stage_name=$(get_stage_name $stage_num)
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    local cert_file="$CERT_DIR/stage${stage_num}_certificate.json"
+    
+    # Create certificate JSON
+    cat > "$cert_file" << EOF
+{
+  "certificate_type": "stage_completion",
+  "stage_number": $stage_num,
+  "stage_name": "$stage_name",
+  "completion_timestamp": "$timestamp",
+  "training_program": "$TRAINING_PROGRAM",
+  "wallet_name": "$WALLET_NAME",
+  "certificate_id": "cert_$(date +%s)_$stage_num",
+  "version": "1.0"
+}
+EOF
+    
+    log "Certificate generated for Stage $stage_num: $cert_file"
+}
+
+# Display ASCII art badge
+display_badge() {
+    local stage_num=$1
+    local stage_name=$(get_stage_name $stage_num)
+    
+    echo
+    echo -e "${GREEN}${BOLD}╔══════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}${BOLD}║                                                  ║${NC}"
+    echo -e "${GREEN}${BOLD}║${NC}           ${CYAN}✨ STAGE COMPLETION ✨${NC}            ${GREEN}${BOLD}║${NC}"
+    echo -e "${GREEN}${BOLD}║                                                  ║${NC}"
+    echo -e "${GREEN}${BOLD}║${NC}              Stage ${stage_num}: ${BOLD}${YELLOW}$stage_name${NC}            ${GREEN}${BOLD}║${NC}"
+    echo -e "${GREEN}${BOLD}║                                                  ║${NC}"
+    echo -e "${GREEN}${BOLD}║${NC}            ${BLUE}$(date '+%Y-%m-%d %H:%M:%S')${NC}            ${GREEN}${BOLD}║${NC}"
+    echo -e "${GREEN}${BOLD}║                                                  ║${NC}"
+    echo -e "${GREEN}${BOLD}╚══════════════════════════════════════════════════╝${NC}"
+    echo
+    echo -e "${BOLD}Certificate saved to:${NC} $CERT_DIR/stage${stage_num}_certificate.json"
+    echo
+}
+
+# View certificates
+view_certificates() {
+    print_header "Stage Completion Certificates"
+    
+    if [ ! -d "$CERT_DIR" ] || [ -z "$(ls -A $CERT_DIR)" ]; then
+        print_warning "No certificates found yet"
+        echo "Complete stages to earn certificates"
+        return 0
+    fi
+    
+    echo -e "${BOLD}📜 Certificates Earned:${NC}"
+    echo
+    
+    local cert_count=0
+    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+        if [ -f "$cert_file" ]; then
+            ((cert_count++))
+            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+            local stage_name=$(get_stage_name $stage_num)
+            local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
+            
+            echo -e "${GREEN}✅${NC} Stage $stage_num: $stage_name"
+            echo "   Completed: $timestamp"
+            echo "   File: $cert_file"
+            echo
+        fi
+    done
+    
+    echo -e "${BOLD}Total certificates: $cert_count${NC}"
+    
+    echo
+    echo -n "View certificate details? [1-$cert_count/N]: "
+    read -r view_choice
+    
+    if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -le "$cert_count" ]; then
+        local cert_file=$(ls "$CERT_DIR"/stage*_certificate.json | head -"$view_choice" | tail -1)
+        if [ -f "$cert_file" ]; then
+            echo
+            echo -e "${BOLD}Certificate Details:${NC}"
+            cat "$cert_file" | python3 -m json.tool 2>/dev/null || cat "$cert_file"
+        fi
+    fi
+}
+
+# Export certificate
+export_certificate() {
+    print_header "Export Certificate"
+    
+    if [ ! -d "$CERT_DIR" ] || [ -z "$(ls -A $CERT_DIR)" ]; then
+        print_error "No certificates found to export"
+        return 1
+    fi
+    
+    echo "Available certificates:"
+    local i=1
+    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+        if [ -f "$cert_file" ]; then
+            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+            local stage_name=$(get_stage_name $stage_num)
+            echo "$i. Stage $stage_num: $stage_name"
+            ((i++))
+        fi
+    done
+    
+    echo
+    echo -n "Select certificate to export [1-$(($i-1))]: "
+    read -r export_choice
+    
+    if [[ "$export_choice" =~ ^[0-9]+$ ]] && [ "$export_choice" -ge 1 ] && [ "$export_choice" -lt "$i" ]; then
+        local cert_file=$(ls "$CERT_DIR"/stage*_certificate.json | head -"$export_choice" | tail -1)
+        if [ -f "$cert_file" ]; then
+            local export_path="$HOME/$(basename $cert_file)"
+            cp "$cert_file" "$export_path"
+            print_success "Certificate exported to: $export_path"
+        fi
+    else
+        print_error "Invalid selection"
     fi
 }
 
@@ -308,9 +459,11 @@ show_playground_menu() {
     echo "3. Reset Training State"
     echo "4. Check Prerequisites for All Stages"
     echo "5. View Progress"
-    echo "6. Return to Main Menu"
+    echo "6. View Certificates"
+    echo "7. Export Certificate"
+    echo "8. Return to Main Menu"
     echo
-    echo -n "Select option [1-6]: "
+    echo -n "Select option [1-8]: "
     read -r choice
     echo
     
@@ -331,10 +484,16 @@ show_playground_menu() {
             review_progress
             ;;
         6)
+            view_certificates
+            ;;
+        7)
+            export_certificate
+            ;;
+        8)
             show_menu
             ;;
         *)
-            print_error "Invalid option. Please select 1-6."
+            print_error "Invalid option. Please select 1-8."
             show_playground_menu
             ;;
     esac
@@ -383,8 +542,7 @@ playground_run_stage() {
             echo -n "Proceed with Stage $stage_choice? [Y/n]: "
             read -r proceed
             if [[ ! "$proceed" =~ ^[Nn]$ ]]; then
-                run_stage $stage_choice
-                if [ $? -eq 0 ]; then
+                if run_stage $stage_choice; then
                     # Add to completed stages
                     COMPLETED_STAGES+=("$stage_choice")
                     save_progress
@@ -475,9 +633,10 @@ show_menu() {
     echo "4. Check System Readiness"
     echo "5. Review Training Progress"
     echo "6. View Training Logs"
-    echo "7. Exit"
+    echo "7. View Certificates"
+    echo "8. Exit"
     echo
-    echo -n "Select option [1-7]: "
+    echo -n "Select option [1-8]: "
     read -r choice
     echo
     
@@ -501,11 +660,14 @@ show_menu() {
             view_logs
             ;;
         7)
+            view_certificates
+            ;;
+        8)
             print_success "Exiting training program"
             exit 0
             ;;
         *)
-            print_error "Invalid option. Please select 1-7."
+            print_error "Invalid option. Please select 1-8."
             show_menu
             ;;
     esac
@@ -785,6 +947,7 @@ main() {
     
     # Create state directory
     mkdir -p "$STATE_DIR"
+    mkdir -p "$CERT_DIR"
     
     # Start logging
     log "hermes AITBC Mastery Training Program started"
