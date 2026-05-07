@@ -278,7 +278,7 @@ check_prerequisites() {
     # Run prerequisite validation
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Checking prerequisites for Stage $stage_num..."
-        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../agent-training" 2>/dev/null; then
+        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training" 2>/dev/null; then
             print_success "Prerequisites validated"
             return 0
         else
@@ -505,7 +505,7 @@ check_all_prerequisites() {
     
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Running prerequisite validation..."
-        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../agent-training"
+        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training"
     else
         print_error "Prerequisite check script not found"
     fi
@@ -982,35 +982,6 @@ main() {
 
 # Handle command line arguments
 case "${1:-}" in
-        show_overview
-        
-        # Check system readiness
-        if ! check_system_readiness; then
-            echo
-            print_warning "Some system checks failed. You may still proceed with training,"
-            print_warning "but some features may not work correctly."
-            echo
-            echo -n "Continue anyway? [Y/n]: "
-            read -r continue_choice
-            if [[ "$continue_choice" =~ ^[Nn]$ ]]; then
-                print_status "Training program exited"
-                exit 1
-            fi
-        fi
-        
-        echo
-        echo -n "Ready to start training? [Y/n]: "
-        read -r start_choice
-        
-        if [[ ! "$start_choice" =~ ^[Nn]$ ]]; then
-            show_menu
-        else
-            print_status "Training program exited"
-        fi
-    }
-
-    # Handle command line arguments
-    case "${1:-}" in
         --overview)
             show_overview
             ;;
