@@ -13,6 +13,14 @@ from web3.contract import Contract
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 
+# Import CLI client for AITBC (no Web3 needed)
+try:
+    from .cli_contract_client import CLIContractClient
+    CLI_AVAILABLE = True
+except ImportError:
+    CLI_AVAILABLE = False
+    CLIContractClient = None
+
 logger = get_logger(__name__)
 
 
@@ -24,6 +32,7 @@ class ContractConfig:
     staking_contract: str
     treasury_manager: str
     cross_chain_atomic_swap: str = ""  # CrossChainAtomicSwap contract
+    use_cli: bool = False  # Use CLI-based client (for AITBC)
     network: str = "mainnet"
     rpc_url: Optional[str] = None
 
@@ -576,3 +585,23 @@ def getenv(key: str, default: str = "") -> str:
     """Get environment variable with default"""
     import os
     return os.getenv(key, default)
+
+
+def create_agent_contract_integration(
+    config: ContractConfig,
+    private_key: Optional[str] = None
+) -> AgentContractIntegration:
+    """
+    Factory function to create AgentContractIntegration with appropriate client.
+    
+    Uses CLIContractClient if config.use_cli=True and CLI is available,
+    otherwise uses standard ContractClient (Web3-based).
+    """
+    if config.use_cli and CLI_AVAILABLE and CLIContractClient is not None:
+        logger.info("Using CLI-based contract client (no Web3 needed)")
+        contract_client = CLIContractClient(config, private_key)
+    else:
+        logger.info("Using Web3-based contract client")
+        contract_client = ContractClient(config, private_key)
+    
+    return AgentContractIntegration(contract_client)
