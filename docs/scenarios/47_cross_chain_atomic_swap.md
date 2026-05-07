@@ -49,6 +49,8 @@ A Hermes agent needs atomic swaps to:
 
 ## 📋 **Prerequisites**
 
+**⚠️ CLI Command Notice**: This scenario uses `aitbc contract call CrossChainAtomicSwap` commands (not `aitbc atomic-swap` which doesn't exist).
+
 ### **Knowledge Required**
 - Completed Scenario 01 (Wallet Basics)
 - Completed Scenario 20 (Cross-Chain Transfer)
@@ -65,6 +67,26 @@ A Hermes agent needs atomic swaps to:
 - Multiple blockchain nodes running (different chains)
 - Wallets on each chain with sufficient balance
 - CrossChainAtomicSwap contract deployed on each chain
+
+**⚠️ Contract Deployment Required:**
+Before running this scenario, you must deploy the CrossChainAtomicSwap contract on each chain:
+```bash
+# Deploy on source chain
+aitbc contract deploy \
+  --name CrossChainAtomicSwap \
+  --type atomic-swap \
+  --rpc-url http://localhost:8545 \
+  --password-file ~/.aitbc/wallets/mainnet-wallet.password
+
+# Deploy on destination chain
+aitbc contract deploy \
+  --name CrossChainAtomicSwap \
+  --type atomic-swap \
+  --rpc-url http://localhost:8546 \
+  --password-file ~/.aitbc/wallets/testnet-wallet.password
+```
+
+Save the contract addresses returned by deployment - you'll need them for the swap operations.
 
 ---
 
