@@ -222,12 +222,66 @@
             }
           }
         },
+        "integration_tests": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Integration test name"
+              },
+              "operations": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Operations to execute in sequence"
+              },
+              "cleanup": {
+                "type": "boolean",
+                "description": "Whether to cleanup after test",
+                "default": true
+              }
+            }
+          }
+        },
+        "coverage_target": {
+          "type": "number",
+          "description": "Target test coverage percentage",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "coverage_report": {
+          "type": "boolean",
+          "description": "Whether to generate coverage report",
+          "default": false
+        },
         "passing_score": {
           "type": "number",
           "description": "Minimum score percentage to pass",
           "minimum": 0,
           "maximum": 100,
           "default": 80
+        }
+      }
+    },
+    "mock_data": {
+      "type": "object",
+      "description": "Mock data for testing",
+      "properties": {
+        "wallets": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Mock wallet names"
+        },
+        "addresses": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Mock wallet addresses"
+        },
+        "transactions": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Mock transaction IDs"
         }
       }
     }
