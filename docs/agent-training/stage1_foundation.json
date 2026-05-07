@@ -1,6 +1,14 @@
 {
   "stage": "stage1_foundation",
   "agent_type": "general",
+  "scenarios": [
+    "01_wallet_basics.md",
+    "02_transaction_sending.md",
+    "03_genesis_deployment.md",
+    "04_messaging_basics.md",
+    "05_island_creation.md",
+    "06_basic_trading.md"
+  ],
   "training_data": {
     "prerequisites": {
       "description": "Stage 1 requires a configured mainnet environment with funded accounts and messaging authentication. Wallet creation stores keys locally but does not automatically register accounts on-chain. Transactions require sender accounts to exist and be funded on the blockchain.",

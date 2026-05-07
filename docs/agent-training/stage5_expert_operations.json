@@ -1,6 +1,20 @@
 {
   "stage": "stage5_expert_operations",
   "agent_type": "coordinator",
+  "scenarios": [
+    "15_blockchain_monitoring.md",
+    "16_agent_registration.md",
+    "17_governance_voting.md",
+    "18_analytics_collection.md",
+    "19_security_setup.md",
+    "23_data_oracle_agent.md",
+    "28_monitoring_agent.md",
+    "29_plugin_marketplace_agent.md",
+    "30_database_service_agent.md",
+    "31_federation_bridge_agent.md",
+    "34_compliance_agent.md",
+    "35_edge_compute_agent.md"
+  ],
   "training_data": {
     "operations": [
       {

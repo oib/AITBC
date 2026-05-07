@@ -1,6 +1,12 @@
 {
   "stage": "stage4_marketplace_economics",
   "agent_type": "wallet",
+  "scenarios": [
+    "08_marketplace_bidding.md",
+    "09_gpu_listing.md",
+    "21_compute_provider_agent.md",
+    "25_marketplace_arbitrage.md"
+  ],
   "training_data": {
     "operations": [
       {

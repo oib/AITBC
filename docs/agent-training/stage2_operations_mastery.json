@@ -1,6 +1,13 @@
 {
   "stage": "stage2_operations_mastery",
   "agent_type": "general",
+  "scenarios": [
+    "10_plugin_development.md",
+    "11_ipfs_storage.md",
+    "12_database_operations.md",
+    "13_mining_setup.md",
+    "14_staking_basics.md"
+  ],
   "training_data": {
     "prerequisites": {
       "description": "Stage 2 requires mining setup and network connectivity on mainnet. Mining operations require a funded wallet registered on-chain. Network operations require peer connectivity and synchronization.",
