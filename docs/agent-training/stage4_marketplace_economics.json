@@ -30,11 +30,26 @@
   "training_data": {
     "operations": [
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
         "operation": "market_gpu_register",
         "parameters": {
           "wallet": "training-wallet",
           "gpu_model": "RTX4090",
           "price": "0.5",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -62,8 +77,9 @@
         "operation": "market_bid",
         "parameters": {
           "wallet": "training-wallet",
-          "listing_id": "listing_*",
+          "gpu_id": "gpu_*",
           "bid_price": "0.6",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -91,7 +107,7 @@
         "operation": "market_buy",
         "parameters": {
           "wallet": "training-wallet",
-          "listing_id": "listing_*",
+          "gpu_id": "gpu_*",
           "password": "training123"
         },
         "expected_result": {
@@ -110,6 +126,7 @@
           "resource": "compute",
           "quantity": 1,
           "price": "0.1",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -119,6 +136,20 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["listing", "listing_id"]
+        }
+      },
+      {
+        "operation": "market_my-listings",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "listings": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["listings"]
         }
       },
       {
@@ -145,6 +176,21 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["distribution", "metrics"]
+        }
+      },
+      {
+        "operation": "economics_model",
+        "parameters": {
+          "model_type": "linear",
+          "features": ["price", "demand", "supply"]
+        },
+        "expected_result": {
+          "status": "success",
+          "prediction": "generated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["prediction", "model_id"]
         }
       }
     ]
