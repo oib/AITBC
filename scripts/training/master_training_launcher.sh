@@ -11,6 +11,8 @@ set -e
 # Training configuration
 TRAINING_PROGRAM="hermes AITBC Mastery Training"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+STAGE_DIR="$BASE_DIR/docs/agent-training"
 WALLET_NAME="hermes-trainee"
 
 # Initialize logging for master launcher
@@ -285,7 +287,7 @@ check_prerequisites() {
     # Run prerequisite validation
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Checking prerequisites for Stage $stage_num..."
-        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training" 2>/dev/null; then
+        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$STAGE_DIR" 2>/dev/null; then
             print_success "Prerequisites validated"
             return 0
         else
@@ -414,57 +416,56 @@ capture_learnings() {
 # View certificates
 view_certificates() {
     print_header "Stage Completion Certificates"
-    
-    # Ensure directory exists
-    mkdir -p "$CERT_DIR"
-    
-    # Debug: Show CERT_DIR
-    echo "Certificate directory: $CERT_DIR"
-    
-    # Check for certificates
+
+    # Ensure CERT_DIR exists
+    if [ ! -d "$CERT_DIR" ]; then
+        mkdir -p "$CERT_DIR"
+    fi
+
+    # Collect certificate files into array
     local cert_files=()
-    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
-        if [ -f "$cert_file" ]; then
-            cert_files+=("$cert_file")
-        fi
-    done
-    
-    echo "Found ${#cert_files[@]} certificate file(s)"
-    
-    if [ ${#cert_files[@]} -eq 0 ]; then
+    local cert_count=0
+
+    if [ -d "$CERT_DIR" ]; then
+        for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+            if [ -f "$cert_file" ]; then
+                cert_files+=("$cert_file")
+                ((cert_count++))
+            fi
+        done
+    fi
+
+    if [ $cert_count -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
-        echo "Directory contents:"
-        ls -la "$CERT_DIR" 2>/dev/null || echo "Directory not accessible"
         return 0
     fi
-    
+
     echo -e "${BOLD}📜 Certificates Earned:${NC}"
     echo
-    
-    local cert_count=0
-    for cert_file in "${cert_files[@]}"; do
-        if [ -f "$cert_file" ]; then
-            ((cert_count++))
-            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
-            local stage_name=$(get_stage_name $stage_num)
-            local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
-            
-            echo -e "${GREEN}✅${NC} Stage $stage_num: $stage_name"
-            echo "   Completed: $timestamp"
-            echo "   File: $cert_file"
-            echo
-        fi
+
+    # Display certificates with index
+    for i in "${!cert_files[@]}"; do
+        local cert_file="${cert_files[$i]}"
+        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+        local stage_name=$(get_stage_name $stage_num)
+        local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
+
+        echo -e "  ${GREEN}$(($i+1))${NC}. Stage $stage_num: $stage_name"
+        echo "     Completed: $timestamp"
+        echo "     File: $cert_file"
+        echo
     done
-    
+
     echo -e "${BOLD}Total certificates: $cert_count${NC}"
-    
+
     echo
-    echo -n "View certificate details? [1-$cert_count/N]: "
-    read -r view_choice || view_choice="N"
-    
+    echo -n "View certificate details? Enter number [1-$cert_count] or N: "
+    read -r view_choice
+
     if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
-        local cert_file="${cert_files[$((view_choice-1))]}"
+        local idx=$(($view_choice - 1))
+        local cert_file="${cert_files[$idx]}"
         if [ -f "$cert_file" ]; then
             echo
             echo -e "${BOLD}Certificate Details:${NC}"
@@ -581,7 +582,7 @@ check_all_prerequisites() {
     
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Running prerequisite validation..."
-        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training"
+        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$STAGE_DIR"
     else
         print_error "Prerequisite check script not found"
     fi
