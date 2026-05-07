@@ -367,16 +367,198 @@ class AgentContractIntegration:
         try:
             # Create event filter
             event_filter = contract.events[event_name].create_filter(from_block='latest')
-            
+
             # Poll for events
             while True:
                 for event in event_filter.get_new_entries():
                     await callback(event)
-                
+
                 await asyncio.sleep(2)
 
         except Exception as e:
             logger.error(f"Error listening to events: {e}")
+            raise
+
+    async def initiate_atomic_swap(
+        self,
+        swap_id: str,
+        token: str,
+        amount: int,
+        participant: str,
+        hashlock: str,
+        timelock: int,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Initiate atomic swap on CrossChainAtomicSwap contract"""
+        try:
+            # Load the atomic swap contract
+            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
+            atomic_swap_contract = self.contract_client.w3.eth.contract(
+                address=contract_address,
+                abi=atomic_swap_abi
+            )
+
+            # Build and send transaction
+            transaction = atomic_swap_contract.functions.initiateSwap(
+                swap_id,
+                token,
+                amount,
+                participant,
+                hashlock,
+                timelock
+            ).build_transaction({
+                'from': self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address,
+                'gas': 300000,
+                'gasPrice': self.contract_client.w3.eth.gas_price,
+                'nonce': self.contract_client.w3.eth.get_transaction_count(
+                    self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address
+                ),
+            })
+
+            # Sign transaction
+            signed_txn = self.contract_client.w3.eth.account.sign_transaction(transaction, self.contract_client.private_key)
+
+            # Send transaction
+            tx_hash = self.contract_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+            logger.info(f"Atomic swap initiated: {tx_hash.hex()}")
+
+            # Wait for confirmation
+            receipt = await self.contract_client.wait_for_transaction(tx_hash)
+
+            return {
+                "swap_id": swap_id,
+                "tx_hash": tx_hash.hex(),
+                "status": "OPEN" if receipt["status"] == 1 else "FAILED",
+                "block_number": receipt["blockNumber"]
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to initiate atomic swap: {e}")
+            raise
+
+    async def complete_atomic_swap(
+        self,
+        swap_id: str,
+        secret: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Complete atomic swap by revealing secret"""
+        try:
+            # Load the atomic swap contract
+            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
+            atomic_swap_contract = self.contract_client.w3.eth.contract(
+                address=contract_address,
+                abi=atomic_swap_abi
+            )
+
+            # Build and send transaction
+            transaction = atomic_swap_contract.functions.completeSwap(
+                swap_id,
+                secret
+            ).build_transaction({
+                'from': self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address,
+                'gas': 200000,
+                'gasPrice': self.contract_client.w3.eth.gas_price,
+                'nonce': self.contract_client.w3.eth.get_transaction_count(
+                    self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address
+                ),
+            })
+
+            # Sign transaction
+            signed_txn = self.contract_client.w3.eth.account.sign_transaction(transaction, self.contract_client.private_key)
+
+            # Send transaction
+            tx_hash = self.contract_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+            logger.info(f"Atomic swap completed: {tx_hash.hex()}")
+
+            # Wait for confirmation
+            receipt = await self.contract_client.wait_for_transaction(tx_hash)
+
+            return {
+                "swap_id": swap_id,
+                "tx_hash": tx_hash.hex(),
+                "status": "COMPLETED" if receipt["status"] == 1 else "FAILED",
+                "block_number": receipt["blockNumber"]
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to complete atomic swap: {e}")
+            raise
+
+    async def get_swap_status(
+        self,
+        swap_id: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Get status of an atomic swap"""
+        try:
+            # Load the atomic swap contract
+            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
+            atomic_swap_contract = self.contract_client.w3.eth.contract(
+                address=contract_address,
+                abi=atomic_swap_abi
+            )
+
+            # Call getSwapStatus method
+            status = atomic_swap_contract.functions.getSwapStatus(swap_id).call()
+
+            return {
+                "swap_id": swap_id,
+                "status": status
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get swap status: {e}")
+            raise
+
+    async def refund_atomic_swap(
+        self,
+        swap_id: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Refund atomic swap if timelock expired"""
+        try:
+            # Load the atomic swap contract
+            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
+            atomic_swap_contract = self.contract_client.w3.eth.contract(
+                address=contract_address,
+                abi=atomic_swap_abi
+            )
+
+            # Build and send transaction
+            transaction = atomic_swap_contract.functions.refundSwap(
+                swap_id
+            ).build_transaction({
+                'from': self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address,
+                'gas': 200000,
+                'gasPrice': self.contract_client.w3.eth.gas_price,
+                'nonce': self.contract_client.w3.eth.get_transaction_count(
+                    self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address
+                ),
+            })
+
+            # Sign transaction
+            signed_txn = self.contract_client.w3.eth.account.sign_transaction(transaction, self.contract_client.private_key)
+
+            # Send transaction
+            tx_hash = self.contract_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
+
+            logger.info(f"Atomic swap refunded: {tx_hash.hex()}")
+
+            # Wait for confirmation
+            receipt = await self.contract_client.wait_for_transaction(tx_hash)
+
+            return {
+                "swap_id": swap_id,
+                "tx_hash": tx_hash.hex(),
+                "status": "REFUNDED" if receipt["status"] == 1 else "FAILED",
+                "block_number": receipt["blockNumber"]
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to refund atomic swap: {e}")
             raise
 
 
