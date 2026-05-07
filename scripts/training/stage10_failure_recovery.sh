@@ -59,8 +59,8 @@ main() {
         
         # Output learnings for skill update
         output_stage_learnings 10 "Failure Recovery" \
-            "aitbc-cli blockchain transaction <tx_id> --verbose|aitbc-cli wallet nonce <wallet>|curl -s http://localhost:8006/health|aitbc-cli blockchain sync --status|systemctl status aitbc-blockchain-node.service|aitbc-cli wallet export <wallet> --backup|aitbc-cli blockchain mempool|aitbc-cli blockchain transaction <tx_id> --trace|tail -f /var/log/aitbc/blockchain-node.log" \
-            "Nonce too low: check current nonce and pending transactions|Insufficient funds: check balance and fees before transaction|Node health: check /health endpoint and systemctl status|Wallet backup: export wallet and backup keystore file|Network partition: check peer connections and sync status|Log monitoring: use grep ERROR or tail -f on /var/log/aitbc/" \
+            "aitbc-cli blockchain transaction <tx_id> --verbose|aitbc-cli wallet nonce <wallet>|curl -s http://localhost:8006/health|aitbc-cli blockchain sync --status|systemctl status aitbc-blockchain-node.service|aitbc-cli wallet export <wallet> --backup|aitbc-cli blockchain mempool|aitbc-cli blockchain transaction <tx_id> --trace|journalctl -fu aitbc-*|tail -f /var/log/aitbc/blockchain-node.log" \
+            "Nonce too low: check current nonce and pending transactions|Insufficient funds: check balance and fees before transaction|Node health: check /health endpoint and systemctl status|Wallet backup: export wallet and backup keystore file|Network partition: check peer connections and sync status|Log monitoring: use journalctl -fu aitbc-* or grep ERROR on /var/log/aitbc/" \
             "/var/lib/aitbc/keystore|/var/log/aitbc|/opt/aitbc/backups|/etc/aitbc/.env|/etc/aitbc/node.env" \
             "Transaction failure debugging|Node recovery procedures|Production monitoring|Backup and restore|Mempool inspection|Network partition handling"
         
