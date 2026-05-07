@@ -1,6 +1,9 @@
 {
   "stage": "stage5_expert_operations",
   "agent_type": "coordinator",
+  "difficulty": "advanced",
+  "estimated_time_minutes": 90,
+  "depends_on": ["stage3_ai_operations", "stage4_marketplace_economics"],
   "scenarios": [
     "15_blockchain_monitoring.md",
     "16_agent_registration.md",
