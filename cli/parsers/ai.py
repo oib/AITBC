@@ -78,3 +78,7 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         ai_stats_parser.add_argument("--chain-id", help="Chain ID")
         ai_stats_parser.add_argument("--rpc-url", default=ctx.default_rpc_url)
         ai_stats_parser.set_defaults(handler=ctx.handle_ai_stats)
+    
+        ai_distribution_stats_parser = ai_subparsers.add_parser("distribution-stats", help="Task distribution statistics from agent coordinator")
+        ai_distribution_stats_parser.add_argument("--coordinator-url", default=ctx.default_coordinator_url)
+        ai_distribution_stats_parser.set_defaults(handler=ctx.handle_ai_distribution_stats)
