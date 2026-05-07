@@ -40,20 +40,6 @@
   "training_data": {
     "operations": [
       {
-        "operation": "workflow_run",
-        "parameters": {
-          "workflow_id": "workflow_*"
-        },
-        "expected_result": {
-          "status": "success",
-          "execution": "started"
-        },
-        "success_criteria": {
-          "status": "success",
-          "response_fields": ["execution", "execution_id"]
-        }
-      },
-      {
         "operation": "workflow_create",
         "parameters": {
           "name": "training-workflow",
@@ -66,6 +52,20 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["workflow_id", "name"]
+        }
+      },
+      {
+        "operation": "workflow_run",
+        "parameters": {
+          "workflow_id": "workflow_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "execution": "started"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["execution", "execution_id"]
         }
       },
       {
@@ -304,20 +304,17 @@
         }
       },
       {
-        "operation": "governance_vote",
+        "operation": "wallet_balance",
         "parameters": {
-          "wallet": "training-wallet",
-          "proposal_id": "proposal_*",
-          "vote": "yes",
-          "password": "training123"
+          "wallet": "training-wallet"
         },
         "expected_result": {
           "status": "success",
-          "voted": true
+          "balance": ">0"
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["voted", "vote_id"]
+          "response_fields": ["balance", "symbol"]
         }
       },
       {
@@ -335,6 +332,23 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["proposed", "proposal_id"]
+        }
+      },
+      {
+        "operation": "governance_vote",
+        "parameters": {
+          "wallet": "training-wallet",
+          "proposal_id": "proposal_*",
+          "vote": "yes",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "voted": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["voted", "vote_id"]
         }
       },
       {
@@ -357,6 +371,7 @@
           "source_chain": "aitbc",
           "target_chain": "ethereum",
           "amount": "10",
+          "currency": "AIT",
           "wallet": "training-wallet"
         },
         "expected_result": {
@@ -366,6 +381,21 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["bridged", "bridge_tx_id"]
+        }
+      },
+      {
+        "operation": "island_create",
+        "parameters": {
+          "name": "test-island",
+          "description": "Test island for training"
+        },
+        "expected_result": {
+          "status": "success",
+          "created": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["created", "island_id"]
         }
       },
       {
