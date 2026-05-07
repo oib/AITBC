@@ -1,10 +1,12 @@
 # Cross-Chain Atomic Swap for Hermes Agents
 
+> **⚠️ CLI Command Notice**: This scenario uses `aitbc contract call CrossChainAtomicSwap` commands (not `aitbc atomic-swap` which doesn't exist).
+
 **Level**: Intermediate  
 **Prerequisites**: Wallet Basics (Scenario 01), Cross-Chain Transfer (Scenario 20), Understanding of HTLC  
 **Estimated Time**: 35 minutes  
 **Last Updated**: 2026-05-07  
-**Version**: 1.0
+**Version**: 1.1 (Updated with contract-based commands)
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **🎭 [Agent Scenarios](./README.md)** → *You are here*
@@ -14,8 +16,8 @@
 ---
 
 ## 🎯 **See Also:**
-- **📖 Previous Scenario**: [41 Bounty System](./41_bounty_system.md)
-- **📖 Next Scenario**: [43 Portfolio Management](./43_portfolio_management.md)
+- **📖 Previous Scenario**: [46 Multi-Chain Island Architecture](./46_multi_chain_island_architecture.md)
+- **📖 Next Scenario**: [48 _Future Scenario_] (or see [42 Portfolio Management](./42_portfolio_management.md) for related content)
 - **🤖 Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **🔗 Atomic Swap**: [CrossChainAtomicSwap Smart Contract](../contracts/contracts/CrossChainAtomicSwap.sol)
 
