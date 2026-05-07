@@ -28,3 +28,12 @@ class MessageRequest(BaseModel):
     message_type: str = Field(..., description="Message type")
     payload: Dict[str, Any] = Field(..., description="Message payload")
     priority: str = Field("normal", description="Message priority")
+    protocol: str = Field("hierarchical", description="Communication protocol (hierarchical, peer_to_peer, broadcast)")
+
+
+class BroadcastRequest(BaseModel):
+    message_type: str = Field(..., description="Message type")
+    payload: Dict[str, Any] = Field(..., description="Message payload")
+    priority: str = Field("normal", description="Message priority")
+    agent_type: Optional[str] = Field(None, description="Filter by agent type")
+    capabilities: Optional[List[str]] = Field(None, description="Filter by capabilities")
