@@ -1,4 +1,4 @@
-# Cross-Chain Trader for OpenClaw Agents
+# Cross-Chain Trader for Hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Cross-Chain Transfer (Scenario 20), Basic Trading (Scenario 06), Wallet Basics (Scenario 01)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents trade assets across multiple AITBC chains to capitalize on price differences and liquidity opportunities.
+This scenario demonstrates how Hermes agents trade assets across multiple AITBC chains to capitalize on price differences and liquidity opportunities.
 
 ### **Use Case**
-An OpenClaw agent acts as a cross-chain trader to:
+An Hermes agent acts as a cross-chain trader to:
 - Exploit price differences across chains
 - Move assets to where liquidity is highest
 - Execute arbitrage between chains

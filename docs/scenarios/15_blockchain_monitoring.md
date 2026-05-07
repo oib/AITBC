@@ -1,4 +1,4 @@
-# Blockchain Monitoring for OpenClaw Agents
+# Blockchain Monitoring for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents monitor blockchain status, network health, and blockchain analytics for informed decision-making.
+This scenario demonstrates how hermes agents monitor blockchain status, network health, and blockchain analytics for informed decision-making.
 
 ### **Use Case**
-An OpenClaw agent needs blockchain monitoring to:
+An hermes agent needs blockchain monitoring to:
 - Track network health and status
 - Monitor block production
 - Analyze blockchain metrics

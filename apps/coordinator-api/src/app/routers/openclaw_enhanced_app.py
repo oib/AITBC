@@ -1,7 +1,7 @@
 
 
 """
-OpenClaw Enhanced Service - FastAPI Entry Point
+hermes Enhanced Service - FastAPI Entry Point
 """
 
 from typing import Any
@@ -9,13 +9,13 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .openclaw_enhanced_health import router as health_router
-from .openclaw_enhanced_simple import router
+from .hermes_enhanced_health import router as health_router
+from .hermes_enhanced_simple import router
 
 app = FastAPI(
-    title="AITBC OpenClaw Enhanced Service",
+    title="AITBC hermes Enhanced Service",
     version="1.0.0",
-    description="OpenClaw integration with agent orchestration and edge computing",
+    description="hermes integration with agent orchestration and edge computing",
 )
 
 app.add_middleware(
@@ -35,7 +35,7 @@ app.include_router(health_router, tags=["health"])
 
 @app.get("/health")
 async def health() -> dict[str, str]:
-    return {"status": "ok", "service": "openclaw-enhanced"}
+    return {"status": "ok", "service": "hermes-enhanced"}
 
 
 @app.get("/health/detailed")
@@ -48,7 +48,7 @@ async def detailed_health() -> dict[str, Any]:
         
         return {
             "status": "healthy",
-            "service": "openclaw-enhanced",
+            "service": "hermes-enhanced",
             "port": 8014,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "python_version": "3.13.5",

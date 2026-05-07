@@ -1,7 +1,7 @@
-# OpenClaw Community & Governance Deployment Guide
+# hermes Community & Governance Deployment Guide
 
 ## 1. Overview
-This guide covers the deployment and initialization of the OpenClaw Community Platform and Decentralized Governance (DAO) systems implemented in Phase 10 (Weeks 13-18).
+This guide covers the deployment and initialization of the hermes Community Platform and Decentralized Governance (DAO) systems implemented in Phase 10 (Weeks 13-18).
 
 ## 2. Components Deployed
 1. **Developer Ecosystem**: Developer profiles, skills tracking, SDK releases.

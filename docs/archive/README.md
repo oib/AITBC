@@ -53,7 +53,7 @@ The archive is organized by content categories for easy access:
 ### **📑 Summaries** (`/summaries/`)
 - **Content**: Task completion summaries and handoffs
 - **Files**: 42 documents
-- **Topics**: CLI fixes, testing, OpenClaw, project organization, WebSocket backpressure
+- **Topics**: CLI fixes, testing, hermes, project organization, WebSocket backpressure
 - **Relevance**: Task completion tracking
 
 ### **� General** (`/general/`)

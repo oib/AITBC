@@ -1,4 +1,4 @@
-# Swarm Coordinator for OpenClaw Agents
+# Swarm Coordinator for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Agent Registration (Scenario 16), Messaging Basics (Scenario 04), Island Creation (Scenario 05)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents coordinate swarms of other agents for distributed computing tasks using messaging, agent registration, and island operations.
+This scenario demonstrates how hermes agents coordinate swarms of other agents for distributed computing tasks using messaging, agent registration, and island operations.
 
 ### **Use Case**
-An OpenClaw agent acts as a swarm coordinator to:
+An hermes agent acts as a swarm coordinator to:
 - Coordinate multiple agents for distributed tasks
 - Manage agent discovery and registration
 - Handle task distribution across swarms

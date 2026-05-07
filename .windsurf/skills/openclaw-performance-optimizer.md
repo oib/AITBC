@@ -1,13 +1,13 @@
 ---
-description: Atomic OpenClaw agent performance tuning and optimization with deterministic outputs
-title: openclaw-performance-optimizer
+description: Atomic Hermes agent performance tuning and optimization with deterministic outputs
+title: hermes-performance-optimizer
 version: 1.1
 ---
 
-# OpenClaw Performance Optimizer
+# Hermes Performance Optimizer
 
 ## Purpose
-Optimize agent performance, tune execution parameters, and improve efficiency for OpenClaw agents through systematic analysis and adjustment.
+Optimize agent performance, tune execution parameters, and improve efficiency for Hermes agents through systematic analysis and adjustment.
 
 ## Activation
 Trigger when user requests performance optimization: agent tuning, parameter adjustment, efficiency improvements, or performance benchmarking.

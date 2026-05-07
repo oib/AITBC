@@ -1,20 +1,20 @@
-# Cross-Node OpenClaw AITBC Skill Installation - Complete Success! 🚀
+# Cross-Node hermes AITBC Skill Installation - Complete Success! 🚀
 
-## ✅ OpenClaw AITBC Skill Successfully Installed on Both Nodes
+## ✅ hermes AITBC Skill Successfully Installed on Both Nodes
 
-I've successfully installed the OpenClaw AITBC skill on **both aitbc and aitbc1**, enabling true cross-node agent operations with your AITBC blockchain!
+I've successfully installed the hermes AITBC skill on **both aitbc and aitbc1**, enabling true cross-node agent operations with your AITBC blockchain!
 
 ### 🎯 **Installation Summary**
 
 #### **🤖 Primary Node (aitbc)**
-- **Skill Location**: `/root/.openclaw/skills/aitbc.md` + `aitbc.py`
-- **Configuration**: `/root/.openclaw/aitbc-config.json`
+- **Skill Location**: `/root/.hermes/skills/aitbc.md` + `aitbc.py`
+- **Configuration**: `/root/.hermes/aitbc-config.json`
 - **RPC Endpoint**: `http://localhost:8006` (local blockchain)
 - **Node Role**: Primary/Leader node
 
 #### **🤖 Follower Node (aitbc1)**
-- **Skill Location**: `~/.openclaw/skills/aitbc.md` + `aitbc.py`
-- **Configuration**: `~/.openclaw/aitbc-config.json`
+- **Skill Location**: `~/.hermes/skills/aitbc.md` + `aitbc.py`
+- **Configuration**: `~/.hermes/aitbc-config.json`
 - **RPC Endpoint**: `http://aitbc:8006` (connects to primary)
 - **Node Role**: Follower node
 
@@ -64,14 +64,14 @@ I've successfully installed the OpenClaw AITBC skill on **both aitbc and aitbc1*
 ```json
 {
   "success": true,
-  "output": "OpenClaw market:\n  Market Action: list\n  Agents:\n    - {'id': 'openclaw_001', 'name': 'Data Analysis Pro', 'price': 100, 'rating': 4.8}\n    - {'id': 'openclaw_002', 'name': 'Trading Expert', 'price': 250, 'rating': 4.6}\n    - {'id': 'openclaw_003', 'name': 'Content Creator', 'price': 75, 'rating': 4.9}\n  Total Available: 3"
+  "output": "hermes market:\n  Market Action: list\n  Agents:\n    - {'id': 'hermes_001', 'name': 'Data Analysis Pro', 'price': 100, 'rating': 4.8}\n    - {'id': 'hermes_002', 'name': 'Trading Expert', 'price': 250, 'rating': 4.6}\n    - {'id': 'hermes_003', 'name': 'Content Creator', 'price': 75, 'rating': 4.9}\n  Total Available: 3"
 }
 ```
 
 ### 🚀 **Cross-Node Agent Capabilities**
 
 #### **🤖 Agent Operations on Both Nodes**
-OpenClaw agents on **both aitbc and aitbc1** can now:
+hermes agents on **both aitbc and aitbc1** can now:
 
 ```bash
 # Blockchain Operations (both nodes)
@@ -98,10 +98,10 @@ Agents can now coordinate across nodes:
 
 ```bash
 # aitbc agent (primary)
-openclaw agent --agent main -m "Coordinate with aitbc1 agents for load balancing"
+hermes agent --agent main -m "Coordinate with aitbc1 agents for load balancing"
 
 # aitbc1 agent (follower)  
-openclaw agent --agent main -m "Report status to primary node and handle specialized tasks"
+hermes agent --agent main -m "Report status to primary node and handle specialized tasks"
 ```
 
 ### 🎯 **Architecture Overview**
@@ -112,7 +112,7 @@ openclaw agent --agent main -m "Report status to primary node and handle special
 │   aitbc (Primary)◄──────────────►│  aitbc1 (Follower)│
 │                 │                │                 │
 │ ┌─────────────┐ │                │ ┌─────────────┐ │
-│ │OpenClaw     │ │                │ │OpenClaw     │ │
+│ │hermes     │ │                │ │hermes     │ │
 │ │+ AITBC Skill│ │                │ │+ AITBC Skill│ │
 │ └─────────────┘ │                │ └─────────────┘ │
 │                 │                │                 │
@@ -126,7 +126,7 @@ openclaw agent --agent main -m "Report status to primary node and handle special
 #### **🔄 Data Flow**
 1. **Primary Node (aitbc)**: Hosts main blockchain, processes transactions
 2. **Follower Node (aitbc1)**: Connects to primary for blockchain data
-3. **OpenClaw Agents**: Run on both nodes, coordinate via AITBC skill
+3. **hermes Agents**: Run on both nodes, coordinate via AITBC skill
 4. **Marketplace**: Shared across both nodes
 5. **Resources**: Managed and allocated across nodes
 
@@ -138,7 +138,7 @@ openclaw agent --agent main -m "Report status to primary node and handle special
 aitbc workflow create --name "distributed-monitor" --template "multi-node"
 
 # aitbc1: Execute specialized tasks
-openclaw agent --agent specialist -m "Handle analytics tasks from primary"
+hermes agent --agent specialist -m "Handle analytics tasks from primary"
 
 # Coordination across nodes
 aitbc nodes sync --all
@@ -151,7 +151,7 @@ aitbc marketplace publish --agent-id "distributed-analyzer" --price 300
 
 # aitbc1: Purchase and deploy agent
 aitbc marketplace purchase --agent-id "distributed-analyzer" --price 300
-aitbc openclaw deploy --agent-file distributed.json --wallet user
+aitbc hermes deploy --agent-file distributed.json --wallet user
 ```
 
 #### **📊 Multi-Node Analytics**
@@ -194,7 +194,7 @@ aitbc nodes status --detailed
 
 ### 🎉 **Mission Accomplished!**
 
-The cross-node OpenClaw AITBC skill installation provides:
+The cross-node hermes AITBC skill installation provides:
 
 1. **✅ Dual Node Installation**: Skill working on both aitbc and aitbc1
 2. **✅ Cross-Node Coordination**: Agents can coordinate across nodes
@@ -207,7 +207,7 @@ The cross-node OpenClaw AITBC skill installation provides:
 
 Your multi-node AITBC network now has:
 
-- **🤖 Distributed AI Agents**: OpenClaw agents running on both nodes
+- **🤖 Distributed AI Agents**: hermes agents running on both nodes
 - **🌐 Cross-Node Coordination**: Agents working together across the network
 - **💰 Unified Token Economy**: Single marketplace accessible from both nodes
 - **⚡ Load Balancing**: Specialized tasks distributed for efficiency

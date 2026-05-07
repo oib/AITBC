@@ -3,8 +3,8 @@ from typing import Annotated
 from sqlalchemy.orm import Session
 
 """
-OpenClaw Enhanced API Router - Simplified Version
-REST API endpoints for OpenClaw integration features
+hermes Enhanced API Router - Simplified Version
+REST API endpoints for hermes integration features
 """
 
 from typing import Any
@@ -18,10 +18,10 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session
 
 from ..deps import require_admin_key
-from ..services.openclaw_enhanced_simple import OpenClawEnhancedService, SkillType
+from ..services.hermes_enhanced_simple import hermesEnhancedService, SkillType
 from ..storage import get_session
 
-router = APIRouter(prefix="/openclaw/enhanced", tags=["OpenClaw Enhanced"])
+router = APIRouter(prefix="/hermes/enhanced", tags=["hermes Enhanced"])
 
 
 class SkillRoutingRequest(BaseModel):
@@ -85,7 +85,7 @@ async def route_agent_skill(
     """Route agent skill to appropriate agent"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.route_agent_skill(
             skill_type=request.skill_type,
             requirements=request.requirements,
@@ -108,7 +108,7 @@ async def intelligent_job_offloading(
     """Intelligent job offloading strategies"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.offload_job_intelligently(
             job_data=request.job_data,
             cost_optimization=request.cost_optimization,
@@ -131,7 +131,7 @@ async def coordinate_agent_collaboration(
     """Agent collaboration and coordination"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.coordinate_agent_collaboration(
             task_data=request.task_data, agent_ids=request.agent_ids, coordination_algorithm=request.coordination_algorithm
         )
@@ -152,7 +152,7 @@ async def optimize_hybrid_execution(
     """Hybrid execution optimization"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.optimize_hybrid_execution(
             execution_request=request.execution_request, optimization_strategy=request.optimization_strategy
         )
@@ -173,7 +173,7 @@ async def deploy_to_edge(
     """Deploy agent to edge computing infrastructure"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.deploy_to_edge(
             agent_id=request.agent_id, edge_locations=request.edge_locations, deployment_config=request.deployment_config
         )
@@ -194,7 +194,7 @@ async def coordinate_edge_to_cloud(
     """Coordinate edge-to-cloud agent operations"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
+        enhanced_service = hermesEnhancedService(session)
         result = await enhanced_service.coordinate_edge_to_cloud(
             edge_deployment_id=request.edge_deployment_id, coordination_config=request.coordination_config
         )
@@ -207,19 +207,19 @@ async def coordinate_edge_to_cloud(
 
 
 @router.post("/ecosystem/develop")
-async def develop_openclaw_ecosystem(
+async def develop_hermes_ecosystem(
     request: EcosystemDevelopmentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:
-    """Build OpenClaw ecosystem components"""
+    """Build hermes ecosystem components"""
 
     try:
-        enhanced_service = OpenClawEnhancedService(session)
-        result = await enhanced_service.develop_openclaw_ecosystem(ecosystem_config=request.ecosystem_config)
+        enhanced_service = hermesEnhancedService(session)
+        result = await enhanced_service.develop_hermes_ecosystem(ecosystem_config=request.ecosystem_config)
 
         return result
 
     except Exception as e:
-        logger.error(f"Error developing OpenClaw ecosystem: {e}")
+        logger.error(f"Error developing hermes ecosystem: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-    console.log("🔍 Verifying OpenClaw Autonomous Economics Contracts");
+    console.log("🔍 Verifying Hermes Autonomous Economics Contracts");
     console.log("==============================================");
     
     const networkName = hre.network.name;

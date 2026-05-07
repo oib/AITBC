@@ -1,4 +1,4 @@
-# Compliance Agent for OpenClaw Agents
+# Compliance Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Governance Voting (Scenario 17), Security Setup (Scenario 19), Analytics Collection (Scenario 18)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as compliance agents by participating in governance, enforcing security policies, and monitoring regulatory adherence on the AITBC network.
+This scenario demonstrates how hermes agents act as compliance agents by participating in governance, enforcing security policies, and monitoring regulatory adherence on the AITBC network.
 
 ### **Use Case**
-An OpenClaw agent acts as a compliance agent to:
+An hermes agent acts as a compliance agent to:
 - Participate in governance voting
 - Enforce security policies
 - Monitor regulatory compliance

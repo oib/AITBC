@@ -1,8 +1,8 @@
-# OpenClaw AITBC Skill - Complete Integration Solution 🤖⛓️
+# hermes AITBC Skill - Complete Integration Solution 🤖⛓️
 
 ## ✅ Skill Successfully Created and Tested
 
-The OpenClaw AITBC skill has been successfully implemented and tested! This comprehensive skill provides seamless integration between OpenClaw agents and your multi-node AITBC blockchain.
+The hermes AITBC skill has been successfully implemented and tested! This comprehensive skill provides seamless integration between hermes agents and your multi-node AITBC blockchain.
 
 ### 🎯 **What the Skill Provides**
 
@@ -27,7 +27,7 @@ The OpenClaw AITBC skill has been successfully implemented and tested! This comp
 
 ### 📊 **Current Status (Verified Working)**
 
-**OpenClaw Integration:**
+**hermes Integration:**
 - ✅ Version: 2026.3.24 operational
 - ✅ Agents: 3 active agents (47 completed executions)
 - ✅ Performance: 3.2min average execution time
@@ -55,7 +55,7 @@ The OpenClaw AITBC skill has been successfully implemented and tested! This comp
 #### **1. Real-Time Blockchain Analysis**
 ```bash
 # Agent analyzing live blockchain data
-openclaw agent --agent main -m "Analyze AITBC blockchain health"
+hermes agent --agent main -m "Analyze AITBC blockchain health"
 # → Provides comprehensive blockchain health assessment
 ```
 
@@ -63,7 +63,7 @@ openclaw agent --agent main -m "Analyze AITBC blockchain health"
 ```bash
 # Create and sell agents for AIT tokens
 aitbc-cli agent create --name "blockchain-analyzer"
-aitbc-cli openclaw market --action publish --price 250
+aitbc-cli hermes market --action publish --price 250
 # → Agent sold for 250 AIT via blockchain transaction
 ```
 
@@ -77,7 +77,7 @@ aitbc-cli workflow run --name "multi-node-monitor" --async-exec
 #### **4. Cross-Node Coordination**
 ```bash
 # Coordinate agents across aitbc + aitbc1
-aitbc-cli openclaw deploy --agent-file config.json --wallet user
+aitbc-cli hermes deploy --agent-file config.json --wallet user
 # → Agents deployed and coordinated across both nodes
 ```
 
@@ -117,7 +117,7 @@ aitbc-cli resource allocate --agent-id agent_123 --cpu 2.0 --memory 4096
 ### 🌟 **Innovation Highlights**
 
 #### **🎯 Industry First**
-- **AI + Blockchain Integration**: OpenClaw agents directly integrated with AITBC
+- **AI + Blockchain Integration**: hermes agents directly integrated with AITBC
 - **Tokenized Agent Economy**: Agents bought/sold with blockchain tokens
 - **Multi-Node AI Coordination**: Agents working across blockchain nodes
 - **Automated Governance**: AI-driven blockchain management
@@ -139,13 +139,13 @@ aitbc-cli resource allocate --agent-id agent_123 --cpu 2.0 --memory 4096
 #### **Quick Start**
 ```bash
 # Complete setup
-/opt/aitbc/.windsurf/skills/openclaw-aitbc/setup.sh
+/opt/aitbc/.windsurf/skills/hermes-aitbc/setup.sh
 
 # Check status
-/opt/aitbc/.windsurf/skills/openclaw-aitbc/setup.sh status
+/opt/aitbc/.windsurf/skills/hermes-aitbc/setup.sh status
 
 # Run integration test
-/opt/aitbc/.windsurf/skills/openclaw-aitbc/setup.sh test
+/opt/aitbc/.windsurf/skills/hermes-aitbc/setup.sh test
 ```
 
 #### **Advanced Operations**
@@ -154,7 +154,7 @@ aitbc-cli resource allocate --agent-id agent_123 --cpu 2.0 --memory 4096
 aitbc-cli agent create --name "custom-analyzer" --verification full
 
 # Deploy across nodes
-aitbc-cli openclaw deploy --agent-file custom.json --wallet user
+aitbc-cli hermes deploy --agent-file custom.json --wallet user
 
 # Run workflow
 aitbc-cli workflow run --name "custom-workflow" --async-exec
@@ -165,9 +165,9 @@ aitbc-cli resource status --type all
 
 ### 🎉 **Mission Accomplished!**
 
-The OpenClaw AITBC skill provides:
+The hermes AITBC skill provides:
 
-1. **✅ Complete Integration**: Seamless OpenClaw + AITBC blockchain
+1. **✅ Complete Integration**: Seamless hermes + AITBC blockchain
 2. **✅ Agent Marketplace**: Tokenized agent economy with AIT payments
 3. **✅ Workflow Automation**: Intelligent blockchain management
 4. **✅ Multi-Node Support**: Cross-node agent coordination

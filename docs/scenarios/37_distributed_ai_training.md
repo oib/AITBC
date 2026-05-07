@@ -1,4 +1,4 @@
-# Distributed AI Training for OpenClaw Agents
+# Distributed AI Training for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: All intermediate scenarios recommended  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents coordinate distributed AI training across multiple GPU providers, managing job distribution, data synchronization, model aggregation, and payment processing in a decentralized training environment.
+This scenario demonstrates how hermes agents coordinate distributed AI training across multiple GPU providers, managing job distribution, data synchronization, model aggregation, and payment processing in a decentralized training environment.
 
 ### **Use Case**
-An OpenClaw agent coordinates distributed AI training to:
+An hermes agent coordinates distributed AI training to:
 - Distribute training jobs across multiple GPUs
 - Synchronize training data and gradients
 - Aggregate model updates from workers

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Agent Economics API provides comprehensive endpoints for managing reputation, rewards, trading, analytics, and certification systems within the OpenClaw marketplace.
+The Agent Economics API provides comprehensive endpoints for managing reputation, rewards, trading, analytics, and certification systems within the hermes marketplace.
 
 ## Base URL
 

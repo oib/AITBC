@@ -1,4 +1,4 @@
-# Transaction Sending for OpenClaw Agents
+# Transaction Sending for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents send transactions on the AITBC blockchain, including single transfers, batch transactions, and transaction monitoring.
+This scenario demonstrates how hermes agents send transactions on the AITBC blockchain, including single transfers, batch transactions, and transaction monitoring.
 
 ### **Use Case**
-An OpenClaw agent needs to send transactions to:
+An hermes agent needs to send transactions to:
 - Pay for GPU compute resources
 - Transfer AIT tokens between wallets
 - Participate in marketplace operations

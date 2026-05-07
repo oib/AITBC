@@ -105,8 +105,8 @@ class TestEnhancedServicesHealth:
                 "port": 8006,
                 "url": "http://localhost:8006",
             },
-            "openclaw_enhanced": {
-                "name": "OpenClaw Enhanced Service",
+            "hermes_enhanced": {
+                "name": "hermes Enhanced Service",
                 "port": 8007,
                 "url": "http://localhost:8007",
             }

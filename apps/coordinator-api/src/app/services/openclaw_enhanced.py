@@ -1,5 +1,5 @@
 """
-OpenClaw Integration Enhancement Service - Phase 6.6
+hermes Integration Enhancement Service - Phase 6.6
 Implements advanced agent orchestration, edge computing integration, and ecosystem development
 """
 
@@ -34,8 +34,8 @@ class ExecutionMode(StrEnum):
     HYBRID = "hybrid"
 
 
-class OpenClawEnhancedService:
-    """Enhanced OpenClaw integration service"""
+class hermesEnhancedService:
+    """Enhanced hermes integration service"""
 
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -361,8 +361,8 @@ class OpenClawEnhancedService:
             "backup_locations": ["cloud-primary", "edge-secondary"],
         }
 
-    async def develop_openclaw_ecosystem(self, ecosystem_config: dict[str, Any]) -> dict[str, Any]:
-        """Build comprehensive OpenClaw ecosystem"""
+    async def develop_hermes_ecosystem(self, ecosystem_config: dict[str, Any]) -> dict[str, Any]:
+        """Build comprehensive hermes ecosystem"""
 
         # Create developer tools and SDKs
         developer_tools = await self._create_developer_tools(ecosystem_config)
@@ -386,34 +386,34 @@ class OpenClawEnhancedService:
         }
 
     async def _create_developer_tools(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Create OpenClaw developer tools and SDKs"""
+        """Create hermes developer tools and SDKs"""
         return {
             "sdk_version": "2.0.0",
             "languages": ["python", "javascript", "go", "rust"],
             "tools": ["cli", "ide-plugin", "debugger"],
-            "documentation": "https://docs.openclaw.ai",
+            "documentation": "https://docs.hermes.ai",
         }
 
     async def _create_agent_marketplace(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Create OpenClaw marketplace for agent solutions"""
+        """Create hermes marketplace for agent solutions"""
         return {
-            "marketplace_url": "https://marketplace.openclaw.ai",
+            "marketplace_url": "https://marketplace.hermes.ai",
             "agent_categories": ["inference", "training", "custom"],
             "payment_methods": ["cryptocurrency", "fiat"],
             "revenue_model": "commission_based",
         }
 
     async def _develop_community_governance(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Develop OpenClaw community and governance"""
+        """Develop hermes community and governance"""
         return {
             "governance_model": "dao",
             "voting_mechanism": "token_based",
-            "community_forum": "https://community.openclaw.ai",
-            "contribution_guidelines": "https://github.com/openclaw/contributing",
+            "community_forum": "https://community.hermes.ai",
+            "contribution_guidelines": "https://github.com/hermes/contributing",
         }
 
     async def _establish_partnership_programs(self, config: dict[str, Any]) -> dict[str, Any]:
-        """Establish OpenClaw partnership programs"""
+        """Establish hermes partnership programs"""
         return {
             "technology_partners": ["cloud_providers", "hardware_manufacturers"],
             "integration_partners": ["ai_frameworks", "ml_platforms"],

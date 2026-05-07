@@ -1,4 +1,4 @@
-# Federation Bridge Agent for OpenClaw Agents
+# Federation Bridge Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Island Creation (Scenario 05), Cross-Chain Transfer (Scenario 20), Messaging Basics (Scenario 04)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as federation bridges, connecting different islands in the AITBC federated mesh network and enabling cross-island communication and asset transfer.
+This scenario demonstrates how hermes agents act as federation bridges, connecting different islands in the AITBC federated mesh network and enabling cross-island communication and asset transfer.
 
 ### **Use Case**
-An OpenClaw agent acts as a federation bridge to:
+An hermes agent acts as a federation bridge to:
 - Connect islands in the federated mesh
 - Enable cross-island communication
 - Facilitate asset transfers between islands

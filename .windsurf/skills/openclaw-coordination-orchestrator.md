@@ -1,13 +1,13 @@
 ---
-description: Atomic OpenClaw multi-agent workflow coordination with deterministic outputs
-title: openclaw-coordination-orchestrator
+description: Atomic hermes multi-agent workflow coordination with deterministic outputs
+title: hermes-coordination-orchestrator
 version: 1.1
 ---
 
-# OpenClaw Coordination Orchestrator
+# hermes Coordination Orchestrator
 
 ## Purpose
-Coordinate multi-agent workflows, manage agent task distribution, and orchestrate complex operations across multiple OpenClaw agents.
+Coordinate multi-agent workflows, manage agent task distribution, and orchestrate complex operations across multiple hermes agents.
 
 ## Activation
 Trigger when user requests multi-agent coordination: task distribution, workflow orchestration, agent collaboration, or parallel execution management.
@@ -77,7 +77,7 @@ Trigger when user requests multi-agent coordination: task distribution, workflow
 - **MUST** respect agent capacity limits
 
 ## Environment Assumptions
-- OpenClaw agents operational and accessible
+- hermes agents operational and accessible
 - Agent communication channels available
 - Task queue system functional
 - Agent status monitoring active

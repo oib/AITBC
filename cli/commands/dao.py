@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-OpenClaw DAO CLI Commands
+Hermes DAO CLI Commands
 Provides command-line interface for DAO governance operations
 """
 
@@ -14,7 +14,7 @@ from utils.config import load_config
 
 @click.group()
 def dao():
-    """OpenClaw DAO governance commands"""
+    """Hermes DAO governance commands"""
     pass
 
 @dao.command()
@@ -22,7 +22,7 @@ def dao():
 @click.option('--timelock-address', required=True, help='Timelock controller address')
 @click.option('--network', default='mainnet', help='Blockchain network')
 def deploy(token_address: str, timelock_address: str, network: str):
-    """Deploy OpenClaw DAO contract"""
+    """Deploy Hermes DAO contract"""
     try:
         w3 = get_web3_connection(network)
         config = load_config()
@@ -60,7 +60,7 @@ def deploy(token_address: str, timelock_address: str, network: str):
         # Wait for confirmation
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
         
-        click.echo(f"✅ OpenClaw DAO deployed at: {receipt.contractAddress}")
+        click.echo(f"✅ Hermes DAO deployed at: {receipt.contractAddress}")
         click.echo(f"📦 Transaction hash: {tx_hash.hex()}")
         
     except Exception as e:
@@ -87,7 +87,7 @@ def propose(dao_address: str, targets: str, values: str, calldatas: str,
         calldata_list = calldatas.split(',')
         
         # Get contract
-        dao_contract = get_contract(dao_address, "OpenClawDAO")
+        dao_contract = get_contract(dao_address, "HermesDAO")
         
         # Build transaction
         tx = dao_contract.functions.propose(
@@ -137,7 +137,7 @@ def vote(dao_address: str, proposal_id: int):
         config = load_config()
         
         # Get contract
-        dao_contract = get_contract(dao_address, "OpenClawDAO")
+        dao_contract = get_contract(dao_address, "HermesDAO")
         
         # Check proposal state
         state = dao_contract.functions.state(proposal_id).call()
@@ -196,7 +196,7 @@ def execute(dao_address: str, proposal_id: int):
         config = load_config()
         
         # Get contract
-        dao_contract = get_contract(dao_address, "OpenClawDAO")
+        dao_contract = get_contract(dao_address, "HermesDAO")
         
         # Check proposal state
         state = dao_contract.functions.state(proposal_id).call()
@@ -228,7 +228,7 @@ def list_proposals(dao_address: str):
     """List all proposals"""
     try:
         w3 = get_web3_connection()
-        dao_contract = get_contract(dao_address, "OpenClawDAO")
+        dao_contract = get_contract(dao_address, "HermesDAO")
         
         # Get proposal count
         proposal_count = dao_contract.functions.proposalCount().call()
@@ -277,7 +277,7 @@ def status(dao_address: str):
     """Show DAO status and statistics"""
     try:
         w3 = get_web3_connection()
-        dao_contract = get_contract(dao_address, "OpenClawDAO")
+        dao_contract = get_contract(dao_address, "HermesDAO")
         
         # Get DAO info
         token_address = dao_contract.functions.governanceToken().call()
@@ -289,7 +289,7 @@ def status(dao_address: str):
         # Get active proposals
         active_proposals = dao_contract.functions.getActiveProposals().call()
         
-        click.echo("🏛️ OpenClaw DAO Status")
+        click.echo("🏛️ Hermes DAO Status")
         click.echo("=" * 40)
         click.echo(f"📊 Total Supply: {total_supply / 1e18:.2f} tokens")
         click.echo(f"📋 Total Proposals: {proposal_count}")

@@ -310,4 +310,4 @@ sudo systemctl restart aitbc-blockchain
 ---
 
 **Dependencies**: None (base module)  
-**Next Module**: [OpenClaw Agent Testing](test-openclaw-agents.md) or [AI Operations Testing](test-ai-operations.md)
+**Next Module**: [hermes Agent Testing](test-hermes-agents.md) or [AI Operations Testing](test-ai-operations.md)

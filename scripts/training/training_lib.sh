@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenClaw AITBC Training - Common Library
+# hermes AITBC Training - Common Library
 # Shared functions and utilities for all training stage scripts
 
 # Version: 1.0
@@ -16,7 +16,7 @@ REPO_ROOT="$(cd "${TRAINING_LIB_DIR}/../.." && pwd)"
 # Default configuration (can be overridden)
 export CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 export LOG_DIR="${LOG_DIR:-/var/log/aitbc}"
-export WALLET_NAME="${WALLET_NAME:-openclaw-trainee}"
+export WALLET_NAME="${WALLET_NAME:-hermes-trainee}"
 export WALLET_PASSWORD="${WALLET_PASSWORD:-trainee123}"
 export TRAINING_TIMEOUT="${TRAINING_TIMEOUT:-300}"
 export GENESIS_NODE="http://localhost:8006"

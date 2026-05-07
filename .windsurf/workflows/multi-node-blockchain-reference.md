@@ -344,7 +344,7 @@ sudo sysctl -p
 ```bash
 # Use session IDs for agent workflows
 SESSION_ID="task-$(date +%s)"
-openclaw agent --agent main --session-id $SESSION_ID --message "Task description"
+hermes agent --agent main --session-id $SESSION_ID --message "Task description"
 
 # Always verify transactions
 ./aitbc-cli wallet transactions wallet-name --limit 5

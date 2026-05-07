@@ -32,7 +32,7 @@ source /opt/aitbc/venv/bin/activate    # Uses MAIN venv
 python /opt/aitbc/cli/aitbc_cli.py "$@"
 ```
 
-#### **✅ OpenClaw AITBC Skill (Both Nodes)**
+#### **✅ hermes AITBC Skill (Both Nodes)**
 ```python
 # Uses the CLI script which activates the main venv
 full_command = ["/opt/aitbc/aitbc-cli"] + command
@@ -45,7 +45,7 @@ full_command = ["/opt/aitbc/aitbc-cli"] + command
 /opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury, aitbc-user
 
-OpenClaw skill working:
+hermes skill working:
 {
   "success": true,
   "output": "Wallets:\n  aitbc1genesis: ait1a8gfx5u6kvnsptq66vyvrzn6hy9u6rgpd6xsqxypfq23p92kh2tsuptunl..."
@@ -57,7 +57,7 @@ OpenClaw skill working:
 /opt/aitbc/aitbc-cli wallet list
 # → Wallets: aitbc1genesis, aitbc1treasury
 
-OpenClaw skill working:
+hermes skill working:
 {
   "success": true,
   "output": "Wallets:\n  aitbc1genesis: ait1qrszvlfgrywveadvj4kcrrj8jj7rvrr7mahntvjwypextlxgduzsz62cmk..."
@@ -84,7 +84,7 @@ OpenClaw skill working:
 #### **✅ Consistency**
 - **Both Nodes**: Identical setup and configuration
 - **CLI Operations**: Same behavior across nodes
-- **OpenClaw Skill**: Consistent integration
+- **hermes Skill**: Consistent integration
 
 ### 🎯 **Current Architecture**
 
@@ -119,7 +119,7 @@ OpenClaw skill working:
 2. **Main Venv**: Single environment at `/opt/aitbc/venv`
 3. **CLI Script**: `/opt/aitbc/aitbc-cli` activates main venv
 4. **CLI Code**: `/opt/aitbc/cli/aitbc_cli.py` uses main venv
-5. **OpenClaw Skill**: Uses CLI script which uses main venv
+5. **hermes Skill**: Uses CLI script which uses main venv
 
 ### 🚀 **Cross-Node Consistency**
 
@@ -127,7 +127,7 @@ OpenClaw skill working:
 - **aitbc**: Uses main requirements.txt and main venv
 - **aitbc1**: Uses main requirements.txt and main venv
 - **CLI Operations**: Identical behavior
-- **OpenClaw Integration**: Consistent across nodes
+- **hermes Integration**: Consistent across nodes
 
 #### **✅ Deployment Simplicity**
 ```bash
@@ -147,7 +147,7 @@ The final CLI consolidation provides:
 3. **✅ No Duplication**: No separate CLI dependencies or environments
 4. **✅ Simplified Management**: One source of truth for dependencies
 5. **✅ Cross-Node Consistency**: Both nodes identical
-6. **✅ Full Functionality**: All CLI and OpenClaw operations working
+6. **✅ Full Functionality**: All CLI and hermes operations working
 
 ### 🌟 **Final State Summary**
 
@@ -163,7 +163,7 @@ The final CLI consolidation provides:
 
 #### **🎯 Perfect Integration**
 - **CLI Operations**: Working perfectly on both nodes
-- **OpenClaw Skill**: Working perfectly on both nodes
+- **hermes Skill**: Working perfectly on both nodes
 - **Dependencies**: Single source of truth
 - **Environment**: Single virtual environment
 

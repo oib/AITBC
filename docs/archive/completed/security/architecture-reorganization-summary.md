@@ -28,7 +28,7 @@
 │   ├── Modality Optimization (Port 8004)
 │   ├── Adaptive Learning (Port 8005)
 │   ├── Marketplace Enhanced (Port 8006)
-│   ├── OpenClaw Enhanced (Port 8007)
+│   ├── hermes Enhanced (Port 8007)
 + │   └── Web UI (Port 8009)
 ```
 
@@ -51,7 +51,7 @@ Enhanced Services (Ports 8002-8007)
 ├── Modality Optimization (Port 8004)
 ├── Adaptive Learning (Port 8005)
 ├── Marketplace Enhanced (Port 8006)
-└── OpenClaw Enhanced (Port 8007)
+└── hermes Enhanced (Port 8007)
 ```
 
 ### **After Update**
@@ -68,7 +68,7 @@ Enhanced Services (Ports 8002-8009)
 ├── Modality Optimization (Port 8004)
 ├── Adaptive Learning (Port 8005)
 ├── Marketplace Enhanced (Port 8006)
-├── OpenClaw Enhanced (Port 8007)
+├── hermes Enhanced (Port 8007)
 └── Web UI (Port 8009)  ← Now with 8000+ port services
 ```
 
@@ -107,7 +107,7 @@ Enhanced Services (Ports 8002-8009)
 - **Modality Optimization (Port 8004)**: Service optimization
 - **Adaptive Learning (Port 8005)**: Machine learning capabilities
 - **Marketplace Enhanced (Port 8006)**: Enhanced marketplace features
-- **OpenClaw Enhanced (Port 8007)**: Advanced OpenClaw integration
+- **hermes Enhanced (Port 8007)**: Advanced hermes integration
 - **Web UI (Port 8009)**: User interface and web portal
 
 ---
@@ -146,7 +146,7 @@ Enhanced Services (7 services):
 - Modality Optimization (Port 8004)
 - Adaptive Learning (Port 8005)
 - Marketplace Enhanced (Port 8006)
-- OpenClaw Enhanced (Port 8007)
+- hermes Enhanced (Port 8007)
 - Web UI (Port 8009)
 ```
 

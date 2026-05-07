@@ -14,7 +14,7 @@
 ├── 🏠 README.md                    # Main documentation entry point
 ├── 🧭 MASTER_INDEX.md              # This file - complete catalog
 ├── 📖 about/                       # Documentation standards, audits, and remediation notes
-├── 🤖 agent-sdk/                   # OpenClaw agent communication SDK documentation
+├── 🤖 agent-sdk/                   # hermes agent communication SDK documentation
 ├── 🤖 agents/                      # Agent documentation and integration assets
 ├── 📱 apps/                        # Applications documentation (72 items)
 ├── 🏗️ architecture/                # System architecture and design patterns
@@ -29,13 +29,13 @@
 ├── 📖 guides/                     # Getting started guides (6 items)
 ├── 🏗️ infrastructure/              # System infrastructure documentation (11 items)
 ├── ⛏️ mining/                     # Mining operations documentation (8 items)
-├── 🧩 openclaw/                   # OpenClaw agent integration documentation (19 items)
+├── 🧩 hermes/                   # hermes agent integration documentation (19 items)
 ├── 📦 packages/                   # Language-specific packages and SDKs (1 item)
 ├── 📋 project/                    # Project documentation (28 items)
 ├── 📖 reference/                  # Compact lookup and reference docs (22 items)
 ├── 📋 releases/                   # Release notes and version history (7 items)
 ├── 📊 reports/                    # Status, quality, and completion reports (29 items)
-├── 🎭 scenarios/                  # OpenClaw agent scenarios (49 items)
+├── 🎭 scenarios/                  # hermes agent scenarios (49 items)
 ├── 🔒 security/                   # Security documentation (20 items)
 ├── 🧪 testing/                    # Test suite documentation (7 items)
 ├── 🌐 website                     # Symlink to /website/docs/
@@ -50,7 +50,7 @@
 - **Total Files**: 600+ markdown files
 - **Archive Items**: 228 historical documents
 - **Apps Documentation**: 72 items
-- **Scenarios**: 49 OpenClaw agent scenarios
+- **Scenarios**: 49 hermes agent scenarios
 
 ---
 
@@ -71,7 +71,7 @@ Documentation about the documentation system itself
 - **[Sorting Summary](about/DOCUMENTATION_SORTING_SUMMARY.md)** - Documentation sorting and organization
 
 ### 🤖 Agent Documentation
-- **[Agent SDK](agent-sdk/)** - OpenClaw agent communication SDK (10 items)
+- **[Agent SDK](agent-sdk/)** - hermes agent communication SDK (10 items)
   - [Agent Communication Guide](agent-sdk/AGENT_COMMUNICATION_GUIDE.md)
   - [Quick Start Guide](agent-sdk/QUICK_START_GUIDE.md)
   - [API Reference](agent-sdk/API_REFERENCE.md)
@@ -136,8 +136,8 @@ Documentation about the documentation system itself
 ### ⛏️ Mining Documentation
 - **[Mining](mining/)** - Mining operations documentation (8 items)
 
-### 🧩 OpenClaw Documentation
-- **[OpenClaw](openclaw/)** - OpenClaw agent integration documentation (19 items)
+### 🧩 hermes Documentation
+- **[hermes](hermes/)** - hermes agent integration documentation (19 items)
 
 ### 📦 Packages Documentation
 - **[Packages](packages/)** - Language-specific packages and SDKs (1 item)
@@ -170,7 +170,7 @@ Documentation about the documentation system itself
   - [github-resolution/](reports/github-resolution/) - GitHub PR resolution and updates
 
 ### 🎭 Scenarios Documentation
-- **[Scenarios](scenarios/)** - OpenClaw agent scenarios (49 items)
+- **[Scenarios](scenarios/)** - hermes agent scenarios (49 items)
   - 45 scenarios covering all AITBC features
   - Beginner (20 scenarios), Intermediate (15 scenarios), Advanced (10 scenarios)
 
@@ -214,7 +214,7 @@ All cross-references have been updated to reflect these changes.
 - **New Users**: Start with [Getting Started Guides](guides/getting-started/)
 - **Developers**: Review [Project Structure](project/) and [Blockchain](blockchain/) documentation
 - **System Administrators**: Check [Deployment](deployment/) and [Security](security/) documentation
-- **OpenClaw Agents**: See [Agent SDK](agent-sdk/) and [Scenarios](scenarios/) documentation
+- **hermes Agents**: See [Agent SDK](agent-sdk/) and [Scenarios](scenarios/) documentation
 - **Historical Reference**: Browse [Archive](archive/) for completed work and historical documents
 
 ---

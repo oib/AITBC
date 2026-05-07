@@ -15,7 +15,7 @@
 - **Multi-node federation** with independent islands and hub discovery
 
 ### AI & Agent Systems
-- **OpenClaw agent communication** with blockchain integration
+- **Hermes agent communication** with blockchain integration
 - **AI engine** for autonomous agent operations
 - **Agent services** including registry, compliance, protocols, and trading
 - **Agent daemon** with systemd integration

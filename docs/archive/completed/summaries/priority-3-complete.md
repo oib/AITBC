@@ -51,7 +51,7 @@ Coordinator proxy healthy: http://127.0.0.1:8000/v1/health
 ✅ Port 8012: Modality Optimization Service
 ✅ Port 8013: Adaptive Learning Service
 ✅ Port 8014: Marketplace Enhanced Service
-✅ Port 8015: OpenClaw Enhanced Service
+✅ Port 8015: hermes Enhanced Service
 ✅ Port 8016: Web UI Service
 ```
 
@@ -88,7 +88,7 @@ Coordinator proxy healthy: http://127.0.0.1:8000/v1/health
 ✅ Port 8012: Modality Optimization - WORKING
 ✅ Port 8013: Adaptive Learning - WORKING
 ✅ Port 8014: Marketplace Enhanced - WORKING
-✅ Port 8015: OpenClaw Enhanced - WORKING
+✅ Port 8015: hermes Enhanced - WORKING
 ✅ Port 8016: Web UI - WORKING
 
 # Old Ports Decommissioned:

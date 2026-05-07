@@ -76,13 +76,13 @@ EOF
 
 echo "✅ Real mining service created"
 
-# Step 2: OpenClaw AI Service
-echo -e "${CYAN}🤖 Step 2: OpenClaw AI Service${NC}"
+# Step 2: hermes AI Service
+echo -e "${CYAN}🤖 Step 2: hermes AI Service${NC}"
 echo "=============================="
 
-cat > /opt/aitbc/systemd/aitbc-openclaw-ai.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-hermes-ai.service << 'EOF'
 [Unit]
-Description=AITBC OpenClaw AI Service
+Description=AITBC hermes AI Service
 After=network.target aitbc-mining-blockchain.service
 
 [Service]
@@ -95,8 +95,8 @@ Environment=NODE_ID=aitbc
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
-# OpenClaw AI execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/openclaw_ai.py
+# hermes AI execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/hermes_ai.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=10
@@ -110,13 +110,13 @@ StartLimitIntervalSec=60
 # AI logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-openclaw-ai
+SyslogIdentifier=aitbc-hermes-ai
 
 # AI security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/openclaw /opt/aitbc/production/logs/openclaw
+ReadWritePaths=/opt/aitbc/production/data/hermes /opt/aitbc/production/logs/hermes
 
 # AI performance
 LimitNOFILE=65536
@@ -128,7 +128,7 @@ CPUQuota=60%
 WantedBy=multi-user.target
 EOF
 
-echo "✅ OpenClaw AI service created"
+echo "✅ hermes AI service created"
 
 # Step 3: Real Marketplace Service
 echo -e "${CYAN}🏪 Step 3: Real Marketplace Service${NC}"
@@ -137,7 +137,7 @@ echo "=============================="
 cat > /opt/aitbc/systemd/aitbc-real-marketplace.service << 'EOF'
 [Unit]
 Description=AITBC Real Marketplace with AI Services
-After=network.target aitbc-mining-blockchain.service aitbc-openclaw-ai.service
+After=network.target aitbc-mining-blockchain.service aitbc-hermes-ai.service
 
 [Service]
 Type=simple
@@ -191,7 +191,7 @@ echo "============================"
 
 # Copy services to systemd
 cp /opt/aitbc/systemd/aitbc-mining-blockchain.service /etc/systemd/system/
-cp /opt/aitbc/systemd/aitbc-openclaw-ai.service /etc/systemd/system/
+cp /opt/aitbc/systemd/aitbc-hermes-ai.service /etc/systemd/system/
 cp /opt/aitbc/systemd/aitbc-real-marketplace.service /etc/systemd/system/
 
 # Reload systemd
@@ -199,14 +199,14 @@ systemctl daemon-reload
 
 # Enable services
 systemctl enable aitbc-mining-blockchain.service
-systemctl enable aitbc-openclaw-ai.service
+systemctl enable aitbc-hermes-ai.service
 systemctl enable aitbc-real-marketplace.service
 
 # Start services
 echo "Starting real production services..."
 systemctl start aitbc-mining-blockchain.service
 sleep 3
-systemctl start aitbc-openclaw-ai.service
+systemctl start aitbc-hermes-ai.service
 sleep 3
 systemctl start aitbc-real-marketplace.service
 
@@ -214,7 +214,7 @@ systemctl start aitbc-real-marketplace.service
 echo "Checking service status..."
 systemctl status aitbc-mining-blockchain.service --no-pager -l | head -8
 echo ""
-systemctl status aitbc-openclaw-ai.service --no-pager -l | head -8
+systemctl status aitbc-hermes-ai.service --no-pager -l | head -8
 echo ""
 systemctl status aitbc-real-marketplace.service --no-pager -l | head -8
 
@@ -240,15 +240,15 @@ else
     tail -10 /tmp/mining_test.log
 fi
 
-# Test OpenClaw AI
-echo "Testing OpenClaw AI..."
-python production/services/openclaw_ai.py > /tmp/openclaw_test.log 2>&1
+# Test hermes AI
+echo "Testing hermes AI..."
+python production/services/hermes_ai.py > /tmp/hermes_test.log 2>&1
 if [ $? -eq 0 ]; then
-    echo "✅ OpenClaw AI test passed"
-    head -10 /tmp/openclaw_test.log
+    echo "✅ hermes AI test passed"
+    head -10 /tmp/hermes_test.log
 else
-    echo "❌ OpenClaw AI test failed"
-    tail -10 /tmp/openclaw_test.log
+    echo "❌ hermes AI test failed"
+    tail -10 /tmp/hermes_test.log
 fi
 
 # Test real marketplace
@@ -264,13 +264,13 @@ echo "=========================="
 echo "Copying real production system to aitbc1..."
 scp -r /opt/aitbc/production/services aitbc1:/opt/aitbc/production/
 scp /opt/aitbc/systemd/aitbc-mining-blockchain.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-openclaw-ai.service aitbc1:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-hermes-ai.service aitbc1:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-real-marketplace.service aitbc1:/opt/aitbc/systemd/
 
 # Configure services for aitbc1
 echo "Configuring services for aitbc1..."
 ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-openclaw-ai.service"
+ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-hermes-ai.service"
 ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
 
 # Update ports for aitbc1
@@ -280,17 +280,17 @@ ssh aitbc1 "sed -i 's/REAL_MARKETPLACE_PORT=8006/REAL_MARKETPLACE_PORT=8007/g' /
 echo "Starting services on aitbc1..."
 ssh aitbc1 "cp /opt/aitbc/systemd/aitbc-*.service /etc/systemd/system/"
 ssh aitbc1 "systemctl daemon-reload"
-ssh aitbc1 "systemctl enable aitbc-mining-blockchain.service aitbc-openclaw-ai.service aitbc-real-marketplace.service"
+ssh aitbc1 "systemctl enable aitbc-mining-blockchain.service aitbc-hermes-ai.service aitbc-real-marketplace.service"
 ssh aitbc1 "systemctl start aitbc-mining-blockchain.service"
 sleep 3
-ssh aitbc1 "systemctl start aitbc-openclaw-ai.service"
+ssh aitbc1 "systemctl start aitbc-hermes-ai.service"
 sleep 3
 ssh aitbc1 "systemctl start aitbc-real-marketplace.service"
 
 # Check aitbc1 services
 echo "Checking aitbc1 services..."
 ssh aitbc1 "systemctl status aitbc-mining-blockchain.service --no-pager -l | head -5"
-ssh aitbc1 "systemctl status aitbc-openclaw-ai.service --no-pager -l | head -5"
+ssh aitbc1 "systemctl status aitbc-hermes-ai.service --no-pager -l | head -5"
 ssh aitbc1 "curl -s http://localhost:8007/health | head -5" || echo "aitbc1 marketplace not ready"
 
 # Step 7: Demonstrate real functionality
@@ -339,14 +339,14 @@ echo "   • Multi-chain support (main + GPU chains)"
 echo "   • Real coin generation: 50 AITBC (main), 25 AITBC (GPU)"
 echo "   • Cross-chain trading capabilities"
 echo ""
-echo "✅ OpenClaw AI Integration:"
+echo "✅ hermes AI Integration:"
 echo "   • Real AI agents: text generation, research, trading"
 echo "   • Llama2 models: 7B, 13B parameters"
 echo "   • Task execution with real results"
 echo "   • Marketplace integration with payments"
 echo ""
 echo "✅ Real Commercial Marketplace:"
-echo "   • OpenClaw AI services (5-15 AITBC per task)"
+echo "   • hermes AI services (5-15 AITBC per task)"
 echo "   • Ollama inference tasks (3-5 AITBC per task)"
 echo "   • Real commercial activity and transactions"
 echo "   • Payment processing via blockchain"
@@ -368,14 +368,14 @@ echo "   • aitbc1: http://aitbc1:8007/health"
 echo ""
 echo "✅ Monitoring:"
 echo "   • Mining logs: journalctl -u aitbc-mining-blockchain"
-echo "   • AI logs: journalctl -u aitbc-openclaw-ai"
+echo "   • AI logs: journalctl -u aitbc-hermes-ai"
 echo "   • Marketplace logs: journalctl -u aitbc-real-marketplace"
 echo ""
 echo -e "${BLUE}🚀 REAL PRODUCTION SYSTEM IS LIVE!${NC}"
 echo ""
 echo "🎉 AITBC is now a REAL production system with:"
 echo "   • Real blockchain mining and coin generation"
-echo "   • Real OpenClaw AI agents and services"
+echo "   • Real hermes AI agents and services"
 echo "   • Real commercial marketplace with transactions"
 echo "   • Multi-chain support and cross-chain trading"
 echo "   • Multi-node deployment and coordination"

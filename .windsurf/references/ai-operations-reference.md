@@ -9,7 +9,7 @@ This reference guide covers AI operations in the AITBC blockchain network, inclu
 - [Marketplace Operations](#marketplace-operations)
 - [GPU Provider Marketplace](#gpu-provider-marketplace)
 - [Agent AI Workflows](#agent-ai-workflows)
-- [OpenClaw Agent Coordination](#openclaw-agent-coordination)
+- [Hermes Agent Coordination](#hermes-agent-coordination)
 - [Cross-Node AI Coordination](#cross-node-ai-coordination)
 - [Blockchain Integration](#blockchain-integration)
 - [AI Economics and Pricing](#ai-economics-and-pricing)
@@ -245,44 +245,44 @@ python3 /opt/aitbc/plugins/ollama/client_plugin.py --model llama2 --prompt "Gene
 ./aitbc-cli agent execute --name "ai-coordinator" --wallet genesis-ops --priority high
 ```
 
-## OpenClaw Agent Coordination
+## Hermes Agent Coordination
 
 > **Canonical validation**: Use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) and `scripts/workflow/44_comprehensive_multi_node_scenario.sh` for the current 3-node test path.
 
-### OpenClaw AI Agent Setup
+### Hermes AI Agent Setup
 ```bash
-# Initialize OpenClaw AI agent
-openclaw agent init --name ai-inference-agent --type ai-worker
+# Initialize Hermes AI agent
+hermes agent init --name ai-inference-agent --type ai-worker
 
 # Configure agent for AI operations
-openclaw agent configure --name ai-inference-agent --ai-model "llama2" --gpu-requirement 1
+hermes agent configure --name ai-inference-agent --ai-model "llama2" --gpu-requirement 1
 
 # Deploy agent to node
-openclaw agent deploy --name ai-inference-agent --target-node aitbc1
+hermes agent deploy --name ai-inference-agent --target-node aitbc1
 ```
 
-### OpenClaw AI Workflows
+### Hermes AI Workflows
 ```bash
-# Execute AI workflow via OpenClaw
-openclaw execute --agent AI-InferenceAgent --task run_inference --prompt "Generate image" --model "stable-diffusion"
+# Execute AI workflow via Hermes
+hermes execute --agent AI-InferenceAgent --task run_inference --prompt "Generate image" --model "stable-diffusion"
 
 # Coordinate multi-agent AI pipeline
-openclaw execute --agent CoordinatorAgent --task ai_pipeline --workflow "preprocess->inference->postprocess"
+hermes execute --agent CoordinatorAgent --task ai_pipeline --workflow "preprocess->inference->postprocess"
 
 # Monitor agent AI performance
-openclaw monitor --agent AI-InferenceAgent --metrics gpu,throughput,errors
+hermes monitor --agent AI-InferenceAgent --metrics gpu,throughput,errors
 ```
 
 ### Cross-Agent Communication
 ```bash
 # Send AI job result to another agent
-openclaw message --from AI-InferenceAgent --to Data-ProcessingAgent --payload "job_id:123,result:image.png"
+hermes message --from AI-InferenceAgent --to Data-ProcessingAgent --payload "job_id:123,result:image.png"
 
 # Request resources from coordinator
-openclaw message --from AI-TrainingAgent --to Resource-CoordinatorAgent --payload "request:gpu,count:2,duration:3600"
+hermes message --from AI-TrainingAgent --to Resource-CoordinatorAgent --payload "request:gpu,count:2,duration:3600"
 
 # Broadcast job completion
-openclaw broadcast --from AI-InferenceAgent --channel ai-jobs --payload "job_123:completed"
+hermes broadcast --from AI-InferenceAgent --channel ai-jobs --payload "job_123:completed"
 ```
 
 ## Cross-Node AI Coordination
@@ -664,23 +664,23 @@ ssh gitea-runner 'ollama pull mistral'
 ./aitbc-cli market order status --order-id "order_456"
 ```
 
-### Workflow 5: OpenClaw Multi-Agent Pipeline
+### Workflow 5: Hermes Multi-Agent Pipeline
 ```bash
 # 1. Initialize agents
-openclaw agent init --name Data-Preprocessor --type data-worker
-openclaw agent init --name AI-Inference --type ai-worker
-openclaw agent init --name Result-Postprocessor --type data-worker
+hermes agent init --name Data-Preprocessor --type data-worker
+hermes agent init --name AI-Inference --type ai-worker
+hermes agent init --name Result-Postprocessor --type data-worker
 
 # 2. Configure agents
-openclaw agent configure --name AI-Inference --ai-model "llama2" --gpu-requirement 1
+hermes agent configure --name AI-Inference --ai-model "llama2" --gpu-requirement 1
 
 # 3. Execute pipeline
-openclaw execute --agent CoordinatorAgent --task run_pipeline \
+hermes execute --agent CoordinatorAgent --task run_pipeline \
   --workflow "Data-Preprocessor->AI-Inference->Result-Postprocessor" \
   --input "data.json" --output "results.json"
 
 # 4. Monitor pipeline
-openclaw monitor --pipeline pipeline_123 --realtime
+hermes monitor --pipeline pipeline_123 --realtime
 ```
 
 ## Best Practices

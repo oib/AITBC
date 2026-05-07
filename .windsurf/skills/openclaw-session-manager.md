@@ -1,13 +1,13 @@
 ---
-description: Atomic OpenClaw session management with deterministic context preservation and workflow coordination
-title: openclaw-session-manager
+description: Atomic hermes session management with deterministic context preservation and workflow coordination
+title: hermes-session-manager
 version: 1.1
 ---
 
-# OpenClaw Session Manager
+# hermes Session Manager
 
 ## Purpose
-Create, manage, and optimize OpenClaw agent sessions with deterministic context preservation and workflow coordination.
+Create, manage, and optimize hermes agent sessions with deterministic context preservation and workflow coordination.
 
 ## Activation
 Trigger when user requests session operations: creation, management, context analysis, or session optimization.
@@ -63,7 +63,7 @@ Trigger when user requests session operations: creation, management, context ana
 - Prepare optimization criteria
 
 ### 3. Execute
-- Execute OpenClaw session operations
+- Execute hermes session operations
 - Monitor session health
 - Track context preservation
 - Analyze session performance
@@ -83,8 +83,8 @@ Trigger when user requests session operations: creation, management, context ana
 - **MUST** track session resource usage
 
 ## Environment Assumptions
-- OpenClaw 2026.3.24+ installed and gateway running
-- Agent workspace configured at `~/.openclaw/workspace/`
+- hermes 2026.3.24+ installed and gateway running
+- Agent workspace configured at `~/.hermes/workspace/`
 - Session storage functional
 - Context preservation mechanisms operational
 - Default session duration: 4 hours
@@ -145,6 +145,6 @@ Create a new session for main agent with context about blockchain optimization w
 ## Performance Notes
 - **Execution Time**: 1-3 seconds for create/list, 5-15 seconds for analysis/optimization
 - **Memory Usage**: <150MB for session management
-- **Network Requirements**: OpenClaw gateway connectivity
+- **Network Requirements**: hermes gateway connectivity
 - **Concurrency**: Safe for multiple simultaneous sessions with different agents
 - **Context Preservation**: Automatic context tracking and integrity validation

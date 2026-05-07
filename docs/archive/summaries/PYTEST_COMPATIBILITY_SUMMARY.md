@@ -25,7 +25,7 @@ tests/                              # Main test directory (✅ Working)
 ├── contracts/                      # Smart contract tests
 ├── e2e/                           # End-to-end tests
 ├── integration/                   # Integration tests
-├── openclaw_marketplace/          # Marketplace tests
+├── hermes_marketplace/          # Marketplace tests
 ├── performance/                   # Performance tests
 ├── reputation/                    # Reputation system tests
 ├── rewards/                       # Reward system tests
@@ -111,7 +111,7 @@ Some test directories require additional dependencies:
 1. **Fixed pytest.ini formatting** (added `[tool:pytest]` header)
 2. **Completed incomplete test functions** in `test_wallet.py`
 3. **Fixed syntax errors** in `test_cli_integration.py`
-4. **Resolved import issues** in marketplace and openclaw tests
+4. **Resolved import issues** in marketplace and hermes tests
 5. **Added proper CLI command parameters** for wallet tests
 6. **Created comprehensive test runner script**
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 """
 Community and Developer Ecosystem API Endpoints
-REST API for managing OpenClaw developer profiles, SDKs, solutions, and hackathons
+REST API for managing hermes developer profiles, SDKs, solutions, and hackathons
 """
 
 from typing import Any
@@ -85,7 +85,7 @@ class HackathonCreateRequest(BaseModel):
 # Endpoints - Developer Ecosystem
 @router.post("/developers", response_model=DeveloperProfile)
 async def create_developer_profile(request: DeveloperProfileCreate, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
-    """Register a new developer in the OpenClaw ecosystem"""
+    """Register a new developer in the hermes ecosystem"""
     service = DeveloperEcosystemService(session)
     try:
         profile = await service.create_developer_profile(
@@ -109,7 +109,7 @@ async def get_developer_profile(developer_id: str, session: Annotated[Session, D
 
 @router.get("/sdk/latest")
 async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
-    """Get information about the latest OpenClaw SDK releases"""
+    """Get information about the latest hermes SDK releases"""
     service = DeveloperEcosystemService(session)
     return await service.get_sdk_release_info()
 

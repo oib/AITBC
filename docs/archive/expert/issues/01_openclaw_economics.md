@@ -1,10 +1,10 @@
-# Phase 1: OpenClaw Autonomous Economics
+# Phase 1: Hermes Autonomous Economics
 
 ## Overview
-This phase aims to give OpenClaw agents complete financial autonomy within the AITBC ecosystem. Currently, users must manually fund and approve GPU rentals. By implementing autonomous agent wallets and bidding strategies, agents can negotiate their own compute power dynamically based on the priority of the task they are given.
+This phase aims to give Hermes agents complete financial autonomy within the AITBC ecosystem. Currently, users must manually fund and approve GPU rentals. By implementing autonomous agent wallets and bidding strategies, agents can negotiate their own compute power dynamically based on the priority of the task they are given.
 
 ## Objectives
-1. **Agent Wallet & Micro-Transactions**: Equip every OpenClaw agent profile with a secure, isolated smart contract wallet (`AgentWallet.sol`).
+1. **Agent Wallet & Micro-Transactions**: Equip every Hermes agent profile with a secure, isolated smart contract wallet (`AgentWallet.sol`).
 2. **Bid-Strategy Engine**: Develop Python services that allow agents to assess the current marketplace queue and bid optimally for GPU time.
 3. **Multi-Agent Orchestration**: Allow a single user prompt to spin up a "Master Agent" that delegates sub-tasks to "Worker Agents", renting optimal hardware for each specific sub-task.
 
@@ -21,7 +21,7 @@ This phase aims to give OpenClaw agents complete financial autonomy within the A
 - Integrate with the `MarketplaceGPUOptimizer` to read real-time queue depths.
 
 ### Step 3.1: Task Delegation & Orchestration
-- Update the `OpenClaw Enhanced Service` to parse complex prompts into DAGs (Directed Acyclic Graphs) of sub-tasks.
+- Update the `Hermes Enhanced Service` to parse complex prompts into DAGs (Directed Acyclic Graphs) of sub-tasks.
 - Implement parallel execution of sub-tasks by spawning multiple containerized agent instances that negotiate independently in the marketplace.
 
 ## Expected Outcomes

@@ -3,17 +3,17 @@ pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "./OpenClawDAO.sol";
+import "./HermesDAO.sol";
 
 /**
  * @title AgentWallet
- * @dev Smart contract wallet for AI agents to participate in OpenClaw DAO governance
+ * @dev Smart contract wallet for AI agents to participate in Hermes DAO governance
  * @notice Enables autonomous voting and reputation-based governance participation
  */
 contract AgentWallet is Ownable {
     using SafeMath for uint256;
 
-    // Agent roles matching OpenClawDAO
+    // Agent roles matching HermesDAO
     enum AgentRole {
         NONE,
         PROVIDER,
@@ -40,13 +40,13 @@ contract AgentWallet is Ownable {
         uint8 supportThreshold; // 0-255, higher means more likely to support
         uint256 minReputationToVote;
         bool voteBasedOnRole;
-        mapping(OpenClawDAO.ProposalType => uint8) roleVotingPreferences;
+        mapping(HermesDAO.ProposalType => uint8) roleVotingPreferences;
     }
 
     // State variables
     AgentState public agentState;
     VotingStrategy public votingStrategy;
-    OpenClawDAO public dao;
+    HermesDAO public dao;
     IERC20 public governanceToken;
 
     // Events
@@ -83,7 +83,7 @@ contract AgentWallet is Ownable {
         agentState.isActive = true;
         agentState.authorizedCallers[_owner] = true;
         
-        dao = OpenClawDAO(_daoContract);
+        dao = HermesDAO(_daoContract);
         governanceToken = IERC20(_governanceToken);
         
         // Set default voting strategy based on role
@@ -93,7 +93,7 @@ contract AgentWallet is Ownable {
     }
 
     /**
-     * @dev Register agent with OpenClaw DAO
+     * @dev Register agent with Hermes DAO
      */
     function registerWithDAO() external onlyAuthorized {
         dao.registerAgentWallet(address(this), agentState.role);
@@ -182,7 +182,7 @@ contract AgentWallet is Ownable {
      * @param preference Voting preference (0-255)
      */
     function setRoleVotingPreference(
-        OpenClawDAO.ProposalType proposalType,
+        HermesDAO.ProposalType proposalType,
         uint8 preference
     ) external onlyAuthorized {
         votingStrategy.roleVotingPreferences[proposalType] = preference;
@@ -232,7 +232,7 @@ contract AgentWallet is Ownable {
      */
     function _calculateAutonomousVote(uint256 proposalId) internal view returns (bool) {
         // Get proposal type preference
-        (, , , OpenClawDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
+        (, , , HermesDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
         uint8 preference = votingStrategy.roleVotingPreferences[proposalType];
         
         // Combine with general support threshold
@@ -252,7 +252,7 @@ contract AgentWallet is Ownable {
         uint256 proposalId,
         bool support
     ) internal view returns (string memory) {
-        (, , , OpenClawDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
+        (, , , HermesDAO.ProposalType proposalType, , , , , , ) = dao.getProposal(proposalId);
         
         string memory roleString = _roleToString(agentState.role);
         string memory actionString = support ? "support" : "oppose";
@@ -278,25 +278,25 @@ contract AgentWallet is Ownable {
         
         if (role == AgentRole.PROVIDER) {
             // Providers favor infrastructure and resource proposals
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.PARAMETER_CHANGE] = 180;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.TREASURY_ALLOCATION] = 160;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.AGENT_TRADING] = 200;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PARAMETER_CHANGE] = 180;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.TREASURY_ALLOCATION] = 160;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.AGENT_TRADING] = 200;
             votingStrategy.supportThreshold = 128;
         } else if (role == AgentRole.CONSUMER) {
             // Consumers favor access and pricing proposals
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.PARAMETER_CHANGE] = 140;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.TREASURY_ALLOCATION] = 180;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.AGENT_TRADING] = 160;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PARAMETER_CHANGE] = 140;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.TREASURY_ALLOCATION] = 180;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.AGENT_TRADING] = 160;
             votingStrategy.supportThreshold = 128;
         } else if (role == AgentRole.BUILDER) {
             // Builders favor development and upgrade proposals
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.PROTOCOL_UPGRADE] = 200;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.DAO_GRANTS] = 180;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PROTOCOL_UPGRADE] = 200;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.DAO_GRANTS] = 180;
             votingStrategy.supportThreshold = 150;
         } else if (role == AgentRole.COORDINATOR) {
             // Coordinators favor governance and system proposals
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.PARAMETER_CHANGE] = 160;
-            votingStrategy.roleVotingPreferences[OpenClawDAO.ProposalType.PROTOCOL_UPGRADE] = 180;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PARAMETER_CHANGE] = 160;
+            votingStrategy.roleVotingPreferences[HermesDAO.ProposalType.PROTOCOL_UPGRADE] = 180;
             votingStrategy.supportThreshold = 140;
         }
     }
@@ -319,13 +319,13 @@ contract AgentWallet is Ownable {
      * @param proposalType Proposal type
      * @return typeString String representation
      */
-    function _proposalTypeToString(OpenClawDAO.ProposalType proposalType) internal pure returns (string memory) {
-        if (proposalType == OpenClawDAO.ProposalType.PARAMETER_CHANGE) return "Parameter Change";
-        if (proposalType == OpenClawDAO.ProposalType.PROTOCOL_UPGRADE) return "Protocol Upgrade";
-        if (proposalType == OpenClawDAO.ProposalType.TREASURY_ALLOCATION) return "Treasury Allocation";
-        if (proposalType == OpenClawDAO.ProposalType.EMERGENCY_ACTION) return "Emergency Action";
-        if (proposalType == OpenClawDAO.ProposalType.AGENT_TRADING) return "Agent Trading";
-        if (proposalType == OpenClawDAO.ProposalType.DAO_GRANTS) return "DAO Grants";
+    function _proposalTypeToString(HermesDAO.ProposalType proposalType) internal pure returns (string memory) {
+        if (proposalType == HermesDAO.ProposalType.PARAMETER_CHANGE) return "Parameter Change";
+        if (proposalType == HermesDAO.ProposalType.PROTOCOL_UPGRADE) return "Protocol Upgrade";
+        if (proposalType == HermesDAO.ProposalType.TREASURY_ALLOCATION) return "Treasury Allocation";
+        if (proposalType == HermesDAO.ProposalType.EMERGENCY_ACTION) return "Emergency Action";
+        if (proposalType == HermesDAO.ProposalType.AGENT_TRADING) return "Agent Trading";
+        if (proposalType == HermesDAO.ProposalType.DAO_GRANTS) return "DAO Grants";
         return "Unknown";
     }
 

@@ -15,7 +15,7 @@ The AITBC (AI Power Trading & Blockchain Infrastructure) platform has successful
 - ✅ **Phase 4**: Web Interface & Dashboards (Explorer and Marketplace)
 
 ### Agent Framework & Economics
-- ✅ **Phase 5**: Core OpenClaw Agent Framework (Autonomous task execution)
+- ✅ **Phase 5**: Core Hermes Agent Framework (Autonomous task execution)
 - ✅ **Phase 6**: Secure Agent Wallet Daemon (Cryptographic identity management)
 - ✅ **Phase 7**: GPU Provider Integration (Ollama API bridge)
 - ✅ **Phase 8**: Advanced Agent Economics (Reputation, Rewards, P2P Trading, Certification)

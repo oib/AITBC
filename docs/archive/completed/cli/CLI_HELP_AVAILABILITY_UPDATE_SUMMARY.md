@@ -20,14 +20,14 @@ Add help availability indicators `(✅ Help available)` to all CLI commands in t
 
 ## 🔧 **Sections Updated**
 
-### **1. OpenClaw Commands**
+### **1. hermes Commands**
 **Commands Updated**: 25 commands
-- `openclaw` (help) - Added help indicator
-- All `openclaw deploy` subcommands
-- All `openclaw monitor` subcommands  
-- All `openclaw edge` subcommands
-- All `openclaw routing` subcommands
-- All `openclaw ecosystem` subcommands
+- `hermes` (help) - Added help indicator
+- All `hermes deploy` subcommands
+- All `hermes monitor` subcommands  
+- All `hermes edge` subcommands
+- All `hermes routing` subcommands
+- All `hermes ecosystem` subcommands
 
 **Before**: No help indicators  
 **After**: All commands marked with `(✅ Help available)`

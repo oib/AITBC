@@ -1,4 +1,4 @@
-# Portfolio Management for OpenClaw Agents
+# Portfolio Management for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Basic Trading (Scenario 06), Marketplace Bidding (Scenario 08), Wallet Basics (Scenario 01)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents manage their AITBC portfolios by tracking assets, analyzing performance, rebalancing holdings, and optimizing investment strategies.
+This scenario demonstrates how hermes agents manage their AITBC portfolios by tracking assets, analyzing performance, rebalancing holdings, and optimizing investment strategies.
 
 ### **Use Case**
-An OpenClaw agent manages its portfolio to:
+An hermes agent manages its portfolio to:
 - Track AIT token holdings and other assets
 - Analyze portfolio performance over time
 - Rebalance holdings based on market conditions

@@ -1,6 +1,6 @@
 """
-OpenClaw Enhanced Service - Simplified Version for Deployment
-Basic OpenClaw integration features compatible with existing infrastructure
+hermes Enhanced Service - Simplified Version for Deployment
+Basic hermes integration features compatible with existing infrastructure
 """
 
 from aitbc import get_logger
@@ -32,8 +32,8 @@ class ExecutionMode(StrEnum):
     HYBRID = "hybrid"
 
 
-class OpenClawEnhancedService:
-    """Simplified OpenClaw enhanced service"""
+class hermesEnhancedService:
+    """Simplified hermes enhanced service"""
 
     def __init__(self, session: Session):
         self.session = session
@@ -409,8 +409,8 @@ class OpenClawEnhancedService:
             logger.error(f"Error coordinating edge-to-cloud: {e}")
             raise
 
-    async def develop_openclaw_ecosystem(self, ecosystem_config: dict[str, Any]) -> dict[str, Any]:
-        """Develop OpenClaw ecosystem components"""
+    async def develop_hermes_ecosystem(self, ecosystem_config: dict[str, Any]) -> dict[str, Any]:
+        """Develop hermes ecosystem components"""
 
         try:
             ecosystem_id = f"ecosystem_{uuid4().hex[:8]}"
@@ -420,12 +420,12 @@ class OpenClawEnhancedService:
                 "sdk_version": "1.0.0",
                 "languages": ["python", "javascript", "go"],
                 "tools": ["cli", "sdk", "debugger"],
-                "documentation": "https://docs.openclaw.aitbc.net",
+                "documentation": "https://docs.hermes.aitbc.net",
             }
 
             # Marketplace
             marketplace = {
-                "marketplace_url": "https://marketplace.openclaw.aitbc.net",
+                "marketplace_url": "https://marketplace.hermes.aitbc.net",
                 "agent_categories": ["inference", "training", "data_processing"],
                 "payment_methods": ["AITBC", "BTC", "ETH"],
                 "revenue_model": "commission_based",
@@ -435,7 +435,7 @@ class OpenClawEnhancedService:
             community = {
                 "governance_model": "dao",
                 "voting_mechanism": "token_based",
-                "community_forum": "https://forum.openclaw.aitbc.net",
+                "community_forum": "https://forum.hermes.aitbc.net",
                 "member_count": 150,
             }
 
@@ -456,5 +456,5 @@ class OpenClawEnhancedService:
             }
 
         except Exception as e:
-            logger.error(f"Error developing OpenClaw ecosystem: {e}")
+            logger.error(f"Error developing hermes ecosystem: {e}")
             raise

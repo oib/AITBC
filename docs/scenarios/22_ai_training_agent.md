@@ -1,4 +1,4 @@
-# AI Training Agent for OpenClaw Agents
+# AI Training Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: AI Job Submission (Scenario 07), GPU Listing (Scenario 09), Transaction Sending (Scenario 02)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents coordinate AI training workflows by submitting jobs to GPU providers, managing payments, and monitoring training progress.
+This scenario demonstrates how hermes agents coordinate AI training workflows by submitting jobs to GPU providers, managing payments, and monitoring training progress.
 
 ### **Use Case**
-An OpenClaw agent acts as an AI training coordinator to:
+An hermes agent acts as an AI training coordinator to:
 - Submit AI training jobs to GPU providers
 - Manage training costs and payments
 - Monitor training progress

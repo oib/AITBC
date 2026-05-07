@@ -92,7 +92,7 @@ operational.
 - ✅ **Enhanced AI Agent Services Deployment** - Deployed February 2026
   - **6 New Services**: Multi-Modal Agent (8002), GPU Multi-Modal (8003),
     Modality Optimization (8004), Adaptive Learning (8005), Enhanced Marketplace
-    (8006), OpenClaw Enhanced (8007)
+    (8006), hermes Enhanced (8007)
   - **Complete CLI Tools**: 50+ commands across 5 command groups with full test
     coverage
   - **Health Check System**: Comprehensive health endpoints for all services
@@ -115,7 +115,7 @@ operational.
     frameworks with online learning
   - **Enhanced Marketplace Service** (Port 8006) - Royalties, licensing, and
     verification systems
-  - **OpenClaw Enhanced Service** (Port 8007) - Agent orchestration and edge
+  - **hermes Enhanced Service** (Port 8007) - Agent orchestration and edge
     computing integration
   - **Systemd Integration** - All services with automatic restart, monitoring,
     and resource limits
@@ -194,7 +194,7 @@ operational.
 
 - ✅ **Advanced AI Agent CLI Tools** - Complete CLI implementation for current
   milestone
-  - **5 New Command Groups**: agent, multimodal, optimize, openclaw,
+  - **5 New Command Groups**: agent, multimodal, optimize, hermes,
     marketplace_advanced, swarm
   - **50+ New Commands**: Advanced AI agent workflows, multi-modal processing,
     autonomous optimization
@@ -862,7 +862,7 @@ operational.
   - Both nodes at same height with consistent block hashes
   - Gossip backend working correctly with Redis
 
-- ✅ **OpenClaw Agent Communication Test** - Successfully sent agent message
+- ✅ **hermes Agent Communication Test** - Successfully sent agent message
   - Sent message from aitbc1 to aitbc using temp-agent wallet
   - Used correct password "temp123" (from agent daemon password file)
   - Transaction hash:
@@ -883,9 +883,9 @@ operational.
   - Documents gossip backend configuration, PoA fixes, transaction sync issues
   - Includes troubleshooting steps and verification procedures
 
-- ✅ **OpenClaw Cross-Node Communication Documentation** - Added agent
+- ✅ **hermes Cross-Node Communication Documentation** - Added agent
   communication workflow documentation
-  - File: `docs/openclaw/openclaw-cross-node-communication.md`
+  - File: `docs/hermes/hermes-cross-node-communication.md`
   - Documents agent-to-agent communication via AITBC blockchain transactions
   - Includes setup, testing, and troubleshooting procedures
 
@@ -939,8 +939,8 @@ operational.
   - All nodes now support ait-mainnet chain
   - Blockchain node services restarted with new configuration
   communication guides
-  - File: `docs/openclaw/guides/openclaw_cross_node_communication.md`
-  - File: `docs/openclaw/training/cross_node_communication_training.md`
+  - File: `docs/hermes/guides/hermes_cross_node_communication.md`
+  - File: `docs/hermes/training/cross_node_communication_training.md`
   - Documents agent communication workflow, wallet configuration, testing
     procedures
 
@@ -995,7 +995,7 @@ operational.
 ### CLI Tools Milestone Completion ✅
 
 - ✅ **Advanced AI Agent CLI Implementation** - Complete milestone achievement
-  - **5 New Command Groups**: agent, multimodal, optimize, openclaw,
+  - **5 New Command Groups**: agent, multimodal, optimize, hermes,
     marketplace_advanced, swarm
   - **50+ New Commands**: Comprehensive CLI coverage for advanced AI agent
     capabilities
@@ -1009,7 +1009,7 @@ operational.
   - **Multi-Modal Processing**: Text, image, audio, video processing with GPU
     acceleration
   - **Autonomous Optimization**: Self-tuning and predictive capabilities
-  - **OpenClaw Integration**: Edge computing deployment and monitoring
+  - **hermes Integration**: Edge computing deployment and monitoring
   - **Enhanced Marketplace**: NFT 2.0 support and advanced trading features
   - **Swarm Intelligence**: Collective optimization and coordination
 
@@ -1038,7 +1038,7 @@ operational.
     frameworks for agent self-improvement
   - **Enhanced Marketplace Service** (Port 8006) - Royalties, licensing,
     verification, and analytics
-  - **OpenClaw Enhanced Service** (Port 8007) - Agent orchestration, edge
+  - **hermes Enhanced Service** (Port 8007) - Agent orchestration, edge
     computing, and ecosystem development
   - **Systemd Integration**: Individual service management with automatic
     restart and monitoring

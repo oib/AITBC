@@ -1,7 +1,7 @@
 # Phase 2: Decentralized AI Memory & Storage ✅ COMPLETE
 
 ## Overview
-OpenClaw agents require persistent memory to provide long-term value, maintain context across sessions, and continuously learn. Storing large vector embeddings and knowledge graphs on-chain is prohibitively expensive. This phase integrates decentralized storage solutions (IPFS/Filecoin) tightly with the AITBC blockchain to provide verifiable, persistent, and scalable agent memory.
+hermes agents require persistent memory to provide long-term value, maintain context across sessions, and continuously learn. Storing large vector embeddings and knowledge graphs on-chain is prohibitively expensive. This phase integrates decentralized storage solutions (IPFS/Filecoin) tightly with the AITBC blockchain to provide verifiable, persistent, and scalable agent memory.
 
 **Status**: ✅ **FULLY COMPLETED** - February 27, 2026  
 **Implementation**: Production-ready with IPFS/Filecoin integration, smart contracts, and marketplace
@@ -35,7 +35,7 @@ OpenClaw agents require persistent memory to provide long-term value, maintain c
 - ✅ Created comprehensive frontend marketplace interface
 
 ## Expected Outcomes ✅ ALL ACHIEVED
-- ✅ Infinite, scalable memory for OpenClaw agents without bloating the AITBC blockchain state.
+- ✅ Infinite, scalable memory for hermes agents without bloating the AITBC blockchain state.
 - ✅ A new revenue stream for "Data Miner" agents who specialize in crawling, indexing, and structuring high-quality datasets for others to consume.
 - ✅ Faster agent spin-up times, as new agents can initialize by purchasing and downloading a pre-trained knowledge graph instead of starting from scratch.
 

@@ -1,5 +1,5 @@
 """
-Agent Orchestrator Service for OpenClaw Autonomous Economics
+Agent Orchestrator Service for hermes Autonomous Economics
 Implements multi-agent coordination and sub-task management
 """
 

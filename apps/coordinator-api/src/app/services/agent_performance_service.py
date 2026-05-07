@@ -1,6 +1,6 @@
 """
 Advanced Agent Performance Service
-Implements meta-learning, resource optimization, and performance enhancement for OpenClaw agents
+Implements meta-learning, resource optimization, and performance enhancement for hermes agents
 """
 
 import asyncio
@@ -849,7 +849,7 @@ class AgentPerformanceService:
         self.performance_optimizer = PerformanceOptimizer()
 
     async def create_performance_profile(
-        self, agent_id: str, agent_type: str = "openclaw", initial_metrics: dict[str, float] | None = None
+        self, agent_id: str, agent_type: str = "hermes", initial_metrics: dict[str, float] | None = None
     ) -> AgentPerformanceProfile:
         """Create comprehensive agent performance profile"""
 
@@ -886,7 +886,7 @@ class AgentPerformanceService:
 
         if not profile:
             # Create profile if it doesn't exist
-            profile = await self.create_performance_profile(agent_id, "openclaw", new_metrics)
+            profile = await self.create_performance_profile(agent_id, "hermes", new_metrics)
         else:
             # Update existing profile
             profile.performance_metrics.update(new_metrics)

@@ -3,16 +3,16 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# OpenClaw AITBC Training - Stage 6: OpenClaw Master Agent Development
+# hermes AITBC Training - Stage 6: hermes Master Agent Development
 # Agent Identity, Multi-Agent Coordination, Advanced Operations
 
 set -e
 
 # Training configuration
-TRAINING_STAGE="Stage 6: OpenClaw Master Agent Development"
+TRAINING_STAGE="Stage 6: hermes Master Agent Development"
 SCRIPT_NAME="stage6_agent_development"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 WALLET_PASSWORD="trainee123"
 
 # Logging function
@@ -195,7 +195,7 @@ agent_performance_optimization() {
 
 # Final Certification Exam
 certification_exam() {
-    print_status "Final Certification Exam: OpenClaw Master Agent"
+    print_status "Final Certification Exam: hermes Master Agent"
     
     TESTS_PASSED=0
     TOTAL_TESTS=10
@@ -294,7 +294,7 @@ certification_exam() {
     log "Certification Results: $TESTS_PASSED/$TOTAL_TESTS tests passed"
     
     if [ $TESTS_PASSED -eq $TOTAL_TESTS ]; then
-        print_success "🎉 CERTIFICATION PASSED! OpenClaw Master Agent Status Achieved!"
+        print_success "🎉 CERTIFICATION PASSED! hermes Master Agent Status Achieved!"
         log "CERTIFICATION: PASSED with 100% success rate"
     elif [ $TESTS_PASSED -ge 8 ]; then
         print_success "CERTIFICATION PASSED with $TESTS_PASSED/$TOTAL_TESTS"
@@ -336,14 +336,14 @@ main() {
     echo "$TRAINING_STAGE COMPLETED SUCCESSFULLY"
     echo "========================================"
     echo ""
-    echo "🎓 OPENCLAW MASTER AGENT ACHIEVED"
+    echo "🎓 hermes MASTER AGENT ACHIEVED"
     echo ""
     echo "Next Steps:"
     echo "1. Deploy custom agents in production"
     echo "2. Implement multi-agent coordination strategies"
     echo "3. Optimize agent performance"
     echo "4. Monitor agent security and compliance"
-    echo "5. Train other OpenClaw agents"
+    echo "5. Train other hermes agents"
     echo ""
     echo "Training Log: $CURRENT_LOG"
     echo ""

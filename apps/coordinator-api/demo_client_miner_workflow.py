@@ -97,20 +97,20 @@ def process_multimodal_data(request_data):
         print(f"❌ Multi-Modal Processing: ERROR - {e}")
         return None
 
-def route_to_openclaw_agents(processing_results):
-    """Route processing to OpenClaw agents for optimization"""
-    print("\n🤖 OPENCLAW AGENT ROUTING")
+def route_to_hermes_agents(processing_results):
+    """Route processing to hermes agents for optimization"""
+    print("\n🤖 hermes AGENT ROUTING")
     print("=" * 50)
     
-    # Test OpenClaw integration
+    # Test hermes integration
     try:
-        response = requests.post(f"{BASE_URL}/test-openclaw",
+        response = requests.post(f"{BASE_URL}/test-hermes",
                                 json=processing_results,
                                 timeout=10)
         
         if response.status_code == 200:
             result = response.json()
-            print(f"✅ OpenClaw Integration: SUCCESS")
+            print(f"✅ hermes Integration: SUCCESS")
             print(f"   Service: {result['service']}")
             print(f"   Status: {result['status']}")
             print(f"   Agent Capabilities:")
@@ -133,11 +133,11 @@ def route_to_openclaw_agents(processing_results):
             
             return agent_routing
         else:
-            print(f"❌ OpenClaw Integration: FAILED")
+            print(f"❌ hermes Integration: FAILED")
             return None
             
     except Exception as e:
-        print(f"❌ OpenClaw Integration: ERROR - {e}")
+        print(f"❌ hermes Integration: ERROR - {e}")
         return None
 
 def process_marketplace_transaction(agent_routing):
@@ -266,7 +266,7 @@ def run_complete_workflow():
     print("🚀 AITBC Enhanced Services - Client-to-Miner Workflow Demo")
     print("=" * 60)
     print("Demonstrating complete AI agent processing pipeline")
-    print("with multi-modal processing, OpenClaw integration, and marketplace")
+    print("with multi-modal processing, hermes integration, and marketplace")
     print("=" * 60)
     
     # Step 1: Client Request
@@ -278,8 +278,8 @@ def run_complete_workflow():
         print("\n❌ Workflow failed at multi-modal processing")
         return False
     
-    # Step 3: OpenClaw Agent Routing
-    agent_routing = route_to_openclaw_agents(processing_results)
+    # Step 3: hermes Agent Routing
+    agent_routing = route_to_hermes_agents(processing_results)
     if not agent_routing:
         print("\n❌ Workflow failed at agent routing")
         return False
@@ -303,7 +303,7 @@ def run_complete_workflow():
     print("🎯 Workflow Summary:")
     print("   1. ✅ Client Request Received")
     print("   2. ✅ Multi-Modal Data Processed (Text, Image, Audio)")
-    print("   3. ✅ OpenClaw Agent Routing Applied")
+    print("   3. ✅ hermes Agent Routing Applied")
     print("   4. ✅ Marketplace Transaction Processed")
     print("   5. ✅ Miner Job Completed")
     print("   6. ✅ Result Returned to Client")
@@ -317,7 +317,7 @@ def run_complete_workflow():
     
     print(f"\n🔗 Enhanced Services Demonstrated:")
     print(f"   ✅ Multi-Modal Processing: Text, Image, Audio analysis")
-    print(f"   ✅ OpenClaw Integration: Agent routing and optimization")
+    print(f"   ✅ hermes Integration: Agent routing and optimization")
     print(f"   ✅ Marketplace Enhancement: Royalties, licensing, verification")
     print(f"   ✅ GPU Acceleration: High-performance processing")
     print(f"   ✅ Client-to-Miner: Complete workflow pipeline")
