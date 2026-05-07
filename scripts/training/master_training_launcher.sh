@@ -358,57 +358,56 @@ display_badge() {
 # View certificates
 view_certificates() {
     print_header "Stage Completion Certificates"
-    
-    # Ensure directory exists
-    mkdir -p "$CERT_DIR"
-    
-    # Debug: Show CERT_DIR
-    echo "Certificate directory: $CERT_DIR"
-    
-    # Check for certificates
+
+    # Ensure CERT_DIR exists
+    if [ ! -d "$CERT_DIR" ]; then
+        mkdir -p "$CERT_DIR"
+    fi
+
+    # Collect certificate files into array
     local cert_files=()
-    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
-        if [ -f "$cert_file" ]; then
-            cert_files+=("$cert_file")
-        fi
-    done
-    
-    echo "Found ${#cert_files[@]} certificate file(s)"
-    
-    if [ ${#cert_files[@]} -eq 0 ]; then
+    local cert_count=0
+
+    if [ -d "$CERT_DIR" ]; then
+        for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+            if [ -f "$cert_file" ]; then
+                cert_files+=("$cert_file")
+                ((cert_count++))
+            fi
+        done
+    fi
+
+    if [ $cert_count -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
-        echo "Directory contents:"
-        ls -la "$CERT_DIR" 2>/dev/null || echo "Directory not accessible"
         return 0
     fi
-    
+
     echo -e "${BOLD}📜 Certificates Earned:${NC}"
     echo
-    
-    local cert_count=0
-    for cert_file in "${cert_files[@]}"; do
-        if [ -f "$cert_file" ]; then
-            ((cert_count++))
-            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
-            local stage_name=$(get_stage_name $stage_num)
-            local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
-            
-            echo -e "${GREEN}✅${NC} Stage $stage_num: $stage_name"
-            echo "   Completed: $timestamp"
-            echo "   File: $cert_file"
-            echo
-        fi
+
+    # Display certificates with index
+    for i in "${!cert_files[@]}"; do
+        local cert_file="${cert_files[$i]}"
+        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+        local stage_name=$(get_stage_name $stage_num)
+        local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
+
+        echo -e "  ${GREEN}$(($i+1))${NC}. Stage $stage_num: $stage_name"
+        echo "     Completed: $timestamp"
+        echo "     File: $cert_file"
+        echo
     done
-    
+
     echo -e "${BOLD}Total certificates: $cert_count${NC}"
-    
+
     echo
-    echo -n "View certificate details? [1-$cert_count/N]: "
-    read -r view_choice || view_choice="N"
-    
+    echo -n "View certificate details? Enter number [1-$cert_count] or N: "
+    read -r view_choice
+
     if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
-        local cert_file="${cert_files[$((view_choice-1))]}"
+        local idx=$(($view_choice - 1))
+        local cert_file="${cert_files[$idx]}"
         if [ -f "$cert_file" ]; then
             echo
             echo -e "${BOLD}Certificate Details:${NC}"
@@ -1000,51 +999,49 @@ main() {
     fi
 }
 
-
 # Handle command line arguments
 case "${1:-}" in
-    --overview)
-        show_overview
-        ;;
-    --check)
-        check_system_readiness
-        ;;
-    --stage)
-        if [[ "$2" =~ ^[0-9]$ ]]; then
-            run_stage "$2"
-        else
-            echo "Usage: $0 --stage [0-9]"
+        --overview)
+            show_overview
+            ;;
+        --check)
+            check_system_readiness
+            ;;
+        --stage)
+            if [[ "$2" =~ ^[0-9]$ ]]; then
+                run_stage "$2"
+            else
+                echo "Usage: $0 --stage [0-9]"
+                exit 1
+            fi
+            ;;
+        --complete)
+            run_complete_training
+            ;;
+        --playground)
+            show_playground_menu
+            ;;
+        --help|-h)
+            echo "hermes AITBC Mastery Training Launcher"
+            echo
+            echo "Usage: $0 [OPTION]"
+            echo
+            echo "Options:"
+            echo "  --overview    Show training overview"
+            echo "  --check       Check system readiness"
+            echo "  --stage N     Run specific stage (0-9)"
+            echo "  --complete    Run complete training program"
+            echo "  --playground  Enter training playground mode"
+            echo "  --help, -h    Show this help message"
+            echo
+            echo "Without arguments, starts interactive menu"
+            ;;
+        "")
+            main
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Use --help for usage information"
             exit 1
-        fi
-        ;;
-    --complete)
-        run_complete_training
-        ;;
-    --playground)
-        show_playground_menu
-        ;;
-    --help|-h)
-        echo "hermes AITBC Mastery Training Launcher"
-        echo
-        echo "Usage: $0 [OPTION]"
-        echo
-        echo "Options:"
-        echo "  --overview    Show training overview"
-        echo "  --check       Check system readiness"
-        echo "  --stage N     Run specific stage (0-9)"
-        echo "  --complete    Run complete training program"
-        echo "  --playground  Run interactive playground mode"
-        echo "  --help, -h    Show this help message"
-        echo
-        echo "Without arguments, starts interactive menu"
-        exit 0
-        ;;
-    "")
-        main
-        ;;
-    *)
-        echo "Unknown option: $1"
-        echo "Use --help for usage information"
-        exit 1
-        ;;
-esac
+            ;;
+    esac
