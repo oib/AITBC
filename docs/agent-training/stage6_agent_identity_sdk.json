@@ -1,6 +1,10 @@
 {
   "stage": "stage6_agent_identity_sdk",
   "agent_type": "coordinator",
+  "scenarios": [
+    "16_agent_registration.md",
+    "24_swarm_coordinator.md"
+  ],
   "training_data": {
     "operations": [
       {

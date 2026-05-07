@@ -15,13 +15,22 @@
         "stage4_marketplace_economics",
         "stage5_expert_operations",
         "stage6_agent_identity_sdk",
-        "stage7_cross_node_training"
+        "stage7_cross_node_training",
+        "stage8_advanced_agent_specialization",
+        "stage9_multi_chain_architecture"
       ]
     },
     "agent_type": {
       "type": "string",
       "description": "Type of agent being trained",
       "enum": ["coordinator", "genesis", "follower", "wallet", "general"]
+    },
+    "scenarios": {
+      "type": "array",
+      "description": "Scenarios covered by this training stage",
+      "items": {
+        "type": "string"
+      }
     },
     "training_data": {
       "type": "object",
@@ -35,7 +44,7 @@
               "type": "string",
               "description": "Description of required environment setup"
             },
-            "setup_script": {
+            "setup_method": {
               "type": "string",
               "description": "Path to setup script for this stage"
             },
