@@ -352,6 +352,42 @@
     "coverage_report": true,
     "passing_score": 80
   },
+  "failure_simulation": [
+    {
+      "test_name": "Insufficient funds error",
+      "operation": "wallet_send",
+      "failure_type": "insufficient_funds",
+      "test_case": {
+        "wallet": "training-wallet",
+        "to": "recipient-address",
+        "amount": "1000000",
+        "password": "training123"
+      },
+      "expected_error": "Insufficient funds",
+      "recovery_operation": "wallet_balance"
+    },
+    {
+      "test_name": "Invalid password error",
+      "operation": "wallet_send",
+      "failure_type": "invalid_password",
+      "test_case": {
+        "wallet": "training-wallet",
+        "to": "recipient-address",
+        "amount": "10",
+        "password": "wrong-password"
+      },
+      "expected_error": "Invalid password"
+    },
+    {
+      "test_name": "Invalid wallet error",
+      "operation": "wallet_balance",
+      "failure_type": "invalid_resource",
+      "test_case": {
+        "wallet": "non-existent-wallet"
+      },
+      "expected_error": "Wallet not found"
+    }
+  ],
   "mock_data": {
     "wallets": ["test-wallet-1", "test-wallet-2"],
     "addresses": ["0x1234567890abcdef", "0x0987654321fedcba"],
