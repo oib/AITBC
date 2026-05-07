@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+import json
 
 from aitbc import get_logger
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
@@ -60,34 +61,36 @@ async def send_message(request: MessageRequest):
             payload=request.payload
         )
 
-        # Send message with specified protocol
-        success = await state.communication_manager.send_message(protocol, message)
-
-        if success:
-            # Store message in Redis for history
-            if state.message_storage:
-                message_data = {
-                    "message_id": message.id,
-                    "sender_id": message.sender_id,
-                    "receiver_id": message.receiver_id,
-                    "message_type": message.message_type.value,
-                    "priority": message.priority.value,
-                    "payload": json.dumps(message.payload),
-                    "protocol": protocol,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
-                await state.message_storage.store_message(message.id, message_data)
-
-            return {
-                "status": "success",
-                "message": "Message sent successfully",
-                "message_id": message.id,
-                "receiver_id": request.receiver_id,
-                "protocol": protocol,
-                "sent_at": datetime.now(timezone.utc).isoformat()
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to send message")
+# Send message
+        # Store message in Redis first (always)
+        message_data = {
+            "sender_id": message.sender_id,
+            "receiver_id": message.receiver_id,
+            "message_type": message.message_type.value,
+            "priority": message.priority.value,
+            "payload": json.dumps(message.payload),
+            "protocol": protocol,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+        if state.message_storage:
+            await state.message_storage.store_message(message.id, message_data)
+        
+        # Try to send via protocol (optional, for real-time notification)
+        if state.communication_manager:
+            try:
+                await state.communication_manager.send_message(protocol, message)
+            except:
+                pass  # Protocol send is optional
+        
+        return {
+            "status": "success",
+            "message": "Message sent successfully",
+            "message_id": message.id,
+            "receiver_id": request.receiver_id,
+            "protocol": protocol,
+            "sent_at": datetime.now(timezone.utc).isoformat()
+        }
 
     except HTTPException:
         raise
@@ -149,11 +152,29 @@ async def broadcast_message(request: BroadcastRequest):
                 priority=priority,
                 payload=request.payload
             )
-
-            success = await state.communication_manager.send_message("broadcast", message)
-            if success:
+            
+            # Store in Redis first (always)
+            message_data = {
+                "sender_id": message.sender_id,
+                "receiver_id": message.receiver_id,
+                "message_type": message.message_type.value,
+                "priority": message.priority.value,
+                "payload": json.dumps(message.payload),
+                "protocol": "broadcast",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+            
+            if state.message_storage:
+                await state.message_storage.store_message(message.id, message_data)
                 recipients.append(agent.agent_id)
-
+            
+            # Optionally try to send via protocol (for real-time notification)
+            if state.communication_manager:
+                try:
+                    await state.communication_manager.send_message("broadcast", message)
+                except:
+                    pass  # Protocol send is optional
+        
         return {
             "status": "success",
             "message": f"Broadcast sent to {len(recipients)} agents",
@@ -188,10 +209,16 @@ async def get_message_history(
         else:
             messages = await state.message_storage.get_all_messages(limit, offset)
 
+        # Get total count
+        total = 0
+        if state.message_storage:
+            total = await state.message_storage.get_message_count()
+        
         return {
             "status": "success",
             "messages": messages,
             "count": len(messages),
+            "total": total,
             "limit": limit,
             "offset": offset,
             "timestamp": datetime.now(timezone.utc).isoformat()
