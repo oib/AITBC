@@ -72,6 +72,11 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         # agent sdk register
         agent_sdk_register_parser = agent_sdk_subparsers.add_parser("register", help="Register agent with coordinator")
         agent_sdk_register_parser.add_argument("--agent-id", required=True, help="Agent ID")
+        agent_sdk_register_parser.add_argument("--type", choices=["provider", "consumer", "general", "worker"], default="worker", help="Agent type")
+        agent_sdk_register_parser.add_argument("--capabilities", help="Comma-separated agent capabilities")
+        agent_sdk_register_parser.add_argument("--services", help="Comma-separated available services")
+        agent_sdk_register_parser.add_argument("--endpoints", help="JSON string of service endpoints")
+        agent_sdk_register_parser.add_argument("--metadata", help="JSON string of metadata")
         agent_sdk_register_parser.add_argument("--coordinator-url", default="http://localhost:9001", help="Coordinator URL")
         agent_sdk_register_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="register")
     
@@ -83,7 +88,16 @@ def register(subparsers: argparse._SubParsersAction, ctx: ParserContext) -> None
         # agent sdk status
         agent_sdk_status_parser = agent_sdk_subparsers.add_parser("status", help="Get agent status")
         agent_sdk_status_parser.add_argument("--agent-id", required=True, help="Agent ID")
+        agent_sdk_status_parser.add_argument("--coordinator-url", default="http://localhost:9001", help="Coordinator URL")
         agent_sdk_status_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="status")
+    
+        # agent sdk update-status
+        agent_sdk_update_status_parser = agent_sdk_subparsers.add_parser("update-status", help="Update agent status")
+        agent_sdk_update_status_parser.add_argument("--agent-id", required=True, help="Agent ID")
+        agent_sdk_update_status_parser.add_argument("--status", required=True, help="New status (active, inactive, busy)")
+        agent_sdk_update_status_parser.add_argument("--load-metrics", help="JSON string of load metrics")
+        agent_sdk_update_status_parser.add_argument("--coordinator-url", default="http://localhost:9001", help="Coordinator URL")
+        agent_sdk_update_status_parser.set_defaults(handler=ctx.handle_agent_sdk_action, agent_sdk_action="update-status")
     
         # agent sdk capabilities
         agent_sdk_caps_parser = agent_sdk_subparsers.add_parser("capabilities", help="Show system capabilities")
