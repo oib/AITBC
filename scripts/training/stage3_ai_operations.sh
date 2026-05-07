@@ -355,7 +355,7 @@ validation_quiz() {
     echo "6. How do you benchmark AI performance?"
     echo
     echo -e "${YELLOW}Press Enter to continue to Stage 4 when ready...${NC}"
-    read -r
+    read -t 1 -r || true
     
     print_success "Stage 3 validation completed"
 }
