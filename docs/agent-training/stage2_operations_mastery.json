@@ -1,6 +1,9 @@
 {
   "stage": "stage2_operations_mastery",
   "agent_type": "general",
+  "difficulty": "beginner",
+  "estimated_time_minutes": 45,
+  "depends_on": ["stage1_foundation"],
   "scenarios": [
     "10_plugin_development.md",
     "11_ipfs_storage.md",
