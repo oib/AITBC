@@ -76,6 +76,68 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 - `POST /tasks/submit` - Submit task for distribution
 - `GET /tasks/status` - Get task distribution statistics
 
+### 4. Agent Communication (`protocols/communication.py`)
+
+The Agent Communication system enables agents to communicate with each other through the coordinator using various protocols.
+
+**Message Types:**
+- `DIRECT` - Point-to-point messages between specific agents
+- `BROADCAST` - Messages sent to all connected agents
+- `HIERARCHICAL` - Master-agent to sub-agent communication
+- `PEER_TO_PEER` - Direct agent-to-agent communication
+- `COORDINATION` - Coordination and synchronization messages
+- `TASK_ASSIGNMENT` - Task distribution messages
+- `STATUS_UPDATE` - Agent status updates
+- `HEARTBEAT` - Keep-alive messages
+- `DISCOVERY` - Agent discovery messages
+- `CONSENSUS` - Consensus protocol messages
+
+**Message Priorities:**
+- `LOW` - Low priority messages
+- `NORMAL` - Normal priority (default)
+- `HIGH` - High priority messages
+- `CRITICAL` - Critical priority messages
+
+**Communication Protocols:**
+
+**Hierarchical Protocol:**
+- Master agents manage sub-agents
+- Messages flow from master to sub-agents
+- Sub-agents can send messages back to master
+- Suitable for coordinated task execution
+
+**Peer-to-Peer Protocol:**
+- Direct agent-to-agent communication
+- Agents maintain peer connections
+- Messages sent directly between peers
+- Suitable for decentralized coordination
+
+**Message Structure:**
+```python
+AgentMessage:
+  - id: Unique message ID (UUID)
+  - sender_id: Sending agent ID
+  - receiver_id: Target agent ID (optional for broadcast)
+  - message_type: Type of message
+  - priority: Message priority level
+  - timestamp: Message creation time (UTC)
+  - payload: Message data (dictionary)
+  - correlation_id: For request-response correlation
+  - reply_to: For reply messages
+  - ttl: Time-to-live in seconds (default: 300)
+```
+
+**Communication Flow:**
+1. Agents register with coordinator via `POST /agents/register`
+2. Agents establish connections via endpoints
+3. Messages routed through coordinator or direct connections
+4. Message handlers process incoming messages
+5. TTL ensures expired messages are discarded
+6. Priority levels ensure important messages are processed first
+
+**Current Implementation:**
+The coordinator provides REST APIs for agent registration, discovery, and status updates. Agent communication is currently implemented via HTTP endpoints on the coordinator service (port 9001). The communication protocols are defined in the code but require additional implementation for full peer-to-peer and hierarchical messaging.
+
 ## Service Initialization
 
 The service initializes in `lifespan.py` during FastAPI startup:
