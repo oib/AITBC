@@ -538,6 +538,9 @@ def run_cli(argv, core):
     def handle_ai_stats(args):
         ai_handlers.handle_ai_stats(args, default_rpc_url, output_format, render_mapping)
 
+    def handle_ai_distribution_stats(args):
+        ai_handlers.handle_ai_distribution_stats(args, default_coordinator_url, output_format, render_mapping)
+
     def handle_ai_service_list(args):
         ai_handlers.handle_ai_service_list(args, ai_operations, render_mapping)
 
@@ -726,6 +729,7 @@ def run_cli(argv, core):
         "handle_ai_job": handle_ai_job,
         "handle_ai_cancel": handle_ai_cancel,
         "handle_ai_stats": handle_ai_stats,
+        "handle_ai_distribution_stats": handle_ai_distribution_stats,
         "handle_ai_service_list": handle_ai_service_list,
         "handle_ai_service_status": handle_ai_service_status,
         "handle_ai_service_test": handle_ai_service_test,
