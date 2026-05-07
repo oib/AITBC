@@ -95,19 +95,28 @@ Lock tokens on source chain with hashlock and timelock:
 
 ```bash
 # Initiate swap on source chain (ait-mainnet)
-aitbc atomic-swap initiate \
-  --chain ait-mainnet \
-  --swap-id $SWAP_ID \
-  --token AITBC \
-  --amount 1000 \
-  --participant aitbc1recipient \
-  --hashlock $HASHLOCK \
-  --timelock 3600 \
-  --wallet mainnet-wallet
+# First deploy the CrossChainAtomicSwap contract if not already deployed
+aitbc contract deploy \
+  --name CrossChainAtomicSwap \
+  --type atomic-swap \
+  --rpc-url http://localhost:8545 \
+  --password-file ~/.aitbc/wallets/mainnet-wallet.password
+
+# Call the initiateSwap method
+aitbc contract call \
+  --address <CONTRACT_ADDRESS> \
+  --method initiateSwap \
+  --params '{"swapId": "'"$SWAP_ID"'", "token": "AITBC", "amount": 1000, "participant": "aitbc1recipient", "hashlock": "'"$HASHLOCK"'", "timelock": 3600}' \
+  --rpc-url http://localhost:8545 \
+  --password-file ~/.aitbc/wallets/mainnet-wallet.password
 ```
 
 Output:
 ```
+Contract call result:
+  Address: <CONTRACT_ADDRESS>
+  Method: initiateSwap
+  Result: {"swapId": "$SWAP_ID", "status": "OPEN"}
 Swap initiated on ait-mainnet
 Swap ID: $SWAP_ID
 Amount: 1000 AITBC
@@ -121,16 +130,20 @@ Status: OPEN
 Counterparty initiates matching swap on destination chain:
 
 ```bash
+# Deploy CrossChainAtomicSwap contract on destination chain if not already deployed
+aitbc contract deploy \
+  --name CrossChainAtomicSwap \
+  --type atomic-swap \
+  --rpc-url http://localhost:8546 \
+  --password-file ~/.aitbc/wallets/testnet-wallet.password
+
 # Counterparty initiates on destination chain (ait-testnet)
-aitbc atomic-swap initiate \
-  --chain ait-testnet \
-  --swap-id $SWAP_ID \
-  --token AITBC \
-  --amount 950 \
-  --participant aitbc1sender \
-  --hashlock $HASHLOCK \
-  --timelock 3600 \
-  --wallet testnet-wallet
+aitbc contract call \
+  --address <DEST_CONTRACT_ADDRESS> \
+  --method initiateSwap \
+  --params '{"swapId": "'"$SWAP_ID"'", "token": "AITBC", "amount": 950, "participant": "aitbc1sender", "hashlock": "'"$HASHLOCK"'", "timelock": 3600}' \
+  --rpc-url http://localhost:8546 \
+  --password-file ~/.aitbc/wallets/testnet-wallet.password
 ```
 
 ### **Step 4: Complete Atomic Swap**
@@ -138,19 +151,21 @@ aitbc atomic-swap initiate \
 Reveal secret to complete both swaps atomically:
 
 ```bash
-# Reveal secret to complete swap
-aitbc atomic-swap complete \
-  --chain ait-mainnet \
-  --swap-id $SWAP_ID \
-  --secret $SECRET \
-  --wallet mainnet-wallet
+# Reveal secret to complete swap on source chain
+aitbc contract call \
+  --address <CONTRACT_ADDRESS> \
+  --method completeSwap \
+  --params '{"swapId": "'"$SWAP_ID"'", "secret": "'"$SECRET"'"}' \
+  --rpc-url http://localhost:8545 \
+  --password-file ~/.aitbc/wallets/mainnet-wallet.password
 
-# Counterparty completes with same secret
-aitbc atomic-swap complete \
-  --chain ait-testnet \
-  --swap-id $SWAP_ID \
-  --secret $SECRET \
-  --wallet testnet-wallet
+# Counterparty completes with same secret on destination chain
+aitbc contract call \
+  --address <DEST_CONTRACT_ADDRESS> \
+  --method completeSwap \
+  --params '{"swapId": "'"$SWAP_ID"'", "secret": "'"$SECRET"'"}' \
+  --rpc-url http://localhost:8546 \
+  --password-file ~/.aitbc/wallets/testnet-wallet.password
 ```
 
 ### **Step 5: Monitor Swap Status**
@@ -159,14 +174,18 @@ Track swap status across chains:
 
 ```bash
 # Check swap status on source chain
-aitbc atomic-swap status \
-  --chain ait-mainnet \
-  --swap-id $SWAP_ID
+aitbc contract call \
+  --address <CONTRACT_ADDRESS> \
+  --method getSwapStatus \
+  --params '{"swapId": "'"$SWAP_ID"'"}' \
+  --rpc-url http://localhost:8545
 
 # Check swap status on destination chain
-aitbc atomic-swap status \
-  --chain ait-testnet \
-  --swap-id $SWAP_ID
+aitbc contract call \
+  --address <DEST_CONTRACT_ADDRESS> \
+  --method getSwapStatus \
+  --params '{"swapId": "'"$SWAP_ID"'"}' \
+  --rpc-url http://localhost:8546
 ```
 
 ### **Step 6: Handle Refund (if needed)**
@@ -175,10 +194,12 @@ Refund swap if timelock expires:
 
 ```bash
 # Refund if timelock expired
-aitbc atomic-swap refund \
-  --chain ait-mainnet \
-  --swap-id $SWAP_ID \
-  --wallet mainnet-wallet
+aitbc contract call \
+  --address <CONTRACT_ADDRESS> \
+  --method refundSwap \
+  --params '{"swapId": "'"$SWAP_ID"'"}' \
+  --rpc-url http://localhost:8545 \
+  --password-file ~/.aitbc/wallets/mainnet-wallet.password
 ```
 
 ---

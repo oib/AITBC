@@ -1,0 +1,253 @@
+{
+  "stage": "stage11_agent_communication",
+  "agent_type": "coordinator",
+  "difficulty": "intermediate",
+  "estimated_time_minutes": 45,
+  "skill_level": "practitioner",
+  "depends_on": ["stage3_ai_operations"],
+  "skills": [
+    "message_sending",
+    "protocol_selection",
+    "broadcast_messaging",
+    "message_history",
+    "peer_management",
+    "communication_metrics"
+  ],
+  "objectives": [
+    "Send messages using hierarchical protocol",
+    "Send messages using peer-to-peer protocol",
+    "Broadcast messages to multiple agents",
+    "Retrieve message history with filtering",
+    "Manage peer connections",
+    "Monitor communication performance metrics"
+  ],
+  "scenarios": [
+    "/docs/scenarios/agent_communication_basics.md"
+  ],
+  "training_data": {
+    "operations": [
+      {
+        "operation": "message_send_hierarchical",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "receiver_id": "worker-1",
+          "message_type": "direct",
+          "payload": {"task": "test_task"},
+          "priority": "normal",
+          "protocol": "hierarchical"
+        },
+        "expected_result": {
+          "status": "success",
+          "message_id": "*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["message_id", "protocol", "sent_at"]
+        }
+      },
+      {
+        "operation": "message_send_peer_to_peer",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "receiver_id": "worker-2",
+          "message_type": "direct",
+          "payload": {"task": "peer_task"},
+          "priority": "normal",
+          "protocol": "peer_to_peer"
+        },
+        "expected_result": {
+          "status": "success",
+          "message_id": "*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["message_id", "protocol", "sent_at"]
+        }
+      },
+      {
+        "operation": "message_broadcast",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "message_type": "broadcast",
+          "payload": {"announcement": "test_announcement"},
+          "priority": "normal",
+          "agent_type": "worker"
+        },
+        "expected_result": {
+          "status": "success",
+          "count": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["recipients", "count", "broadcast_at"]
+        }
+      },
+      {
+        "operation": "message_history",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "limit": 10
+        },
+        "expected_result": {
+          "status": "success",
+          "messages": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["messages", "count", "total"]
+        }
+      },
+      {
+        "operation": "peer_add",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "agent_id": "worker-1",
+          "peer_id": "worker-2"
+        },
+        "expected_result": {
+          "status": "success"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "peer_id", "connected_at"]
+        }
+      },
+      {
+        "operation": "peer_list",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_result": {
+          "status": "success",
+          "connections": "{}"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["connections", "total_agents", "total_peers"]
+        }
+      },
+      {
+        "operation": "peer_list_agent",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "agent_id": "worker-1"
+        },
+        "expected_result": {
+          "status": "success",
+          "peers": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "peers", "count"]
+        }
+      },
+      {
+        "operation": "peer_remove",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001",
+          "agent_id": "worker-1",
+          "peer_id": "worker-2"
+        },
+        "expected_result": {
+          "status": "success"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "peer_id", "removed_at"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Send hierarchical message",
+        "operation": "message_send_hierarchical",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001",
+          "receiver_id": "worker-1",
+          "message_type": "direct",
+          "payload": {"test": "exam"},
+          "priority": "normal",
+          "protocol": "hierarchical"
+        },
+        "expected_output": {
+          "status": "success",
+          "message_id": "*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Send peer-to-peer message",
+        "operation": "message_send_peer_to_peer",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001",
+          "receiver_id": "worker-2",
+          "message_type": "direct",
+          "payload": {"test": "exam"},
+          "priority": "normal",
+          "protocol": "peer_to_peer"
+        },
+        "expected_output": {
+          "status": "success",
+          "message_id": "*"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Broadcast message",
+        "operation": "message_broadcast",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001",
+          "message_type": "broadcast",
+          "payload": {"test": "exam"},
+          "priority": "normal"
+        },
+        "expected_output": {
+          "status": "success",
+          "count": ">0"
+        },
+        "weight": 2
+      },
+      {
+        "test_name": "Retrieve message history",
+        "operation": "message_history",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001",
+          "limit": 10
+        },
+        "expected_output": {
+          "status": "success",
+          "messages": "[]"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "Add peer connection",
+        "operation": "peer_add",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001",
+          "agent_id": "worker-1",
+          "peer_id": "worker-2"
+        },
+        "expected_output": {
+          "status": "success"
+        },
+        "weight": 1
+      },
+      {
+        "test_name": "List peer connections",
+        "operation": "peer_list",
+        "test_case": {
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_output": {
+          "status": "success",
+          "connections": "{}"
+        },
+        "weight": 1
+      }
+    ],
+    "passing_score": 80
+  }
+}
