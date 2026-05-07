@@ -17,7 +17,12 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.http_client import AITBCHTTPClient
-from aitbc_agent.contract_integration import AgentContractIntegration, ContractClient, ContractConfig
+from aitbc_agent.contract_integration import (
+    AgentContractIntegration, 
+    ContractClient, 
+    ContractConfig,
+    create_agent_contract_integration
+)
 
 logger = get_logger(__name__)
 
@@ -110,16 +115,15 @@ class Agent:
         self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
 
         # Contract integration
-        self.contract_client: Optional[ContractClient] = None
         self.contract_integration: Optional[AgentContractIntegration] = None
 
         if contract_config:
             try:
-                self.contract_client = ContractClient(
+                # Use factory function to create appropriate client
+                self.contract_integration = create_agent_contract_integration(
                     config=contract_config,
                     private_key=identity.private_key
                 )
-                self.contract_integration = AgentContractIntegration(self.contract_client)
                 self.contract_integration.set_agent_address(identity.address)
                 logger.info("Contract integration initialized for agent")
             except Exception as e:
