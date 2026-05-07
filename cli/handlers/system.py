@@ -128,45 +128,145 @@ def handle_agent_sdk_action(args, render_mapping):
         print(f"Agent SDK created: {name}")
         render_mapping("Agent SDK:", sdk_data)
     
+    elif action == "update-status":
+        agent_id = getattr(args, "agent_id", None)
+        status = getattr(args, "status", None)
+        load_metrics = getattr(args, "load_metrics", {})
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        
+        if not agent_id or not status:
+            print("Error: --agent-id and --status are required")
+            sys.exit(1)
+        
+        status_update_request = {
+            "status": status,
+            "load_metrics": load_metrics if isinstance(load_metrics, dict) else {}
+        }
+        
+        print(f"Updating agent {agent_id} status to {status}...")
+        
+        try:
+            import requests
+            response = requests.put(
+                f"{coordinator_url}/agents/{agent_id}/status",
+                json=status_update_request,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"Agent status updated successfully")
+                render_mapping("Status Update:", result)
+            else:
+                print(f"Status update failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error updating agent status: {e}")
+            sys.exit(1)
+    
     elif action == "register":
         agent_id = getattr(args, "agent_id", None)
+        agent_type = getattr(args, "type", "worker")
+        capabilities = getattr(args, "capabilities", [])
+        services = getattr(args, "services", [])
+        endpoints = getattr(args, "endpoints", {})
+        metadata = getattr(args, "metadata", {})
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
         
-        registration_data = {
+        # Build registration request
+        registration_request = {
             "agent_id": agent_id,
-            "registered": True,
-            "coordinator": getattr(args, "coordinator_url", "http://localhost:9001"),
-            "timestamp": __import__('datetime').datetime.now().isoformat()
+            "agent_type": agent_type,
+            "capabilities": capabilities if isinstance(capabilities, list) else (capabilities.split(",") if capabilities else []),
+            "services": services if isinstance(services, list) else (services.split(",") if services else []),
+            "endpoints": endpoints if isinstance(endpoints, dict) else (json.loads(endpoints) if endpoints else {}),
+            "metadata": metadata if isinstance(metadata, dict) else (json.loads(metadata) if metadata else {})
         }
         
-        print(f"Agent registered: {agent_id}")
-        render_mapping("Registration:", registration_data)
+        print(f"Registering agent {agent_id} with coordinator at {coordinator_url}...")
+        
+        try:
+            import requests
+            response = requests.post(
+                f"{coordinator_url}/agents/register",
+                json=registration_request,
+                timeout=30
+            )
+            
+            if response.status_code in (200, 201):
+                result = response.json()
+                print(f"Agent registered successfully")
+                render_mapping("Registration:", result)
+            else:
+                print(f"Registration failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error registering agent: {e}")
+            sys.exit(1)
     
     elif action == "list":
-        agents_data = {
-            "agents": [
-                {"agent_id": "agent_1", "name": "data-analyzer", "status": "active"},
-                {"agent_id": "agent_2", "name": "trading-bot", "status": "completed"},
-                {"agent_id": "agent_3", "name": "content-generator", "status": "failed"}
-            ],
-            "total_count": 3
-        }
+        # Agent discovery via coordinator
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
+        status = getattr(args, "status", None)
+        agent_type = getattr(args, "agent_type", None)
         
-        print("Local agents listed")
-        render_mapping("Agents:", agents_data)
+        query = {}
+        if status:
+            query["status"] = status
+        if agent_type:
+            query["agent_type"] = agent_type
+        
+        print(f"Discovering agents from coordinator at {coordinator_url}...")
+        
+        try:
+            import requests
+            response = requests.post(
+                f"{coordinator_url}/agents/discover",
+                json=query,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"Found {result.get('count', 0)} agents")
+                render_mapping("Agents:", result)
+            else:
+                print(f"Discovery failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error discovering agents: {e}")
+            sys.exit(1)
     
     elif action == "status":
         agent_id = getattr(args, "agent_id", None)
+        coordinator_url = getattr(args, "coordinator_url", "http://localhost:9001")
         
-        status_data = {
-            "agent_id": agent_id,
-            "status": "active",
-            "uptime": "2h 30m",
-            "jobs_completed": 15,
-            "success_rate": "93%"
-        }
+        print(f"Getting agent info for {agent_id} from coordinator at {coordinator_url}...")
         
-        print(f"Agent status: {agent_id}")
-        render_mapping("Status:", status_data)
+        try:
+            import requests
+            response = requests.get(
+                f"{coordinator_url}/agents/{agent_id}",
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                print(f"Agent info retrieved")
+                render_mapping("Agent:", result)
+            elif response.status_code == 404:
+                print(f"Agent not found: {agent_id}")
+                sys.exit(1)
+            else:
+                print(f"Query failed: {response.status_code}")
+                print(f"Error: {response.text}")
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error getting agent info: {e}")
+            sys.exit(1)
     
     elif action == "capabilities":
         caps_data = {
