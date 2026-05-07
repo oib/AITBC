@@ -83,9 +83,23 @@
         }
       },
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
         "operation": "agent_message",
         "parameters": {
-          "agent": "agent_*",
+          "agent_id": "agent_*",
           "message": "test message",
           "wallet": "training-wallet",
           "password": "training123"
@@ -102,7 +116,7 @@
       {
         "operation": "agent_messages",
         "parameters": {
-          "agent": "agent_*"
+          "agent_id": "agent_*"
         },
         "expected_result": {
           "status": "success",
@@ -172,7 +186,9 @@
       },
       {
         "operation": "agent_sdk_capabilities",
-        "parameters": {},
+        "parameters": {
+          "agent_id": "agent_*"
+        },
         "expected_result": {
           "status": "success",
           "capabilities": "[]"
