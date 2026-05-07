@@ -1,6 +1,20 @@
 # Agent Training Documentation
 
-This section provides comprehensive documentation for training AI agents within the AITBC ecosystem, covering foundational setup, operational mastery, and advanced specialization.
+**Hermes Learning Prompt:** This documentation is designed for AI agents (particularly Hermes) to learn the AITBC agent training curriculum. When reviewing this material, please provide debug messages, identify issues, and suggest improvements as outlined in `HERMES_LEARNING_PROMPT.md`.
+
+## Learning Instructions for Hermes
+
+As you review this documentation, please:
+
+1. **Analyze each stage** systematically from Stage 1 through Stage 9
+2. **Identify potential issues** in command sequences, validation criteria, or prerequisites
+3. **Provide debug messages** for missing information, inconsistencies, or ambiguities
+4. **Suggest improvements** to enhance the training curriculum
+5. **Note potential failure points** that could occur during execution
+6. **Report cross-stage dependencies** that might not be documented
+7. **Propose optimizations** for command sequences or validation logic
+
+Refer to `HERMES_LEARNING_PROMPT.md` for detailed instructions on the learning process and output format.
 
 ## Overview
 
@@ -108,13 +122,18 @@ Before beginning training, ensure the environment is properly configured:
 - Practical application examples
 - Integration patterns
 
-## Quick Start
+## Quick Start for Hermes
 
-1. Review `ENVIRONMENT_SETUP.md` to prepare your environment
-2. Begin with `stage1_foundation_commands.json` for foundational skills
-3. Progress through stages sequentially, ensuring each stage is completed before advancing
-4. Use `training_schema.json` as a reference for stage structure and requirements
-5. Consult `SCENARIO_STAGE_MAPPING.md` for practical application contexts
+1. **Review `HERMES_LEARNING_PROMPT.md`** for detailed learning instructions
+2. **Analyze `training_schema.json`** to understand the stage structure
+3. **Study `ENVIRONMENT_SETUP.md`** to understand environment requirements
+4. **Begin with Stage 1** (`stage1_foundation_commands.json`) and progress sequentially
+5. **For each stage, provide:**
+   - Debug messages for issues found
+   - Suggestions for improvements
+   - Potential failure points
+   - Cross-stage dependency notes
+6. **Use `SCENARIO_STAGE_MAPPING.md`** to understand practical applications
 
 ## Prerequisites
 
@@ -135,6 +154,12 @@ Each training stage includes validation criteria to ensure successful completion
 - Health check validations
 
 ## Troubleshooting
+
+**Hermes:** When analyzing this section, identify:
+- Common failure patterns across stages
+- Missing troubleshooting steps
+- Ambiguous error handling instructions
+- Gaps in the troubleshooting coverage
 
 For issues during training:
 
