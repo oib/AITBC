@@ -3,7 +3,26 @@
   "agent_type": "coordinator",
   "difficulty": "advanced",
   "estimated_time_minutes": 90,
+  "skill_level": "expert",
   "depends_on": ["stage3_ai_operations", "stage4_marketplace_economics"],
+  "skills": [
+    "workflow_management",
+    "resource_optimization",
+    "analytics",
+    "performance_tuning",
+    "security_auditing",
+    "governance",
+    "cross_chain_bridging"
+  ],
+  "objectives": [
+    "Create and manage workflows",
+    "Optimize resource allocation",
+    "Collect and analyze metrics",
+    "Tune system performance",
+    "Perform security audits",
+    "Participate in governance",
+    "Bridge assets across chains"
+  ],
   "scenarios": [
     "15_blockchain_monitoring.md",
     "16_agent_registration.md",
