@@ -148,6 +148,7 @@
           "wallet": "training-wallet",
           "to": "recipient-address",
           "amount": "10",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -156,10 +157,10 @@
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["transaction_id", "amount"],
-          "performance": {
-            "max_duration_ms": 10000
-          }
+          "response_fields": ["transaction_id", "amount"]
+        },
+        "performance": {
+          "max_duration_ms": 10000
         },
         "verify_on_chain": true,
         "confirmations_required": 1,
