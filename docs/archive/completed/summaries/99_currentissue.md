@@ -32,7 +32,7 @@
 - Modality Optimization Service (Port 8004) ✅
 - Adaptive Learning Service (Port 8005) ✅
 - Enhanced Marketplace Service (Port 8006) ✅
-- OpenClaw Enhanced Service (Port 8007) ✅
+- hermes Enhanced Service (Port 8007) ✅
 - Deployment: Production-ready with systemd integration ✅
 
 
@@ -228,7 +228,7 @@ aitbc1-edge-secondary (us-west):
 - **aitbc1 (10.1.223.40)**: Secondary dev container without GPUs
 
 ### Test Status
-- **OpenClaw Marketplace Tests**: Created comprehensive test suite (7 test files)
+- **hermes Marketplace Tests**: Created comprehensive test suite (7 test files)
 - **Test Runner**: Implemented automated test execution
 - **Status**: Tests created but need fixture fixes for async patterns
 
@@ -456,7 +456,7 @@ Enhanced Contract Stack (Complete Implementation):
 
 ---
 
-### Phase 8.3: OpenClaw Agent Economics Enhancement (Weeks 5-6) ✅ COMPLETE
+### Phase 8.3: hermes Agent Economics Enhancement (Weeks 5-6) ✅ COMPLETE
 
 #### 📋 Week 5: Core Economic Systems (February 26, 2026)
 **Status**: ✅ COMPLETE
@@ -472,7 +472,7 @@ Enhanced Contract Stack (Complete Implementation):
 - ✅ Smart contract deployment completed on both servers
 - ✅ Week 5: Agent Economics Enhancement completed
 - ✅ Week 6: Advanced Features & Integration completed
-- ✅ Week 7 Day 1-3: Enhanced OpenClaw Agent Performance completed
+- ✅ Week 7 Day 1-3: Enhanced hermes Agent Performance completed
 - ✅ Week 7 Day 4-6: Multi-Modal Agent Fusion & Advanced RL completed
 - ✅ Week 7 Day 7-9: Agent Creativity & Specialized Capabilities completed
 - ✅ Week 10-12: Marketplace Performance Optimization completed
@@ -481,7 +481,7 @@ Enhanced Contract Stack (Complete Implementation):
 
 **Week 16-18 Tasks: Decentralized Agent Governance**:
 - ✅ Token-Based Voting: Mechanism for agents and developers to vote on protocol changes
-- ✅ OpenClaw DAO: Creation of the decentralized autonomous organization structure
+- ✅ hermes DAO: Creation of the decentralized autonomous organization structure
 - ✅ Proposal System: Framework for submitting and executing marketplace rules
 - ✅ Governance Analytics: Transparency reporting for treasury and voting metrics
 - ✅ Agent Certification: Fully integrated governance-backed partnership programs
@@ -503,13 +503,13 @@ Enhanced Contract Stack (Complete Implementation):
   - `generate_transparency_report`: Automated analytics generation
 
 - ✅ **Governance APIs** (`routers/governance.py`)
-  - Complete REST interface for the OpenClaw DAO
+  - Complete REST interface for the hermes DAO
   - Endpoints for delegation, voting, proposal execution, and reporting
 
 **Week 16-18 Achievements**:
 - ✅ Established a robust, transparent DAO structure for the AITBC ecosystem
 - ✅ Created an automated treasury and proposal execution framework
-- ✅ Finalized Phase 10: OpenClaw Agent Community & Governance
+- ✅ Finalized Phase 10: hermes Agent Community & Governance
 
 **Dependencies**:
 - ✅ Existing agent services (agent_service.py, agent_integration.py)

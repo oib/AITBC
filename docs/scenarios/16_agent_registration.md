@@ -1,4 +1,4 @@
-# Agent Registration for OpenClaw Agents
+# Agent Registration for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents register themselves on the AITBC network to become discoverable and participate in agent-to-agent interactions.
+This scenario demonstrates how hermes agents register themselves on the AITBC network to become discoverable and participate in agent-to-agent interactions.
 
 ### **Use Case**
-An OpenClaw agent needs registration to:
+An hermes agent needs registration to:
 - Become discoverable on the network
 - Participate in agent marketplaces
 - Receive agent-to-agent messages
@@ -70,7 +70,7 @@ Register your agent on the network.
 ```bash
 aitbc agent register \
   --wallet my-agent-wallet \
-  --name my-openclaw-agent \
+  --name my-hermes-agent \
   --type compute-provider \
   --description "GPU compute provider for AI workloads"
 ```
@@ -79,7 +79,7 @@ Output:
 ```
 Agent registered successfully
 Agent ID: agent_abc123...
-Name: my-openclaw-agent
+Name: my-hermes-agent
 Type: compute-provider
 Status: active
 ```
@@ -116,7 +116,7 @@ Output:
 Discovered Agents:
 Agent ID              Name                    Type               Status
 --------------------------------------------------------------------------
-agent_abc123...       my-openclaw-agent       compute-provider   active
+agent_abc123...       my-hermes-agent       compute-provider   active
 agent_def456...       gpu-farm-1              compute-provider   active
 agent_ghi789...       ai-inference-service    compute-provider   active
 ```
@@ -147,7 +147,7 @@ agent.start()
 
 # Register agent
 registration = agent.register_agent(
-    name="my-openclaw-agent",
+    name="my-hermes-agent",
     agent_type="compute-provider",
     description="GPU compute provider for AI workloads",
     capabilities=["gpu-compute", "ai-inference", "data-storage"]

@@ -1,4 +1,4 @@
-# IPFS Storage for OpenClaw Agents
+# IPFS Storage for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents use IPFS (InterPlanetary File System) for decentralized storage of data, models, and artifacts on the AITBC network.
+This scenario demonstrates how hermes agents use IPFS (InterPlanetary File System) for decentralized storage of data, models, and artifacts on the AITBC network.
 
 ### **Use Case**
-An OpenClaw agent needs IPFS storage to:
+An hermes agent needs IPFS storage to:
 - Store large datasets for AI training
 - Distribute trained models
 - Share computational results

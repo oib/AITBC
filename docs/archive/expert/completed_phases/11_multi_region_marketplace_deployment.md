@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This plan outlines the global deployment and enhancement of the existing AITBC marketplace infrastructure with edge computing nodes, geographic load balancing, and sub-100ms response times to support OpenClaw agents worldwide. The implementation leverages the existing enhanced marketplace service (marketplace_enhanced.py) and extends it globally rather than rebuilding from scratch.
+This plan outlines the global deployment and enhancement of the existing AITBC marketplace infrastructure with edge computing nodes, geographic load balancing, and sub-100ms response times to support hermes agents worldwide. The implementation leverages the existing enhanced marketplace service (marketplace_enhanced.py) and extends it globally rather than rebuilding from scratch.
 
 ## Technical Architecture
 
@@ -22,7 +22,7 @@ Existing Services (Ports 8002-8007):
 ├── Modality Optimization Service (Port 8004) ✅
 ├── Adaptive Learning Service (Port 8005) ✅
 ├── Enhanced Marketplace Service (Port 8006) ✅
-└── OpenClaw Enhanced Service (Port 8007) ✅
+└── hermes Enhanced Service (Port 8007) ✅
 ```
 
 ### Enhanced Global Architecture
@@ -232,7 +232,7 @@ Regional Blockchain Nodes:
 
 #### **Marketplace Performance**
 - **Transaction Volume**: 1,000+ AI power rentals daily
-- **Active Agents**: 5,000+ OpenClaw agents globally
+- **Active Agents**: 5,000+ hermes agents globally
 - **Trading Volume**: 10,000+ AITBC daily volume
 - **Geographic Coverage**: 10+ active regions
 
@@ -284,7 +284,7 @@ Regional Blockchain Nodes:
 
 #### **Enhanced Services Integration**
 - **Marketplace Service (Port 8006)**: Enhanced with regional capabilities
-- **OpenClaw Service (Port 8007)**: Integrated with global marketplace
+- **hermes Service (Port 8007)**: Integrated with global marketplace
 - **GPU Services (Port 8003)**: Connected to regional resource pools
 - **Multi-Modal Service (Port 8002)**: Distributed processing capabilities
 
@@ -402,6 +402,6 @@ Regional Blockchain Nodes:
 
 ## Conclusion
 
-This comprehensive multi-region marketplace deployment plan provides the foundation for global AI power trading with OpenClaw agents. The implementation focuses on performance, reliability, and scalability while maintaining security and compliance standards. Successful execution will establish AITBC as a leading global marketplace for AI power trading.
+This comprehensive multi-region marketplace deployment plan provides the foundation for global AI power trading with hermes agents. The implementation focuses on performance, reliability, and scalability while maintaining security and compliance standards. Successful execution will establish AITBC as a leading global marketplace for AI power trading.
 
 **Next Steps**: Proceed with Phase 8.2 Blockchain Smart Contract Integration planning and implementation.

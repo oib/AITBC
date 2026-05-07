@@ -67,7 +67,7 @@ required_files=(
     "compute-provider.md"
     "advanced-ai-agents.md"
     "collaborative-agents.md"
-    "openclaw-integration.md"
+    "hermes-integration.md"
 )
 
 for file in "${required_files[@]}"; do
@@ -222,7 +222,7 @@ test_urls = [
     "/agent-api-spec.json",
     "/advanced-ai-agents.md",
     "/collaborative-agents.md",
-    "/openclaw-integration.md"
+    "/hermes-integration.md"
 ]
 
 for url_path in test_urls:

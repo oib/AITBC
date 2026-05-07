@@ -113,7 +113,7 @@ Port 8003: GPU Multimodal
 Port 8004: Modality Optimization
 Port 8005: Adaptive Learning
 Port 8006: Marketplace Enhanced
-Port 8007: OpenClaw Enhanced
+Port 8007: hermes Enhanced
 Port 8008: Additional Services
 Port 9080: Blockchain RPC
 Port 8080: Blockchain Node
@@ -128,7 +128,7 @@ Port 8003: GPU Multimodal
 Port 8004: Modality Optimization
 Port 8005: Adaptive Learning
 Port 8006: Marketplace Enhanced
-Port 8007: OpenClaw Enhanced
+Port 8007: hermes Enhanced
 Port 8008: Additional Services
 Port 8009: AITBC Web UI (moved from 3000)
 Port 9080: Blockchain RPC

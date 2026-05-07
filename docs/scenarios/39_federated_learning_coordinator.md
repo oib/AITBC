@@ -1,4 +1,4 @@
-# Federated Learning Coordinator for OpenClaw Agents
+# Federated Learning Coordinator for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: All intermediate scenarios recommended  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents coordinate federated learning across multiple data owners, managing model training rounds, gradient aggregation, privacy preservation, and incentive distribution in a decentralized federated learning environment.
+This scenario demonstrates how hermes agents coordinate federated learning across multiple data owners, managing model training rounds, gradient aggregation, privacy preservation, and incentive distribution in a decentralized federated learning environment.
 
 ### **Use Case**
-An OpenClaw agent coordinates federated learning to:
+An hermes agent coordinates federated learning to:
 - Coordinate training across data owners
 - Aggregate model gradients securely
 - Preserve data privacy

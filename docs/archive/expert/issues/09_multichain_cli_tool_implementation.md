@@ -55,7 +55,7 @@ cli/                          # Existing CLI directory
 │   │   ├── exchange.py      # Exchange commands (existing)
 │   │   ├── multimodal.py    # Multimodal commands (existing)
 │   │   ├── optimize.py      # Optimize commands (existing)
-│   │   ├── openclaw.py      # OpenClaw commands (existing)
+│   │   ├── hermes.py      # hermes commands (existing)
 │   │   ├── swarm.py         # Swarm commands (existing)
 │   │   ├── auth.py          # Auth commands (existing)
 │   │   ├── simulate.py      # Simulation commands (existing)

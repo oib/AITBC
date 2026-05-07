@@ -20,7 +20,7 @@ PYTHON_CMD="$VENV_DIR/bin/python"
 
 echo -e "${BLUE}🚀 AITBC REAL PRODUCTION SYSTEM${NC}"
 echo "=========================="
-echo "Implementing real blockchain mining, multi-chain, OpenClaw AI, real marketplace"
+echo "Implementing real blockchain mining, multi-chain, hermes AI, real marketplace"
 echo ""
 
 # Step 1: Real Blockchain Mining Implementation
@@ -355,14 +355,14 @@ EOF
 chmod +x /opt/aitbc/production/services/mining_blockchain.py
 echo "✅ Real mining blockchain created"
 
-# Step 2: OpenClaw AI Integration
-echo -e "${CYAN}🤖 Step 2: OpenClaw AI Integration${NC}"
+# Step 2: hermes AI Integration
+echo -e "${CYAN}🤖 Step 2: hermes AI Integration${NC}"
 echo "=================================="
 
-cat > /opt/aitbc/production/services/openclaw_ai.py << 'EOF'
+cat > /opt/aitbc/production/services/hermes_ai.py << 'EOF'
 #!/usr/bin/env python3
 """
-OpenClaw AI Service Integration
+hermes AI Service Integration
 Real AI agent system with marketplace integration
 """
 
@@ -381,21 +381,21 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/openclaw/openclaw.log'),
+        logging.FileHandler('/opt/aitbc/production/logs/hermes/hermes.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-class OpenClawAIService:
-    """Real OpenClaw AI service"""
+class hermesAIService:
+    """Real hermes AI service"""
     
     def __init__(self):
         self.node_id = os.getenv('NODE_ID', 'aitbc')
-        self.data_dir = Path(f'/opt/aitbc/production/data/openclaw/{self.node_id}')
+        self.data_dir = Path(f'/opt/aitbc/production/data/hermes/{self.node_id}')
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize OpenClaw agents
+        # Initialize hermes agents
         self.agents = {}
         self.tasks = {}
         self.results = {}
@@ -403,30 +403,30 @@ class OpenClawAIService:
         self._initialize_agents()
         self._load_data()
         
-        logger.info(f"OpenClaw AI service initialized for node: {self.node_id}")
+        logger.info(f"hermes AI service initialized for node: {self.node_id}")
     
     def _initialize_agents(self):
-        """Initialize OpenClaw AI agents"""
+        """Initialize hermes AI agents"""
         agents_config = [
             {
-                'id': 'openclaw-text-gen',
-                'name': 'OpenClaw Text Generator',
+                'id': 'hermes-text-gen',
+                'name': 'hermes Text Generator',
                 'capabilities': ['text_generation', 'creative_writing', 'content_creation'],
                 'model': 'llama2-7b',
                 'price_per_task': 5.0,
                 'status': 'active'
             },
             {
-                'id': 'openclaw-research',
-                'name': 'OpenClaw Research Agent',
+                'id': 'hermes-research',
+                'name': 'hermes Research Agent',
                 'capabilities': ['research', 'analysis', 'data_processing'],
                 'model': 'llama2-13b',
                 'price_per_task': 10.0,
                 'status': 'active'
             },
             {
-                'id': 'openclaw-trading',
-                'name': 'OpenClaw Trading Bot',
+                'id': 'hermes-trading',
+                'name': 'hermes Trading Bot',
                 'capabilities': ['trading', 'market_analysis', 'prediction'],
                 'model': 'custom-trading',
                 'price_per_task': 15.0,
@@ -482,13 +482,13 @@ class OpenClawAIService:
             with open(self.data_dir / 'results.json', 'w') as f:
                 json.dump(self.results, f, indent=2)
             
-            logger.debug("OpenClaw data saved")
+            logger.debug("hermes data saved")
             
         except Exception as e:
             logger.error(f"Failed to save data: {e}")
     
     def execute_task(self, agent_id: str, task_data: dict) -> dict:
-        """Execute a task with OpenClaw agent"""
+        """Execute a task with hermes agent"""
         if agent_id not in self.agents:
             raise Exception(f"Agent {agent_id} not found")
         
@@ -510,9 +510,9 @@ class OpenClawAIService:
         
         self.tasks[task_id] = task
         
-        # Execute task with OpenClaw
+        # Execute task with hermes
         try:
-            result = self._execute_openclaw_task(agent, task)
+            result = self._execute_hermes_task(agent, task)
             
             # Update task and agent
             task['status'] = 'completed'
@@ -552,12 +552,12 @@ class OpenClawAIService:
                 'error': str(e)
             }
     
-    def _execute_openclaw_task(self, agent: dict, task: dict) -> dict:
-        """Execute task with OpenClaw"""
+    def _execute_hermes_task(self, agent: dict, task: dict) -> dict:
+        """Execute task with hermes"""
         task_type = task['task_type']
         prompt = task['prompt']
         
-        # Simulate OpenClaw execution
+        # Simulate hermes execution
         if task_type == 'text_generation':
             return self._generate_text(agent, prompt)
         elif task_type == 'research':
@@ -568,16 +568,16 @@ class OpenClawAIService:
             raise Exception(f"Unsupported task type: {task_type}")
     
     def _generate_text(self, agent: dict, prompt: str) -> dict:
-        """Generate text with OpenClaw"""
+        """Generate text with hermes"""
         # Simulate text generation
         time.sleep(2)  # Simulate processing time
         
         result = f"""
-OpenClaw {agent['name']} Generated Text:
+hermes {agent['name']} Generated Text:
 
 {prompt}
 
-This is a high-quality text generation response from OpenClaw AI agent {agent['name']}. 
+This is a high-quality text generation response from hermes AI agent {agent['name']}. 
 The agent uses the {agent['model']} model to generate creative and coherent text based on the provided prompt.
 
 Generated at: {datetime.utcnow().isoformat()}
@@ -593,12 +593,12 @@ Node: {self.node_id}
         }
     
     def _perform_research(self, agent: dict, query: str) -> dict:
-        """Perform research with OpenClaw"""
+        """Perform research with hermes"""
         # Simulate research
         time.sleep(3)  # Simulate processing time
         
         result = f"""
-OpenClaw {agent['name']} Research Results:
+hermes {agent['name']} Research Results:
 
 Query: {query}
 
@@ -623,12 +623,12 @@ Node: {self.node_id}
         }
     
     def _analyze_trading(self, agent: dict, market_data: str) -> dict:
-        """Analyze trading with OpenClaw"""
+        """Analyze trading with hermes"""
         # Simulate trading analysis
         time.sleep(4)  # Simulate processing time
         
         result = f"""
-OpenClaw {agent['name']} Trading Analysis:
+hermes {agent['name']} Trading Analysis:
 
 Market Data: {market_data}
 
@@ -665,7 +665,7 @@ Node: {self.node_id}
         }
     
     def get_marketplace_listings(self) -> dict:
-        """Get marketplace listings for OpenClaw agents"""
+        """Get marketplace listings for hermes agents"""
         listings = []
         
         for agent in self.agents.values():
@@ -688,19 +688,19 @@ Node: {self.node_id}
         }
 
 if __name__ == '__main__':
-    # Initialize OpenClaw service
-    service = OpenClawAIService()
+    # Initialize hermes service
+    service = hermesAIService()
     
     # Execute sample tasks
     sample_tasks = [
         {
-            'agent_id': 'openclaw-text-gen',
+            'agent_id': 'hermes-text-gen',
             'type': 'text_generation',
             'prompt': 'Explain the benefits of decentralized AI networks',
             'parameters': {'max_length': 500}
         },
         {
-            'agent_id': 'openclaw-research',
+            'agent_id': 'hermes-research',
             'type': 'research',
             'prompt': 'Analyze the current state of blockchain technology',
             'parameters': {'depth': 'comprehensive'}
@@ -716,20 +716,20 @@ if __name__ == '__main__':
     
     # Print service info
     info = service.get_agents_info()
-    print(f"OpenClaw service info: {json.dumps(info, indent=2)}")
+    print(f"hermes service info: {json.dumps(info, indent=2)}")
 EOF
 
-chmod +x /opt/aitbc/production/services/openclaw_ai.py
-echo "✅ OpenClaw AI integration created"
+chmod +x /opt/aitbc/production/services/hermes_ai.py
+echo "✅ hermes AI integration created"
 
-# Step 3: Real Marketplace with OpenClaw & Ollama
+# Step 3: Real Marketplace with hermes & Ollama
 echo -e "${CYAN}🏪 Step 3: Real Marketplace with AI${NC}"
 echo "=================================="
 
 cat > /opt/aitbc/production/services/real_marketplace.py << 'EOF'
 #!/usr/bin/env python3
 """
-Real Marketplace with OpenClaw AI and Ollama Tasks
+Real Marketplace with hermes AI and Ollama Tasks
 """
 
 import os
@@ -744,9 +744,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import uvicorn
 
-# Import OpenClaw service
+# Import hermes service
 sys.path.insert(0, '/opt/aitbc/production/services')
-from openclaw_ai import OpenClawAIService
+from hermes_ai import hermesAIService
 
 # Production logging
 logging.basicConfig(
@@ -768,7 +768,7 @@ class RealMarketplace:
         self.data_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize services
-        self.openclaw_service = OpenClawAIService()
+        self.hermes_service = hermesAIService()
         
         # Marketplace data
         self.ai_services = {}
@@ -815,19 +815,19 @@ class RealMarketplace:
             logger.error(f"Failed to save marketplace data: {e}")
     
     def _initialize_ai_services(self):
-        """Initialize AI services from OpenClaw"""
-        openclaw_agents = self.openclaw_service.get_agents_info()
+        """Initialize AI services from hermes"""
+        hermes_agents = self.hermes_service.get_agents_info()
         
-        for agent in openclaw_agents['agents']:
+        for agent in hermes_agents['agents']:
             service_id = f"ai_{agent['id']}"
             self.ai_services[service_id] = {
                 'id': service_id,
                 'name': agent['name'],
-                'type': 'openclaw_ai',
+                'type': 'hermes_ai',
                 'capabilities': agent['capabilities'],
                 'model': agent['model'],
                 'price_per_task': agent['price_per_task'],
-                'provider': 'OpenClaw AI',
+                'provider': 'hermes AI',
                 'node_id': self.node_id,
                 'rating': agent['rating'],
                 'tasks_completed': agent['tasks_completed'],
@@ -889,10 +889,10 @@ class RealMarketplace:
         
         service = self.ai_services[service_id]
         
-        if service['type'] == 'openclaw_ai':
-            # Execute with OpenClaw
+        if service['type'] == 'hermes_ai':
+            # Execute with hermes
             agent_id = service_id.replace('ai_', '')
-            result = self.openclaw_service.execute_task(agent_id, task_data)
+            result = self.hermes_service.execute_task(agent_id, task_data)
             
             # Update service stats
             service['tasks_completed'] += 1
@@ -975,7 +975,7 @@ marketplace = RealMarketplace()
 app = FastAPI(
     title="AITBC Real Marketplace",
     version="1.0.0",
-    description="Real marketplace with OpenClaw AI and Ollama tasks"
+    description="Real marketplace with hermes AI and Ollama tasks"
 )
 
 @app.get("/health")
@@ -1035,14 +1035,14 @@ echo "   • Multi-chain support (main + GPU chains)"
 echo "   • Real coin generation and rewards"
 echo "   • Cross-chain trading capabilities"
 echo ""
-echo "✅ OpenClaw AI Integration:"
+echo "✅ hermes AI Integration:"
 echo "   • Real AI agents (text generation, research, trading)"
 echo "   • Llama2 models (7B, 13B)"
 echo "   • Task execution and results"
 echo "   • Marketplace integration"
 echo ""
 echo "✅ Real Marketplace:"
-echo "   • OpenClaw AI services"
+echo "   • hermes AI services"
 echo "   • Ollama inference tasks"
 echo "   • Real commercial activity"
 echo "   • Payment processing"

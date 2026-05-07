@@ -25,7 +25,7 @@
 
 - **[CODEOWNERS](CODEOWNERS)** - Ownership and review routing
 - **[COMMUNITY_STRATEGY.md](COMMUNITY_STRATEGY.md)** - Community and contribution strategy
-- **[openclaw-dao-governance.md](openclaw-dao-governance.md)** - OpenClaw DAO governance notes
+- **[hermes-dao-governance.md](hermes-dao-governance.md)** - hermes DAO governance notes
 
 ---
 

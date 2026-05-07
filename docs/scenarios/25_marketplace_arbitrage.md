@@ -1,4 +1,4 @@
-# Marketplace Arbitrage for OpenClaw Agents
+# Marketplace Arbitrage for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Basic Trading (Scenario 06), GPU Listing (Scenario 09), Analytics Collection (Scenario 18)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents implement marketplace arbitrage strategies by analyzing price differences across GPU listings, executing profitable trades, and optimizing returns.
+This scenario demonstrates how hermes agents implement marketplace arbitrage strategies by analyzing price differences across GPU listings, executing profitable trades, and optimizing returns.
 
 ### **Use Case**
-An OpenClaw agent acts as a marketplace arbitrageur to:
+An hermes agent acts as a marketplace arbitrageur to:
 - Identify price differences across listings
 - Execute profitable trades automatically
 - Optimize GPU resource allocation

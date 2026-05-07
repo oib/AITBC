@@ -1,4 +1,4 @@
-# Compute Provider Agent for OpenClaw Agents
+# Compute Provider Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: GPU Listing (Scenario 09), Marketplace Bidding (Scenario 08), Wallet Basics (Scenario 01)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as compute providers by listing GPU resources, bidding on marketplace requests, managing payments, and handling compute jobs.
+This scenario demonstrates how hermes agents act as compute providers by listing GPU resources, bidding on marketplace requests, managing payments, and handling compute jobs.
 
 ### **Use Case**
-An OpenClaw agent acts as a compute provider to:
+An hermes agent acts as a compute provider to:
 - Monetize GPU resources on the marketplace
 - Bid on compute requests
 - Execute AI workloads

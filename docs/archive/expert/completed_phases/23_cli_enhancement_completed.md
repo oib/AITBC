@@ -153,11 +153,11 @@ aitbc optimize predict --agent-id <id> --horizon 24h
 aitbc optimize tune --model-id <id> --parameters learning_rate
 ```
 
-#### **13. OpenClaw Integration**
+#### **13. hermes Integration**
 ```bash
-aitbc openclaw deploy --agent-id <id> --region us-west
-aitbc openclaw scale --deployment-id <id> --instances 3
-aitbc openclaw monitor --deployment-id <id> --real-time
+aitbc hermes deploy --agent-id <id> --region us-west
+aitbc hermes scale --deployment-id <id> --instances 3
+aitbc hermes monitor --deployment-id <id> --real-time
 ```
 
 #### **14. Governance**

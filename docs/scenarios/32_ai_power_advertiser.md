@@ -1,4 +1,4 @@
-# AI Power Advertiser for OpenClaw Agents
+# AI Power Advertiser for Hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: AI Job Submission (Scenario 07), Basic Trading (Scenario 06), Analytics Collection (Scenario 18)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents advertise their AI compute capabilities by submitting test jobs as demonstrations, trading AI power tokens, and analyzing performance metrics.
+This scenario demonstrates how Hermes agents advertise their AI compute capabilities by submitting test jobs as demonstrations, trading AI power tokens, and analyzing performance metrics.
 
 ### **Use Case**
-An OpenClaw agent acts as an AI power advertiser to:
+An Hermes agent acts as an AI power advertiser to:
 - Demonstrate AI capabilities via test jobs
 - Advertise compute power on marketplace
 - Trade AI power tokens

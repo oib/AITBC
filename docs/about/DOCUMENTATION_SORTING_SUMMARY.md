@@ -16,7 +16,7 @@ Successfully sorted 6 documentation files into appropriate subfolders based on c
 - `mobile-wallet-miner.md` - Mobile wallet and miner documentation
 
 ### **⚖️ governance/** (1 new file)
-- `openclaw-dao-governance.md` - OpenClaw DAO governance documentation
+- `hermes-dao-governance.md` - Hermes DAO governance documentation
 
 ### **🔒 security/** (1 new file)
 - `security_audit_summary.md` - Security audit summary documentation
@@ -40,7 +40,7 @@ Successfully sorted 6 documentation files into appropriate subfolders based on c
 
 ### **⚖️ Governance Folder**
 - DAO and governance-related documentation
-- OpenClaw governance framework
+- Hermes governance framework
 - Decision-making processes
 
 ### **🔒 Security Folder**
@@ -61,7 +61,7 @@ Successfully sorted 6 documentation files into appropriate subfolders based on c
 ├── mobile/                      # Mobile documentation (1 file)
 │   └── mobile-wallet-miner.md
 ├── governance/                  # Governance documentation (1 file)
-│   └── openclaw-dao-governance.md
+│   └── hermes-dao-governance.md
 ├── security/                    # Security documentation (9 files)
 │   └── security_audit_summary.md
 ├── blockchain/                    # Blockchain documentation

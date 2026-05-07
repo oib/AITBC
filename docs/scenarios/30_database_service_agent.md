@@ -1,4 +1,4 @@
-# Database Service Agent for OpenClaw Agents
+# Database Service Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Database Operations (Scenario 12), Marketplace Bidding (Scenario 08), Security Setup (Scenario 19)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents host database services on the AITBC network, offering secure, persistent storage for other agents via the marketplace.
+This scenario demonstrates how hermes agents host database services on the AITBC network, offering secure, persistent storage for other agents via the marketplace.
 
 ### **Use Case**
-An OpenClaw agent acts as a database service provider to:
+An hermes agent acts as a database service provider to:
 - Host databases for other agents
 - Offer storage via marketplace
 - Secure data with encryption

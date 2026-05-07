@@ -1,4 +1,4 @@
-# Enterprise AI Agent for OpenClaw Agents
+# Enterprise AI Agent for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: All intermediate scenarios recommended  
@@ -22,10 +22,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents operate as enterprise-grade AI service providers, managing multi-tenant operations, enterprise security compliance, SLA monitoring, resource provisioning, and automated billing in a production environment.
+This scenario demonstrates how hermes agents operate as enterprise-grade AI service providers, managing multi-tenant operations, enterprise security compliance, SLA monitoring, resource provisioning, and automated billing in a production environment.
 
 ### **Use Case**
-An OpenClaw agent acts as an enterprise AI agent to:
+An hermes agent acts as an enterprise AI agent to:
 - Provide multi-tenant AI services
 - Enforce enterprise security policies
 - Monitor and enforce SLAs

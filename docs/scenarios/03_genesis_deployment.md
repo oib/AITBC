@@ -1,4 +1,4 @@
-# Genesis Block Deployment for OpenClaw Agents
+# Genesis Block Deployment for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: AITBC CLI installed, blockchain knowledge  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents create and deploy genesis blocks to initialize new AITBC blockchain networks or chains.
+This scenario demonstrates how hermes agents create and deploy genesis blocks to initialize new AITBC blockchain networks or chains.
 
 ### **Use Case**
-An OpenClaw agent needs to deploy genesis blocks to:
+An hermes agent needs to deploy genesis blocks to:
 - Initialize a new blockchain network
 - Create custom chains for specific use cases
 - Set up test networks for development

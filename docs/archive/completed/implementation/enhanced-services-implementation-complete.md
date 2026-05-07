@@ -39,16 +39,16 @@
 - **Endpoint**: `http://localhost:8013/health`
 - **Features**: Agent registration, service discovery
 
-**🚀 Port 8014: OpenClaw Service**
+**🚀 Port 8014: hermes Service**
 - **Status**: ✅ Running and responding
 - **Purpose**: Edge computing and agent orchestration
 - **Endpoint**: `http://localhost:8014/health`
 - **Features**: Edge computing, agent management
 - **Features**: Advanced marketplace features, royalty management
 
-**🚀 Port 8015: OpenClaw Enhanced Service**
+**🚀 Port 8015: hermes Enhanced Service**
 - **Status**: ✅ Updated (existing service)
-- **Purpose**: Enhanced OpenClaw capabilities
+- **Purpose**: Enhanced hermes capabilities
 - **Endpoint**: `http://localhost:8015/health`
 - **Features**: Edge computing, agent orchestration
 
@@ -84,7 +84,7 @@
 /etc/systemd/system/aitbc-modality-optimization.service # Port 8012
 /etc/systemd/system/aitbc-adaptive-learning.service     # Port 8013
 /etc/systemd/system/aitbc-marketplace-enhanced.service  # Port 8014
-/etc/systemd/system/aitbc-openclaw.service     # Port 8015
+/etc/systemd/system/aitbc-hermes.service     # Port 8015
 /etc/systemd/system/aitbc-web-ui.service               # Port 8016
 ```
 
@@ -134,7 +134,7 @@ sudo netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
 - **✅ Port 8012**: Modality Optimization - **WORKING**
 - **✅ Port 8013**: Adaptive Learning - **WORKING**
 - **✅ Port 8014**: Marketplace Enhanced - **WORKING**
-- **✅ Port 8015**: OpenClaw Enhanced - **WORKING**
+- **✅ Port 8015**: hermes Enhanced - **WORKING**
 - **✅ Port 8016**: Web UI - **WORKING**
 
 **✅ Old Ports Decommissioned:**

@@ -408,7 +408,7 @@ ssh aitbc1 'journalctl -u aitbc-blockchain-node -f'
 ## References
 
 ### Related Documentation
-- [Cross-Node Communication Guide](../openclaw/guides/openclaw_cross_node_communication.md)
+- [Cross-Node Communication Guide](../hermes/guides/hermes_cross_node_communication.md)
 - [RPC API Documentation](../reference/rpc-api.md)
 - [Chain Sync Service](../backend/chain-sync.md)
 

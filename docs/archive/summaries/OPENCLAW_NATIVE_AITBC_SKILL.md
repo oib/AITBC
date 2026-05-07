@@ -1,15 +1,15 @@
-# OpenClaw AITBC Skill - Complete Success! 🤖⛓️
+# hermes AITBC Skill - Complete Success! 🤖⛓️
 
-## ✅ Native OpenClaw AITBC Skill Created
+## ✅ Native hermes AITBC Skill Created
 
-I've successfully created a **native AITBC skill for OpenClaw** that allows OpenClaw agents to directly interact with your AITBC blockchain! This is the missing piece that makes OpenClaw agents first-class citizens in your blockchain ecosystem.
+I've successfully created a **native AITBC skill for hermes** that allows hermes agents to directly interact with your AITBC blockchain! This is the missing piece that makes hermes agents first-class citizens in your blockchain ecosystem.
 
 ### 🎯 **What's Been Built**
 
-#### **🤖 Native OpenClaw Skill**
-- **Skill File**: `/root/.openclaw/skills/aitbc.md` - Comprehensive documentation
-- **Implementation**: `/root/.openclaw/skills/aitbc.py` - Full Python implementation
-- **Configuration**: `/root/.openclaw/aitbc-config.json` - OpenClaw integration config
+#### **🤖 Native hermes Skill**
+- **Skill File**: `/root/.hermes/skills/aitbc.md` - Comprehensive documentation
+- **Implementation**: `/root/.hermes/skills/aitbc.py` - Full Python implementation
+- **Configuration**: `/root/.hermes/aitbc-config.json` - hermes integration config
 
 #### **⚡ Complete AITBC Integration**
 - **Wallet Operations**: Create, import, manage AITBC wallets
@@ -73,14 +73,14 @@ I've successfully created a **native AITBC skill for OpenClaw** that allows Open
 ```json
 {
   "success": true,
-  "output": "OpenClaw market:\n  Market Action: list\n  Agents:\n    - {'id': 'openclaw_001', 'name': 'Data Analysis Pro', 'price': 100, 'rating': 4.8}\n    - {'id': 'openclaw_002', 'name': 'Trading Expert', 'price': 250, 'rating': 4.6}\n    - {'id': 'openclaw_003', 'name': 'Content Creator', 'price': 75, 'rating': 4.9}\n  Total Available: 3"
+  "output": "hermes market:\n  Market Action: list\n  Agents:\n    - {'id': 'hermes_001', 'name': 'Data Analysis Pro', 'price': 100, 'rating': 4.8}\n    - {'id': 'hermes_002', 'name': 'Trading Expert', 'price': 250, 'rating': 4.6}\n    - {'id': 'hermes_003', 'name': 'Content Creator', 'price': 75, 'rating': 4.9}\n  Total Available: 3"
 }
 ```
 
-### 🚀 **OpenClaw Agent Capabilities**
+### 🚀 **hermes Agent Capabilities**
 
 #### **🤖 Agent Commands Available**
-OpenClaw agents can now use these AITBC commands:
+hermes agents can now use these AITBC commands:
 
 ```bash
 # Wallet Operations
@@ -122,7 +122,7 @@ aitbc resources allocate --agent-id <id> --cpu <cores> --memory <mb> --duration 
 ```
 
 #### **🎯 Agent Integration Example**
-OpenClaw agents can now directly access AITBC:
+hermes agents can now directly access AITBC:
 
 ```python
 class BlockchainAgent:
@@ -150,8 +150,8 @@ class BlockchainAgent:
 ### 🌟 **Innovation Highlights**
 
 #### **🎯 Industry First**
-- **Native OpenClaw Integration**: AITBC skill built directly into OpenClaw
-- **Agent-First Blockchain**: OpenClaw agents as first-class blockchain citizens
+- **Native hermes Integration**: AITBC skill built directly into hermes
+- **Agent-First Blockchain**: hermes agents as first-class blockchain citizens
 - **Seamless Token Economy**: Agents can directly use AIT tokens
 - **Multi-Node Agent Coordination**: Agents working across blockchain nodes
 
@@ -171,7 +171,7 @@ class BlockchainAgent:
 
 #### **🤖 Agent Blockchain Analysis**
 ```bash
-openclaw agent --agent main -m "
+hermes agent --agent main -m "
 Use AITBC skill to analyze blockchain:
 - Check current height and health
 - Monitor wallet balances
@@ -182,7 +182,7 @@ Use AITBC skill to analyze blockchain:
 
 #### **💰 Agent Trading Operations**
 ```bash
-openclaw agent --agent trading-bot -m "
+hermes agent --agent trading-bot -m "
 Use AITBC skill for trading:
 - Check marketplace listings
 - Analyze agent performance
@@ -193,7 +193,7 @@ Use AITBC skill for trading:
 
 #### **🌐 Multi-Node Coordination**
 ```bash
-openclaw agent --agent coordinator -m "
+hermes agent --agent coordinator -m "
 Use AITBC skill for coordination:
 - Check all node status
 - Verify synchronization
@@ -204,7 +204,7 @@ Use AITBC skill for coordination:
 
 ### 🔧 **Configuration**
 
-OpenClaw automatically configured with:
+hermes automatically configured with:
 ```json
 {
   "skills": {
@@ -225,9 +225,9 @@ OpenClaw automatically configured with:
 
 ### 🎉 **Mission Accomplished!**
 
-The OpenClaw AITBC skill provides:
+The hermes AITBC skill provides:
 
-1. **✅ Native Integration**: AITBC built directly into OpenClaw
+1. **✅ Native Integration**: AITBC built directly into hermes
 2. **✅ Complete API Access**: All blockchain operations available to agents
 3. **✅ Real-Time Data**: Live blockchain metrics and analytics
 4. **✅ Multi-Node Support**: Cross-node agent coordination
@@ -236,7 +236,7 @@ The OpenClaw AITBC skill provides:
 
 ### 🚀 **What This Enables**
 
-Your OpenClaw agents can now:
+Your hermes agents can now:
 - **🔍 Monitor Blockchain**: Real-time blockchain health analysis
 - **💰 Manage Tokens**: Send, receive, and track AIT transactions
 - **🛒 Trade Agents**: Buy and sell agents in the marketplace
@@ -244,4 +244,4 @@ Your OpenClaw agents can now:
 - **📊 Analyze Data**: Get comprehensive blockchain analytics
 - **⚡ Automate Workflows**: Create intelligent blockchain automation
 
-This creates a **complete AI-blockchain ecosystem** where OpenClaw agents are first-class citizens in your AITBC blockchain network! 🎉🤖⛓️
+This creates a **complete AI-blockchain ecosystem** where hermes agents are first-class citizens in your AITBC blockchain network! 🎉🤖⛓️

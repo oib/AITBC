@@ -384,7 +384,7 @@ install_services() {
             "aitbc-blockchain-node.service"
             "aitbc-blockchain-rpc.service"
             "aitbc-marketplace.service"
-            "aitbc-openclaw.service"
+            "aitbc-hermes.service"
             "aitbc-ai.service"
             "aitbc-learning.service"
             "aitbc-explorer.service"
@@ -473,7 +473,7 @@ check_service "GPU Service" "http://localhost:8010/health"
 check_service "Learning Service" "http://localhost:8011/health"
 check_service "Agent Coordinator" "http://localhost:8012/health"
 check_service "Agent Registry" "http://localhost:8013/health"
-check_service "OpenClaw Service" "http://localhost:8014/health"
+check_service "hermes Service" "http://localhost:8014/health"
 check_service "AI Service" "http://localhost:8015/health"
 
 # Other Services (8020-8029)
@@ -500,12 +500,12 @@ start_services() {
     log "Starting AITBC services..."
     
     # Try systemd first
-    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
+    if systemctl start aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-hermes aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization 2>/dev/null; then
         log "Services started via systemd"
         sleep 5
 
         # Check if services are running
-        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-openclaw aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
+        if systemctl is-active --quiet aitbc-wallet aitbc-coordinator-api aitbc-exchange-api aitbc-blockchain-node aitbc-blockchain-rpc aitbc-gpu aitbc-marketplace aitbc-hermes aitbc-ai aitbc-learning aitbc-explorer aitbc-agent-coordinator aitbc-agent-registry aitbc-multimodal aitbc-modality-optimization; then
             success "Services started successfully via systemd"
         else
             warning "Some systemd services failed, falling back to manual startup"
@@ -534,7 +534,7 @@ setup_autostart() {
     systemctl enable aitbc-blockchain-node.service
     systemctl enable aitbc-blockchain-rpc.service
     systemctl enable aitbc-marketplace.service
-    systemctl enable aitbc-openclaw.service
+    systemctl enable aitbc-hermes.service
     systemctl enable aitbc-ai.service
     systemctl enable aitbc-learning.service
     systemctl enable aitbc-explorer.service

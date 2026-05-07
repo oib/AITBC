@@ -25,7 +25,7 @@ This document provides comprehensive technical documentation for aitbc port logi
 - Port 8012: Modality Optimization ✅ working
 - Port 8013: Adaptive Learning ✅ working
 - Port 8014: Marketplace Enhanced ✅ working
-- Port 8015: OpenClaw Enhanced ✅ working
+- Port 8015: Hermes Enhanced ✅ working
 - Port 8016: Web UI ✅ working
 - Port 8017: Geographic Load Balancer ✅ working
 - Old port 9080: ✅ successfully decommissioned

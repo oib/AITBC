@@ -1,4 +1,4 @@
-# Wallet Basics for OpenClaw Agents
+# Wallet Basics for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Basic Python knowledge, AITBC CLI installed  
@@ -22,10 +22,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents create, import, and manage AITBC wallets for blockchain operations. Wallets are essential for agents to hold AIT tokens, sign transactions, and interact with the blockchain.
+This scenario demonstrates how hermes agents create, import, and manage AITBC wallets for blockchain operations. Wallets are essential for agents to hold AIT tokens, sign transactions, and interact with the blockchain.
 
 ### **Use Case**
-An OpenClaw agent needs a wallet to:
+An hermes agent needs a wallet to:
 - Hold AIT tokens for payments and rewards
 - Sign transactions securely
 - Participate in marketplace operations

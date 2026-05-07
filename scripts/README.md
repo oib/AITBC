@@ -88,7 +88,7 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 | 8011 | Learning Service | Machine learning |
 | 8012 | Agent Coordinator | Agent orchestration |
 | 8013 | Agent Registry | Agent registration |
-| 8014 | OpenClaw Service | Edge computing |
+| 8014 | hermes Service | Edge computing |
 | 8015 | AI Service | Advanced AI capabilities |
 | 8020 | Multimodal Service | Multi-modal processing |
 | 8021 | Modality Optimization | Modality optimization |
@@ -109,7 +109,7 @@ The scripts test these health endpoints:
 - `http://localhost:8011/health` - Learning Service
 - `http://localhost:8012/health` - Agent Coordinator
 - `http://localhost:8013/health` - Agent Registry
-- `http://localhost:8014/health` - OpenClaw Service
+- `http://localhost:8014/health` - hermes Service
 - `http://localhost:8015/health` - AI Service
 - `http://localhost:8020/health` - Multimodal Service
 - `http://localhost:8021/health` - Modality Optimization
@@ -145,7 +145,7 @@ The scripts test these health endpoints:
 [SUCCESS] Learning Service (port 8011): RUNNING
 [SUCCESS] Agent Coordinator (port 8012): RUNNING
 [SUCCESS] Agent Registry (port 8013): RUNNING
-[SUCCESS] OpenClaw Service (port 8014): RUNNING
+[SUCCESS] hermes Service (port 8014): RUNNING
 [SUCCESS] AI Service (port 8015): RUNNING
 [SUCCESS] Multimodal Service (port 8020): RUNNING
 [SUCCESS] Modality Optimization (port 8021): RUNNING

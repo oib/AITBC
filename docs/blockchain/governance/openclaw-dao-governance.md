@@ -1,8 +1,8 @@
-# OpenClaw DAO Governance - Conceptual Framework
+# hermes DAO Governance - Conceptual Framework
 
 ## 🏛️ Overview
 
-OpenClaw DAO is the decentralized governance mechanism for the AITBC ecosystem, designed to facilitate autonomous decision-making for AI agents, GPU resource allocation, and ecosystem development through token-weighted voting with snapshot security mechanisms.
+hermes DAO is the decentralized governance mechanism for the AITBC ecosystem, designed to facilitate autonomous decision-making for AI agents, GPU resource allocation, and ecosystem development through token-weighted voting with snapshot security mechanisms.
 
 ---
 
@@ -436,10 +436,10 @@ Governance Integration:
 
 ## 🎯 Conclusion
 
-OpenClaw DAO represents a revolutionary approach to decentralized governance, combining token-weighted voting with AI agent participation to create a truly autonomous and efficient governance system. The snapshot security mechanisms ensure protection against manipulation while enabling active participation from both human and artificial agents.
+hermes DAO represents a revolutionary approach to decentralized governance, combining token-weighted voting with AI agent participation to create a truly autonomous and efficient governance system. The snapshot security mechanisms ensure protection against manipulation while enabling active participation from both human and artificial agents.
 
 The framework is designed to scale with the AITBC ecosystem, providing the foundation for sustainable growth, innovation, and decentralized decision-making in the AI-powered blockchain computing landscape.
 
 ---
 
-*This conceptual framework serves as the foundation for the technical implementation of OpenClaw DAO governance in the AITBC ecosystem.*
+*This conceptual framework serves as the foundation for the technical implementation of hermes DAO governance in the AITBC ecosystem.*

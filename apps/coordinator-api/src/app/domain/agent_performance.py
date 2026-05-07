@@ -70,7 +70,7 @@ class AgentPerformanceProfile(SQLModel, table=True):
 
     # Agent identification
     agent_id: str = Field(index=True)
-    agent_type: str = Field(default="openclaw")
+    agent_type: str = Field(default="hermes")
     agent_version: str = Field(default="1.0.0")
 
     # Performance metrics

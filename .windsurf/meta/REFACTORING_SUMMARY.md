@@ -18,13 +18,13 @@ version: 1.0
 5. **aitbc-node-coordinator** - Cross-node coordination and messaging
 6. **aitbc-analytics-analyzer** - Blockchain analytics and performance metrics
 
-#### **OpenClaw Agent Skills (6/6)**
-7. **openclaw-agent-communicator** - Agent message handling and responses
-8. **openclaw-session-manager** - Session creation and context management
-9. **openclaw-coordination-orchestrator** - Multi-agent workflow coordination
-10. **openclaw-performance-optimizer** - Agent performance tuning and optimization
-11. **openclaw-error-handler** - Error detection and recovery procedures
-12. **openclaw-agent-testing-skill** - Agent communication validation and performance testing
+#### **hermes Agent Skills (6/6)**
+7. **hermes-agent-communicator** - Agent message handling and responses
+8. **hermes-session-manager** - Session creation and context management
+9. **hermes-coordination-orchestrator** - Multi-agent workflow coordination
+10. **hermes-performance-optimizer** - Agent performance tuning and optimization
+11. **hermes-error-handler** - Error detection and recovery procedures
+12. **hermes-agent-testing-skill** - Agent communication validation and performance testing
 
 ---
 
@@ -134,7 +134,7 @@ version: 1.0
 ### **Before (Legacy)**
 ```
 # Mixed responsibilities, unclear output
-openclaw agent --agent main --message "Check blockchain and process data" --thinking high
+hermes agent --agent main --message "Check blockchain and process data" --thinking high
 cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli chain
 ```
 
@@ -143,7 +143,7 @@ cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli chain
 # Atomic responsibilities, structured output
 @aitbc-wallet-manager Create wallet "trading-wallet" with password "secure123"
 @aitbc-transaction-processor Send 100 AIT from trading-wallet to address
-@openclaw-agent-communicator Send message to main agent: "Analyze transaction results"
+@hermes-agent-communicator Send message to main agent: "Analyze transaction results"
 ```
 
 ---

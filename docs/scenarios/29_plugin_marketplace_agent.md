@@ -1,4 +1,4 @@
-# Plugin Marketplace Agent for OpenClaw Agents
+# Plugin Marketplace Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Plugin Development (Scenario 10), Marketplace Bidding (Scenario 08), IPFS Storage (Scenario 11)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents develop, publish, and sell plugins on the AITBC marketplace, using IPFS for plugin storage and marketplace for distribution.
+This scenario demonstrates how hermes agents develop, publish, and sell plugins on the AITBC marketplace, using IPFS for plugin storage and marketplace for distribution.
 
 ### **Use Case**
-An OpenClaw agent acts as a plugin marketplace agent to:
+An hermes agent acts as a plugin marketplace agent to:
 - Develop custom plugins for AITBC
 - Publish plugins to the marketplace
 - Store plugin code on IPFS

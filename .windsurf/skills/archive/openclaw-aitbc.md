@@ -1,23 +1,23 @@
 ---
-description: Legacy OpenClaw AITBC integration - see split skills for focused operations
-title: OpenClaw AITBC Integration (Legacy)
+description: Legacy Hermes AITBC integration - see split skills for focused operations
+title: Hermes AITBC Integration (Legacy)
 version: 6.0 - DEPRECATED
 ---
 
-# OpenClaw AITBC Integration (Legacy - See Split Skills)
+# Hermes AITBC Integration (Legacy - See Split Skills)
 
 ⚠️ **This skill has been split into focused skills for better organization:**
 
-## 📚 Current Active OpenClaw Skills
+## 📚 Current Active Hermes Skills
 
-This legacy bundle now maps to the current atomic OpenClaw skill files:
+This legacy bundle now maps to the current atomic Hermes skill files:
 
-- **`openclaw-agent-communicator.md`** — agent message handling and responses
-- **`openclaw-session-manager.md`** — session creation and context management
-- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
-- **`openclaw-performance-optimizer.md`** — agent performance tuning and optimization
-- **`openclaw-error-handler.md`** — error detection and recovery procedures
-- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
+- **`hermes-agent-communicator.md`** — agent message handling and responses
+- **`hermes-session-manager.md`** — session creation and context management
+- **`hermes-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`hermes-performance-optimizer.md`** — agent performance tuning and optimization
+- **`hermes-error-handler.md`** — error detection and recovery procedures
+- **`hermes-agent-testing-skill.md`** — agent communication validation and performance testing
 
 ### Archived Blockchain Companion
 **File**: `aitbc-blockchain.md`
@@ -37,21 +37,21 @@ This legacy bundle now maps to the current atomic OpenClaw skill files:
 
 **Before (Legacy)**:
 ```bash
-# Mixed OpenClaw + AITBC operations
-openclaw agent --agent main --message "Check blockchain and process data" --thinking high
+# Mixed Hermes + AITBC operations
+hermes agent --agent main --message "Check blockchain and process data" --thinking high
 cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli chain
 ```
 
 **After (Split Skills)**:
 
-**OpenClaw Agent Management**:
+**Hermes Agent Management**:
 ```bash
 # Pure agent coordination
-openclaw agent --agent coordinator --message "Coordinate blockchain monitoring workflow" --thinking high
+hermes agent --agent coordinator --message "Coordinate blockchain monitoring workflow" --thinking high
 
 # Agent workflow orchestration
 SESSION_ID="blockchain-monitor-$(date +%s)"
-openclaw agent --agent monitor --session-id $SESSION_ID --message "Monitor blockchain health" --thinking medium
+hermes agent --agent monitor --session-id $SESSION_ID --message "Monitor blockchain health" --thinking medium
 ```
 
 **AITBC Blockchain Operations**:
@@ -67,7 +67,7 @@ cd /opt/aitbc && source venv/bin/activate
 ### Benefits of Focused Skills
 
 1. **Clearer Separation of Concerns**
-   - OpenClaw: Agent coordination and workflow management
+   - Hermes: Agent coordination and workflow management
    - AITBC: Blockchain operations and data management
 
 2. **Better Documentation Organization**
@@ -76,7 +76,7 @@ cd /opt/aitbc && source venv/bin/activate
    - Easier maintenance and updates
 
 3. **Improved Reusability**
-   - OpenClaw skills can be used with any system
+   - Hermes skills can be used with any system
    - AITBC skills can be used with any agent framework
    - Modular combination possible
 
@@ -87,7 +87,7 @@ cd /opt/aitbc && source venv/bin/activate
 
 ### When to Use Each Skill
 
-**Use OpenClaw Agent Management Skill for**:
+**Use Hermes Agent Management Skill for**:
 - Multi-agent workflow coordination
 - Agent communication patterns
 - Session management and context
@@ -102,7 +102,7 @@ cd /opt/aitbc && source venv/bin/activate
 - Smart contract messaging
 
 **Combine Both Skills for**:
-- Complete OpenClaw + AITBC integration
+- Complete Hermes + AITBC integration
 - Agent-driven blockchain operations
 - Automated blockchain workflows
 - Cross-node agent coordination
@@ -111,16 +111,16 @@ cd /opt/aitbc && source venv/bin/activate
 
 The following content from the original combined skill is now deprecated and moved to the appropriate split skills:
 
-- ~~Agent command syntax~~ → **OpenClaw Agent Management**
+- ~~Agent command syntax~~ → **Hermes Agent Management**
 - ~~AITBC CLI commands~~ → **AITBC Blockchain Operations**  
 - ~~AI operations~~ → **AITBC Blockchain Operations**
 - ~~Blockchain coordination~~ → **AITBC Blockchain Operations**
-- ~~Agent workflows~~ → **OpenClaw Agent Management**
+- ~~Agent workflows~~ → **Hermes Agent Management**
 
 ## Migration Checklist
 
 ### ✅ Completed
-- [x] Created OpenClaw Agent Management skill
+- [x] Created Hermes Agent Management skill
 - [x] Created AITBC Blockchain Operations skill
 - [x] Updated all command references
 - [x] Added migration guide
@@ -137,14 +137,14 @@ The following content from the original combined skill is now deprecated and mov
 
 ## Quick Reference
 
-### OpenClaw Agent Management
+### Hermes Agent Management
 ```bash
 # Agent coordination
-openclaw agent --agent coordinator --message "Coordinate workflow" --thinking high
+hermes agent --agent coordinator --message "Coordinate workflow" --thinking high
 
 # Session-based workflow
 SESSION_ID="task-$(date +%s)"
-openclaw agent --agent worker --session-id $SESSION_ID --message "Execute task" --thinking medium
+hermes agent --agent worker --session-id $SESSION_ID --message "Execute task" --thinking medium
 ```
 
 ### AITBC Blockchain Operations  
@@ -163,12 +163,12 @@ cd /opt/aitbc && source venv/bin/activate
 
 ## Quick Links to Current Active Skills
 
-- **OpenClaw Agent Communicator**: [../openclaw-agent-communicator.md](../openclaw-agent-communicator.md)
-- **OpenClaw Session Manager**: [../openclaw-session-manager.md](../openclaw-session-manager.md)
-- **OpenClaw Coordination Orchestrator**: [../openclaw-coordination-orchestrator.md](../openclaw-coordination-orchestrator.md)
-- **OpenClaw Performance Optimizer**: [../openclaw-performance-optimizer.md](../openclaw-performance-optimizer.md)
-- **OpenClaw Error Handler**: [../openclaw-error-handler.md](../openclaw-error-handler.md)
-- **OpenClaw Agent Testing Skill**: [../openclaw-agent-testing-skill.md](../openclaw-agent-testing-skill.md)
+- **Hermes Agent Communicator**: [../hermes-agent-communicator.md](../hermes-agent-communicator.md)
+- **Hermes Session Manager**: [../hermes-session-manager.md](../hermes-session-manager.md)
+- **Hermes Coordination Orchestrator**: [../hermes-coordination-orchestrator.md](../hermes-coordination-orchestrator.md)
+- **Hermes Performance Optimizer**: [../hermes-performance-optimizer.md](../hermes-performance-optimizer.md)
+- **Hermes Error Handler**: [../hermes-error-handler.md](../hermes-error-handler.md)
+- **Hermes Agent Testing Skill**: [../hermes-agent-testing-skill.md](../hermes-agent-testing-skill.md)
 
 ## Archived Blockchain Companion
 

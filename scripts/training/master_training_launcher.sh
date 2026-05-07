@@ -3,15 +3,15 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# OpenClaw AITBC Training - Master Training Launcher
+# hermes AITBC Training - Master Training Launcher
 # Orchestrates all 5 training stages with progress tracking
 
 set -e
 
 # Training configuration
-TRAINING_PROGRAM="OpenClaw AITBC Mastery Training"
+TRAINING_PROGRAM="hermes AITBC Mastery Training"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 
 # Initialize logging for master launcher
 CURRENT_LOG=$(init_logging "training_master")
@@ -73,7 +73,7 @@ show_overview() {
     echo -e "${BOLD}🎯 Training Objectives:${NC}"
     echo "• Master AITBC CLI operations on both nodes (aitbc & aitbc1)"
     echo "• Progress from beginner to expert level operations"
-    echo "• Achieve OpenClaw AITBC Master certification"
+    echo "• Achieve hermes AITBC Master certification"
     echo
     
     echo -e "${BOLD}📋 Training Stages:${NC}"
@@ -96,7 +96,7 @@ show_overview() {
     echo
     
     echo -e "${BOLD}🎓 Certification:${NC}"
-    echo "• OpenClaw AITBC Master upon successful completion"
+    echo "• hermes AITBC Master upon successful completion"
     echo "• Requires 95%+ success rate on final exam"
     echo
     
@@ -241,7 +241,7 @@ show_menu() {
 run_complete_training() {
     print_header "Complete Training Program"
     
-    print_status "Starting complete OpenClaw AITBC Mastery Training..."
+    print_status "Starting complete hermes AITBC Mastery Training..."
     log "Starting complete training program"
     
     local completed_stages=0
@@ -287,7 +287,7 @@ run_individual_stage() {
     echo "3. AI Operations Mastery"
     echo "4. Marketplace & Economics"
     echo "5. Expert Operations & Automation"
-    echo "6. OpenClaw Master Agent Development"
+    echo "6. hermes Master Agent Development"
     echo "7. Cross-Node Agent Training & Multi-Agent Orchestration"
     echo
     echo -n "Select stage [1-7]: "
@@ -352,7 +352,7 @@ view_logs() {
     echo "4. Stage 3: AI Operations"
     echo "5. Stage 4: Marketplace & Economics"
     echo "6. Stage 5: Expert Operations"
-    echo "7. Stage 6: OpenClaw Master Agent"
+    echo "7. Stage 6: hermes Master Agent"
     echo "8. Stage 7: Cross-Node Training"
     echo "9. Return to menu"
     echo
@@ -443,7 +443,7 @@ show_training_summary() {
     if [ $completed_stages -eq $TOTAL_STAGES ]; then
         echo -e "${GREEN}🎉 CONGRATULATIONS! TRAINING COMPLETED!${NC}"
         echo
-        echo -e "${BOLD}🎓 OpenClaw AITBC Master Status:${NC}"
+        echo -e "${BOLD}🎓 hermes AITBC Master Status:${NC}"
         echo "✅ All 5 training stages completed"
         echo "✅ Expert-level CLI proficiency achieved"
         echo "✅ Multi-node operations mastered"
@@ -454,7 +454,7 @@ show_training_summary() {
         echo "1. Review all training logs for detailed performance"
         echo "2. Practice advanced operations regularly"
         echo "3. Implement custom automation solutions"
-        echo "4. Train other OpenClaw agents"
+        echo "4. Train other hermes agents"
         echo "5. Monitor and optimize system performance"
     else
         echo -e "${YELLOW}Training In Progress${NC}"
@@ -478,7 +478,7 @@ main() {
     mkdir -p "$LOG_DIR"
     
     # Start logging
-    log "OpenClaw AITBC Mastery Training Program started"
+    log "hermes AITBC Mastery Training Program started"
     
     # Show overview
     show_overview
@@ -557,7 +557,7 @@ case "${1:-}" in
             run_complete_training
             ;;
         --help|-h)
-            echo "OpenClaw AITBC Mastery Training Launcher"
+            echo "hermes AITBC Mastery Training Launcher"
             echo
             echo "Usage: $0 [OPTION]"
             echo

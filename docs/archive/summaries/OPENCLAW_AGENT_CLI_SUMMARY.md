@@ -1,10 +1,10 @@
-# OpenClaw Agent CLI Enhancement Summary
+# hermes Agent CLI Enhancement Summary
 
-## 🤖 AITBC CLI Now Handles Most OpenClaw Agent Tasks
+## 🤖 AITBC CLI Now Handles Most hermes Agent Tasks
 
-Your AITBC CLI tool has been enhanced to handle the majority of tasks that an OpenClaw agent would typically perform. This transforms it from a simple blockchain tool into a comprehensive agent management platform.
+Your AITBC CLI tool has been enhanced to handle the majority of tasks that an hermes agent would typically perform. This transforms it from a simple blockchain tool into a comprehensive agent management platform.
 
-### ✅ New OpenClaw Agent Commands Added
+### ✅ New hermes Agent Commands Added
 
 #### 1. **Agent Management** (`agent`)
 Complete AI agent workflow and execution management:
@@ -30,19 +30,19 @@ aitbc agent list --status active
 - ✅ Agent filtering and listing
 - ✅ Execution tracking and cost management
 
-#### 2. **OpenClaw Ecosystem** (`openclaw`)
-Dedicated OpenClaw agent ecosystem operations:
+#### 2. **hermes Ecosystem** (`hermes`)
+Dedicated hermes agent ecosystem operations:
 
 ```bash
-# Deploy OpenClaw agent
-aitbc openclaw deploy --agent-file config.json --wallet user-wallet --environment prod
+# Deploy hermes agent
+aitbc hermes deploy --agent-file config.json --wallet user-wallet --environment prod
 
-# Monitor OpenClaw agent performance
-aitbc openclaw monitor --agent-id openclaw_001 --metrics performance
+# Monitor hermes agent performance
+aitbc hermes monitor --agent-id hermes_001 --metrics performance
 
-# OpenClaw agent marketplace
-aitbc openclaw market --action list
-aitbc openclaw market --action publish --agent-id my-agent --price 100
+# hermes agent marketplace
+aitbc hermes market --action list
+aitbc hermes market --action publish --agent-id my-agent --price 100
 ```
 
 **Features:**
@@ -94,7 +94,7 @@ aitbc resource allocate --agent-id agent_123 --cpu 2.0 --memory 4096 --duration 
 - ✅ Agent status: 3 active agents, 47 completed executions
 - ✅ Agent listing: Filtered by status (active/completed/failed)
 
-**OpenClaw Operations:**
+**hermes Operations:**
 - ✅ Deployment: `deploy_1774851653` deploying to dev environment
 - ✅ Monitoring: 94.2% performance score, 99.8% uptime
 - ✅ Marketplace: 3 agents available (Data Analysis Pro, Trading Expert, Content Creator)
@@ -103,9 +103,9 @@ aitbc resource allocate --agent-id agent_123 --cpu 2.0 --memory 4096 --duration 
 - ✅ Workflow creation: `workflow_1774851690` with blockchain template
 - ✅ Resource status: 45.2% CPU, 26% memory, 78.5% efficiency
 
-### 🎯 **OpenClaw Agent Tasks Now Supported**
+### 🎯 **hermes Agent Tasks Now Supported**
 
-Your CLI can now handle these OpenClaw agent tasks:
+Your CLI can now handle these hermes agent tasks:
 
 **🤖 Agent Lifecycle:**
 - Agent creation and configuration
@@ -133,7 +133,7 @@ Your CLI can now handle these OpenClaw agent tasks:
 
 ### 🚀 **Benefits Achieved**
 
-1. **🎯 Comprehensive Coverage**: Handles 90%+ of typical OpenClaw agent tasks
+1. **🎯 Comprehensive Coverage**: Handles 90%+ of typical hermes agent tasks
 2. **⚡ High Performance**: Sub-3ms command response times
 3. **💰 Cost Effective**: Built-in cost tracking and optimization
 4. **🔧 Easy Management**: Simple, intuitive command structure
@@ -149,16 +149,16 @@ Core Blockchain Commands:
 Enhanced Commands:
 - analytics, marketplace, ai-ops, mining
 
-OpenClaw Agent Commands:
+hermes Agent Commands:
 - agent (create, execute, status, list)
-- openclaw (deploy, monitor, market)
+- hermes (deploy, monitor, market)
 - workflow (create, run)
 - resource (status, allocate)
 ```
 
 ### 🎉 **Mission Accomplished**
 
-Your AITBC CLI tool now provides **comprehensive OpenClaw agent management capabilities** that rival dedicated agent platforms. Users can:
+Your AITBC CLI tool now provides **comprehensive hermes agent management capabilities** that rival dedicated agent platforms. Users can:
 
 - **🤖 Create and manage AI agents** with full lifecycle support
 - **🚀 Deploy to production environments** with monitoring
@@ -166,4 +166,4 @@ Your AITBC CLI tool now provides **comprehensive OpenClaw agent management capab
 - **⚡ Automate workflows** with template-based execution
 - **📊 Optimize resources** with real-time tracking
 
-The AITBC CLI has evolved from a simple wallet tool into a **complete OpenClaw agent management platform**! 🎉🤖
+The AITBC CLI has evolved from a simple wallet tool into a **complete hermes agent management platform**! 🎉🤖

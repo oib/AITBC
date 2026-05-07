@@ -169,7 +169,7 @@ ssh aitbc1 'cd /opt/aitbc && git log --oneline -5 --decorate'
 ## Training Integration
 
 ### Integration with Mastery Plan
-This workflow integrates with Stage 2 (Intermediate Operations) of the OpenClaw AITBC Mastery Plan.
+This workflow integrates with Stage 2 (Intermediate Operations) of the hermes AITBC Mastery Plan.
 
 ### Training Script
 `/opt/aitbc/scripts/training/stage2_intermediate.sh` includes blockchain communication testing as part of the training curriculum.
@@ -259,4 +259,4 @@ ssh gitea-runner 'journalctl -u aitbc-blockchain-p2p -n 30 --no-pager'
 ## Related Workflows
 - [Multi-Node Operations](/multi-node-blockchain-operations.md)
 - [Multi-Node Setup Core](/multi-node-blockchain-setup-core.md)
-- [Ollama GPU Test OpenClaw](/ollama-gpu-test-openclaw.md)
+- [Ollama GPU Test hermes](/ollama-gpu-test-hermes.md)

@@ -25,7 +25,7 @@
 
 ### Services Status
 All AITBC services are running successfully with central venv:
-- ✅ aitbc-openclaw.service (Port 8014)
+- ✅ aitbc-hermes.service (Port 8014)
 - ✅ aitbc-multimodal.service (Port 8020)  
 - ✅ aitbc-modality-optimization.service (Port 8021)
 - ✅ aitbc-web-ui.service (Port 8007)

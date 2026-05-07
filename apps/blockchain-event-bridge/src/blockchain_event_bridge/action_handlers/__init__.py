@@ -1,4 +1,4 @@
-"""Action handler modules for OpenClaw agent triggers."""
+"""Action handler modules for hermes agent triggers."""
 
 from .coordinator_api import CoordinatorAPIHandler
 from .agent_daemon import AgentDaemonHandler

@@ -11,7 +11,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 ## Achievement Details
 
 ### CLI Implementation Complete
-- **5 New Command Groups**: agent, multimodal, optimize, openclaw, marketplace_advanced, swarm
+- **5 New Command Groups**: agent, multimodal, optimize, hermes, marketplace_advanced, swarm
 - **50+ New Commands**: Advanced AI agent workflows, multi-modal processing, autonomous optimization
 - **Complete Test Coverage**: Unit tests for all command modules with mock HTTP client testing
 - **Full Integration**: Updated main.py to import and add all new command groups
@@ -32,11 +32,11 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
    - `optimize self-opt enable` - Self-optimization
    - `optimize predict` - Predictive resource management
 
-4. **OpenClaw Commands (4/4)** ✅
-   - `openclaw deploy` - Agent deployment
-   - `openclaw edge deploy` - Edge computing deployment
-   - `openclaw monitor` - Deployment monitoring
-   - `openclaw optimize` - Deployment optimization
+4. **hermes Commands (4/4)** ✅
+   - `hermes deploy` - Agent deployment
+   - `hermes edge deploy` - Edge computing deployment
+   - `hermes monitor` - Deployment monitoring
+   - `hermes optimize` - Deployment optimization
 
 5. **Marketplace Commands (5/5)** ✅
    - `marketplace advanced models list/mint/update/verify` - NFT 2.0 operations
@@ -66,7 +66,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 - `cli/aitbc_cli/commands/agent.py` - Advanced AI agent management
 - `cli/aitbc_cli/commands/multimodal.py` - Multi-modal processing
 - `cli/aitbc_cli/commands/optimize.py` - Autonomous optimization
-- `cli/aitbc_cli/commands/openclaw.py` - OpenClaw integration
+- `cli/aitbc_cli/commands/hermes.py` - hermes integration
 - `cli/aitbc_cli/commands/marketplace_advanced.py` - Enhanced marketplace
 - `cli/aitbc_cli/commands/swarm.py` - Swarm intelligence
 
@@ -74,7 +74,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 - `tests/cli/test_agent_commands.py` - Agent command tests
 - `tests/cli/test_multimodal_commands.py` - Multi-modal tests
 - `tests/cli/test_optimize_commands.py` - Optimization tests
-- `tests/cli/test_openclaw_commands.py` - OpenClaw tests
+- `tests/cli/test_hermes_commands.py` - hermes tests
 - `tests/cli/test_marketplace_advanced_commands.py` - Marketplace tests
 - `tests/cli/test_swarm_commands.py` - Swarm tests
 
@@ -95,7 +95,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 ### Key Features
 - **Verification Levels**: Basic, full, zero-knowledge verification options
 - **GPU Acceleration**: Multi-modal processing with GPU acceleration support
-- **Edge Computing**: OpenClaw integration for edge deployment
+- **Edge Computing**: hermes integration for edge deployment
 - **NFT 2.0**: Advanced marketplace with NFT standard 2.0 support
 - **Swarm Intelligence**: Collective optimization and coordination
 
@@ -124,7 +124,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 ### Platform Capabilities
 - **Agent-First Architecture**: Complete transformation to agent-centric platform
 - **Advanced AI Capabilities**: Multi-modal processing and adaptive learning
-- **Edge Computing**: OpenClaw integration for distributed deployment
+- **Edge Computing**: hermes integration for distributed deployment
 - **Enhanced Marketplace**: NFT 2.0 and advanced trading features
 - **Swarm Intelligence**: Collective optimization capabilities
 
@@ -138,7 +138,7 @@ Successfully completed the implementation of comprehensive CLI tools for the cur
 
 The CLI tools milestone is complete. The platform now has comprehensive command-line interfaces for all advanced AI agent capabilities. The next phase should focus on:
 
-1. **OpenClaw Integration Enhancement** - Deep edge computing integration
+1. **hermes Integration Enhancement** - Deep edge computing integration
 2. **Advanced Marketplace Operations** - Production marketplace deployment
 3. **Agent Ecosystem Development** - Third-party agent tools and integrations
 
@@ -146,8 +146,8 @@ The CLI tools milestone is complete. The platform now has comprehensive command-
 
 **Status**: RESOLVED ✅  
 **Resolution Date**: February 24, 2026  
-**Resolution**: All CLI tools for the current milestone have been successfully implemented with complete test coverage and documentation. The platform now provides comprehensive command-line interfaces for advanced AI agent capabilities, multi-modal processing, autonomous optimization, OpenClaw integration, and enhanced marketplace operations.
+**Resolution**: All CLI tools for the current milestone have been successfully implemented with complete test coverage and documentation. The platform now provides comprehensive command-line interfaces for advanced AI agent capabilities, multi-modal processing, autonomous optimization, hermes integration, and enhanced marketplace operations.
 
 ---
 
-**Tags**: cli, milestone, completion, agent-first, advanced-ai, openclaw, marketplace
+**Tags**: cli, milestone, completion, agent-first, advanced-ai, hermes, marketplace

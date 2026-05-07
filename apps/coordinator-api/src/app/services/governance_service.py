@@ -1,6 +1,6 @@
 """
 Decentralized Governance Service
-Implements the OpenClaw DAO, voting mechanisms, and proposal lifecycle
+Implements the hermes DAO, voting mechanisms, and proposal lifecycle
 Enhanced with multi-jurisdictional support and regional governance
 """
 

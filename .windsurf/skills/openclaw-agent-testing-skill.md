@@ -1,16 +1,16 @@
 ---
-description: Atomic OpenClaw agent testing with deterministic communication validation and performance metrics
-title: openclaw-agent-testing-skill
+description: Atomic Hermes agent testing with deterministic communication validation and performance metrics
+title: hermes-agent-testing-skill
 version: 1.1
 ---
 
-# OpenClaw Agent Testing Skill
+# Hermes Agent Testing Skill
 
 ## Purpose
-Test and validate OpenClaw agent functionality, communication patterns, session management, and performance with deterministic validation metrics.
+Test and validate Hermes agent functionality, communication patterns, session management, and performance with deterministic validation metrics.
 
 ## Activation
-Trigger when user requests OpenClaw agent testing: agent functionality validation, communication testing, session management testing, or agent performance analysis.
+Trigger when user requests Hermes agent testing: agent functionality validation, communication testing, session management testing, or agent performance analysis.
 
 ## Input
 ```json
@@ -29,7 +29,7 @@ Trigger when user requests OpenClaw agent testing: agent functionality validatio
 ## Output
 ```json
 {
-  "summary": "OpenClaw agent testing completed successfully",
+  "summary": "Hermes agent testing completed successfully",
   "operation": "test-agent-communication|test-session-management|test-agent-performance|test-multi-agent|comprehensive",
   "test_results": {
     "agent_communication": "boolean",
@@ -73,7 +73,7 @@ Trigger when user requests OpenClaw agent testing: agent functionality validatio
 
 ### 1. Analyze
 - Validate agent testing parameters and operation type
-- Check OpenClaw service availability and health
+- Check Hermes service availability and health
 - Verify agent availability and status
 - Assess testing scope and requirements
 
@@ -104,8 +104,8 @@ Trigger when user requests OpenClaw agent testing: agent functionality validatio
 - **MUST** provide deterministic performance metrics
 
 ## Environment Assumptions
-- OpenClaw 2026.3.24+ installed and gateway running
-- Agent workspace configured at `~/.openclaw/workspace/`
+- Hermes 2026.3.24+ installed and gateway running
+- Agent workspace configured at `~/.hermes/workspace/`
 - Network connectivity for agent communication
 - Default agent available: "main"
 - Session management functional
@@ -119,14 +119,14 @@ Trigger when user requests OpenClaw agent testing: agent functionality validatio
 ## Example Usage Prompt
 
 ```
-Run comprehensive OpenClaw agent testing including communication, session management, performance, and multi-agent coordination validation
+Run comprehensive Hermes agent testing including communication, session management, performance, and multi-agent coordination validation
 ```
 
 ## Expected Output Example
 
 ```json
 {
-  "summary": "Comprehensive OpenClaw agent testing completed with all systems operational",
+  "summary": "Comprehensive Hermes agent testing completed with all systems operational",
   "operation": "comprehensive",
   "test_results": {
     "agent_communication": true,
@@ -187,6 +187,6 @@ Run comprehensive OpenClaw agent testing including communication, session manage
 ## Performance Notes
 - **Execution Time**: 5-15 seconds for basic tests, 30-90 seconds for comprehensive testing
 - **Memory Usage**: <150MB for agent testing operations
-- **Network Requirements**: OpenClaw gateway connectivity
+- **Network Requirements**: Hermes gateway connectivity
 - **Concurrency**: Safe for multiple simultaneous agent tests with different agents
 - **Session Management**: Automatic session creation and context preservation testing

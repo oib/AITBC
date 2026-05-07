@@ -56,7 +56,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
   - AI job operations (submit, tasks)
   - Explorer operations (transactions, receipts, blocks)
   - Plugin operations (register, marketplace, analytics)
-  - OpenClaw operations (deploy, scale, optimize, edge, routing)
+  - hermes operations (deploy, scale, optimize, edge, routing)
   - Multimodal operations (agents, process, benchmark)
   - Optimization operations (agents, tune, predict)
   - Monitoring operations (dashboard, status, jobs, miners)
@@ -128,12 +128,12 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Verified CLI configuration: All service URLs configured correctly
 - Core microservices migration validated and operational
 
-### Phase 26: OpenClaw Service Migration (Completed)
-- Created OpenClaw Service (port 8108) for agent orchestration and edge computing
-- Implemented OpenClaw endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
-- Configured systemd service for OpenClaw Service
-- Updated API Gateway to include OpenClaw Service routing (/openclaw prefix)
-- Added openclaw_service_url to CLI configuration
+### Phase 26: hermes Service Migration (Completed)
+- Created hermes Service (port 8108) for agent orchestration and edge computing
+- Implemented hermes endpoints: skill routing, job offloading, agent collaboration, hybrid execution, edge deployment, edge coordination, ecosystem development
+- Configured systemd service for hermes Service
+- Updated API Gateway to include hermes Service routing (/hermes prefix)
+- Added hermes_service_url to CLI configuration
 
 ### Phase 27: Plugin Service Migration (Completed)
 - Created Plugin Service (port 8109) for plugin registration, marketplace, and analytics
@@ -280,7 +280,7 @@ coordinator_url: str = "http://localhost:8000"  # Deprecated, for backward compa
 - Explorer operations: ✓ 100% migrated to Trading Service (all 4 endpoints)
 - AI job operations: ✓ 100% migrated to AI Service (submit, status, result, cancel, list)
 - Monitoring operations: ✓ 100% migrated to Monitoring Service (dashboard, summary, metrics)
-- OpenClaw operations: ✓ 100% migrated to OpenClaw Service (skill routing, job offloading, agent collaboration, hybrid execution, edge deployment)
+- hermes operations: ✓ 100% migrated to hermes Service (skill routing, job offloading, agent collaboration, hybrid execution, edge deployment)
 - Plugin operations: ✓ 100% migrated to Plugin Service (register, marketplace, analytics)
 - Multimodal operations: ✓ 100% migrated to AI Service (process, benchmark, agents, health)
 - Optimization operations: ✓ 100% migrated to AI Service (tune, predict, agents, health)
@@ -294,7 +294,7 @@ coordinator_url: str = "http://localhost:8000"  # Deprecated, for backward compa
 - Governance Service (8105): Fully operational with governance transactions
 - AI Service (8106): Fully operational with job, multimodal, and optimization operations
 - Monitoring Service (8107): Fully operational with monitoring dashboard and metrics
-- OpenClaw Service (8108): Fully operational with agent orchestration and edge computing
+- hermes Service (8108): Fully operational with agent orchestration and edge computing
 - Plugin Service (8109): Fully operational with plugin registration, marketplace, and analytics
 - API Gateway (8080): Fully operational, routing to all microservices
 - Coordinator API (8000): Legacy service (can be decommissioned)
@@ -306,7 +306,7 @@ coordinator_url: str = "http://localhost:8000"  # Deprecated, for backward compa
 - Job commands: Updated to use AI Service
 - Monitor commands: Updated to use AI Service for job metrics, Monitoring Service for system metrics
 - Admin job commands: Updated to use AI Service
-- OpenClaw commands: Updated to use OpenClaw Service
+- hermes commands: Updated to use hermes Service
 - Plugin commands: Updated to use Plugin Service
 
 **Migration Completion: ✓ 100%**
@@ -341,7 +341,7 @@ All microservices are managed by systemd:
 - `aitbc-governance.service` - Governance Service (port 8105)
 - `aitbc-ai.service` - AI Service (port 8106)
 - `aitbc-monitoring.service` - Monitoring Service (port 8107)
-- `aitbc-openclaw.service` - OpenClaw Service (port 8108)
+- `aitbc-hermes.service` - hermes Service (port 8108)
 - `aitbc-plugin.service` - Plugin Service (port 8109)
 - `aitbc-api-gateway.service` - API Gateway (port 8080)
 - `aitbc-coordinator-api.service` - Legacy Coordinator API (port 8000) - **DISABLED**

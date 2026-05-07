@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# OpenClaw AITBC Training - Stage 3: AI Operations Mastery
+# hermes AITBC Training - Stage 3: AI Operations Mastery
 # AI Job Submission, Resource Management, Ollama Integration
 
 set -e
@@ -12,7 +12,7 @@ set -e
 TRAINING_STAGE="Stage 3: AI Operations Mastery"
 SCRIPT_NAME="stage3_ai_operations"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 WALLET_PASSWORD="trainee123"
 TEST_PROMPT="Analyze the performance of AITBC blockchain system"
 TEST_PAYMENT=100
@@ -363,7 +363,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}OpenClaw AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
     

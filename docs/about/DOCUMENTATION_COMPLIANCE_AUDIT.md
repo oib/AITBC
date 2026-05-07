@@ -56,7 +56,7 @@ This checklist tracks the current remediation target:
 - [x] `maintenance/README.md`
 - [x] `mobile/README.md`
 - [x] `nodes/README.md`
-- [x] `openclaw/README.md`
+- [x] `hermes/README.md`
 - [x] `packages/README.md`
 - [x] `policies/README.md`
 - [x] `reference/README.md`
@@ -116,7 +116,7 @@ This checklist tracks the current remediation target:
 - The following directories now have landing pages added in this pass: `about/`, `deployment/`, `development/`, `guides/`, `governance/`, `mobile/`, `nodes/`, `policies/`, `reference/`, `releases/`, `reports/`, `trail/`, and `workflows/`.
 - The project and apps landing pages now include template-compliant related resources and quality metrics sections.
 - Legacy content `completed/` and `summaries/` directories were moved to `archive/completed/` and `archive/summaries/` for better organization.
-- Cross-link fixes applied: main README.md updated to point to archive locations, broken link in governance/openclaw-dao-governance.md removed.
+- Cross-link fixes applied: main README.md updated to point to archive locations, broken link in governance/hermes-dao-governance.md removed.
 - MASTER_INDEX.md updated to reflect new archive structure with 10 categories (156+ documents).
 - Any future docs area should either include a README index or be documented here as an intentional exception.
 

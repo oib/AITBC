@@ -60,7 +60,7 @@ This release focuses on resolving pytest import conflicts through test file nami
   - docs/security/ - Security documentation
   - docs/testing/ - Testing documentation
   - docs/deployment/ - Node-specific documentation
-  - docs/openclaw/ - OpenClaw documentation
+  - docs/hermes/ - hermes documentation
 - **Benefits**: Improved documentation organization and discoverability
 
 ## 🔒 Security
@@ -78,11 +78,11 @@ This release focuses on resolving pytest import conflicts through test file nami
 - Moved AITBC1_UPDATED_COMMANDS.md to docs/deployment/
 - Benefits: Clear separation of node-specific documentation
 
-## 🤖 OpenClaw Documentation
+## 🤖 hermes Documentation
 
-### ✅ **OpenClaw Documentation Organization**
-- Moved OPENCLAW_AITBC_MASTERY_PLAN_IMPLEMENTATION_STATUS.md to docs/openclaw/
-- Benefits: Dedicated location for OpenClaw-related documentation
+### ✅ **hermes Documentation Organization**
+- Moved hermes_AITBC_MASTERY_PLAN_IMPLEMENTATION_STATUS.md to docs/hermes/
+- Benefits: Dedicated location for hermes-related documentation
 
 ## 🔄 Testing Documentation
 
@@ -186,9 +186,9 @@ This release focuses on resolving pytest import conflicts through test file nami
 
 ## 📚 Documentation Updates
 
-### ✅ **OpenClaw Documentation**
-- **Master index**: Added OpenClaw master index
-- **Coordination demo**: Added OpenClaw coordination demo
+### ✅ **hermes Documentation**
+- **Master index**: Added hermes master index
+- **Coordination demo**: Added hermes coordination demo
 - **Mastery plan**: Updated mastery plan to v2.0 with multi-chain support, hub/follower topology, and workflow integration
 
 ### ✅ **Documentation Fixes**

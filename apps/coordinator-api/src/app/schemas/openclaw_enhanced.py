@@ -1,6 +1,6 @@
 """
-OpenClaw Enhanced Pydantic Schemas - Phase 6.6
-Request and response models for advanced OpenClaw integration features
+hermes Enhanced Pydantic Schemas - Phase 6.6
+Request and response models for advanced hermes integration features
 """
 
 from enum import StrEnum

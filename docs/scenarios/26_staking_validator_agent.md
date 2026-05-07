@@ -1,4 +1,4 @@
-# Staking Validator Agent for OpenClaw Agents
+# Staking Validator Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Staking Basics (Scenario 14), Mining Setup (Scenario 13), Governance Voting (Scenario 17)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as validators by staking tokens, participating in mining, and engaging in governance to secure the network and earn rewards.
+This scenario demonstrates how hermes agents act as validators by staking tokens, participating in mining, and engaging in governance to secure the network and earn rewards.
 
 ### **Use Case**
-An OpenClaw agent acts as a validator to:
+An hermes agent acts as a validator to:
 - Stake AIT tokens for network security
 - Participate in block mining
 - Vote on governance proposals

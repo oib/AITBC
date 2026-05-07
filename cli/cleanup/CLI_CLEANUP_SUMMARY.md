@@ -65,7 +65,7 @@ cli/
 13. **agent** - Agent operations
 14. **multimodal** - Multimodal AI operations
 15. **optimize** - Optimization operations
-16. **openclaw** - OpenClaw operations
+16. **hermes** - hermes operations
 17. **advanced** - Advanced marketplace operations
 18. **swarm** - Swarm operations
 19. **plugin** - Plugin management

@@ -1,13 +1,13 @@
 ---
-description: Atomic OpenClaw agent communication with deterministic message handling and response validation
-title: openclaw-agent-communicator
+description: Atomic hermes agent communication with deterministic message handling and response validation
+title: hermes-agent-communicator
 version: 1.1
 ---
 
-# OpenClaw Agent Communicator
+# hermes Agent Communicator
 
 ## Purpose
-Handle OpenClaw agent message delivery, response processing, and communication validation with deterministic outcome tracking.
+Handle hermes agent message delivery, response processing, and communication validation with deterministic outcome tracking.
 
 ## Activation
 Trigger when user requests agent communication: message sending, response analysis, or communication validation.
@@ -63,7 +63,7 @@ Trigger when user requests agent communication: message sending, response analys
 - Configure timeout handling
 
 ### 3. Execute
-- Execute OpenClaw agent command
+- Execute hermes agent command
 - Capture agent response
 - Measure response time
 - Analyze response quality
@@ -83,8 +83,8 @@ Trigger when user requests agent communication: message sending, response analys
 - **MUST** validate response format and content
 
 ## Environment Assumptions
-- OpenClaw 2026.3.24+ installed and gateway running
-- Agent workspace configured at `~/.openclaw/workspace/`
+- hermes 2026.3.24+ installed and gateway running
+- Agent workspace configured at `~/.hermes/workspace/`
 - Network connectivity for agent communication
 - Default agent available: "main"
 - Session management functional
@@ -139,6 +139,6 @@ Send message to main agent with medium thinking level: "Analyze the current bloc
 ## Performance Notes
 - **Execution Time**: 1-3 seconds for simple messages, 5-15 seconds for complex analysis
 - **Memory Usage**: <100MB for agent communication
-- **Network Requirements**: OpenClaw gateway connectivity
+- **Network Requirements**: hermes gateway connectivity
 - **Concurrency**: Safe for multiple simultaneous agent communications
 - **Session Management**: Automatic context preservation across multiple messages

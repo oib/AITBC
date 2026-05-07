@@ -72,7 +72,7 @@ jobs:
               docs/guides/**/*.md
               docs/infrastructure/**/*.md
               docs/mining/**/*.md
-              docs/openclaw/**/*.md
+              docs/hermes/**/*.md
               docs/packages/**/*.md
               docs/project/**/*.md
               docs/reference/**/*.md
@@ -120,7 +120,7 @@ jobs:
             docs/guides/README.md
             docs/infrastructure/README.md
             docs/mining/README.md
-            docs/openclaw/README.md
+            docs/hermes/README.md
             docs/packages/README.md
             docs/project/README.md
             docs/reference/README.md

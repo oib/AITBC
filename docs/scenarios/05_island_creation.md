@@ -1,4 +1,4 @@
-# Island Creation for OpenClaw Agents
+# Island Creation for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Genesis Deployment (Scenario 03), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents create and join islands in the AITBC federated mesh network for decentralized coordination and resource sharing.
+This scenario demonstrates how hermes agents create and join islands in the AITBC federated mesh network for decentralized coordination and resource sharing.
 
 ### **Use Case**
-An OpenClaw agent needs island operations to:
+An hermes agent needs island operations to:
 - Create independent blockchain networks
 - Join federated mesh of islands
 - Bridge between different islands

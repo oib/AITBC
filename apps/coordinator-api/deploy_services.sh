@@ -46,7 +46,7 @@ SERVICES=(
     "aitbc-modality-optimization:8004:Modality Optimization"
     "aitbc-adaptive-learning:8005:Adaptive Learning"
     "aitbc-marketplace-enhanced:8006:Enhanced Marketplace"
-    "aitbc-openclaw-enhanced:8007:OpenClaw Enhanced"
+    "aitbc-hermes-enhanced:8007:hermes Enhanced"
 )
 
 # Install systemd services
@@ -87,8 +87,8 @@ $SUDO sed -i 's|src.app.services.adaptive_learning:app|src.app.services.adaptive
 # Update marketplace enhanced service
 $SUDO sed -i 's|src.app.routers.marketplace_enhanced_simple:router|src.app.routers.marketplace_enhanced_app:app|' /etc/systemd/system/aitbc-marketplace-enhanced.service
 
-# Update openclaw enhanced service
-$SUDO sed -i 's|src.app.routers.openclaw_enhanced_simple:router|src.app.routers.openclaw_enhanced_app:app|' /etc/systemd/system/aitbc-openclaw-enhanced.service
+# Update hermes enhanced service
+$SUDO sed -i 's|src.app.routers.hermes_enhanced_simple:router|src.app.routers.hermes_enhanced_app:app|' /etc/systemd/system/aitbc-hermes-enhanced.service
 
 # Reload systemd
 $SUDO systemctl daemon-reload
@@ -151,7 +151,7 @@ SERVICES=(
     "aitbc-modality-optimization:8004"
     "aitbc-adaptive-learning:8005"
     "aitbc-marketplace-enhanced:8006"
-    "aitbc-openclaw-enhanced:8007"
+    "aitbc-hermes-enhanced:8007"
 )
 
 for service_info in "${SERVICES[@]}"; do
@@ -179,7 +179,7 @@ echo "$SUDO journalctl -u aitbc-gpu-multimodal -f"
 echo "$SUDO journalctl -u aitbc-modality-optimization -f"
 echo "$SUDO journalctl -u aitbc-adaptive-learning -f"
 echo "$SUDO journalctl -u aitbc-marketplace-enhanced -f"
-echo "$SUDO journalctl -u aitbc-openclaw-enhanced -f"
+echo "$SUDO journalctl -u aitbc-hermes-enhanced -f"
 EOF
 
 chmod +x /home/oib/aitbc/apps/coordinator-api/check_services.sh
@@ -195,15 +195,15 @@ cat > /home/oib/aitbc/apps/coordinator-api/manage_services.sh << 'EOF'
 case "$1" in
     start)
         echo "🚀 Starting all enhanced services..."
-        $SUDO systemctl start aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-openclaw-enhanced
+        $SUDO systemctl start aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-hermes-enhanced
         ;;
     stop)
         echo "🛑 Stopping all enhanced services..."
-        $SUDO systemctl stop aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-openclaw-enhanced
+        $SUDO systemctl stop aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-hermes-enhanced
         ;;
     restart)
         echo "🔄 Restarting all enhanced services..."
-        $SUDO systemctl restart aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-openclaw-enhanced
+        $SUDO systemctl restart aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-hermes-enhanced
         ;;
     status)
         /home/oib/aitbc/apps/coordinator-api/check_services.sh
@@ -219,7 +219,7 @@ case "$1" in
             echo "aitbc-modality-optimization"
             echo "aitbc-adaptive-learning"
             echo "aitbc-marketplace-enhanced"
-            echo "aitbc-openclaw-enhanced"
+            echo "aitbc-hermes-enhanced"
             echo ""
             echo "Usage: $0 logs <service-name>"
         fi
@@ -257,7 +257,7 @@ print_status "  GPU Multi-Modal: http://127.0.0.1:8003"
 print_status "  Modality Optimization: http://127.0.0.1:8004"
 print_status "  Adaptive Learning: http://127.0.0.1:8005"
 print_status "  Enhanced Marketplace: http://127.0.0.1:8006"
-print_status "  OpenClaw Enhanced: http://127.0.0.1:8007"
+print_status "  hermes Enhanced: http://127.0.0.1:8007"
 print_status ""
 print_status "📊 Monitoring:"
 print_status "  $SUDO systemctl status aitbc-multimodal"
@@ -266,4 +266,4 @@ print_status "  $SUDO journalctl -u aitbc-gpu-multimodal -f"
 print_status "  $SUDO journalctl -u aitbc-modality-optimization -f"
 print_status "  $SUDO journalctl -u aitbc-adaptive-learning -f"
 print_status "  $SUDO journalctl -u aitbc-marketplace-enhanced -f"
-print_status "  $SUDO journalctl -u aitbc-openclaw-enhanced -f"
+print_status "  $SUDO journalctl -u aitbc-hermes-enhanced -f"

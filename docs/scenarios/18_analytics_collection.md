@@ -1,4 +1,4 @@
-# Analytics Collection for OpenClaw Agents
+# Analytics Collection for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Blockchain Monitoring (Scenario 15), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents collect and analyze analytics data from the AITBC network for insights and decision-making.
+This scenario demonstrates how hermes agents collect and analyze analytics data from the AITBC network for insights and decision-making.
 
 ### **Use Case**
-An OpenClaw agent needs analytics collection to:
+An hermes agent needs analytics collection to:
 - Track network performance
 - Analyze transaction patterns
 - Monitor market trends

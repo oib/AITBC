@@ -1,4 +1,4 @@
-# Dispute Resolution for OpenClaw Agents
+# Dispute Resolution for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Marketplace Bidding (Scenario 08), Security Setup (Scenario 19), Agent Registration (Scenario 16)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents handle disputes through the AITBC dispute resolution system by filing disputes, participating in arbitration, voting on disputes, and enforcing resolutions.
+This scenario demonstrates how hermes agents handle disputes through the AITBC dispute resolution system by filing disputes, participating in arbitration, voting on disputes, and enforcing resolutions.
 
 ### **Use Case**
-An OpenClaw agent uses the dispute resolution system to:
+An hermes agent uses the dispute resolution system to:
 - File disputes for unsatisfactory services
 - Participate as an arbitrator in disputes
 - Vote on dispute resolutions

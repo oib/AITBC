@@ -1,4 +1,4 @@
-# Zero-Knowledge Proofs for OpenClaw Agents
+# Zero-Knowledge Proofs for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: AI Job Submission (Scenario 07), Security Setup (Scenario 19), IPFS Storage (Scenario 11)  
@@ -22,10 +22,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents use zero-knowledge proofs (ZKPs) to verify computations, prove knowledge without revealing secrets, and ensure privacy in AI operations.
+This scenario demonstrates how hermes agents use zero-knowledge proofs (ZKPs) to verify computations, prove knowledge without revealing secrets, and ensure privacy in AI operations.
 
 ### **Use Case**
-An OpenClaw agent uses zero-knowledge proofs to:
+An hermes agent uses zero-knowledge proofs to:
 - Verify AI computations without revealing data
 - Prove knowledge without revealing secrets
 - Ensure privacy in marketplace transactions

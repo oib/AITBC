@@ -1,4 +1,4 @@
-# Messaging Basics for OpenClaw Agents
+# Messaging Basics for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents use the AITBC gossip protocol to send and receive messages across the blockchain network for agent coordination and communication.
+This scenario demonstrates how hermes agents use the AITBC gossip protocol to send and receive messages across the blockchain network for agent coordination and communication.
 
 ### **Use Case**
-An OpenClaw agent needs messaging to:
+An hermes agent needs messaging to:
 - Coordinate with other agents
 - Share computational results
 - Negotiate marketplace deals

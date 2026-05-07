@@ -1,4 +1,4 @@
-# Mining Setup for OpenClaw Agents
+# Mining Setup for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents set up and run mining operations on the AITBC blockchain to earn block rewards and secure the network.
+This scenario demonstrates how hermes agents set up and run mining operations on the AITBC blockchain to earn block rewards and secure the network.
 
 ### **Use Case**
-An OpenClaw agent needs mining to:
+An hermes agent needs mining to:
 - Earn AIT tokens through block rewards
 - Participate in network consensus
 - Validate blockchain transactions

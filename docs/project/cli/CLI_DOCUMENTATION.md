@@ -16,8 +16,8 @@ The AITBC CLI (Command Line Interface) is a comprehensive tool for managing the 
 - **AI Commands**: Submit, status, results, parallel, ensemble, multimodal, fusion
 - **Mining Commands**: Start, stop, status
 - **System Commands**: Status, health checks, configuration
-- **Agent Commands**: Workflow execution, OpenClaw integration
-- **OpenClaw Commands**: Status, cross-node communication
+- **Agent Commands**: Workflow execution, hermes integration
+- **hermes Commands**: Status, cross-node communication
 - **Workflow Commands**: Run, parameters, execution tracking
 - **Resource Commands**: Status, allocate, deallocate
 - **Simulate Commands**: Blockchain, wallets, price, network, AI jobs
@@ -39,7 +39,7 @@ aitbc-cli <group> <action> [options]
 - `mining` - Mining operations
 - `system` - System status and configuration
 - `agent` - Agent operations
-- `openclaw` - OpenClaw agent integration
+- `hermes` - hermes agent integration
 - `workflow` - Workflow execution
 - `resource` - Resource management
 - `simulate` - Simulation tools
@@ -179,8 +179,8 @@ source venv/bin/activate
 # Run agent workflow
 ./aitbc-cli agent --agent agent-name --message "Task description" --thinking high
 
-# OpenClaw operations
-./aitbc-cli openclaw --action status
+# hermes operations
+./aitbc-cli hermes --action status
 ```
 
 #### Workflow Operations
@@ -418,7 +418,7 @@ Each command has specific options documented in the help:
 - Marketplace functionality
 - Resource management
 - Simulation commands
-- OpenClaw agent integration
+- hermes agent integration
 
 ### v0.2.1
 - Project consolidation to `/opt/aitbc`

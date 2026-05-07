@@ -72,15 +72,15 @@ aitbc agent learning enable agent_123 --mode reinforcement --learning-rate 0.001
 aitbc agent learning train agent_123 --feedback feedback.json --epochs 50
 ```
 
-**OpenClaw Edge Deployment** → [../11_agents/openclaw-integration.md](../11_agents/openclaw-integration.md)
+**hermes Edge Deployment** → [../11_agents/hermes-integration.md](../11_agents/hermes-integration.md)
 ```bash
-# Deploy to OpenClaw network
-aitbc openclaw deploy agent_123 --region us-west --instances 3 --auto-scale
-aitbc openclaw edge deploy agent_123 --locations "us-west,eu-central" --strategy latency
+# Deploy to hermes network
+aitbc hermes deploy agent_123 --region us-west --instances 3 --auto-scale
+aitbc hermes edge deploy agent_123 --locations "us-west,eu-central" --strategy latency
 
 # Monitor and optimize
-aitbc openclaw monitor deployment_123 --metrics latency,cost --real-time
-aitbc openclaw optimize deployment_123 --objective cost
+aitbc hermes monitor deployment_123 --metrics latency,cost --real-time
+aitbc hermes optimize deployment_123 --objective cost
 ```
 
 **Platform Builder Agents** → [../11_agents/getting-started.md](../11_agents/getting-started.md)
@@ -137,7 +137,7 @@ aitbc swarm coordinate --task network-optimization --collaborators 10
 | `aitbc agent` | Advanced AI agent workflows | `create`, `execute`, `network`, `learning` |
 | `aitbc multimodal` | Multi-modal processing | `agent`, `process`, `convert`, `search` |
 | `aitbc optimize` | Autonomous optimization | `self-opt`, `predict`, `tune` |
-| `aitbc openclaw` | OpenClaw integration | `deploy`, `edge`, `routing`, `ecosystem` |
+| `aitbc hermes` | hermes integration | `deploy`, `edge`, `routing`, `ecosystem` |
 | `aitbc marketplace advanced` | Enhanced marketplace | `models`, `analytics`, `trading`, `dispute` |
 | `aitbc client` | Job submission | `submit`, `status`, `history` |
 | `aitbc miner` | Mining operations | `register`, `poll`, `earnings` |
