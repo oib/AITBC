@@ -46,7 +46,34 @@
           }
         },
         "idempotent": false,
-        "check_exists": "wallet_list"
+        "check_exists": "wallet_list",
+        "examples": [
+          {
+            "command": "aitbc-cli wallet create my-wallet --password mypass",
+            "description": "Create a new wallet with password"
+          }
+        ],
+        "errors": [
+          {
+            "error": "wallet_exists",
+            "message": "Wallet already exists",
+            "resolution": "Use wallet_import or different name"
+          }
+        ],
+        "verify": {
+          "command": "aitbc-cli wallet list",
+          "expected_pattern": "my-wallet"
+        },
+        "resources": [
+          {
+            "type": "docs",
+            "url": "/docs/wallet/README.md"
+          },
+          {
+            "type": "scenario",
+            "url": "/docs/scenarios/01_wallet_basics.md"
+          }
+        ]
       },
       {
         "operation": "wallet_import",
