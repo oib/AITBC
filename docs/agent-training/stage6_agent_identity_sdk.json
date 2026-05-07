@@ -22,8 +22,8 @@
     "Manage agent swarms"
   ],
   "scenarios": [
-    "16_agent_registration.md",
-    "24_swarm_coordinator.md"
+    "/docs/scenarios/16_agent_registration.md",
+    "/docs/scenarios/24_swarm_coordinator.md"
   ],
   "training_data": {
     "operations": [

@@ -124,40 +124,48 @@ The training setup supports schema-driven stage execution using JSON definitions
 
 ### Stage JSON Schema
 
+**Note:** The training stages use the official schema defined in `training_schema.json`. The schema uses an operations array with operation/parameters/expected_result/success_criteria format, not the older commands format.
+
+Example from `stage1_foundation.json`:
 ```json
 {
-  "stage": 1,
-  "title": "Foundation – Wallets & Accounts",
-  "prerequisites": [
-    "AITBC node running",
-    "Genesis wallet funded"
-  ],
-  "commands": [
-    {
-      "cmd": "wallet create",
-      "args": ["training-w1", "--password", "abc123"],
-      "exit_code": 0
-    },
-    {
-      "cmd": "wallet list",
-      "args": [],
-      "re": "training-w1"
-    },
-    {
-      "cmd": "wallet send",
-      "args": ["--password", "", "genesis", "training-w1", "100"],
-      "exit_code": 0
-    }
-  ],
-  "expected": {
-    "wallet_exists": {
-      "type": "value",
-      "value": true
-    },
-    "balance": {
-      "type": "value",
-      "value": {"symbol": "AIT", "amount": 100}
-    }
+  "stage": "stage1_foundation",
+  "agent_type": "general",
+  "training_data": {
+    "operations": [
+      {
+        "operation": "wallet_create",
+        "parameters": {
+          "name": "training-wallet",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "wallet_id": "training-wallet"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["wallet_id", "address"]
+        }
+      }
+    ]
+  },
+  "validation": {
+    "exam_tests": [
+      {
+        "test_name": "Create wallet",
+        "operation": "wallet_create",
+        "test_case": {
+          "name": "exam-wallet",
+          "password": "exam123"
+        },
+        "expected_output": {
+          "status": "success",
+          "wallet_id": "exam-wallet"
+        }
+      }
+    ],
+    "passing_score": 80
   }
 }
 ```
