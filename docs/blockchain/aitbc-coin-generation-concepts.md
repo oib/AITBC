@@ -1,5 +1,7 @@
 # 🪙 **AITBC Coin Generation Concepts**
 
+**Last Updated**: 2026-05-07 | **Version**: 2.0 (Hermes Integration Update)
+
 The AITBC system uses a **multi-layered coin generation system** with several methods beyond just genesis creation:
 
 ## **1. Genesis Block Creation (Initial Distribution)**
@@ -242,7 +244,24 @@ aitbc miner earnings --chain ait-finance
 
 ---
 
-## 🔒 **Preventing Genesis Creator from Adding More AITBC Later**
+## � **Changelog**
+
+### **Version 2.0 (2026-05-07) - Hermes Integration Update**
+- **System Migration**: Updated all references from OpenClaw to Hermes agent framework
+- **Coordinator API**: Updated service endpoints and router naming conventions
+- **Architecture**: Multi-chain isolation enhanced with Hermes agent coordination
+- **Security**: Updated security controls for Hermes-based agent operations
+- **Documentation**: Aligned documentation with current system architecture
+
+### **Version 1.0 (2026-03-06) - Initial Release**
+- Genesis block creation and fixed supply model
+- Multi-layered coin generation system
+- Multi-chain AI marketplace architecture
+- Exchange integration and market making
+
+---
+
+## �🔒 **Preventing Genesis Creator from Adding More AITBC Later**
 
 Excellent question! This is a critical security concern for any cryptocurrency. Here's how AITBC prevents this:
 
