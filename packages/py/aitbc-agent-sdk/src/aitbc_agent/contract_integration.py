@@ -511,23 +511,25 @@ class AgentContractIntegration:
         swap_id: str,
         contract_address: str
     ) -> Dict[str, Any]:
-        """Get status of an atomic swap"""
+        """Get status of an atomic swap via CLI"""
         try:
-            # Load the atomic swap contract
-            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
-            atomic_swap_contract = self.contract_client.w3.eth.contract(
-                address=contract_address,
-                abi=atomic_swap_abi
+            swap_id_bytes = bytes.fromhex(swap_id)
+            
+            # Use CLI to call getSwapStatus
+            result = await self.contract_client.send_transaction(
+                "cross_chain_atomic_swap",
+                "getSwapStatus",
+                swap_id_bytes
             )
-
-            # Call getSwapStatus method
-            status = atomic_swap_contract.functions.getSwapStatus(swap_id).call()
-
+            
+            # CLI doesn't return actual contract state yet
+            # Return basic info
             return {
                 "swap_id": swap_id,
-                "status": status
+                "status": "UNKNOWN",
+                "note": "CLI doesn't return actual swap status yet. Use 'aitbc contract call' to check manually."
             }
-
+                
         except Exception as e:
             logger.error(f"Failed to get swap status: {e}")
             raise
@@ -537,45 +539,28 @@ class AgentContractIntegration:
         swap_id: str,
         contract_address: str
     ) -> Dict[str, Any]:
-        """Refund atomic swap if timelock expired"""
+        """Refund atomic swap if timelock expired via CLI"""
         try:
-            # Load the atomic swap contract
-            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
-            atomic_swap_contract = self.contract_client.w3.eth.contract(
-                address=contract_address,
-                abi=atomic_swap_abi
+            swap_id_bytes = bytes.fromhex(swap_id)
+            
+            tx_hash = await self.contract_client.send_transaction(
+                "cross_chain_atomic_swap",
+                "refundSwap",
+                swap_id_bytes
             )
-
-            # Build and send transaction
-            transaction = atomic_swap_contract.functions.refundSwap(
-                swap_id
-            ).build_transaction({
-                'from': self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address,
-                'gas': 200000,
-                'gasPrice': self.contract_client.w3.eth.gas_price,
-                'nonce': self.contract_client.w3.eth.get_transaction_count(
-                    self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address
-                ),
-            })
-
-            # Sign transaction
-            signed_txn = self.contract_client.w3.eth.account.sign_transaction(transaction, self.contract_client.private_key)
-
-            # Send transaction
-            tx_hash = self.contract_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-
-            logger.info(f"Atomic swap refunded: {tx_hash.hex()}")
-
-            # Wait for confirmation
+            
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
-
-            return {
-                "swap_id": swap_id,
-                "tx_hash": tx_hash.hex(),
-                "status": "REFUNDED" if receipt["status"] == 1 else "FAILED",
-                "block_number": receipt["blockNumber"]
-            }
-
+            
+            if receipt["status"] == "success":
+                logger.info(f"Atomic swap refunded: {swap_id}")
+                return {
+                    "swap_id": swap_id,
+                    "tx_hash": tx_hash,
+                    "status": "REFUNDED"
+                }
+            else:
+                raise Exception(f"Transaction failed: {receipt}")
+                
         except Exception as e:
             logger.error(f"Failed to refund atomic swap: {e}")
             raise
