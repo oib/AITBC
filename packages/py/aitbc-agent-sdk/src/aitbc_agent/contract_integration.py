@@ -7,8 +7,16 @@ import asyncio
 import json
 from typing import Dict, List, Optional, Any, Union, Callable
 from dataclasses import dataclass
-from web3 import Web3
-from web3.contract import Contract
+
+# Optional Web3 import for Web3-based client
+try:
+    from web3 import Web3
+    from web3.contract import Contract
+    WEB3_AVAILABLE = True
+except ImportError:
+    WEB3_AVAILABLE = False
+    Web3 = None
+    Contract = None
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
@@ -54,6 +62,8 @@ class ContractClient:
     """Web3 client for smart contract interactions"""
 
     def __init__(self, config: ContractConfig, private_key: Optional[str] = None):
+        if not WEB3_AVAILABLE:
+            raise ImportError("Web3 is required for ContractClient. Use CLIContractClient instead.")
         self.config = config
         self.private_key = private_key
         self.w3: Optional[Web3] = None
@@ -102,7 +112,6 @@ class ContractClient:
                 abi=staking_contract_abi
             )
 
-        # Load CrossChainAtomicSwap contract
         if self.config.cross_chain_atomic_swap:
             self.contracts["cross_chain_atomic_swap"] = self.w3.eth.contract(
                 address=self.config.cross_chain_atomic_swap,
@@ -450,45 +459,30 @@ class AgentContractIntegration:
         secret: str,
         contract_address: str
     ) -> Dict[str, Any]:
-        """Complete atomic swap by revealing secret"""
+        """Complete atomic swap by revealing secret via CLI"""
         try:
-            # Load the atomic swap contract
-            atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
-            atomic_swap_contract = self.contract_client.w3.eth.contract(
-                address=contract_address,
-                abi=atomic_swap_abi
+            swap_id_bytes = bytes.fromhex(swap_id)
+            secret_bytes = bytes.fromhex(secret)
+
+            tx_hash = await self.contract_client.send_transaction(
+                "cross_chain_atomic_swap",
+                "completeSwap",
+                swap_id_bytes,
+                secret_bytes
             )
 
-            # Build and send transaction
-            transaction = atomic_swap_contract.functions.completeSwap(
-                swap_id,
-                secret
-            ).build_transaction({
-                'from': self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address,
-                'gas': 200000,
-                'gasPrice': self.contract_client.w3.eth.gas_price,
-                'nonce': self.contract_client.w3.eth.get_transaction_count(
-                    self.contract_client.w3.eth.account.from_key(self.contract_client.private_key).address
-                ),
-            })
-
-            # Sign transaction
-            signed_txn = self.contract_client.w3.eth.account.sign_transaction(transaction, self.contract_client.private_key)
-
-            # Send transaction
-            tx_hash = self.contract_client.w3.eth.send_raw_transaction(signed_txn.rawTransaction)
-
-            logger.info(f"Atomic swap completed: {tx_hash.hex()}")
-
-            # Wait for confirmation
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
-            return {
-                "swap_id": swap_id,
-                "tx_hash": tx_hash.hex(),
-                "status": "COMPLETED" if receipt["status"] == 1 else "FAILED",
-                "block_number": receipt["blockNumber"]
-            }
+            if receipt["status"] == "success":
+                logger.info(f"Atomic swap completed: {swap_id}")
+                return {
+                    "swap_id": swap_id,
+                    "tx_hash": tx_hash,
+                    "status": "COMPLETED",
+                    "block_number": receipt.get("block_number", 0)
+                }
+            else:
+                raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
             logger.error(f"Failed to complete atomic swap: {e}")
