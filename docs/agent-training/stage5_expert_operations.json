@@ -54,11 +54,11 @@
         },
         "expected_result": {
           "status": "success",
-          "status": "running|completed"
+          "workflow_status": "running|completed"
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["status", "executions"]
+          "response_fields": ["workflow_status", "executions"]
         }
       },
       {
@@ -128,6 +128,48 @@
         }
       },
       {
+        "operation": "analytics_blocks",
+        "parameters": {
+          "range": "1-100"
+        },
+        "expected_result": {
+          "status": "success",
+          "analytics": "generated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["analytics", "block_count"]
+        }
+      },
+      {
+        "operation": "analytics_predict",
+        "parameters": {
+          "metric": "block_time"
+        },
+        "expected_result": {
+          "status": "success",
+          "prediction": "generated"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["prediction", "confidence"]
+        }
+      },
+      {
+        "operation": "analytics_optimize",
+        "parameters": {
+          "target": "throughput"
+        },
+        "expected_result": {
+          "status": "success",
+          "optimized": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["optimized", "improvement"]
+        }
+      },
+      {
         "operation": "performance_benchmark",
         "parameters": {},
         "expected_result": {
@@ -149,6 +191,20 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["optimized", "improvement"]
+        }
+      },
+      {
+        "operation": "performance_tune",
+        "parameters": {
+          "target": "latency"
+        },
+        "expected_result": {
+          "status": "success",
+          "tuned": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["tuned", "parameters"]
         }
       },
       {
