@@ -140,3 +140,36 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
     except Exception as e:
         logger.error(f"Error updating agent status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Agent heartbeat
+@router.post("/agents/{agent_id}/heartbeat")
+async def agent_heartbeat(agent_id: str):
+    """Receive heartbeat from agent"""
+    try:
+        if not state.agent_registry:
+            raise HTTPException(status_code=503, detail="Agent registry not available")
+        
+        from ..routing.agent_discovery import AgentStatus
+        
+        # Update heartbeat timestamp and mark as active
+        success = await state.agent_registry.update_agent_status(
+            agent_id,
+            AgentStatus.ACTIVE,
+            {}
+        )
+        
+        if success:
+            return {
+                "status": "success",
+                "message": f"Heartbeat received from {agent_id}",
+                "agent_id": agent_id,
+                "heartbeat_at": datetime.now(timezone.utc).isoformat()
+            }
+        else:
+            raise HTTPException(status_code=404, detail="Agent not found")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing heartbeat: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
