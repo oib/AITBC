@@ -45,7 +45,7 @@ create_genesis_allocation() {
     
     # Initialize genesis with allocation
     log "INFO" "Initializing genesis with $GENESIS_ALLOCATION AIT allocation..."
-    ./aitbc-cli blockchain genesis --force || log "WARN" "Genesis initialization may have failed"
+    ./aitbc-cli blockchain genesis || log "WARN" "Genesis initialization may have failed"
     
     log "SUCCESS" "Genesis allocation completed"
 }
@@ -61,9 +61,13 @@ setup_faucet_wallet() {
         ./aitbc-cli wallet create faucet "faucet-password"
     fi
     
-    # Fund faucet from genesis
+    # Fund faucet from genesis (use genesis password file if available)
     log "INFO" "Funding faucet wallet from genesis..."
-    ./aitbc-cli wallet send genesis faucet $FAUCET_AMOUNT "" || log "WARN" "Faucet funding may have failed"
+    local genesis_password=""
+    if [ -f "/var/lib/aitbc/keystore/.genesis_password" ]; then
+        genesis_password=$(cat /var/lib/aitbc/keystore/.genesis_password)
+    fi
+    ./aitbc-cli wallet send genesis faucet $FAUCET_AMOUNT "$genesis_password" || log "WARN" "Faucet funding may have failed"
     
     log "SUCCESS" "Faucet wallet setup completed"
 }
