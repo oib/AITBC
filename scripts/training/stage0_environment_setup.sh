@@ -56,6 +56,14 @@ main() {
     
     if execute_stage_from_json; then
         print_success "$TRAINING_STAGE completed"
+        
+        # Output learnings for skill update
+        output_stage_learnings 0 "Environment Setup" \
+            "python3 -m aitbc.training_setup.cli setup|./aitbc-cli blockchain genesis|systemctl status aitbc-blockchain-node.service" \
+            "Genesis password location: /var/lib/aitbc/keystore/.genesis_password|Blockchain RPC on port 8006|Environment variables in /etc/aitbc/.env" \
+            "/var/lib/aitbc/keystore/.genesis_password|/etc/aitbc/.env|/etc/aitbc/node.env" \
+            "Genesis block initialization|Environment setup|Service management"
+        
         return 0
     else
         print_error "$TRAINING_STAGE failed"

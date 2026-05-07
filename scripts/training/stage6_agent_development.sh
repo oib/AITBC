@@ -331,6 +331,13 @@ main() {
     
     log "$TRAINING_STAGE completed successfully"
     
+    # Output learnings for skill update
+    output_stage_learnings 6 "Agent Identity SDK" \
+        "./aitbc-cli agent identity create|./aitbc-cli agent identity list" \
+        "Agent Identity SDK integration|Identity verification|SDK configuration" \
+        "/opt/aitbc/apps/coordinator-api|/opt/aitbc/aitbc-sdk" \
+        "Agent Identity SDK|Identity management|SDK usage"
+    
     echo ""
     echo "========================================"
     echo "$TRAINING_STAGE COMPLETED SUCCESSFULLY"

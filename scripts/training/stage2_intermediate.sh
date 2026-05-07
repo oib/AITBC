@@ -247,6 +247,14 @@ main() {
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED${NC}"
     echo -e "${GREEN}========================================${NC}"
+    
+    # Output learnings for skill update
+    output_stage_learnings 2 "Operations Mastery" \
+        "./aitbc-cli wallet export <wallet>|./aitbc-cli blockchain block <height>|./aitbc-cli agent message <to> <message>|./aitbc-cli agent messages|./aitbc-cli network sync" \
+        "Contract commands not yet implemented (--list, --deploy)|Agent message format validation|Block height queries" \
+        "/opt/aitbc/scripts/training/.training_state|/var/log/aitbc" \
+        "Wallet export|Block inspection|Agent messaging|Network synchronization"
+    
     echo
     echo -e "${BLUE}Next Steps:${NC}"
     echo "1. Review the log file: $LOG_FILE"

@@ -56,6 +56,14 @@ main() {
     
     if execute_stage_from_json; then
         print_success "$TRAINING_STAGE completed"
+        
+        # Output learnings for skill update
+        output_stage_learnings 8 "Advanced Agent Specialization" \
+            "./aitbc-cli bounty create|./aitbc-cli portfolio manage|./aitbc-cli knowledge-graph list" \
+            "Bounty system management|Portfolio strategies|Knowledge graph marketing" \
+            "/opt/aitbc/apps/blockchain-node" \
+            "Advanced agent specialization|Bounty systems|Portfolio management"
+        
         return 0
     else
         print_error "$TRAINING_STAGE failed"
