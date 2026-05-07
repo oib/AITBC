@@ -17,6 +17,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.http_client import AITBCHTTPClient
+from aitbc_agent.contract_integration import AgentContractIntegration, ContractClient, ContractConfig
 
 logger = get_logger(__name__)
 
@@ -93,7 +94,13 @@ class AgentIdentity:
 class Agent:
     """Core AITBC Agent class"""
 
-    def __init__(self, identity: AgentIdentity, capabilities: AgentCapabilities, coordinator_url: Optional[str] = None):
+    def __init__(
+        self,
+        identity: AgentIdentity,
+        capabilities: AgentCapabilities,
+        coordinator_url: Optional[str] = None,
+        contract_config: Optional[ContractConfig] = None
+    ):
         self.identity = identity
         self.capabilities = capabilities
         self.registered = False
@@ -101,6 +108,22 @@ class Agent:
         self.earnings = 0.0
         self.coordinator_url = coordinator_url or "http://localhost:9001"
         self.http_client = AITBCHTTPClient(base_url=self.coordinator_url)
+
+        # Contract integration
+        self.contract_client: Optional[ContractClient] = None
+        self.contract_integration: Optional[AgentContractIntegration] = None
+
+        if contract_config:
+            try:
+                self.contract_client = ContractClient(
+                    config=contract_config,
+                    private_key=identity.private_key
+                )
+                self.contract_integration = AgentContractIntegration(self.contract_client)
+                self.contract_integration.set_agent_address(identity.address)
+                logger.info("Contract integration initialized for agent")
+            except Exception as e:
+                logger.warning(f"Failed to initialize contract integration: {e}")
 
     @classmethod
     def create(
@@ -391,6 +414,74 @@ class Agent:
             logger.error(f"Agent {self.identity.id} exiting with exception: {exc_val}")
         else:
             logger.info(f"Agent {self.identity.id} exiting normally")
+
+    async def initiate_atomic_swap(
+        self,
+        swap_id: str,
+        token: str,
+        amount: int,
+        participant: str,
+        hashlock: str,
+        timelock: int,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Initiate atomic swap using contract integration"""
+        if not self.contract_integration:
+            raise ValueError("Contract integration not initialized")
+
+        return await self.contract_integration.initiate_atomic_swap(
+            swap_id=swap_id,
+            token=token,
+            amount=amount,
+            participant=participant,
+            hashlock=hashlock,
+            timelock=timelock,
+            contract_address=contract_address
+        )
+
+    async def complete_atomic_swap(
+        self,
+        swap_id: str,
+        secret: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Complete atomic swap by revealing secret"""
+        if not self.contract_integration:
+            raise ValueError("Contract integration not initialized")
+
+        return await self.contract_integration.complete_atomic_swap(
+            swap_id=swap_id,
+            secret=secret,
+            contract_address=contract_address
+        )
+
+    async def get_swap_status(
+        self,
+        swap_id: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Get status of an atomic swap"""
+        if not self.contract_integration:
+            raise ValueError("Contract integration not initialized")
+
+        return await self.contract_integration.get_swap_status(
+            swap_id=swap_id,
+            contract_address=contract_address
+        )
+
+    async def refund_atomic_swap(
+        self,
+        swap_id: str,
+        contract_address: str
+    ) -> Dict[str, Any]:
+        """Refund atomic swap if timelock expired"""
+        if not self.contract_integration:
+            raise ValueError("Contract integration not initialized")
+
+        return await self.contract_integration.refund_atomic_swap(
+            swap_id=swap_id,
+            contract_address=contract_address
+        )
 
 
 class AITBCAgent:
