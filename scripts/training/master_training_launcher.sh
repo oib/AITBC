@@ -637,7 +637,7 @@ show_menu() {
     echo "8. Exit"
     echo
     echo -n "Select option [1-8]: "
-    read -r choice
+    read -r choice || choice=""
     echo
     
     case $choice in
@@ -971,7 +971,7 @@ main() {
     
     echo
     echo -n "Ready to start training? [Y/n]: "
-    read -r start_choice
+    read -r start_choice || start_choice="y"
     
     if [[ ! "$start_choice" =~ ^[Nn]$ ]]; then
         show_menu
