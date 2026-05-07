@@ -2,6 +2,7 @@
   "stage": 10,
   "stage_name": "Failure Recovery & Production Operations",
   "stage_description": "Learn how to handle real-world failures, monitor production systems, and debug AITBC operations",
+  "agent_type": "general",
   "prerequisites": [
     "Stage 9: Multi-Chain Architecture"
   ],
