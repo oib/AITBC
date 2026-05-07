@@ -1,6 +1,6 @@
 {
   "stage": "stage8_advanced_agent_specialization",
-  "agent_type": "specialized",
+  "agent_type": "general",
   "difficulty": "expert",
   "estimated_time_minutes": 90,
   "skill_level": "expert",
