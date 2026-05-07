@@ -514,7 +514,8 @@ output_stage_learnings() {
         IFS='|' read -ra concepts <<< "$4"
     fi
     
-    local state_dir="${SCRIPT_DIR}/.training_state"
+    # Use REPO_ROOT to construct path to training state directory
+    local state_dir="${REPO_ROOT}/scripts/training/.training_state"
     local learnings_file="$state_dir/learnings_stage${stage_num}.json"
     
     mkdir -p "$state_dir"
