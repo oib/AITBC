@@ -37,6 +37,18 @@
       "description": "Stage dependencies - stages that must be completed before this stage. The training system should verify that prerequisite stages have been mastered (passing score met) before allowing a dependent stage to begin.",
       "items": {"type": "string"}
     },
+    "resource_depends": {
+      "type": "array",
+      "description": "Resource dependencies - specific resources or conditions that must exist before this stage can begin. Examples: GPU listings on marketplace, specific wallet balances, registered agents.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "resource": {"type": "string", "description": "Resource type (e.g., gpu_listing, wallet_balance, agent)"},
+          "condition": {"type": "string", "description": "Required condition (e.g., >0, exists, active)"},
+          "stage": {"type": "string", "description": "Stage that provides this resource (optional, for cross-stage dependencies)"}
+        }
+      }
+    },
     "difficulty": {
       "type": "string",
       "description": "Difficulty level of this training stage",
