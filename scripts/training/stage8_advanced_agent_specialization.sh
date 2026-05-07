@@ -29,7 +29,8 @@ echo
 # Execute stage from JSON definition
 execute_stage_from_json() {
     local stage_num=8
-    local json_file="$SCRIPT_DIR/../docs/agent-training/stage${stage_num}_advanced_agent_specialization.json"
+    local repo_root="${REPO_ROOT:-/opt/aitbc}"
+    local json_file="$repo_root/docs/agent-training/stage${stage_num}_advanced_agent_specialization.json"
     
     print_status "Executing stage from JSON definition: $json_file"
     
@@ -40,7 +41,7 @@ execute_stage_from_json() {
     
     # Use Python training setup to execute stage
     cd "$AITBC_DIR"
-    if python3 -m aitbc.training_setup.cli run-stage --json "$json_file" 2>&1 | tee -a "$CURRENT_LOG"; then
+    if python3 -m aitbc.training_setup.cli run-stage "$json_file" 2>&1 | tee -a "$CURRENT_LOG"; then
         print_success "Stage $stage_num executed successfully"
         return 0
     else
