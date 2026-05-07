@@ -1,4 +1,5 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 from aitbc import get_logger
@@ -18,7 +19,11 @@ async def lifespan(app: FastAPI):
     from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
     from .routing.load_balancer import LoadBalancer, LoadBalancingStrategy, TaskDistributor
 
-    state.agent_registry = AgentRegistry()
+    # Get Redis URL from environment variable
+    redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+    logger.info(f"Using Redis URL: {redis_url}")
+    
+    state.agent_registry = AgentRegistry(redis_url=redis_url)
     await state.agent_registry.start()
 
     state.discovery_service = AgentDiscoveryService(state.agent_registry)
