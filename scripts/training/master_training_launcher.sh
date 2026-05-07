@@ -34,6 +34,8 @@ START_TIME=$(date +%s)
 PROGRESS_FILE="$SCRIPT_DIR/.training_progress"
 STATE_DIR="$SCRIPT_DIR/.training_state"
 CERT_DIR="$STATE_DIR/certificates"
+BADGE_DIR="$STATE_DIR/badges"
+HTML_CERT_DIR="$STATE_DIR/html_certificates"
 
 # Skill update flag (default: disabled)
 ENABLE_SKILL_UPDATE="${ENABLE_SKILL_UPDATE:-false}"
@@ -397,16 +399,16 @@ capture_learnings() {
 # View certificates
 view_certificates() {
     print_header "Stage Completion Certificates"
-
-    # Ensure CERT_DIR exists
+    
+    # Ensure directories exist
     if [ ! -d "$CERT_DIR" ]; then
         mkdir -p "$CERT_DIR"
     fi
-
+    
     # Collect certificate files into array
     local cert_files=()
     local cert_count=0
-
+    
     if [ -d "$CERT_DIR" ]; then
         for cert_file in "$CERT_DIR"/stage*_certificate.json; do
             if [ -f "$cert_file" ]; then
@@ -415,42 +417,81 @@ view_certificates() {
             fi
         done
     fi
-
+    
     if [ $cert_count -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
         return 0
     fi
-
+    
     echo -e "${BOLD}📜 Certificates Earned:${NC}"
     echo
-
+    
     # Display certificates with index
     for i in "${!cert_files[@]}"; do
         local cert_file="${cert_files[$i]}"
-        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-10]' | grep -o '[0-10]')
+        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]*' | grep -o '[0-9]*')
         local stage_name=$(get_stage_name $stage_num)
         local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
-
+        
         echo -e "  ${GREEN}$(($i+1))${NC}. Stage $stage_num: $stage_name"
         echo "     Completed: $timestamp"
         echo "     File: $cert_file"
+        
+        # Show badge path if exists
+        local badge_file="$BADGE_DIR/stage${stage_num}_badge.md"
+        if [ -f "$badge_file" ]; then
+            echo "     Badge: $badge_file"
+        fi
+        
+        # Show HTML cert path if exists
+        local html_file="$HTML_CERT_DIR/stage${stage_num}_certificate.html"
+        if [ -f "$html_file" ]; then
+            echo "     HTML: $html_file"
+        fi
+        
         echo
     done
-
+    
     echo -e "${BOLD}Total certificates: $cert_count${NC}"
-
+    
+    # Show badges summary if available
+    if [ -d "$BADGE_DIR" ] && [ -f "$BADGE_DIR/training_summary.md" ]; then
+        echo
+        echo -e "${BOLD}🏅 Badges Summary:${NC}"
+        cat "$BADGE_DIR/training_summary.md"
+    fi
+    
     echo
     echo -n "View certificate details? Enter number [1-$cert_count] or N: "
     read -r view_choice
-
-    if [[ "$view_choice" =~ ^[0-10]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
+    
+    if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
         local idx=$(($view_choice - 1))
         local cert_file="${cert_files[$idx]}"
         if [ -f "$cert_file" ]; then
             echo
             echo -e "${BOLD}Certificate Details:${NC}"
             cat "$cert_file" | python3 -m json.tool 2>/dev/null || cat "$cert_file"
+            
+            # Offer to open HTML certificate
+            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]*' | grep -o '[0-9]*')
+            local html_file="$HTML_CERT_DIR/stage${stage_num}_certificate.html"
+            if [ -f "$html_file" ]; then
+                echo
+                echo -n "Open HTML certificate in browser? [y/N]: "
+                read -r open_choice
+                if [[ "$open_choice" =~ ^[Yy]$ ]]; then
+                    if command -v xdg-open &> /dev/null; then
+                        xdg-open "$html_file" &> /dev/null &
+                    elif command -v python3 &> /dev/null; then
+                        echo "Starting HTTP server for certificates..."
+                        cd "$HTML_CERT_DIR" && python3 -m http.server 8888 &
+                        echo "View certificates at: http://localhost:8888"
+                        echo "Press Ctrl+C to stop the server when done"
+                    fi
+                fi
+            fi
         fi
     fi
 }
