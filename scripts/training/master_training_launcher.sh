@@ -360,6 +360,9 @@ view_certificates() {
     # Ensure directory exists
     mkdir -p "$CERT_DIR"
     
+    # Debug: Show CERT_DIR
+    echo "Certificate directory: $CERT_DIR"
+    
     # Check for certificates
     local cert_files=()
     for cert_file in "$CERT_DIR"/stage*_certificate.json; do
@@ -368,9 +371,13 @@ view_certificates() {
         fi
     done
     
+    echo "Found ${#cert_files[@]} certificate file(s)"
+    
     if [ ${#cert_files[@]} -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
+        echo "Directory contents:"
+        ls -la "$CERT_DIR" 2>/dev/null || echo "Directory not accessible"
         return 0
     fi
     
