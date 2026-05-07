@@ -327,6 +327,20 @@
         "weight": 1
       }
     ],
+    "integration_tests": [
+      {
+        "name": "end_to_end_wallet_flow",
+        "operations": ["wallet_create", "wallet_fund", "wallet_send"],
+        "cleanup": true
+      }
+    ],
+    "coverage_target": 80,
+    "coverage_report": true,
     "passing_score": 80
+  },
+  "mock_data": {
+    "wallets": ["test-wallet-1", "test-wallet-2"],
+    "addresses": ["0x1234567890abcdef", "0x0987654321fedcba"],
+    "transactions": ["tx_1", "tx_2"]
   }
 }
