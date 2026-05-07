@@ -357,7 +357,18 @@ display_badge() {
 view_certificates() {
     print_header "Stage Completion Certificates"
     
-    if [ ! -d "$CERT_DIR" ] || [ -z "$(ls -A $CERT_DIR)" ]; then
+    # Ensure directory exists
+    mkdir -p "$CERT_DIR"
+    
+    # Check for certificates
+    local cert_files=()
+    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+        if [ -f "$cert_file" ]; then
+            cert_files+=("$cert_file")
+        fi
+    done
+    
+    if [ ${#cert_files[@]} -eq 0 ]; then
         print_warning "No certificates found yet"
         echo "Complete stages to earn certificates"
         return 0
@@ -367,7 +378,7 @@ view_certificates() {
     echo
     
     local cert_count=0
-    for cert_file in "$CERT_DIR"/stage*_certificate.json; do
+    for cert_file in "${cert_files[@]}"; do
         if [ -f "$cert_file" ]; then
             ((cert_count++))
             local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
@@ -385,10 +396,10 @@ view_certificates() {
     
     echo
     echo -n "View certificate details? [1-$cert_count/N]: "
-    read -r view_choice
+    read -r view_choice || view_choice="N"
     
-    if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -le "$cert_count" ]; then
-        local cert_file=$(ls "$CERT_DIR"/stage*_certificate.json | head -"$view_choice" | tail -1)
+    if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
+        local cert_file="${cert_files[$((view_choice-1))]}"
         if [ -f "$cert_file" ]; then
             echo
             echo -e "${BOLD}Certificate Details:${NC}"
