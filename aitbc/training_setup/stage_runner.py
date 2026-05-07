@@ -83,7 +83,7 @@ class StageRunner:
         
         return StageDefinition(
             stage=data['stage'],
-            title=data['title'],
+            title=data.get('title', f"Stage {data['stage']}"),
             commands=commands,
             expected=expected,
             prerequisites=data.get('prerequisites')
