@@ -238,6 +238,40 @@
       "type": "object",
       "required": ["exam_tests", "passing_score"],
       "properties": {
+        "failure_simulation": {
+          "type": "array",
+          "description": "Failure simulation tests to verify error handling",
+          "items": {
+            "type": "object",
+            "properties": {
+              "test_name": {
+                "type": "string",
+                "description": "Failure simulation test name"
+              },
+              "operation": {
+                "type": "string",
+                "description": "Operation to test with failure conditions"
+              },
+              "failure_type": {
+                "type": "string",
+                "enum": ["insufficient_funds", "invalid_password", "network_failure", "invalid_resource", "permission_denied", "timeout"],
+                "description": "Type of failure to simulate"
+              },
+              "test_case": {
+                "type": "object",
+                "description": "Test input parameters designed to trigger failure"
+              },
+              "expected_error": {
+                "type": "string",
+                "description": "Expected error message or error code"
+              },
+              "recovery_operation": {
+                "type": "string",
+                "description": "Operation to recover from failure (optional)"
+              }
+            }
+          }
+        },
         "exam_tests": {
           "type": "array",
           "items": {
