@@ -29,7 +29,7 @@ NC='\033[0m' # No Color
 
 # Progress tracking
 CURRENT_STAGE=0
-TOTAL_STAGES=10
+TOTAL_STAGES=11
 START_TIME=$(date +%s)
 PROGRESS_FILE="$SCRIPT_DIR/.training_progress"
 STATE_DIR="$SCRIPT_DIR/.training_state"
@@ -192,7 +192,7 @@ run_stage() {
         return 1
     fi
     
-    print_status "Running Stage $stage_num: $(basename "$script_file" .sh | sed 's/stage[0-9]_//')"
+    print_status "Running Stage $stage_num: $(basename "$script_file" .sh | sed 's/stage[0-10]_//')"
     
     # Make script executable
     chmod +x "$script_file"
@@ -314,7 +314,7 @@ get_stage_name() {
         7) echo "Cross-Node Training" ;;
         8) echo "Advanced Agent Specialization" ;;
         9) echo "Multi-Chain Architecture" ;;
-        10) echo "Failure Recovery & Production Operations" ;;
+        10) echo "Failure Recovery & Production Ops" ;;
         *) echo "Unknown Stage" ;;
     esac
 }
@@ -428,7 +428,7 @@ view_certificates() {
     # Display certificates with index
     for i in "${!cert_files[@]}"; do
         local cert_file="${cert_files[$i]}"
-        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+        local stage_num=$(echo "$cert_file" | grep -o 'stage[0-10]' | grep -o '[0-10]')
         local stage_name=$(get_stage_name $stage_num)
         local timestamp=$(python3 -c "import json; print(json.load(open('$cert_file'))['completion_timestamp'])" 2>/dev/null || echo "Unknown")
 
@@ -444,7 +444,7 @@ view_certificates() {
     echo -n "View certificate details? Enter number [1-$cert_count] or N: "
     read -r view_choice
 
-    if [[ "$view_choice" =~ ^[0-9]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
+    if [[ "$view_choice" =~ ^[0-10]+$ ]] && [ "$view_choice" -ge 1 ] && [ "$view_choice" -le "$cert_count" ]; then
         local idx=$(($view_choice - 1))
         local cert_file="${cert_files[$idx]}"
         if [ -f "$cert_file" ]; then
@@ -468,7 +468,7 @@ export_certificate() {
     local i=1
     for cert_file in "$CERT_DIR"/stage*_certificate.json; do
         if [ -f "$cert_file" ]; then
-            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-9]' | grep -o '[0-9]')
+            local stage_num=$(echo "$cert_file" | grep -o 'stage[0-10]' | grep -o '[0-10]')
             local stage_name=$(get_stage_name $stage_num)
             echo "$i. Stage $stage_num: $stage_name"
             ((i++))
@@ -479,7 +479,7 @@ export_certificate() {
     echo -n "Select certificate to export [1-$(($i-1))]: "
     read -r export_choice
     
-    if [[ "$export_choice" =~ ^[0-9]+$ ]] && [ "$export_choice" -ge 1 ] && [ "$export_choice" -lt "$i" ]; then
+    if [[ "$export_choice" =~ ^[0-10]+$ ]] && [ "$export_choice" -ge 1 ] && [ "$export_choice" -lt "$i" ]; then
         local cert_file=$(ls "$CERT_DIR"/stage*_certificate.json | head -"$export_choice" | tail -1)
         if [ -f "$cert_file" ]; then
             local export_path="$HOME/$(basename $cert_file)"
@@ -585,7 +585,6 @@ playground_run_stage() {
             7) stage_name="Cross-Node Training" ;;
             8) stage_name="Advanced Agent Specialization" ;;
             9) stage_name="Multi-Chain Architecture" ;;
-            10) stage_name="Failure Recovery & Production Operations" ;;
         esac
         echo "$i. $stage_name"
     done
@@ -593,7 +592,7 @@ playground_run_stage() {
     echo -n "Select stage [0-10]: "
     read -r stage_choice
     
-    if [[ "$stage_choice" =~ ^[0-9]$|^10$ ]]; then
+    if [[ "$stage_choice" =~ ^[0-10]$ ]]; then
         echo
         check_prerequisites $stage_choice
         
@@ -628,7 +627,7 @@ playground_run_complete() {
     local start_stage=0
     
     # Find first uncompleted stage
-    for i in {0..9}; do
+    for i in {0..10}; do
         local completed=false
         for stage in "${COMPLETED_STAGES[@]}"; do
             if [ "$stage" == "$i" ]; then
@@ -741,7 +740,7 @@ run_complete_training() {
     
     local completed_stages=0
     
-    for stage in {0..9}; do
+    for stage in {0..10}; do
         echo
         print_progress $stage "Starting"
         
@@ -820,7 +819,7 @@ review_progress() {
     
     # Check log files for additional completion status
     local completed=0
-    for stage in {0..9}; do
+    for stage in {0..10}; do
         local log_file="$LOG_DIR/training_stage${stage}.log"
         if [ -f "$log_file" ] && grep -q "completed successfully" "$log_file"; then
             (( completed += 1 )) || true
@@ -867,9 +866,10 @@ view_logs() {
     echo "7. Stage 7: Cross-Node Training"
     echo "8. Stage 8: Advanced Agent Specialization"
     echo "9. Stage 9: Multi-Chain Architecture"
-    echo "10. Return to menu"
+    echo "10. Stage 10: Failure Recovery & Production Ops"
+    echo "11. Return to menu"
     echo
-    echo -n "Select log to view [0-10]: "
+    echo -n "Select log to view [0-11]: "
     read -r log_choice
     
     case $log_choice in
@@ -1048,7 +1048,7 @@ case "${1:-}" in
             check_system_readiness
             ;;
         --stage)
-            if [[ "$2" =~ ^[0-9]$|^10$ ]]; then
+            if [[ "$2" =~ ^[0-10]$ ]]; then
                 run_stage "$2"
             else
                 echo "Usage: $0 --stage [0-10]"
@@ -1067,7 +1067,7 @@ case "${1:-}" in
             shift
             case "${1:-}" in
                 --stage)
-                    if [[ "$2" =~ ^[0-9]$|^10$ ]]; then
+                    if [[ "$2" =~ ^(10|[0-9])$ ]]; then
                         run_stage "$2"
                     else
                         echo "Usage: $0 --with-skill-update --stage [0-10]"
@@ -1095,7 +1095,7 @@ case "${1:-}" in
             echo "Options:"
             echo "  --overview    Show training overview"
             echo "  --check       Check system readiness"
-            echo "  --stage N     Run specific stage (0-9)"
+            echo "  --stage N     Run specific stage (0-10)"
             echo "  --complete    Run complete training program"
             echo "  --playground  Enter training playground mode"
             echo "  --with-skill-update  Enable skill update via hermes-tools"
