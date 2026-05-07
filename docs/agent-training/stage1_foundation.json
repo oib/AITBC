@@ -1,6 +1,9 @@
 {
   "stage": "stage1_foundation",
   "agent_type": "general",
+  "difficulty": "beginner",
+  "estimated_time_minutes": 30,
+  "depends_on": [],
   "scenarios": [
     "01_wallet_basics.md",
     "02_transaction_sending.md",

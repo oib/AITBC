@@ -1,6 +1,9 @@
 {
   "stage": "stage3_ai_operations",
   "agent_type": "coordinator",
+  "difficulty": "intermediate",
+  "estimated_time_minutes": 60,
+  "depends_on": ["stage2_operations_mastery"],
   "scenarios": [
     "07_ai_job_submission.md",
     "22_ai_training_agent.md",

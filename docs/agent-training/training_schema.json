@@ -32,6 +32,22 @@
         "type": "string"
       }
     },
+    "depends_on": {
+      "type": "array",
+      "description": "Stages that must be completed before this stage",
+      "items": {
+        "type": "string"
+      }
+    },
+    "difficulty": {
+      "type": "string",
+      "description": "Difficulty level of this training stage",
+      "enum": ["beginner", "intermediate", "advanced", "expert"]
+    },
+    "estimated_time_minutes": {
+      "type": "number",
+      "description": "Estimated time to complete this stage in minutes"
+    },
     "training_data": {
       "type": "object",
       "required": ["operations"],
