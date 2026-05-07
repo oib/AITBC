@@ -22,12 +22,27 @@
   "training_data": {
     "operations": [
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
         "operation": "cross_chain_transfer",
         "parameters": {
           "wallet": "training-wallet",
           "source_chain": "aitbc",
           "target_chain": "ethereum",
           "amount": "10",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -44,6 +59,7 @@
         "parameters": {
           "wallet": "training-wallet",
           "stake_amount": "1000",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -94,6 +110,7 @@
           "wallet": "training-wallet",
           "chains": ["aitbc", "ethereum"],
           "spread": "0.01",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -119,6 +136,21 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["coordinating", "fl_id"]
+        }
+      },
+      {
+        "operation": "enterprise_create",
+        "parameters": {
+          "name": "test-enterprise",
+          "description": "Test enterprise for training"
+        },
+        "expected_result": {
+          "status": "success",
+          "created": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["created", "enterprise_id"]
         }
       },
       {
@@ -160,9 +192,54 @@
         }
       },
       {
+        "operation": "agent_create",
+        "parameters": {
+          "name": "agent_1",
+          "description": "Agent 1 for leader election"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "name"]
+        }
+      },
+      {
+        "operation": "agent_create",
+        "parameters": {
+          "name": "agent_2",
+          "description": "Agent 2 for leader election"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "name"]
+        }
+      },
+      {
+        "operation": "agent_create",
+        "parameters": {
+          "name": "agent_3",
+          "description": "Agent 3 for leader election"
+        },
+        "expected_result": {
+          "status": "success",
+          "agent_id": "agent_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["agent_id", "name"]
+        }
+      },
+      {
         "operation": "agent_coordination_leader_election",
         "parameters": {
-          "agents": ["agent_1", "agent_2", "agent_3"]
+          "agents": ["agent_*", "agent_*", "agent_*"]
         },
         "expected_result": {
           "status": "success",
@@ -211,8 +288,8 @@
       {
         "operation": "agent_to_agent_message",
         "parameters": {
-          "from_agent": "agent_1",
-          "to_agent": "agent_2",
+          "from_agent": "agent_*",
+          "to_agent": "agent_*",
           "message": "test message"
         },
         "expected_result": {
