@@ -106,8 +106,42 @@
                     "type": "object",
                     "properties": {
                       "max_duration_ms": {"type": "number"},
-                      "min_success_rate": {"type": "number"}
+                      "min_success_rate": {"type": "number"},
+                      "max_memory_mb": {"type": "number"}
                     }
+                  }
+                }
+              },
+              "idempotent": {
+                "type": "boolean",
+                "description": "Whether operation can be safely retried",
+                "default": false
+              },
+              "check_exists": {
+                "type": "string",
+                "description": "Operation to check if resource already exists"
+              },
+              "verify_on_chain": {
+                "type": "boolean",
+                "description": "Whether to verify transaction on-chain",
+                "default": false
+              },
+              "confirmations_required": {
+                "type": "number",
+                "description": "Number of block confirmations required"
+              },
+              "timeout_seconds": {
+                "type": "number",
+                "description": "Timeout for on-chain verification"
+              },
+              "retry": {
+                "type": "object",
+                "properties": {
+                  "max_attempts": {"type": "number"},
+                  "backoff_seconds": {"type": "number"},
+                  "retryable_errors": {
+                    "type": "array",
+                    "items": {"type": "string"}
                   }
                 }
               }
