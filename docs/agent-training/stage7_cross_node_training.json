@@ -1,6 +1,24 @@
 {
   "stage": "stage7_cross_node_training",
   "agent_type": "coordinator",
+  "difficulty": "expert",
+  "estimated_time_minutes": 120,
+  "skill_level": "expert",
+  "depends_on": ["stage5_expert_operations", "stage6_agent_identity_sdk"],
+  "skills": [
+    "cross_chain_operations",
+    "multi_node_coordination",
+    "distributed_consensus",
+    "network_topology",
+    "failover_handling"
+  ],
+  "objectives": [
+    "Perform cross-chain transfers",
+    "Coordinate agents across multiple nodes",
+    "Implement distributed consensus",
+    "Understand network topology",
+    "Handle failover scenarios"
+  ],
   "training_data": {
     "operations": [
       {

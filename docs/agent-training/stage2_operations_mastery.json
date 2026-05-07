@@ -24,11 +24,11 @@
     "Stake tokens and earn rewards"
   ],
   "scenarios": [
-    "10_plugin_development.md",
-    "11_ipfs_storage.md",
-    "12_database_operations.md",
-    "13_mining_setup.md",
-    "14_staking_basics.md"
+    "/docs/scenarios/10_plugin_development.md",
+    "/docs/scenarios/11_ipfs_storage.md",
+    "/docs/scenarios/12_database_operations.md",
+    "/docs/scenarios/13_mining_setup.md",
+    "/docs/scenarios/14_staking_basics.md"
   ],
   "training_data": {
     "prerequisites": {
