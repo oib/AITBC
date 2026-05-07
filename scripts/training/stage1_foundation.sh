@@ -278,6 +278,13 @@ main() {
         print_header "$TRAINING_STAGE COMPLETED SUCCESSFULLY"
         log_success "$TRAINING_STAGE completed with validation"
         
+        # Output learnings for skill update
+        output_stage_learnings 1 "Foundation" \
+            "./aitbc-cli --version|./aitbc-cli wallet create <wallet> <password>|./aitbc-cli wallet balance <wallet>|./aitbc-cli wallet send <from> <to> <amount> <password>|./aitbc-cli service --status|./aitbc-cli service --health" \
+            "fund_accounts.sh --force flag not supported|Use genesis password from /var/lib/aitbc/keystore/.genesis_password|Genesis wallet: ait175406af70445617b0cd7eb8ff384d81b15c26b45" \
+            "/var/lib/aitbc/keystore/.genesis_password|/opt/aitbc/scripts/training/.training_state/certificates|/opt/aitbc/scripts/training/.training_progress" \
+            "Wallet creation|Transaction sending|Balance checking|Service health monitoring"
+        
         echo
         echo -e "${GREEN}Next Steps:${NC}"
         echo "1. Review the log file: $CURRENT_LOG"
