@@ -24,18 +24,18 @@
     "Bridge assets across chains"
   ],
   "scenarios": [
-    "15_blockchain_monitoring.md",
-    "16_agent_registration.md",
-    "17_governance_voting.md",
-    "18_analytics_collection.md",
-    "19_security_setup.md",
-    "23_data_oracle_agent.md",
-    "28_monitoring_agent.md",
-    "29_plugin_marketplace_agent.md",
-    "30_database_service_agent.md",
-    "31_federation_bridge_agent.md",
-    "34_compliance_agent.md",
-    "35_edge_compute_agent.md"
+    "/docs/scenarios/15_blockchain_monitoring.md",
+    "/docs/scenarios/16_agent_registration.md",
+    "/docs/scenarios/17_governance_voting.md",
+    "/docs/scenarios/18_analytics_collection.md",
+    "/docs/scenarios/19_security_setup.md",
+    "/docs/scenarios/23_data_oracle_agent.md",
+    "/docs/scenarios/28_monitoring_agent.md",
+    "/docs/scenarios/29_plugin_marketplace_agent.md",
+    "/docs/scenarios/30_database_service_agent.md",
+    "/docs/scenarios/31_federation_bridge_agent.md",
+    "/docs/scenarios/34_compliance_agent.md",
+    "/docs/scenarios/35_edge_compute_agent.md"
   ],
   "training_data": {
     "operations": [

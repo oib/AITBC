@@ -29,6 +29,8 @@ The training program supports different agent types, each with specialized capab
 - **follower**: Agent that follows blockchain state, monitors transactions, and maintains synchronization with the network.
 - **wallet**: Agent focused on wallet operations, including creation, management, transaction sending, and balance queries.
 - **general**: Multi-purpose agent with broad capabilities across wallet, blockchain, and basic operations.
+- **specialized**: Domain-specific agent with expertise in particular areas such as bounty systems, portfolio management, and knowledge graph marketing (used in Stage 8).
+- **architect**: Expert agent that designs and manages multi-chain architectures, bridge protocols, and interoperability patterns (used in Stage 9).
 
 ## Training Stages
 
