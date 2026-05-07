@@ -4,7 +4,7 @@
   "difficulty": "intermediate",
   "estimated_time_minutes": 60,
   "skill_level": "practitioner",
-  "depends_on": ["stage2_operations_mastery"],
+  "depends_on": ["stage2_operations_mastery", "stage4_marketplace_economics"],
   "skills": [
     "ai_job_submission",
     "task_management",
@@ -45,7 +45,8 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["training", "training_id"]
-        }
+        },
+        "optional": true
       },
       {
         "operation": "ai_power_advertiser",
@@ -103,6 +104,20 @@
         }
       },
       {
+        "operation": "ai_jobs",
+        "parameters": {
+          "coordinator_url": "http://localhost:9001"
+        },
+        "expected_result": {
+          "status": "success",
+          "jobs": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["jobs"]
+        }
+      },
+      {
         "operation": "ai_status",
         "parameters": {
           "job_id": "job_*"
@@ -154,7 +169,7 @@
         },
         "expected_result": {
           "status": "success",
-          "finetune_status": "training|completed"
+          "finetune_status": "pending|running|completed"
         },
         "success_criteria": {
           "status": "success",
