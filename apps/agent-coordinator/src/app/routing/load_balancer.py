@@ -684,6 +684,29 @@ class TaskDistributor:
                 for priority, queue in self.priority_queues.items()
             }
         }
+    
+    def get_queue_sizes(self) -> Dict[str, int]:
+        """Get sizes of all priority queues"""
+        return {
+            priority.value: queue.qsize()
+            for priority, queue in self.priority_queues.items()
+        }
+    
+    async def clear_queue(self, priority: TaskPriority) -> int:
+        """Clear all tasks from a priority queue"""
+        queue = self.priority_queues[priority]
+        cleared_count = 0
+        
+        # Drain the queue
+        while not queue.empty():
+            try:
+                queue.get_nowait()
+                cleared_count += 1
+            except asyncio.QueueEmpty:
+                break
+        
+        logger.info(f"Cleared {cleared_count} tasks from {priority.value} queue")
+        return cleared_count
 
 # Example usage
 async def example_usage():

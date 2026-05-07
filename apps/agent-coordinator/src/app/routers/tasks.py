@@ -78,3 +78,78 @@ async def get_task_status():
     except Exception as e:
         logger.error(f"Error getting task status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# Task queue management
+@router.get("/tasks/queues")
+async def get_queue_sizes():
+    """Get task queue sizes"""
+    try:
+        if not state.task_distributor:
+            raise HTTPException(status_code=503, detail="Task distributor not available")
+        
+        queue_sizes = state.task_distributor.get_queue_sizes()
+        
+        return {
+            "status": "success",
+            "queue_sizes": queue_sizes,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting queue sizes: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/tasks/queues/{priority}/clear")
+async def clear_queue(priority: str):
+    """Clear a priority queue"""
+    try:
+        if not state.task_distributor:
+            raise HTTPException(status_code=503, detail="Task distributor not available")
+        
+        from ..routing.load_balancer import TaskPriority
+        
+        try:
+            priority_enum = TaskPriority(priority)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid priority: {priority}")
+        
+        cleared_count = await state.task_distributor.clear_queue(priority_enum)
+        
+        return {
+            "status": "success",
+            "message": f"Cleared {cleared_count} tasks from {priority} queue",
+            "priority": priority,
+            "cleared_count": cleared_count,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error clearing queue: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/tasks/queues/stats")
+async def get_queue_stats():
+    """Get detailed queue statistics"""
+    try:
+        if not state.task_distributor:
+            raise HTTPException(status_code=503, detail="Task distributor not available")
+        
+        queue_sizes = state.task_distributor.get_queue_sizes()
+        distribution_stats = state.task_distributor.get_distribution_stats()
+        
+        return {
+            "status": "success",
+            "queue_sizes": queue_sizes,
+            "distribution_stats": distribution_stats,
+            "timestamp": datetime.now(timezone.utc).isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting queue stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
