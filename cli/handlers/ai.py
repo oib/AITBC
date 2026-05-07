@@ -203,6 +203,28 @@ def handle_ai_stats(args, default_rpc_url, output_format, render_mapping):
         sys.exit(1)
 
 
+def handle_ai_distribution_stats(args, default_coordinator_url, output_format, render_mapping):
+    """Handle task distribution statistics query from agent coordinator."""
+    coordinator_url = getattr(args, 'coordinator_url', None) or default_coordinator_url
+    
+    print(f"Getting task distribution statistics from {coordinator_url}...")
+    try:
+        response = requests.get(f"{coordinator_url}/tasks/status", timeout=10)
+        if response.status_code == 200:
+            stats = response.json()
+            if output_format(args) == "json":
+                print(json.dumps(stats, indent=2))
+            else:
+                render_mapping("Task distribution statistics:", stats)
+        else:
+            print(f"Query failed: {response.status_code}")
+            print(f"Error: {response.text}")
+            sys.exit(1)
+    except Exception as e:
+        print(f"Error getting distribution stats: {e}")
+        sys.exit(1)
+
+
 def handle_ai_service_list(args, ai_operations, render_mapping):
     """Handle AI service list command."""
     result = ai_operations("service_list")
