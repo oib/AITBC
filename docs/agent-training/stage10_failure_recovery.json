@@ -227,6 +227,10 @@
           },
           "examples": [
             {
+              "command": "journalctl -fu aitbc-*",
+              "description": "Monitor all AITBC service logs in real-time"
+            },
+            {
               "command": "tail -f /var/log/aitbc/blockchain-node.log",
               "description": "Monitor blockchain node logs in real-time"
             },
