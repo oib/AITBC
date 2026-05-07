@@ -483,3 +483,54 @@ cli_cmd_node() {
     # Use eval to properly parse command string with multiple arguments
     NODE_URL="$node_url" eval "$CLI_PATH $*" 2>/dev/null
 }
+
+# Output stage learnings for skill update
+output_stage_learnings() {
+    local stage_num=$1
+    local stage_name=$2
+    shift 2
+    
+    local commands=()
+    local pitfalls=()
+    local key_paths=()
+    local concepts=()
+    
+    # Parse arrays from arguments
+    # Format: output_stage_learnings stage_num stage_name "cmd1|cmd2" "pitfall1|pitfall2" "path1|path2" "concept1|concept2"
+    
+    if [ $# -ge 1 ]; then
+        IFS='|' read -ra commands <<< "$1"
+    fi
+    
+    if [ $# -ge 2 ]; then
+        IFS='|' read -ra pitfalls <<< "$2"
+    fi
+    
+    if [ $# -ge 3 ]; then
+        IFS='|' read -ra key_paths <<< "$3"
+    fi
+    
+    if [ $# -ge 4 ]; then
+        IFS='|' read -ra concepts <<< "$4"
+    fi
+    
+    local state_dir="${SCRIPT_DIR}/.training_state"
+    local learnings_file="$state_dir/learnings_stage${stage_num}.json"
+    
+    mkdir -p "$state_dir"
+    
+    # Create structured learnings JSON
+    cat > "$learnings_file" <<EOF
+{
+  "stage": $stage_num,
+  "stage_name": "$stage_name",
+  "commands": $(printf '%s\n' "${commands[@]}" | jq -R . | jq -s .),
+  "pitfalls": $(printf '%s\n' "${pitfalls[@]}" | jq -R . | jq -s .),
+  "key_paths": $(printf '%s\n' "${key_paths[@]}" | jq -R . | jq -s .),
+  "concepts": $(printf '%s\n' "${concepts[@]}" | jq -R . | jq -s .),
+  "timestamp": "$(date -Iseconds)"
+}
+EOF
+    
+    log_info "Learnings saved to $learnings_file"
+}

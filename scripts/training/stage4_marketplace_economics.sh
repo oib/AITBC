@@ -309,6 +309,14 @@ main() {
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
     echo -e "${GREEN}========================================${NC}"
+    
+    # Output learnings for skill update
+    output_stage_learnings 4 "Marketplace & Economics" \
+        "./aitbc-cli market-list|./aitbc-cli marketplace --list" \
+        "Marketplace API endpoints|Asset listing format|Currency fields validation" \
+        "/opt/aitbc/apps/marketplace" \
+        "Marketplace operations|Asset listing|Market economics"
+    
     echo
     echo -e "${BLUE}Next Steps:${NC}"
     echo "1. Review the log file: $LOG_FILE"
