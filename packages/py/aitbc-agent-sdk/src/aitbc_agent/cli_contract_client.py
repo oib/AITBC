@@ -6,9 +6,10 @@ import subprocess
 import asyncio
 import os
 import json
+import logging
 from typing import Dict, Any, Optional
 
-logger = None  # Will be set later
+logger = logging.getLogger(__name__)
 
 def set_logger(log):
     global logger
