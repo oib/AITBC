@@ -3,7 +3,24 @@
   "agent_type": "wallet",
   "difficulty": "intermediate",
   "estimated_time_minutes": 60,
+  "skill_level": "practitioner",
   "depends_on": ["stage2_operations_mastery"],
+  "skills": [
+    "marketplace_interaction",
+    "gpu_listing",
+    "bidding",
+    "trading",
+    "economics_modeling",
+    "market_analysis"
+  ],
+  "objectives": [
+    "List GPU resources on marketplace",
+    "Place bids on marketplace",
+    "Buy and sell resources",
+    "Query marketplace data",
+    "Understand economic distribution",
+    "Perform market analysis"
+  ],
   "scenarios": [
     "08_marketplace_bidding.md",
     "09_gpu_listing.md",

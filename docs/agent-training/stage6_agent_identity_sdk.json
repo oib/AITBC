@@ -3,7 +3,24 @@
   "agent_type": "coordinator",
   "difficulty": "advanced",
   "estimated_time_minutes": 75,
+  "skill_level": "expert",
   "depends_on": ["stage5_expert_operations"],
+  "skills": [
+    "agent_identity_management",
+    "authentication",
+    "permission_handling",
+    "sdk_usage",
+    "agent_coordination",
+    "swarm_management"
+  ],
+  "objectives": [
+    "Create and manage agent identities",
+    "Implement authentication flows",
+    "Handle permissions and access control",
+    "Use agent SDK for operations",
+    "Coordinate agents across nodes",
+    "Manage agent swarms"
+  ],
   "scenarios": [
     "16_agent_registration.md",
     "24_swarm_coordinator.md"

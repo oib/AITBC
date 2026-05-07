@@ -3,7 +3,26 @@
   "agent_type": "general",
   "difficulty": "beginner",
   "estimated_time_minutes": 45,
+  "skill_level": "apprentice",
   "depends_on": ["stage1_foundation"],
+  "skills": [
+    "advanced_wallet_operations",
+    "mining_management",
+    "network_operations",
+    "plugin_development",
+    "ipfs_storage",
+    "database_hosting",
+    "staking_operations"
+  ],
+  "objectives": [
+    "Perform advanced wallet operations (export, import, send, delete, backup, sync)",
+    "Manage mining operations (start, stop, status, rewards)",
+    "Execute network operations (status, sync, peers, ping, propagate, force_sync)",
+    "Develop simple plugins",
+    "Store and retrieve data via IPFS",
+    "Host basic databases",
+    "Stake tokens and earn rewards"
+  ],
   "scenarios": [
     "10_plugin_development.md",
     "11_ipfs_storage.md",
@@ -489,5 +508,12 @@
       }
     ],
     "passing_score": 80
-  }
+  },
+  "certifications": [
+    {
+      "name": "Operations Master",
+      "required_stages": ["stage1_foundation", "stage2_operations_mastery"],
+      "exam_score": 85
+    }
+  ]
 }
