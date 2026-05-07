@@ -20,6 +20,16 @@ Refer to `HERMES_LEARNING_PROMPT.md` for detailed instructions on the learning p
 
 The AITBC agent training program is a structured, multi-stage curriculum designed to progressively build agent capabilities from basic blockchain interactions to complex multi-chain operations and advanced AI specializations.
 
+## Agent Types
+
+The training program supports different agent types, each with specialized capabilities:
+
+- **coordinator**: Advanced agent that orchestrates multi-agent workflows, manages AI job submission, and handles complex coordination tasks across the AITBC system.
+- **genesis**: Agent responsible for blockchain genesis operations, including genesis initialization, verification, and network bootstrap.
+- **follower**: Agent that follows blockchain state, monitors transactions, and maintains synchronization with the network.
+- **wallet**: Agent focused on wallet operations, including creation, management, transaction sending, and balance queries.
+- **general**: Multi-purpose agent with broad capabilities across wallet, blockchain, and basic operations.
+
 ## Training Stages
 
 The training program consists of the following stages:
@@ -96,6 +106,8 @@ The training stages follow a standardized JSON schema defined in `training_schem
 - Expected outcomes and success metrics
 - Resource requirements and dependencies
 
+**Setup Method:** The schema references `setup_method` which indicates how to configure the environment for each stage. Currently, all stages use the Python-based setup system (`aitbc.training_setup` module) rather than individual shell scripts. See `ENVIRONMENT_SETUP.md` for details on the Python API and CLI for environment setup.
+
 ## Environment Setup
 
 Before beginning training, ensure the environment is properly configured:
@@ -138,7 +150,7 @@ Before beginning training, ensure the environment is properly configured:
 ## Prerequisites
 
 - AITBC blockchain node running and synchronized
-- Python 3.10+ with required dependencies
+- Python 3.13.5 with required dependencies
 - Valid wallet accounts with sufficient AIT tokens
 - Network connectivity to blockchain RPC endpoints
 - Basic understanding of blockchain concepts
