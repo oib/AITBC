@@ -143,6 +143,30 @@
         }
       },
       {
+        "operation": "wallet_fund",
+        "parameters": {
+          "wallet": "training-wallet",
+          "amount": "100",
+          "currency": "AIT",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "funded_amount": "100",
+          "balance": "100"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["funded_amount", "balance"]
+        },
+        "examples": [
+          {
+            "command": "aitbc-cli wallet fund training-wallet --amount 100 --currency AIT --password training123",
+            "description": "Fund wallet with 100 AIT"
+          }
+        ]
+      },
+      {
         "operation": "transaction_send",
         "parameters": {
           "wallet": "training-wallet",
@@ -311,6 +335,7 @@
           "wallet": "exam-wallet",
           "to": "recipient-address",
           "amount": "10",
+          "currency": "AIT",
           "password": "exam123"
         },
         "expected_output": {
