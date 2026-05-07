@@ -27,7 +27,7 @@ This directory collects summary-style documentation, including:
 
 - **[PROJECT_ORGANIZATION_COMPLETED.md](PROJECT_ORGANIZATION_COMPLETED.md)** - Project organization completion summary
 - **[DOCUMENTATION_CLEANUP_SUMMARY.md](DOCUMENTATION_CLEANUP_SUMMARY.md)** - Documentation cleanup summary
-- **[OPENCLAW_AITBC_SKILL_SUMMARY.md](OPENCLAW_AITBC_SKILL_SUMMARY.md)** - OpenClaw skill summary
+- **[HERMES_AITBC_SKILL_SUMMARY.md](HERMES_AITBC_SKILL_SUMMARY.md)** - hermes skill summary
 - **[PYTHON_TESTS_FIXED.md](PYTHON_TESTS_FIXED.md)** - Python test fix summary
 - **[GITHUB_ACTIONS_WORKFLOW_FIXES.md](GITHUB_ACTIONS_WORKFLOW_FIXES.md)** - Workflow fixes summary
 

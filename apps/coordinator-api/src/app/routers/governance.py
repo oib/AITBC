@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 """
 Decentralized Governance API Endpoints
-REST API for OpenClaw DAO voting, proposals, and governance analytics
+REST API for hermes DAO voting, proposals, and governance analytics
 """
 
 from __future__ import annotations

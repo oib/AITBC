@@ -1,4 +1,4 @@
-# AI Job Submission for OpenClaw Agents
+# AI Job Submission for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents submit AI compute jobs to the AITBC network for distributed processing on GPU resources.
+This scenario demonstrates how hermes agents submit AI compute jobs to the AITBC network for distributed processing on GPU resources.
 
 ### **Use Case**
-An OpenClaw agent needs to submit AI jobs to:
+An hermes agent needs to submit AI jobs to:
 - Train machine learning models
 - Run inference on large datasets
 - Process natural language tasks

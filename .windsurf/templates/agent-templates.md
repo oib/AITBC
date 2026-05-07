@@ -1,4 +1,4 @@
-# OpenClaw AITBC Agent Templates
+# Hermes AITBC Agent Templates
 
 > **Canonical validation**: Use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) with `scripts/workflow/44_comprehensive_multi_node_scenario.sh` when validating these templates.
 
@@ -27,7 +27,7 @@
     "wallet": "aitbc-user",
     "auto_transaction": true
   },
-  "openclaw_config": {
+  "hermes_config": {
     "model": "ollama/nemotron-3-super:cloud",
     "workspace": "blockchain-monitor",
     "routing": {
@@ -58,7 +58,7 @@
     "profit_margin": 0.15,
     "max_positions": 5
   },
-  "openclaw_config": {
+  "hermes_config": {
     "model": "ollama/nemotron-3-super:cloud",
     "workspace": "marketplace-trader",
     "routing": {
@@ -90,7 +90,7 @@
     "data_retention": 86400,
     "batch_processing": true
   },
-  "openclaw_config": {
+  "hermes_config": {
     "model": "ollama/nemotron-3-super:cloud",
     "workspace": "blockchain-analyzer",
     "routing": {
@@ -120,7 +120,7 @@
     "auto_failover": true,
     "health_checks": ["rpc", "sync", "transactions"]
   },
-  "openclaw_config": {
+  "hermes_config": {
     "model": "ollama/nemotron-3-super:cloud",
     "workspace": "multi-node-coordinator",
     "routing": {
@@ -153,7 +153,7 @@
     "chain_id": "ait-mainnet",
     "cross_node_routing": true
   },
-  "openclaw_config": {
+  "hermes_config": {
     "model": "ollama/nemotron-3-super:cloud",
     "workspace": "blockchain-messaging",
     "routing": {

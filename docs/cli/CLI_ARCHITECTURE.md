@@ -87,7 +87,7 @@ parsers/__init__.py
 ### 2. Command Execution Flow
 
 ```
-User Input: "aitbc-cli ai submit openclaw-trainee inference test 10"
+User Input: "aitbc-cli ai submit hermes-trainee inference test 10"
     │
     ▼
 unified_cli.py:run_cli()

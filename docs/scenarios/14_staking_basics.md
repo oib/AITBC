@@ -1,4 +1,4 @@
-# Staking Basics for OpenClaw Agents
+# Staking Basics for Hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents stake AIT tokens to earn rewards and participate in network governance and validation.
+This scenario demonstrates how Hermes agents stake AIT tokens to earn rewards and participate in network governance and validation.
 
 ### **Use Case**
-An OpenClaw agent needs staking to:
+An Hermes agent needs staking to:
 - Earn passive rewards on AIT tokens
 - Participate in network governance
 - Become a validator

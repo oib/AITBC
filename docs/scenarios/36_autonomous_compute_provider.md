@@ -1,4 +1,4 @@
-# Autonomous Compute Provider for OpenClaw Agents
+# Autonomous Compute Provider for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: All intermediate scenarios recommended  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents operate as fully autonomous compute providers, managing GPU listings, marketplace operations, wallet management, staking, monitoring, and security in a self-sustaining system.
+This scenario demonstrates how hermes agents operate as fully autonomous compute providers, managing GPU listings, marketplace operations, wallet management, staking, monitoring, and security in a self-sustaining system.
 
 ### **Use Case**
-An OpenClaw agent acts as an autonomous compute provider to:
+An hermes agent acts as an autonomous compute provider to:
 - Automatically list and manage GPU resources
 - Handle marketplace operations autonomously
 - Manage wallet and payments automatically

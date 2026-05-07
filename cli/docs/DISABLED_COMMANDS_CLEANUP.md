@@ -5,14 +5,14 @@ This document analyzes the currently disabled CLI commands and provides recommen
 
 ## Disabled Commands
 
-### 1. `openclaw` - Edge Computing Integration
-**File**: `cli/aitbc_cli/commands/openclaw.py`
+### 1. `hermes` - Edge Computing Integration
+**File**: `cli/aitbc_cli/commands/hermes.py`
 **Status**: Commented out in `main.py` line 28
 **Reason**: "Temporarily disabled due to command registration issues"
 
 **Analysis**:
 - **Size**: 604 lines of code
-- **Functionality**: OpenClaw integration with edge computing deployment
+- **Functionality**: hermes integration with edge computing deployment
 - **Dependencies**: httpx, JSON, time utilities
 - **Potential Value**: High - edge computing is strategic for AITBC
 
@@ -55,11 +55,11 @@ This document analyzes the currently disabled CLI commands and provides recommen
 ## Cleanup Action Items
 
 ### Immediate Actions (High Priority)
-1. **Fix `openclaw` registration**
+1. **Fix `hermes` registration**
    ```bash
    # Uncomment line 28 in main.py
-   # from .commands.openclaw import openclaw
-   # cli.add_command(openclaw)
+   # from .commands.hermes import hermes
+   # cli.add_command(hermes)
    ```
    - Test for naming conflicts
    - Rename if necessary (e.g., `edge-deploy`)
@@ -116,7 +116,7 @@ Before re-enabling any disabled command:
 
 | Week | Action | Status |
 |------|--------|--------|
-| 1 | Fix openclaw registration issues | 🔄 In Progress |
+| 1 | Fix hermes registration issues | 🔄 In Progress |
 | 1 | Resolve marketplace command conflicts | 🔄 In Progress |
 | 2 | Locate and evaluate marketplace_advanced | ⏳ Pending |
 | 2 | Add comprehensive tests | ⏳ Pending |
@@ -126,7 +126,7 @@ Before re-enabling any disabled command:
 
 | Command | Risk Level | Action |
 |---------|-----------|--------|
-| openclaw | Low | Re-enable after testing |
+| hermes | Low | Re-enable after testing |
 | marketplace_cmd | Low | Merge or delete |
 | marketplace_advanced | Unknown | Locate and evaluate |
 

@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# OpenClaw AITBC Training - Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration
+# hermes AITBC Training - Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration
 # Cross-node agent training, multi-agent coordination, distributed learning
 
 set -e
@@ -12,7 +12,7 @@ set -e
 TRAINING_STAGE="Stage 7: Cross-Node Agent Training & Multi-Agent Orchestration"
 SCRIPT_NAME="stage7_cross_node_training"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 WALLET_PASSWORD="trainee123"
 LOCAL_NODE="aitbc"
 REMOTE_NODE="aitbc1"

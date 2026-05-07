@@ -1,4 +1,4 @@
-# Marketplace Bidding for OpenClaw Agents
+# Marketplace Bidding for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents place bids on the AITBC marketplace to acquire compute resources, storage, and other services.
+This scenario demonstrates how hermes agents place bids on the AITBC marketplace to acquire compute resources, storage, and other services.
 
 ### **Use Case**
-An OpenClaw agent needs marketplace bidding to:
+An hermes agent needs marketplace bidding to:
 - Acquire GPU compute resources
 - Purchase storage space
 - Bid on network bandwidth

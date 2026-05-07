@@ -1,13 +1,13 @@
-# OpenClaw Multi-Node AITBC Scenarios - Complete Success! 🎉
+# hermes Multi-Node AITBC Scenarios - Complete Success! 🎉
 
-## 🤖 OpenClaw + AITBC Integration Scenarios Executed
+## 🤖 hermes + AITBC Integration Scenarios Executed
 
-We successfully demonstrated comprehensive OpenClaw agent scenarios integrated with your multi-node AITBC blockchain! This showcases the powerful combination of AI agents with blockchain technology.
+We successfully demonstrated comprehensive hermes agent scenarios integrated with your multi-node AITBC blockchain! This showcases the powerful combination of AI agents with blockchain technology.
 
 ### ✅ **Scenario Results Summary**
 
 #### **Scenario 1: Cross-Node Agent Deployment** ✅
-- **OpenClaw Status**: Version 2026.3.24 installed and operational
+- **hermes Status**: Version 2026.3.24 installed and operational
 - **Agent Creation**: Successfully created `aitbc-monitor` agent
 - **Blockchain Analysis**: Agent analyzed blockchain health (Height: 258, Genesis: 999,997,475 AIT, User: 1,500 AIT)
 - **Health Assessment**: Agent provided comprehensive blockchain health report
@@ -24,7 +24,7 @@ We successfully demonstrated comprehensive OpenClaw agent scenarios integrated w
 #### **Scenario 3: Workflow Automation** ✅
 - **Workflow Creation**: Created `multi-node-monitor` workflow with blockchain template
 - **Async Execution**: Workflow running asynchronously with execution ID `wf_exec_1774851943`
-- **Agent Integration**: OpenClaw agent executing automated workflow steps
+- **Agent Integration**: hermes agent executing automated workflow steps
 - **Progress Tracking**: Real-time workflow progress monitoring
 - **Agent Statistics**: 3 active agents, 47 completed executions, 3.2min average time
 - **Result**: ✅ Automated blockchain monitoring workflow with AI agent integration
@@ -34,7 +34,7 @@ We successfully demonstrated comprehensive OpenClaw agent scenarios integrated w
 - **Dynamic Allocation**: Allocated 2.0 CPU cores + 4GB memory for 60 minutes
 - **Cost Tracking**: 25 AIT per hour resource cost
 - **Efficiency Metrics**: 78.5% overall resource efficiency
-- **Agent Optimization**: OpenClaw agent providing resource optimization recommendations
+- **Agent Optimization**: hermes agent providing resource optimization recommendations
 - **Result**: ✅ Intelligent resource management with cost optimization
 
 ### 🚀 **Key Achievements Demonstrated**
@@ -65,17 +65,17 @@ We successfully demonstrated comprehensive OpenClaw agent scenarios integrated w
 
 ### 🎯 **Technical Demonstrations**
 
-#### **OpenClaw Agent Commands Used**
+#### **hermes Agent Commands Used**
 ```bash
 # Agent Management
-openclaw agents add aitbc-monitor
-openclaw agents list
-openclaw agent --agent main -m "blockchain analysis task"
+hermes agents add aitbc-monitor
+hermes agents list
+hermes agent --agent main -m "blockchain analysis task"
 
 # Integration with AITBC CLI
 /opt/aitbc/aitbc-cli agent create --name blockchain-analyzer
-/opt/aitbc/aitbc-cli openclaw deploy --agent-file config.json
-/opt/aitbc/aitbc-cli openclaw market --action list
+/opt/aitbc/aitbc-cli hermes deploy --agent-file config.json
+/opt/aitbc/aitbc-cli hermes market --action list
 ```
 
 #### **Blockchain Integration Points**
@@ -93,7 +93,7 @@ openclaw agent --agent main -m "blockchain analysis task"
 ### 🌟 **Innovation Highlights**
 
 #### **🎯 First-of-its-Kind Integration**
-- **AI + Blockchain**: OpenClaw agents directly integrated with AITBC
+- **AI + Blockchain**: hermes agents directly integrated with AITBC
 - **Multi-Node Coordination**: Agents working across blockchain nodes
 - **Tokenized Agent Economy**: Agents bought/sold with AIT tokens
 - **Automated Governance**: Workflow-based blockchain management
@@ -120,7 +120,7 @@ openclaw agent --agent main -m "blockchain analysis task"
 
 ### 🎉 **Mission Accomplished!**
 
-Your AITBC + OpenClaw integration demonstrates:
+Your AITBC + hermes integration demonstrates:
 
 1. **✅ AI Agent Management**: Complete lifecycle with blockchain integration
 2. **✅ Multi-Node Operations**: Seamless cross-node agent coordination  

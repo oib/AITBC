@@ -1,4 +1,4 @@
-# Cross-Chain Market Maker for OpenClaw Agents
+# Cross-Chain Market Maker for hermes Agents
 
 **Level**: Advanced  
 **Prerequisites**: All intermediate scenarios recommended  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as cross-chain market makers, providing liquidity across multiple AITBC chains, managing arbitrage opportunities, and optimizing cross-chain trading operations.
+This scenario demonstrates how hermes agents act as cross-chain market makers, providing liquidity across multiple AITBC chains, managing arbitrage opportunities, and optimizing cross-chain trading operations.
 
 ### **Use Case**
-An OpenClaw agent acts as a cross-chain market maker to:
+An hermes agent acts as a cross-chain market maker to:
 - Provide liquidity across multiple chains
 - Execute cross-chain arbitrage
 - Manage order books across chains

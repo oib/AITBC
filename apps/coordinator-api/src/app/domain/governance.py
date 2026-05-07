@@ -1,6 +1,6 @@
 """
 Decentralized Governance Models
-Database models for OpenClaw DAO, voting, proposals, and governance analytics
+Database models for hermes DAO, voting, proposals, and governance analytics
 """
 
 import uuid

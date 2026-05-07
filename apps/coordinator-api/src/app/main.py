@@ -77,7 +77,7 @@ except ImportError:
     print("WARNING: ML ZK proofs router not available (missing tenseal)")
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.monitoring_dashboard import router as monitoring_dashboard
-from .routers.openclaw_enhanced_simple import router as openclaw_enhanced
+from .routers.hermes_enhanced_simple import router as hermes_enhanced
 
 # Skip optional routers with missing dependencies
 try:
@@ -339,7 +339,7 @@ def create_app() -> FastAPI:
     if ml_zk_proofs:
         app.include_router(ml_zk_proofs)
     app.include_router(marketplace_enhanced, prefix="/v1")
-    app.include_router(openclaw_enhanced, prefix="/v1")
+    app.include_router(hermes_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router.router, prefix="/v1/agents")
     app.include_router(agent_identity, prefix="/v1")

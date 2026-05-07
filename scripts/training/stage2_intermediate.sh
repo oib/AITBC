@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# OpenClaw AITBC Training - Stage 2: Intermediate Operations
+# hermes AITBC Training - Stage 2: Intermediate Operations
 # Advanced Wallet Management, Blockchain Operations, Smart Contracts
 # Optimized version using training library
 
@@ -12,9 +12,9 @@ source "$(dirname "$0")/training_lib.sh"
 # Training configuration
 TRAINING_STAGE="Stage 2: Intermediate Operations"
 LOG_FILE="/var/log/aitbc/training_stage2.log"
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 WALLET_PASSWORD="trainee123"
-BACKUP_WALLET="openclaw-backup"
+BACKUP_WALLET="hermes-backup"
 
 # Setup traps for cleanup
 setup_traps
@@ -111,7 +111,7 @@ smart_contract_interaction() {
     fi
     
     print_status "Testing agent messaging..."
-    $CLI_PATH agent message --agent "test-agent" --message "Hello from OpenClaw training" --wallet "$WALLET_NAME" --password "$WALLET_PASSWORD" 2>/dev/null || print_warning "Agent message command not available"
+    $CLI_PATH agent message --agent "test-agent" --message "Hello from hermes training" --wallet "$WALLET_NAME" --password "$WALLET_PASSWORD" 2>/dev/null || print_warning "Agent message command not available"
     log "Agent message sent"
     
     print_status "Checking agent messages..."
@@ -225,7 +225,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}OpenClaw AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
     

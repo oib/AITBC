@@ -6,7 +6,7 @@ version: 1.0
 
 # Agent Coordination Plan Enhancement
 
-This document outlines advanced multi-agent communication patterns, distributed decision making mechanisms, and scalable agent architectures for the OpenClaw agent ecosystem.
+This document outlines advanced multi-agent communication patterns, distributed decision making mechanisms, and scalable agent architectures for the hermes agent ecosystem.
 
 ## 🎯 Objectives
 
@@ -41,16 +41,16 @@ CoordinatorAgent (Level 1)
 SESSION_ID="hierarchy-$(date +%s)"
 
 # Level 1: Coordinator broadcasts to Level 2
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "Broadcast: Execute distributed AI workflow across all Level 2 agents" \
     --thinking high
 
 # Level 2: Agents respond to coordinator
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "Response to Coordinator: Ready for AI workflow execution with resource optimization" \
     --thinking medium
 
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "Response to Coordinator: Ready for distributed task participation" \
     --thinking medium
 ```
@@ -78,16 +78,16 @@ GenesisAgent ←→ FollowerAgent
 SESSION_ID="p2p-$(date +%s)"
 
 # Direct agent-to-agent communication
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "P2P to FollowerAgent: Coordinate resource allocation for AI job batch" \
     --thinking medium
 
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "P2P to GenesisAgent: Confirm resource availability and scheduling" \
     --thinking medium
 
 # Cross-agent resource sharing
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "P2P to MultiModalAgent: Share GPU allocation for multi-modal processing" \
     --thinking low
 ```
@@ -106,13 +106,13 @@ openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
 SESSION_ID="broadcast-$(date +%s)"
 
 # Coordinator broadcasts to all agents
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "BROADCAST: System-wide resource optimization initiated - all agents participate" \
     --thinking high
 
 # Agents acknowledge broadcast
 for agent in GenesisAgent FollowerAgent AIResourceAgent MultiModalAgent; do
-    openclaw agent --agent $agent --session-id $SESSION_ID \
+    hermes agent --agent $agent --session-id $SESSION_ID \
         --message "ACK: Received broadcast, initiating optimization protocols" \
         --thinking low &
 done
@@ -138,7 +138,7 @@ SESSION_ID="voting-$(date +%s)"
 PROPOSAL_ID="resource-strategy-$(date +%s)"
 
 # Coordinator presents proposal
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "VOTE PROPOSAL $PROPOSAL_ID: Implement dynamic GPU allocation with 70% utilization target" \
     --thinking high
 
@@ -147,19 +147,19 @@ echo "Collecting votes..."
 VOTES=()
 
 # Genesis Agent vote
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "VOTE $PROPOSAL_ID: YES - Dynamic allocation optimizes AI performance" \
     --thinking medium &
 VOTES+=("GenesisAgent:YES")
 
 # Follower Agent vote
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "VOTE $PROPOSAL_ID: YES - Improves resource utilization" \
     --thinking medium &
 VOTES+=("FollowerAgent:YES")
 
 # AI Resource Agent vote
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "VOTE $PROPOSAL_ID: YES - Aligns with optimization goals" \
     --thinking medium &
 VOTES+=("AIResourceAgent:YES")
@@ -172,7 +172,7 @@ TOTAL_COUNT=${#VOTES[@]}
 
 if [ $YES_COUNT -gt $((TOTAL_COUNT / 2)) ]; then
     echo "✅ PROPOSAL $PROPOSAL_ID APPROVED: $YES_COUNT/$TOTAL_COUNT votes"
-    openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+    hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
         --message "DECISION: Proposal $PROPOSAL_ID APPROVED - Implementing dynamic GPU allocation" \
         --thinking high
 else
@@ -194,23 +194,23 @@ fi
 SESSION_ID="weighted-$(date +%s)"
 
 # Decision: AI model selection for complex task
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "WEIGHTED DECISION: Select optimal AI model for medical diagnosis pipeline" \
     --thinking high
 
 # Agents provide weighted recommendations
 # Genesis Agent (AI Operations Expertise - Weight: 3)
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "RECOMMENDATION: ensemble_model (confidence: 0.9, weight: 3) - Best for accuracy" \
     --thinking high &
 
 # MultiModal Agent (Multi-Modal Expertise - Weight: 2)
-openclaw agent --agent MultiModalAgent --session-id $SESSION_ID \
+hermes agent --agent MultiModalAgent --session-id $SESSION_ID \
     --message "RECOMMENDATION: multimodal_model (confidence: 0.8, weight: 2) - Handles multiple data types" \
     --thinking high &
 
 # AI Resource Agent (Resource Expertise - Weight: 1)
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "RECOMMENDATION: efficient_model (confidence: 0.7, weight: 1) - Best resource utilization" \
     --thinking medium &
 
@@ -223,7 +223,7 @@ echo "Calculating weighted decision..."
 # efficient_model: 0.7 * 1 = 0.7
 # Winner: ensemble_model with highest weighted score
 
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "WEIGHTED DECISION: ensemble_model selected (weighted score: 2.7) - Highest confidence-weighted combination" \
     --thinking high
 ```
@@ -242,30 +242,30 @@ openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
 SESSION_ID="problem-solving-$(date +%s)"
 
 # Complex problem: Optimize AI service pricing strategy
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "PROBLEM SOLVING: Optimize AI service pricing for maximum profitability and utilization" \
     --thinking high
 
 # Agents analyze different aspects
 # Genesis Agent: Technical feasibility
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "ANALYSIS: Technical constraints suggest pricing range $50-200 per inference job" \
     --thinking high &
 
 # Follower Agent: Market analysis
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "ANALYSIS: Market research shows competitive pricing at $80-150 per job" \
     --thinking medium &
 
 # AI Resource Agent: Cost analysis
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "ANALYSIS: Resource costs indicate minimum $60 per job for profitability" \
     --thinking medium &
 
 wait
 
 # Coordinator synthesizes solution
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "SYNTHESIS: Optimal pricing strategy $80-120 range with dynamic adjustment based on demand" \
     --thinking high
 ```
@@ -287,29 +287,29 @@ SESSION_ID="microservices-$(date +%s)"
 
 # Specialized agents with specific responsibilities
 # AI Service Agent - Handles AI job processing
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "SERVICE: Processing AI job queue with 5 concurrent jobs" \
     --thinking medium &
 
 # Resource Agent - Manages resource allocation
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "SERVICE: Allocating GPU resources with 85% utilization target" \
     --thinking medium &
 
 # Monitoring Agent - Tracks system health
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "SERVICE: Monitoring system health with 99.9% uptime target" \
     --thinking low &
 
 # Analytics Agent - Provides insights
-openclaw agent --agent MultiModalAgent --session-id $SESSION_ID \
+hermes agent --agent MultiModalAgent --session-id $SESSION_ID \
     --message "SERVICE: Analyzing performance metrics and optimization opportunities" \
     --thinking medium &
 
 wait
 
 # Service orchestration
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "ORCHESTRATION: Coordinating 4 microservices for optimal system performance" \
     --thinking high
 ```
@@ -328,27 +328,27 @@ openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
 SESSION_ID="load-balancing-$(date +%s)"
 
 # Coordinator monitors agent loads
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "LOAD BALANCE: Monitoring agent loads and redistributing tasks" \
     --thinking high
 
 # Agents report current load
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "LOAD REPORT: Current load 75% - capacity for 5 more AI jobs" \
     --thinking low &
 
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "LOAD REPORT: Current load 45% - capacity for 10 more tasks" \
     --thinking low &
 
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "LOAD REPORT: Current load 60% - capacity for resource optimization tasks" \
     --thinking low &
 
 wait
 
 # Coordinator redistributes load
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "REDISTRIBUTION: Routing new tasks to FollowerAgent (45% load) for optimal balance" \
     --thinking high
 ```
@@ -368,24 +368,24 @@ SESSION_ID="federation-$(date +%s)"
 
 # Local agent groups with coordination
 # Group 1: AI Processing Cluster
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "FEDERATION: AI Processing Cluster - handling complex AI workflows" \
     --thinking medium &
 
 # Group 2: Resource Management Cluster  
-openclaw agent --agent AIResourceAgent --session-id $SESSION_ID \
+hermes agent --agent AIResourceAgent --session-id $SESSION_ID \
     --message "FEDERATION: Resource Management Cluster - optimizing system resources" \
     --thinking medium &
 
 # Group 3: Monitoring Cluster
-openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+hermes agent --agent FollowerAgent --session-id $SESSION_ID \
     --message "FEDERATION: Monitoring Cluster - ensuring system health and reliability" \
     --thinking low &
 
 wait
 
 # Inter-federation coordination
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "FEDERATION COORDINATION: Coordinating 3 agent clusters for system-wide optimization" \
     --thinking high
 ```
@@ -406,25 +406,25 @@ openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
 SESSION_ID="orchestration-$(date +%s)"
 
 # Step 1: Task decomposition
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "ORCHESTRATION: Decomposing complex AI pipeline into 5 subtasks for agent allocation" \
     --thinking high
 
 # Step 2: Task assignment
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "ASSIGNMENT: Task 1->GenesisAgent, Task 2->MultiModalAgent, Task 3->AIResourceAgent, Task 4->FollowerAgent, Task 5->CoordinatorAgent" \
     --thinking high
 
 # Step 3: Parallel execution
 for agent in GenesisAgent MultiModalAgent AIResourceAgent FollowerAgent; do
-    openclaw agent --agent $agent --session-id $SESSION_ID \
+    hermes agent --agent $agent --session-id $SESSION_ID \
         --message "EXECUTION: Starting assigned task with parallel processing" \
         --thinking medium &
 done
 wait
 
 # Step 4: Result aggregation
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "AGGREGATION: Collecting results from all agents for final synthesis" \
     --thinking high
 ```
@@ -437,18 +437,18 @@ openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
 SESSION_ID="adaptive-$(date +%s)"
 
 # Monitor system conditions
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "MONITORING: System load at 85% - activating adaptive coordination protocols" \
     --thinking high
 
 # Adjust coordination strategy
-openclaw agent --agent CoordinatorAgent --session-id $SESSION_ID \
+hermes agent --agent CoordinatorAgent --session-id $SESSION_ID \
     --message "ADAPTATION: Switching from centralized to distributed coordination for load balancing" \
     --thinking high
 
 # Agents adapt to new coordination
 for agent in GenesisAgent FollowerAgent AIResourceAgent MultiModalAgent; do
-    openclaw agent --agent $agent --session-id $SESSION_ID \
+    hermes agent --agent $agent --session-id $SESSION_ID \
         --message "ADAPTATION: Adjusting to distributed coordination mode" \
         --thinking medium &
 done
@@ -464,7 +464,7 @@ SESSION_ID="metrics-$(date +%s)"
 
 # Measure message latency
 start_time=$(date +%s.%N)
-openclaw agent --agent GenesisAgent --session-id $SESSION_ID \
+hermes agent --agent GenesisAgent --session-id $SESSION_ID \
     --message "LATENCY TEST: Measuring communication performance" \
     --thinking low
 end_time=$(date +%s.%N)
@@ -474,7 +474,7 @@ echo "Message latency: ${latency}s"
 # Monitor message throughput
 echo "Testing message throughput..."
 for i in {1..10}; do
-    openclaw agent --agent FollowerAgent --session-id $SESSION_ID \
+    hermes agent --agent FollowerAgent --session-id $SESSION_ID \
         -message "THROUGHPUT TEST $i" \
         --thinking low &
 done

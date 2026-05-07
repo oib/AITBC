@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides comprehensive instructions for deploying the OpenClaw Agent Economics Enhancement system, including all components: Reputation System, Performance-Based Reward Engine, P2P Trading Protocol, Marketplace Analytics Platform, and Certification & Partnership Programs.
+This guide provides comprehensive instructions for deploying the hermes Agent Economics Enhancement system, including all components: Reputation System, Performance-Based Reward Engine, P2P Trading Protocol, Marketplace Analytics Platform, and Certification & Partnership Programs.
 
 ## System Architecture
 

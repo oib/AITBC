@@ -191,8 +191,8 @@ def handle_agent_sdk_action(args, render_mapping):
         render_mapping("SDK Operation:", sdk_result)
 
 
-def handle_openclaw_training_action(args, openclaw_training_operations, first, render_mapping):
-    """Handle OpenClaw training action command."""
+def handle_hermes_training_action(args, hermes_training_operations, first, render_mapping):
+    """Handle hermes training action command."""
     kwargs = {}
     for name in ("agent_file", "wallet", "environment", "agent_id", "metrics", "price"):
         value = getattr(args, name, None)
@@ -203,7 +203,7 @@ def handle_openclaw_training_action(args, openclaw_training_operations, first, r
         kwargs["market_action"] = market_action
     
     # Handle train actions
-    if getattr(args, "openclaw_training_action", None) == "train":
+    if getattr(args, "hermes_training_action", None) == "train":
         train_action = getattr(args, "train_action", None)
         if train_action == "agent":
             for name in ("agent_id", "stage", "training_data", "log_level"):
@@ -224,10 +224,10 @@ def handle_openclaw_training_action(args, openclaw_training_operations, first, r
                     kwargs[name] = value
             kwargs["train_action"] = "certify"
     
-    result = openclaw_training_operations(args.openclaw_training_action, **kwargs)
+    result = hermes_training_operations(args.hermes_training_action, **kwargs)
     if not result:
         sys.exit(1)
-    render_mapping(f"OpenClaw Training {result['action']}:", result)
+    render_mapping(f"hermes Training {result['action']}:", result)
 
 
 def handle_workflow_action(args, workflow_operations, render_mapping):

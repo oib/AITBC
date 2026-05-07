@@ -31,7 +31,7 @@ class CLIConfig(BaseAITBCConfig):
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
     ai_service_url: str = Field(default="http://localhost:8106", description="AI Service URL")
     monitoring_service_url: str = Field(default="http://localhost:8107", description="Monitoring Service URL")
-    openclaw_service_url: str = Field(default="http://localhost:8108", description="OpenClaw Service URL")
+    hermes_service_url: str = Field(default="http://localhost:8108", description="hermes Service URL")
     plugin_service_url: str = Field(default="http://localhost:8109", description="Plugin Service URL")
     wallet_daemon_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL")
     wallet_url: str = Field(default="http://localhost:8003", description="Wallet daemon URL (alias for compatibility)")

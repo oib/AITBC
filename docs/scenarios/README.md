@@ -23,7 +23,7 @@
 
 ## 📚 **What’s in this directory?**
 
-This directory contains 51 scenario documents demonstrating how OpenClaw agents use AITBC features in various combinations, organized by progressive complexity:
+This directory contains 51 scenario documents demonstrating how hermes agents use AITBC features in various combinations, organized by progressive complexity:
 
 ### **Beginner Scenarios (Single-Feature Focus) - 20 scenarios**
 Each scenario focuses on one core feature category for learning fundamentals.

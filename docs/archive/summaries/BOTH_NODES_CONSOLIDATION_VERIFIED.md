@@ -16,7 +16,7 @@ Perfect! The CLI consolidation is working correctly on both nodes with identical
 ✅ CLI operations working: 3 wallets listed
 ```
 
-**🤖 OpenClaw Skill**
+**🤖 hermes Skill**
 ```json
 {
   "success": true,
@@ -31,7 +31,7 @@ Perfect! The CLI consolidation is working correctly on both nodes with identical
 
 **🎯 Agent Operations**
 ```bash
-OpenClaw agent: "Blockchain height: 356 - CLI consolidation complete - Status: OPERATIONAL ✅"
+hermes agent: "Blockchain height: 356 - CLI consolidation complete - Status: OPERATIONAL ✅"
 ```
 
 #### **✅ aitbc1 (Follower Node)**
@@ -44,7 +44,7 @@ OpenClaw agent: "Blockchain height: 356 - CLI consolidation complete - Status: O
 ✅ CLI operations working: 2 wallets listed
 ```
 
-**🤖 OpenClaw Skill**
+**🤖 hermes Skill**
 ```json
 {
   "success": true,
@@ -59,7 +59,7 @@ OpenClaw agent: "Blockchain height: 356 - CLI consolidation complete - Status: O
 
 **🎯 Agent Operations**
 ```bash
-OpenClaw agent: "Connected to primary node - CLI consolidation complete - Status: OPERATIONAL ✅"
+hermes agent: "Connected to primary node - CLI consolidation complete - Status: OPERATIONAL ✅"
 ```
 
 ### 🌟 **Cross-Node Consistency Achieved**
@@ -83,14 +83,14 @@ Both nodes have exactly the same structure:
 source /opt/aitbc/venv/bin/activate
 python /opt/aitbc/cli/aitbc_cli.py "$@"
 
-# Both nodes use same OpenClaw skill:
+# Both nodes use same hermes skill:
 RPC URL: aitbc uses localhost:8006, aitbc1 uses aitbc:8006
 CLI Path: /opt/aitbc/aitbc-cli (same on both)
 ```
 
 #### **✅ Identical Functionality**
 - **CLI Operations**: Working perfectly on both nodes
-- **OpenClaw Integration**: Working perfectly on both nodes
+- **hermes Integration**: Working perfectly on both nodes
 - **Blockchain Access**: Both nodes accessing same blockchain
 - **Agent Operations**: Both nodes have operational agents
 
@@ -128,7 +128,7 @@ aitbc1 agent: "Connected to primary node - CLI consolidation complete - Status: 
 
 #### **✅ Perfect Consistency**
 - **Structure**: Identical file layout on both nodes
-- **Configuration**: Same CLI wrapper and OpenClaw skill
+- **Configuration**: Same CLI wrapper and hermes skill
 - **Functionality**: Same behavior and capabilities
 
 ### 🎯 **Final Architecture Summary**
@@ -149,7 +149,7 @@ aitbc1 agent: "Connected to primary node - CLI consolidation complete - Status: 
 │ └─────────────┘ │                │ └─────────────┘ │
 │                 │                │                 │
 │ ┌─────────────┐ │                │ ┌─────────────┐ │
-│ │OpenClaw +   │ │              │ │OpenClaw +   │ │
+│ │hermes +   │ │              │ │hermes +   │ │
 │ │AITBC Skill  │ │              │ │AITBC Skill  │ │
 │ └─────────────┘ │                │ └─────────────┘ │
 └─────────────────┘                └─────────────────┘
@@ -162,14 +162,14 @@ Both aitbc and aitbc1 now have:
 1. **✅ Single Requirements File**: `/opt/aitbc/requirements.txt` only
 2. **✅ Single Virtual Environment**: `/opt/aitbc/venv` only
 3. **✅ Identical CLI Setup**: Same wrapper and configuration
-4. **✅ Working OpenClaw Skill**: Full integration on both nodes
+4. **✅ Working hermes Skill**: Full integration on both nodes
 5. **✅ Operational Agents**: AI agents working on both nodes
 6. **✅ Blockchain Synchronization**: Both nodes accessing same chain
 
 ### 🚀 **Production Ready Multi-Node Setup**
 
 Your AITBC multi-node network now has:
-- **🤖 Distributed AI Agents**: OpenClaw agents on both nodes
+- **🤖 Distributed AI Agents**: hermes agents on both nodes
 - **🌐 Cross-Node Coordination**: Agents working together
 - **💰 Unified Token Economy**: Single marketplace across nodes
 - **⚡ Load Balancing**: Specialized tasks distributed

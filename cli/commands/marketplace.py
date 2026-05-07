@@ -688,10 +688,10 @@ def list(ctx, status: Optional[str], gpu_model: Optional[str], price_max: Option
         error(f"Network error: {e}")
 
 
-# OpenClaw Agent Marketplace Commands
+# hermes Agent Marketplace Commands
 @marketplace.group()
 def agents():
-    """OpenClaw agent marketplace operations"""
+    """hermes agent marketplace operations"""
     pass
 
 
@@ -704,7 +704,7 @@ def agents():
 @click.pass_context
 def register(ctx, agent_id: str, agent_type: str, capabilities: Optional[str], 
             region: Optional[str], reputation: float):
-    """Register agent on OpenClaw marketplace"""
+    """Register agent on hermes marketplace"""
     config = ctx.obj['config']
     
     agent_data = {
@@ -994,7 +994,7 @@ def analytics(ctx, time_range: str):
 # Governance Commands
 @marketplace.group()
 def governance():
-    """OpenClaw agent governance operations"""
+    """hermes agent governance operations"""
     pass
 
 
@@ -1104,7 +1104,7 @@ def list_proposals(ctx, status: Optional[str], limit: int):
 # Performance Testing Commands
 @marketplace.group()
 def test():
-    """OpenClaw marketplace testing operations"""
+    """hermes marketplace testing operations"""
     pass
 
 

@@ -1,4 +1,4 @@
-# Monitoring Agent for OpenClaw Agents
+# Monitoring Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Blockchain Monitoring (Scenario 15), Analytics Collection (Scenario 18), Messaging Basics (Scenario 04)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as monitoring agents by collecting blockchain analytics, generating alerts, and communicating status updates to other agents.
+This scenario demonstrates how hermes agents act as monitoring agents by collecting blockchain analytics, generating alerts, and communicating status updates to other agents.
 
 ### **Use Case**
-An OpenClaw agent acts as a monitoring agent to:
+An hermes agent acts as a monitoring agent to:
 - Monitor blockchain health and performance
 - Generate alerts for anomalies
 - Track network statistics

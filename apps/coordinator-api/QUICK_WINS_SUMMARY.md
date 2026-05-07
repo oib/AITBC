@@ -13,7 +13,7 @@
 - `modality_optimization_health.py` - Modality Optimization Service (Port 8004)
 - `adaptive_learning_health.py` - Adaptive Learning Service (Port 8005)
 - `marketplace_enhanced_health.py` - Enhanced Marketplace Service (Port 8006)
-- `openclaw_enhanced_health.py` - OpenClaw Enhanced Service (Port 8007)
+- `hermes_enhanced_health.py` - hermes Enhanced Service (Port 8007)
 
 **Features:**
 - Basic `/health` endpoints with system metrics
@@ -107,7 +107,7 @@ async def collect_all_health_data() -> Dict[str, Any]:
 | Modality Optimization | 8004 | ✅ | ✅ | ✅ |
 | Adaptive Learning | 8005 | ✅ | ✅ | ✅ |
 | Enhanced Marketplace | 8006 | ✅ | ✅ | ✅ |
-| OpenClaw Enhanced | 8007 | ✅ | ✅ | ✅ |
+| hermes Enhanced | 8007 | ✅ | ✅ | ✅ |
 
 ## 🚀 Usage Instructions
 

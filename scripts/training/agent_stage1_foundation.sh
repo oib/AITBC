@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# OpenClaw AITBC Agent Training - Stage 1: Foundation
-# Agent-Centric Training for OpenClaw Agents
+# hermes AITBC Agent Training - Stage 1: Foundation
+# Agent-Centric Training for hermes Agents
 
 set -e
 
@@ -43,8 +43,8 @@ agent_specialized_training() {
     log_agent "INFO" "Starting agent foundation training for $AGENT_ID"
     log_agent "INFO" "Training data: $TRAINING_DATA"
     
-    # Use OpenClaw CLI to train the agent
-    if $CLI_PATH openclaw-training train agent \
+    # Use hermes CLI to train the agent
+    if $CLI_PATH hermes-training train agent \
         --agent-id "$AGENT_ID" \
         --stage "$STAGE" \
         --training-data "$TRAINING_DATA" \
@@ -71,8 +71,8 @@ agent_specialized_training() {
 agent_validation() {
     log_agent "INFO" "Starting agent validation for stage $STAGE"
     
-    # Use OpenClaw CLI to validate the agent
-    if $CLI_PATH openclaw-training train validate \
+    # Use hermes CLI to validate the agent
+    if $CLI_PATH hermes-training train validate \
         --agent-id "$AGENT_ID" \
         --stage "$STAGE"; then
         log_agent "SUCCESS" "Agent validation passed"
@@ -86,8 +86,8 @@ agent_validation() {
 agent_certification() {
     log_agent "INFO" "Starting agent certification"
     
-    # Use OpenClaw CLI to certify the agent
-    if $CLI_PATH openclaw-training train certify \
+    # Use hermes CLI to certify the agent
+    if $CLI_PATH hermes-training train certify \
         --agent-id "$AGENT_ID"; then
         log_agent "SUCCESS" "Agent certification completed"
     else

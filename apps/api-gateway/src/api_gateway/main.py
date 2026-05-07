@@ -84,9 +84,9 @@ SERVICES = {
         "base_url": os.getenv("MONITORING_SERVICE_URL", "http://localhost:8107"),
         "prefix": "/monitoring",
     },
-    "openclaw": {
-        "base_url": os.getenv("OPENCLAW_SERVICE_URL", "http://localhost:8108"),
-        "prefix": "/openclaw",
+    "hermes": {
+        "base_url": os.getenv("HERMES_SERVICE_URL", "http://localhost:8108"),
+        "prefix": "/hermes",
     },
     "plugin": {
         "base_url": os.getenv("PLUGIN_SERVICE_URL", "http://localhost:8109"),

@@ -1,6 +1,6 @@
 """
 Community and Developer Ecosystem Services
-Services for managing OpenClaw developer tools, SDKs, and third-party solutions
+Services for managing hermes developer tools, SDKs, and third-party solutions
 """
 
 from datetime import datetime, timezone

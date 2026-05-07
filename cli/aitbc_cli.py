@@ -1292,8 +1292,8 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
         return None
 
 
-def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
-    """Handle OpenClaw agent ecosystem operations"""
+def hermes_training_operations(action: str, **kwargs) -> Optional[Dict]:
+    """Handle hermes agent ecosystem operations"""
     try:
         if action == "deploy":
             return {
@@ -1301,7 +1301,7 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
                 "deployment_id": f"deploy_{int(time.time())}",
                 "environment": kwargs.get("environment", "dev"),
                 "status": "Deploying",
-                "agent_id": f"openclaw_{int(time.time())}",
+                "agent_id": f"hermes_{int(time.time())}",
                 "estimated_deployment_time": "2-3 minutes",
                 "deployment_cost": "50 AIT"
             }
@@ -1325,9 +1325,9 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
                     "action": "market",
                     "market_action": "list",
                     "agents": [
-                        {"id": "openclaw_001", "name": "Data Analysis Pro", "price": 100, "rating": 4.8},
-                        {"id": "openclaw_002", "name": "Trading Expert", "price": 250, "rating": 4.6},
-                        {"id": "openclaw_003", "name": "Content Creator", "price": 75, "rating": 4.9}
+                        {"id": "hermes_001", "name": "Data Analysis Pro", "price": 100, "rating": 4.8},
+                        {"id": "hermes_002", "name": "Trading Expert", "price": 250, "rating": 4.6},
+                        {"id": "hermes_003", "name": "Content Creator", "price": 75, "rating": 4.9}
                     ],
                     "total_available": 3
                 }
@@ -1373,17 +1373,17 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
                     os.makedirs(log_dir, exist_ok=True)
                     log_file = f"{log_dir}/agent_{kwargs.get('agent_id')}_{stage}_{int(time.time())}.log"
                     
-                    # Execute training operations with actual OpenClaw calls
+                    # Execute training operations with actual hermes calls
                     operations = training_config.get('training_data', {}).get('operations', [])
                     completed_ops = 0
                     failed_ops = 0
                     
-                    # OpenClaw service endpoints
+                    # hermes service endpoints
                     agent_coordinator_url = "http://localhost:9001"
                     exchange_url = "http://localhost:8001"
                     blockchain_rpc_url = "http://localhost:8006"
                     
-                    # Write training log with actual OpenClaw calls
+                    # Write training log with actual hermes calls
                     for i, op in enumerate(operations, 1):
                         operation = op.get('operation')
                         parameters = op.get('parameters', {})
@@ -1399,16 +1399,16 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
                             }
                         }
                         
-                        # Execute training via OpenClaw agent with allowlist enabled
+                        # Execute training via hermes agent with allowlist enabled
                         start_time = time.time()
                         try:
-                            # Build prompt for OpenClaw agent to execute AITBC command
+                            # Build prompt for hermes agent to execute AITBC command
                             prompt_message = f"Execute AITBC CLI command: {operation}"
                             if parameters:
                                 prompt_message += f" with parameters: {json.dumps(parameters)}"
                             
-                            # Use OpenClaw agent with allowlist (AITBC CLI now allowed)
-                            cmd = ["openclaw", "agent", "--message", prompt_message, "--agent", "main"]
+                            # Use hermes agent with allowlist (AITBC CLI now allowed)
+                            cmd = ["hermes", "agent", "--message", prompt_message, "--agent", "main"]
                             
                             try:
                                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
@@ -1551,7 +1551,7 @@ def openclaw_training_operations(action: str, **kwargs) -> Optional[Dict]:
             return {"action": action, "status": "Not implemented yet"}
             
     except Exception as e:
-        print(f"Error in OpenClaw operations: {e}")
+        print(f"Error in hermes operations: {e}")
         return None
 
 
@@ -2132,7 +2132,7 @@ def legacy_main():
     mining_parser.add_argument("--wallet", help="Wallet name for mining rewards")
     mining_parser.add_argument("--rpc-url", default=DEFAULT_RPC_URL, help="RPC URL")
     
-    # Agent management commands (OpenClaw agent focused)
+    # Agent management commands (hermes agent focused)
     agent_parser = subparsers.add_parser("agent", help="AI agent workflow and execution management")
     agent_subparsers = agent_parser.add_subparsers(dest="agent_action", help="Agent actions")
     
@@ -2162,27 +2162,27 @@ def legacy_main():
     agent_list_parser = agent_subparsers.add_parser("list", help="List available agent workflows")
     agent_list_parser.add_argument("--status", choices=["active", "completed", "failed"], help="Filter by status")
     
-    # OpenClaw specific commands
-    openclaw_parser = subparsers.add_parser("openclaw", help="OpenClaw agent ecosystem operations")
-    openclaw_subparsers = openclaw_parser.add_subparsers(dest="openclaw_action", help="OpenClaw actions")
+    # hermes specific commands
+    hermes_parser = subparsers.add_parser("hermes", help="hermes agent ecosystem operations")
+    hermes_subparsers = hermes_parser.add_subparsers(dest="hermes_action", help="hermes actions")
     
-    # OpenClaw deploy
-    openclaw_deploy_parser = openclaw_subparsers.add_parser("deploy", help="Deploy OpenClaw agent")
-    openclaw_deploy_parser.add_argument("--agent-file", required=True, help="Agent configuration file")
-    openclaw_deploy_parser.add_argument("--wallet", required=True, help="Wallet for deployment costs")
-    openclaw_deploy_parser.add_argument("--environment", choices=["dev", "staging", "prod"], default="dev", help="Deployment environment")
+    # hermes deploy
+    hermes_deploy_parser = hermes_subparsers.add_parser("deploy", help="Deploy hermes agent")
+    hermes_deploy_parser.add_argument("--agent-file", required=True, help="Agent configuration file")
+    hermes_deploy_parser.add_argument("--wallet", required=True, help="Wallet for deployment costs")
+    hermes_deploy_parser.add_argument("--environment", choices=["dev", "staging", "prod"], default="dev", help="Deployment environment")
     
-    # OpenClaw monitor
-    openclaw_monitor_parser = openclaw_subparsers.add_parser("monitor", help="Monitor OpenClaw agent performance")
-    openclaw_monitor_parser.add_argument("--agent-id", help="Specific agent ID to monitor")
-    openclaw_monitor_parser.add_argument("--metrics", choices=["performance", "cost", "errors", "all"], default="all", help="Metrics to show")
+    # hermes monitor
+    hermes_monitor_parser = hermes_subparsers.add_parser("monitor", help="Monitor hermes agent performance")
+    hermes_monitor_parser.add_argument("--agent-id", help="Specific agent ID to monitor")
+    hermes_monitor_parser.add_argument("--metrics", choices=["performance", "cost", "errors", "all"], default="all", help="Metrics to show")
     
-    # OpenClaw market
-    openclaw_market_parser = openclaw_subparsers.add_parser("market", help="OpenClaw agent marketplace")
-    openclaw_market_parser.add_argument("--action", choices=["list", "publish", "purchase", "evaluate"], 
+    # hermes market
+    hermes_market_parser = hermes_subparsers.add_parser("market", help="hermes agent marketplace")
+    hermes_market_parser.add_argument("--action", choices=["list", "publish", "purchase", "evaluate"], 
                                         required=True, help="Market action")
-    openclaw_market_parser.add_argument("--agent-id", help="Agent ID for market operations")
-    openclaw_market_parser.add_argument("--price", type=float, help="Price for market operations")
+    hermes_market_parser.add_argument("--agent-id", help="Agent ID for market operations")
+    hermes_market_parser.add_argument("--price", type=float, help="Price for market operations")
     
     # Workflow automation commands
     workflow_parser = subparsers.add_parser("workflow", help="Workflow automation and management")
@@ -2600,7 +2600,7 @@ def legacy_main():
         else:
             sys.exit(1)
     
-    elif args.command == "openclaw":
+    elif args.command == "hermes":
         # Only pass arguments that are defined for this subcommand
         kwargs = {}
         if hasattr(args, 'agent_file') and args.agent_file:
@@ -2614,14 +2614,14 @@ def legacy_main():
         if hasattr(args, 'metrics') and args.metrics:
             kwargs['metrics'] = args.metrics
         # Handle the market action parameter specifically
-        if hasattr(args, 'action') and args.action and args.openclaw_action == 'market':
+        if hasattr(args, 'action') and args.action and args.hermes_action == 'market':
             kwargs['market_action'] = args.action
         if hasattr(args, 'price') and args.price:
             kwargs['price'] = args.price
         
-        result = openclaw_operations(args.openclaw_action, **kwargs)
+        result = hermes_operations(args.hermes_action, **kwargs)
         if result:
-            print(f"OpenClaw {result['action']}:")
+            print(f"hermes {result['action']}:")
             for key, value in result.items():
                 if key != "action":
                     if isinstance(value, list):
@@ -2989,13 +2989,13 @@ def legacy_main():
                     print("Falling back to mock balances:")
                     print("  genesis: 10000 AIT")
                     print("  aitbc1: 5000 AIT")
-                    print("  openclaw-trainee: 100 AIT")
+                    print("  hermes-trainee: 100 AIT")
                 except Exception as e:
                     print(f"Warning: Failed to query wallet daemon: {e}")
                     print("Falling back to mock balances:")
                     print("  genesis: 10000 AIT")
                     print("  aitbc1: 5000 AIT")
-                    print("  openclaw-trainee: 100 AIT")
+                    print("  hermes-trainee: 100 AIT")
             elif args.name:
                 try:
                     http_client = AITBCHTTPClient(base_url=daemon_url, timeout=5)
@@ -3045,7 +3045,7 @@ def legacy_main():
         print("All wallet balances:")
         print("  genesis: 10000 AIT")
         print("  aitbc1: 5000 AIT")
-        print("  openclaw-trainee: 100 AIT")
+        print("  hermes-trainee: 100 AIT")
     
     elif args.command == "mining":
         # Handle flag-based commands

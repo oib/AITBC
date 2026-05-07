@@ -37,7 +37,7 @@ Internet → aitbc1.bubuit.net (HTTPS :443) → aitbc.bubuit.net
 │  │    /optimization/  → :8012             │  │
 │  │    /learning/      → :8013             │  │
 │  │    /marketplace/enhanced/ → :8014      │  │
-│  │    /openclaw/      → :8015             │  │
+│  │    /hermes/      → :8015             │  │
 │  │    /explorer/      → :8016             │  │
 │  │    /balancer/      → :8017             │  │
 │  │                                        │  │
@@ -63,7 +63,7 @@ Internet → aitbc1.bubuit.net (HTTPS :443) → aitbc.bubuit.net
 - **Port 8012**: Modality Optimization Service ✅ PRODUCTION READY
 - **Port 8013**: Adaptive Learning Service ✅ PRODUCTION READY
 - **Port 8014**: Marketplace Enhanced Service ✅ PRODUCTION READY
-- **Port 8015**: OpenClaw Enhanced Service ✅ PRODUCTION READY
+- **Port 8015**: hermes Enhanced Service ✅ PRODUCTION READY
 - **Port 8016**: Blockchain Explorer Service ✅ PRODUCTION READY
 - **Port 8017**: Geographic Load Balancer ✅ PRODUCTION READY
 
@@ -292,7 +292,7 @@ ssh aitbc                          # Direct SSH to aitbc server
 - **8012**: Modality Optimization (AI optimization)
 - **8013**: Adaptive Learning (machine learning)
 - **8014**: Marketplace Enhanced (advanced marketplace)
-- **8015**: OpenClaw Enhanced (agent marketplace)
+- **8015**: hermes Enhanced (agent marketplace)
 - **8016**: Web UI (dashboard interface)
 - **8017**: Geographic Load Balancer (traffic distribution)
 
@@ -349,7 +349,7 @@ ssh aitbc1-cascade                   # Direct SSH to aitbc1 container (incus)
 | Modality Optimization | 8012 | python | 3.13.5 | /api/optimization/* | ✅ |
 | Adaptive Learning | 8013 | python | 3.13.5 | /api/learning/* | ✅ |
 | Marketplace | 8014 | python | 3.13.5 | /api/marketplace/* | ✅ |
-| OpenClaw Enhanced | 8015 | python | 3.13.5 | /api/openclaw/* | ✅ |
+| hermes Enhanced | 8015 | python | 3.13.5 | /api/hermes/* | ✅ |
 | Web UI | 8016 | python | 3.13.5 | /app/ | ✅ |
 | Geographic Load Balancer | 8017 | python | 3.13.5 | /api/loadbalancer/* | ✅ |
 
@@ -415,7 +415,7 @@ Config: `/etc/nginx/sites-enabled/aitbc`
 | `/optimization/` | proxy → `127.0.0.1:8012/` | proxy_pass | ✅ |
 | `/learning/` | proxy → `127.0.0.1:8013/` | proxy_pass | ✅ |
 | `/marketplace/enhanced/` | proxy → `127.0.0.1:8014/` | proxy_pass | ✅ |
-| `/openclaw/` | proxy → `127.0.0.1:8015/` | proxy_pass | ✅ |
+| `/hermes/` | proxy → `127.0.0.1:8015/` | proxy_pass | ✅ |
 | `/explorer/` | proxy → `127.0.0.1:8016/` | proxy_pass | ✅ |
 | `/balancer/` | proxy → `127.0.0.1:8017/` | proxy_pass | ✅ |
 
@@ -715,7 +715,7 @@ ssh aitbc 'systemctl status aitbc-coordinator-api'
 - Port 8012: Modality Optimization Service ✅ NEW STANDARD
 - Port 8013: Adaptive Learning Service ✅ NEW STANDARD
 - Port 8014: Marketplace Enhanced Service ✅ NEW STANDARD
-- Port 8015: OpenClaw Enhanced Service ✅ NEW STANDARD
+- Port 8015: hermes Enhanced Service ✅ NEW STANDARD
 - Port 8016: Web UI Service ✅ NEW STANDARD
 - Port 8017: Geographic Load Balancer ✅ NEW STANDARD
 

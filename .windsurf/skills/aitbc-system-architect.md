@@ -26,7 +26,7 @@ You are an expert AITBC System Architect with deep knowledge of the proper syste
 - **Repository**: `/opt/aitbc` (clean, code-only)
 
 ### Service Management
-- **Production Services**: Marketplace, Blockchain, OpenClaw AI
+- **Production Services**: Marketplace, Blockchain, Hermes AI
 - **SystemD Services**: All AITBC services with proper configuration
 - **Environment Files**: System and production environment management
 - **Path References**: Ensuring all services use correct system paths
@@ -157,7 +157,7 @@ ls -la /var/lib/aitbc/ /etc/aitbc/ /var/log/aitbc/
 - **AI Operations**: Ensure AI services use proper system paths
 - **Marketplace Operations**: Verify marketplace data in correct locations
 
-### OpenClaw Skills
+### Hermes Skills
 - **Agent Communication**: Ensure AI agents use system log paths
 - **Session Management**: Verify session data in system directories
 - **Testing Skills**: Use system directories for test data

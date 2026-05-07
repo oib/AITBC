@@ -25,7 +25,7 @@
 | 8011 | Learning Service | `http://localhost:8011/health` | ✅ Active | Machine learning and adaptation |
 | 8012 | Agent Coordinator | `http://localhost:8012/health` | ✅ Active | Agent orchestration and coordination |
 | 8013 | Agent Registry | `http://localhost:8013/health` | ✅ Active | Agent registration and discovery |
-| 8014 | OpenClaw Service | `http://localhost:8014/health` | ✅ Active | Edge computing and agent orchestration |
+| 8014 | hermes Service | `http://localhost:8014/health` | ✅ Active | Edge computing and agent orchestration |
 | 8015 | AI Service | `http://localhost:8015/health` | ✅ Active | Advanced AI capabilities |
 | 8016 | Available | - | 🔄 Free | Available for future AI/agent service |
 | 8017 | Available | - | 🔄 Free | Available for future AI/agent service |
@@ -71,7 +71,7 @@ apps/blockchain-explorer/main.py                          # Port 8004
 /etc/systemd/system/aitbc-learning.service                  # Port 8011
 apps/agent-services/agent-coordinator/src/coordinator.py   # Port 8012
 apps/agent-services/agent-registry/src/app.py             # Port 8013
-/etc/systemd/system/aitbc-openclaw.service                  # Port 8014
+/etc/systemd/system/aitbc-hermes.service                  # Port 8014
 apps/coordinator-api/src/app/services/advanced_ai_service.py # Port 8015
 ```
 
@@ -91,7 +91,7 @@ apps/coordinator-api/src/app/services/advanced_ai_service.py # Port 8015
 
 ### AI/Agent/GPU Services (8010-8019)
 - **Purpose**: Advanced AI, agent orchestration, and GPU processing
-- **Services**: GPU, Learning, Agent Coordinator, Agent Registry, OpenClaw, AI
+- **Services**: GPU, Learning, Agent Coordinator, Agent Registry, hermes, AI
 - **Priority**: High - enhances AITBC capabilities
 - **Features**: Machine learning, agent management, edge computing
 
@@ -123,7 +123,7 @@ curl -s http://localhost:8010/health  # GPU Service
 curl -s http://localhost:8011/health  # Learning Service
 curl -s http://localhost:8012/health  # Agent Coordinator
 curl -s http://localhost:8013/health  # Agent Registry
-curl -s http://localhost:8014/health  # OpenClaw Service
+curl -s http://localhost:8014/health  # hermes Service
 curl -s http://localhost:8015/health  # AI Service
 ```
 
@@ -163,7 +163,7 @@ systemctl status aitbc-blockchain-rpc.service
 - **Learning Service**: Moved from 8010 → 8011 (AI/Agent/GPU)
 - **Agent Coordinator**: Moved from 8011 → 8012 (AI/Agent/GPU)
 - **Agent Registry**: Moved from 8012 → 8013 (AI/Agent/GPU)
-- **OpenClaw Service**: Moved from 8013 → 8014 (AI/Agent/GPU)
+- **hermes Service**: Moved from 8013 → 8014 (AI/Agent/GPU)
 - **AI Service**: Moved from 8009 → 8015 (AI/Agent/GPU)
 - **Modality Optimization**: Moved from 8023 → 8021 (Other Services)
 - **Multimodal Service**: Moved from 8005 → 8020 (Other Services)

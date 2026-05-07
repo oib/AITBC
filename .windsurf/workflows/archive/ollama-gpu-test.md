@@ -8,12 +8,12 @@ This workflow executes the complete end-to-end test for Ollama GPU inference job
 
 ## Current Active Skill Mapping
 
-This archived workflow maps to these active OpenClaw skills when you need agent coordination or validation support:
+This archived workflow maps to these active hermes skills when you need agent coordination or validation support:
 
-- **`openclaw-agent-testing-skill.md`** — agent communication validation and performance testing
-- **`openclaw-agent-communicator.md`** — agent message handling and responses
-- **`openclaw-coordination-orchestrator.md`** — multi-agent workflow coordination
-- **`openclaw-session-manager.md`** — session creation and context management
+- **`hermes-agent-testing-skill.md`** — agent communication validation and performance testing
+- **`hermes-agent-communicator.md`** — agent message handling and responses
+- **`hermes-coordination-orchestrator.md`** — multi-agent workflow coordination
+- **`hermes-session-manager.md`** — session creation and context management
 
 ## Prerequisites
 

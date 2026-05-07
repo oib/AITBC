@@ -133,7 +133,7 @@ class TestIntegrationScenarios:
     def test_cli_help_comprehensive(self):
         result = run_cli("--help")
         assert result.returncode == 0
-        for command in ["wallet", "blockchain", "network", "market", "ai", "mining", "agent", "openclaw", "workflow", "resource", "simulate"]:
+        for command in ["wallet", "blockchain", "network", "market", "ai", "mining", "agent", "hermes", "workflow", "resource", "simulate"]:
             assert command in result.stdout
 
     def test_wallet_alias_and_nested_forms(self):

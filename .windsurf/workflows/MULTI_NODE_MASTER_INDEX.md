@@ -416,12 +416,12 @@ Two-Node AITBC Blockchain:
 ## 📚 Additional Resources
 
 ### Documentation Files
-- **OpenClaw Agent Communicator**: `../skills/openclaw-agent-communicator.md`
-- **OpenClaw Coordination Orchestrator**: `../skills/openclaw-coordination-orchestrator.md`
-- **OpenClaw Session Manager**: `../skills/openclaw-session-manager.md`
-- **OpenClaw Agent Testing**: `../skills/openclaw-agent-testing-skill.md`
-- **OpenClaw Error Handler**: `../skills/openclaw-error-handler.md`
-- **OpenClaw Performance Optimizer**: `../skills/openclaw-performance-optimizer.md`
+- **hermes Agent Communicator**: `../skills/hermes-agent-communicator.md`
+- **hermes Coordination Orchestrator**: `../skills/hermes-coordination-orchestrator.md`
+- **hermes Session Manager**: `../skills/hermes-session-manager.md`
+- **hermes Agent Testing**: `../skills/hermes-agent-testing-skill.md`
+- **hermes Error Handler**: `../skills/hermes-error-handler.md`
+- **hermes Performance Optimizer**: `../skills/hermes-performance-optimizer.md`
 
 ### External Resources
 - **AITBC Repository**: GitHub repository

@@ -331,7 +331,7 @@ echo "=== 9. SYSTEM DIRECTORY CREATION ==="
 echo "Creating Data Directories:"
 mkdir -p /var/lib/aitbc/data/blockchain
 mkdir -p /var/lib/aitbc/data/marketplace
-mkdir -p /var/lib/aitbc/data/openclaw
+mkdir -p /var/lib/aitbc/data/hermes
 mkdir -p /var/lib/aitbc/data/coordinator
 mkdir -p /var/lib/aitbc/data/exchange
 mkdir -p /var/lib/aitbc/data/registry
@@ -341,7 +341,7 @@ echo "✅ Data directories created"
 echo "Creating Log Directories:"
 mkdir -p /var/log/aitbc/production/blockchain
 mkdir -p /var/log/aitbc/production/marketplace
-mkdir -p /var/log/aitbc/production/openclaw
+mkdir -p /var/log/aitbc/production/hermes
 mkdir -p /var/log/aitbc/production/services
 mkdir -p /var/log/aitbc/production/errors
 mkdir -p /var/log/aitbc/repository-logs
@@ -419,7 +419,7 @@ echo "✅ SystemD reloaded"
 ```bash
 # Restart AITBC services
 echo "=== 12. SERVICE RESTART ==="
-services=("aitbc-marketplace.service" "aitbc-mining-blockchain.service" "aitbc-openclaw-ai.service" "aitbc-blockchain-node.service" "aitbc-blockchain-rpc.service")
+services=("aitbc-marketplace.service" "aitbc-mining-blockchain.service" "aitbc-hermes-ai.service" "aitbc-blockchain-node.service" "aitbc-blockchain-rpc.service")
 
 for service in "${services[@]}"; do
     echo "Restarting $service..."

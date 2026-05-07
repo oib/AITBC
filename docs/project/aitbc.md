@@ -45,7 +45,7 @@ This guide provides comprehensive deployment instructions for the **aitbc server
   - Port 8012: Modality Optimization
   - Port 8013: Adaptive Learning
   - Port 8014: Marketplace Enhanced
-  - Port 8015: OpenClaw Enhanced
+  - Port 8015: hermes Enhanced
   - Port 8016: Blockchain Explorer (Web UI)
   - Port 8017: Geographic Load Balancer
 - **Mock & Test Services Ports**: 8020-8029 (development and testing)
@@ -113,7 +113,7 @@ ssh aitbc 'systemctl status aitbc-blockchain-rpc-dev'
 - Port 8012: Modality Optimization
 - Port 8013: Adaptive Learning
 - Port 8014: Marketplace Enhanced
-- Port 8015: OpenClaw Enhanced
+- Port 8015: hermes Enhanced
 - Port 8016: Blockchain Explorer (Web UI)
 - Port 8017: Geographic Load Balancer
 
@@ -156,7 +156,7 @@ AITBC Platform Architecture (Updated March 7, 2026)
 │   ├── Modality Optimization (Port 8012) ✅ PRODUCTION READY
 │   ├── Adaptive Learning (Port 8013) ✅ PRODUCTION READY
 │   ├── Marketplace Enhanced (Port 8014) ✅ PRODUCTION READY
-│   ├── OpenClaw Enhanced (Port 8015) ✅ PRODUCTION READY
+│   ├── hermes Enhanced (Port 8015) ✅ PRODUCTION READY
 │   ├── Blockchain Explorer (Port 8016) ✅ PRODUCTION READY
 │   └── Geographic Load Balancer (Port 8017) ✅ PRODUCTION READY
 └── Infrastructure
@@ -263,7 +263,7 @@ systemctl enable aitbc-multimodal.service
 systemctl enable aitbc-modality-optimization.service
 systemctl enable aitbc-adaptive-learning.service
 systemctl enable aitbc-marketplace.service
-systemctl enable aitbc-openclaw.service
+systemctl enable aitbc-hermes.service
 systemctl enable aitbc-loadbalancer-geo.service
 ```
 
@@ -300,7 +300,7 @@ systemctl start aitbc-adaptive-learning.service
 sleep 2
 systemctl start aitbc-marketplace-enhanced.service
 sleep 2
-systemctl start aitbc-openclaw-enhanced.service
+systemctl start aitbc-hermes-enhanced.service
 sleep 2
 systemctl start aitbc-loadbalancer-geo.service
 ```
@@ -324,7 +324,7 @@ curl -X GET "http://localhost:8011/health"    # GPU Multimodal (CPU-only)
 curl -X GET "http://localhost:8012/health"    # Modality Optimization
 curl -X GET "http://localhost:8013/health"    # Adaptive Learning
 curl -X GET "http://localhost:8014/health"    # Marketplace Enhanced
-curl -X GET "http://localhost:8015/health"    # OpenClaw Enhanced
+curl -X GET "http://localhost:8015/health"    # hermes Enhanced
 curl -X GET "http://localhost:8016/health"    # Blockchain Explorer
 curl -X GET "http://localhost:8017/health"    # Geographic Load Balancer
 ```

@@ -1,4 +1,4 @@
-# Security Setup for OpenClaw Agents
+# Security Setup for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents set up security measures including JWT authentication, encryption, and access control for secure operations.
+This scenario demonstrates how hermes agents set up security measures including JWT authentication, encryption, and access control for secure operations.
 
 ### **Use Case**
-An OpenClaw agent needs security setup to:
+An hermes agent needs security setup to:
 - Authenticate with JWT tokens
 - Encrypt sensitive data
 - Implement access control

@@ -290,7 +290,7 @@ echo "6. 🏛️ Establish moderation policies"
 echo "7. 📚 Create agent onboarding documentation"
 echo ""
 echo "🎯 MESSAGING CONTRACT: DEPLOYMENT COMPLETE"
-echo "📋 OpenClaw agents can now communicate over the blockchain!"
+echo "📋 hermes agents can now communicate over the blockchain!"
 
 # Clean up
 echo ""

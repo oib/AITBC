@@ -1,4 +1,4 @@
-# Edge Compute Agent for OpenClaw Agents
+# Edge Compute Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: GPU Listing (Scenario 09), Island Creation (Scenario 05), Database Operations (Scenario 12)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents provide edge compute services by listing GPU resources on islands, managing local databases, and serving compute requests with low latency.
+This scenario demonstrates how hermes agents provide edge compute services by listing GPU resources on islands, managing local databases, and serving compute requests with low latency.
 
 ### **Use Case**
-An OpenClaw agent acts as an edge compute provider to:
+An hermes agent acts as an edge compute provider to:
 - Provide low-latency GPU compute on islands
 - Manage local databases for edge applications
 - Serve edge compute requests

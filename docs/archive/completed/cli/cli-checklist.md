@@ -84,7 +84,7 @@ and testing coverage.
 
 | Group           | Commands | Purpose                                           |
 | --------------- | -------- | ------------------------------------------------- |
-| **openclaw**    | 6+       | OpenClaw edge computing integration               |
+| **hermes**    | 6+       | hermes edge computing integration               |
 | **advanced**    | 13+      | Advanced marketplace operations (✅ WORKING)      |
 | **admin**       | 8+       | System administration                             |
 | **agent**       | 9+       | Advanced AI agent workflow and execution          |
@@ -187,39 +187,39 @@ and testing coverage.
 
 ## 🔧 Core Commands Checklist
 
-### **openclaw** — OpenClaw Edge Computing Integration
+### **hermes** — hermes Edge Computing Integration
 
-- [ ] `openclaw` (help) - ⚠️ **DISABLED** - Command registration issues (✅ Help
+- [ ] `hermes` (help) - ⚠️ **DISABLED** - Command registration issues (✅ Help
       available)
-- [ ] `openclaw deploy` — Agent deployment operations (✅ Help available)
-  - [ ] `openclaw deploy deploy-agent` — Deploy agent to OpenClaw network (✅
+- [ ] `hermes deploy` — Agent deployment operations (✅ Help available)
+  - [ ] `hermes deploy deploy-agent` — Deploy agent to hermes network (✅
         Help available)
-  - [ ] `openclaw deploy list` — List deployed agents (✅ Help available)
-  - [ ] `openclaw deploy status` — Check deployment status (✅ Help available)
-  - [ ] `openclaw deploy scale` — Scale agent deployment (✅ Help available)
-  - [ ] `openclaw deploy terminate` — Terminate deployment (✅ Help available)
-- [ ] `openclaw monitor` — OpenClaw monitoring operations (✅ Help available)
-  - [ ] `openclaw monitor metrics` — Get deployment metrics (✅ Help available)
-  - [ ] `openclaw monitor alerts` — Configure monitoring alerts (✅ Help
+  - [ ] `hermes deploy list` — List deployed agents (✅ Help available)
+  - [ ] `hermes deploy status` — Check deployment status (✅ Help available)
+  - [ ] `hermes deploy scale` — Scale agent deployment (✅ Help available)
+  - [ ] `hermes deploy terminate` — Terminate deployment (✅ Help available)
+- [ ] `hermes monitor` — hermes monitoring operations (✅ Help available)
+  - [ ] `hermes monitor metrics` — Get deployment metrics (✅ Help available)
+  - [ ] `hermes monitor alerts` — Configure monitoring alerts (✅ Help
         available)
-  - [ ] `openclaw monitor logs` — View deployment logs (✅ Help available)
-  - [ ] `openclaw monitor health` — Check deployment health (✅ Help available)
-- [ ] `openclaw edge` — Edge computing operations (✅ Help available)
-  - [ ] `openclaw edge locations` — List edge locations (✅ Help available)
-  - [ ] `openclaw edge deploy` — Deploy to edge locations (✅ Help available)
-  - [ ] `openclaw edge status` — Check edge status (✅ Help available)
-  - [ ] `openclaw edge optimize` — Optimize edge deployment (✅ Help available)
-- [ ] `openclaw routing` — Agent skill routing and job offloading (✅ Help
+  - [ ] `hermes monitor logs` — View deployment logs (✅ Help available)
+  - [ ] `hermes monitor health` — Check deployment health (✅ Help available)
+- [ ] `hermes edge` — Edge computing operations (✅ Help available)
+  - [ ] `hermes edge locations` — List edge locations (✅ Help available)
+  - [ ] `hermes edge deploy` — Deploy to edge locations (✅ Help available)
+  - [ ] `hermes edge status` — Check edge status (✅ Help available)
+  - [ ] `hermes edge optimize` — Optimize edge deployment (✅ Help available)
+- [ ] `hermes routing` — Agent skill routing and job offloading (✅ Help
       available)
-  - [ ] `openclaw routing config` — Configure routing (✅ Help available)
-  - [ ] `openclaw routing routes` — List active routes (✅ Help available)
-  - [ ] `openclaw routing optimize` — Optimize routing (✅ Help available)
-  - [ ] `openclaw routing balance` — Load balancing (✅ Help available)
-- [ ] `openclaw ecosystem` — OpenClaw ecosystem development (✅ Help available)
-  - [ ] `openclaw ecosystem status` — Ecosystem status (✅ Help available)
-  - [ ] `openclaw ecosystem partners` — Partner management (✅ Help available)
-  - [ ] `openclaw ecosystem resources` — Resource management (✅ Help available)
-  - [ ] `openclaw ecosystem analytics` — Ecosystem analytics (✅ Help available)
+  - [ ] `hermes routing config` — Configure routing (✅ Help available)
+  - [ ] `hermes routing routes` — List active routes (✅ Help available)
+  - [ ] `hermes routing optimize` — Optimize routing (✅ Help available)
+  - [ ] `hermes routing balance` — Load balancing (✅ Help available)
+- [ ] `hermes ecosystem` — hermes ecosystem development (✅ Help available)
+  - [ ] `hermes ecosystem status` — Ecosystem status (✅ Help available)
+  - [ ] `hermes ecosystem partners` — Partner management (✅ Help available)
+  - [ ] `hermes ecosystem resources` — Resource management (✅ Help available)
+  - [ ] `hermes ecosystem analytics` — Ecosystem analytics (✅ Help available)
 
 ### **advanced** — Advanced Marketplace Operations
 
@@ -484,10 +484,10 @@ and testing coverage.
 
 ### **marketplace** — GPU Marketplace Operations
 
-- [ ] `marketplace agents` — OpenClaw agent marketplace operations (✅ Help
+- [ ] `marketplace agents` — hermes agent marketplace operations (✅ Help
       available)
 - [ ] `marketplace bid` — Marketplace bid operations (✅ Help available)
-- [ ] `marketplace governance` — OpenClaw agent governance operations (✅ Help
+- [ ] `marketplace governance` — hermes agent governance operations (✅ Help
       available)
 - [ ] `marketplace gpu` — GPU marketplace operations (✅ Help available)
 - [ ] `marketplace offers` — Marketplace offers operations (✅ Help available)
@@ -496,7 +496,7 @@ and testing coverage.
       available)
 - [ ] `marketplace review` — Add a review for a GPU (✅ Help available)
 - [ ] `marketplace reviews` — Get GPU reviews (✅ Help available)
-- [ ] `marketplace test` — OpenClaw marketplace testing operations (✅ Help
+- [ ] `marketplace test` — hermes marketplace testing operations (✅ Help
       available)
 
 ### **miner** — Mining Operations and Job Processing

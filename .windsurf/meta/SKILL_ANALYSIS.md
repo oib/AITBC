@@ -41,20 +41,20 @@ version: 1.0
 
 #### **CURRENT ACTIVE SKILL SET**
 
-The active OpenClaw-style split skills now live in `.windsurf/skills/` and include:
+The active hermes-style split skills now live in `.windsurf/skills/` and include:
 
-- `openclaw-agent-communicator`
-- `openclaw-session-manager`
-- `openclaw-coordination-orchestrator`
-- `openclaw-performance-optimizer`
-- `openclaw-error-handler`
-- `openclaw-agent-testing-skill`
+- `hermes-agent-communicator`
+- `hermes-session-manager`
+- `hermes-coordination-orchestrator`
+- `hermes-performance-optimizer`
+- `hermes-error-handler`
+- `hermes-agent-testing-skill`
 
 ---
 
 ## Current Skill Analysis
 
-### File: `openclaw-aitbc.md` (archived legacy)
+### File: `hermes-aitbc.md` (archived legacy)
 
 #### **IDENTIFIED WEAKNESSES:**
 
@@ -65,22 +65,22 @@ The active OpenClaw-style split skills now live in `.windsurf/skills/` and inclu
 #### **RECOMMENDED ACTION:**
 
 - **ARCHIVE** - This skill is deprecated and serves no purpose
-- **Migration already completed** - The active skill set now uses the atomic OpenClaw skills listed below
+- **Migration already completed** - The active skill set now uses the atomic hermes skills listed below
 
 #### **CURRENT ACTIVE SKILL SET**
 
-- `openclaw-agent-communicator`
-- `openclaw-session-manager`
-- `openclaw-coordination-orchestrator`
-- `openclaw-performance-optimizer`
-- `openclaw-error-handler`
-- `openclaw-agent-testing-skill`
+- `hermes-agent-communicator`
+- `hermes-session-manager`
+- `hermes-coordination-orchestrator`
+- `hermes-performance-optimizer`
+- `hermes-error-handler`
+- `hermes-agent-testing-skill`
 
 ---
 
 ## Current Skill Analysis
 
-### File: `openclaw-management.md` (archived legacy)
+### File: `hermes-management.md` (archived legacy)
 
 #### **IDENTIFIED WEAKNESSES:**
 
@@ -98,22 +98,22 @@ The active OpenClaw-style split skills now live in `.windsurf/skills/` and inclu
 
 #### **RECOMMENDED SPLIT INTO ATOMIC SKILLS:**
 
-1. `openclaw-agent-communicator` - Agent message handling and responses
-2. `openclaw-session-manager` - Session creation and context management
-3. `openclaw-coordination-orchestrator` - Multi-agent workflow coordination
-4. `openclaw-performance-optimizer` - Agent performance tuning and optimization
-5. `openclaw-error-handler` - Error detection and recovery procedures
+1. `hermes-agent-communicator` - Agent message handling and responses
+2. `hermes-session-manager` - Session creation and context management
+3. `hermes-coordination-orchestrator` - Multi-agent workflow coordination
+4. `hermes-performance-optimizer` - Agent performance tuning and optimization
+5. `hermes-error-handler` - Error detection and recovery procedures
 
 #### **CURRENT ACTIVE SKILL SET**
 
 These are the actual active files in `.windsurf/skills/`:
 
-- `openclaw-agent-communicator`
-- `openclaw-session-manager`
-- `openclaw-coordination-orchestrator`
-- `openclaw-performance-optimizer`
-- `openclaw-error-handler`
-- `openclaw-agent-testing-skill`
+- `hermes-agent-communicator`
+- `hermes-session-manager`
+- `hermes-coordination-orchestrator`
+- `hermes-performance-optimizer`
+- `hermes-error-handler`
+- `hermes-agent-testing-skill`
 
 ---
 
