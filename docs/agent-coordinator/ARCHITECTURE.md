@@ -135,8 +135,26 @@ AgentMessage:
 5. TTL ensures expired messages are discarded
 6. Priority levels ensure important messages are processed first
 
-**Current Implementation:**
-The coordinator provides REST APIs for agent registration, discovery, and status updates. Agent communication is currently implemented via HTTP endpoints on the coordinator service (port 9001). The communication protocols are defined in the code but require additional implementation for full peer-to-peer and hierarchical messaging.
+**Current Implementation Status:**
+
+**Implemented:**
+- `POST /messages/send` - Send messages (hardcoded to "hierarchical" protocol only)
+- `GET /load-balancer/stats` - Load balancer statistics
+- `GET /registry/stats` - Agent registry statistics
+- `GET /agents/service/{service}` - Find agents by service
+- `GET /agents/capability/{capability}` - Find agents by capability
+- `PUT /load-balancer/strategy` - Change load balancing strategy
+
+**Missing / Incomplete:**
+1. `POST /messages/send` only uses "hierarchical" protocol - doesn't support:
+   - `peer_to_peer` protocol
+   - `broadcast` protocol
+   - Other protocols defined in MessageType enum
+2. No broadcast endpoint - Can't send broadcast messages via API
+3. No message history/storage - Messages aren't persisted
+4. No peer management endpoints - Can't add/remove peers via API
+
+**Note:** The protocols (Hierarchical, P2P, Broadcast) are well-implemented in `communication.py`, but the API layer (`messages.py`) doesn't fully expose them yet.
 
 ## Service Initialization
 
