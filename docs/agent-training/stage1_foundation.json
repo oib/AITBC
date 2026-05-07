@@ -40,8 +40,13 @@
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["wallet_id", "address"]
-        }
+          "response_fields": ["wallet_id", "address"],
+          "performance": {
+            "max_duration_ms": 5000
+          }
+        },
+        "idempotent": false,
+        "check_exists": "wallet_list"
       },
       {
         "operation": "wallet_import",
@@ -111,7 +116,18 @@
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["transaction_id", "amount"]
+          "response_fields": ["transaction_id", "amount"],
+          "performance": {
+            "max_duration_ms": 10000
+          }
+        },
+        "verify_on_chain": true,
+        "confirmations_required": 1,
+        "timeout_seconds": 60,
+        "retry": {
+          "max_attempts": 3,
+          "backoff_seconds": 5,
+          "retryable_errors": ["timeout", "network_error"]
         }
       },
       {
