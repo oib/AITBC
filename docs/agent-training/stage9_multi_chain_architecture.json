@@ -1,6 +1,6 @@
 {
   "stage": "stage9_multi_chain_architecture",
-  "agent_type": "architect",
+  "agent_type": "general",
   "difficulty": "expert",
   "estimated_time_minutes": 120,
   "skill_level": "master",
