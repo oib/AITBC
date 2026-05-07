@@ -34,10 +34,8 @@
     },
     "depends_on": {
       "type": "array",
-      "description": "Stages that must be completed before this stage",
-      "items": {
-        "type": "string"
-      }
+      "description": "Stage dependencies - stages that must be completed before this stage. The training system should verify that prerequisite stages have been mastered (passing score met) before allowing a dependent stage to begin.",
+      "items": {"type": "string"}
     },
     "difficulty": {
       "type": "string",

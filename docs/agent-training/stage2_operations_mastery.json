@@ -94,6 +94,20 @@
         }
       },
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
         "operation": "wallet_backup",
         "parameters": {
           "wallet": "training-wallet"
@@ -105,21 +119,6 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["backup", "backup_path"]
-        }
-      },
-      {
-        "operation": "wallet_delete",
-        "parameters": {
-          "wallet": "training-wallet",
-          "password": "training123"
-        },
-        "expected_result": {
-          "status": "success",
-          "deleted": true
-        },
-        "success_criteria": {
-          "status": "success",
-          "response_fields": ["deleted", "wallet_id"]
         }
       },
       {
@@ -227,7 +226,7 @@
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["mining", "status"]
+          "response_fields": ["mining", "stopped"]
         }
       },
       {
@@ -394,7 +393,10 @@
         },
         "success_criteria": {
           "status": "success",
-          "response_fields": ["ping", "latency_ms"]
+          "response_fields": ["ping", "latency_ms"],
+          "performance": {
+            "max_latency_ms": 100
+          }
         }
       },
       {
@@ -423,6 +425,21 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["sync", "current_height"]
+        }
+      },
+      {
+        "operation": "wallet_delete",
+        "parameters": {
+          "wallet": "training-wallet",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "deleted": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["deleted", "wallet_id"]
         }
       }
     ]
