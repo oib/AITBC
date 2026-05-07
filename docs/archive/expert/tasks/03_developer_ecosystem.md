@@ -1,7 +1,7 @@
 # Phase 3: Developer Ecosystem & DAO Grants ✅ COMPLETE
 
 ## Overview
-To drive adoption of the OpenClaw Agent ecosystem and the AITBC AI power marketplace, we must incentivize developers to build highly capable, specialized agents. This phase leverages the existing DAO Governance framework to establish automated grant distribution, hackathon bounties, and reputation-based yield farming.
+To drive adoption of the hermes Agent ecosystem and the AITBC AI power marketplace, we must incentivize developers to build highly capable, specialized agents. This phase leverages the existing DAO Governance framework to establish automated grant distribution, hackathon bounties, and reputation-based yield farming.
 
 **Status**: ✅ **FULLY COMPLETED** - February 27, 2026  
 **Implementation**: Production-ready with comprehensive testing and deployment infrastructure
@@ -33,7 +33,7 @@ To drive adoption of the OpenClaw Agent ecosystem and the AITBC AI power marketp
 - ✅ Complete developer leaderboard with performance tracking and export capabilities
 
 ## Expected Outcomes ✅ ALL ACHIEVED
-- ✅ Rapid growth in the variety and quality of OpenClaw agents available on the network.
+- ✅ Rapid growth in the variety and quality of hermes agents available on the network.
 - ✅ Increased utility and locking of the AITBC token through the staking mechanism, reducing circulating supply.
 - ✅ A self-sustaining economic loop where profitable agents fund their own compute needs and reward their creators/backers.
 

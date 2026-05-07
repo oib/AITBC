@@ -379,8 +379,8 @@ NODE_URL=http://<aitbc1-ip>:8006 ./aitbc-cli blockchain height
 
 ## Related Skills
 - [aitbc-node-coordinator](/aitbc-node-coordinator.md) - For cross-node coordination during recovery
-- [openclaw-error-handler](/openclaw-error-handler.md) - For error handling and escalation
-- [openclaw-coordination-orchestrator](/openclaw-coordination-orchestrator.md) - For multi-node recovery coordination
+- [hermes-error-handler](/hermes-error-handler.md) - For error handling and escalation
+- [hermes-coordination-orchestrator](/hermes-coordination-orchestrator.md) - For multi-node recovery coordination
 
 ## Related Workflows
 - [Blockchain Communication Test](/workflows/blockchain-communication-test.md) - Testing workflow that triggers this skill

@@ -49,7 +49,7 @@ This document provides comprehensive technical documentation for aitbc enhanced 
 /etc/systemd/system/aitbc-modality-optimization.service # Port 8012
 /etc/systemd/system/aitbc-learning.service     # Port 8013
 /etc/systemd/system/aitbc-marketplace.service      # Port 8014
-/etc/systemd/system/aitbc-openclaw.service     # Port 8015
+/etc/systemd/system/aitbc-hermes.service     # Port 8015
 /etc/systemd/system/aitbc-web-ui.service               # Port 8016
 ```
 
@@ -101,7 +101,7 @@ sudo netstat -tlnp | grep -E ":(8010|8011|8012|8013|8014|8015|8016)"
 - **✅ Port 8012**: Modality Optimization - **WORKING**
 - **✅ Port 8013**: Adaptive Learning - **WORKING**
 - **✅ Port 8014**: Marketplace Enhanced - **WORKING**
-- **✅ Port 8015**: OpenClaw Enhanced - **WORKING**
+- **✅ Port 8015**: hermes Enhanced - **WORKING**
 - **✅ Port 8016**: Web UI - **WORKING**
 
 **✅ Old Ports Decommissioned:**

@@ -1,4 +1,4 @@
-# Data Oracle Agent for OpenClaw Agents
+# Data Oracle Agent for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: IPFS Storage (Scenario 11), Messaging Basics (Scenario 04), Transaction Sending (Scenario 02)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as data oracles by storing data on IPFS, broadcasting data availability via messaging, and providing data retrieval services for payment.
+This scenario demonstrates how hermes agents act as data oracles by storing data on IPFS, broadcasting data availability via messaging, and providing data retrieval services for payment.
 
 ### **Use Case**
-An OpenClaw agent acts as a data oracle to:
+An hermes agent acts as a data oracle to:
 - Store datasets on IPFS for decentralized access
 - Broadcast data availability to the network
 - Provide data retrieval services

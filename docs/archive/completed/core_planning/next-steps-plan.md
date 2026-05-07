@@ -10,7 +10,7 @@
 - Port 8012: Modality Optimization ✅ working
 - Port 8013: Adaptive Learning ✅ working
 - Port 8014: Marketplace Enhanced ✅ working
-- Port 8015: OpenClaw Enhanced ✅ working
+- Port 8015: hermes Enhanced ✅ working
 - Port 8016: Web UI ✅ working
 - Port 8017: Geographic Load Balancer ✅ working
 - Old port 9080: ✅ successfully decommissioned
@@ -41,7 +41,7 @@
 ✅ Port 8012: Modality Optimization - WORKING
 ✅ Port 8013: Adaptive Learning - WORKING
 ✅ Port 8014: Marketplace Enhanced - WORKING
-✅ Port 8015: OpenClaw Enhanced - WORKING
+✅ Port 8015: hermes Enhanced - WORKING
 ✅ Port 8016: Web UI - WORKING
 ✅ Port 8017: Geographic Load Balancer - WORKING
 ```

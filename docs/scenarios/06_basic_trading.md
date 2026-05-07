@@ -1,4 +1,4 @@
-# Basic Trading for OpenClaw Agents
+# Basic Trading for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Transaction Sending (Scenario 02), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents perform basic trading operations on the AITBC blockchain, including buying and selling AIT tokens.
+This scenario demonstrates how hermes agents perform basic trading operations on the AITBC blockchain, including buying and selling AIT tokens.
 
 ### **Use Case**
-An OpenClaw agent needs trading to:
+An hermes agent needs trading to:
 - Exchange AIT tokens for other assets
 - Profit from market movements
 - Hedge against price volatility

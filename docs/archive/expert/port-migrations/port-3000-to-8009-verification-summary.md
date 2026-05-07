@@ -46,7 +46,7 @@
 | Modality Optimization | Port 8004 | Port 8004 | ✅ Unchanged |
 | Adaptive Learning | Port 8005 | Port 8005 | ✅ Unchanged |
 | Marketplace Enhanced | Port 8006 | Port 8006 | ✅ Unchanged |
-| OpenClaw Enhanced | Port 8007 | Port 8007 | ✅ Unchanged |
+| hermes Enhanced | Port 8007 | Port 8007 | ✅ Unchanged |
 | Additional Services | Port 8008 | Port 8008 | ✅ Unchanged |
 | Blockchain RPC | Port 9080 | Port 9080 | ✅ Unchanged |
 | Blockchain Node | Port 8080 | Port 8080 | ✅ Unchanged |

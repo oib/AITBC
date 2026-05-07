@@ -9,7 +9,7 @@ logger = get_logger(__name__)
 
 
 class ConditionPoller:
-    """Polls for specific conditions that should trigger OpenClaw actions."""
+    """Polls for specific conditions that should trigger hermes actions."""
 
     def __init__(self, settings: Any) -> None:
         self.settings = settings

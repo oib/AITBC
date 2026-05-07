@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 async function main() {
-    console.log("🚀 Deploying OpenClaw Autonomous Economics Contracts");
+    console.log("🚀 Deploying Hermes Autonomous Economics Contracts");
     console.log("==============================================");
     
     const [deployer] = await ethers.getSigners();
@@ -179,7 +179,7 @@ async function main() {
         
         // Generate environment variables for frontend
         const envVars = `
-# AITBC OpenClaw Autonomous Economics - ${hre.network.name.toUpperCase()}
+# AITBC Hermes Autonomous Economics - ${hre.network.name.toUpperCase()}
 # Generated on ${new Date().toISOString()}
 
 # Contract Addresses

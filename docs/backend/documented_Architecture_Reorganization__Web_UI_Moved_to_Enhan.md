@@ -31,7 +31,7 @@ This document provides comprehensive technical documentation for architecture re
 │   ├── Modality Optimization (Port 8004)
 │   ├── Adaptive Learning (Port 8005)
 │   ├── Marketplace Enhanced (Port 8006)
-│   ├── OpenClaw Enhanced (Port 8007)
+│   ├── hermes Enhanced (Port 8007)
 + │   └── Web UI (Port 8009)
 ```
 
@@ -67,7 +67,7 @@ Enhanced Services (7 services):
 - Modality Optimization (Port 8004)
 - Adaptive Learning (Port 8005)
 - Marketplace Enhanced (Port 8006)
-- OpenClaw Enhanced (Port 8007)
+- hermes Enhanced (Port 8007)
 - Web UI (Port 8009)
 ```
 

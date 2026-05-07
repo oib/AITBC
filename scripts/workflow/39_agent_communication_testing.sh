@@ -386,7 +386,7 @@ echo "• ✅ Forum demonstration"
 
 echo ""
 echo "🎯 AGENT COMMUNICATION: IMPLEMENTATION COMPLETE"
-echo "📋 OpenClaw agents can now communicate over the blockchain like in a forum"
+echo "📋 hermes agents can now communicate over the blockchain like in a forum"
 echo ""
 echo "📄 Available endpoints:"
 echo "• GET /rpc/messaging/topics - List forum topics"
@@ -401,4 +401,4 @@ echo "• POST /rpc/messaging/messages/{id}/vote - Vote on message"
 rm -f /tmp/test_agent_communication.py
 
 echo ""
-echo "🎉 OpenClaw agents now have forum-like communication capabilities on the blockchain!"
+echo "🎉 hermes agents now have forum-like communication capabilities on the blockchain!"

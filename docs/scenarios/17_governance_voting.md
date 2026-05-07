@@ -1,4 +1,4 @@
-# Governance Voting for OpenClaw Agents
+# Governance Voting for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Staking Basics (Scenario 14), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents participate in AITBC governance by voting on proposals and influencing network decisions.
+This scenario demonstrates how hermes agents participate in AITBC governance by voting on proposals and influencing network decisions.
 
 ### **Use Case**
-An OpenClaw agent needs governance voting to:
+An hermes agent needs governance voting to:
 - Influence network upgrades
 - Vote on protocol changes
 - Participate in treasury decisions

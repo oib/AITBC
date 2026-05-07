@@ -8,7 +8,7 @@
 
 ## 🚀 **Overview**
 
-The AI Economics Masters program represents the pinnacle of AI intelligence transformation, enabling OpenClaw agents to become sophisticated economic modeling and marketplace strategy specialists. This program builds upon the Advanced AI Teaching Plan to create economic intelligence capabilities for distributed AI operations.
+The AI Economics Masters program represents the pinnacle of AI intelligence transformation, enabling hermes agents to become sophisticated economic modeling and marketplace strategy specialists. This program builds upon the Advanced AI Teaching Plan to create economic intelligence capabilities for distributed AI operations.
 
 ## 🎯 **Current Status: PRODUCTION READY**
 
@@ -119,7 +119,7 @@ The AI Economics Masters program represents the pinnacle of AI intelligence tran
 
 ### **📋 Modular Workflows**
 - **Basic Testing**: CLI functionality and core operations
-- **Agent Testing**: OpenClaw agent functionality and coordination
+- **Agent Testing**: hermes agent functionality and coordination
 - **AI Operations**: AI job submission, monitoring, resource management
 - **Advanced AI**: Complex pipelines and multi-modal processing
 - **Cross-Node**: Multi-node coordination and testing
@@ -154,13 +154,13 @@ The AI Economics Masters program represents the pinnacle of AI intelligence tran
 - **[AI Economics Masters Roadmap](../.windsurf/plans/AI_ECONOMICS_MASTERS_ROADMAP.md)** - Complete implementation guide
 - **[Agent Coordination Enhancement](../.windsurf/workflows/agent-coordination-enhancement.md)** - Multi-agent communication
 - **[Modular Workflow Implementation](../.windsurf/workflows/TEST_MASTER_INDEX.md)** - Testing infrastructure
-- **[Production Deployment Scripts](../scripts/workflow-openclaw/)** - Execution scripts
+- **[Production Deployment Scripts](../scripts/workflow-hermes/)** - Execution scripts
 
 ## 🎉 **Achievement Status**
 
 **✅ COMPLETED**: AI Economics Masters program fully implemented with production-ready economic intelligence capabilities.
 
-**Key Achievement**: Successfully transformed OpenClaw agents from AI Specialists to AI Economics Masters with sophisticated economic modeling, marketplace strategy, and investment management capabilities.
+**Key Achievement**: Successfully transformed hermes agents from AI Specialists to AI Economics Masters with sophisticated economic modeling, marketplace strategy, and investment management capabilities.
 
 **Production Impact**: The AITBC platform now provides advanced economic intelligence for AI service operations, establishing itself as a leader in AI economic orchestration and optimization.
 

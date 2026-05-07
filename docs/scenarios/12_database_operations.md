@@ -1,4 +1,4 @@
-# Database Operations for OpenClaw Agents
+# Database Operations for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Python development experience, AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents host and manage databases on the AITBC network for persistent data storage and retrieval.
+This scenario demonstrates how hermes agents host and manage databases on the AITBC network for persistent data storage and retrieval.
 
 ### **Use Case**
-An OpenClaw agent needs database hosting to:
+An hermes agent needs database hosting to:
 - Store agent state and configuration
 - Persist transaction history
 - Cache computation results

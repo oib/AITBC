@@ -76,7 +76,7 @@ Update this document as milestones evolve.
 ## Stage 25 — Advanced AI Agent CLI Tools [COMPLETED: 2026-02-24]
 
 - **CLI Tool Implementation**
-  - ✅ Create 5 new command groups: agent, multimodal, optimize, openclaw,
+  - ✅ Create 5 new command groups: agent, multimodal, optimize, hermes,
     marketplace_advanced, swarm
   - ✅ Implement 50+ new commands for advanced AI agent capabilities
   - ✅ Add complete test coverage with unit tests for all command modules
@@ -87,7 +87,7 @@ Update this document as milestones evolve.
   - ✅ Agent workflow creation, execution, and monitoring with verification
   - ✅ Multi-modal agent processing (text, image, audio, video)
   - ✅ Autonomous optimization with self-tuning and predictive capabilities
-  - ✅ OpenClaw integration for edge computing deployment
+  - ✅ hermes integration for edge computing deployment
   - ✅ Enhanced marketplace operations with NFT 2.0 support
 
 - **Documentation Updates**
@@ -168,7 +168,7 @@ architecture with comprehensive CLI tools, enhanced services deployment, and
 complete end-to-end testing framework. All 22 commands from README are fully
 implemented with complete test coverage and documentation.
 
-**Next Phase**: OpenClaw Integration Enhancement and Advanced Marketplace
+**Next Phase**: hermes Integration Enhancement and Advanced Marketplace
 Operations (see docs/10_plan/00_nextMileston.md)
 
 - ✅ Ship devnet scripts (`apps/blockchain-node/scripts/`).
@@ -365,7 +365,7 @@ Operations (see docs/10_plan/00_nextMileston.md)
   - ✅ Adaptive Learning Service (Port 8005) - Reinforcement learning frameworks
   - ✅ Enhanced Marketplace Service (Port 8006) - Royalties, licensing,
     verification
-  - ✅ OpenClaw Enhanced Service (Port 8007) - Agent orchestration, edge
+  - ✅ hermes Enhanced Service (Port 8007) - Agent orchestration, edge
     computing
   - ✅ Systemd integration with automatic restart and monitoring
   - ✅ Client-to-Miner workflow demonstration (sub-second processing)
@@ -788,7 +788,7 @@ Operations (see docs/10_plan/00_nextMileston.md)
   - ✅ Both nodes at same height with consistent block hashes
   - ✅ Gossip backend working correctly with Redis
 
-- **OpenClaw Agent Communication**
+- **hermes Agent Communication**
   - ✅ Successfully sent agent message from aitbc1 to aitbc
   - ✅ Used temp-agent wallet with correct password "temp123"
   - ✅ Transaction hash:
@@ -846,9 +846,9 @@ Operations (see docs/10_plan/00_nextMileston.md)
 - **Documentation**
   - ✅ Created comprehensive blockchain synchronization documentation
   - ✅ File: `docs/blockchain/blockchain_synchronization_issues_and_fixes.md`
-  - ✅ Created OpenClaw cross-node communication guides
-  - ✅ File: `docs/openclaw/guides/openclaw_cross_node_communication.md`
-  - ✅ File: `docs/openclaw/training/cross_node_communication_training.md`
+  - ✅ Created hermes cross-node communication guides
+  - ✅ File: `docs/hermes/guides/hermes_cross_node_communication.md`
+  - ✅ File: `docs/hermes/training/cross_node_communication_training.md`
   - ✅ Deployed agent daemon service with systemd integration
   - ✅ File: `services/agent_daemon.py`
   - ✅ Systemd service: `systemd/aitbc-agent-daemon.service`
@@ -947,11 +947,11 @@ Operations (see docs/10_plan/00_nextMileston.md)
 
 **Milestone Achievement**: Successfully fixed multi-node blockchain
 synchronization issues between aitbc and aitbc1. Both nodes are now in sync with
-gossip backend working correctly via Redis. OpenClaw agent communication tested
+gossip backend working correctly via Redis. hermes agent communication tested
 and working.
 
 **Next Phase**: Continue with wallet funding and enhanced agent communication
-testing (see docs/openclaw/guides/)
+testing (see docs/hermes/guides/)
 
 ## Stage 20 — Agent Ecosystem Transformation [COMPLETED: 2026-02-24]
 

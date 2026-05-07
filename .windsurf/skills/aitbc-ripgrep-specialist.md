@@ -111,7 +111,7 @@ rg "password|secret|token|key" --type py --type yaml /opt/aitbc/
 rg "blockchain|chain\.db|genesis|mining" --type py /opt/aitbc/
 
 # Find AI/ML related code
-rg "openclaw|ollama|model|inference" --type py /opt/aitbc/
+rg "hermes|ollama|model|inference" --type py /opt/aitbc/
 
 # Find marketplace code
 rg "marketplace|listing|bid|gpu" --type py /opt/aitbc/

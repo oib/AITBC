@@ -1,13 +1,13 @@
 # AITBC v0.2.3 Release Notes
 
 ## 🎯 Overview
-AITBC v0.2.3 is a **major AI intelligence and agent transformation release** that completes the Advanced AI Teaching Plan and transforms OpenClaw agents from AI Specialists to AI Economics Masters. This release introduces sophisticated economic modeling, marketplace strategy, and distributed AI job economics capabilities.
+AITBC v0.2.3 is a **major AI intelligence and agent transformation release** that completes the Advanced AI Teaching Plan and transforms hermes agents from AI Specialists to AI Economics Masters. This release introduces sophisticated economic modeling, marketplace strategy, and distributed AI job economics capabilities.
 
 ## 🚀 New Features
 
 ### 🤖 Advanced AI Teaching Plan Completion
 - **Complete Teaching Plan**: All 10 sessions of Advanced AI Teaching Plan successfully completed
-- **Agent Transformation**: OpenClaw agents transformed from AI Specialists to AI Economics Masters
+- **Agent Transformation**: hermes agents transformed from AI Specialists to AI Economics Masters
 - **Economic Intelligence**: Sophisticated economic modeling and marketplace strategy capabilities
 - **Real-World Applications**: Medical diagnosis AI, customer feedback AI, and investment management
 
@@ -21,7 +21,7 @@ AITBC v0.2.3 is a **major AI intelligence and agent transformation release** tha
 - **Modular Test Workflows**: Split large workflows into manageable, focused modules
 - **Test Master Index**: Comprehensive navigation for all test modules
 - **Enhanced Maintainability**: Better organization and easier updates
-- **7 Focused Modules**: Basic, OpenClaw agents, AI operations, advanced AI, cross-node, performance, integration
+- **7 Focused Modules**: Basic, hermes agents, AI operations, advanced AI, cross-node, performance, integration
 
 ### 🤝 Step 3: Agent Coordination Plan Enhancement
 - **Multi-Agent Communication**: Hierarchical, peer-to-peer, and broadcast patterns
@@ -57,7 +57,7 @@ AITBC v0.2.3 is a **major AI intelligence and agent transformation release** tha
 
 ## 🔗 Changes from v0.2.2
 - Completed Advanced AI Teaching Plan with all 10 sessions
-- Transformed OpenClaw agents to AI Economics Masters
+- Transformed hermes agents to AI Economics Masters
 - Implemented Phase 4: Cross-Node AI Economics (3 sessions)
 - Created Step 2: Modular Workflow Implementation
 - Created Step 3: Agent Coordination Plan Enhancement

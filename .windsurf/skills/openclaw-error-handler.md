@@ -1,13 +1,13 @@
 ---
-description: Atomic OpenClaw error detection and recovery procedures with deterministic outputs
-title: openclaw-error-handler
+description: Atomic hermes error detection and recovery procedures with deterministic outputs
+title: hermes-error-handler
 version: 1.1
 ---
 
-# OpenClaw Error Handler
+# hermes Error Handler
 
 ## Purpose
-Detect, diagnose, and recover from errors in OpenClaw agent operations with systematic error handling and recovery procedures.
+Detect, diagnose, and recover from errors in hermes agent operations with systematic error handling and recovery procedures.
 
 ## Activation
 Trigger when user requests error handling: error diagnosis, recovery procedures, error analysis, or system health checks.

@@ -1,14 +1,14 @@
-# AITBC + OpenClaw Integration Implementation Plan
+# AITBC + hermes Integration Implementation Plan
 
 ## Executive Summary
 
-This plan outlines the comprehensive integration between AITBC (Autonomous Intelligent Trading Blockchain Computing) and OpenClaw, a modern AI agent orchestration framework. The integration enables OpenClaw agents to seamlessly leverage AITBC's decentralized GPU network for heavy computational tasks while maintaining local execution capabilities for lightweight operations.
+This plan outlines the comprehensive integration between AITBC (Autonomous Intelligent Trading Blockchain Computing) and hermes, a modern AI agent orchestration framework. The integration enables hermes agents to seamlessly leverage AITBC's decentralized GPU network for heavy computational tasks while maintaining local execution capabilities for lightweight operations.
 
 ### Key Integration Points
-- **OpenClaw Ollama Provider**: Direct integration with AITBC coordinator endpoint using ZK-attested miners
+- **hermes Ollama Provider**: Direct integration with AITBC coordinator endpoint using ZK-attested miners
 - **Agent Skills Routing**: Intelligent job offloading via AITBC `/job` API with AIT token micropayments
-- **Marketplace Integration**: One-click deployment of marketplace models to OpenClaw environments
-- **Edge Miner Client**: Optional OpenClaw daemon for personal always-on AI agents
+- **Marketplace Integration**: One-click deployment of marketplace models to hermes environments
+- **Edge Miner Client**: Optional hermes daemon for personal always-on AI agents
 - **Hybrid Architecture**: Local execution fallback with AITBC offload for large models (>8GB)
 
 ## Current Infrastructure Analysis
@@ -32,8 +32,8 @@ Based on the current codebase, AITBC provides:
 - Quality scanning and malware detection
 - Auto-deployment to GPU inference jobs
 
-### OpenClaw Framework Assumptions
-OpenClaw is assumed to be an AI agent orchestration platform with:
+### hermes Framework Assumptions
+hermes is assumed to be an AI agent orchestration platform with:
 - Ollama-compatible inference providers
 - Agent skill routing and orchestration
 - Local model execution capabilities
@@ -44,7 +44,7 @@ OpenClaw is assumed to be an AI agent orchestration platform with:
 ### Hybrid Execution Model
 ```python
 class HybridExecutionEngine:
-    """Hybrid local-AITBC execution engine for OpenClaw"""
+    """Hybrid local-AITBC execution engine for hermes"""
 
     def __init__(
         self,
@@ -149,12 +149,12 @@ class HybridExecutionEngine:
         return await self._execute_aitbc(task, context)
 ```
 
-### OpenClaw Provider Implementation
+### hermes Provider Implementation
 
 #### AITBC Ollama Provider
 ```python
 class AITBCOllamaProvider:
-    """OpenClaw-compatible Ollama provider using AITBC network"""
+    """hermes-compatible Ollama provider using AITBC network"""
 
     def __init__(
         self,
@@ -468,28 +468,28 @@ class AgentSkillRouter:
 
 ### Model Marketplace Integration
 
-#### One-Click OpenClaw Deployment
+#### One-Click hermes Deployment
 ```python
-class OpenClawMarketplaceIntegration:
-    """Integrate AITBC marketplace with OpenClaw deployment"""
+class hermesMarketplaceIntegration:
+    """Integrate AITBC marketplace with hermes deployment"""
 
     def __init__(
         self,
         marketplace_client: MarketplaceClient,
-        openclaw_client: OpenClawClient,
+        hermes_client: hermesClient,
         deployment_service: DeploymentService
     ):
         self.marketplace = marketplace_client
-        self.openclaw = openclaw_client
+        self.hermes = hermes_client
         self.deployment = deployment_service
 
-    async def deploy_to_openclaw(
+    async def deploy_to_hermes(
         self,
         model_id: str,
-        openclaw_environment: str,
+        hermes_environment: str,
         deployment_config: dict = None
     ) -> DeploymentResult:
-        """One-click deployment from marketplace to OpenClaw"""
+        """One-click deployment from marketplace to hermes"""
 
         # Verify model license
         license_check = await self.marketplace.verify_license(model_id)
@@ -499,50 +499,50 @@ class OpenClawMarketplaceIntegration:
         # Download model
         model_data = await self.marketplace.download_model(model_id)
 
-        # Prepare OpenClaw deployment
-        deployment_spec = await self._prepare_openclaw_deployment(
-            model_data, openclaw_environment, deployment_config
+        # Prepare hermes deployment
+        deployment_spec = await self._prepare_hermes_deployment(
+            model_data, hermes_environment, deployment_config
         )
 
-        # Deploy to OpenClaw
-        deployment_result = await self.openclaw.deploy_model(deployment_spec)
+        # Deploy to hermes
+        deployment_result = await self.hermes.deploy_model(deployment_spec)
 
         # Register with AITBC marketplace
         await self.marketplace.register_deployment(
             model_id=model_id,
             deployment_id=deployment_result.deployment_id,
-            platform="openclaw",
-            environment=openclaw_environment
+            platform="hermes",
+            environment=hermes_environment
         )
 
         return DeploymentResult(
             success=True,
             model_id=model_id,
             deployment_id=deployment_result.deployment_id,
-            platform="openclaw",
+            platform="hermes",
             endpoint=deployment_result.endpoint,
             metadata={
-                "environment": openclaw_environment,
+                "environment": hermes_environment,
                 "aitbc_model_id": model_id,
                 "deployment_config": deployment_config
             }
         )
 
-    async def _prepare_openclaw_deployment(
+    async def _prepare_hermes_deployment(
         self,
         model_data: dict,
         environment: str,
         config: dict = None
-    ) -> OpenClawDeploymentSpec:
-        """Prepare model for OpenClaw deployment"""
+    ) -> hermesDeploymentSpec:
+        """Prepare model for hermes deployment"""
 
         # Determine optimal configuration
-        optimal_config = await self._optimize_for_openclaw(
+        optimal_config = await self._optimize_for_hermes(
             model_data, environment, config
         )
 
         # Create deployment specification
-        spec = OpenClawDeploymentSpec(
+        spec = hermesDeploymentSpec(
             model_name=model_data["name"],
             model_data=model_data["data"],
             model_format=model_data["format"],
@@ -565,10 +565,10 @@ class OpenClawMarketplaceIntegration:
         self,
         deployment_id: str
     ) -> DeploymentStatus:
-        """Get deployment status from OpenClaw"""
+        """Get deployment status from hermes"""
 
-        # Query OpenClaw
-        status = await self.openclaw.get_deployment_status(deployment_id)
+        # Query hermes
+        status = await self.hermes.get_deployment_status(deployment_id)
 
         # Enhance with AITBC metrics
         aitbc_metrics = await self._get_aitbc_metrics(deployment_id)
@@ -586,21 +586,21 @@ class OpenClawMarketplaceIntegration:
         )
 ```
 
-### Edge Miner Client with OpenClaw Daemon
+### Edge Miner Client with hermes Daemon
 
 #### Personal Agent Daemon
 ```python
-class OpenClawDaemon:
-    """Optional OpenClaw daemon for edge miners"""
+class hermesDaemon:
+    """Optional hermes daemon for edge miners"""
 
     def __init__(
         self,
         aitbc_miner: AITBCMiner,
-        openclaw_engine: OpenClawEngine,
+        hermes_engine: hermesEngine,
         agent_registry: AgentRegistry
     ):
         self.miner = aitbc_miner
-        self.openclaw = openclaw_engine
+        self.hermes = hermes_engine
         self.agents = agent_registry
         self.daemon_config = {
             "auto_start_agents": True,
@@ -613,9 +613,9 @@ class OpenClawDaemon:
         }
 
     async def start_daemon(self):
-        """Start the OpenClaw daemon service"""
+        """Start the hermes daemon service"""
 
-        logger.info("Starting OpenClaw daemon for AITBC miner")
+        logger.info("Starting hermes daemon for AITBC miner")
 
         # Register daemon capabilities
         await self._register_daemon_capabilities()
@@ -653,8 +653,8 @@ class OpenClawDaemon:
         if not resource_check.available:
             raise ResourceUnavailableError(resource_check.reason)
 
-        # Register with OpenClaw
-        registration = await self.openclaw.register_agent(agent_spec)
+        # Register with hermes
+        registration = await self.hermes.register_agent(agent_spec)
 
         # Enhance with AITBC capabilities
         enhanced_registration = await self._enhance_with_aitbc_capabilities(
@@ -705,7 +705,7 @@ class OpenClawDaemon:
             await asyncio.sleep(30)  # Monitor every 30 seconds
 
     async def _handle_integrations(self):
-        """Handle integrations between OpenClaw and AITBC"""
+        """Handle integrations between hermes and AITBC"""
 
         while True:
             try:
@@ -737,13 +737,13 @@ class OpenClawDaemon:
         aitbc_job: AITBCJob,
         agent: RegisteredAgent
     ):
-        """Route AITBC job to local OpenClaw agent"""
+        """Route AITBC job to local hermes agent"""
 
-        # Convert AITBC job to OpenClaw task
+        # Convert AITBC job to hermes task
         task_spec = await self._convert_aitbc_job_to_task(aitbc_job)
 
         # Submit to agent
-        task_result = await self.openclaw.submit_task_to_agent(
+        task_result = await self.hermes.submit_task_to_agent(
             agent_id=agent.agent_id,
             task_spec=task_spec
         )
@@ -768,7 +768,7 @@ class OpenClawDaemon:
         job_result = await self.miner.submit_job_to_network(aitbc_job_spec)
 
         # Return result to agent
-        await self.openclaw.return_task_result(
+        await self.hermes.return_task_result(
             task_id=agent_task.task_id,
             result=job_result.output,
             metadata={
@@ -782,41 +782,41 @@ class OpenClawDaemon:
 
 #### REST API Extensions
 ```python
-# OpenClaw integration endpoints for AITBC coordinator
+# hermes integration endpoints for AITBC coordinator
 
-@app.post("/api/v1/openclaw/models/deploy")
-async def deploy_model_to_openclaw(
+@app.post("/api/v1/hermes/models/deploy")
+async def deploy_model_to_hermes(
     request: DeployModelRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Deploy marketplace model to OpenClaw environment"""
+    """Deploy marketplace model to hermes environment"""
 
-    integration = OpenClawMarketplaceIntegration(
+    integration = hermesMarketplaceIntegration(
         marketplace_client=get_marketplace_client(),
-        openclaw_client=get_openclaw_client(),
+        hermes_client=get_hermes_client(),
         deployment_service=get_deployment_service()
     )
 
-    result = await integration.deploy_to_openclaw(
+    result = await integration.deploy_to_hermes(
         model_id=request.model_id,
-        openclaw_environment=request.environment,
+        hermes_environment=request.environment,
         deployment_config=request.config
     )
 
     return APIResponse(
         success=True,
         data=result,
-        message="Model deployed to OpenClaw successfully"
+        message="Model deployed to hermes successfully"
     )
 
-@app.post("/api/v1/openclaw/agents/register")
-async def register_openclaw_agent(
+@app.post("/api/v1/hermes/agents/register")
+async def register_hermes_agent(
     request: RegisterAgentRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Register OpenClaw agent with AITBC miner"""
+    """Register hermes agent with AITBC miner"""
 
-    daemon = get_openclaw_daemon()
+    daemon = get_hermes_daemon()
 
     registration = await daemon.register_personal_agent(
         agent_spec=request.agent_spec,
@@ -826,15 +826,15 @@ async def register_openclaw_agent(
     return APIResponse(
         success=True,
         data=registration,
-        message="OpenClaw agent registered successfully"
+        message="hermes agent registered successfully"
     )
 
-@app.post("/api/v1/openclaw/jobs/route")
-async def route_job_via_openclaw(
+@app.post("/api/v1/hermes/jobs/route")
+async def route_job_via_hermes(
     request: RouteJobRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """Route job through OpenClaw skill system"""
+    """Route job through hermes skill system"""
 
     router = get_skill_router()
 
@@ -847,23 +847,23 @@ async def route_job_via_openclaw(
     return APIResponse(
         success=True,
         data=result,
-        message="Job routed through OpenClaw successfully"
+        message="Job routed through hermes successfully"
     )
 
-@app.get("/api/v1/openclaw/status")
-async def get_openclaw_integration_status():
-    """Get OpenClaw integration status"""
+@app.get("/api/v1/hermes/status")
+async def get_hermes_integration_status():
+    """Get hermes integration status"""
 
-    status = await get_openclaw_integration_status()
+    status = await get_hermes_integration_status()
 
     return APIResponse(
         success=True,
         data=status,
-        message="OpenClaw integration status retrieved"
+        message="hermes integration status retrieved"
     )
 
 
-## Additional OpenClaw Integration Gaps & Solutions
+## Additional hermes Integration Gaps & Solutions
 
 ### ZK-Proof Chaining for Hybrid Fallback
 
@@ -950,12 +950,12 @@ class ZKProofChainManager:
         )
 ```
 
-### OpenClaw Version Pinning + Upgrade Path
+### hermes Version Pinning + Upgrade Path
 
 #### Version Management System
 ```python
-class OpenClawVersionManager:
-    """Version pinning and upgrade management for OpenClaw"""
+class hermesVersionManager:
+    """Version pinning and upgrade management for hermes"""
 
     def __init__(
         self,
@@ -968,13 +968,13 @@ class OpenClawVersionManager:
         self.upgrades = upgrade_orchestrator
         self.version_pins = {}  # component -> pinned_version
 
-    async def pin_openclaw_version(
+    async def pin_hermes_version(
         self,
         component: str,
         version_spec: str,
         pin_reason: str
     ) -> VersionPin:
-        """Pin OpenClaw component to specific version"""
+        """Pin hermes component to specific version"""
 
         # Validate version specification
         validation = await self._validate_version_spec(component, version_spec)
@@ -1099,7 +1099,7 @@ class OpenClawVersionManager:
 ```
 
 ### Phased Implementation
-1. **Phase 1: Provider Integration** - Implement AITBC Ollama provider for OpenClaw
+1. **Phase 1: Provider Integration** - Implement AITBC Ollama provider for hermes
 2. **Phase 2: Skill Routing** - Add intelligent skill offloading with micropayments
 
 ### Infrastructure Requirements

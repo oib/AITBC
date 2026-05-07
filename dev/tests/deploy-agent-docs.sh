@@ -48,7 +48,7 @@ required_files=(
     "compute-provider.md"
     "advanced-ai-agents.md"
     "collaborative-agents.md"
-    "openclaw-integration.md"
+    "hermes-integration.md"
     "project-structure.md"
     "MERGE_SUMMARY.md"
 )

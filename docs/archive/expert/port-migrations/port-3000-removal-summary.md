@@ -47,7 +47,7 @@ network:
       - 8004  # Modality Optimization
       - 8005  # Adaptive Learning
       - 8006  # Marketplace Enhanced
-      - 8007  # OpenClaw Enhanced
+      - 8007  # hermes Enhanced
       - 8008  # Additional Services
       - 8009  # Web UI (moved from 3000)
       - 9080  # Blockchain RPC
@@ -87,7 +87,7 @@ Required Ports:
 - 8004  # Modality Optimization
 - 8005  # Adaptive Learning
 - 8006  # Marketplace Enhanced
-- 8007  # OpenClaw Enhanced
+- 8007  # hermes Enhanced
 - 8008  # Additional Services
 - 8009  # Web UI (moved from 3000)
 - 9080  # Blockchain RPC
@@ -105,7 +105,7 @@ Required Ports:
 - 8004  # Modality Optimization
 - 8005  # Adaptive Learning
 - 8006  # Marketplace Enhanced
-- 8007  # OpenClaw Enhanced
+- 8007  # hermes Enhanced
 - 8008  # Additional Services
 - 8009  # Web UI
 - 9080  # Blockchain RPC
@@ -208,7 +208,7 @@ Enhanced Services:
 - 8004  # Modality Optimization
 - 8005  # Adaptive Learning
 - 8006  # Marketplace Enhanced
-- 8007  # OpenClaw Enhanced
+- 8007  # hermes Enhanced
 - 8008  # Additional Services
 ```
 

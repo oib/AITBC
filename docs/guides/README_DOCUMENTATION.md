@@ -1,21 +1,21 @@
 # AITBC - AI Training Blockchain
 
-**Advanced AI Platform with OpenClaw Agent Ecosystem**
+**Advanced AI Platform with hermes Agent Ecosystem**
 
 [![Documentation](https://img.shields.io/badge/Documentation-10%2F10-brightgreen.svg)](docs/README.md)
 [![Quality](https://img.shields.io/badge/Quality-Perfect-green.svg)](docs/about/PHASE_3_COMPLETION_10_10_ACHIEVED.md)
 [![Status](https://img.shields.io/badge/Status-Production%20Ready-blue.svg)](docs/README.md#-current-status-production-ready---march-18-2026)
-[![OpenClaw](https://img.shields.io/badge/OpenClaw-Advanced%20AI%20Agents-purple.svg)](docs/openclaw/OPENCLAW_AGENT_CAPABILITIES_ADVANCED.md)
+[![hermes](https://img.shields.io/badge/hermes-Advanced%20AI%20Agents-purple.svg)](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
 
 ## 🎯 **What is AITBC?**
 
-AITBC (AI Training Blockchain) is a revolutionary platform that combines **advanced AI capabilities** with **OpenClaw agent ecosystem** on a **blockchain infrastructure**. Our platform enables:
+AITBC (AI Training Blockchain) is a revolutionary platform that combines **advanced AI capabilities** with **hermes agent ecosystem** on a **blockchain infrastructure**. Our platform enables:
 
 - **🤖 Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
-- **🦞 OpenClaw Agents**: Intelligent agents with advanced AI teaching plan mastery (100% complete)
+- **🦞 hermes Agents**: Intelligent agents with advanced AI teaching plan mastery (100% complete)
 - **🔒 Privacy Preservation**: Secure, private ML model training and inference
 - **⚡ Edge Computing**: Distributed computation at the network edge
 - **⛓️ Blockchain Security**: Immutable, transparent, and secure transactions
@@ -23,7 +23,7 @@ AITBC (AI Training Blockchain) is a revolutionary platform that combines **advan
 
 ### 🎓 **Advanced AI Teaching Plan - 100% Complete**
 
-Our OpenClaw agents have mastered advanced AI capabilities through a comprehensive 3-phase teaching program:
+Our hermes agents have mastered advanced AI capabilities through a comprehensive 3-phase teaching program:
 
 - **📚 Phase 1**: Advanced AI Workflow Orchestration (Complex pipelines, parallel operations)
 - **📚 Phase 2**: Multi-Model AI Pipelines (Ensemble management, multi-modal processing)
@@ -50,14 +50,14 @@ aitbc version
 aitbc ai-submit --wallet genesis-ops --type multimodal --prompt "Multi-modal AI analysis" --payment 1000
 ```
 
-### **🤖 For OpenClaw Agent Users:**
+### **🤖 For hermes Agent Users:**
 ```bash
 # Run advanced AI workflow
 cd /opt/aitbc
-./scripts/workflow-openclaw/06_advanced_ai_workflow_openclaw.sh
+./scripts/workflow-hermes/06_advanced_ai_workflow_hermes.sh
 
-# Use OpenClaw agents directly
-openclaw agent --agent GenesisAgent --session-id "my-session" --message "Execute advanced AI workflow" --thinking high
+# Use hermes agents directly
+hermes agent --agent GenesisAgent --session-id "my-session" --message "Execute advanced AI workflow" --thinking high
 ```
 
 ### **👨‍💻 For Developers:**
@@ -103,7 +103,7 @@ aitbc miner status
 - **🔄 Exchange Infrastructure**: Complete exchange CLI commands and market integration
 - **⛓️ Multi-Chain Support**: Complete 7-layer architecture with chain isolation
 - **🤖 Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
-- **🦞 OpenClaw Agent Ecosystem**: Advanced AI agents with 3-phase teaching plan mastery
+- **🦞 hermes Agent Ecosystem**: Advanced AI agents with 3-phase teaching plan mastery
 - **🔒 Security**: Multi-sig, time-lock, and compliance features implemented
 - **🚀 Production Setup**: Complete production blockchain setup with encrypted keystores
 - **🧠 AI Memory System**: Development knowledge base and agent documentation
@@ -118,7 +118,7 @@ aitbc miner status
 ### 🎯 **Latest Achievements (March 31, 2026)**
 - **🎉 Perfect Documentation**: 10/10 quality score achieved
 - **🎓 Advanced AI Teaching Plan**: 100% complete (3 phases, 6 sessions)
-- **🤖 OpenClaw Agent Mastery**: Advanced AI workflow orchestration, multi-model pipelines, resource optimization
+- **🤖 hermes Agent Mastery**: Advanced AI workflow orchestration, multi-model pipelines, resource optimization
 - **⛓️ Multi-Chain System**: Complete 7-layer architecture operational
 - **📚 Documentation Excellence**: World-class documentation with perfect organization
 - **⚡ Code Quality Implementation**: Full automated quality checks with type safety
@@ -213,7 +213,7 @@ AITBC Ecosystem
 │   ├── Complex AI Workflow Orchestration (Phase 1)
 │   ├── Multi-Model AI Pipelines (Phase 2)
 │   ├── AI Resource Optimization (Phase 3)
-│   ├── OpenClaw Agent Ecosystem
+│   ├── hermes Agent Ecosystem
 │   │   ├── Genesis Agent (Advanced AI operations)
 │   │   ├── Follower Agent (Distributed coordination)
 │   │   ├── Coordinator Agent (Multi-agent orchestration)
@@ -246,7 +246,7 @@ AITBC Ecosystem
     ├── Exchange Integration
     ├── Marketplace Platform
     ├── Governance System
-    ├── OpenClaw Agent Coordination
+    ├── hermes Agent Coordination
     └── Community Tools
 ```
 
@@ -261,14 +261,14 @@ Our documentation has achieved **perfect 10/10 quality score** and provides comp
 - **📁 [Project Documentation](docs/project/)** - Project overview (18-28 hours)
 - **🤖 [Agent Documentation](docs/agents/)** - Agent development (24-48 hours)
 - **🎓 [Archive](docs/archive/README.md)** - Historical content (24-48 hours)
-- **🤖 [OpenClaw Agent Capabilities](docs/openclaw/OPENCLAW_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agents (15-25 hours)
+- **🤖 [hermes Agent Capabilities](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agents (15-25 hours)
 
 ### **📚 Quick Access:**
 - **🔍 [Master Index](docs/MASTER_INDEX.md)** - Complete content catalog
 - **🏠 [Documentation Home](docs/README.md)** - Main documentation entry
 - **📖 [About Documentation](docs/about/)** - Documentation about docs
 - **🗂️ [Archive](docs/archive/README.md)** - Historical documentation
-- **🦞 [OpenClaw Documentation](docs/openclaw/)** - Advanced AI agent ecosystem
+- **🦞 [hermes Documentation](docs/hermes/)** - Advanced AI agent ecosystem
 
 ### **🔗 External Documentation:**
 - **💻 [CLI Technical Docs](docs/cli/)** - Deep CLI documentation
@@ -352,21 +352,21 @@ source ~/.bashrc
 
 ---
 
-## 🤖 **OpenClaw Agent Usage**
+## 🤖 **hermes Agent Usage**
 
 ### **🎓 Advanced AI Agent Ecosystem**
-Our OpenClaw agents have completed the **Advanced AI Teaching Plan** and are now sophisticated AI specialists:
+Our hermes agents have completed the **Advanced AI Teaching Plan** and are now sophisticated AI specialists:
 
-#### **🚀 Quick Start with OpenClaw Agents**
+#### **🚀 Quick Start with hermes Agents**
 ```bash
 # Run complete advanced AI workflow
 cd /opt/aitbc
-./scripts/workflow-openclaw/06_advanced_ai_workflow_openclaw.sh
+./scripts/workflow-hermes/06_advanced_ai_workflow_hermes.sh
 
 # Use individual agents
-openclaw agent --agent GenesisAgent --session-id "my-session" --message "Execute complex AI pipeline" --thinking high
-openclaw agent --agent FollowerAgent --session-id "coordination" --message "Participate in distributed AI processing" --thinking medium
-openclaw agent --agent CoordinatorAgent --session-id "orchestration" --message "Coordinate multi-agent workflow" --thinking high
+hermes agent --agent GenesisAgent --session-id "my-session" --message "Execute complex AI pipeline" --thinking high
+hermes agent --agent FollowerAgent --session-id "coordination" --message "Participate in distributed AI processing" --thinking medium
+hermes agent --agent CoordinatorAgent --session-id "orchestration" --message "Coordinate multi-agent workflow" --thinking high
 ```
 
 #### **🤖 Advanced AI Operations**
@@ -422,7 +422,7 @@ openclaw agent --agent CoordinatorAgent --session-id "orchestration" --message "
 - **🤖 AI Resource Agent**: Resource allocation, performance tuning, demand forecasting
 - **🤖 Multi-Modal Agent**: Multi-modal processing, cross-modal fusion, ensemble management
 
-**📚 Detailed Documentation**: [OpenClaw Agent Capabilities](docs/openclaw/OPENCLAW_AGENT_CAPABILITIES_ADVANCED.md)
+**📚 Detailed Documentation**: [hermes Agent Capabilities](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)
 
 ---
 
@@ -585,7 +585,7 @@ git push origin feature/amazing-feature
 
 ### **🏆 Major Achievements:**
 - **🎓 Advanced AI Teaching Plan**: 100% complete (3 phases, 6 sessions)
-- **🤖 OpenClaw Agent Mastery**: Advanced AI specialists with real-world capabilities
+- **🤖 hermes Agent Mastery**: Advanced AI specialists with real-world capabilities
 - **📚 Perfect Documentation**: 10/10 quality score achieved
 - **🚀 Production Ready**: Fully operational blockchain infrastructure
 - **⚡ Advanced AI Operations**: Complex workflow orchestration, multi-model pipelines, resource optimization
@@ -620,7 +620,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ### **📚 Getting Help:**
 - **📖 [Documentation](docs/README.md)** - Comprehensive guides
-- **🤖 [OpenClaw Agent Documentation](docs/openclaw/OPENCLAW_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agent capabilities
+- **🤖 [hermes Agent Documentation](docs/hermes/hermes_AGENT_CAPABILITIES_ADVANCED.md)** - Advanced AI agent capabilities
 - **💬 [Discord](https://discord.gg/aitbc)** - Community support
 - **🐛 [Issues](https://github.com/oib/AITBC/issues)** - Report bugs
 - **💡 [Discussions](https://github.com/oib/AITBC/discussions)** - Feature requests

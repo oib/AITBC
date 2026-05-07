@@ -208,15 +208,15 @@ The coordinator-api has approximately 60+ routers covering various domains. This
 **Purpose:** Analytics operations
 **Status:** MIGRATION PENDING - Should be migrated to Analytics Service
 
-## OpenClaw Routers
+## hermes Routers
 
-### OpenClaw Enhanced (`openclaw_enhanced.py`)
-**Purpose:** OpenClaw operations
-**Status:** MIGRATION PENDING - Should be migrated to OpenClaw Service
+### hermes Enhanced (`hermes_enhanced.py`)
+**Purpose:** hermes operations
+**Status:** MIGRATION PENDING - Should be migrated to hermes Service
 
-### OpenClaw Enhanced Simple (`openclaw_enhanced_simple.py`)
-**Purpose:** Simplified OpenClaw operations
-**Status:** MIGRATION PENDING - Should be migrated to OpenClaw Service
+### hermes Enhanced Simple (`hermes_enhanced_simple.py`)
+**Purpose:** Simplified hermes operations
+**Status:** MIGRATION PENDING - Should be migrated to hermes Service
 
 ## Multimodal Routers
 
@@ -315,7 +315,7 @@ The coordinator-api has approximately 60+ routers covering various domains. This
 6. **Trading/Exchange** - Important for marketplace liquidity
 
 ### Low Priority (Specialized Features)
-7. **OpenClaw Routers** - Specialized feature
+7. **hermes Routers** - Specialized feature
 8. **Multimodal Routers** - Specialized AI features
 9. **Developer Platform** - Developer-facing features
 
@@ -331,7 +331,7 @@ Based on the router analysis, the following microservices should be created:
 6. **Blockchain Service** - Blockchain, Cross-chain integration
 7. **Developer Service** - Developer platform, Registry, Certification
 8. **Monitoring Service** - Monitoring dashboard, Analytics, Ecosystem dashboard
-9. **OpenClaw Service** - All OpenClaw operations
+9. **hermes Service** - All hermes operations
 10. **Admin Service** - Admin, Users
 11. **Community Service** - Community, Partners
 12. **Security Service** - Confidential operations

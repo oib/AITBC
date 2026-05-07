@@ -1,28 +1,28 @@
-# OpenClaw Service
+# hermes Service
 
 **Level**: Advanced<br>
-**Prerequisites**: Familiarity with OpenClaw agent framework<br>
+**Prerequisites**: Familiarity with hermes agent framework<br>
 **Estimated Time**: 15 minutes<br>
 **Last Updated**: 2026-05-03<br>
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
-**🏠 [Documentation Home](../../README.md)** → **📦 Apps** → **🧩 OpenClaw** → *You are here*
+**🏠 [Documentation Home](../../README.md)** → **📦 Apps** → **🧩 hermes** → *You are here*
 
-**breadcrumb**: Home → Apps → OpenClaw → OpenClaw Service
+**breadcrumb**: Home → Apps → hermes → hermes Service
 
 ---
 
 ## 🎯 **See Also:**
 - **📖 [About Documentation](../../about/README.md)** - Template standard and audit checklist
 - **🧭 [Master Index](../../MASTER_INDEX.md)** - Full documentation catalog
-- **🧩 [OpenClaw Documentation](../openclaw/README.md)** - OpenClaw framework overview
+- **🧩 [hermes Documentation](../hermes/README.md)** - hermes framework overview
 
 ---
 
 ## Overview
 
-The OpenClaw Service provides the backend infrastructure for autonomous AI agents in the AITBC ecosystem. It enables agents to communicate, coordinate, and execute tasks across the blockchain network.
+The hermes Service provides the backend infrastructure for autonomous AI agents in the AITBC ecosystem. It enables agents to communicate, coordinate, and execute tasks across the blockchain network.
 
 ## Features
 
@@ -35,7 +35,7 @@ The OpenClaw Service provides the backend infrastructure for autonomous AI agent
 
 ## Architecture
 
-The OpenClaw Service consists of:
+The hermes Service consists of:
 
 - **Agent Registry**: Tracks registered agents and their capabilities
 - **Communication Layer**: Handles inter-agent messaging
@@ -48,7 +48,7 @@ The OpenClaw Service consists of:
 
 ```bash
 cd /opt/aitbc
-poetry install --with openclaw-service
+poetry install --with hermes-service
 ```
 
 ## Configuration
@@ -57,7 +57,7 @@ Configuration is managed through environment variables:
 
 ```bash
 # Agent Registry
-OPENCLAW_REGISTRY_URL=http://localhost:9001
+hermes_REGISTRY_URL=http://localhost:9001
 
 # Blockchain RPC
 BLOCKCHAIN_RPC_URL=http://localhost:8006
@@ -73,14 +73,14 @@ WALLET_KEYSTORE_PATH=/var/lib/aitbc/keystores
 
 ### Development
 ```bash
-cd apps/openclaw-service
-python -m openclaw_service.main
+cd apps/hermes-service
+python -m hermes_service.main
 ```
 
 ### Production (systemd)
 ```bash
-sudo systemctl start openclaw-service
-sudo systemctl enable openclaw-service
+sudo systemctl start hermes-service
+sudo systemctl enable hermes-service
 ```
 
 ## Endpoints
@@ -178,7 +178,7 @@ curl http://localhost:9001/agents/{agent_id}/tasks
 
 ## Related Documentation
 
-- [OpenClaw Agent SDK](../../agent-sdk/AGENT_SDK_OVERVIEW.md)
+- [hermes Agent SDK](../../agent-sdk/AGENT_SDK_OVERVIEW.md)
 - [Agent Scenarios](../../scenarios/README.md)
 - [Agent Coordinator](../agent-coordinator/agent-coordinator.md)
 
@@ -187,4 +187,4 @@ curl http://localhost:9001/agents/{agent_id}/tasks
 *Last updated: 2026-05-03*<br>
 *Version: 1.0*<br>
 *Status: Active service*<br>
-*Tags: openclaw, agents, autonomous, ai*
+*Tags: hermes, agents, autonomous, ai*

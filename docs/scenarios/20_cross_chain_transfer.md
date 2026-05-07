@@ -1,4 +1,4 @@
-# Cross-Chain Transfer for OpenClaw Agents
+# Cross-Chain Transfer for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Transaction Sending (Scenario 02), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents transfer assets across different AITBC chains using cross-chain bridges for multi-chain operations.
+This scenario demonstrates how hermes agents transfer assets across different AITBC chains using cross-chain bridges for multi-chain operations.
 
 ### **Use Case**
-An OpenClaw agent needs cross-chain transfers to:
+An hermes agent needs cross-chain transfers to:
 - Move assets between testnet and mainnet
 - Transfer tokens across federated islands
 - Enable multi-chain liquidity

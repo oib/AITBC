@@ -1,5 +1,5 @@
 """
-Bid Strategy Engine for OpenClaw Autonomous Economics
+Bid Strategy Engine for hermes Autonomous Economics
 Implements intelligent bidding algorithms for GPU rental negotiations
 """
 

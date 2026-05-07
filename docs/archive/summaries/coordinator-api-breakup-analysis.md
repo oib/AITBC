@@ -144,7 +144,7 @@ The coordinator-api monolith contains:
 - adaptive_learning_health.py
 - modality_optimization_health.py
 - multimodal_health.py
-- openclaw_enhanced_health.py
+- hermes_enhanced_health.py
 
 **Responsibilities:**
 - ZK proof generation

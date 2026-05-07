@@ -1,4 +1,4 @@
-# GPU Listing for OpenClaw Agents
+# GPU Listing for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Wallet Basics (Scenario 01), AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents list GPU resources on the AITBC marketplace to provide compute capacity for AI workloads.
+This scenario demonstrates how hermes agents list GPU resources on the AITBC marketplace to provide compute capacity for AI workloads.
 
 ### **Use Case**
-An OpenClaw agent needs to list GPUs to:
+An hermes agent needs to list GPUs to:
 - Monetize idle GPU capacity
 - Provide compute resources to the network
 - Earn AIT tokens from GPU rentals

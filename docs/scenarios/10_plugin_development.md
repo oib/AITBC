@@ -1,4 +1,4 @@
-# Plugin Development for OpenClaw Agents
+# Plugin Development for hermes Agents
 
 **Level**: Beginner  
 **Prerequisites**: Python development experience, AITBC CLI installed  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents develop and deploy custom plugins to extend AITBC functionality, such as Ollama integration, IPFS services, or custom server services.
+This scenario demonstrates how hermes agents develop and deploy custom plugins to extend AITBC functionality, such as Ollama integration, IPFS services, or custom server services.
 
 ### **Use Case**
-An OpenClaw agent needs plugin development to:
+An hermes agent needs plugin development to:
 - Integrate external AI services (e.g., Ollama)
 - Add custom storage solutions
 - Implement specialized compute services

@@ -1,4 +1,4 @@
-"""Coordinator API action handler for triggering OpenClaw agent actions."""
+"""Coordinator API action handler for triggering hermes agent actions."""
 
 from typing import Any, Dict, List, Optional
 from aitbc.http_client import AsyncAITBCHTTPClient

@@ -1,7 +1,7 @@
 from typing import Annotated
 
 """
-OpenClaw Enhanced Service Health Check Router
+hermes Enhanced Service Health Check Router
 Provides health monitoring for agent orchestration, edge computing, and ecosystem development
 """
 
@@ -15,21 +15,21 @@ from sqlalchemy.orm import Session
 
 from aitbc import get_logger
 
-from ..services.openclaw_enhanced import OpenClawEnhancedService
+from ..services.hermes_enhanced import hermesEnhancedService
 from ..storage import get_session
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 
-@router.get("/health", tags=["health"], summary="OpenClaw Enhanced Service Health")
-async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@router.get("/health", tags=["health"], summary="hermes Enhanced Service Health")
+async def hermes_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
-    Health check for OpenClaw Enhanced Service (Port 8007)
+    Health check for hermes Enhanced Service (Port 8007)
     """
     try:
         # Initialize service
-        OpenClawEnhancedService(session)
+        hermesEnhancedService(session)
 
         # Check system resources
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -41,7 +41,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
 
         service_status = {
             "status": "healthy" if edge_status["available"] else "degraded",
-            "service": "openclaw-enhanced",
+            "service": "hermes-enhanced",
             "port": 8007,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
@@ -55,7 +55,7 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
             },
             # Edge computing status
             "edge_computing": edge_status,
-            # OpenClaw capabilities
+            # hermes capabilities
             "capabilities": {
                 "agent_orchestration": True,
                 "edge_deployment": True,
@@ -86,29 +86,29 @@ async def openclaw_enhanced_health(session: Annotated[Session, Depends(get_sessi
             },
         }
 
-        logger.info("OpenClaw Enhanced Service health check completed successfully")
+        logger.info("hermes Enhanced Service health check completed successfully")
         return service_status
 
     except Exception as e:
-        logger.error(f"OpenClaw Enhanced Service health check failed: {e}")
+        logger.error(f"hermes Enhanced Service health check failed: {e}")
         return {
             "status": "unhealthy",
-            "service": "openclaw-enhanced",
+            "service": "hermes-enhanced",
             "port": 8007,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Health check failed",
         }
 
 
-@router.get("/health/deep", tags=["health"], summary="Deep OpenClaw Enhanced Service Health")
-async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@router.get("/health/deep", tags=["health"], summary="Deep hermes Enhanced Service Health")
+async def hermes_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
-    Deep health check with OpenClaw ecosystem validation
+    Deep health check with hermes ecosystem validation
     """
     try:
-        OpenClawEnhancedService(session)
+        hermesEnhancedService(session)
 
-        # Test each OpenClaw feature
+        # Test each hermes feature
         feature_tests = {}
 
         # Test agent orchestration
@@ -160,7 +160,7 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
 
         return {
             "status": "healthy" if edge_status["available"] else "degraded",
-            "service": "openclaw-enhanced",
+            "service": "hermes-enhanced",
             "port": 8007,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "feature_tests": feature_tests,
@@ -173,10 +173,10 @@ async def openclaw_enhanced_deep_health(session: Annotated[Session, Depends(get_
         }
 
     except Exception as e:
-        logger.error(f"Deep OpenClaw Enhanced health check failed: {e}")
+        logger.error(f"Deep hermes Enhanced health check failed: {e}")
         return {
             "status": "unhealthy",
-            "service": "openclaw-enhanced",
+            "service": "hermes-enhanced",
             "port": 8007,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "error": "Deep health check failed",

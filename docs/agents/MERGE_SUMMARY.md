@@ -46,7 +46,7 @@ docs/11_agents/
 ├── project-structure.md         # Architecture overview
 ├── advanced-ai-agents.md        # Multi-modal and adaptive agents
 ├── collaborative-agents.md       # Agent networks and learning
-├── openclaw-integration.md      # Edge deployment guide
+├── hermes-integration.md      # Edge deployment guide
 ├── development/
 │   └── contributing.md          # GitHub contribution workflow
 └── swarm/

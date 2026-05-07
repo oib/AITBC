@@ -25,7 +25,7 @@ The AITBC CLI provides 27 commands for comprehensive blockchain management:
 - `ai-ops` - AI compute operations
 - `mining` - Mining operations and status
 - `agent` - AI agent workflow and execution management
-- `openclaw` - OpenClaw agent ecosystem operations
+- `hermes` - Hermes agent ecosystem operations
 - `workflow` - Workflow automation and management
 - `resource` - Resource management and optimization
 - `system` - System status and information
@@ -52,8 +52,8 @@ aitbc list
 **Output:**
 ```
 Wallets:
-  openclaw-backup: ait1cebd266469be5f85b5f0052f1556b5d708b42de9
-  openclaw-trainee: ait10a252a31c79939c689bf392e960afc7861df5ee9
+  hermes-backup: ait1cebd266469be5f85b5f0052f1556b5d708b42de9
+  hermes-trainee: ait10a252a31c79939c689bf392e960afc7861df5ee9
 ```
 
 ### 2. Get Balance
@@ -66,12 +66,12 @@ aitbc balance --name <wallet-name>
 **Examples:**
 ```bash
 # Get balance for specific wallet
-aitbc balance --name openclaw-backup
+aitbc balance --name hermes-backup
 ```
 
 **Output:**
 ```
-Wallet: openclaw-backup
+Wallet: hermes-backup
 Address: ait1cebd266469be5f85b5f0052f1556b5d708b42de9
 Balance: 0 AIT
 Nonce: 0

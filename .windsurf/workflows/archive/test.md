@@ -16,7 +16,7 @@ See **[TEST_MASTER_INDEX.md](TEST_MASTER_INDEX.md)** for complete navigation to 
 ### New Test Modules Available
 
 1. **[Basic Testing Module](test-basic.md)** - CLI and core operations testing
-2. **[OpenClaw Agent Testing](test-openclaw-agents.md)** - Agent functionality and coordination
+2. **[hermes Agent Testing](test-hermes-agents.md)** - Agent functionality and coordination
 3. **[AI Operations Testing](test-ai-operations.md)** - AI job submission and processing
 4. **[Advanced AI Testing](test-advanced-ai.md)** - Complex AI workflows and multi-model pipelines
 5. **[Cross-Node Testing](test-cross-node.md)** - Multi-node coordination and distributed operations
@@ -57,11 +57,11 @@ source venv/bin/activate
 ./aitbc-cli resource status
 ```
 
-### Run OpenClaw Agent Tests
+### Run hermes Agent Tests
 ```bash
-# Reference: test-openclaw-agents.md
-openclaw agent --agent GenesisAgent --session-id test --message "Test message" --thinking low
-openclaw agent --agent FollowerAgent --session-id test --message "Test response" --thinking low
+# Reference: test-hermes-agents.md
+hermes agent --agent GenesisAgent --session-id test --message "Test message" --thinking low
+hermes agent --agent FollowerAgent --session-id test --message "Test response" --thinking low
 ```
 
 ### Run AI Operations Tests
@@ -82,7 +82,7 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'
 
 ### Phase 1: Basic Validation
 1. **[Basic Testing Module](test-basic.md)** - Verify core functionality
-2. **[OpenClaw Agent Testing](test-openclaw-agents.md)** - Validate agent operations
+2. **[hermes Agent Testing](test-hermes-agents.md)** - Validate agent operations
 3. **[AI Operations Testing](test-ai-operations.md)** - Confirm AI job processing
 
 ### Phase 2: Advanced Validation
@@ -98,12 +98,12 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'
 | Module | Focus | Prerequisites | Quick Command |
 |--------|-------|---------------|---------------|
 | **[Basic](test-basic.md)** | CLI & Core Ops | None | `./aitbc-cli --version` |
-| **[OpenClaw](test-openclaw-agents.md)** | Agent Testing | Basic | `openclaw agent --agent GenesisAgent --session-id test --message "test"` |
+| **[hermes](test-hermes-agents.md)** | Agent Testing | Basic | `hermes agent --agent GenesisAgent --session-id test --message "test"` |
 | **[AI Ops](test-ai-operations.md)** | AI Jobs | Basic | `./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "test" --payment 100` |
 | **[Advanced AI](test-advanced-ai.md)** | Complex AI | AI Ops | `./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "complex test" --payment 500` |
 | **[Cross-Node](test-cross-node.md)** | Multi-Node | AI Ops | `ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'` |
 | **[Performance](test-performance.md)** | Performance | All | `./aitbc-cli simulate blockchain --blocks 100 --transactions 1000` |
-| **[Integration](test-integration.md)** | End-to-End | All | `./scripts/workflow-openclaw/06_advanced_ai_workflow_openclaw.sh` |
+| **[Integration](test-integration.md)** | End-to-End | All | `./scripts/workflow-hermes/06_advanced_ai_workflow_hermes.sh` |
 
 ## 🎯 Migration Guide
 
@@ -128,7 +128,7 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli resource status'
 
 #### **For New Deployments**
 1. Start with **[Basic Testing Module](test-basic.md)**
-2. Add **[OpenClaw Agent Testing](test-openclaw-agents.md)**
+2. Add **[hermes Agent Testing](test-hermes-agents.md)**
 3. Include **[AI Operations Testing](test-ai-operations.md)**
 4. Add advanced modules as needed
 
@@ -163,22 +163,22 @@ python run_cli_tests.py
 python -m pytest cli/tests/test_marketplace.py -v
 ```
 
-### 2. Run OpenClaw Agent Tests
+### 2. Run hermes Agent Tests
 ```bash
-# Test OpenClaw gateway status
-openclaw status --agent all
+# Test hermes gateway status
+hermes status --agent all
 
 # Test basic agent communication
-openclaw agent --agent main --message "Test communication" --thinking minimal
+hermes agent --agent main --message "Test communication" --thinking minimal
 
 # Test session-based workflow
 SESSION_ID="test-$(date +%s)"
-openclaw agent --agent main --session-id $SESSION_ID --message "Initialize test session" --thinking low
-openclaw agent --agent main --session-id $SESSION_ID --message "Continue test session" --thinking medium
+hermes agent --agent main --session-id $SESSION_ID --message "Initialize test session" --thinking low
+hermes agent --agent main --session-id $SESSION_ID --message "Continue test session" --thinking medium
 
 # Test multi-agent coordination
-openclaw agent --agent coordinator --message "Test coordination" --thinking high &
-openclaw agent --agent worker --message "Test worker response" --thinking medium &
+hermes agent --agent coordinator --message "Test coordination" --thinking high &
+hermes agent --agent worker --message "Test worker response" --thinking medium &
 wait
 ```
 
@@ -234,7 +234,7 @@ ssh aitbc1 'curl -s http://localhost:8006/health | jq .'
 ```bash
 # Test complex AI pipeline
 SESSION_ID="advanced-test-$(date +%s)"
-openclaw agent --agent main --session-id $SESSION_ID --message "Design complex AI pipeline for testing" --thinking high
+hermes agent --agent main --session-id $SESSION_ID --message "Design complex AI pipeline for testing" --thinking high
 
 # Test parallel AI operations
 ./aitbc-cli ai-submit --wallet genesis-ops --type parallel --prompt "Parallel AI test" --payment 100
@@ -435,9 +435,9 @@ netstat -tlnp | grep -E "(8000|8001|8006|11434)"
 ./aitbc-cli wallet list
 ./aitbc-cli chain
 
-# Check OpenClaw functionality
-openclaw --version
-openclaw status --agent all
+# Check hermes functionality
+hermes --version
+hermes status --agent all
 
 # Check AI operations
 ./aitbc-cli ai-ops --action status --job-id "latest"
@@ -448,25 +448,25 @@ curl -s http://localhost:8006/health | jq .
 ssh aitbc1 'curl -s http://localhost:8006/health | jq .'
 ```
 
-### 13. OpenClaw Agent Debugging
+### 13. hermes Agent Debugging
 ```bash
-# Test OpenClaw gateway connectivity
-openclaw status --agent all
+# Test hermes gateway connectivity
+hermes status --agent all
 
 # Debug agent communication
-openclaw agent --agent main --message "Debug test" --thinking high
+hermes agent --agent main --message "Debug test" --thinking high
 
 # Test session management
 SESSION_ID="debug-$(date +%s)"
-openclaw agent --agent main --session-id $SESSION_ID --message "Session debug test" --thinking medium
+hermes agent --agent main --session-id $SESSION_ID --message "Session debug test" --thinking medium
 
 # Test multi-agent coordination
-openclaw agent --agent coordinator --message "Debug coordination test" --thinking high &
-openclaw agent --agent worker --message "Debug worker response" --thinking medium &
+hermes agent --agent coordinator --message "Debug coordination test" --thinking high &
+hermes agent --agent worker --message "Debug worker response" --thinking medium &
 wait
 
 # Check agent workspace
-openclaw workspace --status
+hermes workspace --status
 ```
 
 ### 14. AI Operations Debugging
@@ -500,8 +500,8 @@ ab -n 100 -c 10 http://localhost:8000/health
 # Test blockchain RPC performance
 time curl -s http://localhost:8006/rpc/head | python3 -m json.tool
 
-# Test OpenClaw agent performance
-time openclaw agent --agent main --message "Performance test" --thinking high
+# Test hermes agent performance
+time hermes agent --agent main --message "Performance test" --thinking high
 
 # Test AI operations performance
 time ./aitbc-cli ai-submit --wallet genesis-ops --type inference --prompt "Performance test" --payment 10
@@ -644,7 +644,7 @@ python -m pytest cli/tests/test_cli_basic.py -v
 ## Recent Updates (v3.0)
 
 ### New Testing Capabilities
-- **OpenClaw Agent Testing**: Added comprehensive agent communication and coordination tests
+- **hermes Agent Testing**: Added comprehensive agent communication and coordination tests
 - **AI Operations Testing**: Added AI job submission, resource allocation, and marketplace testing
 - **Modular Workflow Testing**: Added testing for all 6 modular workflow components
 - **Advanced AI Operations**: Added testing for complex AI pipelines and cross-node coordination
@@ -654,14 +654,14 @@ python -m pytest cli/tests/test_cli_basic.py -v
 - **Multi-Agent Workflows**: Session-based agent coordination testing
 - **AI Pipeline Testing**: Complex AI workflow orchestration testing
 - **Distributed Testing**: Cross-node blockchain and AI operations testing
-- **Performance Testing**: Added OpenClaw and AI operations performance benchmarks
+- **Performance Testing**: Added hermes and AI operations performance benchmarks
 - **Debugging Tools**: Enhanced troubleshooting for agent and AI operations
 
 ### Updated Project Structure
 - **Working Directory**: `/opt/aitbc`
 - **Virtual Environment**: `/opt/aitbc/venv`
 - **CLI Wrapper**: `./aitbc-cli`
-- **OpenClaw Integration**: OpenClaw 2026.3.24+ gateway and agents
+- **hermes Integration**: hermes 2026.3.24+ gateway and agents
 - **Modular Workflows**: 6 focused workflow modules
 - **Test Structure**: Updated to include agent and AI testing
 
@@ -670,7 +670,7 @@ python -m pytest cli/tests/test_cli_basic.py -v
 - **Exchange API**: Port 8001
 - **Blockchain RPC**: Port 8006
 - **Ollama**: Port 11434 (GPU operations)
-- **OpenClaw Gateway**: Default port (configured in OpenClaw)
+- **hermes Gateway**: Default port (configured in hermes)
 
 ### Enhanced Testing Features
 - **Agent Testing**: Multi-agent communication and coordination
@@ -682,7 +682,7 @@ python -m pytest cli/tests/test_cli_basic.py -v
 
 ### Current Commands
 - **CLI Commands**: Updated to use actual CLI implementation
-- **OpenClaw Commands**: Agent communication and coordination
+- **hermes Commands**: Agent communication and coordination
 - **AI Operations**: Job submission, monitoring, marketplace
 - **Service Management**: Updated to current systemd services
 - **Modular Workflows**: Testing for all workflow modules

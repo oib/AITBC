@@ -1,4 +1,4 @@
-# OpenClaw AITBC Workflow Templates
+# hermes AITBC Workflow Templates
 
 > **Canonical validation**: For end-to-end node coverage, use [`docs/scenarios/VALIDATION.md`](../../docs/scenarios/VALIDATION.md) and `scripts/workflow/44_comprehensive_multi_node_scenario.sh`.
 
@@ -262,7 +262,7 @@ success_criteria:
 ## Agent Training and Learning Workflow
 ```yaml
 name: agent-learning
-description: Continuous learning and improvement for OpenClaw agents
+description: Continuous learning and improvement for hermes agents
 version: 1.0.0
 schedule: "0 2 * * *"  # Daily at 2 AM
 steps:

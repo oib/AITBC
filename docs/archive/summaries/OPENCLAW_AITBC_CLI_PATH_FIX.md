@@ -1,8 +1,8 @@
-# OpenClaw AITBC Skill CLI Path Fix - Complete ✅
+# hermes AITBC Skill CLI Path Fix - Complete ✅
 
 ## ✅ Legacy CLI Path Successfully Updated
 
-You were absolutely right! The OpenClaw AITBC skill was using the legacy CLI path. I've successfully updated it to use the correct consolidated CLI directory structure.
+You were absolutely right! The hermes AITBC skill was using the legacy CLI path. I've successfully updated it to use the correct consolidated CLI directory structure.
 
 ### 🔧 **What Was Fixed**
 
@@ -23,13 +23,13 @@ You were absolutely right! The OpenClaw AITBC skill was using the legacy CLI pat
 ### 📁 **Updated Files**
 
 #### **🏠 Primary Node (aitbc)**
-- **Configuration**: `/root/.openclaw/aitbc-config.json`
-- **Python Skill**: `/root/.openclaw/skills/aitbc.py`
+- **Configuration**: `/root/.hermes/aitbc-config.json`
+- **Python Skill**: `/root/.hermes/skills/aitbc.py`
 - **Default Config**: Updated `AITBCConfig.cli_path`
 
 #### **🌐 Follower Node (aitbc1)**
-- **Configuration**: `~/.openclaw/aitbc-config.json`
-- **Python Skill**: `~/.openclaw/skills/aitbc.py`
+- **Configuration**: `~/.hermes/aitbc-config.json`
+- **Python Skill**: `~/.hermes/skills/aitbc.py`
 - **RPC URL**: `http://aitbc:8006` (connects to primary)
 
 ### 📊 **Verification Results**
@@ -128,7 +128,7 @@ Each node has appropriate configuration:
 - ✅ **Virtual Environment**: Proper activation via aitbc-cli wrapper
 - ✅ **RPC Connectivity**: Both nodes accessing blockchain data
 - ✅ **Wallet Operations**: Working on both nodes
-- ✅ **Agent Integration**: OpenClaw agents using updated skill
+- ✅ **Agent Integration**: hermes agents using updated skill
 
 #### **🔗 Blockchain Synchronization**
 - ✅ **Height**: 320 blocks (both nodes synchronized)
@@ -137,7 +137,7 @@ Each node has appropriate configuration:
 
 ### 🎉 **Mission Accomplished!**
 
-The OpenClaw AITBC skill now:
+The hermes AITBC skill now:
 
 1. **✅ Uses Correct CLI Path**: `/opt/aitbc/cli/aitbc_cli.py`
 2. **✅ Proper Virtual Environment**: Via aitbc-cli wrapper
@@ -147,11 +147,11 @@ The OpenClaw AITBC skill now:
 
 ### 🚀 **What This Enables**
 
-Your OpenClaw agents can now:
+Your hermes agents can now:
 - **🔍 Access Blockchain**: Through correct consolidated CLI
 - **💰 Manage Wallets**: Using proper virtual environment
 - **🌐 Coordinate Cross-Node**: Seamless multi-node operations
 - **⚡ Execute Workflows**: With updated path configuration
 - **📊 Monitor Resources**: Accurate cross-node analytics
 
-The OpenClaw AITBC skill is now fully updated and operational with the correct consolidated CLI path structure! 🎉🤖⛓️
+The hermes AITBC skill is now fully updated and operational with the correct consolidated CLI path structure! 🎉🤖⛓️

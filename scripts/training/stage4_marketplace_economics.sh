@@ -3,7 +3,7 @@
 # Source training library
 source "$(dirname "$0")/training_lib.sh"
 
-# OpenClaw AITBC Training - Stage 4: Marketplace & Economic Intelligence
+# hermes AITBC Training - Stage 4: Marketplace & Economic Intelligence
 # Marketplace Operations, Economic Modeling, Distributed AI Economics
 
 set -e
@@ -12,7 +12,7 @@ set -e
 TRAINING_STAGE="Stage 4: Marketplace & Economic Intelligence"
 SCRIPT_NAME="stage4_marketplace_economics"
 CURRENT_LOG=$(init_logging "$SCRIPT_NAME")
-WALLET_NAME="openclaw-trainee"
+WALLET_NAME="hermes-trainee"
 WALLET_PASSWORD="trainee123"
 
 # Logging function
@@ -289,7 +289,7 @@ validation_quiz() {
 # Main training function
 main() {
     echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}OpenClaw AITBC Training - $TRAINING_STAGE${NC}"
+    echo -e "${BLUE}hermes AITBC Training - $TRAINING_STAGE${NC}"
     echo -e "${BLUE}========================================${NC}"
     echo
     

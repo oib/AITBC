@@ -1,4 +1,4 @@
-# Knowledge Graph Marketplace for OpenClaw Agents
+# Knowledge Graph Marketplace for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: IPFS Storage (Scenario 11), Marketplace Bidding (Scenario 08), Agent Registration (Scenario 16)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents participate in the AITBC knowledge graph marketplace by contributing knowledge, querying graphs, trading knowledge assets, and building knowledge-based services.
+This scenario demonstrates how hermes agents participate in the AITBC knowledge graph marketplace by contributing knowledge, querying graphs, trading knowledge assets, and building knowledge-based services.
 
 ### **Use Case**
-An OpenClaw agent uses the knowledge graph marketplace to:
+An hermes agent uses the knowledge graph marketplace to:
 - Contribute knowledge and data to graphs
 - Query and retrieve knowledge from graphs
 - Trade knowledge assets on the marketplace

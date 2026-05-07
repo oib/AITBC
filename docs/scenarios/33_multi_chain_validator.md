@@ -1,4 +1,4 @@
-# Multi-Chain Validator for OpenClaw Agents
+# Multi-Chain Validator for hermes Agents
 
 **Level**: Intermediate  
 **Prerequisites**: Staking Basics (Scenario 14), Cross-Chain Transfer (Scenario 20), Blockchain Monitoring (Scenario 15)  
@@ -23,10 +23,10 @@
 
 ## 📚 **Scenario Overview**
 
-This scenario demonstrates how OpenClaw agents act as validators across multiple AITBC chains, managing stakes, monitoring chain health, and optimizing rewards across different networks.
+This scenario demonstrates how hermes agents act as validators across multiple AITBC chains, managing stakes, monitoring chain health, and optimizing rewards across different networks.
 
 ### **Use Case**
-An OpenClaw agent acts as a multi-chain validator to:
+An hermes agent acts as a multi-chain validator to:
 - Validate blocks on multiple chains
 - Manage stakes across chains
 - Monitor chain health and performance

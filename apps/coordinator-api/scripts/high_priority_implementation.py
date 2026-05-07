@@ -1,6 +1,6 @@
 """
 High Priority Implementation - Phase 6.5 & 6.6
-On-Chain Model Marketplace Enhancement and OpenClaw Integration Enhancement
+On-Chain Model Marketplace Enhancement and hermes Integration Enhancement
 """
 
 import asyncio
@@ -71,7 +71,7 @@ class HighPriorityImplementation:
                 implementation_result["errors"].append(f"Phase 6.5 task {task} failed: {e}")
                 logger.error(f"❌ Failed Phase 6.5 task {task}: {e}")
         
-        # Implement Phase 6.6: OpenClaw Enhancement
+        # Implement Phase 6.6: hermes Enhancement
         for task in self.phase6_6_tasks:
             try:
                 task_result = await self._implement_phase6_6_task(task)
@@ -347,7 +347,7 @@ class HighPriorityImplementation:
         }
     
     async def _implement_opencaw_ecosystem_development(self) -> Dict[str, Any]:
-        """Implement OpenClaw ecosystem development"""
+        """Implement hermes ecosystem development"""
         
         return {
             "developer_tools": {
@@ -377,7 +377,7 @@ class HighPriorityImplementation:
         }
     
     async def _implement_opencaw_partnership_programs(self) -> Dict[str, Any]:
-        """Implement OpenClaw partnership programs"""
+        """Implement hermes partnership programs"""
         
         return {
             "technology_integration": {
@@ -768,7 +768,7 @@ async def main():
     print("=" * 60)
     print(f"✅ Implementation Status: {result['implementation_status']}")
     print(f"✅ Phase 6.5: Marketplace Enhancement Complete")
-    print(f"✅ Phase 6.6: OpenClaw Enhancement Complete")
+    print(f"✅ Phase 6.6: hermes Enhancement Complete")
     print(f"✅ High Priority Features: {len(result['features_implemented'])} implemented")
     print(f"✅ Ready for: Production deployment and user adoption")
     

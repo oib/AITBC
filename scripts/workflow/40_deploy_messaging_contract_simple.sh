@@ -25,4 +25,4 @@ echo "Deployer: $DEPLOYER_ADDRESS"
 
 echo ""
 echo "✅ MESSAGING CONTRACT: DEPLOYMENT COMPLETE"
-echo "📋 OpenClaw agents can now communicate over the blockchain!"
+echo "📋 Hermes agents can now communicate over the blockchain!"

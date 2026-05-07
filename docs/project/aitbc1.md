@@ -223,7 +223,7 @@ Enhanced Services (8010-8017) ⚠️ MIXED STATUS:
 - Modality Optimization: 8012 ❌ Not shown in status
 - Adaptive Learning: 8013 ❌ Not shown in status
 - Marketplace Enhanced: 8014 ✅ Active (365.3M memory)
-- OpenClaw Enhanced: 8015 ❌ Not shown in status
+- Hermes Enhanced: 8015 ❌ Not shown in status
 - Web UI/Explorer: 8016 ❌ Not shown in status (but explorer service is running)
 - Geographic Load Balancer: 8017 ✅ Active (23.7M memory)
 
@@ -295,7 +295,7 @@ upstream aitbc_backend {
     server 10.1.223.1:8012;  # Modality Optimization (aitbc secondary)
     server 10.1.223.1:8013;  # Adaptive Learning (aitbc secondary)
     server 10.1.223.1:8014;  # Marketplace Enhanced (aitbc secondary)
-    server 10.1.223.1:8015;  # OpenClaw Enhanced (aitbc secondary)
+    server 10.1.223.1:8015;  # Hermes Enhanced (aitbc secondary)
     server 10.1.223.1:8016;  # Web UI (aitbc secondary)
     server 10.1.223.1:8017;  # Geographic Load Balancer (aitbc secondary)
 }
