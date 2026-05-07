@@ -3,7 +3,24 @@
   "agent_type": "coordinator",
   "difficulty": "intermediate",
   "estimated_time_minutes": 60,
+  "skill_level": "practitioner",
   "depends_on": ["stage2_operations_mastery"],
+  "skills": [
+    "ai_job_submission",
+    "task_management",
+    "result_retrieval",
+    "agent_coordination",
+    "distributed_training",
+    "fine_tuning"
+  ],
+  "objectives": [
+    "Submit AI compute jobs",
+    "Monitor job status and progress",
+    "Retrieve job results",
+    "Coordinate with agent coordinator",
+    "Perform distributed AI training",
+    "Fine-tune AI models"
+  ],
   "scenarios": [
     "07_ai_job_submission.md",
     "22_ai_training_agent.md",

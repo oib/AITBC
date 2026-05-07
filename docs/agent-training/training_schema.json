@@ -48,6 +48,21 @@
       "type": "number",
       "description": "Estimated time to complete this stage in minutes"
     },
+    "skills": {
+      "type": "array",
+      "description": "Skills taught in this stage",
+      "items": {"type": "string"}
+    },
+    "skill_level": {
+      "type": "string",
+      "description": "Skill level achieved after completing this stage",
+      "enum": ["novice", "apprentice", "practitioner", "expert", "master"]
+    },
+    "objectives": {
+      "type": "array",
+      "description": "Learning objectives for this stage",
+      "items": {"type": "string"}
+    },
     "training_data": {
       "type": "object",
       "required": ["operations"],
@@ -282,6 +297,28 @@
           "type": "array",
           "items": {"type": "string"},
           "description": "Mock transaction IDs"
+        }
+      }
+    },
+    "certifications": {
+      "type": "array",
+      "description": "Certifications that can be earned by completing this stage",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Certification name"
+          },
+          "required_stages": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Stages required for this certification"
+          },
+          "exam_score": {
+            "type": "number",
+            "description": "Minimum exam score required"
+          }
         }
       }
     }

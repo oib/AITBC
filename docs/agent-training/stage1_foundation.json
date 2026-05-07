@@ -3,7 +3,20 @@
   "agent_type": "general",
   "difficulty": "beginner",
   "estimated_time_minutes": 30,
+  "skill_level": "novice",
   "depends_on": [],
+  "skills": [
+    "wallet_management",
+    "transaction_handling",
+    "blockchain_queries",
+    "service_monitoring"
+  ],
+  "objectives": [
+    "Create and manage wallets",
+    "Send and receive transactions",
+    "Query blockchain state",
+    "Verify service status"
+  ],
   "scenarios": [
     "01_wallet_basics.md",
     "02_transaction_sending.md",
@@ -342,5 +355,12 @@
     "wallets": ["test-wallet-1", "test-wallet-2"],
     "addresses": ["0x1234567890abcdef", "0x0987654321fedcba"],
     "transactions": ["tx_1", "tx_2"]
-  }
+  },
+  "certifications": [
+    {
+      "name": "Foundation Certified",
+      "required_stages": ["stage1_foundation"],
+      "exam_score": 90
+    }
+  ]
 }
