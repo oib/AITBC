@@ -49,8 +49,16 @@ class MessageStorage:
                 await self.redis.sadd(f"messages:receiver:{receiver_id}", message_id)
 
             # Index by timestamp (for time-based queries)
-            timestamp = message_data.get("timestamp", datetime.now(timezone.utc).isoformat())
-            await self.redis.zadd(f"messages:timestamp", {message_id: timestamp})
+            timestamp_str = message_data.get("timestamp", datetime.now(timezone.utc).isoformat())
+            # Convert to float for sorted set
+            try:
+                # Try to parse ISO format
+                dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
+                timestamp_float = dt.timestamp()
+            except:
+                # Already a float or int
+                timestamp_float = float(timestamp_str)
+            await self.redis.zadd(f"messages:timestamp", {message_id: timestamp_float})
 
             logger.debug(f"Stored message {message_id} in Redis")
             return True
@@ -59,6 +67,14 @@ class MessageStorage:
             logger.error(f"Error storing message {message_id}: {e}")
             return False
 
+    async def get_message_count(self) -> int:
+        """Get total count of messages"""
+        try:
+            return await self.redis.zcard("messages:timestamp")
+        except Exception as e:
+            logger.error(f"Error getting message count: {e}")
+            return 0
+    
     async def get_message(self, message_id: str) -> Optional[Dict[str, Any]]:
         """Retrieve a specific message by ID"""
         try:
