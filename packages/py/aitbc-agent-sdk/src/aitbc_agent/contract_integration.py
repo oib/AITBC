@@ -23,6 +23,7 @@ class ContractConfig:
     agent_marketplace: str
     staking_contract: str
     treasury_manager: str
+    cross_chain_atomic_swap: str = ""  # CrossChainAtomicSwap contract
     network: str = "mainnet"
     rpc_url: Optional[str] = None
 
@@ -33,6 +34,7 @@ class ContractConfig:
             payment_processor=getenv(f"{network.upper()}_PAYMENT_PROCESSOR_ADDRESS", ""),
             agent_marketplace=getenv(f"{network.upper()}_AGENT_MARKETPLACE_ADDRESS", ""),
             staking_contract=getenv(f"{network.upper()}_STAKING_CONTRACT_ADDRESS", ""),
+            cross_chain_atomic_swap=getenv(f"{network.upper()}_CROSS_CHAIN_ATOMIC_SWAP_ADDRESS", ""),
             treasury_manager=getenv(f"{network.upper()}_TREASURY_MANAGER_ADDRESS", ""),
             network=network,
             rpc_url=getenv(f"{network.upper()}_RPC_URL", ""),
@@ -71,6 +73,7 @@ class ContractClient:
         payment_processor_abi = self._load_abi("PaymentProcessor")
         agent_marketplace_abi = self._load_abi("AgentMarketplace")
         staking_contract_abi = self._load_abi("StakingContract")
+        atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
 
         if self.config.payment_processor:
             self.contracts["payment_processor"] = self.w3.eth.contract(
@@ -88,6 +91,13 @@ class ContractClient:
             self.contracts["staking_contract"] = self.w3.eth.contract(
                 address=self.config.staking_contract,
                 abi=staking_contract_abi
+            )
+
+        # Load CrossChainAtomicSwap contract
+        if self.config.cross_chain_atomic_swap:
+            self.contracts["cross_chain_atomic_swap"] = self.w3.eth.contract(
+                address=self.config.cross_chain_atomic_swap,
+                abi=atomic_swap_abi
             )
 
         logger.info(f"Loaded {len(self.contracts)} contracts")
