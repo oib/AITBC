@@ -11,6 +11,8 @@ set -e
 # Training configuration
 TRAINING_PROGRAM="hermes AITBC Mastery Training"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
+STAGE_DIR="$BASE_DIR/docs/agent-training"
 WALLET_NAME="hermes-trainee"
 
 # Initialize logging for master launcher
@@ -278,7 +280,7 @@ check_prerequisites() {
     # Run prerequisite validation
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Checking prerequisites for Stage $stage_num..."
-        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training" 2>/dev/null; then
+        if python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$STAGE_DIR" 2>/dev/null; then
             print_success "Prerequisites validated"
             return 0
         else
@@ -523,7 +525,7 @@ check_all_prerequisites() {
     
     if [ -f "$SCRIPT_DIR/generate_prerequisite_checks.py" ]; then
         print_status "Running prerequisite validation..."
-        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$SCRIPT_DIR/../docs/agent-training"
+        python3 "$SCRIPT_DIR/generate_prerequisite_checks.py" "$STAGE_DIR"
     else
         print_error "Prerequisite check script not found"
     fi
