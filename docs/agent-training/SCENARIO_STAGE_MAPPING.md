@@ -4,6 +4,7 @@
 This document maps the 46 scenarios from `/opt/aitbc/docs/scenarios` to agent training stages.
 
 ## Current Training Stages
+- Stage 0: Environment Setup (genesis wallet validation, node connectivity, prerequisites)
 - Stage 1: Foundation (wallet, blockchain, service status)
 - Stage 2: Operations Mastery (wallet operations, blockchain, mining, network)
 - Stage 3: AI Operations (AI jobs, fine-tuning)
@@ -11,8 +12,19 @@ This document maps the 46 scenarios from `/opt/aitbc/docs/scenarios` to agent tr
 - Stage 5: Expert Operations (workflow, resource, analytics, security)
 - Stage 6: Agent Identity & SDK (agent SDK operations)
 - Stage 7: Cross-Node Training (cross-node, coordination, swarm, distributed learning)
+- Stage 8: Advanced Agent Specialization (bounty, portfolio, knowledge graph, dispute, ZK proofs)
+- Stage 9: Multi-Chain Architecture (island setup, gossip sync, multi-chain validator)
 
 ## Scenario Mapping
+
+### Stage 0: Environment Setup (Prerequisites)
+**Purpose:** Validate genesis wallet configuration, node connectivity, and prerequisites before training begins
+**Operations:**
+- genesis_wallet_check - Verify genesis wallet exists at /var/lib/aitbc/keystore/genesis.json
+- genesis_password_check - Verify password file exists at /var/lib/aitbc/keystore/.genesis_password
+- genesis_balance_check - Verify genesis wallet has funds for funding training wallets
+- node_connectivity_check - Verify blockchain node is running and accessible
+- peer_connectivity_check - Verify network peer connectivity
 
 ### Stage 1: Foundation (Beginner Scenarios 1-6)
 **Current Coverage:** wallet_create, wallet_balance, blockchain_status, service_status
@@ -93,23 +105,50 @@ This document maps the 46 scenarios from `/opt/aitbc/docs/scenarios` to agent tr
 - 39_federated_learning_coordinator.md - Agent coordination + IPFS + GPU marketplace + AI jobs + database + messaging + monitoring
 - 40_enterprise_ai_agent.md - All features: trading + GPU + AI + staking + cross-chain + governance + security + analytics + monitoring + plugins + IPFS + database
 
-## New Stage Proposals
+## Current Stage Status
 
-### Stage 8: Advanced Agent Specialization (Advanced Scenarios 41-45)
-**Purpose:** Specialized agent types and advanced workflows
-**Scenarios:**
-- 41_bounty_system.md - Marketplace bidding + wallet management + agent registration + escrow
-- 42_portfolio_management.md - Trading + wallet management + analytics + staking
-- 43_knowledge_graph_market.md - IPFS storage + marketplace bidding + agent registration + knowledge graph
-- 44_dispute_resolution.md - Marketplace bidding + security setup + agent registration + governance
-- 45_zero_knowledge_proofs.md - AI job submission + security setup + IPFS storage + monitoring + ZK verification
+### Stage 0: Environment Setup ✅
+**Status:** Created - JSON file exists, added to schema
+**Scenarios:** References /docs/scenarios/01_genesis_wallet_setup.md, /docs/scenarios/02_node_connectivity.md, /docs/scenarios/03_environment_prerequisites.md (need to be created)
 
-### Stage 9: Multi-Chain Architecture (Advanced Scenario 46)
-**Purpose:** Multi-chain island architecture and federation
+### Stage 8: Advanced Agent Specialization ✅
+**Status:** Created - JSON file exists with operations
 **Scenarios:**
-- 46_multi_chain_island_architecture.md - Multi-chain island setup + gossip sync + Redis Pub/Sub + blockchain node configuration
+- 15_blockchain_monitoring.md
+- 16_agent_registration.md
+- 17_governance_voting.md
+- 18_analytics_collection.md
+- 19_security_setup.md
+- 23_data_oracle_agent.md
+- 28_monitoring_agent.md
+- 29_plugin_marketplace_agent.md
+- 30_database_service_agent.md
+- 31_federation_bridge_agent.md
+- 34_compliance_agent.md
+- 35_edge_compute_agent.md
+
+### Stage 9: Multi-Chain Architecture ✅
+**Status:** Created - JSON file exists with operations
+**Scenarios:**
+- 15_blockchain_monitoring.md
+- 16_agent_registration.md
+- 17_governance_voting.md
+- 18_analytics_collection.md
+- 19_security_setup.md
+- 23_data_oracle_agent.md
+- 28_monitoring_agent.md
+- 29_plugin_marketplace_agent.md
+- 30_database_service_agent.md
+- 31_federation_bridge_agent.md
+- 34_compliance_agent.md
+- 35_edge_compute_agent.md
 
 ## Integration Priority
+
+### ✅ Completed (Phase 2 Stage Mastery Analysis)
+1. **Priority 1 Structural Improvements:** Schema validation rules, dependency validator, validation script
+2. **Priority 2 Content Enhancements:** Stage 0 created, scenario mappings updated
+3. **All Stages 2-9:** Fixed validation errors (wallet_balance checks, currency fields, resource dependencies)
 
 ### High Priority (Immediate Integration)
 1. **Stage 1:** Add scenarios 1-6 (foundation operations)
@@ -123,23 +162,5 @@ This document maps the 46 scenarios from `/opt/aitbc/docs/scenarios` to agent tr
 2. **Stage 7:** Add scenarios 20, 26-27, 33, 36-40 (cross-chain, multi-chain, advanced agents)
 
 ### Low Priority (Future Integration)
-1. **Stage 8:** Create new stage for specialized agents (scenarios 41-45)
-2. **Stage 9:** Create new stage for multi-chain architecture (scenario 46)
-
-## Implementation Strategy
-
-### Phase 1: Add High Priority Scenarios to Existing Stages
-- Update training data JSON files with scenario-based operations
-- Add scenario-specific exam tests
-- Ensure detailed logging for scenario execution
-
-### Phase 2: Add Medium Priority Scenarios to Existing Stages
-- Update Stage 6 and Stage 7 training data
-- Add cross-chain and multi-chain operations
-- Ensure cross-node scenario execution
-
-### Phase 3: Create New Stages for Advanced Scenarios
-- Create Stage 8: Advanced Agent Specialization
-- Create Stage 9: Multi-Chain Architecture
-- Create corresponding training scripts
-- Add to master training launcher
+1. **Stage 8:** ✅ Created - Advanced Agent Specialization (scenarios 41-45)
+2. **Stage 9:** ✅ Created - Multi-Chain Architecture (scenario 46)

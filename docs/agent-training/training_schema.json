@@ -9,6 +9,7 @@
       "type": "string",
       "description": "Training stage identifier",
       "enum": [
+        "stage0_environment_setup",
         "stage1_foundation",
         "stage2_operations_mastery",
         "stage3_ai_operations",
