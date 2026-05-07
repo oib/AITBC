@@ -48,6 +48,12 @@ data/
 apps/blockchain-node/data/
 cli/config/
 dev/cache/logs/
+
+# ===================
+# Training State
+# ===================
+scripts/training/.training_progress
+scripts/training/.training_state/
 dev/config/
 dev/test-nodes/*/data/
 # Keep coordinator-api data directory (contains application code)
