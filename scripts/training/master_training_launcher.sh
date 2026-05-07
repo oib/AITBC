@@ -998,49 +998,51 @@ main() {
     fi
 }
 
+
 # Handle command line arguments
 case "${1:-}" in
-        --overview)
-            show_overview
-            ;;
-        --check)
-            check_system_readiness
-            ;;
-        --stage)
-            if [[ "$2" =~ ^[0-9]$ ]]; then
-                run_stage "$2"
-            else
-                echo "Usage: $0 --stage [0-9]"
-                exit 1
-            fi
-            ;;
-        --complete)
-            run_complete_training
-            ;;
-        --playground)
-            show_playground_menu
-            ;;
-        --help|-h)
-            echo "hermes AITBC Mastery Training Launcher"
-            echo
-            echo "Usage: $0 [OPTION]"
-            echo
-            echo "Options:"
-            echo "  --overview    Show training overview"
-            echo "  --check       Check system readiness"
-            echo "  --stage N     Run specific stage (0-9)"
-            echo "  --complete    Run complete training program"
-            echo "  --playground  Enter training playground mode"
-            echo "  --help, -h    Show this help message"
-            echo
-            echo "Without arguments, starts interactive menu"
-            ;;
-        "")
-            main
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Use --help for usage information"
+    --overview)
+        show_overview
+        ;;
+    --check)
+        check_system_readiness
+        ;;
+    --stage)
+        if [[ "$2" =~ ^[0-9]$ ]]; then
+            run_stage "$2"
+        else
+            echo "Usage: $0 --stage [0-9]"
             exit 1
-            ;;
-    esac
+        fi
+        ;;
+    --complete)
+        run_complete_training
+        ;;
+    --playground)
+        show_playground_menu
+        ;;
+    --help|-h)
+        echo "hermes AITBC Mastery Training Launcher"
+        echo
+        echo "Usage: $0 [OPTION]"
+        echo
+        echo "Options:"
+        echo "  --overview    Show training overview"
+        echo "  --check       Check system readiness"
+        echo "  --stage N     Run specific stage (0-9)"
+        echo "  --complete    Run complete training program"
+        echo "  --playground  Run interactive playground mode"
+        echo "  --help, -h    Show this help message"
+        echo
+        echo "Without arguments, starts interactive menu"
+        exit 0
+        ;;
+    "")
+        main
+        ;;
+    *)
+        echo "Unknown option: $1"
+        echo "Use --help for usage information"
+        exit 1
+        ;;
+esac
