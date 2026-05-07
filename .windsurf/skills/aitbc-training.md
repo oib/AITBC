@@ -24,7 +24,7 @@ The actual AITBC Agent Coordinator service is located at:
 
 ### Service Initialization
 The service initializes in `lifespan.py`:
-1. Creates `AgentRegistry()` with Redis backing
+1. Creates `AgentRegistry(redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/1"))` with Redis backing
 2. Starts registry Redis connection
 3. Creates `LoadBalancer(registry)` with least_connections strategy
 4. Creates `TaskDistributor(balancer)` with priority queues
@@ -160,7 +160,38 @@ journalctl -u aitbc-agent-coordinator.service -f
 
 ## Cross-Node Distribution
 
-For multi-node setups, register agents on each node:
+### Critical: Shared Redis Configuration
+
+For cross-node task distribution to work, ALL coordinator instances MUST use the same shared Redis instance:
+
+1. **Environment Configuration:** Set `REDIS_URL` in `/etc/aitbc/.env`:
+   ```
+   REDIS_URL=redis://10.1.223.93:6379/0
+   ```
+
+2. **Service Configuration:** The systemd service loads environment variables:
+   ```
+   EnvironmentFile=/etc/aitbc/.env
+   ```
+
+3. **Application Configuration:** The coordinator MUST read the environment variable in `lifespan.py`:
+   ```python
+   redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+   state.agent_registry = AgentRegistry(redis_url=redis_url)
+   ```
+
+4. **Verification:** Check if agents registered on one node appear on another:
+   ```bash
+   # Register on aitbc1
+   curl -X POST http://aitbc1:9001/agents/register -d '{...}'
+   
+   # Discover on localhost
+   curl -X POST http://localhost:9001/agents/discover -d '{}'
+   
+   # Should show the aitbc1 agent
+   ```
+
+### Example Cross-Node Setup
 ```bash
 # Register agent on aitbc1
 curl -X POST http://aitbc1:9001/agents/register \
@@ -172,3 +203,29 @@ curl -X POST http://localhost:9001/tasks/submit \
 
 # Task will be distributed to any active agent across nodes
 ```
+
+## Lessons Learned
+
+### Redis Configuration Issues
+- **Problem:** Coordinators default to `redis://localhost:6379/1` instead of reading environment variable
+- **Solution:** Explicitly read `REDIS_URL` in `lifespan.py` and pass to `AgentRegistry`
+- **Verification:** Check shared Redis keys: `redis-cli -h <host> KEYS 'agent:*'`
+
+### Integration Test Patterns
+- Use `httpx.AsyncClient` for async HTTP requests
+- Use pytest fixtures for test setup/teardown
+- Mark async test classes with `@pytest.mark.asyncio`
+- Test both success and failure cases
+- Verify actual Redis state for persistence tests
+
+### Service Deployment
+- Copy code changes to remote nodes before restarting
+- Use `systemctl restart` to pick up code changes
+- Check journalctl logs for startup errors
+- Verify health endpoint after restart
+
+### Cross-Node Setup
+- Both coordinators must use same Redis instance
+- Environment variables must be set correctly
+- Service must be restarted to pick up code changes
+- Test agent discovery across nodes before task distribution
