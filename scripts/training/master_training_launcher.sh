@@ -314,6 +314,7 @@ get_stage_name() {
         7) echo "Cross-Node Training" ;;
         8) echo "Advanced Agent Specialization" ;;
         9) echo "Multi-Chain Architecture" ;;
+        10) echo "Failure Recovery & Production Operations" ;;
         *) echo "Unknown Stage" ;;
     esac
 }
@@ -591,7 +592,7 @@ check_all_prerequisites() {
 # Run stage with prerequisite check (playground mode)
 playground_run_stage() {
     echo "Available Stages:"
-    for i in {0..9}; do
+    for i in {0..10}; do
         local stage_name=""
         case $i in
             0) stage_name="Environment Setup" ;;
@@ -604,14 +605,15 @@ playground_run_stage() {
             7) stage_name="Cross-Node Training" ;;
             8) stage_name="Advanced Agent Specialization" ;;
             9) stage_name="Multi-Chain Architecture" ;;
+            10) stage_name="Failure Recovery & Production Operations" ;;
         esac
         echo "$i. $stage_name"
     done
     echo
-    echo -n "Select stage [0-9]: "
+    echo -n "Select stage [0-10]: "
     read -r stage_choice
     
-    if [[ "$stage_choice" =~ ^[0-9]$ ]]; then
+    if [[ "$stage_choice" =~ ^[0-9]$|^10$ ]]; then
         echo
         check_prerequisites $stage_choice
         
@@ -1066,10 +1068,10 @@ case "${1:-}" in
             check_system_readiness
             ;;
         --stage)
-            if [[ "$2" =~ ^[0-9]$ ]]; then
+            if [[ "$2" =~ ^[0-9]$|^10$ ]]; then
                 run_stage "$2"
             else
-                echo "Usage: $0 --stage [0-9]"
+                echo "Usage: $0 --stage [0-10]"
                 exit 1
             fi
             ;;
@@ -1085,10 +1087,10 @@ case "${1:-}" in
             shift
             case "${1:-}" in
                 --stage)
-                    if [[ "$2" =~ ^[0-9]$ ]]; then
+                    if [[ "$2" =~ ^[0-9]$|^10$ ]]; then
                         run_stage "$2"
                     else
-                        echo "Usage: $0 --with-skill-update --stage [0-9]"
+                        echo "Usage: $0 --with-skill-update --stage [0-10]"
                         exit 1
                     fi
                     ;;
