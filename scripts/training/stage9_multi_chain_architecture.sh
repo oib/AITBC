@@ -56,6 +56,14 @@ main() {
     
     if execute_stage_from_json; then
         print_success "$TRAINING_STAGE completed"
+        
+        # Output learnings for skill update
+        output_stage_learnings 9 "Multi-Chain Architecture" \
+            "./aitbc-cli cross-chain send|./aitbc-cli multi-chain deploy" \
+            "Cross-chain transaction format|Multi-chain deployment|Interoperability" \
+            "/opt/aitbc/apps/blockchain-node" \
+            "Multi-chain architecture|Cross-chain operations|Interoperability"
+        
         return 0
     else
         print_error "$TRAINING_STAGE failed"

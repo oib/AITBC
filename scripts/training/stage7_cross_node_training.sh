@@ -365,6 +365,13 @@ main() {
     
     log "$TRAINING_STAGE completed successfully"
     
+    # Output learnings for skill update
+    output_stage_learnings 7 "Cross-Node Training" \
+        "./aitbc-cli blockchain sync|./aitbc-cli network peers" \
+        "Cross-node communication|Peer discovery|Sync status monitoring" \
+        "/etc/aitbc/.env|/etc/aitbc/node.env" \
+        "Cross-node training|P2P networking|Multi-node operations"
+    
     echo ""
     echo "========================================"
     echo "$TRAINING_STAGE COMPLETED SUCCESSFULLY"

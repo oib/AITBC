@@ -382,6 +382,14 @@ main() {
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
     echo -e "${GREEN}========================================${NC}"
+    
+    # Output learnings for skill update
+    output_stage_learnings 3 "AI Operations" \
+        "./aitbc-cli ai-ops submit <model> <prompt>|./aitbc-cli ai-ops status <job_id>|curl http://localhost:9001/tasks/submit" \
+        "Agent Coordinator on port 9001|Task submission format|Job status polling" \
+        "/var/lib/aitbc/keystore|/opt/aitbc/ai-service" \
+        "AI job submission|Task management|Agent Coordinator integration"
+    
     echo
     echo -e "${BLUE}Next Steps:${NC}"
     echo "1. Review the log file: $LOG_FILE"

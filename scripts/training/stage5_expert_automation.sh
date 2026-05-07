@@ -460,6 +460,14 @@ main() {
     echo -e "${GREEN}========================================${NC}"
     echo -e "${GREEN}$TRAINING_STAGE COMPLETED SUCCESSFULLY${NC}"
     echo -e "${GREEN}========================================${NC}"
+    
+    # Output learnings for skill update
+    output_stage_learnings 5 "Expert Operations" \
+        "curl http://localhost:9001/health|./aitbc-cli agent --status" \
+        "Expert automation workflows|Health check endpoints|Agent status monitoring" \
+        "/opt/aitbc/apps/agent-coordinator" \
+        "Expert automation|Agent health monitoring|Advanced operations"
+    
     echo
     echo -e "${BLUE}🎓 TRAINING COMPLETION SUMMARY:${NC}"
     echo "✅ All 5 training stages completed"
