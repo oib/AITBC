@@ -144,6 +144,44 @@
                     "items": {"type": "string"}
                   }
                 }
+              },
+              "examples": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "command": {"type": "string"},
+                    "description": {"type": "string"}
+                  }
+                }
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "error": {"type": "string"},
+                    "message": {"type": "string"},
+                    "resolution": {"type": "string"}
+                  }
+                }
+              },
+              "verify": {
+                "type": "object",
+                "properties": {
+                  "command": {"type": "string"},
+                  "expected_pattern": {"type": "string"}
+                }
+              },
+              "resources": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {"type": "string"},
+                    "url": {"type": "string"}
+                  }
+                }
               }
             }
           }
