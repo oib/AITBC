@@ -47,6 +47,20 @@
     },
     "operations": [
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
         "operation": "wallet_export",
         "parameters": {
           "wallet": "training-wallet",
@@ -82,6 +96,7 @@
           "wallet": "training-wallet",
           "to": "recipient-address",
           "amount": "10",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {
@@ -284,6 +299,7 @@
         "parameters": {
           "wallet": "training-wallet",
           "amount": "100",
+          "currency": "AIT",
           "password": "training123"
         },
         "expected_result": {

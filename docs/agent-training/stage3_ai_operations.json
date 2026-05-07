@@ -30,6 +30,38 @@
   "training_data": {
     "operations": [
       {
+        "operation": "wallet_balance",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "balance": ">0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["balance", "symbol"]
+        }
+      },
+      {
+        "operation": "market_gpu_register",
+        "parameters": {
+          "wallet": "training-wallet",
+          "gpu_model": "RTX4090",
+          "price": "0.5",
+          "currency": "AIT",
+          "password": "training123"
+        },
+        "expected_result": {
+          "status": "success",
+          "gpu_id": "gpu_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["gpu_id", "listing_id"]
+        }
+      },
+      {
         "operation": "ai_training_agent",
         "parameters": {
           "wallet": "training-wallet",
