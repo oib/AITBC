@@ -6,7 +6,7 @@ authors = [
     {name = "AITBC Team", email = "team@aitbc.dev"}
 ]
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13.5,<3.14"
 dependencies = [
     "requests>=2.31.0",
     "pydantic>=2.5.0"
