@@ -22,10 +22,10 @@
     "Fine-tune AI models"
   ],
   "scenarios": [
-    "07_ai_job_submission.md",
-    "22_ai_training_agent.md",
-    "32_ai_power_advertiser.md",
-    "37_distributed_ai_training.md"
+    "/docs/scenarios/07_ai_job_submission.md",
+    "/docs/scenarios/22_ai_training_agent.md",
+    "/docs/scenarios/32_ai_power_advertiser.md",
+    "/docs/scenarios/37_distributed_ai_training.md"
   ],
   "training_data": {
     "operations": [

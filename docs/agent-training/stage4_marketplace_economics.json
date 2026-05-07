@@ -22,10 +22,10 @@
     "Perform market analysis"
   ],
   "scenarios": [
-    "08_marketplace_bidding.md",
-    "09_gpu_listing.md",
-    "21_compute_provider_agent.md",
-    "25_marketplace_arbitrage.md"
+    "/docs/scenarios/08_marketplace_bidding.md",
+    "/docs/scenarios/09_gpu_listing.md",
+    "/docs/scenarios/21_compute_provider_agent.md",
+    "/docs/scenarios/25_marketplace_arbitrage.md"
   ],
   "training_data": {
     "operations": [

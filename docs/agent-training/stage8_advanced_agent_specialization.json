@@ -1,6 +1,24 @@
 {
   "stage": "stage8_advanced_agent_specialization",
   "agent_type": "specialized",
+  "difficulty": "expert",
+  "estimated_time_minutes": 90,
+  "skill_level": "expert",
+  "depends_on": ["stage7_cross_node_training"],
+  "skills": [
+    "bounty_system_management",
+    "portfolio_management",
+    "knowledge_graph_marketing",
+    "domain_specialization",
+    "custom_skill_development"
+  ],
+  "objectives": [
+    "Create and manage bounty systems",
+    "Manage investment portfolios",
+    "Market knowledge graphs",
+    "Develop domain-specific capabilities",
+    "Create custom agent skills"
+  ],
   "training_data": {
     "operations": [
       {

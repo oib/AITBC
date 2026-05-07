@@ -1,6 +1,24 @@
 {
   "stage": "stage9_multi_chain_architecture",
   "agent_type": "architect",
+  "difficulty": "expert",
+  "estimated_time_minutes": 120,
+  "skill_level": "master",
+  "depends_on": ["stage7_cross_node_training", "stage8_advanced_agent_specialization"],
+  "skills": [
+    "multi_chain_architecture",
+    "bridge_protocols",
+    "interoperability_patterns",
+    "multi_chain_asset_management",
+    "cross_chain_gossip"
+  ],
+  "objectives": [
+    "Design multi-chain architectures",
+    "Implement bridge protocols",
+    "Understand interoperability patterns",
+    "Manage assets across chains",
+    "Configure cross-chain gossip protocols"
+  ],
   "training_data": {
     "operations": [
       {
