@@ -207,6 +207,26 @@
                     "url": {"type": "string"}
                   }
                 }
+              },
+              "requires_balance_check": {
+                "type": "boolean",
+                "description": "Whether this operation requires a wallet_balance check before execution. Automatically set to true for operations with wallet and password parameters.",
+                "default": false
+              },
+              "requires_currency": {
+                "type": "boolean",
+                "description": "Whether this operation requires a currency field in parameters. Automatically set to true for operations with amount, price, bounty_amount, or stake_amount parameters.",
+                "default": false
+              },
+              "creates_resource": {
+                "type": "string",
+                "description": "Type of resource created by this operation (e.g., agent_id, dispute_id, enterprise_id, proposal_id, island_id). Used for dependency validation.",
+                "enum": ["agent_id", "dispute_id", "enterprise_id", "proposal_id", "island_id", "workflow_id", "gpu_id", "listing_id", "job_id", "bounty_id", "mm_id", "fl_id", "swarm_id", "validator_id", "bridge_tx_id", "transfer_id", "deployment_id", "pubsub_config_id", "sync_config_id"]
+              },
+              "requires_resource": {
+                "type": "string",
+                "description": "Type of resource required by this operation (e.g., agent_id, dispute_id, enterprise_id). Used for dependency validation to ensure create operation exists.",
+                "enum": ["agent_id", "dispute_id", "enterprise_id", "proposal_id", "island_id", "workflow_id", "gpu_id", "listing_id", "job_id", "bounty_id", "mm_id", "fl_id", "swarm_id", "validator_id", "bridge_tx_id", "transfer_id", "deployment_id", "pubsub_config_id", "sync_config_id"]
               }
             }
           }
