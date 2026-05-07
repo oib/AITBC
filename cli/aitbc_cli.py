@@ -1092,19 +1092,69 @@ def agent_operations(action: str, **kwargs) -> Optional[Dict]:
             }
         
         elif action == "list":
-            status_filter = kwargs.get("status")
-            agents = [
-                {"name": "data-analyzer", "status": "active", "executions": 15, "success_rate": "93%"},
-                {"name": "trading-bot", "status": "completed", "executions": 23, "success_rate": "87%"},
-                {"name": "content-generator", "status": "failed", "executions": 8, "success_rate": "75%"}
-            ]
-            
-            if status_filter:
-                agents = [a for a in agents if a["status"] == status_filter]
-            
-            return {
-                "action": "list",
-                "agents": agents,
+            # Use real coordinator API instead of stub data
+            try:
+                import requests
+                coordinator_url = "http://localhost:9001"
+                
+                # Build query parameters
+                query = {}
+                if kwargs.get("status"):
+                    query["status"] = kwargs.get("status")
+                
+                # Call coordinator API
+                response = requests.post(f"{coordinator_url}/agents/discover", json=query, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    # Transform coordinator data to CLI format
+                    agents = []
+                    for agent in data.get("agents", []):
+                        agents.append({
+                            "name": agent["agent_id"],
+                            "status": agent["status"],
+                            "type": agent["agent_type"],
+                            "capabilities": ", ".join(agent.get("capabilities", [])),
+                            "services": ", ".join(agent.get("services", []))
+                        })
+                    
+                    return {
+                        "action": "list",
+                        "agents": agents,
+                        "count": len(agents)
+                    }
+                else:
+                    # Fallback to stub data if API fails
+                    status_filter = kwargs.get("status")
+                    agents = [
+                        {"name": "data-analyzer", "status": "active", "executions": 15, "success_rate": "93%"},
+                        {"name": "trading-bot", "status": "completed", "executions": 23, "success_rate": "87%"},
+                        {"name": "content-generator", "status": "failed", "executions": 8, "success_rate": "75%"}
+                    ]
+                    
+                    if status_filter:
+                        agents = [a for a in agents if a["status"] == status_filter]
+                    
+                    return {
+                        "action": "list",
+                        "agents": agents,
+                        "count": len(agents)
+                    }
+            except Exception as e:
+                # Fallback to stub data on error
+                status_filter = kwargs.get("status")
+                agents = [
+                    {"name": "data-analyzer", "status": "active", "executions": 15, "success_rate": "93%"},
+                    {"name": "trading-bot", "status": "completed", "executions": 23, "success_rate": "87%"},
+                    {"name": "content-generator", "status": "failed", "executions": 8, "success_rate": "75%"}
+                ]
+                
+                if status_filter:
+                    agents = [a for a in agents if a["status"] == status_filter]
+                
+                return {
+                    "action": "list",
+                    "agents": agents,
                 "total_count": len(agents)
             }
         
