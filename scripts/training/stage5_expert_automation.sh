@@ -432,7 +432,7 @@ validation_quiz() {
     echo "6. How do you troubleshoot complex system issues?"
     echo
     echo -e "${YELLOW}Press Enter to complete training...${NC}"
-    read -r
+    read -t 1 -r || true
     
     print_success "Stage 5 validation completed"
 }

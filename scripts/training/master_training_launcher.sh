@@ -383,7 +383,7 @@ capture_learnings() {
     fi
 
     # Check if skill update is enabled (just for logging)
-    if [ "$ENABLE_SKILL_UPDATE" -eq 1 ]; then
+    if [ "$ENABLE_SKILL_UPDATE" = "true" ]; then
         log_info "Learnings file ready for skill update: $learnings_file"
         log_info "Skill update will be handled by Hermes agent after script completion"
     else
