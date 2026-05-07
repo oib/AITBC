@@ -54,6 +54,7 @@ dev/cache/logs/
 # ===================
 scripts/training/.training_progress
 scripts/training/.training_state/
+scripts/training/.training_state/certificates/
 dev/config/
 dev/test-nodes/*/data/
 # Keep coordinator-api data directory (contains application code)
