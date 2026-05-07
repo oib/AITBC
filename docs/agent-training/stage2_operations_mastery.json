@@ -108,6 +108,46 @@
         }
       },
       {
+        "operation": "wallet_rename",
+        "parameters": {
+          "wallet": "training-wallet",
+          "new_name": "training-wallet-renamed"
+        },
+        "expected_result": {
+          "status": "success",
+          "renamed": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["renamed", "wallet_id"]
+        }
+      },
+      {
+        "operation": "wallet_batch",
+        "parameters": {
+          "operations": [
+            {
+              "type": "send",
+              "to": "recipient-1",
+              "amount": "10"
+            },
+            {
+              "type": "send",
+              "to": "recipient-2",
+              "amount": "20"
+            }
+          ]
+        },
+        "expected_result": {
+          "status": "success",
+          "batch_id": "batch_*"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["batch_id", "transaction_count"]
+        }
+      },
+      {
         "operation": "blockchain_block",
         "parameters": {
           "height": 1
@@ -326,6 +366,34 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["ping", "latency_ms"]
+        }
+      },
+      {
+        "operation": "network_propagate",
+        "parameters": {
+          "transaction_id": "tx_*"
+        },
+        "expected_result": {
+          "status": "success",
+          "propagated": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["propagated", "peer_count"]
+        }
+      },
+      {
+        "operation": "network_force_sync",
+        "parameters": {
+          "target_height": 100
+        },
+        "expected_result": {
+          "status": "success",
+          "sync": "forced"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["sync", "current_height"]
         }
       }
     ]

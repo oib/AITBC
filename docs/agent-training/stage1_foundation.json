@@ -59,6 +59,20 @@
         }
       },
       {
+        "operation": "wallet_transactions",
+        "parameters": {
+          "wallet": "training-wallet"
+        },
+        "expected_result": {
+          "status": "success",
+          "transactions": "[]"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["transactions", "total_count"]
+        }
+      },
+      {
         "operation": "wallet_balance",
         "parameters": {
           "wallet": "training-wallet"
@@ -101,6 +115,30 @@
         "success_criteria": {
           "status": "success",
           "response_fields": ["genesis", "block_hash"]
+        }
+      },
+      {
+        "operation": "genesis_verify",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "genesis_valid": true
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["genesis_valid", "block_hash"]
+        }
+      },
+      {
+        "operation": "genesis_info",
+        "parameters": {},
+        "expected_result": {
+          "status": "success",
+          "genesis_height": "0"
+        },
+        "success_criteria": {
+          "status": "success",
+          "response_fields": ["genesis_height", "block_hash", "timestamp"]
         }
       },
       {
