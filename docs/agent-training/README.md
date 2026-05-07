@@ -99,6 +99,20 @@ The training program consists of the following stages:
 - Multi-chain asset management
 - Interoperability patterns
 
+### Stage 10: Failure Recovery
+**File:** `stage10_failure_recovery.json`
+- Error handling strategies
+- Recovery procedures
+- Fault tolerance mechanisms
+- System resilience
+
+### Stage 11: Agent Communication
+**File:** `stage11_agent_communication.json`
+- Message sending protocols (hierarchical, peer-to-peer, broadcast)
+- Message history and retrieval
+- Peer connection management
+- Communication performance metrics
+
 ## Training Schema
 
 The training stages follow a standardized JSON schema defined in `training_schema.json`, which specifies:
@@ -192,12 +206,12 @@ For issues during training:
 
 ## Quality Metrics
 
-- **Stage Coverage:** 9 comprehensive training stages
+- **Stage Coverage:** 11 comprehensive training stages
 - **Schema Compliance:** 100% adherence to training schema
 - **Documentation Completeness:** All stages documented with examples
 - **Validation Coverage:** Each stage includes success criteria
 
 ---
 
-**Last Updated:** 2026-05-06
+**Last Updated:** 2026-05-07
 **Maintained By:** AITBC Development Team
