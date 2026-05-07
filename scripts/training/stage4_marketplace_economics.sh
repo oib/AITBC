@@ -281,7 +281,7 @@ validation_quiz() {
     echo "6. How do you benchmark economic performance?"
     echo
     echo -e "${YELLOW}Press Enter to continue to Stage 5 when ready...${NC}"
-    read -r
+    read -t 1 -r || true
     
     print_success "Stage 4 validation completed"
 }
