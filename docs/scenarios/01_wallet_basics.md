@@ -56,6 +56,31 @@ An hermes agent needs a wallet to:
 - AITBC blockchain node running
 - Keystore directory configured (`/etc/aitbc/keystore`)
 
+### **Wallet Authentication**
+The CLI supports multiple methods for wallet password authentication:
+
+```bash
+# Interactive prompt (default)
+aitbc wallet create my-agent-wallet
+
+# Password file (recommended for scripts)
+aitbc wallet create my-agent-wallet --password-file /path/to/password.txt
+
+# Direct password (not recommended for production)
+aitbc wallet create my-agent-wallet --password mypassword
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc wallet create my-agent-wallet
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+- Use environment variables for CI/CD pipelines
+- Never commit passwords to version control
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

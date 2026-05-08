@@ -57,6 +57,26 @@ An hermes agent needs to send transactions to:
 - Wallet created with sufficient balance
 - Blockchain node running and accessible
 
+### **Wallet Authentication**
+For transaction signing, the CLI requires wallet authentication:
+
+```bash
+# Interactive prompt (default)
+aitbc transaction send --from my-wallet --to <address> --amount 100
+
+# Password file (recommended for scripts)
+aitbc transaction send --from my-wallet --to <address> --amount 100 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc transaction send --from my-wallet --to <address> --amount 100
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**
