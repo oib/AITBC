@@ -6,7 +6,7 @@
 
 | Port | Service | Endpoint | Status | Description |
 |------|---------|----------|--------|-------------|
-| 8000 | Coordinator API | `http://localhost:8000/health` | ⚠️ Legacy | **DEPRECATED** - Use Agent Coordinator (9001) or microservices |
+| 8000 | Coordinator API (Legacy) | `http://localhost:8000/health` | ⚠️ Deprecated | **LEGACY** - Use port 8011 for Coordinator API |
 | 8001 | Exchange API | `http://localhost:8001/api/health` | ✅ Active | Trading and exchange functionality |
 | 8002 | Marketplace API | `http://localhost:8002/health` | ✅ Active | GPU compute marketplace |
 | 8003 | Wallet API | `http://localhost:8003/health` | ✅ Active | Digital wallet management |
@@ -22,7 +22,7 @@
 | Port | Service | Endpoint | Status | Description |
 |------|---------|----------|--------|-------------|
 | 8010 | GPU Service | `http://localhost:8010/health` | ✅ Active | GPU-accelerated processing |
-| 8011 | Learning Service | `http://localhost:8011/health` | ✅ Active | Machine learning and adaptation |
+| 8011 | Coordinator API | `http://localhost:8011/health` | ✅ Active | Coordinator API (main API gateway) |
 | 8012 | Agent Coordinator | `http://localhost:8012/health` | ✅ Active | Agent orchestration and coordination |
 | 8013 | Agent Registry | `http://localhost:8013/health` | ✅ Active | Agent registration and discovery |
 | 8014 | hermes Service | `http://localhost:8014/health` | ✅ Active | Edge computing and agent orchestration |
