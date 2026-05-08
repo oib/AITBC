@@ -3,8 +3,8 @@
 **Level**: Intermediate  
 **Prerequisites**: IPFS Storage (Scenario 11), Messaging Basics (Scenario 04), Transaction Sending (Scenario 02)  
 **Estimated Time**: 35 minutes  
-**Last Updated**: 2026-05-02  
-**Version**: 1.0
+**Last Updated**: 2026-05-08  
+**Version**: 1.1 (Data oracle CLI commands implemented)
 
 ## 🧭 **Navigation Path:**
 **🏠 [Documentation Home](../README.md)** → **🎭 [Agent Scenarios](./README.md)** → *You are here*
@@ -378,6 +378,6 @@ bash scripts/workflow/44_comprehensive_multi_node_scenario.sh
 
 ---
 
-*Last updated: 2026-05-02  
-*Version: 1.0*  
+*Last updated: 2026-05-08  
+*Version: 1.1 (Data oracle CLI commands implemented)  
 *Status: Active scenario document*
