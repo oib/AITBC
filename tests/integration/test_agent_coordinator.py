@@ -964,3 +964,264 @@ class TestAuthMiddleware:
             response = coordinator_client.get(endpoint)
             # Should return 401 or 403
             assert response.status_code in (401, 403, 404)
+
+
+class TestHealthEndpoints:
+    """Test health and root endpoints."""
+
+    def test_health_check(self, coordinator_client: TestClient):
+        """Test health check endpoint."""
+        response = coordinator_client.get("/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "healthy"
+        assert "service" in data
+
+    def test_root_endpoint(self, coordinator_client: TestClient):
+        """Test root endpoint with service information."""
+        response = coordinator_client.get("/")
+        assert response.status_code == 200
+        data = response.json()
+        assert "service" in data
+        assert "endpoints" in data
+
+
+class TestMonitorEndpoints:
+    """Test monitor router endpoints."""
+
+    def test_get_dashboard(self, coordinator_client: TestClient):
+        """Test getting monitoring dashboard data."""
+        response = coordinator_client.get("/api/v1/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert "overall_status" in data
+        assert "services" in data
+
+    def test_get_status(self, coordinator_client: TestClient):
+        """Test getting coordinator status."""
+        response = coordinator_client.get("/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "online"
+
+    def test_get_miners(self, coordinator_client: TestClient):
+        """Test getting miners list."""
+        response = coordinator_client.get("/miners")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_get_history_dashboard(self, coordinator_client: TestClient):
+        """Test getting historical dashboard data."""
+        response = coordinator_client.get("/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_get_jobs(self, coordinator_client: TestClient):
+        """Test getting jobs list."""
+        response = coordinator_client.get("/jobs")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+
+class TestMonitoringEndpoints:
+    """Test monitoring router endpoints."""
+
+    def test_get_prometheus_metrics(self, coordinator_client: TestClient):
+        """Test getting metrics in Prometheus format."""
+        response = coordinator_client.get("/metrics")
+        assert response.status_code == 200
+        # Prometheus metrics return text/plain
+        assert response.headers.get("content-type") == "text/plain; charset=utf-8"
+
+    def test_get_metrics_summary(self, coordinator_client: TestClient):
+        """Test getting metrics summary for dashboard."""
+        response = coordinator_client.get("/metrics/summary")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert "performance" in data
+        assert "system" in data
+
+    def test_get_health_metrics(self, coordinator_client: TestClient):
+        """Test getting health metrics for monitoring."""
+        response = coordinator_client.get("/metrics/health")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert "health" in data
+        assert "memory" in data["health"]
+        assert "cpu" in data["health"]
+
+
+class TestSwarmEndpoints:
+    """Test swarm router endpoints."""
+
+    def test_list_swarms(self, coordinator_client: TestClient):
+        """Test listing active swarms."""
+        response = coordinator_client.get("/swarm/list")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_list_swarms_with_filters(self, coordinator_client: TestClient):
+        """Test listing swarms with filters."""
+        response = coordinator_client.get("/swarm/list", params={"swarm_id": "swarm_001", "status": "active", "limit": 10})
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_join_swarm(self, coordinator_client: TestClient):
+        """Test joining agent swarm."""
+        join_data = {
+            "role": "worker",
+            "capability": "gpu-compute",
+            "priority": "high",
+            "region": "us-east"
+        }
+        response = coordinator_client.post("/swarm/join", json=join_data)
+        assert response.status_code == 201
+        data = response.json()
+        assert "swarm_id" in data
+        assert data["status"] == "joined"
+
+    def test_coordinate_swarm(self, coordinator_client: TestClient):
+        """Test coordinating swarm task execution."""
+        coordinate_data = {
+            "task": "matrix_multiplication",
+            "collaborators": 5,
+            "strategy": "distributed",
+            "timeout_seconds": 300
+        }
+        response = coordinator_client.post("/swarm/coordinate", json=coordinate_data)
+        assert response.status_code == 202
+        data = response.json()
+        assert "task_id" in data
+        assert data["status"] == "coordinating"
+
+    def test_get_task_status(self, coordinator_client: TestClient):
+        """Test getting swarm task status."""
+        response = coordinator_client.get("/swarm/tasks/task_001/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert "task_id" in data
+        assert "status" in data
+
+    def test_leave_swarm(self, coordinator_client: TestClient):
+        """Test leaving swarm."""
+        response = coordinator_client.post("/swarm/swarm_001/leave")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "left"
+
+    def test_achieve_consensus(self, coordinator_client: TestClient):
+        """Test achieving swarm consensus."""
+        consensus_data = {"consensus_threshold": 0.8}
+        response = coordinator_client.post("/swarm/tasks/task_001/consensus", json=consensus_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["consensus_reached"] is True
+        assert data["status"] == "consensus_achieved"
+
+    def test_swarm_dashboard(self, coordinator_client: TestClient):
+        """Test getting swarm monitoring dashboard."""
+        response = coordinator_client.get("/swarm/api/v1/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert "overall_status" in data
+        assert "services" in data
+
+    def test_swarm_status(self, coordinator_client: TestClient):
+        """Test getting swarm coordinator status."""
+        response = coordinator_client.get("/swarm/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "online"
+
+    def test_swarm_miners(self, coordinator_client: TestClient):
+        """Test getting swarm miners list."""
+        response = coordinator_client.get("/swarm/miners")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+    def test_swarm_history_dashboard(self, coordinator_client: TestClient):
+        """Test getting swarm historical dashboard."""
+        response = coordinator_client.get("/swarm/dashboard")
+        assert response.status_code == 200
+        data = response.json()
+        assert isinstance(data, list)
+
+
+class TestEdgeCases:
+    """Test edge cases and error paths."""
+
+    def test_agent_registration_invalid_data(self, coordinator_client: TestClient):
+        """Test agent registration with various invalid data."""
+        invalid_cases = [
+            {},  # Empty data
+            {"agent_id": "test"},  # Missing required fields
+            {"agent_id": "", "agent_type": "worker"},  # Empty agent_id
+            {"agent_id": "test", "agent_type": "invalid_type"},  # Invalid type
+        ]
+        for data in invalid_cases:
+            response = coordinator_client.post("/agents/register", json=data)
+            assert response.status_code in (422, 400)
+
+    def test_task_submission_various_priorities(self, coordinator_client: TestClient):
+        """Test task submission with various priorities."""
+        priorities = ["low", "normal", "high", "critical", "urgent"]
+        for priority in priorities:
+            task_data = {
+                "task_data": {"model": "llama2", "prompt": "test"},
+                "priority": priority
+            }
+            response = coordinator_client.post("/tasks/submit", json=task_data)
+            assert response.status_code in (200, 201, 503)
+
+    def test_agent_status_updates(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+        """Test various agent status updates."""
+        coordinator_client.post("/agents/register", json=sample_agent_data)
+        statuses = ["active", "inactive", "maintenance", "degraded"]
+        for status in statuses:
+            response = coordinator_client.put(f"/agents/{sample_agent_data['agent_id']}/status", json={"status": status})
+            assert response.status_code in (200, 500)
+
+    def test_agent_discovery_various_filters(self, coordinator_client: TestClient, sample_agent_data: Dict[str, Any]):
+        """Test agent discovery with various filters."""
+        coordinator_client.post("/agents/register", json=sample_agent_data)
+        
+        filters = [
+            {},
+            {"status": "active"},
+            {"agent_type": "worker"},
+            {"capabilities": ["data-processing"]},
+            {"status": "active", "agent_type": "worker"}
+        ]
+        for filter_data in filters:
+            response = coordinator_client.post("/agents/discover", json=filter_data)
+            assert response.status_code == 200
+
+    def test_nonexistent_endpoints(self, coordinator_client: TestClient):
+        """Test that nonexistent endpoints return 404."""
+        endpoints = [
+            "/nonexistent",
+            "/agents/nonexistent",
+            "/tasks/nonexistent",
+            "/api/v1/nonexistent"
+        ]
+        for endpoint in endpoints:
+            response = coordinator_client.get(endpoint)
+            assert response.status_code == 404
+
+    def test_invalid_http_methods(self, coordinator_client: TestClient):
+        """Test invalid HTTP methods on valid endpoints."""
+        # Try POST on GET endpoint
+        response = coordinator_client.post("/health")
+        assert response.status_code in (405, 404)
+
+        # Try GET on POST endpoint
+        response = coordinator_client.get("/agents/register")
+        assert response.status_code in (405, 404)
