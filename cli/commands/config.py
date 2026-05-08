@@ -13,9 +13,14 @@ from utils import output, error, success
 
 
 @click.group()
-def config():
+@click.pass_context
+def config(ctx):
     """Manage CLI configuration"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @config.command()

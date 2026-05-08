@@ -1,19 +1,27 @@
 """hermes integration commands for AITBC CLI"""
 
 import click
+from utils import output, error, success, console
 import httpx
+from typing import Optional
+from aitbc_cli.config import get_config, CLIConfig
 import json
 import time
 import os
 import datetime
 import subprocess
 from typing import Optional, Dict, Any, List
-from utils import output, error, success, warning
 
 
 @click.group()
-def hermes():
+@click.pass_context
+def hermes(ctx):
     """hermes integration with edge computing deployment"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
     pass
 
 

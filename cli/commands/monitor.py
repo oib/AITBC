@@ -6,12 +6,18 @@ import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def monitor():
+@click.pass_context
+def monitor(ctx):
     """Monitoring, metrics, and alerting commands"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @monitor.command()

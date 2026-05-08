@@ -1,17 +1,21 @@
 """Autonomous optimization commands for AITBC CLI"""
 
 import click
+from utils import output, error, success, console
 import httpx
-import json
-import time
-from typing import Optional, Dict, Any, List
-from utils import output, error, success, warning
+from typing import Optional
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def optimize():
+@click.pass_context
+def optimize(ctx):
     """Autonomous optimization and predictive operations"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @click.group()

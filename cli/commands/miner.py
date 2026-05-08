@@ -7,9 +7,21 @@ import time
 import concurrent.futures
 from typing import Optional, Dict, Any, List
 from utils import output, error, success
+from aitbc_cli.config import get_config, CLIConfig
 
 
-@click.group(invoke_without_command=True)
+@click.group()
+@click.pass_context
+def miner(ctx):
+    """Mining operations and rewards"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
+
+
+@miner.group(invoke_without_command=True)
 @click.pass_context
 def miner(ctx):
     """Register as miner and process jobs"""

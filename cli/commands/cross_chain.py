@@ -6,12 +6,18 @@ import json
 from typing import Optional
 from .config import get_config
 from utils import success, error, output
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def cross_chain():
+@click.pass_context
+def cross_chain(ctx):
     """Cross-chain trading operations"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @cross_chain.command()

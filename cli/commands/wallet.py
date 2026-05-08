@@ -117,6 +117,15 @@ def get_balance(ctx, wallet_name: Optional[str] = None):
 @click.pass_context
 def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daemon: bool):
     """Manage your AITBC wallets and transactions"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    if 'config' not in ctx.obj:
+        from aitbc_cli.config import get_config
+        ctx.obj['config'] = get_config()
+    if 'output_format' not in ctx.obj:
+        ctx.obj['output_format'] = 'table'
+    
     # Ensure wallet object exists
     ctx.ensure_object(dict)
 

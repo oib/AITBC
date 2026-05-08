@@ -1,18 +1,21 @@
 """Marketplace commands for AITBC CLI"""
 
 import click
+from utils import output, error, success, console
 import httpx
-import json
-import asyncio
-from typing import Optional, List, Dict, Any
-from utils import output, error, success
-import os
+from typing import Optional
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def marketplace():
-    """GPU marketplace operations"""
-    pass
+@click.pass_context
+def marketplace(ctx):
+    """Marketplace listings and offers"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @marketplace.group()

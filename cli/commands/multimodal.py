@@ -1,19 +1,21 @@
 """Multi-modal processing commands for AITBC CLI"""
 
 import click
+from utils import output, error, success, console
 import httpx
-import json
-import base64
-import mimetypes
-from typing import Optional, Dict, Any, List
-from pathlib import Path
-from utils import output, error, success, warning
+from typing import Optional
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def multimodal():
-    """Multi-modal agent processing and cross-modal operations"""
-    pass
+@click.pass_context
+def multimodal(ctx):
+    """Multimodal AI operations"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @multimodal.command()
