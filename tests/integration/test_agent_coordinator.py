@@ -322,7 +322,7 @@ class TestAuthentication:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "success"
-        assert "access_token" in data
+        assert "token" in data
 
     def test_validate_token_success(self, coordinator_client: TestClient):
         """Test successful token validation."""
