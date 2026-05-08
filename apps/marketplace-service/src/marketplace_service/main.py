@@ -205,6 +205,23 @@ async def create_bid(
         raise
 
 
+@app.get("/v1/marketplace/orders")
+async def get_orders(
+    wallet: str | None = None,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Get marketplace orders (alias for bids for CLI compatibility)"""
+    try:
+        logger.info(f"GET /v1/marketplace/orders called with wallet={wallet}")
+        # Use list_bids with provider filter as orders are stored as bids
+        result = await svc.list_bids(provider=wallet)
+        # Return in format expected by CLI
+        return {"orders": result}
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/orders: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.get("/v1/marketplace/analytics")
 async def get_analytics(
     period_type: str = "daily",
