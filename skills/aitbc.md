@@ -305,15 +305,15 @@ curl -X POST http://aitbc1:9001/agents/register -H "Content-Type: application/js
 
 ## CLI Tool Preference
 
-**For marketplace operations, prefer `python3 cli/unified_cli.py` over `aitbc-cli market`.**
+**For marketplace operations, use `python3 cli/unified_cli.py` which is the verified marketplace module within the AITBC CLI.**
 
-The unified CLI (`cli/unified_cli.py`) has been verified working (all 7 bugs fixed in session 2026-05-08). The `aitbc-cli market` commands need verification.
+The unified CLI (`cli/unified_cli.py`) has been verified working (all 7 bugs fixed in session 2026-05-08). This is the marketplace module used by the main AITBC CLI entry point.
 
-**Verified CLI:** `python3 cli/unified_cli.py market create/list/buy/orders`
+**Entry Point:** `/opt/aitbc/aitbc-cli` is the single CLI entry point
+**Marketplace Module:** `cli/unified_cli.py` (verified working)
+**Verified Commands:** `python3 cli/unified_cli.py market create/list/buy/orders`
 **Verification Status:** ✅ All marketplace operations working
 **Bugs Fixed:** See Bugs Fixed section below
-
-**Note:** `/opt/aitbc/aitbc-cli` is the single CLI entry point. The `cli/unified_cli.py` is a Python module within the CLI tool that provides verified marketplace operations.
 
 ---
 
