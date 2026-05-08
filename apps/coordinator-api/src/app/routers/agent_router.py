@@ -31,7 +31,7 @@ from ..domain.agent import (
 from ..services.agent_service import AIAgentOrchestrator
 from ..storage import get_session
 
-router = APIRouter(prefix="/agents", tags=["AI Agents"])
+router = APIRouter(tags=["AI Agents"])
 
 
 @router.post("/workflows", response_model=AIAgentWorkflow)
