@@ -76,6 +76,36 @@ class MarketplaceService:
             logger.error(f"Error in get_offer: {type(e).__name__}: {str(e)}")
             raise
 
+    async def book_offer(self, offer_id: str, booking_data: dict) -> dict:
+        """Book/purchase a marketplace offer"""
+        try:
+            logger.info(f"book_offer called with offer_id={offer_id}, data keys: {booking_data.keys()}")
+            offer = await self.get_offer(offer_id)
+            if not offer:
+                logger.error(f"Offer not found: {offer_id}")
+                raise ValueError(f"Offer not found: {offer_id}")
+            
+            # Create a bid for the offer
+            bid_data = {
+                'provider': booking_data.get('wallet', 'unknown'),
+                'capacity': booking_data.get('duration_hours', 1.0),
+                'price': booking_data.get('price', offer.price),
+                'status': 'pending',
+            }
+            
+            bid = await self.create_bid(bid_data)
+            logger.info(f"Created bid for offer {offer_id}: {bid.id}")
+            
+            return {
+                'bid_id': bid.id,
+                'offer_id': offer_id,
+                'status': 'pending',
+                'message': 'Bid created successfully'
+            }
+        except Exception as e:
+            logger.error(f"Error in book_offer: {type(e).__name__}: {str(e)}")
+            raise
+
     async def create_offer(self, offer_data: dict) -> MarketplaceOffer:
         """Create a new marketplace offer"""
         try:
