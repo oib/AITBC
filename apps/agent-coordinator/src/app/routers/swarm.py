@@ -57,7 +57,7 @@ async def list_swarms(
     return []
 
 
-@router.post("/join", response_model=dict)
+@router.post("/join", response_model=dict, status_code=201)
 async def join_swarm(request: JoinRequest):
     """Join agent swarm for collective optimization."""
     import uuid
@@ -71,7 +71,7 @@ async def join_swarm(request: JoinRequest):
     }
 
 
-@router.post("/coordinate", response_model=dict)
+@router.post("/coordinate", response_model=dict, status_code=202)
 async def coordinate_swarm(request: CoordinateRequest):
     """Coordinate swarm task execution."""
     import uuid
