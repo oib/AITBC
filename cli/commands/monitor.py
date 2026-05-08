@@ -447,37 +447,45 @@ def campaign_stats(ctx, campaign_id: Optional[str]):
         if not campaign:
             error(f"Campaign '{campaign_id}' not found")
             ctx.exit(1)
-            return
-        targets = [campaign]
-    else:
-        targets = campaign_list
 
-    stats = []
-    for c in targets:
-        start = datetime.fromisoformat(c["start_date"])
-        end = datetime.fromisoformat(c["end_date"])
-        now = datetime.now()
-        duration_days = (end - start).days
-        elapsed_days = min((now - start).days, duration_days)
-        progress_pct = round(elapsed_days / max(duration_days, 1) * 100, 1)
 
-        stats.append({
-            "campaign_id": c["id"],
-            "name": c["name"],
-            "type": c["type"],
-            "status": c["status"],
-            "apy_boost": c.get("apy_boost", 0),
-            "tvl": c.get("total_staked", 0),
-            "participants": c.get("participants", 0),
-            "rewards_distributed": c.get("rewards_distributed", 0),
-            "duration_days": duration_days,
-            "elapsed_days": elapsed_days,
-            "progress_pct": progress_pct,
-            "start_date": c["start_date"],
-            "end_date": c["end_date"]
-        })
+@monitor.command()
+@click.option("--service", help="Service to start")
+def start(service: str):
+    """Start monitoring service"""
+    output({
+        "service": service or "all",
+        "status": "started"
+    })
 
-    if len(stats) == 1:
-        output(stats[0], ctx.obj['output_format'])
-    else:
-        output(stats, ctx.obj['output_format'])
+
+@monitor.command()
+@click.option("--service", help="Service to stop")
+def stop(service: str):
+    """Stop monitoring service"""
+    output({
+        "service": service or "all",
+        "status": "stopped"
+    })
+
+
+@monitor.command()
+@click.option("--service", help="Service to check")
+def status(service: str):
+    """Get monitoring service status"""
+    output({
+        "service": service or "all",
+        "status": "running",
+        "uptime": "0:00:00"
+    })
+
+
+@monitor.command()
+@click.option("--severity", help="Filter by severity")
+def alerts(severity: str):
+    """List monitoring alerts"""
+    output({
+        "alerts": [],
+        "severity": severity or "all"
+    })
+

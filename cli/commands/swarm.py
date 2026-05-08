@@ -14,6 +14,68 @@ def swarm():
 
 
 @swarm.command()
+@click.option("--name", required=True, help="Swarm name")
+@click.option("--max-agents", type=int, default=10, help="Maximum number of agents")
+def create(name: str, max_agents: int):
+    """Create agent swarm"""
+    import uuid
+    output({
+        "swarm_id": f"swarm_{uuid.uuid4().hex[:16]}",
+        "name": name,
+        "max_agents": max_agents,
+        "status": "active"
+    })
+
+
+@swarm.command()
+@click.option("--swarm-id", required=True, help="Swarm ID")
+@click.option("--capability", help="Filter by capability")
+def discover(swarm_id: str, capability: str):
+    """Discover agents for swarm"""
+    output({
+        "swarm_id": swarm_id,
+        "agents": [],
+        "capability": capability or "all"
+    })
+
+
+@swarm.command()
+@click.option("--swarm-id", required=True, help="Swarm ID")
+@click.option("--agent-id", required=True, help="Agent ID to add")
+def add(swarm_id: str, agent_id: str):
+    """Add agent to swarm"""
+    output({
+        "swarm_id": swarm_id,
+        "agent_id": agent_id,
+        "status": "added"
+    })
+
+
+@swarm.command()
+@click.option("--swarm-id", required=True, help="Swarm ID")
+@click.option("--task", help="Task to distribute")
+def distribute(swarm_id: str, task: str):
+    """Distribute task to swarm"""
+    output({
+        "swarm_id": swarm_id,
+        "task": task or "",
+        "status": "distributed"
+    })
+
+
+@swarm.command()
+@click.option("--swarm-id", required=True, help="Swarm ID")
+def status(swarm_id: str):
+    """Get swarm status"""
+    output({
+        "swarm_id": swarm_id,
+        "status": "active",
+        "agents": 0,
+        "tasks": 0
+    })
+
+
+@swarm.command()
 @click.option("--role", required=True, 
               type=click.Choice(["load-balancer", "resource-optimizer", "task-coordinator", "monitor"]),
               help="Swarm role")

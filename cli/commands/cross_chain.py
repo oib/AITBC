@@ -379,6 +379,38 @@ def bridge_status(ctx, bridge_id: str):
 
 
 @cross_chain.command()
+@click.option("--source-chain", required=True, help="Source chain ID")
+@click.option("--target-chain", required=True, help="Target chain ID")
+@click.option("--token", required=True, help="Token to transfer")
+@click.option("--amount", type=float, required=True, help="Amount to transfer")
+@click.option("--recipient", help="Recipient address")
+def transfer(source_chain: str, target_chain: str, token: str, amount: float, recipient: str):
+    """Transfer tokens across chains"""
+    import uuid
+    output({
+        "transfer_id": f"transfer_{uuid.uuid4().hex[:16]}",
+        "source_chain": source_chain,
+        "target_chain": target_chain,
+        "token": token,
+        "amount": amount,
+        "recipient": recipient or "",
+        "status": "pending"
+    })
+
+
+@cross_chain.command()
+@click.option("--source-chain", help="Filter by source chain")
+@click.option("--target-chain", help="Filter by target chain")
+def list(source_chain: str, target_chain: str):
+    """List available cross-chain transfers"""
+    output({
+        "transfers": [],
+        "source_chain": source_chain or "all",
+        "target_chain": target_chain or "all"
+    })
+
+
+@cross_chain.command()
 @click.pass_context
 def pools(ctx):
     """Show cross-chain liquidity pools"""

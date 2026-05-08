@@ -23,6 +23,7 @@ from aitbc_agent.contract_integration import (
     ContractConfig,
     create_agent_contract_integration
 )
+from aitbc_agent import command_executor, ipfs, data_oracle, zk, knowledge, bounty, dispute, extended
 
 logger = get_logger(__name__)
 
@@ -116,6 +117,15 @@ class Agent:
 
         # Contract integration
         self.contract_integration: Optional[AgentContractIntegration] = None
+
+        # CLI-based operation modules
+        self.ipfs_ops = ipfs.IPFSOperations()
+        self.data_oracle_ops = data_oracle.DataOracleOperations()
+        self.zk_ops = zk.ZKOperations()
+        self.knowledge_ops = knowledge.KnowledgeOperations()
+        self.bounty_ops = bounty.BountyOperations()
+        self.dispute_ops = dispute.DisputeOperations()
+        self.extended_ops = extended.ExtendedOperations()
 
         if contract_config:
             try:
@@ -486,6 +496,93 @@ class Agent:
             swap_id=swap_id,
             contract_address=contract_address
         )
+
+    # IPFS operations
+    def store_ipfs(self, data: bytes, pin: bool = True, name: str = None) -> str:
+        """Store data on IPFS"""
+        return self.ipfs_ops.store_ipfs(data, pin, name)
+    
+    def retrieve_ipfs(self, cid: str, output_path: str = None) -> bytes:
+        """Retrieve data from IPFS"""
+        return self.ipfs_ops.retrieve_ipfs(cid, output_path)
+    
+    async def store_ipfs_async(self, data: bytes, pin: bool = True, name: str = None) -> str:
+        """Async version of store_ipfs"""
+        return await self.ipfs_ops.store_ipfs_async(data, pin, name)
+    
+    async def retrieve_ipfs_async(self, cid: str, output_path: str = None) -> bytes:
+        """Async version of retrieve_ipfs"""
+        return await self.ipfs_ops.retrieve_ipfs_async(cid, output_path)
+
+    # Data oracle operations
+    def announce_data_availability(self, cid: str, price: float, description: str = "") -> str:
+        """Announce data availability"""
+        return self.data_oracle_ops.announce_data_availability(cid, price, description)
+    
+    def retrieve_data(self, cid: str) -> bytes:
+        """Retrieve data by CID"""
+        return self.data_oracle_ops.retrieve_data(cid)
+    
+    async def listen_for_requests(self, callback):
+        """Listen for data retrieval requests"""
+        await self.data_oracle_ops.listen_for_requests(callback)
+    
+    async def announce_data_availability_async(self, cid: str, price: float, description: str = "") -> str:
+        """Async version of announce_data_availability"""
+        return await self.data_oracle_ops.announce_data_availability_async(cid, price, description)
+
+    # ZK operations
+    def generate_proof(self, input_data: str, circuit_id: str) -> str:
+        """Generate ZK proof"""
+        return self.zk_ops.generate_proof(input_data, circuit_id)
+    
+    def verify_proof(self, proof: str, public_inputs: str) -> bool:
+        """Verify ZK proof"""
+        return self.zk_ops.verify_proof(proof, public_inputs)
+
+    # Knowledge graph operations
+    def create_knowledge_graph(self, name: str, description: str = "") -> str:
+        """Create knowledge graph"""
+        return self.knowledge_ops.create_knowledge_graph(name, description)
+    
+    def add_knowledge_node(self, graph_id: str, node_data: dict) -> str:
+        """Add node to knowledge graph"""
+        return self.knowledge_ops.add_knowledge_node(graph_id, node_data)
+
+    # Bounty operations
+    def create_bounty(self, title: str, description: str, reward: float) -> str:
+        """Create bounty"""
+        return self.bounty_ops.create_bounty(title, description, reward)
+    
+    def list_bounties(self, status: str = "open") -> list:
+        """List bounties"""
+        return self.bounty_ops.list_bounties(status)
+
+    # Dispute operations
+    def file_dispute(self, title: str, description: str, evidence: str) -> str:
+        """File dispute"""
+        return self.dispute_ops.file_dispute(title, description, evidence)
+    
+    def vote_dispute(self, dispute_id: str, vote: bool, reason: str = "") -> bool:
+        """Vote on dispute"""
+        return self.dispute_ops.vote_dispute(dispute_id, vote, reason)
+
+    # Extended operations
+    def submit_ai_test(self, model_id: str, test_data: str) -> str:
+        """Submit AI test job"""
+        return self.extended_ops.submit_ai_test(model_id, test_data)
+    
+    def list_gpu(self, filters: dict = None) -> list:
+        """List available GPU resources"""
+        return self.extended_ops.list_gpu(filters)
+    
+    def create_swarm(self, name: str, max_agents: int) -> str:
+        """Create agent swarm"""
+        return self.extended_ops.create_swarm(name, max_agents)
+    
+    def add_stake(self, amount: float, validator_id: str = None) -> str:
+        """Add stake to validator"""
+        return self.extended_ops.add_stake(amount, validator_id)
 
 
 class AITBCAgent:
