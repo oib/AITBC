@@ -1,14 +1,21 @@
 """Swarm intelligence and collective optimization commands for AITBC CLI"""
 
 import click
+import httpx
 from utils import output, error, success, warning
 from typing import Optional, Dict, Any, List
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def swarm():
+@click.pass_context
+def swarm(ctx):
     """Swarm intelligence and collective optimization"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @swarm.command()
