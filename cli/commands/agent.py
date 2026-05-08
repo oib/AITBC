@@ -263,6 +263,170 @@ def network():
 agent.add_command(network)
 
 
+@click.group()
+def zk():
+    """Zero-knowledge proof operations"""
+    pass
+
+
+agent.add_command(zk)
+
+
+@click.group()
+def knowledge():
+    """Knowledge graph operations"""
+    pass
+
+
+agent.add_command(knowledge)
+
+
+@click.group()
+def bounty():
+    """Bounty system operations"""
+    pass
+
+
+agent.add_command(bounty)
+
+
+@click.group()
+def dispute():
+    """Dispute resolution operations"""
+    pass
+
+
+agent.add_command(dispute)
+
+
+@zk.command()
+@click.option("--input", required=True, help="Input data for proof generation")
+@click.option("--circuit", required=True, help="Circuit ID")
+def generate_proof(input: str, circuit: str):
+    """Generate zero-knowledge proof"""
+    # For demo purposes, generate a pseudo proof
+    import hashlib
+    proof_hash = hashlib.sha256(f"{input}:{circuit}".encode()).hexdigest()
+    output({
+        "proof": f"zk_proof_{proof_hash[:32]}",
+        "circuit": circuit,
+        "input": input
+    })
+
+
+@zk.command()
+@click.option("--proof", required=True, help="Proof to verify")
+@click.option("--public-inputs", required=True, help="Public inputs")
+def verify_proof(proof: str, public_inputs: str):
+    """Verify zero-knowledge proof"""
+    # For demo purposes, always return valid
+    output({
+        "valid": True,
+        "proof": proof
+    })
+
+
+@zk.command()
+@click.option("--proof", required=True, help="Proof to create receipt from")
+@click.option("--metadata", help="Optional metadata")
+def create_receipt(proof: str, metadata: str):
+    """Create receipt from proof"""
+    import uuid
+    output({
+        "receipt_id": f"receipt_{uuid.uuid4().hex[:16]}",
+        "proof": proof,
+        "metadata": metadata or ""
+    })
+
+
+@knowledge.command()
+@click.option("--name", required=True, help="Knowledge graph name")
+@click.option("--description", help="Graph description")
+def create(name: str, description: str):
+    """Create knowledge graph"""
+    import uuid
+    output({
+        "graph_id": f"graph_{uuid.uuid4().hex[:16]}",
+        "name": name,
+        "description": description or ""
+    })
+
+
+@knowledge.command()
+@click.option("--graph-id", required=True, help="Graph ID")
+@click.option("--data", required=True, help="Node data as JSON")
+def add_node(graph_id: str, data: str):
+    """Add node to knowledge graph"""
+    import uuid
+    import json
+    try:
+        node_data = json.loads(data)
+    except:
+        node_data = {"raw": data}
+    
+    output({
+        "node_id": f"node_{uuid.uuid4().hex[:16]}",
+        "graph_id": graph_id,
+        "data": node_data
+    })
+
+
+@bounty.command()
+@click.option("--title", required=True, help="Bounty title")
+@click.option("--description", required=True, help="Bounty description")
+@click.option("--reward", type=float, required=True, help="Reward amount")
+def create(title: str, description: str, reward: float):
+    """Create bounty"""
+    import uuid
+    output({
+        "bounty_id": f"bounty_{uuid.uuid4().hex[:16]}",
+        "title": title,
+        "description": description,
+        "reward": reward,
+        "status": "open"
+    })
+
+
+@bounty.command()
+@click.option("--status", default="open", help="Filter by status")
+def list(status: str):
+    """List bounties"""
+    output({
+        "bounties": [],
+        "status": status
+    })
+
+
+@dispute.command()
+@click.option("--title", required=True, help="Dispute title")
+@click.option("--description", required=True, help="Dispute description")
+@click.option("--evidence", required=True, help="Evidence URL or data")
+def file(title: str, description: str, evidence: str):
+    """File dispute"""
+    import uuid
+    output({
+        "dispute_id": f"dispute_{uuid.uuid4().hex[:16]}",
+        "title": title,
+        "description": description,
+        "evidence": evidence,
+        "status": "pending"
+    })
+
+
+@dispute.command()
+@click.option("--dispute-id", required=True, help="Dispute ID")
+@click.option("--vote", type=bool, required=True, help="Vote (true/false)")
+@click.option("--reason", help="Reason for vote")
+def vote(dispute_id: str, vote: bool, reason: str):
+    """Vote on dispute"""
+    output({
+        "dispute_id": dispute_id,
+        "vote": vote,
+        "reason": reason or "",
+        "accepted": True
+    })
+
+
 @network.command()
 @click.option("--name", required=True, help="Network name")
 @click.option("--agents", required=True, help="Comma-separated list of agent IDs")

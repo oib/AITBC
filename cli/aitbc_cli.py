@@ -3178,33 +3178,39 @@ def legacy_main():
                 print(f"Unknown simulate command: {args.simulate_command}")
                 sys.exit(1)
         else:
-            print("Error: simulate command requires a subcommand")
-            print("Available subcommands: blockchain, wallets, price, network, ai-jobs")
-            sys.exit(1)
-    
-    else:
-        parser.print_help()
+            pass
 
+# Click command groups (agent-specific operations)
+CLICK_COMMANDS = [
+    'agent', 'ipfs', 'oracle', 'swarm', 'arbitrage', 'validator', 
+    'plugin', 'database', 'island', 'edge', 'ai', 'monitor', 
+    'governance', 'staking', 'compliance'
+]
 
 def main(argv=None):
-    # Handle genesis commands directly to avoid unified_cli import issues
+    """Main entry point - delegates to Click CLI or unified CLI"""
     if argv is None:
         argv = sys.argv[1:]
     
-    if len(argv) > 0 and argv[0] == "genesis":
-        # Use the standalone genesis CLI
-        import subprocess
-        genesis_cli_path = Path("/opt/aitbc/cli/genesis_cli.py")
-        if genesis_cli_path.exists():
-            result = subprocess.run([sys.executable, str(genesis_cli_path)] + argv[1:])
+    # Check if this is a Click command
+    if argv and argv[0] in CLICK_COMMANDS:
+        # Delegate to Click CLI
+        from cli.click_cli import aitbc_click
+        aitbc_click()
+    elif len(argv) > 0 and argv[0] == "genesis":
+        # Run genesis CLI subprocess
+        genesis_path = Path(__file__).parent.parent / "genesis" / "genesis_cli.py"
+        if genesis_path.exists():
+            import subprocess
+            result = subprocess.run([sys.executable, str(genesis_path)] + argv[1:])
             return result.returncode
         else:
-            print("Error: Genesis CLI not found at /opt/aitbc/cli/genesis_cli.py")
+            print("Genesis CLI not found")
             return 1
-    
-    from unified_cli import run_cli
-    return run_cli(argv, globals())
-
+    else:
+        # Run unified CLI (parser/handler architecture)
+        from unified_cli import run_cli
+        return run_cli(argv, globals())
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main() or 0)
