@@ -39,7 +39,7 @@ aitbc config set api_key your_api_key_here
 ### Setting Coordinator URL
 
 ```bash
-aitbc config set coordinator_url http://localhost:8000
+aitbc config set coordinator_url http://localhost:8011
 ```
 
 ## Commands
@@ -355,7 +355,7 @@ Manage CLI configuration.
 aitbc config show
 
 # Set configuration values
-aitbc config set coordinator_url http://localhost:8000
+aitbc config set coordinator_url http://localhost:8011
 aitbc config set timeout 30
 aitbc config set api_key your_key
 
@@ -471,7 +471,7 @@ The following environment variables are supported:
 ```bash
 # 1. Configure CLI
 export CLIENT_API_KEY=your_api_key
-aitbc config set coordinator_url http://localhost:8000
+aitbc config set coordinator_url http://localhost:8011
 
 # 2. Check wallet
 aitbc wallet balance
@@ -534,7 +534,7 @@ aitbc marketplace review gpu123 --rating 5 --comment "Great performance!"
    # Check coordinator URL
    aitbc config show
    # Update if needed
-   aitbc config set coordinator_url http://localhost:8000
+   aitbc config set coordinator_url http://localhost:8011
    ```
 
 3. **Permission Denied**

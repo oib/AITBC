@@ -47,7 +47,7 @@ aitbc --help
 aitbc version
 
 # Try advanced AI operations
-aitbc ai-submit --wallet genesis-ops --type multimodal --prompt "Multi-modal AI analysis" --payment 1000
+aitbc ai-submit --wallet genesis --type multimodal --prompt "Multi-modal AI analysis" --payment 1000
 ```
 
 ### **🤖 For hermes Agent Users:**
