@@ -1,7 +1,6 @@
-"""Database commands for AITBC CLI"""
+"""Database service commands for AITBC CLI"""
 
 import click
-import json
 from utils import output, error, success, warning
 
 

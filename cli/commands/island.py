@@ -1,7 +1,6 @@
-"""Island commands for AITBC CLI"""
+"""Island computing commands for AITBC CLI"""
 
 import click
-import json
 from utils import output, error, success, warning
 
 

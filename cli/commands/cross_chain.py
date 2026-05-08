@@ -4,7 +4,7 @@ import click
 import httpx
 import json
 from typing import Optional
-from config import get_config
+from .config import get_config
 from utils import success, error, output
 
 
