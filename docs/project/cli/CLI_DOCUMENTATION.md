@@ -124,16 +124,16 @@ source venv/bin/activate
 ./aitbc-cli ai results --job-id job-id
 
 # Advanced AI Operations - Phase 1 Completed
-./aitbc-cli ai submit --wallet genesis-ops --type parallel --prompt "Complex AI pipeline for medical diagnosis" --payment 500
-./aitbc-cli ai submit --wallet genesis-ops --type ensemble --prompt "Parallel AI processing with ensemble validation" --payment 600
+./aitbc-cli ai submit --wallet genesis --type parallel --prompt "Complex AI pipeline for medical diagnosis" --payment 500
+./aitbc-cli ai submit --wallet genesis --type ensemble --prompt "Parallel AI processing with ensemble validation" --payment 600
 
 # Advanced AI Operations - Phase 2 Completed
-./aitbc-cli ai submit --wallet genesis-ops --type multimodal --prompt "Multi-modal customer feedback analysis with cross-modal attention" --payment 1000
-./aitbc-cli ai submit --wallet genesis-ops --type fusion --prompt "Cross-modal fusion with joint reasoning and consensus validation" --payment 1200
+./aitbc-cli ai submit --wallet genesis --type multimodal --prompt "Multi-modal customer feedback analysis with cross-modal attention" --payment 1000
+./aitbc-cli ai submit --wallet genesis --type fusion --prompt "Cross-modal fusion with joint reasoning and consensus validation" --payment 1200
 
 # Advanced AI Operations - Phase 3 Completed
-./aitbc-cli ai submit --wallet genesis-ops --type resource-allocation --prompt "Dynamic resource allocation system with GPU pools and demand forecasting" --payment 800
-./aitbc-cli ai submit --wallet genesis-ops --type performance-tuning --prompt "AI performance optimization for sub-100ms inference latency" --payment 1000
+./aitbc-cli ai submit --wallet genesis --type resource-allocation --prompt "Dynamic resource allocation system with GPU pools and demand forecasting" --payment 800
+./aitbc-cli ai submit --wallet genesis --type performance-tuning --prompt "AI performance optimization for sub-100ms inference latency" --payment 1000
 ```
 
 #### Marketplace Operations
@@ -268,7 +268,7 @@ curl -s http://localhost:11434/api/tags
 ./aitbc-cli wallet create my-wallet my-password
 
 # 2. Fund wallet (from existing wallet)
-./aitbc-cli wallet send genesis-ops my-wallet 1000 123
+./aitbc-cli wallet send genesis my-wallet 1000 123
 
 # 3. Submit AI job
 ./aitbc-cli ai submit --wallet my-wallet --type inference --prompt "Generate a landscape image" --payment 50
