@@ -7,7 +7,8 @@ Separate entry point for Click-based commands (not parser/handler architecture)
 import sys
 from pathlib import Path
 
-# Add /opt/aitbc/cli to Python path for commands and utils
+# Add /opt/aitbc and /opt/aitbc/cli to Python path for shared modules
+sys.path.insert(0, str(Path("/opt/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/cli")))
 
 import click

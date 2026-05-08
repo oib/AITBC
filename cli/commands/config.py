@@ -8,7 +8,7 @@ import yaml
 import json
 from pathlib import Path
 from typing import Optional, Dict, Any
-from config import get_config, Config
+from aitbc_cli.config import get_config, CLIConfig
 from utils import output, error, success
 
 
