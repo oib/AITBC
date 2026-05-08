@@ -78,7 +78,7 @@ rpc_bind_port=8006
 
 # API Configuration
 api_host=0.0.0.0
-api_port=8000
+api_port=8011
 
 # Wallet Configuration
 wallet_host=0.0.0.0
