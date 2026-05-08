@@ -122,15 +122,14 @@ Distribute a task across the swarm.
 ```bash
 aitbc swarm distribute \
   --swarm-id swarm_abc123... \
-  --task-type compute \
-  --payload '{"model": "llama2", "prompt": "Hello"}'
+  --task '{"model": "llama2", "prompt": "Hello"}'
 ```
 
 ### **Step 5: Monitor Swarm Status**
 Check swarm health and task progress.
 
 ```bash
-aitbc swarm status --swarm-id swarm_abc123...
+aitbc swarm status task_abc123...
 ```
 
 ---

@@ -8,12 +8,18 @@ import uuid
 from typing import Optional, Dict, Any, List
 from pathlib import Path
 from utils import output, error, success, warning
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def agent():
+@click.pass_context
+def agent(ctx):
     """Advanced AI agent workflow and execution management"""
-    pass
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 
 @agent.command()
