@@ -230,7 +230,7 @@ ssh aitbc1 'systemctl restart aitbc-*'
 curl http://10.1.223.40:8006/health
 curl http://<aitbc1-ip>:8006/health
 curl http://10.1.223.40:8001/health
-curl http://10.1.223.40:8000/health
+curl http://10.1.223.40:8011/health
 
 # Check blockchain sync
 NODE_URL=http://10.1.223.40:8006 ./aitbc-cli blockchain height
