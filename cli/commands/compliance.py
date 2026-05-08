@@ -15,7 +15,7 @@ from utils.kyc_aml_providers import submit_kyc_verification, check_kyc_status, p
 
 @click.group()
 def compliance():
-    """Compliance and regulatory management commands"""
+    """Compliance and regulatory management commands for AITBC CLI"""
     pass
 
 @compliance.command()

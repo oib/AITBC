@@ -1,10 +1,10 @@
 """IPFS storage and retrieval commands for AITBC CLI"""
 
 import click
-import json
+from .config import get_config
+from utils import output, error, success, warning
 from pathlib import Path
 from typing import Optional
-from utils import output, error, success, warning
 
 @click.group()
 def ipfs():

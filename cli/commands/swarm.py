@@ -1,10 +1,8 @@
-"""Swarm intelligence commands for AITBC CLI"""
+"""Swarm intelligence and collective optimization commands for AITBC CLI"""
 
 import click
-import httpx
-import json
-from typing import Optional, Dict, Any, List
 from utils import output, error, success, warning
+from typing import Optional, Dict, Any, List
 
 
 @click.group()

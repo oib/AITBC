@@ -1,14 +1,12 @@
-"""Governance commands for AITBC CLI"""
+"""Governance proposals and voting commands for AITBC CLI"""
 
 import click
-import httpx
-import json
+from utils import output, error, success, warning
 import os
 import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
-from utils import output, error, success
 
 
 GOVERNANCE_DIR = Path.home() / ".aitbc" / "governance"

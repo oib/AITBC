@@ -1,13 +1,11 @@
-"""Monitoring and dashboard commands for AITBC CLI"""
+"""Monitoring, metrics, and alerting commands for AITBC CLI"""
 
 import click
-import httpx
-import json
+from utils import output, error, success, console
 import time
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
-from utils import output, error, success, console
 
 
 @click.group()

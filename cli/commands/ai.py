@@ -2,13 +2,13 @@ import os
 import subprocess
 import sys
 import uuid
+from utils import output, error, success, warning
 import click
 import httpx
-from pydantic import BaseModel
 
 @click.group(name='ai')
 def ai_group():
-    """AI marketplace commands."""
+    """AI marketplace commands for AITBC CLI"""
     pass
 
 @ai_group.command()
