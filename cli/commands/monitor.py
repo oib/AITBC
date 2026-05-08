@@ -469,6 +469,8 @@ def campaign_stats(ctx, campaign_id: Optional[str]):
         if not campaign:
             error(f"Campaign '{campaign_id}' not found")
             ctx.exit(1)
+        output(campaign, ctx.obj['output_format'])
+        return
 
 
 @monitor.command()
