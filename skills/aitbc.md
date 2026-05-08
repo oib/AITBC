@@ -299,7 +299,37 @@ curl -X POST http://aitbc1:8006/topics -H "Content-Type: application/json" -d '{
 curl -X POST http://aitbc1:9001/agents/register -H "Content-Type: application/json" -d '{"agent_id":"...","agent_type":"worker","endpoint":"...","capabilities":["marketplace","messaging"]}'
 ```
 
-**Note:** For CLI commands, see aitbc-cli.md skill
+**Note:** For CLI commands, use `python3 cli/unified_cli.py` instead of `aitbc-cli`. See CLI Tool Preference section below.
+
+---
+
+## CLI Tool Preference
+
+**For marketplace operations, prefer `python3 cli/unified_cli.py` over `aitbc-cli market`.**
+
+The unified CLI (`cli/unified_cli.py`) has been verified working (all 7 bugs fixed in session 2026-05-08). The `aitbc-cli market` commands need verification.
+
+**Verified CLI:** `python3 cli/unified_cli.py market create/list/buy/orders`
+**Verification Status:** ✅ All marketplace operations working
+**Bugs Fixed:** See Bugs Fixed section below
+
+**Note:** `/opt/aitbc/aitbc-cli` is the single CLI entry point. The `cli/unified_cli.py` is a Python module within the CLI tool that provides verified marketplace operations.
+
+---
+
+## Bugs Fixed (Session 2026-05-08)
+
+| # | Bug | Commit | Status |
+|---|-----|--------|--------|
+| 1 | Async/Sync Session Management | 130a2953 | ✅ FIXED |
+| 2 | Datetime Timezone Error | 6549483b | ✅ FIXED |
+| 3 | Provider NULL Mapping | 528c822f | ✅ FIXED |
+| 4 | JSON Serialization (SQLAlchemy models) | 4ac23bf3 | ✅ FIXED |
+| 5 | JSON Serialization (list_bids) | fb09022e | ✅ FIXED |
+| 6 | Book Endpoint 404 | 58784193 | ✅ FIXED |
+| 7 | Orders Endpoint 404 | fb09022e | ✅ FIXED |
+
+**Summary:** All 7 marketplace service bugs fixed. CLI `unified_cli.py` verified working after fixes.
 
 ---
 
