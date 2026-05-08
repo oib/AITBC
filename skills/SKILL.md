@@ -1,12 +1,12 @@
 ---
 name: aitbc-operations
-description: Complete AITBC software operations - marketplace (offers, deals, bids, orders), messaging, agent registration, coordinator. All bugs fixed, production-ready. Ships with AITBC software.
+description: Complete AITBC software operations - marketplace (offers, deals, bids, orders), messaging, agent registration, coordinator, testing patterns. All operational information verified. Ships with AITBC software.
 category: software-development
 ---
 
 # AITBC Software Operations Skill
 
-Complete guide for Hermes agent to interact with AITBC (Agent Training Blockchain) software - marketplace, messaging, and agent operations. **This skill ships with AITBC software repository.**
+Complete guide for Hermes agent to interact with AITBC (Agent Training Blockchain) software - marketplace, messaging, agent operations, testing patterns. **This skill ships with AITBC software repository.**
 
 ## Trigger Conditions
 
@@ -16,6 +16,7 @@ Load this skill when:
 - Working with aitbc1 node or localhost AITBC instance
 - User mentions "aitbc software", "marketplace", "offers", "deals", "bids", "messages"
 - Need to register agents or use coordinator
+- Need to test AITBC operations or validate scenarios
 
 ## Prerequisites
 
@@ -117,7 +118,7 @@ python3 cli/unified_cli.py market orders \
 - Bids: `GET http://aitbc1:8102/v1/marketplace/bids`
 - Orders: `GET http://aitbc1:8102/v1/marketplace/orders`
 
-**Result:** JSON array of bids/orders (2+ verified)
+**Result:** JSON array of bids/orders (2+ verified working)
 
 ---
 
@@ -213,6 +214,41 @@ curl -s -X POST http://aitbc1:9001/agents/register \
 
 ---
 
+## Testing Patterns
+
+### Verify Service Health
+```bash
+# Check all AITBC services
+systemctl list-units --type=service | grep -E "aitbc|blockchain|coordinator"
+
+# Health checks
+curl -s http://localhost:8006/health | jq .  # Blockchain node
+curl -s http://localhost:9001/health | jq .  # Coordinator
+curl -s http://localhost:8102/health | jq .  # Marketplace
+curl -s http://localhost:8101/health | jq .  # GPU service
+```
+
+### Verify User Claims (Mandatory)
+When user reports "FIXED" or "All issues resolved":
+1. **ALWAYS test immediately** - don't trust the claim
+2. **Pull latest code:** `cd /opt/aitbc && git pull origin main && git log --oneline -3`
+3. **Restart service:** `ssh aitbc1 "sudo systemctl restart aitbc-marketplace.service"`
+4. **Wait and test:** `sleep 3 && curl -s http://aitbc1:8102/health`
+5. **Run actual test:** Execute the CLI command that was failing
+6. **Check logs if still broken:** `ssh aitbc1 "journalctl -u aitbc-marketplace --since '1 minute ago'"`
+
+### CLI Command Discovery
+```bash
+# Check available commands
+python3 /opt/aitbc/cli/unified_cli.py --help
+
+# Check subcommand help
+python3 /opt/aitbc/cli/unified_cli.py market --help
+python3 /opt/aitbc/cli/unified_cli.py messaging --help
+```
+
+---
+
 ## Pitfalls & Common Errors
 
 ### 1. Using IP Instead of Hostname
@@ -234,6 +270,28 @@ curl -s -X POST http://aitbc1:9001/agents/register \
 ### 5. Forgetting Wallet Password
 **Error:** Authentication failure
 **Fix:** Use `cat /var/lib/aitbc/keystore/.genesis_password` for password
+
+### 6. Marketplace CLI Parameter Names
+**Error:** `unrecognized arguments: --item-type`
+**Fix:** Use `--type` for item type, `--item` is not a valid arg for create
+**Error:** `unrecognized arguments: --password-file`
+**Fix:** Use `--password "$(cat /path/to/password-file)"` to inject credentials
+
+### 7. Service Restart Required After Code Changes
+**Error:** New routes or endpoints return 404 after git pull
+**Fix:** Restart service after pulling commits with route changes: `systemctl restart aitbc-agent-coordinator`
+
+### 8. Backend Router Incomplete
+**Error:** CLI expects 6 endpoints but router only implements 1
+**Fix:** Check router file for ALL expected endpoints using `grep "@router\." <router.py>`, compare with CLI code, report missing endpoints
+
+### 9. Missing Imports in CLI Command Files
+**Error:** `NameError: name 'httpx' is not defined` at runtime
+**Fix:** Check for missing imports (httpx, json) in command files, add to imports section
+
+### 10. URL Configuration Mismatch
+**Error:** CLI calls wrong backend service URL
+**Fix:** Verify which port has the endpoint, check config.py for URL defaults
 
 ---
 
@@ -294,7 +352,7 @@ curl -X POST http://aitbc1:9001/agents/register -H "Content-Type: application/js
 **AITBC Software: FULLY OPERATIONAL**
 
 - 24 services running
-- All 7 bugs fixed (verified this session)
+- All marketplace operations verified working
 - Cross-node operations verified
 - Production-ready system
 - **This skill ships with AITBC software repository**
