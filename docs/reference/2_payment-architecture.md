@@ -97,7 +97,7 @@ CREATE TABLE job_payments (
 
 ### 1. Client Creates Job
 ```bash
-curl -X POST http://localhost:18000/v1/jobs \
+curl -X POST http://localhost:8011/v1/jobs \
   -H "X-Api-Key: ${CLIENT_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -123,7 +123,7 @@ curl -X POST http://localhost:18000/v1/jobs \
 
 ### 3. Job Completion & Payment Release
 ```bash
-curl -X POST http://localhost:18000/v1/payments/pay456/release \
+curl -X POST http://localhost:8011/v1/payments/pay456/release \
   -H "X-Api-Key: ${CLIENT_API_KEY}" \
   -d '{"job_id": "abc123", "reason": "Job completed"}'
 ```
