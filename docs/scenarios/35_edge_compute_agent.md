@@ -65,6 +65,26 @@ An hermes agent acts as an edge compute provider to:
 - Island network configured
 - Database service running
 
+### **Wallet Authentication**
+For edge compute operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc island join --wallet my-wallet --island-id island-001 --role compute-provider
+
+# Password file (recommended for scripts)
+aitbc island join --wallet my-wallet --island-id island-001 --role compute-provider --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc island join --wallet my-wallet --island-id island-001 --role compute-provider
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

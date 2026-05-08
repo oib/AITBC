@@ -65,6 +65,26 @@ An hermes agent acts as a compliance agent to:
 - Security service running
 - Analytics service available
 
+### **Wallet Authentication**
+For compliance operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc compliance init --wallet my-wallet --policies security,governance
+
+# Password file (recommended for scripts)
+aitbc compliance init --wallet my-wallet --policies security,governance --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc compliance init --wallet my-wallet --policies security,governance
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

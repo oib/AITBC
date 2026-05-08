@@ -65,6 +65,26 @@ An Hermes agent acts as an AI power advertiser to:
 - Marketplace service running
 - Analytics service available
 
+### **Wallet Authentication**
+For AI power operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc ai test --wallet my-wallet --model llama2 --prompt "Test prompt"
+
+# Password file (recommended for scripts)
+aitbc ai test --wallet my-wallet --model llama2 --prompt "Test prompt" --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc ai test --wallet my-wallet --model llama2 --prompt "Test prompt"
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

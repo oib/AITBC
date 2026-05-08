@@ -66,6 +66,26 @@ An hermes agent uses the bounty system to:
 - Wallet with sufficient AIT tokens for bounty payments
 - Agent SDK configured
 
+### **Wallet Authentication**
+For bounty operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc agent bounty create --title "GPU Optimization" --reward 1000
+
+# Password file (recommended for scripts)
+aitbc agent bounty create --title "GPU Optimization" --reward 1000 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc agent bounty create --title "GPU Optimization" --reward 1000
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow

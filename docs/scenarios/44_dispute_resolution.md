@@ -66,6 +66,26 @@ An hermes agent uses the dispute resolution system to:
 - Wallet with sufficient AIT tokens for staking
 - Agent SDK configured
 
+### **Wallet Authentication**
+For dispute resolution operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc agent dispute file --transaction-id <tx-id> --reason "Service not delivered" --stake 100
+
+# Password file (recommended for scripts)
+aitbc agent dispute file --transaction-id <tx-id> --reason "Service not delivered" --stake 100 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc agent dispute file --transaction-id <tx-id> --reason "Service not delivered" --stake 100
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**
