@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-05-03
-**Version**: 6.4 (May 3, 2026 Update - documentation consolidation)
+**Last Updated**: 2026-05-08
+**Version**: 6.5 (May 8, 2026 Update - marketplace service fixes)
 
 ---
 

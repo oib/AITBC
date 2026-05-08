@@ -655,6 +655,62 @@ operational.
   - **Workflow Creation**: Established `/organize-project-files` workflow for
     future maintenance
 
+## Recent Updates (2026-05-08)
+
+### Marketplace Service Bug Fixes - aitbc1 Node
+
+- ✅ **7 Bugs Fixed** - All marketplace service bugs resolved on aitbc1 node
+  - **Async/Sync Session** (Commit: 130a2953)
+    - Removed `@asynccontextmanager` decorator from `get_session()`
+    - Made service layer methods async with `await` for session operations
+    - Changed `Session` to `AsyncSession` in MarketplaceService
+  
+  - **Datetime Timezone** (Commit: 6549483b)
+    - Changed `datetime.now(timezone.utc)` to `datetime.utcnow`
+    - Fixed timezone-naive datetime requirement for TIMESTAMP WITHOUT TIME ZONE column
+    - Applied to MarketplaceOffer and MarketplaceBid models
+  
+  - **Provider NULL** (Commit: 528c822f)
+    - Added wallet → provider mapping in `create_offer` method
+    - Handles CLI parameter correctly for database NOT NULL constraint
+    - Fixed NotNullViolationError on provider column
+  
+  - **JSON Serialization (list_offers)** (Commit: 4ac23bf3)
+    - Converted SQLAlchemy model objects to dictionaries in `list_offers`
+    - Fixed FastAPI jsonable_encoder ValueError and TypeError
+    - Added datetime serialization with isoformat()
+  
+  - **BUY/DEAL 404** (Commit: 58784193)
+    - Added POST `/v1/marketplace/offers/{offer_id}/book` endpoint
+    - Implemented `book_offer` method to create bids for offers
+    - Returns bid_id, offer_id, status, and message
+  
+  - **JSON Serialization (list_bids)** (Commit: fb09022e)
+    - Converted SQLAlchemy objects to dictionaries in `list_bids`
+    - Same fix applied as for `list_offers` JSON serialization issue
+    - Returns JSON array with bid dictionaries including datetime serialization
+  
+  - **ORDERS CLI 404** (Commit: fb09022e)
+    - Added GET `/v1/marketplace/orders` endpoint for CLI compatibility
+    - Endpoint uses `list_bids` with provider filter
+    - Returns bids in format expected by CLI: `{"orders": [...]}`
+  
+- ✅ **All Operations Verified Working on aitbc1**
+  - CREATE OFFER (SELL) - Working
+  - LIST OFFERS - Working
+  - BUY/DEAL (BID) - Working
+  - LIST BIDS - Working
+  - ORDERS CLI - Working
+  - MESSAGES (MSG) - Working with cross-node visibility
+  - AGENT REGISTER - Working
+  
+- ✅ **System Status**
+  - All nodes synced (commit fb09022e)
+  - Pushed to Gitea and GitHub
+  - Production-ready system
+  - 24 services running
+  - Cross-node operations verified
+
 ## Recent Updates (2026-05-02)
 
 ### Python 3.13 Compatibility Fixes & Database Migration
