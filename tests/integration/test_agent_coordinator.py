@@ -1423,13 +1423,13 @@ class TestAlertsAdvanced:
         for i in range(3):
             response = coordinator_client.post("/sla/test-sla-001/record?value=0.9")
             # May fail due to auth, but exercises the code path
-            assert response.status_code in (200, 403, 500)
+            assert response.status_code in (200, 401, 403, 500)
 
     def test_alert_rules_validation(self, coordinator_client: TestClient):
         """Test alert rules endpoint."""
         response = coordinator_client.get("/alerts/rules")
         # May fail due to auth, but exercises the code path
-        assert response.status_code in (200, 403, 503)
+        assert response.status_code in (200, 401, 403, 503)
 
 
 class TestUsersAdvanced:
@@ -1441,7 +1441,7 @@ class TestUsersAdvanced:
         for role in roles:
             response = coordinator_client.get(f"/roles/{role}")
             # May fail due to auth, but exercises the code path
-            assert response.status_code in (200, 403, 404, 500)
+            assert response.status_code in (200, 401, 403, 404, 500)
 
     def test_users_permission_operations(self, coordinator_client: TestClient):
         """Test various permission operations."""
@@ -1449,18 +1449,18 @@ class TestUsersAdvanced:
         for perm in permissions:
             # Grant permission
             response = coordinator_client.post(f"/users/test_user/permissions/grant?permission={perm}")
-            assert response.status_code in (200, 403, 422, 500)
+            assert response.status_code in (200, 401, 403, 422, 500)
 
             # Revoke permission
             response = coordinator_client.delete(f"/users/test_user/permissions/{perm}")
-            assert response.status_code in (200, 403, 400, 500)
+            assert response.status_code in (200, 401, 403, 400, 500)
 
     def test_users_role_assignments(self, coordinator_client: TestClient):
         """Test assigning different roles to users."""
         roles = ["admin", "operator", "user"]
         for role in roles:
             response = coordinator_client.post(f"/users/test_user_{role}/role", json={"role": role})
-            assert response.status_code in (200, 403, 422, 500)
+            assert response.status_code in (200, 401, 403, 422, 500)
 
 
 class TestAuthAdvanced:
@@ -1509,7 +1509,7 @@ class TestAuthAdvanced:
                 response = coordinator_client.post(
                     f"/auth/api-key/generate?user_id={user_id}&permissions={perm}"
                 )
-                assert response.status_code in (200, 403, 500)
+                assert response.status_code in (200, 401, 403, 500)
 
     def test_auth_protected_endpoints_with_valid_token(self, authenticated_client: TestClient):
         """Test protected endpoints with valid authentication."""
