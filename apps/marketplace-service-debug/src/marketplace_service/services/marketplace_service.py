@@ -128,7 +128,7 @@ class MarketplaceService:
         self,
         status: str | None = None,
         provider: str | None = None,
-    ) -> list[MarketplaceBid]:
+    ) -> list[dict]:
         """List marketplace bids"""
         try:
             logger.info(f"list_bids called with filters: status={status}, provider={provider}")
@@ -140,7 +140,22 @@ class MarketplaceService:
             logger.info("Executing database query for bids")
             result = list((await self.session.execute(stmt)).all())
             logger.info(f"Retrieved {len(result)} bids")
-            return result
+            # Convert SQLAlchemy model objects to dictionaries for JSON serialization
+            bids_list = []
+            for row in result:
+                bid = row[0] if row else None
+                if bid:
+                    bids_list.append({
+                        'id': bid.id,
+                        'provider': bid.provider,
+                        'capacity': bid.capacity,
+                        'price': bid.price,
+                        'notes': bid.notes,
+                        'status': bid.status,
+                        'submitted_at': bid.submitted_at.isoformat() if bid.submitted_at else None,
+                    })
+            logger.info(f"Converted {len(bids_list)} bids to dictionaries")
+            return bids_list
         except Exception as e:
             logger.error(f"Error in list_bids: {type(e).__name__}: {str(e)}")
             raise
