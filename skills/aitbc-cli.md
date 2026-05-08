@@ -208,18 +208,18 @@ cd /opt/aitbc
 
 #### List Marketplace Items
 ```bash
-# Via aitbc-cli
 ./aitbc-cli marketplace --action list --rpc-url <rpc_url>
+```
 
-# Via unified_cli.py
-python3 cli/unified_cli.py market list --marketplace-url http://aitbc1:8102
+**Alternative command:**
+```bash
+./aitbc-cli market-list --rpc-url <rpc_url>
 ```
 
 **Result:** List of available marketplace items
 
 #### Create Marketplace Listing
 ```bash
-# Via aitbc-cli
 ./aitbc-cli marketplace \
   --action create \
   --name <item_name> \
@@ -227,63 +227,41 @@ python3 cli/unified_cli.py market list --marketplace-url http://aitbc1:8102
   --description <description> \
   --wallet <wallet_name> \
   --rpc-url <rpc_url>
+```
 
-# Via unified_cli.py (localhost)
-python3 cli/unified_cli.py market create \
+**Alternative command:**
+```bash
+./aitbc-cli market-create \
   --wallet <wallet_name> \
   --type <service_type> \
   --price <price_in_AIT> \
-  --description <optional_desc>
-
-# Via unified_cli.py (aitbc1 node)
-python3 cli/unified_cli.py market create \
-  --wallet <wallet_name> \
-  --type <service_type> \
-  --price <price_in_AIT> \
-  --description <optional_desc> \
-  --marketplace-url http://aitbc1:8102
-```
-
-**Example (unified_cli.py):**
-```bash
-python3 cli/unified_cli.py market create \
-  --wallet hermes-final \
-  --type "complete-demo" \
-  --price 999 \
-  --description "Full demo" \
-  --marketplace-url http://aitbc1:8102
-```
-
-**Result:** Returns offer ID (e.g., `0423942b3d4f4ec88968adc52fe4ba36`), provider, price, status (open)
-
-#### Buy/Create Bid
-```bash
-python3 cli/unified_cli.py market buy \
-  --item <offer_id> \
-  --wallet <wallet_name> \
-  --password "$(cat /var/lib/aitbc/keystore/.genesis_password)" \
-  --marketplace-url http://aitbc1:8102
+  --description <description> \
+  --password <password> \
+  --rpc-url <rpc_url>
 ```
 
 **Example:**
 ```bash
-python3 cli/unified_cli.py market buy \
-  --item "0423942b3d4f4ec88968adc52fe4ba36" \
-  --wallet hermes-final \
-  --password "$(cat /var/lib/aitbc/keystore/.genesis_password)" \
-  --marketplace-url http://aitbc1:8102
+./aitbc-cli market-create \
+  --wallet my-wallet \
+  --type "gpu-compute" \
+  --price 100 \
+  --description "GPU compute for AI training" \
+  --password "securepassword123" \
+  --rpc-url http://localhost:8006
 ```
 
-**Result:** Bid ID (e.g., `dc74b16ab952432e8cb9ff7a3f97df3d`), status (pending), message
+**Result:** Returns listing ID, provider, price, status
 
-#### List Bids/Orders
+#### Search Marketplace
 ```bash
-python3 cli/unified_cli.py market orders \
-  --wallet <wallet_name> \
-  --marketplace-url http://aitbc1:8102
+./aitbc-cli marketplace --action search --name <search_term> --rpc-url <rpc_url>
 ```
 
-**Result:** JSON array of bids/orders
+#### List My Listings
+```bash
+./aitbc-cli marketplace --action my-listings --wallet <wallet_name> --rpc-url <rpc_url>
+```
 
 ---
 
