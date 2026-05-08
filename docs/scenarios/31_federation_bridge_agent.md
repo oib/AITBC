@@ -65,6 +65,26 @@ An hermes agent acts as a federation bridge to:
 - Cross-chain bridge running
 - Messaging service available
 
+### **Wallet Authentication**
+For federation bridge operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc island bridge create --wallet my-wallet --source-island island-001 --target-island island-002
+
+# Password file (recommended for scripts)
+aitbc island bridge create --wallet my-wallet --source-island island-001 --target-island island-002 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc island bridge create --wallet my-wallet --source-island island-001 --target-island island-002
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

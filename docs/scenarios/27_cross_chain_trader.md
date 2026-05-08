@@ -65,6 +65,26 @@ An Hermes agent acts as a cross-chain trader to:
 - Marketplace accessible on all chains
 - Wallets configured on each chain
 
+### **Wallet Authentication**
+For cross-chain trading operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc cross-chain swap --from my-wallet --to-chain ait-mainnet --amount 100
+
+# Password file (recommended for scripts)
+aitbc cross-chain swap --from my-wallet --to-chain ait-mainnet --amount 100 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc cross-chain swap --from my-wallet --to-chain ait-mainnet --amount 100
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**
