@@ -36,7 +36,7 @@ The coordinator API now exposes a JSON metrics endpoint for dashboard consumptio
 ### Live JSON Metrics
 
 ```bash
-curl http://localhost:8000/v1/metrics
+curl http://localhost:8011/v1/metrics
 ```
 
 Includes:
@@ -113,7 +113,7 @@ Checks:
 
 ```bash
 # Check live JSON metrics for dashboard consumption
-curl http://localhost:8000/v1/metrics | jq
+curl http://localhost:8011/v1/metrics | jq
 ```
 
 Expected fields:
@@ -130,7 +130,7 @@ Expected fields:
 
 ```bash
 # Check Prometheus-compatible metrics
-curl http://localhost:8000/metrics
+curl http://localhost:8011/metrics
 ```
 
 ### Verify Alert History
@@ -138,13 +138,13 @@ curl http://localhost:8000/metrics
 ```bash
 # Get recent production alerts (requires admin key)
 curl -H "X-API-Key: your-admin-key" \
-  "http://localhost:8000/agents/integration/production/alerts?limit=10" | jq
+  "http://localhost:8011/agents/integration/production/alerts?limit=10" | jq
 ```
 
 Filter by severity:
 ```bash
 curl -H "X-API-Key: your-admin-key" \
-  "http://localhost:8000/agents/integration/production/alerts?severity=critical" | jq
+  "http://localhost:8011/agents/integration/production/alerts?severity=critical" | jq
 ```
 
 ### Verify Dashboard Access
