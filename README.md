@@ -54,15 +54,15 @@
 - **10/10 quality score** with standardized templates
 - **Master index** for quick navigation
 - **Release notes** with version history
-- **Documentation skills** for AITBC operations in docs/ folder:
-  - [aitbc-basic-operations.md](docs/aitbc-basic-operations.md) - Basic CLI operations, wallet management, blockchain status
-  - [aitbc-marketplace.md](docs/aitbc-marketplace.md) - Marketplace operations, GPU provider registration, trading
-  - [aitbc-node-coordination.md](docs/aitbc-node-coordination.md) - Multi-node coordination, git synchronization, blockchain sync
-  - [aitbc-wallet-management.md](docs/aitbc-wallet-management.md) - Wallet creation, import/export, balance checks, deletion
-  - [aitbc-ai-operations.md](docs/aitbc-ai-operations.md) - AI job submission, monitoring, resource allocation, GPU testing
-  - [aitbc-blockchain-troubleshooting.md](docs/aitbc-blockchain-troubleshooting.md) - Blockchain troubleshooting, sync issues, P2P problems
-  - [aitbc-multi-node-operations.md](docs/aitbc-multi-node-operations.md) - Multi-node operations, git sync, service restart, blockchain sync
-  - [aitbc-cli.md](docs/aitbc-cli.md) - CLI tool reference for training agents and workflow operations
+- **Documentation skills** for AITBC operations in docs/skills/ folder:
+  - [aitbc-basic-operations.md](docs/skills/aitbc-basic-operations.md) - Basic CLI operations, wallet management, blockchain status
+  - [aitbc-marketplace.md](docs/skills/aitbc-marketplace.md) - Marketplace operations, GPU provider registration, trading
+  - [aitbc-node-coordination.md](docs/skills/aitbc-node-coordination.md) - Multi-node coordination, git synchronization, blockchain sync
+  - [aitbc-wallet-management.md](docs/skills/aitbc-wallet-management.md) - Wallet creation, import/export, balance checks, deletion
+  - [aitbc-ai-operations.md](docs/skills/aitbc-ai-operations.md) - AI job submission, monitoring, resource allocation, GPU testing
+  - [aitbc-blockchain-troubleshooting.md](docs/skills/aitbc-blockchain-troubleshooting.md) - Blockchain troubleshooting, sync issues, P2P problems
+  - [aitbc-multi-node-operations.md](docs/skills/aitbc-multi-node-operations.md) - Multi-node operations, git sync, service restart, blockchain sync
+  - [aitbc-cli.md](docs/skills/aitbc-cli.md) - CLI tool reference for training agents and workflow operations
 
 ## Documentation
 
