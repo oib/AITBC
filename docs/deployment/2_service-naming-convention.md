@@ -73,7 +73,7 @@ ssh ns3-root "incus exec aitbc -- journalctl -u aitbc-blockchain-node-3.service 
 
 ### Coordinator API
 - Main API for job submission, miner management, and receipts
-- Runs on localhost:8000 inside container
+- Runs on http://localhost:8011 inside container
 - Proxied via nginx at https://aitbc.bubuit.net/api/
 
 ## Benefits of Standardized Naming
