@@ -115,14 +115,14 @@ Key properties:
 
 1. **Coordinator health**:
    ```bash
-   curl http://localhost:8000/health
+   curl http://localhost:8011/health
    # Expected: {"status":"ok",...}
    ```
 
 2. **Wallet balance** (once wallet daemon is up and wallet file present):
    ```bash
    # Coordinator forwards to wallet daemon
-   curl http://localhost:8000/v1/agent-identity/identities/.../wallets/<chain_id>/balance
+   curl http://localhost:8011/v1/agent-identity/identities/.../wallets/<chain_id>/balance
    ```
 
 3. **Blockchain node health**:
