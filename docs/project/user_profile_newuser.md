@@ -11,7 +11,7 @@
 - **Network**: AITBC Enhanced Development Network
 - **Chain ID**: aitbc-enhanced-devnet
 - **Blockchain Endpoint**: http://localhost:8005
-- **Coordinator API**: http://localhost:8000
+- **Coordinator API**: http://localhost:8011
 
 ## Available Features for New Users
 
@@ -147,7 +147,7 @@ aitbc advanced-analytics --help
 
 ### API Documentation
 - **Blockchain API**: http://localhost:8005/docs
-- **Coordinator API**: http://localhost:8000/docs
+- **Coordinator API**: http://localhost:8011/docs
 
 ### Community & Support
 - **Network Status**: Available through coordinator API
