@@ -1,7 +1,7 @@
-"""Arbitrage commands for AITBC CLI"""
+"""Arbitrage trading commands for AITBC CLI"""
 
 import click
-import json
+import httpx
 from utils import output, error, success, warning
 
 

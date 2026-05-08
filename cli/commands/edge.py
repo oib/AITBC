@@ -1,7 +1,6 @@
 """Edge computing commands for AITBC CLI"""
 
 import click
-import json
 from utils import output, error, success, warning
 
 
