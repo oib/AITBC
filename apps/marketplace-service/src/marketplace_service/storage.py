@@ -36,8 +36,14 @@ async def init_db() -> None:
     logger.info("Marketplace service database initialized")
 
 
-@asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Get database session"""
-    async with AsyncSession(engine) as session:
-        yield session
+    try:
+        logger.debug("Creating database session")
+        async with AsyncSession(engine) as session:
+            logger.debug("Database session created successfully")
+            yield session
+            logger.debug("Database session closed")
+    except Exception as e:
+        logger.error(f"Error in get_session: {type(e).__name__}: {str(e)}")
+        raise
