@@ -175,10 +175,10 @@ echo $PATH | grep aitbc
 aitbc --debug blockchain status
 
 # Test with custom URL
-aitbc --url http://localhost:8000 blockchain info
+aitbc --url http://localhost:8011 blockchain info
 
 # Check service endpoints
-curl http://localhost:8000/health
+curl http://localhost:8011/health
 ```
 
 ### Debug Mode
