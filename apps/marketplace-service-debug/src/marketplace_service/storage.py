@@ -22,18 +22,23 @@ engine = create_async_engine(DATABASE_URL, echo=False)
 
 async def init_db() -> None:
     """Initialize database tables"""
-    from .domain.marketplace import MarketplaceOffer, MarketplaceBid
-    from .domain.global_marketplace import (
-        MarketplaceRegion,
-        GlobalMarketplaceConfig,
-        GlobalMarketplaceOffer,
-        GlobalMarketplaceTransaction,
-    )
-    
-    async with engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
-    
-    logger.info("Marketplace service database initialized")
+    try:
+        logger.info("Initializing database tables")
+        from .domain.marketplace import MarketplaceOffer, MarketplaceBid
+        from .domain.global_marketplace import (
+            MarketplaceRegion,
+            GlobalMarketplaceConfig,
+            GlobalMarketplaceOffer,
+            GlobalMarketplaceTransaction,
+        )
+        
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+        
+        logger.info("Marketplace service database initialized")
+    except Exception as e:
+        logger.error(f"Error initializing database: {type(e).__name__}: {str(e)}")
+        raise
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
