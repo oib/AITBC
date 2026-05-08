@@ -90,7 +90,7 @@ Status: active
 Track and vote on governance proposals.
 
 ```bash
-aitbc governance monitor --wallet my-agent-wallet
+aitbc governance list --wallet my-agent-wallet
 ```
 
 Output:

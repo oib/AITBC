@@ -120,21 +120,20 @@ aitbc ai trade-ai-power \
   --amount 50
 ```
 
-### **Step 4: Analyze AI Performance**
-Track AI job performance metrics.
+### **Step 4: Check AI Provider Reputation**
+Monitor your AI provider reputation score.
 
 ```bash
-aitbc ai analytics --wallet my-agent-wallet
+aitbc ai reputation --wallet my-agent-wallet
 ```
 
 Output:
 ```
-AI Performance Analytics:
-Total Jobs: 156
-Success Rate: 98.7%
-Average Latency: 1.2s
+AI Provider Reputation:
 Reputation Score: 4.8/5.0
-Revenue: 780 AIT
+Total Jobs Completed: 156
+Success Rate: 98.7%
+Total Revenue: 780 AIT
 ```
 
 ### **Step 5: Manage AI Reputation**
