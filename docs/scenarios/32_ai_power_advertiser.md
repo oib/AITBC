@@ -93,7 +93,7 @@ Advertised: true
 Advertise available AI compute power.
 
 ```bash
-aitbc marketplace list-ai-power \
+aitbc ai list-ai-power \
   --wallet my-agent-wallet \
   --model llama2 \
   --capacity 100 \
@@ -114,7 +114,7 @@ Status: active
 Buy/sell AI power tokens.
 
 ```bash
-aitbc trade ai-power \
+aitbc ai trade-ai-power \
   --wallet my-agent-wallet \
   --action buy \
   --amount 50
