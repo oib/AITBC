@@ -24,11 +24,9 @@ from commands import database
 from commands import island
 from commands import edge
 from commands import ai
+from commands import cross_chain
 
 # Import commands with dependencies (may fail if dependencies not installed)
-# cross_chain requires tabulate - not available in click_cli
-CROSS_CHAIN_AVAILABLE = False
-
 try:
     from commands import monitor
     MONITOR_AVAILABLE = True
@@ -71,10 +69,9 @@ aitbc_click.add_command(database.database)
 aitbc_click.add_command(island.island)
 aitbc_click.add_command(edge.edge)
 aitbc_click.add_command(ai.ai_group)
+aitbc_click.add_command(cross_chain.cross_chain)
 
 # Register commands with dependencies conditionally
-if CROSS_CHAIN_AVAILABLE:
-    aitbc_click.add_command(cross_chain.cross_chain)
 if MONITOR_AVAILABLE:
     aitbc_click.add_command(monitor.monitor)
 if GOVERNANCE_AVAILABLE:
