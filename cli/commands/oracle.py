@@ -425,3 +425,205 @@ def get_price(ctx, pair: str):
         "spread": current_price.get("spread", 0.0),
         "description": current_price.get("description")
     })
+
+
+# Data Oracle Commands for Scenario 23
+
+@oracle.command()
+@click.option("--wallet", required=True, help="Wallet name for data operations")
+@click.option("--file", required=True, type=click.Path(exists=True), help="File to store on IPFS")
+@click.option("--pin", is_flag=True, default=False, help="Pin data on IPFS")
+@click.pass_context
+def store(ctx, wallet: str, file: str, pin: bool):
+    """Store data on IPFS and get CID"""
+    try:
+        # Read file content
+        with open(file, 'rb') as f:
+            data = f.read()
+        
+        # Generate pseudo CID for demo (in production, use actual IPFS)
+        import hashlib
+        cid = f"Qm{hashlib.sha256(data).hexdigest()[:44]}"
+        
+        # Store data listing
+        listings_file = Path.home() / ".aitbc" / "oracle_data_listings.json"
+        listings_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        listings_data = {}
+        if listings_file.exists():
+            with open(listings_file, 'r') as f:
+                listings_data = json.load(f)
+        
+        listings_data[cid] = {
+            "file": file,
+            "size": len(data),
+            "pinned": pin,
+            "wallet": wallet,
+            "timestamp": datetime.now(datetime.UTC).isoformat()
+        }
+        
+        with open(listings_file, 'w') as f:
+            json.dump(listings_data, f, indent=2)
+        
+        success(f"Data stored on IPFS")
+        output({
+            "cid": cid,
+            "file": file,
+            "size": len(data),
+            "pinned": pin
+        })
+    except Exception as e:
+        error(f"Failed to store data: {e}")
+
+
+@oracle.command()
+@click.option("--wallet", required=True, help="Wallet name for data operations")
+@click.option("--cid", required=True, help="IPFS CID of the data")
+@click.option("--price", type=float, required=True, help="Price in AIT tokens")
+@click.option("--description", help="Data description")
+@click.pass_context
+def announce(ctx, wallet: str, cid: str, price: float, description: Optional[str]):
+    """Announce data availability to the network"""
+    try:
+        # Update data listing with price and announcement
+        listings_file = Path.home() / ".aitbc" / "oracle_data_listings.json"
+        if not listings_file.exists():
+            error("No data listings found. Store data first.")
+            return
+        
+        with open(listings_file, 'r') as f:
+            listings_data = json.load(f)
+        
+        if cid not in listings_data:
+            error(f"CID {cid} not found in listings.")
+            return
+        
+        listings_data[cid]["price"] = price
+        listings_data[cid]["description"] = description or ""
+        listings_data[cid]["announced"] = True
+        listings_data[cid]["announced_at"] = datetime.now(datetime.UTC).isoformat()
+        listings_data[cid]["wallet"] = wallet
+        
+        with open(listings_file, 'w') as f:
+            json.dump(listings_data, f, indent=2)
+        
+        success(f"Data availability announced")
+        output({
+            "cid": cid,
+            "price": price,
+            "description": description,
+            "wallet": wallet
+        })
+        
+        # In production, this would broadcast via messaging post
+        warning("Note: In production, use 'aitbc messaging post --topic data-availability --message ...' to broadcast")
+    except Exception as e:
+        error(f"Failed to announce data: {e}")
+
+
+@oracle.command()
+@click.option("--wallet", required=True, help="Wallet name for data operations")
+@click.pass_context
+def listen(ctx, wallet: str):
+    """Listen for data retrieval requests"""
+    try:
+        # In production, this would start a listener for data requests
+        warning("Data request listener started (demo mode)")
+        warning("In production, this would listen for messages on data-request topic")
+        warning("Press Ctrl+C to stop")
+        
+        # Demo mode - just show available listings
+        listings_file = Path.home() / ".aitbc" / "oracle_data_listings.json"
+        if listings_file.exists():
+            with open(listings_file, 'r') as f:
+                listings_data = json.load(f)
+            
+            announced_listings = {k: v for k, v in listings_data.items() if v.get("announced")}
+            output({
+                "available_data": len(announced_listings),
+                "listings": announced_listings
+            })
+        else:
+            warning("No data listings available")
+    except KeyboardInterrupt:
+        success("Listener stopped")
+    except Exception as e:
+        error(f"Failed to start listener: {e}")
+
+
+@oracle.command()
+@click.option("--cid", required=True, help="IPFS CID to retrieve")
+@click.option("--output", help="Output file path")
+@click.pass_context
+def retrieve(ctx, cid: str, output: Optional[str]):
+    """Retrieve data from IPFS by CID"""
+    try:
+        listings_file = Path.home() / ".aitbc" / "oracle_data_listings.json"
+        if not listings_file.exists():
+            error("No data listings found.")
+            return
+        
+        with open(listings_file, 'r') as f:
+            listings_data = json.load(f)
+        
+        if cid not in listings_data:
+            error(f"CID {cid} not found in listings.")
+            return
+        
+        listing = listings_data[cid]
+        original_file = listing.get("file")
+        
+        if not original_file or not Path(original_file).exists():
+            error(f"Original file not found: {original_file}")
+            return
+        
+        # Read original file (in production, retrieve from IPFS)
+        with open(original_file, 'rb') as f:
+            data = f.read()
+        
+        # Write to output if specified
+        if output:
+            with open(output, 'wb') as f:
+                f.write(data)
+            success(f"Data retrieved and saved to {output}")
+        else:
+            success(f"Data retrieved ({len(data)} bytes)")
+        
+        output({
+            "cid": cid,
+            "size": len(data),
+            "original_file": original_file,
+            "output": output
+        })
+    except Exception as e:
+        error(f"Failed to retrieve data: {e}")
+
+
+@oracle.command()
+@click.option("--wallet", required=True, help="Wallet name for data operations")
+@click.pass_context
+def listings(ctx, wallet: str):
+    """View all data listings for a wallet"""
+    try:
+        listings_file = Path.home() / ".aitbc" / "oracle_data_listings.json"
+        if not listings_file.exists():
+            warning("No data listings found.")
+            return
+        
+        with open(listings_file, 'r') as f:
+            listings_data = json.load(f)
+        
+        # Filter by wallet
+        wallet_listings = {k: v for k, v in listings_data.items() if v.get("wallet") == wallet}
+        
+        if not wallet_listings:
+            warning(f"No listings found for wallet {wallet}")
+            return
+        
+        output({
+            "wallet": wallet,
+            "total_listings": len(wallet_listings),
+            "listings": wallet_listings
+        })
+    except Exception as e:
+        error(f"Failed to get listings: {e}")
