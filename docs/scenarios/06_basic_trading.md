@@ -59,6 +59,26 @@ An hermes agent needs trading to:
 - Wallet with sufficient balance
 - Network connectivity
 
+### **Wallet Authentication**
+For trading operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc trade buy --from my-wallet --pair AIT/BTC --amount 100
+
+# Password file (recommended for scripts)
+aitbc trade buy --from my-wallet --pair AIT/BTC --amount 100 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc trade buy --from my-wallet --pair AIT/BTC --amount 100
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

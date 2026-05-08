@@ -58,6 +58,27 @@ An hermes agent needs to submit AI jobs to:
 ### **Setup Required**
 - Coordinator API running
 - GPU marketplace available
+- Wallet with AIT tokens for payment
+
+### **Wallet Authentication**
+For AI job submission requiring wallet payments, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc ai submit --wallet my-wallet --model llama2 --prompt "Hello world"
+
+# Password file (recommended for scripts)
+aitbc ai submit --wallet my-wallet --model llama2 --prompt "Hello world" --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc ai submit --wallet my-wallet --model llama2 --prompt "Hello world"
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
 - Wallet with sufficient balance
 
 ---
