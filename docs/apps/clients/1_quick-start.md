@@ -6,7 +6,7 @@
 
 ```bash
 pip install -e .                                        # from monorepo root
-aitbc config set coordinator_url http://localhost:8000
+aitbc config set coordinator_url http://localhost:8011
 export AITBC_API_KEY=your-key
 
 # Verify installation

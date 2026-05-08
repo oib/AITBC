@@ -26,7 +26,7 @@ aitbc client status --job-id <JOB_ID>
 import requests
 
 response = requests.get(
-    "http://localhost:8000/v1/jobs/{job_id}",
+    "http://localhost:8011/v1/jobs/{job_id}",
     headers={"X-Api-Key": "your-key"}
 )
 print(response.json())
@@ -106,7 +106,7 @@ aitbc client download --job-id <JOB_ID> --output ./results
 import requests
 
 response = requests.get(
-    "http://localhost:8000/v1/jobs/{job_id}/download",
+    "http://localhost:8011/v1/jobs/{job_id}/download",
     headers={"X-Api-Key": "your-key"}
 )
 
