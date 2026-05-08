@@ -333,4 +333,4 @@ Cost: 0.25 AITBC
 - Coordinator logs all API calls to `/var/log/aitbc/coordinator.log`
 - Miner logs GPU utilization to `/var/log/aitbc/miner.log`
 - Blockchain logs all transactions to `/var/log/aitbc/node.log`
-- Prometheus metrics available at `http://localhost:9090/metrics`
+- Prometheus metrics available at `http://localhost:8011/metrics`

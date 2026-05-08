@@ -418,7 +418,7 @@ echo "Disk: $(df -h / | tail -1 | awk '{print $5}')"
 
 # Network connectivity
 echo -e "\nNetwork Test:"
-curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000/v1/health" | grep -q "200" && echo "Coordinator API: ✅" || echo "Coordinator API: ❌"
+curl -s -o /dev/null -w "%{http_code}" "http://localhost:8011/v1/health" | grep -q "200" && echo "Coordinator API: ✅" || echo "Coordinator API: ❌"
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8001/" | grep -q "200" && echo "Exchange API: ✅" || echo "Exchange API: ❌"
 curl -s -o /dev/null -w "%{http_code}" "http://localhost:8003/rpc/head" | grep -q "200" && echo "Blockchain RPC: ✅" || echo "Blockchain RPC: ❌"
 
@@ -535,7 +535,7 @@ sudo systemctl restart aitbc-coordinator-api.service
 ### **Issue: Network Connectivity**
 ```bash
 # Test local connectivity on aitbc secondary server
-curl -X GET "http://localhost:8000/v1/health"
+curl -X GET "http://localhost:8011/v1/health"
 
 # Test external connectivity via aitbc1 primary server
 curl -X GET "http://aitbc.bubuit.net/health"
