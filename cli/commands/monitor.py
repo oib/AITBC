@@ -64,7 +64,11 @@ def dashboard(ctx, refresh: int, duration: int):
                             console.print(f"  Services: {len(services)}")
                             
                             for service_name, service_data in services.items():
-                                status = service_data.get("status", "unknown")
+                                # Handle both string ("online") and dict ({"status": "online"}) formats
+                                if isinstance(service_data, dict):
+                                    status = service_data.get("status", "unknown")
+                                else:
+                                    status = service_data if service_data else "unknown"
                                 console.print(f"    {service_name}: {status}")
                             
                             # Metrics summary
@@ -374,7 +378,7 @@ CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"
 def _ensure_campaigns():
     CAMPAIGNS_DIR.mkdir(parents=True, exist_ok=True)
     campaigns_file = CAMPAIGNS_DIR / "campaigns.json"
-    if not campaigns_file.exists():
+    if not campaigns_file.exists() or campaigns_file.stat().st_size == 0:
         # Seed with default campaigns
         default = {"campaigns": [
             {
