@@ -6,7 +6,7 @@
 - **Authentication System**: Wallet-based auth (registration/login)
 - **API Structure**:  prefix,  header authentication  
 - **Services Running**: 
-  - Coordinator API: Port 8000 (healthy)
+  - Coordinator API: Port 8011 (healthy)
   - Blockchain Node: Ports 8006, 8025, 8026 (healthy)
 - **Key Endpoints Mapped**:
   - Users: 
