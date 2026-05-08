@@ -653,7 +653,7 @@ class TaskDistributor:
                 )
                 
                 # Send task to agent (implementation depends on communication system)
-                # await self._send_task_to_agent(agent_id, task_message)
+                await self._send_task_to_agent(agent_id, task_message)
                 
                 self.distribution_stats["tasks_distributed"] += 1
                 
@@ -676,6 +676,40 @@ class TaskDistributor:
                 (self.distribution_stats["avg_distribution_time"] * (total_distributed - 1) + distribution_time) / total_distributed
                 if total_distributed > 0 else distribution_time
             )
+    
+    async def _send_task_to_agent(self, agent_id: str, task_message: AgentMessage):
+        """Send task to agent via HTTP"""
+        try:
+            # Get agent info from registry to find endpoint
+            agent_info = await self.load_balancer.registry.get_agent_by_id(agent_id)
+            if not agent_info:
+                logger.error(f"Agent {agent_id} not found in registry")
+                return False
+            
+            # Get HTTP endpoint
+            http_endpoint = agent_info.endpoints.get("http")
+            if not http_endpoint:
+                logger.error(f"Agent {agent_id} has no HTTP endpoint")
+                return False
+            
+            # Send task to agent via HTTP POST
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.post(
+                    f"{http_endpoint}/tasks/execute",
+                    json=task_message.to_dict()
+                )
+                
+                if response.status_code in (200, 201, 202):
+                    logger.info(f"Task sent successfully to agent {agent_id}")
+                    return True
+                else:
+                    logger.error(f"Failed to send task to agent {agent_id}: {response.status_code}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Error sending task to agent {agent_id}: {e}")
+            return False
     
     async def _simulate_task_completion(self, task_info: Dict[str, Any], agent_id: str):
         """Simulate task completion (for testing)"""
