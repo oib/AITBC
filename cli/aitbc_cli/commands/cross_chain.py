@@ -35,7 +35,7 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
         with AITBCHTTPClient() as client:
             # Get rates from cross-chain exchange
             response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/rates",
+                f"{config.exchange_service_url}/cross-chain/rates",
                 timeout=10
             )
             
@@ -103,7 +103,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
         try:
             with AITBCHTTPClient() as client:
                 response = client.get(
-                    f"http://localhost:8001/api/v1/cross-chain/rates",
+                    f"{config.exchange_service_url}/cross-chain/rates",
                     timeout=10
                 )
                 if response.status_code == 200:
@@ -128,7 +128,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
     }
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1/cross-chain", timeout=30)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=30)
         swap_result = http_client.post("/swap", json=swap_data)
         success("Cross-chain swap created successfully!")
         output({
@@ -158,7 +158,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
 def status(ctx, swap_id: str):
     """Check cross-chain swap status"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         swap_data = http_client.get(f"/cross-chain/swap/{swap_id}")
         success(f"Swap Status: {swap_data.get('status', 'unknown')}")
         
@@ -231,7 +231,7 @@ def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
         params['status'] = status
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         swaps_data = http_client.get("/cross-chain/swaps", params=params)
         swaps = swaps_data.get('swaps', [])
         
@@ -296,7 +296,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
     }
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=30)
+        http_client = AITBCHTTPClient(base_url="{config.exchange_service_url}", timeout=30)
         bridge_result = http_client.post("/cross-chain/bridge", json=bridge_data)
         success("Cross-chain bridge created successfully!")
         output({
@@ -325,7 +325,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
 def bridge_status(ctx, bridge_id: str):
     """Check cross-chain bridge status"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         bridge_data = http_client.get(f"/cross-chain/bridge/{bridge_id}")
         success(f"Bridge Status: {bridge_data.get('status', 'unknown')}")
                 
@@ -371,40 +371,40 @@ def bridge_status(ctx, bridge_id: str):
 def pools(ctx):
     """Show cross-chain liquidity pools"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
-            response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/pools",
-                timeout=10
-            )
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        response = http_client.get(
+            f"/cross-chain/pools",
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            pools_data = response.json()
+            pools = pools_data.get('pools', [])
             
-            if response.status_code == 200:
-                pools_data = response.json()
-                pools = pools_data.get('pools', [])
+            if pools:
+                success(f"Found {len(pools)} cross-chain liquidity pools:")
                 
-                if pools:
-                    success(f"Found {len(pools)} cross-chain liquidity pools:")
-                    
-                    # Create table
-                    pool_table = []
-                    for pool in pools:
-                        pool_table.append([
-                            pool.get('pool_id', ''),
-                            pool.get('token_a', ''),
-                            pool.get('token_b', ''),
-                            pool.get('chain_a', ''),
-                            pool.get('chain_b', ''),
-                            f"{pool.get('reserve_a', 0):.2f}",
-                            f"{pool.get('reserve_b', 0):.2f}",
-                            f"{pool.get('total_liquidity', 0):.2f}",
-                            f"{pool.get('apr', 0):.2%}"
-                        ])
-                    
-                    table(["Pool ID", "Token A", "Token B", "Chain A", "Chain B", 
-                          "Reserve A", "Reserve B", "Liquidity", "APR"], pool_table)
-                else:
-                    success("No cross-chain liquidity pools found")
+                # Create table
+                pool_table = []
+                for pool in pools:
+                    pool_table.append([
+                        pool.get('pool_id', ''),
+                        pool.get('token_a', ''),
+                        pool.get('token_b', ''),
+                        pool.get('chain_a', ''),
+                        pool.get('chain_b', ''),
+                        f"{pool.get('reserve_a', 0):.2f}",
+                        f"{pool.get('reserve_b', 0):.2f}",
+                        f"{pool.get('total_liquidity', 0):.2f}",
+                        f"{pool.get('apr', 0):.2%}"
+                    ])
+                
+                table(["Pool ID", "Token A", "Token B", "Chain A", "Chain B", 
+                      "Reserve A", "Reserve B", "Liquidity", "APR"], pool_table)
             else:
-                error(f"Failed to get pools: {response.status_code}")
+                success("No cross-chain liquidity pools found")
+        else:
+            error(f"Failed to get pools: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -414,51 +414,51 @@ def pools(ctx):
 def stats(ctx):
     """Show cross-chain trading statistics"""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
-            response = client.get(
-                f"http://localhost:8001/api/v1/cross-chain/stats",
-                timeout=10
-            )
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
+        response = http_client.get(
+            f"/cross-chain/stats",
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            stats_data = response.json()
             
-            if response.status_code == 200:
-                stats_data = response.json()
-                
-                success("Cross-Chain Trading Statistics:")
-                
-                # Show swap stats
-                swap_stats = stats_data.get('swap_stats', [])
-                if swap_stats:
-                    success("Swap Statistics:")
-                    swap_table = []
-                    for stat in swap_stats:
-                        swap_table.append([
-                            stat.get('status', ''),
-                            stat.get('count', 0),
-                            f"{stat.get('volume', 0):.2f}"
-                        ])
-                    table(["Status", "Count", "Volume"], swap_table)
-                
-                # Show bridge stats
-                bridge_stats = stats_data.get('bridge_stats', [])
-                if bridge_stats:
-                    success("Bridge Statistics:")
-                    bridge_table = []
-                    for stat in bridge_stats:
-                        bridge_table.append([
-                            stat.get('status', ''),
-                            stat.get('count', 0),
-                            f"{stat.get('volume', 0):.2f}"
-                        ])
-                    table(["Status", "Count", "Volume"], bridge_table)
-                
-                # Show overall stats
-                success("Overall Statistics:")
-                output({
-                    "Total Volume": f"{stats_data.get('total_volume', 0):.2f}",
-                    "Supported Chains": ", ".join(stats_data.get('supported_chains', [])),
-                    "Last Updated": stats_data.get('timestamp', '')
-                }, ctx.obj['output_format'])
-            else:
-                error(f"Failed to get stats: {response.status_code}")
+            success("Cross-Chain Trading Statistics:")
+            
+            # Show swap stats
+            swap_stats = stats_data.get('swap_stats', [])
+            if swap_stats:
+                success("Swap Statistics:")
+                swap_table = []
+                for stat in swap_stats:
+                    swap_table.append([
+                        stat.get('status', ''),
+                        stat.get('count', 0),
+                        f"{stat.get('volume', 0):.2f}"
+                    ])
+                table(["Status", "Count", "Volume"], swap_table)
+            
+            # Show bridge stats
+            bridge_stats = stats_data.get('bridge_stats', [])
+            if bridge_stats:
+                success("Bridge Statistics:")
+                bridge_table = []
+                for stat in bridge_stats:
+                    bridge_table.append([
+                        stat.get('status', ''),
+                        stat.get('count', 0),
+                        f"{stat.get('volume', 0):.2f}"
+                    ])
+                table(["Status", "Count", "Volume"], bridge_table)
+            
+            # Show overall stats
+            success("Overall Statistics:")
+            output({
+                "Total Volume": f"{stats_data.get('total_volume', 0):.2f}",
+                "Supported Chains": ", ".join(stats_data.get('supported_chains', [])),
+                "Last Updated": stats_data.get('timestamp', '')
+            }, ctx.obj['output_format'])
+        else:
+            error(f"Failed to get stats: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")

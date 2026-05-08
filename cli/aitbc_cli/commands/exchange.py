@@ -373,7 +373,7 @@ def status(ctx, exchange_name: str):
     config = ctx.obj['config']
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         rates_data = http_client.get(f"/exchange/rates")
         success("Current exchange rates:")
         output(rates_data, ctx.obj['output_format'])
@@ -409,7 +409,7 @@ def create_payment(ctx, aitbc_amount: Optional[float], btc_amount: Optional[floa
     
     # Get exchange rates to calculate missing amount
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         rates = http_client.get("/exchange/rates")
         btc_to_aitbc = rates.get('btc_to_aitbc', 100000)
         
@@ -449,7 +449,7 @@ def payment_status(ctx, payment_id: str):
     config = ctx.obj['config']
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         status_data = http_client.get(f"/exchange/payment-status/{payment_id}")
         status = status_data.get('status', 'unknown')
         
@@ -477,7 +477,7 @@ def market_stats(ctx):
     config = ctx.obj['config']
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         stats = http_client.get("/exchange/market-stats")
         success("Exchange market statistics:")
         output(stats, ctx.obj['output_format'])
@@ -500,7 +500,7 @@ def balance(ctx):
     config = ctx.obj['config']
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         balance_data = http_client.get("/exchange/wallet/balance")
         success("Bitcoin wallet balance:")
         output(balance_data, ctx.obj['output_format'])
@@ -517,7 +517,7 @@ def info(ctx):
     config = ctx.obj['config']
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         wallet_info = http_client.get("/exchange/wallet/info")
         success("Bitcoin wallet information:")
         output(wallet_info, ctx.obj['output_format'])
@@ -547,7 +547,7 @@ def register(ctx, name: str, api_key: str, api_secret: Optional[str], sandbox: b
         exchange_data["api_secret"] = api_secret
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/register", json=exchange_data)
         success(f"Exchange '{name}' registered successfully!")
         success(f"Exchange ID: {result.get('exchange_id')}")
@@ -587,7 +587,7 @@ def create_pair(ctx, pair: str, base_asset: str, quote_asset: str,
         pair_data["max_order_size"] = max_order_size
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/create-pair", json=pair_data)
         success(f"Trading pair '{pair}' created successfully!")
         success(f"Pair ID: {result.get('pair_id')}")
@@ -617,7 +617,7 @@ def start_trading(ctx, pair: str, exchange: Optional[str], order_type: tuple):
         trading_data["exchange"] = exchange
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         result = http_client.post("/exchange/start-trading", json=trading_data)
         success(f"Trading started for pair '{pair}'!")
         success(f"Order types: {', '.join(order_type)}")
@@ -646,7 +646,7 @@ def list_pairs(ctx, pair: Optional[str], exchange: Optional[str], status: Option
         params["status"] = status
     
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         pairs = http_client.get("/exchange/pairs", params=params)
         success("Trading pairs:")
         output(pairs, ctx.obj['output_format'])

@@ -65,7 +65,7 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
             "address": agent.identity.address,
             "agent_type": agent_type,
             "capabilities": capabilities,
-            "coordinator_url": coordinator_url or "http://localhost:8001"
+            "coordinator_url": coordinator_url or config.coordinator_url
         }
         
         with open(config_file, 'w') as f:
@@ -84,8 +84,11 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
         return {"error": str(e)}
 
 
-async def register_agent(agent_id: str, coordinator_url: str = "http://localhost:8001") -> dict:
+async def register_agent(agent_id: str, coordinator_url: str = None) -> dict:
     """Register an agent with the coordinator"""
+    if coordinator_url is None:
+        config = get_config()
+        coordinator_url = config.coordinator_url
     if Agent is None:
         return {"error": "Agent SDK not available"}
     
