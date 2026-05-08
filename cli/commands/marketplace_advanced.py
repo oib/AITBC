@@ -1,19 +1,20 @@
 """Advanced marketplace commands for AITBC CLI - Enhanced marketplace operations"""
 
 import click
+from utils import output, error, success, console
 import httpx
-import json
-import base64
-from typing import Optional, Dict, Any, List
-from pathlib import Path
-from utils import output, error, success, warning
-
+from typing import Optional
+from aitbc_cli.config import get_config, CLIConfig
 
 @click.group()
-def advanced():
-    """Advanced marketplace operations and analytics"""
-    pass
-
+@click.pass_context
+def marketplace_advanced(ctx):
+    """Advanced marketplace operations"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
 
 @click.group()
 def models():

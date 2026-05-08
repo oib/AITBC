@@ -1,16 +1,24 @@
 """Admin commands for AITBC CLI"""
 
 import click
+from utils import output, error, success, console
 import httpx
-import json
 from typing import Optional, List, Dict, Any
-from utils import output, error, success
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
 @click.pass_context
 def admin(ctx):
     """System administration commands"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    if 'config' not in ctx.obj:
+        ctx.obj['config'] = get_config()
+    if 'output_format' not in ctx.obj:
+        ctx.obj['output_format'] = 'table'
+    
     # Set role for admin commands
     ctx.ensure_object(dict)
     ctx.parent.detected_role = 'admin'
