@@ -46,3 +46,9 @@ async def get_miners():
 async def get_history_dashboard():
     """Get historical dashboard data."""
     return []
+
+
+@router.get("/jobs", response_model=List[Dict])
+async def get_jobs():
+    """Get jobs list for history and metrics commands."""
+    return []
