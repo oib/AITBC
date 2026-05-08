@@ -19,7 +19,7 @@ This guide covers SystemD service management for AITBC following the infrastruct
 ### 📁 Service Categories
 
 #### Core Services
-- `aitbc-coordinator-api.service` - Central API (Port 8000)
+- `aitbc-coordinator-api.service` - Central API (Port 8011)
 - `aitbc-blockchain-node.service` - Blockchain node (Port 8005)
 - `aitbc-exchange-api.service` - Exchange API (Port 8001)
 - `aitbc-wallet.service` - Wallet service (Port 8003)
@@ -44,10 +44,10 @@ This guide covers SystemD service management for AITBC following the infrastruct
 
 ### Active Services (as of 2026-03-29)
 ```bash
-⚠️ Port 8000 - Coordinator API (aitbc-coordinator-api.service) - **LEGACY - DISABLED**
 ✅ Port 8001 - Exchange API (aitbc-exchange-api.service)  
 ✅ Port 8003 - Wallet Service (aitbc-wallet.service)
 ✅ Port 8006 - Blockchain RPC (aitbc-blockchain-rpc.service)
+✅ Port 8011 - Coordinator API (aitbc-coordinator-api.service)
 ✅ Port 8010 - Adaptive Learning (aitbc-adaptive-learning.service)
 ✅ Port 8005 - Blockchain Node with P2P (aitbc-blockchain-node.service)
 ```
