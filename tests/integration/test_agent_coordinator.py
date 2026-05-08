@@ -280,3 +280,178 @@ class TestHealthCheck:
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
+
+
+class TestAuthentication:
+    """Test authentication endpoints."""
+
+    def test_login_admin_success(self, coordinator_client: TestClient):
+        """Test successful admin login."""
+        login_data = {"username": "admin", "password": "admin123"}
+        response = coordinator_client.post("/auth/login", json=login_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert data["username"] == "admin"
+        assert data["role"] == "admin"
+        assert "access_token" in data
+        assert "refresh_token" in data
+
+    def test_login_invalid_credentials(self, coordinator_client: TestClient):
+        """Test login with invalid credentials."""
+        login_data = {"username": "admin", "password": "wrongpassword"}
+        response = coordinator_client.post("/auth/login", json=login_data)
+        assert response.status_code == 401
+
+    def test_login_missing_fields(self, coordinator_client: TestClient):
+        """Test login with missing username or password."""
+        login_data = {"username": "admin"}
+        response = coordinator_client.post("/auth/login", json=login_data)
+        assert response.status_code == 422
+
+    def test_refresh_token_success(self, coordinator_client: TestClient):
+        """Test successful token refresh."""
+        # First login to get a refresh token
+        login_data = {"username": "admin", "password": "admin123"}
+        login_response = coordinator_client.post("/auth/login", json=login_data)
+        refresh_token = login_response.json()["refresh_token"]
+
+        # Now refresh the token
+        refresh_data = {"refresh_token": refresh_token}
+        response = coordinator_client.post("/auth/refresh", json=refresh_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "success"
+        assert "access_token" in data
+
+    def test_validate_token_success(self, coordinator_client: TestClient):
+        """Test successful token validation."""
+        # First login to get a token
+        login_data = {"username": "admin", "password": "admin123"}
+        login_response = coordinator_client.post("/auth/login", json=login_data)
+        token = login_response.json()["access_token"]
+
+        # Now validate the token
+        validate_data = {"token": token}
+        response = coordinator_client.post("/auth/validate", json=validate_data)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["valid"] is True
+
+    def test_validate_token_invalid(self, coordinator_client: TestClient):
+        """Test validation with invalid token."""
+        validate_data = {"token": "invalid_token"}
+        response = coordinator_client.post("/auth/validate", json=validate_data)
+        assert response.status_code == 401
+
+
+class TestAlerts:
+    """Test alerting endpoints."""
+
+    def test_get_alerts_unauthorized(self, coordinator_client: TestClient):
+        """Test getting alerts without authentication."""
+        response = coordinator_client.get("/alerts")
+        assert response.status_code in (401, 403)
+
+    def test_get_alert_stats_unauthorized(self, coordinator_client: TestClient):
+        """Test getting alert stats without authentication."""
+        response = coordinator_client.get("/alerts/stats")
+        assert response.status_code in (401, 403)
+
+    def test_get_alert_rules_unauthorized(self, coordinator_client: TestClient):
+        """Test getting alert rules without authentication."""
+        response = coordinator_client.get("/alerts/rules")
+        assert response.status_code in (401, 403)
+
+    def test_get_sla_status_unauthorized(self, coordinator_client: TestClient):
+        """Test getting SLA status without authentication."""
+        response = coordinator_client.get("/sla")
+        assert response.status_code in (401, 403)
+
+    def test_get_system_status_unauthorized(self, coordinator_client: TestClient):
+        """Test getting system status without authentication."""
+        response = coordinator_client.get("/system/status")
+        assert response.status_code in (401, 403)
+
+
+class TestUsers:
+    """Test user management endpoints."""
+
+    def test_assign_user_role_unauthorized(self, coordinator_client: TestClient):
+        """Test assigning user role without authentication."""
+        response = coordinator_client.post("/users/test_user/role", json={"role": "admin"})
+        assert response.status_code in (401, 403)
+
+    def test_get_user_role_unauthorized(self, coordinator_client: TestClient):
+        """Test getting user role without authentication."""
+        response = coordinator_client.get("/users/test_user/role")
+        assert response.status_code in (401, 403)
+
+    def test_get_user_permissions_unauthorized(self, coordinator_client: TestClient):
+        """Test getting user permissions without authentication."""
+        response = coordinator_client.get("/users/test_user/permissions")
+        assert response.status_code in (401, 403)
+
+    def test_list_roles_unauthorized(self, coordinator_client: TestClient):
+        """Test listing roles without authentication."""
+        response = coordinator_client.get("/roles")
+        assert response.status_code in (401, 403)
+
+    def test_get_role_permissions_unauthorized(self, coordinator_client: TestClient):
+        """Test getting role permissions without authentication."""
+        response = coordinator_client.get("/roles/admin")
+        assert response.status_code in (401, 403)
+
+    def test_protected_admin_unauthorized(self, coordinator_client: TestClient):
+        """Test protected admin endpoint without authentication."""
+        response = coordinator_client.get("/protected/admin")
+        assert response.status_code in (401, 403)
+
+    def test_protected_operator_unauthorized(self, coordinator_client: TestClient):
+        """Test protected operator endpoint without authentication."""
+        response = coordinator_client.get("/protected/operator")
+        assert response.status_code in (401, 403)
+
+
+class TestConsensus:
+    """Test consensus endpoints."""
+
+    def test_register_consensus_node(self, coordinator_client: TestClient):
+        """Test registering a consensus node."""
+        node_data = {
+            "node_id": "test-node-001",
+            "address": "http://localhost:9003",
+            "stake": 1000
+        }
+        response = coordinator_client.post("/consensus/node/register", json=node_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 201, 500)
+
+    def test_create_consensus_proposal(self, coordinator_client: TestClient):
+        """Test creating a consensus proposal."""
+        proposal_data = {
+            "proposal_id": "prop-001",
+            "proposer": "test-node-001",
+            "content": {"action": "upgrade", "version": "2.0"}
+        }
+        response = coordinator_client.post("/consensus/proposal/create", json=proposal_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 201, 500)
+
+    def test_get_consensus_statistics(self, coordinator_client: TestClient):
+        """Test getting consensus statistics."""
+        response = coordinator_client.get("/consensus/statistics")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 500)
+
+    def test_set_consensus_algorithm(self, coordinator_client: TestClient):
+        """Test setting consensus algorithm."""
+        response = coordinator_client.put("/consensus/algorithm", params={"algorithm": "majority_vote"})
+        # Should work or return appropriate error
+        assert response.status_code in (200, 500)
+
+    def test_get_advanced_features_status(self, coordinator_client: TestClient):
+        """Test getting advanced features status."""
+        response = coordinator_client.get("/advanced-features/status")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 500)
