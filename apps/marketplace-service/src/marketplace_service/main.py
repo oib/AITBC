@@ -52,10 +52,8 @@ app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
 app.add_middleware(ErrorHandlerMiddleware)
 
 
-async def get_session_dep() -> AsyncIterator[AsyncSession]:
-    """Get database session dependency"""
-    async with get_session() as session:
-        yield session
+# Use get_session() directly as dependency - FastAPI handles async generators
+get_session_dep = get_session
 
 
 class HealthResponse(BaseModel):
@@ -115,7 +113,14 @@ async def get_offers(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Get marketplace offers"""
-    return svc.list_offers(status=status, region=region, gpu_model=gpu_model)
+    try:
+        logger.info(f"GET /v1/marketplace/offers called with filters: status={status}, region={region}, gpu_model={gpu_model}")
+        result = await svc.list_offers(status=status, region=region, gpu_model=gpu_model)
+        logger.info(f"GET /v1/marketplace/offers returned {len(result)} offers")
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/offers: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.get("/v1/marketplace/offers/{offer_id}")
@@ -124,7 +129,14 @@ async def get_offer(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Get a specific marketplace offer"""
-    return svc.get_offer(offer_id)
+    try:
+        logger.info(f"GET /v1/marketplace/offers/{offer_id} called")
+        result = await svc.get_offer(offer_id)
+        logger.info(f"GET /v1/marketplace/offers/{offer_id} returned: {result is not None}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/offers/{offer_id}: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.post("/v1/marketplace/offers")
@@ -133,7 +145,14 @@ async def create_offer(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Create a new marketplace offer"""
-    return svc.create_offer(offer_data)
+    try:
+        logger.info(f"POST /v1/marketplace/offers called with data keys: {offer_data.keys()}")
+        result = await svc.create_offer(offer_data)
+        logger.info(f"POST /v1/marketplace/offers created offer with id: {result.id}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/offers: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.get("/v1/marketplace/bids")
@@ -143,7 +162,14 @@ async def get_bids(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Get marketplace bids"""
-    return svc.list_bids(status=status, provider=provider)
+    try:
+        logger.info(f"GET /v1/marketplace/bids called with filters: status={status}, provider={provider}")
+        result = await svc.list_bids(status=status, provider=provider)
+        logger.info(f"GET /v1/marketplace/bids returned {len(result)} bids")
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/bids: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.post("/v1/marketplace/bids")
@@ -152,7 +178,14 @@ async def create_bid(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Create a new marketplace bid"""
-    return svc.create_bid(bid_data)
+    try:
+        logger.info(f"POST /v1/marketplace/bids called with data keys: {bid_data.keys()}")
+        result = await svc.create_bid(bid_data)
+        logger.info(f"POST /v1/marketplace/bids created bid with id: {result.id}")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/bids: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.get("/v1/marketplace/analytics")
