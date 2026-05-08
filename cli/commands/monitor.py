@@ -3,6 +3,8 @@
 import click
 from utils import output, error, success, console
 import time
+import httpx
+import json
 from pathlib import Path
 from typing import Optional
 from datetime import datetime, timedelta
