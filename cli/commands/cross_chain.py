@@ -4,7 +4,6 @@ import click
 import httpx
 import json
 from typing import Optional
-from tabulate import tabulate
 from config import get_config
 from utils import success, error, output
 
@@ -54,8 +53,11 @@ def rates(ctx, from_chain: Optional[str], to_chain: Optional[str],
                         rate_table.append([chains[0], chains[1], f"{rate:.6f}"])
                     
                     if rate_table:
-                        headers = ["From Chain", "To Chain", "Rate"]
-                        print(tabulate(rate_table, headers=headers, tablefmt="grid"))
+                        print("Cross-chain exchange rates:")
+                        print(f"{'From Chain':<15} {'To Chain':<15} {'Rate':<15}")
+                        print("-" * 45)
+                        for row in rate_table:
+                            print(f"{row[0]:<15} {row[1]:<15} {row[2]:<15}")
                     else:
                         output("No cross-chain rates available")
             else:

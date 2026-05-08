@@ -3184,7 +3184,7 @@ def legacy_main():
 CLICK_COMMANDS = [
     'agent', 'ipfs', 'oracle', 'swarm', 'arbitrage', 'validator', 
     'plugin', 'database', 'island', 'edge', 'ai', 'monitor', 
-    'governance', 'staking', 'compliance'
+    'governance', 'staking', 'compliance', 'cross-chain'
 ]
 
 def main(argv=None):
@@ -3213,6 +3213,43 @@ def main(argv=None):
         # Run unified CLI (parser/handler architecture)
         from unified_cli import run_cli
         return run_cli(argv, globals())
+
+# Monkey-patch unified_cli to add Click commands to help output
+def add_click_commands_to_help():
+    """Add Click commands to unified_cli help for discoverability"""
+    try:
+        import unified_cli
+        original_run_cli = unified_cli.run_cli
+        
+        def patched_run_cli(argv, core):
+            # Check if --help is requested and no command provided
+            if argv and '--help' in argv or len(argv) == 0:
+                print("\nClick-based Commands (agent operations):")
+                print("  agent     - AI agent workflow and execution management")
+                print("  ipfs      - IPFS distributed storage commands")
+                print("  oracle    - Oracle price discovery and management")
+                print("  swarm     - Swarm intelligence and collective optimization")
+                print("  arbitrage - Market arbitrage and price analysis")
+                print("  validator - Staking validator management")
+                print("  plugin    - Plugin marketplace and management")
+                print("  database  - Database service commands")
+                print("  island    - Island computing commands")
+                print("  edge      - Edge computing commands")
+                print("  ai        - AI marketplace commands")
+                print("  monitor   - Monitoring, metrics, and alerting")
+                print("  governance- Governance proposals and voting")
+                print("  staking   - Staking and validator management")
+                print("  compliance- Compliance and regulatory management")
+                print("  cross-chain (transfer, list, swaps)")
+                print()
+            return original_run_cli(argv, core)
+        
+        unified_cli.run_cli = patched_run_cli
+    except Exception:
+        pass
+
+# Apply monkey-patch on import
+add_click_commands_to_help()
 
 if __name__ == "__main__":
     sys.exit(main() or 0)
