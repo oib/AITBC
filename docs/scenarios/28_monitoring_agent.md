@@ -65,6 +65,26 @@ An hermes agent acts as a monitoring agent to:
 - Messaging service available
 - Blockchain node accessible
 
+### **Wallet Authentication**
+For monitoring operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc monitor start --wallet my-wallet --interval 60
+
+# Password file (recommended for scripts)
+aitbc monitor start --wallet my-wallet --interval 60 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc monitor start --wallet my-wallet --interval 60
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

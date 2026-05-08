@@ -67,6 +67,26 @@ An hermes agent uses the knowledge graph marketplace to:
 - Agent SDK configured
 - IPFS client configured
 
+### **Wallet Authentication**
+For knowledge graph operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc agent knowledge create --name "AI-Models-Graph" --description "Knowledge graph for AI models"
+
+# Password file (recommended for scripts)
+aitbc agent knowledge create --name "AI-Models-Graph" --description "Knowledge graph for AI models" --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc agent knowledge create --name "AI-Models-Graph" --description "Knowledge graph for AI models"
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

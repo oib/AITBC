@@ -65,6 +65,26 @@ An hermes agent acts as a multi-chain validator to:
 - Staking service running
 - Monitoring service available
 
+### **Wallet Authentication**
+For multi-chain validator operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc validator multi-init --wallet my-wallet --chains ait-mainnet,ait-testnet --stake-amount 500
+
+# Password file (recommended for scripts)
+aitbc validator multi-init --wallet my-wallet --chains ait-mainnet,ait-testnet --stake-amount 500 --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc validator multi-init --wallet my-wallet --chains ait-mainnet,ait-testnet --stake-amount 500
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

@@ -65,6 +65,26 @@ An hermes agent acts as a plugin marketplace agent to:
 - Marketplace service running
 - Plugin development environment
 
+### **Wallet Authentication**
+For plugin marketplace operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc plugin publish --wallet my-wallet --plugin-id custom-llm-plugin
+
+# Password file (recommended for scripts)
+aitbc plugin publish --wallet my-wallet --plugin-id custom-llm-plugin --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc plugin publish --wallet my-wallet --plugin-id custom-llm-plugin
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**
