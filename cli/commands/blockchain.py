@@ -2,6 +2,11 @@
 
 import click
 import httpx
+from utils import output, error
+import os
+from typing import Optional, List
+from aitbc_cli.config import get_config, CLIConfig
+
 
 def _get_node_endpoint(ctx):
     """Get the blockchain node RPC endpoint from context or config."""
@@ -22,6 +27,14 @@ import os
 @click.pass_context
 def blockchain(ctx, chain_id: Optional[str]):
     """Query blockchain information and status"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    if 'config' not in ctx.obj:
+        ctx.obj['config'] = get_config()
+    if 'output_format' not in ctx.obj:
+        ctx.obj['output_format'] = 'table'
+    
     # Set role for blockchain commands
     ctx.ensure_object(dict)
     ctx.parent.detected_role = 'blockchain'

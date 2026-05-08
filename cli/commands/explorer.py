@@ -6,6 +6,7 @@ import subprocess
 import json
 from typing import Optional, List
 from utils import output, error
+from aitbc_cli.config import get_config, CLIConfig
 
 
 def _get_explorer_endpoint(ctx):
@@ -42,6 +43,14 @@ def _curl_request(url: str, params: dict = None):
 @click.pass_context
 def explorer(ctx):
     """Blockchain explorer operations and queries"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    if 'config' not in ctx.obj:
+        ctx.obj['config'] = get_config()
+    if 'output_format' not in ctx.obj:
+        ctx.obj['output_format'] = 'table'
+    
     ctx.ensure_object(dict)
     ctx.parent.detected_role = 'explorer'
 

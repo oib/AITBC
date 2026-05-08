@@ -8,11 +8,18 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime, UTC, timedelta
 from utils import output, error, success, warning
+from aitbc_cli.config import get_config, CLIConfig
 
 
 @click.group()
-def market_maker():
+@click.pass_context
+def market_maker(ctx):
     """Market making bot management commands"""
+    # Initialize context object with config
+    if ctx.obj is None:
+        ctx.obj = {}
+    ctx.obj['config'] = get_config()
+    ctx.obj['output_format'] = ctx.obj.get('output_format', 'table')
     pass
 
 
