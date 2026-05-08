@@ -58,6 +58,10 @@ class MarketplaceService:
         """Create a new marketplace offer"""
         try:
             logger.info(f"create_offer called with data keys: {offer_data.keys()}")
+            # Map wallet to provider for CLI compatibility
+            if 'wallet' in offer_data and 'provider' not in offer_data:
+                offer_data['provider'] = offer_data['wallet']
+                logger.info(f"Mapped wallet '{offer_data['wallet']}' to provider")
             offer = MarketplaceOffer(**offer_data)
             self.session.add(offer)
             await self.session.commit()
