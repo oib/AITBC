@@ -56,7 +56,7 @@ curl http://localhost:8005/rpc/info
 # Result: height=0, total_accounts=7
 
 # Coordinator API
-curl http://localhost:8000/health  
+curl http://localhost:8011/health  
 # Result: {"status":"ok","env":"dev","python_version":"3.13.5"}
 ```
 
