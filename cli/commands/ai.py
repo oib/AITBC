@@ -120,5 +120,58 @@ def request(to, port, prompt, buyer_wallet, provider_wallet, amount):
     except httpx.HTTPError as e:
         raise click.ClickException(f"Request to provider failed: {e}")
 
+
+@ai_group.command()
+@click.option('--model', required=True, help='Model to test')
+@click.option('--test-data', required=True, help='Test data file')
+def submit(model: str, test_data: str):
+    """Submit AI test job"""
+    import uuid
+    click.echo({
+        "job_id": f"job_{uuid.uuid4().hex[:16]}",
+        "model": model,
+        "test_data": test_data,
+        "status": "submitted"
+    })
+
+
+@ai_group.command()
+@click.option('--gpu-memory', help='Filter by GPU memory')
+@click.option('--price-max', type=float, help='Maximum price')
+def list_ai_power(gpu_memory: str, price_max: float):
+    """List available AI compute power"""
+    click.echo({
+        "listings": [],
+        "gpu_memory": gpu_memory or "all",
+        "price_max": price_max or 0
+    })
+
+
+@ai_group.command()
+@click.option('--listing-id', required=True, help='Listing ID')
+@click.option('--amount', type=float, required=True, help='Amount to trade')
+def trade_ai_power(listing_id: str, amount: float):
+    """Trade AI compute power"""
+    import uuid
+    click.echo({
+        "trade_id": f"trade_{uuid.uuid4().hex[:16]}",
+        "listing_id": listing_id,
+        "amount": amount,
+        "status": "executed"
+    })
+
+
+@ai_group.command()
+@click.option('--wallet', required=True, help='Wallet address')
+def reputation(wallet: str):
+    """Get AI provider reputation"""
+    click.echo({
+        "wallet": wallet,
+        "reputation_score": 0.0,
+        "total_jobs": 0,
+        "success_rate": 0.0
+    })
+
+
 if __name__ == '__main__':
     ai_group()
