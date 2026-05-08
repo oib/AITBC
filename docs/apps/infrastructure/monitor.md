@@ -102,7 +102,7 @@ Content-Type: application/json
 
 {
   "service_name": "string",
-  "endpoint": "http://localhost:8000/health",
+  "endpoint": "http://localhost:8011/health",
   "interval": 60,
   "timeout": 10
 }
