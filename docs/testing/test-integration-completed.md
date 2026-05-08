@@ -111,19 +111,19 @@ python -m pytest tests/integration/ -v
 python -m pytest tests/e2e/ -v
 ```
 
-### ✅ Multi-Chain Testing
+### Multi-Chain Testing
 ```bash
 # Execute multi-chain test scenarios
 python -m pytest tests/integration/test_multichain.py -v
 
 # CLI-based multi-chain testing
-python -m aitbc_cli --url http://127.0.0.1:8000 --api-key test-key blockchain chains
+python -m aitbc_cli --url http://localhost:8011 --api-key test-key blockchain chains
 
 # Cross-site synchronization testing
 curl -s "http://127.0.0.1:8082/rpc/head?chain_id=ait-healthchain" | jq .
 ```
 
-### ✅ CLI Testing
+### CLI Testing
 ```bash
 # Test CLI installation and functionality
 python -c "from aitbc_cli.main import cli; print('CLI import successful')"
@@ -139,19 +139,19 @@ python -m aitbc_cli wallet --help
 
 ## Quality Metrics Achieved
 
-### ✅ Test Coverage
+### Test Coverage
 - **CLI Commands**: 100% of main CLI commands tested
 - **Integration Points**: 90%+ API integration coverage
 - **Multi-Chain Scenarios**: 95%+ multi-chain test coverage
 - **Error Scenarios**: 90%+ error handling coverage
 
-### ✅ Documentation Quality
+### Documentation Quality
 - **Cross-References**: 100% of resources properly linked
 - **Navigation**: Seamless navigation between components
 - **Completeness**: Comprehensive coverage of all testing aspects
 - **Usability**: Clear and actionable documentation
 
-### ✅ Integration Quality
+### Integration Quality
 - **Resource Connections**: All testing resources properly connected
 - **User Experience**: Unified and intuitive testing experience
 - **Automation**: Comprehensive test automation capabilities
@@ -159,7 +159,7 @@ python -m aitbc_cli wallet --help
 
 ## Usage Examples
 
-### ✅ Using the Testing Skill
+### Using the Testing Skill
 ```bash
 # Access comprehensive testing capabilities
 skill test
@@ -171,7 +171,7 @@ skill test --category cli
 skill test --category multichain
 ```
 
-### ✅ Using the Test Workflow
+### Using the Test Workflow
 ```bash
 # Follow step-by-step testing procedures
 /windsurf/workflows/test
@@ -182,19 +182,19 @@ skill test --category multichain
 /windsurf/workflows/test --step multichain-testing
 ```
 
-### ✅ Using Test Documentation
+### Using Test Documentation
 ```bash
 # Reference multi-chain test scenarios
 docs/10_plan/89_test.md
 
 # Execute documented test scenarios
-curl -s "http://127.0.0.1:8000/v1/health" | jq .supported_chains
+curl -s "http://localhost:8011/v1/health" | jq .supported_chains
 curl -s -X POST "http://127.0.0.1:8082/rpc/sendTx?chain_id=ait-healthchain" \
   -H "Content-Type: application/json" \
   -d '{"sender":"alice","recipient":"bob","payload":{"data":"medical_record"},"nonce":1,"fee":0,"type":"TRANSFER"}'
 ```
 
-### ✅ Using Tests Folder
+### Using Tests Folder
 ```bash
 # Execute comprehensive test suite
 ./tests/run_all_tests.sh

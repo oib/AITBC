@@ -44,10 +44,10 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - API Gateway successfully routing to all microservices
 
 ### Phase 13: API Gateway Testing (Completed)
-- Tested GPU service routing through API Gateway ✓
-- Tested Marketplace service routing through API Gateway ✓
-- Tested Trading service routing through API Gateway ✓
-- Tested Governance service routing through API Gateway ✓
+- Tested GPU service routing through API Gateway 
+- Tested Marketplace service routing through API Gateway 
+- Tested Trading service routing through API Gateway 
+- Tested Governance service routing through API Gateway 
 
 ### Phase 14: CLI Usage Analysis (Completed)
 - Analyzed CLI coordinator-api usage patterns
@@ -234,11 +234,11 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
      - `/governance` → Governance service (8105)
      - `/ai` → AI service (8106)
      - `/monitoring` → Monitoring service (8107)
-     - `/coordinator` → Coordinator API (8000) - legacy
+     - `/coordinator` → Coordinator API (8011) - legacy
 
 ### Legacy Services
 
-**Coordinator API** (port 8000) - **DISABLED**
+**Coordinator API** (port 8011) - **DISABLED**
    - Previously ran for backward compatibility
    - All functionality has been migrated to dedicated microservices
    - Service has been stopped and disabled on all nodes (aitbc, aitbc1, gitea-runner)
@@ -260,6 +260,12 @@ coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compa
 ## Migration Status
 
 ### Migrated to Microservices
+- GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
+- Marketplace transactions (offers, bids)
+- Trading transactions (requests, matches, agreements, settlements)
+- Governance transactions (proposals, votes)
+- Miner operations (register, heartbeat, get GPUs, poll, result, fail, earnings, capabilities, deregister)
+- Explorer operations (blocks, transactions, receipts)
 - ✓ GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
 - ✓ Marketplace transactions (offers, bids)
 - ✓ Trading transactions (requests, matches, agreements, settlements)
