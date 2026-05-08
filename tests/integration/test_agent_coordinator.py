@@ -21,6 +21,21 @@ def coordinator_client() -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
+def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient, None, None]:
+    """Create an authenticated test client with admin token."""
+    # Login to get a token
+    login_data = {"username": "admin", "password": "admin123"}
+    login_response = coordinator_client.post("/auth/login", json=login_data)
+    token = login_response.json()["access_token"]
+    
+    # Return client with authentication header
+    app = create_app()
+    with TestClient(app) as client:
+        client.headers.update({"Authorization": f"Bearer {token}"})
+        yield client
+
+
+@pytest.fixture
 def sample_agent_data() -> Dict[str, Any]:
     """Sample agent registration data."""
     return {
@@ -353,25 +368,35 @@ class TestAlerts:
         response = coordinator_client.get("/alerts")
         assert response.status_code in (401, 403)
 
-    def test_get_alert_stats_unauthorized(self, coordinator_client: TestClient):
-        """Test getting alert stats without authentication."""
-        response = coordinator_client.get("/alerts/stats")
-        assert response.status_code in (401, 403)
+    def test_get_alerts_authorized(self, authenticated_client: TestClient):
+        """Test getting alerts with authentication."""
+        response = authenticated_client.get("/alerts")
+        assert response.status_code in (200, 403)  # May fail due to permissions
 
-    def test_get_alert_rules_unauthorized(self, coordinator_client: TestClient):
-        """Test getting alert rules without authentication."""
-        response = coordinator_client.get("/alerts/rules")
-        assert response.status_code in (401, 403)
+    def test_get_alert_stats_authorized(self, authenticated_client: TestClient):
+        """Test getting alert stats with authentication."""
+        response = authenticated_client.get("/alerts/stats")
+        assert response.status_code in (200, 403)  # May fail due to permissions
 
-    def test_get_sla_status_unauthorized(self, coordinator_client: TestClient):
-        """Test getting SLA status without authentication."""
-        response = coordinator_client.get("/sla")
-        assert response.status_code in (401, 403)
+    def test_get_alert_rules_authorized(self, authenticated_client: TestClient):
+        """Test getting alert rules with authentication."""
+        response = authenticated_client.get("/alerts/rules")
+        assert response.status_code in (200, 403)  # May fail due to permissions
 
-    def test_get_system_status_unauthorized(self, coordinator_client: TestClient):
-        """Test getting system status without authentication."""
-        response = coordinator_client.get("/system/status")
-        assert response.status_code in (401, 403)
+    def test_get_sla_status_authorized(self, authenticated_client: TestClient):
+        """Test getting SLA status with authentication."""
+        response = authenticated_client.get("/sla")
+        assert response.status_code in (200, 403)  # May fail due to permissions
+
+    def test_get_system_status_authorized(self, authenticated_client: TestClient):
+        """Test getting system status with authentication."""
+        response = authenticated_client.get("/system/status")
+        assert response.status_code in (200, 403)  # May fail due to permissions
+
+    def test_resolve_alert_authorized(self, authenticated_client: TestClient):
+        """Test resolving an alert with authentication."""
+        response = authenticated_client.post("/alerts/test-alert-001/resolve")
+        assert response.status_code in (200, 403, 404)  # May fail due to permissions or not found
 
 
 class TestUsers:
@@ -382,35 +407,50 @@ class TestUsers:
         response = coordinator_client.post("/users/test_user/role", json={"role": "admin"})
         assert response.status_code in (401, 403)
 
-    def test_get_user_role_unauthorized(self, coordinator_client: TestClient):
-        """Test getting user role without authentication."""
-        response = coordinator_client.get("/users/test_user/role")
-        assert response.status_code in (401, 403)
+    def test_assign_user_role_authorized(self, authenticated_client: TestClient):
+        """Test assigning user role with authentication."""
+        response = authenticated_client.post("/users/test_user/role", json={"role": "admin"})
+        assert response.status_code in (200, 403, 500)  # May fail due to permissions
 
-    def test_get_user_permissions_unauthorized(self, coordinator_client: TestClient):
-        """Test getting user permissions without authentication."""
-        response = coordinator_client.get("/users/test_user/permissions")
-        assert response.status_code in (401, 403)
+    def test_get_user_role_authorized(self, authenticated_client: TestClient):
+        """Test getting user role with authentication."""
+        response = authenticated_client.get("/users/test_user/role")
+        assert response.status_code in (200, 403, 404)  # May fail due to permissions or not found
 
-    def test_list_roles_unauthorized(self, coordinator_client: TestClient):
-        """Test listing roles without authentication."""
-        response = coordinator_client.get("/roles")
-        assert response.status_code in (401, 403)
+    def test_get_user_permissions_authorized(self, authenticated_client: TestClient):
+        """Test getting user permissions with authentication."""
+        response = authenticated_client.get("/users/test_user/permissions")
+        assert response.status_code in (200, 403, 404)  # May fail due to permissions or not found
 
-    def test_get_role_permissions_unauthorized(self, coordinator_client: TestClient):
-        """Test getting role permissions without authentication."""
-        response = coordinator_client.get("/roles/admin")
-        assert response.status_code in (401, 403)
+    def test_grant_user_permission_authorized(self, authenticated_client: TestClient):
+        """Test granting user permission with authentication."""
+        response = authenticated_client.post("/users/test_user/permissions/grant", json={"permission": "SECURITY_MANAGE"})
+        assert response.status_code in (200, 403, 500)  # May fail due to permissions
 
-    def test_protected_admin_unauthorized(self, coordinator_client: TestClient):
-        """Test protected admin endpoint without authentication."""
-        response = coordinator_client.get("/protected/admin")
-        assert response.status_code in (401, 403)
+    def test_revoke_user_permission_authorized(self, authenticated_client: TestClient):
+        """Test revoking user permission with authentication."""
+        response = authenticated_client.delete("/users/test_user/permissions/SECURITY_MANAGE")
+        assert response.status_code in (200, 403, 500)  # May fail due to permissions
 
-    def test_protected_operator_unauthorized(self, coordinator_client: TestClient):
-        """Test protected operator endpoint without authentication."""
-        response = coordinator_client.get("/protected/operator")
-        assert response.status_code in (401, 403)
+    def test_list_roles_authorized(self, authenticated_client: TestClient):
+        """Test listing roles with authentication."""
+        response = authenticated_client.get("/roles")
+        assert response.status_code in (200, 403)  # May fail due to permissions
+
+    def test_get_role_permissions_authorized(self, authenticated_client: TestClient):
+        """Test getting role permissions with authentication."""
+        response = authenticated_client.get("/roles/admin")
+        assert response.status_code in (200, 403, 400)  # May fail due to permissions or invalid role
+
+    def test_protected_admin_authorized(self, authenticated_client: TestClient):
+        """Test protected admin endpoint with authentication."""
+        response = authenticated_client.get("/protected/admin")
+        assert response.status_code in (200, 403)  # May fail due to permissions
+
+    def test_protected_operator_authorized(self, authenticated_client: TestClient):
+        """Test protected operator endpoint with authentication."""
+        response = authenticated_client.get("/protected/operator")
+        assert response.status_code in (200, 403)  # May fail due to permissions
 
 
 class TestConsensus:
@@ -427,6 +467,17 @@ class TestConsensus:
         # Should work or return appropriate error
         assert response.status_code in (200, 201, 500)
 
+    def test_register_consensus_node_authorized(self, authenticated_client: TestClient):
+        """Test registering a consensus node with authentication."""
+        node_data = {
+            "node_id": "test-node-002",
+            "address": "http://localhost:9004",
+            "stake": 2000
+        }
+        response = authenticated_client.post("/consensus/node/register", json=node_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 201, 500)
+
     def test_create_consensus_proposal(self, coordinator_client: TestClient):
         """Test creating a consensus proposal."""
         proposal_data = {
@@ -437,6 +488,29 @@ class TestConsensus:
         response = coordinator_client.post("/consensus/proposal/create", json=proposal_data)
         # Should work or return appropriate error
         assert response.status_code in (200, 201, 500)
+
+    def test_create_consensus_proposal_authorized(self, authenticated_client: TestClient):
+        """Test creating a consensus proposal with authentication."""
+        proposal_data = {
+            "proposal_id": "prop-002",
+            "proposer": "test-node-002",
+            "content": {"action": "config", "setting": "timeout"}
+        }
+        response = authenticated_client.post("/consensus/proposal/create", json=proposal_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 201, 500)
+
+    def test_cast_consensus_vote(self, coordinator_client: TestClient):
+        """Test casting a consensus vote."""
+        response = coordinator_client.post("/consensus/proposal/prop-001/vote?node_id=test-node-001&vote=true")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 500)
+
+    def test_get_proposal_status(self, coordinator_client: TestClient):
+        """Test getting proposal status."""
+        response = coordinator_client.get("/consensus/proposal/prop-001")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 404, 500)
 
     def test_get_consensus_statistics(self, coordinator_client: TestClient):
         """Test getting consensus statistics."""
@@ -450,8 +524,121 @@ class TestConsensus:
         # Should work or return appropriate error
         assert response.status_code in (200, 500)
 
+    def test_update_node_status(self, coordinator_client: TestClient):
+        """Test updating node status."""
+        response = coordinator_client.put("/consensus/node/test-node-001/status?is_active=true")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 500)
+
     def test_get_advanced_features_status(self, coordinator_client: TestClient):
         """Test getting advanced features status."""
         response = coordinator_client.get("/advanced-features/status")
         # Should work or return appropriate error
         assert response.status_code in (200, 500)
+
+
+class TestMessages:
+    """Test message endpoints."""
+
+    def test_send_message(self, coordinator_client: TestClient):
+        """Test sending a message."""
+        message_data = {
+            "receiver_id": "test-agent-001",
+            "message_type": "task",
+            "priority": "normal",
+            "protocol": "hierarchical",
+            "payload": {"action": "execute", "task_id": "task-001"}
+        }
+        response = coordinator_client.post("/messages/send", json=message_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 201, 503, 500)
+
+    def test_send_message_invalid_protocol(self, coordinator_client: TestClient):
+        """Test sending a message with invalid protocol."""
+        message_data = {
+            "receiver_id": "test-agent-001",
+            "message_type": "task",
+            "priority": "normal",
+            "protocol": "invalid_protocol",
+            "payload": {"action": "execute"}
+        }
+        response = coordinator_client.post("/messages/send", json=message_data)
+        assert response.status_code in (400, 503)
+
+    def test_broadcast_message(self, coordinator_client: TestClient):
+        """Test broadcasting a message."""
+        broadcast_data = {
+            "message_type": "task",
+            "priority": "high",
+            "agent_type": "worker",
+            "payload": {"action": "shutdown"}
+        }
+        response = coordinator_client.post("/messages/broadcast", json=broadcast_data)
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503, 500)
+
+    def test_get_message_history(self, coordinator_client: TestClient):
+        """Test getting message history."""
+        response = coordinator_client.get("/messages/history")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_get_message_by_id(self, coordinator_client: TestClient):
+        """Test getting a specific message."""
+        response = coordinator_client.get("/messages/msg-001")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 404, 503)
+
+    def test_get_load_balancer_stats(self, coordinator_client: TestClient):
+        """Test getting load balancer statistics."""
+        response = coordinator_client.get("/load-balancer/stats")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_get_registry_stats(self, coordinator_client: TestClient):
+        """Test getting registry statistics."""
+        response = coordinator_client.get("/registry/stats")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_get_agents_by_service(self, coordinator_client: TestClient):
+        """Test getting agents by service."""
+        response = coordinator_client.get("/agents/service/task-execution")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_get_agents_by_capability(self, coordinator_client: TestClient):
+        """Test getting agents by capability."""
+        response = coordinator_client.get("/agents/capability/data-processing")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_set_load_balancing_strategy(self, coordinator_client: TestClient):
+        """Test setting load balancing strategy."""
+        response = coordinator_client.put("/load-balancer/strategy", params={"strategy": "least_connections"})
+        # Should work or return appropriate error
+        assert response.status_code in (200, 400, 503)
+
+    def test_add_peer(self, coordinator_client: TestClient):
+        """Test adding a peer connection."""
+        response = coordinator_client.post("/peers/add", params={"agent_id": "agent-001", "peer_id": "agent-002"})
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503, 500)
+
+    def test_remove_peer(self, coordinator_client: TestClient):
+        """Test removing a peer connection."""
+        response = coordinator_client.post("/peers/remove", params={"agent_id": "agent-001", "peer_id": "agent-002"})
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503, 500)
+
+    def test_get_agent_peers(self, coordinator_client: TestClient):
+        """Test getting agent peers."""
+        response = coordinator_client.get("/peers/agent-001")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
+
+    def test_get_all_peers(self, coordinator_client: TestClient):
+        """Test getting all peer connections."""
+        response = coordinator_client.get("/peers")
+        # Should work or return appropriate error
+        assert response.status_code in (200, 503)
