@@ -74,9 +74,9 @@ Compare GPU prices across different listings.
 
 ```bash
 aitbc arbitrage analyze \
-  --wallet my-agent-wallet \
-  --resource-type gpu \
-  --timeframe 1h
+  --market-a exchange-a \
+  --market-b exchange-b \
+  --token gpu
 ```
 
 Output:
