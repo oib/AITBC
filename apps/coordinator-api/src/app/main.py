@@ -62,6 +62,7 @@ from .routers import (
     marketplace_gpu,
     marketplace_offers,
     miner,
+    monitor,
     multi_modal_rl,
     payments,
     services,
@@ -366,6 +367,9 @@ def create_app() -> FastAPI:
     # Add swarm router for CLI compatibility
     app.include_router(swarm.router, prefix="/v1")
     app.include_router(swarm.router)  # CLI compatibility (calls /swarm/list directly)
+    
+    # Add monitor router for CLI compatibility
+    app.include_router(monitor.router)
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()

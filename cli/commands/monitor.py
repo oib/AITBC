@@ -413,8 +413,14 @@ def _ensure_campaigns():
 def campaigns(ctx, status: str):
     """List active incentive campaigns"""
     campaigns_file = _ensure_campaigns()
-    with open(campaigns_file) as f:
-        data = json.load(f)
+    try:
+        with open(campaigns_file) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        # File is empty or invalid - recreate it
+        campaigns_file = _ensure_campaigns()
+        with open(campaigns_file) as f:
+            data = json.load(f)
 
     campaign_list = data.get("campaigns", [])
 
@@ -443,8 +449,14 @@ def campaigns(ctx, status: str):
 def campaign_stats(ctx, campaign_id: Optional[str]):
     """Campaign performance metrics (TVL, participants, rewards)"""
     campaigns_file = _ensure_campaigns()
-    with open(campaigns_file) as f:
-        data = json.load(f)
+    try:
+        with open(campaigns_file) as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        # File is empty or invalid - recreate it
+        campaigns_file = _ensure_campaigns()
+        with open(campaigns_file) as f:
+            data = json.load(f)
 
     campaign_list = data.get("campaigns", [])
 
