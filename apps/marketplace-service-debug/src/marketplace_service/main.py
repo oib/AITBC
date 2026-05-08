@@ -139,6 +139,23 @@ async def get_offer(
         raise
 
 
+@app.post("/v1/marketplace/offers/{offer_id}/book")
+async def book_offer(
+    offer_id: str,
+    booking_data: dict,
+    svc: MarketplaceService = Depends(get_marketplace_service),
+):
+    """Book/purchase a marketplace offer"""
+    try:
+        logger.info(f"POST /v1/marketplace/offers/{offer_id}/book called with data keys: {booking_data.keys()}")
+        result = await svc.book_offer(offer_id, booking_data)
+        logger.info(f"POST /v1/marketplace/offers/{offer_id}/book completed")
+        return result
+    except Exception as e:
+        logger.error(f"Error in POST /v1/marketplace/offers/{offer_id}/book: {type(e).__name__}: {str(e)}")
+        raise
+
+
 @app.post("/v1/marketplace/offers")
 async def create_offer(
     offer_data: dict,
