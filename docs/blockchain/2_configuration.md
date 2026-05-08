@@ -24,7 +24,7 @@ rpc:
   bind_port: 8080
   cors_origins:
     - http://localhost:8015
-    - http://localhost:8000
+    - http://localhost:8011
   rate_limit: 1000  # requests per minute
 ```
 
