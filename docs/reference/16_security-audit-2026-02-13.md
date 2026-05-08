@@ -74,7 +74,7 @@ allow_origins=["*"]
 allow_origins=[
     "http://localhost:3000",
     "http://localhost:8080", 
-    "http://localhost:8000",
+    "http://localhost:8011",
     "http://localhost:8011"
 ]
 ```

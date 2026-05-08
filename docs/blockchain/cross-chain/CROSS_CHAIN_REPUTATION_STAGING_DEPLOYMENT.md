@@ -100,13 +100,13 @@ journalctl --user -u aitbc-coordinator-api -f
 ### **Step 6: Health Check**
 ```bash
 # Test API health
-curl -f http://localhost:8000/health || echo "Health check failed"
+curl -f http://localhost:8011/health || echo "Health check failed"
 
 # Test reputation endpoints
-curl -f http://localhost:8000/v1/reputation/health || echo "Reputation health check failed"
+curl -f http://localhost:8011/v1/reputation/health || echo "Reputation health check failed"
 
 # Test cross-chain analytics
-curl -f http://localhost:8000/v1/reputation/cross-chain/analytics || echo "Analytics endpoint failed"
+curl -f http://localhost:8011/v1/reputation/cross-chain/analytics || echo "Analytics endpoint failed"
 ```
 
 ---
@@ -119,13 +119,13 @@ curl -f http://localhost:8000/v1/reputation/cross-chain/analytics || echo "Analy
 echo "Testing Cross-Chain Reputation Endpoints..."
 
 # Test 1: Get cross-chain analytics
-curl -X GET "http://localhost:8000/v1/reputation/cross-chain/analytics" | jq .
+curl -X GET "http://localhost:8011/v1/reputation/cross-chain/analytics" | jq .
 
 # Test 2: Get cross-chain leaderboard
-curl -X GET "http://localhost:8000/v1/reputation/cross-chain/leaderboard?limit=10" | jq .
+curl -X GET "http://localhost:8011/v1/reputation/cross-chain/leaderboard?limit=10" | jq .
 
 # Test 3: Submit cross-chain event
-curl -X POST "http://localhost:8000/v1/reputation/cross-chain/events" \
+curl -X POST "http://localhost:8011/v1/reputation/cross-chain/events" \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "test_agent_staging",
@@ -135,7 +135,7 @@ curl -X POST "http://localhost:8000/v1/reputation/cross-chain/events" \
   }' | jq .
 
 # Test 4: Get agent cross-chain reputation
-curl -X GET "http://localhost:8000/v1/reputation/test_agent_staging/cross-chain" | jq .
+curl -X GET "http://localhost:8011/v1/reputation/test_agent_staging/cross-chain" | jq .
 ```
 
 ### **Step 8: Performance Testing**
@@ -144,13 +144,13 @@ curl -X GET "http://localhost:8000/v1/reputation/test_agent_staging/cross-chain"
 echo "Testing Performance Metrics..."
 
 # Test single agent reputation calculation
-time curl -X GET "http://localhost:8000/v1/reputation/test_agent_staging/cross-chain"
+time curl -X GET "http://localhost:8011/v1/reputation/test_agent_staging/cross-chain"
 
 # Test cross-chain aggregation
-time curl -X GET "http://localhost:8000/v1/reputation/cross-chain/leaderboard?limit=50"
+time curl -X GET "http://localhost:8011/v1/reputation/cross-chain/leaderboard?limit=50"
 
 # Test analytics endpoint
-time curl -X GET "http://localhost:8000/v1/reputation/cross-chain/analytics"
+time curl -X GET "http://localhost:8011/v1/reputation/cross-chain/analytics"
 ```
 
 ---
@@ -224,7 +224,7 @@ endpoints=(
 )
 
 for endpoint in "${endpoints[@]}"; do
-    if curl -f -s "http://localhost:8000$endpoint" > /dev/null; then
+    if curl -f -s "http://localhost:8011$endpoint" > /dev/null; then
         echo "✅ $endpoint responding"
     else
         echo "❌ $endpoint not responding"
@@ -234,7 +234,7 @@ done
 
 # Test 3: Performance
 echo "✅ Testing performance..."
-response_time=$(curl -o /dev/null -s -w '%{time_total}' "http://localhost:8000/v1/reputation/cross-chain/analytics")
+response_time=$(curl -o /dev/null -s -w '%{time_total}' "http://localhost:8011/v1/reputation/cross-chain/analytics")
 if (( $(echo "$response_time < 0.5" | bc -l) )); then
     echo "✅ Performance target met: ${response_time}s"
 else
@@ -267,7 +267,7 @@ git checkout previous_staging_tag
 systemctl --user start aitbc-coordinator-api
 
 # 5. Verify rollback
-curl -f http://localhost:8000/health
+curl -f http://localhost:8011/health
 ```
 
 ---

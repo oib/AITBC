@@ -224,7 +224,7 @@ CREATE TABLE cross_chain_pools (
 ### Exchange Integration
 - **✅ Blockchain service (Port 8007)**
 - **✅ Wallet daemon (Port 8003)**
-- **✅ Coordinator API (Port 8000)**
+- **✅ Coordinator API (Port 8011)**
 - **✅ Network service (Port 8008)**
 
 ### CLI Integration

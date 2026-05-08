@@ -597,7 +597,7 @@ ssh aitbc "systemctl restart coordinator-api"
 
 ```bash
 # From aitbc1 (via aitbc server)
-ssh aitbc "curl -s http://localhost:8000/v1/health"
+ssh aitbc "curl -s http://localhost:8011/v1/health"
 ssh aitbc "curl -s http://localhost:8003/rpc/head | jq .height"
 
 # Test enhanced services
