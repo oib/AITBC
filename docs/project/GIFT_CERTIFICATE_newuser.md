@@ -69,7 +69,7 @@ the AITBC Enhanced Development Network!
 📱 QUICK START GUIDE:
 
 1. Check your balance:
-   curl http://aitbc-cascade:8000/wallet/balance
+   curl http://localhost:8011/wallet/balance
 
 2. Explore AI features:
    aitbc ai-trading --help
@@ -87,9 +87,9 @@ the AITBC Enhanced Development Network!
 🌐 NETWORK INFORMATION:
 
 🔗 Blockchain Explorer: http://aitbc-cascade:8016
-📡 Coordinator API:     http://aitbc-cascade:8000
+📡 Coordinator API:     http://localhost:8011
 ⛓️  Blockchain Node:    http://aitbc-cascade:8005
-📚 Documentation:      http://aitbc-cascade:8000/docs
+📚 Documentation:      http://localhost:8011/docs
 
 ═══════════════════════════════════════════════════════════════
 
