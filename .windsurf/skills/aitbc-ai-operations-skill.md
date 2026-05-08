@@ -17,7 +17,7 @@ Trigger when user requests AI operations testing: job submission validation, AI 
 {
   "operation": "test-job-submission|test-job-monitoring|test-resource-allocation|test-ai-services|comprehensive",
   "job_type": "inference|parallel|ensemble|multimodal|resource-allocation|performance-tuning",
-  "test_wallet": "string (optional, default: genesis-ops)",
+  "test_wallet": "string (optional, default: genesis)",
   "test_prompt": "string (optional for job submission)",
   "test_payment": "number (optional, default: 100)",
   "job_id": "string (optional for job monitoring)",
@@ -104,7 +104,7 @@ Trigger when user requests AI operations testing: job submission validation, AI 
 - AI services operational (Ollama, coordinator, exchange)
 - Sufficient wallet balance for job payments
 - Resource allocation system functional
-- Default test wallet: "genesis-ops"
+- Default test wallet: "genesis"
 
 ## Error Handling
 - Job submission failures → Return submission error and wallet status

@@ -18,9 +18,9 @@ Trigger when user requests Ollama GPU testing: inference performance validation,
   "operation": "test-gpu-inference|test-payment-processing|test-blockchain-recording|test-end-to-end|comprehensive",
   "model_name": "string (optional, default: llama2)",
   "test_prompt": "string (optional for inference testing)",
-  "test_wallet": "string (optional, default: test-client)",
+  "test_wallet": "string (optional, default: genesis)",
   "payment_amount": "number (optional, default: 100)",
-  "gpu_provider": "string (optional, default: aitbc-host-gpu-miner)",
+  "gpu_provider": "string (optional, default: aitbc1)",
   "benchmark_duration": "number (optional, default: 30 seconds)",
   "inference_count": "number (optional, default: 5)"
 }
