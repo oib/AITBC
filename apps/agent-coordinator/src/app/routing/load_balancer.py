@@ -652,13 +652,16 @@ class TaskDistributor:
                     task_data=task_info["task_data"]
                 )
                 
-                # Send task to agent (implementation depends on communication system)
-                await self._send_task_to_agent(agent_id, task_message)
+                # Send task to agent
+                send_success = await self._send_task_to_agent(agent_id, task_message)
                 
-                self.distribution_stats["tasks_distributed"] += 1
-                
-                # Simulate task completion (in real implementation, this would be event-driven)
-                asyncio.create_task(self._simulate_task_completion(task_info, agent_id))
+                if send_success:
+                    self.distribution_stats["tasks_distributed"] += 1
+                    # In real implementation, task completion would be event-driven when agent responds
+                    # For now, just mark as distributed
+                else:
+                    logger.warning(f"Failed to send task to agent {agent_id}")
+                    self.distribution_stats["tasks_failed"] += 1
                 
             else:
                 logger.warning(f"Failed to distribute task: no suitable agent found")
@@ -692,12 +695,27 @@ class TaskDistributor:
                 logger.error(f"Agent {agent_id} has no HTTP endpoint")
                 return False
             
+            # Convert message to dict and handle datetime serialization
+            message_dict = task_message.to_dict()
+            
+            # Ensure payload is JSON serializable (convert datetime objects)
+            def convert_datetime(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                elif isinstance(obj, dict):
+                    return {k: convert_datetime(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [convert_datetime(item) for item in obj]
+                return obj
+            
+            message_dict["payload"] = convert_datetime(message_dict["payload"])
+            
             # Send task to agent via HTTP POST
             import httpx
             async with httpx.AsyncClient(timeout=5.0) as client:
                 response = await client.post(
                     f"{http_endpoint}/tasks/execute",
-                    json=task_message.to_dict()
+                    json=message_dict
                 )
                 
                 if response.status_code in (200, 201, 202):
