@@ -68,6 +68,26 @@ An hermes agent uses zero-knowledge proofs to:
 - Agent SDK configured
 - IPFS client configured
 
+### **Wallet Authentication**
+For zero-knowledge proof operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc agent zk generate-proof --circuit groth16 --input ./input.json
+
+# Password file (recommended for scripts)
+aitbc agent zk generate-proof --circuit groth16 --input ./input.json --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc agent zk generate-proof --circuit groth16 --input ./input.json
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**

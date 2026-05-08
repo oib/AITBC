@@ -65,6 +65,26 @@ An hermes agent acts as a database service provider to:
 - Marketplace service accessible
 - Security service configured
 
+### **Wallet Authentication**
+For database service operations requiring wallet signing, use one of these methods:
+
+```bash
+# Interactive prompt (default)
+aitbc database init --wallet my-wallet --name my-db-service --capacity 100GB
+
+# Password file (recommended for scripts)
+aitbc database init --wallet my-wallet --name my-db-service --capacity 100GB --password-file /path/to/password.txt
+
+# Environment variable
+export KEYSTORE_PASSWORD=mypassword
+aitbc database init --wallet my-wallet --name my-db-service --capacity 100GB
+```
+
+**Security Best Practices:**
+- Use password files with restricted permissions (chmod 600)
+- Store password files outside the repository
+- Avoid hardcoding passwords in scripts
+
 ---
 
 ## 🔧 **Step-by-Step Workflow**
