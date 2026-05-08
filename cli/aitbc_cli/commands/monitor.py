@@ -110,7 +110,7 @@ def metrics(ctx, period: str, export_path: Optional[str]):
     }
 
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
             # Coordinator metrics
             try:
                 resp = http_client.get(
@@ -235,7 +235,7 @@ def alerts(ctx, action: str, name: Optional[str], alert_type: Optional[str],
             return
         if alert.get("webhook"):
             try:
-                http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+                http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
                     resp = client.post(alert["webhook"], json={
                         "alert": name,
                         "type": alert["type"],
@@ -270,7 +270,7 @@ def history(ctx, period: str):
     }
 
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
             try:
                 resp = http_client.get(
                     f"{config.coordinator_url}/jobs",
@@ -355,7 +355,7 @@ def webhooks(ctx, action: str, name: Optional[str], url: Optional[str], events: 
             error(f"Webhook '{name}' not found")
             return
         try:
-            http_client = AITBCHTTPClient(base_url="http://localhost:8001/api/v1", timeout=10)
+            http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
                 resp = client.post(wh["url"], json={
                     "event": "test",
                     "source": "aitbc-cli",
