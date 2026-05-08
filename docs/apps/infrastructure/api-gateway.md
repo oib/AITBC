@@ -71,7 +71,7 @@ Service URLs are configured in `main.py` under the `SERVICES` dictionary.
 
 ### Health Check
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8011/health
 ```
 
 Expected response:
@@ -81,22 +81,22 @@ Expected response:
 
 ### Service Registry
 ```bash
-curl http://localhost:8080/services
+curl http://localhost:8011/services
 ```
 
 ### Test Routing
 ```bash
 # Route to GPU service
-curl http://localhost:8080/gpu/health
+curl http://localhost:8011/gpu/health
 
 # Route to Marketplace service
-curl http://localhost:8080/marketplace/health
+curl http://localhost:8011/marketplace/health
 
 # Route to Trading service
-curl http://localhost:8080/trading/health
+curl http://localhost:8011/trading/health
 
 # Route to Governance service
-curl http://localhost:8080/governance/health
+curl http://localhost:8011/governance/health
 ```
 
 ## Architecture

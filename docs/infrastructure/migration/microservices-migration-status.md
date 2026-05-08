@@ -254,7 +254,7 @@ gpu_service_url: str = "http://localhost:8101"
 marketplace_service_url: str = "http://localhost:8102"
 trading_service_url: str = "http://localhost:8104"
 governance_service_url: str = "http://localhost:8105"
-coordinator_url: str = "http://localhost:8000"  # Deprecated, for backward compatibility
+coordinator_url: str = "http://localhost:8011"  # Deprecated, for backward compatibility
 ```
 
 ## Migration Status
