@@ -65,6 +65,7 @@ from .routers import (
     multi_modal_rl,
     payments,
     services,
+    swarm,
     users,
     web_vitals,
 )
@@ -342,6 +343,7 @@ def create_app() -> FastAPI:
     app.include_router(hermes_enhanced, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
     app.include_router(agent_router.router, prefix="/v1/agents")
+    app.include_router(agent_router.router, prefix="/api/v1/agents")  # CLI compatibility
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(global_marketplace, prefix="/v1")
     app.include_router(cross_chain_integration, prefix="/v1")
@@ -360,6 +362,10 @@ def create_app() -> FastAPI:
     
     # Add multi-modal RL router
     app.include_router(multi_modal_rl, prefix="/v1")
+
+    # Add swarm router for CLI compatibility
+    app.include_router(swarm.router, prefix="/v1")
+    app.include_router(swarm.router)  # CLI compatibility (calls /swarm/list directly)
 
     # Add Prometheus metrics endpoint
     metrics_app = make_asgi_app()
