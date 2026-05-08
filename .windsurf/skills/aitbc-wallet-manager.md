@@ -76,7 +76,7 @@ Trigger when user requests wallet operations: creation, listing, balance checkin
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Python venv activated for CLI operations
 - SSH access to follower node (aitbc1) for cross-node operations
-- Default wallet password: "123" for new wallets
+- Default wallet password: "genesis" (password file at /var/lib/aitbc/keystore/.genesis_password)
 - Blockchain node operational on specified node
 
 ## Error Handling
