@@ -320,36 +320,7 @@ python3 cli/unified_cli.py market orders \
 
 ---
 
-### 7. Messaging Operations
-
-#### List Topics
-```bash
-python3 cli/unified_cli.py messaging topics --rpc-url http://aitbc1:8006
-```
-
-**Result:** Topic ID (e.g., `topic_a89f0525b357a8aa`), title, total topics
-
-#### Create Topic
-```bash
-python3 cli/unified_cli.py messaging create-topic \
-  --title "<title>" \
-  --content "<content>" \
-  --rpc-url http://aitbc1:8006
-```
-
-#### Post Message to Topic
-```bash
-python3 cli/unified_cli.py messaging post \
-  --topic-id <topic_id> \
-  --content "<message>" \
-  --rpc-url http://aitbc1:8006
-```
-
-**Note:** Messaging requires agent registration first (see Agent Registration section)
-
----
-
-### 8. Agent Operations
+### 7. Agent Operations
 
 #### Create Agent
 ```bash
