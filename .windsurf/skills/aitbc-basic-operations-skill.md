@@ -18,7 +18,7 @@ Trigger when user requests basic AITBC operations testing: CLI validation, walle
   "operation": "test-cli|test-wallet|test-blockchain|test-services|comprehensive",
   "test_wallet": "string (optional for wallet testing)",
   "test_password": "string (optional for wallet testing)",
-  "service_ports": "array (optional for service testing, default: [8000, 8001, 8006])",
+  "service_ports": "array (optional for service testing, default: [8011, 8001, 8006])",
   "timeout": "number (optional, default: 30 seconds)",
   "verbose": "boolean (optional, default: false)"
 }
@@ -91,7 +91,7 @@ Trigger when user requests basic AITBC operations testing: CLI validation, walle
 ## Environment Assumptions
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Python venv activated for CLI operations
-- Services running on ports 8000, 8001, 8006
+- Services running on ports 8011, 8001, 8006
 - Working directory: `/opt/aitbc`
 - Default test wallet: "test-wallet" with password "test123"
 
