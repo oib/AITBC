@@ -22,7 +22,7 @@ class MarketplaceService:
         status: str | None = None,
         region: str | None = None,
         gpu_model: str | None = None,
-    ) -> list[MarketplaceOffer]:
+    ) -> list[dict]:
         """List marketplace offers"""
         try:
             logger.info(f"list_offers called with filters: status={status}, region={region}, gpu_model={gpu_model}")
@@ -36,7 +36,29 @@ class MarketplaceService:
             logger.info("Executing database query for offers")
             result = list((await self.session.execute(stmt)).all())
             logger.info(f"Retrieved {len(result)} offers")
-            return result
+            # Convert SQLAlchemy model objects to dictionaries for JSON serialization
+            offers_list = []
+            for row in result:
+                offer = row[0] if row else None
+                if offer:
+                    offers_list.append({
+                        'id': offer.id,
+                        'provider': offer.provider,
+                        'capacity': offer.capacity,
+                        'price': offer.price,
+                        'sla': offer.sla,
+                        'status': offer.status,
+                        'created_at': offer.created_at.isoformat() if offer.created_at else None,
+                        'attributes': offer.attributes,
+                        'gpu_model': offer.gpu_model,
+                        'gpu_memory_gb': offer.gpu_memory_gb,
+                        'gpu_count': offer.gpu_count,
+                        'cuda_version': offer.cuda_version,
+                        'price_per_hour': offer.price_per_hour,
+                        'region': offer.region,
+                    })
+            logger.info(f"Converted {len(offers_list)} offers to dictionaries")
+            return offers_list
         except Exception as e:
             logger.error(f"Error in list_offers: {type(e).__name__}: {str(e)}")
             raise
