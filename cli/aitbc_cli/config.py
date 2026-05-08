@@ -25,6 +25,7 @@ class CLIConfig(BaseAITBCConfig):
     app_version: str = Field(default="2.1.0", description="CLI version")
     
     # Service URLs
+    exchange_service_url: str = Field(default="http://localhost:8001/api/v1", description="Exchange Service URL")
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
     marketplace_service_url: str = Field(default="http://localhost:8102", description="Marketplace Service URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
