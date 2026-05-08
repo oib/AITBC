@@ -49,10 +49,10 @@ app = FastAPI(
 app.add_middleware(RequestIDMiddleware)
 app.add_middleware(PerformanceLoggingMiddleware)
 app.add_middleware(RequestValidationMiddleware, max_request_size=10*1024*1024)
-app.add_middleware(ErrorHandlerMiddleware)
+# app.add_middleware(ErrorHandlerMiddleware)  # Temporarily disabled for debugging
 
 
-# Use get_session() directly as dependency - FastAPI handles async generators
+# Use get_session() directly as dependency - FastAPI handles @asynccontextmanager
 get_session_dep = get_session
 
 
@@ -194,7 +194,14 @@ async def get_analytics(
     svc: MarketplaceService = Depends(get_marketplace_service),
 ):
     """Get marketplace analytics"""
-    return await svc.get_analytics(period_type=period_type)
+    try:
+        logger.info(f"GET /v1/marketplace/analytics called with period_type={period_type}")
+        result = await svc.get_analytics(period_type=period_type)
+        logger.info(f"GET /v1/marketplace/analytics returned analytics data")
+        return result
+    except Exception as e:
+        logger.error(f"Error in GET /v1/marketplace/analytics: {type(e).__name__}: {str(e)}")
+        raise
 
 
 @app.post("/v1/transactions")
