@@ -149,8 +149,8 @@ uvicorn src.app.main:app --reload --host 0.0.0.0 --port 8000
 ### **Step 4: Test Endpoints**
 ```bash
 # Test cross-chain reputation endpoints
-curl -X GET "http://localhost:8000/v1/reputation/cross-chain/analytics"
-curl -X GET "http://localhost:8000/v1/reputation/cross-chain/leaderboard"
+curl -X GET "http://localhost:8011/v1/reputation/cross-chain/analytics"
+curl -X GET "http://localhost:8011/v1/reputation/cross-chain/leaderboard"
 ```
 
 ---

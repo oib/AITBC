@@ -311,7 +311,7 @@ systemctl start aitbc-loadbalancer-geo.service
 systemctl list-units --type=service --state=running | grep aitbc
 
 # Test core endpoints
-curl -X GET "http://localhost:8000/health"    # Coordinator API
+curl -X GET "http://localhost:8011/health"    # Coordinator API
 curl -X GET "http://localhost:8001/health"    # Exchange API
 curl -X GET "http://localhost:8002/health"    # Blockchain Node
 curl -X GET "http://localhost:8003/health"    # Blockchain RPC
