@@ -3194,9 +3194,11 @@ def main(argv=None):
     
     # Check if this is a Click command
     if argv and argv[0] in CLICK_COMMANDS:
-        # Delegate to Click CLI
-        from cli.click_cli import aitbc_click
-        aitbc_click()
+        # Delegate to Click CLI by calling click_cli.py as a module
+        import subprocess
+        click_cli_path = Path("/opt/aitbc/cli/click_cli.py")
+        result = subprocess.run([sys.executable, str(click_cli_path)] + sys.argv[1:])
+        return result.returncode
     elif len(argv) > 0 and argv[0] == "genesis":
         # Run genesis CLI subprocess
         genesis_path = Path(__file__).parent.parent / "genesis" / "genesis_cli.py"
