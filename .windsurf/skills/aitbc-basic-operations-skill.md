@@ -93,7 +93,7 @@ Trigger when user requests basic AITBC operations testing: CLI validation, walle
 - Python venv activated for CLI operations
 - Services running on ports 8011, 8001, 8006
 - Working directory: `/opt/aitbc`
-- Default test wallet: "test-wallet" with password "test123"
+- Default test wallet: "genesis" with password "123"
 
 ## Error Handling
 - CLI command failures → Return command error details and troubleshooting
