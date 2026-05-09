@@ -508,8 +508,14 @@ class PoAProposer:
             if rpc_allocations:
                 self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap for chain {self._config.chain_id}")
                 self._create_accounts_from_allocations(session, rpc_allocations)
-                self._logger.info(f"RPC bootstrap completed successfully for chain {self._config.chain_id}, skipping local file")
-                return  # Return early to avoid falling back to local file
+                
+                # Use the RPC genesis state_root if available, otherwise recompute
+                if hasattr(self, '_rpc_genesis_state_root') and self._rpc_genesis_state_root:
+                    self._logger.info(f"Using RPC genesis state_root: {self._rpc_genesis_state_root}")
+                    return self._rpc_genesis_state_root
+                else:
+                    self._logger.info(f"RPC bootstrap completed successfully for chain {self._config.chain_id}, skipping local file")
+                    return  # Return early to avoid falling back to local file
             else:
                 self._logger.warning(f"RPC bootstrap returned no allocations for chain {self._config.chain_id}, skipping account initialization")
         except Exception as e:
