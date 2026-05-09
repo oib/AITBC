@@ -429,6 +429,50 @@ class PoAProposer:
                 self._logger.info(f"Genesis block already exists: height={genesis.height}, hash={genesis.hash}, proposer={genesis.proposer}")
                 return
 
+            # Try RPC bootstrap for genesis block first
+            self._logger.info(f"Attempting RPC bootstrap for genesis block for chain {self._config.chain_id}")
+            rpc_genesis_data = await self._load_genesis_block_from_rpc()
+            
+            if rpc_genesis_data:
+                # Use RPC-provided genesis block data
+                self._logger.info(f"Using RPC-provided genesis block data for chain {self._config.chain_id}")
+                genesis_allocations = rpc_genesis_data.get("allocations", [])
+                genesis_hash = rpc_genesis_data.get("genesis_hash")
+                genesis_state_root = rpc_genesis_data.get("genesis_state_root")
+                
+                if genesis_hash and genesis_state_root:
+                    # Create genesis block with RPC-provided data
+                    timestamp = datetime(2025, 1, 1, 0, 0, 0)
+                    genesis = Block(
+                        chain_id=self._config.chain_id,
+                        height=0,
+                        hash=genesis_hash,
+                        parent_hash="0x00",
+                        proposer="genesis",
+                        timestamp=timestamp,
+                        tx_count=0,
+                        state_root=genesis_state_root,
+                        block_metadata=json.dumps({"allocations": genesis_allocations}) if genesis_allocations else None,
+                    )
+                    session.add(genesis)
+                    try:
+                        session.commit()
+                        self._logger.info(f"Successfully created genesis block from RPC bootstrap: hash={genesis_hash}, state_root={genesis_state_root}")
+                        
+                        # Initialize accounts from RPC-provided allocations
+                        if genesis_allocations:
+                            self._create_accounts_from_allocations(session, genesis_allocations)
+                            self._logger.info(f"Initialized {len(genesis_allocations)} accounts from RPC bootstrap")
+                        return
+                    except Exception as e:
+                        self._logger.warning(f"Failed to create genesis block from RPC bootstrap: {e}, falling back to local creation")
+                        session.rollback()
+                else:
+                    self._logger.warning(f"RPC bootstrap returned incomplete genesis data, falling back to local creation")
+
+            # Fall back to local genesis block creation
+            self._logger.info(f"Creating genesis block locally for chain {self._config.chain_id}")
+            
             # Use a deterministic genesis timestamp so all nodes agree on the genesis block hash
             timestamp = datetime(2025, 1, 1, 0, 0, 0)
             block_hash = self._compute_block_hash(0, "0x00", timestamp)
@@ -545,6 +589,46 @@ class PoAProposer:
         """Load genesis allocations from file for embedding in genesis block metadata."""
         # Skip loading for metadata if we used RPC bootstrap
         return []
+
+    async def _load_genesis_block_from_rpc(self) -> dict:
+        """Load genesis block data from trusted peer via RPC.
+        
+        Returns:
+            Dict with genesis block data (allocations, genesis_hash, genesis_state_root) or None if failed
+        """
+        import httpx
+        
+        # Try multiple trusted peers
+        trusted_peers = []
+        if self._config.default_peer_rpc_url:
+            peer_url = self._config.default_peer_rpc_url
+            # Remove http:// prefix if present to avoid double prefix
+            if peer_url.startswith("http://"):
+                peer_url = peer_url.replace("http://", "")
+            peer_url = f"http://{peer_url}"
+            trusted_peers.append(peer_url)
+        trusted_peers.append("http://localhost:8006")
+        
+        self._logger.info(f"Attempting RPC bootstrap for genesis block from peers: {trusted_peers}")
+        
+        for peer_url in trusted_peers:
+            try:
+                self._logger.info(f"Trying to fetch genesis block from {peer_url}")
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    response = await client.get(
+                        f"{peer_url}/rpc/genesis_allocations",
+                        params={"chain_id": self._config.chain_id}
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    self._logger.info(f"RPC response from {peer_url}: {data}")
+                    return data
+            except Exception as e:
+                self._logger.error(f"Failed to fetch genesis block from {peer_url}: {e}")
+                continue
+        
+        self._logger.error("RPC bootstrap for genesis block failed for all peers")
+        return None
 
     async def _load_genesis_allocations_from_rpc(self) -> tuple[list, Optional[str]]:
         """Load genesis allocations and state_root from trusted peer via RPC.

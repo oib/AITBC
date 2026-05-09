@@ -33,6 +33,7 @@ Specialized skill for managing `/etc/aitbc/` configuration files across multi-no
 - Node-specific identity (NODE_ID, p2p_node_id)
 - P2P configuration (bind host/port, peers)
 - Proposer ID for block production
+- Block production configuration (block_production_chains, enable_block_production)
 - Trusted proposers list
 - Node-specific host bindings
 
@@ -42,31 +43,38 @@ Specialized skill for managing `/etc/aitbc/` configuration files across multi-no
 
 **aitbc (Hub for ait-mainnet)**
 ```bash
-SYNC_SOURCE_HOST=aitbc
-SYNC_LEADER_HOST=aitbc
-SYNC_CHAIN_ID=ait-mainnet
+# In node.env
 block_production_chains=ait-mainnet
 enable_block_production=true
-default_peer_rpc_url=http://aitbc1:8006
+
+# In blockchain.env
+SYNC_SOURCE_HOST=aitbc
+SYNC_LEADER_HOST=aitbc
+default_peer_rpc_url=http://aitbc:8006
 ```
 
 **aitbc1 (Hub for ait-testnet)**
 ```bash
-SYNC_SOURCE_HOST=aitbc1
-SYNC_LEADER_HOST=aitbc1
-SYNC_CHAIN_ID=ait-testnet
+# In node.env
 block_production_chains=ait-testnet
 enable_block_production=true
+
+# In blockchain.env
+SYNC_SOURCE_HOST=aitbc1
+SYNC_LEADER_HOST=aitbc1
 default_peer_rpc_url=http://aitbc:8006
 ```
 
 **gitea-runner (Follower)**
 ```bash
+# In node.env
+block_production_chains=
+enable_block_production=false
+
+# In blockchain.env
 SYNC_SOURCE_HOST=aitbc1
 SYNC_LEADER_HOST=aitbc1
 SYNC_CHAIN_ID=ait-testnet
-block_production_chains=
-enable_block_production=false
 ```
 
 ## Configuration Update Procedures
