@@ -33,7 +33,7 @@ Update this document as milestones evolve.
 
 ### Distribution & Binaries
 
-- [ ] Cross-platform miner binaries (Linux, Windows, macOS)
+- [ ] Debian stable miner binary
 - [ ] vLLM integration for optimized LLM inference
 - [ ] Binary distribution via GitHub Releases
 - [ ] Automatic binary building in CI/CD
