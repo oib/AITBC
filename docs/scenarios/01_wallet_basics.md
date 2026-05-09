@@ -38,6 +38,11 @@ An hermes agent needs a wallet to:
 - List all wallets
 - Export private key (with security warnings)
 
+### **Features Combined**
+- **Basic Wallet Operations**: Wallet creation, import, and management
+- **Security**: Encrypted keystore and private key handling
+- **CLI Integration**: Command-line wallet operations
+
 ---
 
 ## 📋 **Prerequisites**
