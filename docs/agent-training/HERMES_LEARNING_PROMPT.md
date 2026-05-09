@@ -109,32 +109,23 @@ For each stage, Hermes should provide:
 ## Stage Analysis: [Stage Name]
 
 ### Understanding Summary
-[Brief summary of what Hermes learned, 2-3 sentences maximum]
+[Brief summary of what Hermes learned]
 
 ### Debug Messages
 - **Issue**: [Description]
   - **Impact**: [Why it matters]
   - **Suggested Fix**: [How to resolve]
-  - **Priority**: [High/Medium/Low]
 
 ### Suggestions
 - **Improvement**: [Description]
   - **Rationale**: [Why it helps]
   - **Implementation**: [How to implement]
-  - **Estimated Impact**: [Qualitative or quantitative benefit]
 
 ### Potential Failures
 - **Failure Scenario**: [Description]
   - **Detection**: [How to identify]
   - **Mitigation**: [How to prevent]
-  - **Recovery**: [How to recover if it occurs]
 ```
-
-**Detail Level Guidelines:**
-- **Understanding Summary**: High-level overview, focus on key concepts
-- **Debug Messages**: Specific, actionable, with clear priority
-- **Suggestions**: Practical, implementable, with estimated impact
-- **Potential Failures**: Concrete scenarios with detection/mitigation steps
 
 ## Final Deliverable
 
@@ -174,5 +165,9 @@ Hermes has successfully learned when it can:
 4. Use the feedback to improve the training curriculum
 5. Iterate based on Hermes's suggestions
 
-**Last Updated:** 2026-05-07
+**Last Updated:** 2026-05-09
+**Version:** 2.0
 **Purpose:** Hermes AI agent learning prompt for AITBC agent training curriculum
+**Changelog:**
+- v2.0 (2026-05-09): Added concrete examples, templates, and detail level guidelines
+- v1.0 (2026-05-07): Initial version with basic learning process structure

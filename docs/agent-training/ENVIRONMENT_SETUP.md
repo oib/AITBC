@@ -432,3 +432,11 @@ For issues or questions:
 2. Run with verbose logging
 3. Review test examples in `tests/training/`
 4. Check AITBC documentation in `/opt/aitbc/docs/`
+
+---
+
+**Last Reviewed:** 2026-05-09  
+**Version:** 2.0  
+**Changelog:**
+- v2.0 (2026-05-09): Added version control metadata and last reviewed date
+- v1.0 (2026-05-07): Initial version with Python-based setup system
