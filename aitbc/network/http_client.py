@@ -9,8 +9,8 @@ import asyncio
 from typing import Dict, Any, Optional, Union
 from datetime import datetime, timedelta
 from functools import lru_cache
-from .exceptions import NetworkError, RetryError, CircuitBreakerOpenError, RateLimitError
-from .aitbc_logging import get_logger
+from ..exceptions import NetworkError, RetryError, CircuitBreakerOpenError, RateLimitError
+from ..aitbc_logging import get_logger
 
 
 class AITBCHTTPClient:
