@@ -21,19 +21,12 @@ ssh aitbc1
 ssh aitbc1 "command"
 ```
 
-### gitea-runner (also hosts aitbc2)
-Direct SSH access. aitbc2 blockchain node runs on the same host.
+### gitea-runner (hosts aitbc2 blockchain node)
+Direct SSH access. The aitbc2 blockchain node runs on this same host.
 ```bash
 ssh gitea-runner
 # Or execute single command
 ssh gitea-runner "command"
-```
-
-### aitbc2 (via gitea-runner)
-aitbc2 blockchain node is hosted on the gitea-runner machine. Access via SSH to gitea-runner.
-```bash
-# Access aitbc2 via gitea-runner
-ssh gitea-runner
 # aitbc2 blockchain node runs on this host
 
 # Execute aitbc2-specific commands
