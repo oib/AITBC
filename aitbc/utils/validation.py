@@ -5,7 +5,7 @@ Common validators for AITBC applications
 
 import re
 from typing import Any, Optional
-from .exceptions import ValidationError
+from ..exceptions import ValidationError
 
 
 def validate_address(address: str) -> bool:

@@ -25,7 +25,7 @@ from .constants import (
     PACKAGE_VERSION,
     REPO_DIR,
 )
-from .env import (
+from .utils.env import (
     get_bool_env_var,
     get_env_var,
     get_float_env_var,
@@ -52,7 +52,7 @@ from .middleware import (
     RequestValidationMiddleware,
     ErrorHandlerMiddleware,
 )
-from .paths import (
+from .utils.paths import (
     ensure_dir,
     ensure_file_dir,
     get_blockchain_data_path,
@@ -82,7 +82,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "DatabaseService": ("database_service", "DatabaseService"),
     "SQLiteDatabaseService": ("database_service", "SQLiteDatabaseService"),
     "DatabaseServiceFactory": ("database_service", "DatabaseServiceFactory"),
-    "AsyncAITBCHTTPClient": ("http_client", "AsyncAITBCHTTPClient"),
+    "AsyncAITBCHTTPClient": ("network.http_client", "AsyncAITBCHTTPClient"),
     "BaseAITBCConfig": ("config", "BaseAITBCConfig"),
     "AITBCConfig": ("config", "AITBCConfig"),
     "retry": ("decorators", "retry"),
@@ -98,9 +98,9 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "validate_email": ("validation", "validate_email"),
     "validate_non_empty": ("validation", "validate_non_empty"),
     "validate_positive_number": ("validation", "validate_positive_number"),
-    "validate_range": ("validation", "validate_range"),
-    "validate_chain_id": ("validation", "validate_chain_id"),
-    "validate_uuid": ("validation", "validate_uuid"),
+    "validate_range": ("utils.validation", "validate_range"),
+    "validate_chain_id": ("utils.validation", "validate_chain_id"),
+    "validate_uuid": ("utils.validation", "validate_uuid"),
     "run_sync": ("async_helpers", "run_sync"),
     "gather_with_concurrency": ("async_helpers", "gather_with_concurrency"),
     "run_with_timeout": ("async_helpers", "run_with_timeout"),
