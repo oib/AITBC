@@ -568,8 +568,11 @@ class PoAProposer:
             "http://localhost:8006",
         ]
         
+        self._logger.info(f"Attempting RPC bootstrap from peers: {trusted_peers}")
+        
         for peer_url in trusted_peers:
             try:
+                self._logger.info(f"Trying to fetch allocations from {peer_url}")
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     response = await client.get(
                         f"{peer_url}/rpc/genesis_allocations",
@@ -577,14 +580,18 @@ class PoAProposer:
                     )
                     response.raise_for_status()
                     data = response.json()
+                    self._logger.info(f"RPC response from {peer_url}: {data}")
                     allocations = data.get("allocations", [])
                     if allocations:
                         self._logger.info(f"Successfully loaded {len(allocations)} allocations from {peer_url}")
                         return allocations
+                    else:
+                        self._logger.warning(f"RPC returned empty allocations from {peer_url}")
             except Exception as e:
-                self._logger.debug(f"Failed to fetch allocations from {peer_url}: {e}")
+                self._logger.error(f"Failed to fetch allocations from {peer_url}: {e}")
                 continue
         
+        self._logger.error("RPC bootstrap failed for all peers")
         return []
 
     def _create_accounts_from_allocations(self, session: Session, allocations: list) -> None:
