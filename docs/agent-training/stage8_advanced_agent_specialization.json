@@ -19,6 +19,11 @@
     "Develop domain-specific capabilities",
     "Create custom agent skills"
   ],
+  "scenarios": [
+    "/docs/scenarios/41_bounty_system.md",
+    "/docs/scenarios/42_portfolio_management.md",
+    "/docs/scenarios/43_knowledge_graph_market.md"
+  ],
   "training_data": {
     "operations": [
       {
