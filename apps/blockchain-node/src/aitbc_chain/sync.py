@@ -322,14 +322,16 @@ class ChainSync:
 
     async def _bulk_import_from(self, source_url: str) -> int:
         """Import blocks from a remote source via RPC."""
+        self._logger.info(f"Starting bulk import from source: {source_url}")
+        
         # Ensure URL has protocol
         if source_url and not source_url.startswith("http://") and not source_url.startswith("https://"):
             source_url = f"http://{source_url}"
             self._logger.info(f"Added http:// prefix to source URL: {source_url}")
-        # Ensure URL has protocol
-        if source_url and not source_url.startswith("http://") and not source_url.startswith("https://"):
-            source_url = f"http://{source_url}"
-            self._logger.info(f"Added http:// prefix to source URL: {source_url}")
+        
+        if not source_url:
+            self._logger.error("Source URL is empty or None")
+            return 0
 
         # Get local head
         with self._session_factory() as session:
