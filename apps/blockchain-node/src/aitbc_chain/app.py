@@ -139,6 +139,7 @@ async def lifespan(app: FastAPI):
                     interval_seconds=settings.block_time_seconds,
                     max_block_size_bytes=settings.max_block_size_bytes,
                     max_txs_per_block=settings.max_txs_per_block,
+                    default_peer_rpc_url=settings.default_peer_rpc_url,
                 )
                 proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
 
