@@ -10,7 +10,6 @@ This workflow covers the automation of AITBC service deployment with one-command
 
 - Linux server with systemd support
 - Python 3.13+ installed
-- Docker and Docker Compose (optional, for containerized services)
 - SSH access to target servers
 - Domain name configured (for SSL certificates)
 
