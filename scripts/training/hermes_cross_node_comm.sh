@@ -2,7 +2,8 @@
 #
 # hermes Cross-Node Communication Training Module
 # Teaches and validates agent-to-agent communication across the AITBC blockchain
-# Nodes: Genesis (10.1.223.40:8006) and Follower (<aitbc1-ip>:8006)
+# Nodes: Genesis ($GENESIS_IP:$PORT) and Follower ($FOLLOWER_IP:$PORT)
+# Uses systemd-managed agent daemon service
 #
 
 set -e
@@ -11,9 +12,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Configuration
-GENESIS_IP="10.1.223.40"
-FOLLOWER_IP="<aitbc1-ip>"  # To be replaced during live training
-PORT=8006
+GENESIS_IP="${GENESIS_IP:-10.1.223.40}"
+FOLLOWER_IP="${FOLLOWER_IP:-10.1.223.93}"
+PORT="${RPC_PORT:-8006}"
+CHAIN_ID="${CHAIN_ID:-ait-mainnet}"
 CLI_PATH="${CLI_PATH:-${REPO_ROOT}/aitbc-cli}"
 
 # Colors for output
@@ -41,28 +43,43 @@ log_error() {
     echo -e "${RED}✗ $1${NC}"
 }
 
+log_warning() {
+    echo -e "${YELLOW}⚠ $1${NC}"
+}
+
 check_prerequisites() {
     log_step "Checking Prerequisites"
+    
+    # Check environment variables
+    log_step "Environment Variables"
+    log_success "GENESIS_IP: ${GENESIS_IP}"
+    log_success "FOLLOWER_IP: ${FOLLOWER_IP}"
+    log_success "PORT: ${PORT}"
+    log_success "CHAIN_ID: ${CHAIN_ID}"
     
     if ! curl -s -f "http://${GENESIS_IP}:${PORT}/health" > /dev/null; then
         log_error "Genesis node unreachable at ${GENESIS_IP}:${PORT}"
         exit 1
     fi
-    log_success "Genesis node active"
+    log_success "Genesis node reachable"
     
-    # Try to auto-detect follower IP if placeholder is still present
-    if [[ "${FOLLOWER_IP}" == "<aitbc1-ip>" ]]; then
-        # Try to resolve aitbc1 hostname
-        FOLLOWER_IP=$(ping -c 1 aitbc1 | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' || echo "localhost")
-        log_step "Auto-detected Follower IP: ${FOLLOWER_IP}"
-    fi
-
     if ! curl -s -f "http://${FOLLOWER_IP}:${PORT}/health" > /dev/null; then
-        log_warning "Follower node unreachable at ${FOLLOWER_IP}:${PORT}. Using localhost as fallback for training purposes."
-        FOLLOWER_IP="127.0.0.1"
-    else
-        log_success "Follower node active"
+        log_error "Follower node unreachable at ${FOLLOWER_IP}:${PORT}"
+        exit 1
     fi
+    log_success "Follower node reachable"
+    
+    # Check agent daemon service
+    if ! systemctl is-active --quiet aitbc-agent-daemon.service; then
+        log_warning "Agent daemon service not running, attempting to start..."
+        sudo systemctl start aitbc-agent-daemon.service
+        sleep 2
+        if ! systemctl is-active --quiet aitbc-agent-daemon.service; then
+            log_error "Failed to start agent daemon service"
+            exit 1
+        fi
+    fi
+    log_success "Agent daemon service running"
 }
 
 run_module1_registration() {
@@ -160,6 +177,12 @@ main() {
     echo -e "${CYAN}======================================================${NC}"
     echo -e "${CYAN}   hermes Cross-Node Communication Training Module  ${NC}"
     echo -e "${CYAN}======================================================${NC}"
+    echo -e "${CYAN}Configuration:${NC}"
+    echo -e "  Genesis Node: ${GENESIS_IP}:${PORT}"
+    echo -e "  Follower Node: ${FOLLOWER_IP}:${PORT}"
+    echo -e "  Chain ID: ${CHAIN_ID}"
+    echo -e "  Agent Daemon Service: aitbc-agent-daemon.service"
+    echo -e "${CYAN}======================================================${NC}"
     
     check_prerequisites
     run_module1_registration
@@ -174,9 +197,15 @@ main() {
     echo "✓ Transaction Broadcasting"
     echo "✓ Message Retrieval and Parsing"
     echo "✓ Cross-Node AI Job Coordination"
+    echo "✓ Systemd Service Management"
     
     echo -e "\n${GREEN}hermes agent has successfully completed Cross-Node Communication Training!${NC}"
-    echo "The agent is now certified to coordinate tasks across aitbc and aitbc1 nodes."
+    echo "The agent is now certified to coordinate tasks across ${GENESIS_IP} and ${FOLLOWER_IP} nodes."
+    echo ""
+    echo "Service Management Commands:"
+    echo "  Check status: sudo systemctl status aitbc-agent-daemon.service"
+    echo "  View logs: sudo journalctl -u aitbc-agent-daemon -f"
+    echo "  Restart service: sudo systemctl restart aitbc-agent-daemon.service"
 }
 
 main

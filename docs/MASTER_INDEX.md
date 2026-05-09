@@ -94,6 +94,10 @@ Documentation about the documentation system itself
   - [Agent Global AI](agents/AGENT_GLOBAL_AI.md)
   - [Agent Explorer](agents/AGENT_EXPLORER.md)
 
+### 📦 **Applications Documentation**
+- **[Apps](apps/)** - Applications documentation (72 items)
+  - Application-level services, components, and integrations
+
 ### 🏗️ Architecture Documentation
 - **[Architecture](architecture/)** - System architecture and design patterns (10 items)
 
