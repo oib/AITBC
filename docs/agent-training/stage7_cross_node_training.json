@@ -19,6 +19,11 @@
     "Understand network topology",
     "Handle failover scenarios"
   ],
+  "scenarios": [
+    "/docs/scenarios/20_cross_chain_transfer.md",
+    "/docs/scenarios/27_cross_chain_trader.md",
+    "/docs/scenarios/38_cross_chain_market_maker.md"
+  ],
   "training_data": {
     "operations": [
       {

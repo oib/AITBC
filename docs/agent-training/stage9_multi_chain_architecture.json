@@ -19,6 +19,11 @@
     "Manage assets across chains",
     "Configure cross-chain gossip protocols"
   ],
+  "scenarios": [
+    "/docs/scenarios/42_cross_chain_atomic_swap.md",
+    "/docs/scenarios/44_dispute_resolution.md",
+    "/docs/scenarios/45_cross_chain_market_maker.md"
+  ],
   "training_data": {
     "operations": [
       {
