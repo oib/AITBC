@@ -43,10 +43,10 @@ from typing import Optional, Dict, Any, List
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, KEYSTORE_DIR
 from aitbc.exceptions import ConfigurationError, NetworkError, ValidationError
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.paths import get_blockchain_data_path, get_data_path
-from aitbc.paths import ensure_dir, get_keystore_path
-from aitbc.validation import validate_address, validate_url
+from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.utils.paths import get_blockchain_data_path, get_data_path
+from aitbc.utils.paths import ensure_dir, get_keystore_path
+from aitbc.utils.validation import validate_address, validate_url
 
 # Initialize logger
 logger = get_logger(__name__)

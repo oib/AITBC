@@ -7,7 +7,7 @@ import pytest
 from hypothesis import given, strategies as st, settings
 from hypothesis.strategies import text, integers, email, uuid, ip_addresses
 
-from aitbc.validation import (
+from aitbc.utils.validation import (
     validate_address,
     validate_hash,
     validate_url,

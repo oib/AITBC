@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 import requests
 import getpass
-from aitbc.paths import get_keystore_path
+from aitbc.utils.paths import get_keystore_path
 
 # Default paths
 DEFAULT_KEYSTORE_DIR = get_keystore_path()
