@@ -173,7 +173,7 @@ expert/
 ### **Updated Paths**:
 - `/docs/0_getting_started/` → `/docs/beginner/01_getting_started/`
 - `/docs/10_plan/` → `/docs/intermediate/01_planning/`
-- `/docs/6_architecture/` → `/docs/advanced/03_architecture/`
+- `/docs/6_architecture/` → `/docs/advanced/03_architecture/` (docs/advanced folder deprecated May 2026)
 - `/docs/12_issues/` → `/docs/expert/01_issues/`
 
 ### **Legacy Support**:
