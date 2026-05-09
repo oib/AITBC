@@ -492,6 +492,8 @@ class PoAProposer:
 
     async def _initialize_genesis_allocations(self, session: Session) -> None:
         """Create Account entries from the genesis allocations file or RPC bootstrap."""
+        self._logger.info(f"Initializing genesis allocations for chain: {self._config.chain_id}")
+        
         # Try local file first
         local_allocations = self._load_genesis_allocations_from_file()
         if local_allocations:
@@ -506,6 +508,7 @@ class PoAProposer:
             if rpc_allocations:
                 self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap")
                 self._create_accounts_from_allocations(session, rpc_allocations)
+                self._logger.info("RPC bootstrap completed successfully, skipping local file")
                 return  # Return early to avoid falling back to local file
             else:
                 self._logger.warning("RPC bootstrap returned no allocations, skipping account initialization")
@@ -516,7 +519,6 @@ class PoAProposer:
         """Load genesis allocations from local file."""
         genesis_paths = [
             Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
-            Path(f"/var/lib/aitbc/keystore/genesis.json"),  # Keystore location
         ]
         
         genesis_path = None
