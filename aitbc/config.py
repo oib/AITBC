@@ -41,6 +41,14 @@ class BaseAITBCConfig(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log format string"
     )
+    
+    def __init__(self, **kwargs):
+        """Initialize configuration with logging"""
+        super().__init__(**kwargs)
+        logger.info(f"Loading configuration for {self.app_name} v{self.app_version} in {self.environment} environment")
+        logger.debug(f"Data directory: {self.data_dir}")
+        logger.debug(f"Config directory: {self.config_dir}")
+        logger.debug(f"Log directory: {self.log_dir}")
 
 
 class AITBCConfig(BaseAITBCConfig):
