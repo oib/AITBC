@@ -23,81 +23,94 @@
 
 ## 📁 **Project Documentation Organization**
 
-This directory contains core project documentation organized by functional areas. All documentation reflects the 100% project completion status.
+This directory contains the project documentation hub. Most documentation has been migrated to appropriate locations in the main docs structure. All documentation reflects the 100% project completion status.
 
-### **📋 Directory Structure**
+### **📋 Migrated Documentation**
 
-```
-project/
-├── ai-economics/          # AI Economics Masters program
-├── cli/                   # Command-line interface documentation
-├── infrastructure/        # System infrastructure and deployment
-├── requirements/          # Project requirements and migration
-├── completion/            # 100% project completion summary
-└── workspace/             # Workspace strategy and organization
-```
+The following documentation has been moved to appropriate locations in the main docs structure:
+
+- **AI Economics**: Moved to `docs/ai-economics/`
+- **CLI Documentation**: Merged into `docs/cli/`
+- **Infrastructure**: Merged into `docs/infrastructure/`
+- **Planning**: Moved to `docs/planning/`
+- **Requirements**: Moved to `docs/requirements/`
+- **Completion**: Moved to `docs/completion/`
+- **Workspace**: Moved to `docs/development/workspace/`
+
+### **📋 Key Documentation Locations**
+
+| Documentation | New Location |
+|--------------|-------------|
+| Repository Structure | `docs/reference/REPOSITORY_STRUCTURE.md` |
+| Roadmap | `docs/ROADMAP.md` |
+| Infrastructure | `docs/infrastructure/INFRASTRUCTURE.md` |
+| Security | `docs/security/SECURITY.md` |
+| Working Setup | `docs/guides/getting-started/WORKING_SETUP.md` |
+| Test Creation Summary | `docs/reports/E2E_TEST_CREATION_SUMMARY.md` |
+| SQLModel Fix Summary | `docs/reports/SQLMODEL_METADATA_FIX_SUMMARY.md` |
+| GitHub Pull Summary | `docs/reports/GITHUB_PULL_SUMMARY.md` |
+| Gift Certificate | `docs/guides/getting-started/GIFT_CERTIFICATE.md` |
+| User Profile | `docs/guides/getting-started/USER_PROFILE.md` |
+| AITBC Node | `docs/infrastructure/NODE_AITBC.md` |
+| AITBC1 Node | `docs/infrastructure/NODE_AITBC1.md` |
 
 ---
 
-## 🧠 **AI Economics ([ai-economics/](ai-economics/))**
+## 🧠 **AI Economics**
 
 **Advanced AI Economics Intelligence and Distributed Economic Modeling**
 
-- **AI_ECONOMICS_MASTERS.md**: Complete AI economics transformation program
+- **Location**: `docs/ai-economics/AI_ECONOMICS_MASTERS.md`
 - **Status**: ✅ Production Ready
 - **Focus**: Distributed AI job economics, marketplace strategy, economic modeling
 
 ---
 
-## 💻 **CLI ([cli/](cli/))**
+## 💻 **CLI**
 
 **Command-Line Interface Documentation**
 
-- **CLI_DOCUMENTATION.md**: Complete CLI reference and usage guide
+- **Location**: `docs/cli/`
 - **Version**: v0.3.0 with enterprise features
 - **Features**: Authentication, monitoring, type safety commands
 
 ---
 
-## 🏗️ **Infrastructure ([infrastructure/](infrastructure/))**
+## 🏗️ **Infrastructure**
 
 **System Infrastructure and Deployment Documentation**
 
-| File | Purpose |
-|------|---------|
-| [LOGS_ORGANIZATION.md](infrastructure/LOGS_ORGANIZATION.md) | Log management and organization |
-| [PRODUCTION_ARCHITECTURE.md](infrastructure/PRODUCTION_ARCHITECTURE.md) | Production deployment architecture |
-| [RUNTIME_DIRECTORIES.md](infrastructure/RUNTIME_DIRECTORIES.md) | Runtime directory structure |
-| [VIRTUAL_ENVIRONMENT.md](infrastructure/VIRTUAL_ENVIRONMENT.md) | Virtual environment setup and management |
+- **Location**: `docs/infrastructure/`
+- **Contents**: Log management, production architecture, runtime directories, virtual environment setup
 
 ---
 
-## 📋 **Requirements ([requirements/](requirements/))**
+## 📋 **Requirements**
 
 **Project Requirements and Migration Documentation**
 
-| File | Purpose |
-|------|---------|
-| [REQUIREMENTS_MERGE_SUMMARY.md](requirements/REQUIREMENTS_MERGE_SUMMARY.md) | Requirements merge summary |
-| [REQUIREMENTS_MIGRATION_REPORT.md](requirements/REQUIREMENTS_MIGRATION_REPORT.md) | Migration process documentation |
+- **Location**: `docs/requirements/`
+- **Contents**: Requirements merge summary, migration process documentation
 
 ---
 
-## ✅ **Completion ([completion/](completion/))**
+## ✅ **Completion**
 
 **100% Project Completion Documentation**
 
-- **PROJECT_COMPLETION_SUMMARY.md**: Comprehensive project completion summary
+- **Location**: `docs/completion/`
+- **Contents**: Comprehensive project completion summary
 - **Status**: ✅ 100% Complete
 - **Coverage**: All 9 major systems implementation details
 
 ---
 
-## 🔧 **Workspace ([workspace/](workspace/))**
+## 🔧 **Workspace**
 
 **Workspace Strategy and Organization**
 
-- **WORKSPACE_STRATEGY.md**: Workspace organization and development strategy
+- **Location**: `docs/development/workspace/`
+- **Contents**: Workspace organization and development strategy
 - **Focus**: Development workflow and project structure
 
 ---
@@ -127,12 +140,15 @@ project/
 ## 🎯 **Quick Access**
 
 ### **🎯 I want to...**
-- **Understand AI Economics**: [AI Economics Masters](ai-economics/AI_ECONOMICS_MASTERS.md)
-- **Use the CLI**: [CLI Documentation](cli/CLI_DOCUMENTATION.md)
-- **Set up Infrastructure**: [Infrastructure Guide](infrastructure/)
-- **Review Requirements**: [Requirements Documentation](requirements/)
-- **See Completion Status**: [Completion Summary](completion/PROJECT_COMPLETION_SUMMARY.md)
-- **Organize Workspace**: [Workspace Strategy](workspace/WORKSPACE_STRATEGY.md)
+- **Understand AI Economics**: [AI Economics Masters](../ai-economics/AI_ECONOMICS_MASTERS.md)
+- **Use the CLI**: [CLI Documentation](../cli/)
+- **Set up Infrastructure**: [Infrastructure Guide](../infrastructure/)
+- **Review Requirements**: [Requirements Documentation](../requirements/)
+- **See Completion Status**: [Completion Summary](../completion/)
+- **Organize Workspace**: [Workspace Strategy](../development/workspace/)
+- **View Repository Structure**: [Repository Structure](../reference/REPOSITORY_STRUCTURE.md)
+- **Check Roadmap**: [Roadmap](../ROADMAP.md)
+- **Review Security**: [Security Policy](../security/SECURITY.md)
 
 ---
 
