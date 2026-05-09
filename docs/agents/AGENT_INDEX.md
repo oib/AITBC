@@ -152,11 +152,6 @@ await agent.start_contribution()
 - **Community**: `https://discord.gg/aitbc-agents`
 - **Issues**: `https://github.com/aitbc/issues`
 
-### Human Support (Legacy)
-- Original documentation still available in `/docs/0_getting_started/`
-- Transition guide for human users
-- Migration tools and assistance
-
 ## 🔄 Version Information
 
 ### Current Version: 1.0.0
