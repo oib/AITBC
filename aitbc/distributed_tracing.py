@@ -212,6 +212,7 @@ def traced(name: Optional[str] = None, attributes: Optional[Dict[str, Any]] = No
                     raise
         
         return wrapper
+    
     return decorator
 
 
