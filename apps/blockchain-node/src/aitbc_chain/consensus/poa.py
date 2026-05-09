@@ -442,8 +442,17 @@ class PoAProposer:
             # Load genesis allocations for embedding in metadata
             genesis_allocations = self._load_genesis_allocations_for_metadata()
             
-            # Compute state root for genesis block
-            state_root = _compute_state_root(session, self._config.chain_id)
+            # Initialize accounts from genesis allocations file or RPC bootstrap
+            await self._initialize_genesis_allocations(session)
+            
+            # Use RPC-provided state_root if available, otherwise compute locally
+            if hasattr(self, '_rpc_genesis_state_root') and self._rpc_genesis_state_root:
+                state_root = self._rpc_genesis_state_root
+                self._logger.info(f"Using RPC-provided genesis state_root: {state_root}")
+            else:
+                # Compute state root for genesis block (local file case)
+                state_root = _compute_state_root(session, self._config.chain_id)
+                self._logger.info(f"Computed local genesis state_root: {state_root}")
             
             genesis = Block(
                 chain_id=self._config.chain_id,
@@ -463,17 +472,6 @@ class PoAProposer:
                 self._logger.warning(f"Failed to create genesis block: {e}")
                 session.rollback()
                 return
-
-            # Initialize accounts from genesis allocations file (if present)
-            await self._initialize_genesis_allocations(session)
-
-            # Recompute state root after accounts are initialized
-            new_state_root = _compute_state_root(session, self._config.chain_id)
-            if new_state_root:
-                genesis.state_root = new_state_root
-                session.add(genesis)
-                session.commit()
-                self._logger.info(f"Updated genesis block state_root: {new_state_root}")
 
             # Broadcast genesis block for initial sync
             await gossip_broker.publish(
@@ -504,18 +502,17 @@ class PoAProposer:
         # Try RPC bootstrap
         self._logger.info(f"Local genesis file not found for chain {self._config.chain_id}, attempting RPC bootstrap")
         try:
-            rpc_allocations = await self._load_genesis_allocations_from_rpc()
+            rpc_allocations, rpc_genesis_state_root = await self._load_genesis_allocations_from_rpc()
             if rpc_allocations:
                 self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap for chain {self._config.chain_id}")
                 self._create_accounts_from_allocations(session, rpc_allocations)
                 
-                # Use the RPC genesis state_root if available, otherwise recompute
-                if hasattr(self, '_rpc_genesis_state_root') and self._rpc_genesis_state_root:
-                    self._logger.info(f"Using RPC genesis state_root: {self._rpc_genesis_state_root}")
-                    return self._rpc_genesis_state_root
+                # Store the RPC genesis state_root for use in genesis block creation
+                if rpc_genesis_state_root:
+                    self._rpc_genesis_state_root = rpc_genesis_state_root
+                    self._logger.info(f"Stored RPC genesis state_root: {rpc_genesis_state_root}")
                 else:
-                    self._logger.info(f"RPC bootstrap completed successfully for chain {self._config.chain_id}, skipping local file")
-                    return  # Return early to avoid falling back to local file
+                    self._logger.info(f"RPC bootstrap completed successfully for chain {self._config.chain_id}, but no state_root provided")
             else:
                 self._logger.warning(f"RPC bootstrap returned no allocations for chain {self._config.chain_id}, skipping account initialization")
         except Exception as e:
@@ -549,8 +546,12 @@ class PoAProposer:
         # Skip loading for metadata if we used RPC bootstrap
         return []
 
-    async def _load_genesis_allocations_from_rpc(self) -> list:
-        """Load genesis allocations from trusted peer via RPC."""
+    async def _load_genesis_allocations_from_rpc(self) -> tuple[list, Optional[str]]:
+        """Load genesis allocations and state_root from trusted peer via RPC.
+        
+        Returns:
+            Tuple of (allocations list, genesis_state_root string or None)
+        """
         import httpx
         
         # Try multiple trusted peers
@@ -578,9 +579,12 @@ class PoAProposer:
                     data = response.json()
                     self._logger.info(f"RPC response from {peer_url}: {data}")
                     allocations = data.get("allocations", [])
+                    genesis_state_root = data.get("genesis_state_root")
                     if allocations:
                         self._logger.info(f"Successfully loaded {len(allocations)} allocations from {peer_url}")
-                        return allocations
+                        if genesis_state_root:
+                            self._logger.info(f"RPC provided genesis state_root: {genesis_state_root}")
+                        return allocations, genesis_state_root
                     else:
                         self._logger.warning(f"RPC returned empty allocations from {peer_url}")
             except Exception as e:
@@ -588,7 +592,7 @@ class PoAProposer:
                 continue
         
         self._logger.error("RPC bootstrap failed for all peers")
-        return []
+        return [], None
 
     def _create_accounts_from_allocations(self, session: Session, allocations: list) -> None:
         """Create Account entries from allocation data."""
