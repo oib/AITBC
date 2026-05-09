@@ -320,7 +320,7 @@ class ChainSync:
             logger.error("Failed to fetch blocks range", extra={"start": start, "end": end, "error": str(e)})
             return []
 
-    async def _bulk_import_from(self, source_url: str) -> int:
+    async def bulk_import_from(self, source_url: str) -> int:
         """Import blocks from a remote source via RPC."""
         self._logger.info(f"Starting bulk import from source: {source_url}")
         
