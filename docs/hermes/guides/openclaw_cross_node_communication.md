@@ -11,6 +11,14 @@ This guide documents the successful implementation and testing of cross-node age
 - **Follower Node (aitbc)**: `10.1.223.93:8006` - Secondary blockchain node
 - **RPC Port**: `8006` on both nodes
 
+**Environment Variables**:
+```bash
+export GENESIS_IP="10.1.223.40"  # aitbc1 (genesis node)
+export FOLLOWER_IP="10.1.223.93"  # aitbc (follower node)
+export RPC_PORT="8006"
+export CHAIN_ID="ait-mainnet"
+```
+
 ### Communication Mechanism
 
 Agents communicate by embedding messages in blockchain transaction payloads:
@@ -32,28 +40,54 @@ Agents communicate by embedding messages in blockchain transaction payloads:
 
 ### Agent Daemon Architecture
 
-The autonomous agent daemon (`agent_daemon4.py`) runs on the follower node and:
+The autonomous agent daemon is managed as a systemd service (`aitbc-agent-daemon.service`) and runs on both nodes. The daemon:
 
-1. **Polls Blockchain State**: Queries the local SQLite database (`chain.db`) for incoming transactions
-2. **Filters Messages**: Identifies transactions addressed to the agent's wallet
-3. **Parses Payloads**: Extracts message content from transaction payloads
-4. **Autonomous Replies**: Constructs and broadcasts reply transactions
-5. **Cryptographic Signing**: Uses wallet private keys for transaction signing
+1. **Systemd Service**: Managed by systemd for reliable operation and automatic restart
+2. **Polls Blockchain State**: Queries the local SQLite database (`chain.db`) for incoming transactions
+3. **Filters Messages**: Identifies transactions addressed to the agent's wallet
+4. **Parses Payloads**: Extracts message content from transaction payloads
+5. **Autonomous Replies**: Constructs and broadcasts reply transactions
+6. **Cryptographic Signing**: Uses wallet private keys for transaction signing
+
+**Service Management**:
+```bash
+# Start the agent daemon
+sudo systemctl start aitbc-agent-daemon.service
+
+# Check service status
+sudo systemctl status aitbc-agent-daemon.service
+
+# View service logs
+sudo journalctl -u aitbc-agent-daemon -f
+
+# Restart the service
+sudo systemctl restart aitbc-agent-daemon.service
+```
+
+**Service Configuration**:
+- **Service File**: `/etc/systemd/system/aitbc-agent-daemon.service`
+- **Wrapper Script**: `/opt/aitbc/scripts/wrappers/aitbc-agent-daemon-wrapper.py`
+- **Main Script**: `/opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py`
+- **Wallet**: `temp-agent`
+- **Agent Address**: `ait1d18e286fc0c12888aca94732b5507c8787af71a5`
+- **Password File**: `/var/lib/aitbc/keystore/.agent_daemon_password`
+- **RPC URL**: `http://localhost:8006`
+- **Poll Interval**: 2 seconds
 
 ## Implementation Details
 
 ### Wallet Configuration
 
 #### Genesis Node (aitbc1)
-- **Wallet**: `temp-agent2`
-- **Address**: `ait16af0b743fd6a2d3e2e2f28a820066706aa5813b5`
-- **Password**: `temp123`
+- **Wallet**: `temp-agent`
+- **Address**: `ait1d18e286fc0c12888aca94732b5507c8787af71a5`
+- **Password File**: `/var/lib/aitbc/keystore/.agent_daemon_password`
 - **Balance**: 49,990 AIT (after funding)
 
 #### Follower Node (aitbc)
 - **Wallet**: `temp-agent`
 - **Address**: `ait1d18e286fc0c12888aca94732b5507c8787af71a5`
-- **Password**: `temp123`
+- **Password File**: `/var/lib/aitbc/keystore/.agent_daemon_password`
 - **Balance**: 0 AIT (sends zero-fee messages)
 
 ### Transaction Signing Process
@@ -257,30 +291,47 @@ Location: `/opt/aitbc/.windsurf/workflows/hermes-cross-node-communication.md`
 
 ### Agent Daemon Not Starting
 ```bash
-# Check logs
-ssh aitbc1 'cat /tmp/agent_daemon4.log'
+# Check service status
+sudo systemctl status aitbc-agent-daemon.service
+
+# Check service logs
+sudo journalctl -u aitbc-agent-daemon -n 50
+
+# Start the service
+sudo systemctl start aitbc-agent-daemon.service
 
 # Verify wallet decryption
-ssh aitbc1 '/opt/aitbc/venv/bin/python -c "from scripts import decrypt_wallet; print(decrypt_wallet(...))"'
+/opt/aitbc/venv/bin/python -c "
+from pathlib import Path
+import json
+keystore_path = Path('/var/lib/aitbc/keystore/temp-agent.json')
+with open(keystore_path) as f:
+    data = json.load(f)
+    print('Wallet loaded successfully')
+"
 ```
 
 ### Sync Issues
 ```bash
-# Manual sync script
-python /tmp/sync_once.py
+# Check block heights on both nodes
+NODE_URL=http://${GENESIS_IP}:${RPC_PORT} ./aitbc-cli blockchain height
+NODE_URL=http://${FOLLOWER_IP}:${RPC_PORT} ./aitbc-cli blockchain height
 
-# Check block heights
-NODE_URL=http://localhost:8006 ./aitbc-cli blockchain height
-ssh aitbc1 'NODE_URL=http://localhost:8006 /opt/aitbc/aitbc-cli blockchain height'
+# Check sync status
+curl http://${GENESIS_IP}:${RPC_PORT}/rpc/head
+curl http://${FOLLOWER_IP}:${RPC_PORT}/rpc/head
 ```
 
 ### Transaction Not Mining
 ```bash
 # Check mempool
-curl http://localhost:8006/rpc/mempool
+curl http://localhost:${RPC_PORT}/rpc/mempool
 
 # Verify nonce uniqueness
 # Ensure nonces are unique per sender
+
+# Check blockchain node status
+sudo systemctl status aitbc-blockchain-node.service
 ```
 
 ## References
@@ -291,12 +342,13 @@ curl http://localhost:8006/rpc/mempool
 - [Blockchain Operations](../../blockchain/)
 
 ### Source Code
-- Agent Daemon: `/tmp/agent_daemon4.py`
-- Ping Script: `/tmp/send_ping2.py`
+- Agent Daemon Service: `/etc/systemd/system/aitbc-agent-daemon.service`
+- Agent Daemon Wrapper: `/opt/aitbc/scripts/wrappers/aitbc-agent-daemon-wrapper.py`
+- Agent Daemon Script: `/opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py`
 - Training Script: `/opt/aitbc/scripts/training/hermes_cross_node_comm.sh`
 
 ---
 
-**Last Updated**: 2026-04-10
-**Version**: 1.0
-**Status**: Production Tested
+**Last Updated**: 2026-05-09
+**Version**: 2.0
+**Status**: Production Tested - Updated for systemd service management

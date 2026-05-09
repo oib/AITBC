@@ -9,14 +9,25 @@ This training module teaches hermes agents how to establish, verify, and utilize
 ### System Requirements
 - AITBC blockchain nodes synchronized and communicating on port 8006
 - Both nodes operational (genesis node `aitbc1` and follower node `aitbc`)
+- systemd service management available
 - Funded wallets on both nodes for transaction fees
 - Python 3.13+ with cryptography library
 - SQLModel for database access
 
+### Environment Variables
+Set these environment variables before running training:
+```bash
+export GENESIS_IP="10.1.223.40"  # aitbc1 (genesis node)
+export FOLLOWER_IP="10.1.223.93"  # aitbc (follower node)
+export RPC_PORT="8006"
+export CHAIN_ID="ait-mainnet"
+```
+
 ### Wallet Configuration
-- **Genesis Node (aitbc1)**: `temp-agent2` wallet with AIT for fees
+- **Genesis Node (aitbc1)**: `temp-agent` wallet with AIT for fees
 - **Follower Node (aitbc)**: `temp-agent` wallet for message sending
-- Both wallets should be created with known passwords
+- **Agent Address**: `ait1d18e286fc0c12888aca94732b5507c8787af71a5`
+- **Password File**: `/var/lib/aitbc/keystore/.agent_daemon_password`
 
 ## Training Workflow
 
@@ -26,14 +37,14 @@ This training module teaches hermes agents how to establish, verify, and utilize
 
 **Commands**:
 ```bash
-# Genesis Node (aitbc1: 10.1.223.40)
-NODE_URL=http://10.1.223.40:8006 ./aitbc-cli agent create \
+# Genesis Node (aitbc1: $GENESIS_IP)
+NODE_URL=http://${GENESIS_IP}:${RPC_PORT} ./aitbc-cli agent create \
   --name "hermes-genesis-commander" \
   --description "Primary coordinator agent on genesis node" \
   --verification full
 
-# Follower Node (aitbc: 10.1.223.93)
-NODE_URL=http://localhost:8006 ./aitbc-cli agent create \
+# Follower Node (aitbc: $FOLLOWER_IP)
+NODE_URL=http://${FOLLOWER_IP}:${RPC_PORT} ./aitbc-cli agent create \
   --name "hermes-follower-worker" \
   --description "Worker agent on follower node" \
   --verification full
@@ -86,9 +97,9 @@ def create_tx(private_bytes, from_addr, to_addr, amount, fee, payload):
 
 # Send ping message
 priv = decrypt_wallet("/var/lib/aitbc/keystore/temp-agent.json", "temp123")
-tx = create_tx(priv, "ait1d18e286fc0c12888aca94732b5507c8787af71a5", 
+tx = create_tx(priv, "ait1d18e286fc0c12888aca94732b5507c8787af71a5",
               "ait16af0b743fd6a2d3e2e2f28a820066706aa5813b5", 0, 10, "ping")
-response = requests.post("http://10.1.223.40:8006/rpc/transaction", json=tx)
+response = requests.post(f"http://${GENESIS_IP}:${RPC_PORT}/rpc/transaction", json=tx)
 print("Ping sent:", response.json())
 ```
 
@@ -96,43 +107,36 @@ print("Ping sent:", response.json())
 
 **Objective**: The follower agent must listen for and decode messages.
 
-**Agent Daemon Implementation**:
-```python
-# agent_daemon.py
-import time
-from sqlmodel import create_engine, Session, select
-from aitbc_chain.models import Transaction
+**Agent Daemon Service**:
+The agent daemon is managed as a systemd service for reliable operation:
 
-MY_ADDRESS = "ait16af0b743fd6a2d3e2e2f28a820066706aa5813b5"
-engine = create_engine("sqlite:////var/lib/aitbc/data/ait-mainnet/chain.db")
+```bash
+# Start the agent daemon service
+sudo systemctl start aitbc-agent-daemon.service
 
-processed_txs = set()
+# Check service status
+sudo systemctl status aitbc-agent-daemon.service
 
-while True:
-    with Session(engine) as session:
-        txs = session.exec(
-            select(Transaction).where(Transaction.recipient == MY_ADDRESS)
-        ).all()
-        
-        for tx in txs:
-            if tx.id in processed_txs: continue
-            processed_txs.add(tx.id)
-            
-            # Parse payload
-            data = ""
-            if hasattr(tx, "tx_metadata") and tx.tx_metadata:
-                if isinstance(tx.tx_metadata, dict):
-                    data = tx.tx_metadata.get("payload", "")
-            elif hasattr(tx, "payload") and tx.payload:
-                if isinstance(tx.payload, dict):
-                    data = tx.payload.get("payload", "")
-            
-            # Process message
-            if "ping" in str(data):
-                print(f"Received ping from {tx.sender}")
-                # Send pong reply
-    time.sleep(2)
+# View service logs
+sudo journalctl -u aitbc-agent-daemon -f
 ```
+
+**Service Configuration**:
+- **Service Name**: `aitbc-agent-daemon.service`
+- **Wallet**: `temp-agent`
+- **Agent Address**: `ait1d18e286fc0c12888aca94732b5507c8787af71a5`
+- **Password File**: `/var/lib/aitbc/keystore/.agent_daemon_password`
+- **RPC URL**: `http://localhost:8006`
+- **Poll Interval**: 2 seconds
+- **Trigger Message**: `ping`
+- **Reply Message**: `pong`
+- **Database Path**: `/var/lib/aitbc/data/${CHAIN_ID}/chain.db`
+
+**Agent Daemon Implementation**:
+The actual agent daemon script is located at:
+`/opt/aitbc/apps/agent-coordinator/scripts/agent_daemon.py`
+
+It polls the blockchain database for incoming transactions addressed to the agent wallet and automatically replies to trigger messages.
 
 ### Module 4: Distributed Task Execution
 
@@ -218,35 +222,65 @@ Genesis Node: Received "pong" in Block 26952
 ### Workarounds
 - Custom Python scripts for transaction creation
 - Direct database queries for message retrieval
-- Autonomous agent daemon for message handling
+- Systemd-managed agent daemon for message handling
 
 ## Troubleshooting
 
 ### Agent Daemon Not Starting
 ```bash
-# Check logs
-ssh aitbc1 'cat /tmp/agent_daemon4.log'
+# Check service status
+sudo systemctl status aitbc-agent-daemon.service
 
-# Verify wallet access
-ssh aitbc1 '/opt/aitbc/venv/bin/python -c "from scripts import decrypt_wallet"'
+# Check service logs
+sudo journalctl -u aitbc-agent-daemon -n 50
+
+# Start the service
+sudo systemctl start aitbc-agent-daemon.service
+
+# Restart the service
+sudo systemctl restart aitbc-agent-daemon.service
+```
+
+### Wallet Access Issues
+```bash
+# Verify wallet file exists
+ls -la /var/lib/aitbc/keystore/temp-agent.json
+
+# Verify password file exists
+ls -la /var/lib/aitbc/keystore/.agent_daemon_password
+
+# Test wallet decryption
+/opt/aitbc/venv/bin/python -c "
+from pathlib import Path
+import json
+keystore_path = Path('/var/lib/aitbc/keystore/temp-agent.json')
+with open(keystore_path) as f:
+    data = json.load(f)
+    print('Wallet loaded successfully')
+"
 ```
 
 ### Transactions Not Mining
 ```bash
 # Check mempool
-curl http://localhost:8006/rpc/mempool
+curl http://localhost:${RPC_PORT}/rpc/mempool
 
 # Verify nonce uniqueness
 # Ensure nonces are unique per sender
+
+# Check blockchain node status
+sudo systemctl status aitbc-blockchain-node.service
 ```
 
 ### Sync Issues
 ```bash
-# Manual sync
-python /tmp/sync_once.py
+# Check block heights on both nodes
+NODE_URL=http://${GENESIS_IP}:${RPC_PORT} ./aitbc-cli blockchain height
+NODE_URL=http://${FOLLOWER_IP}:${RPC_PORT} ./aitbc-cli blockchain height
 
-# Check block heights
-NODE_URL=http://localhost:8006 ./aitbc-cli blockchain height
+# Check sync status
+curl http://${GENESIS_IP}:${RPC_PORT}/rpc/head
+curl http://${FOLLOWER_IP}:${RPC_PORT}/rpc/head
 ```
 
 ## Related Documentation
@@ -271,6 +305,6 @@ Implement reliable message acknowledgment protocol for critical communications.
 
 ---
 
-**Last Updated**: 2026-04-10
-**Version**: 1.0
-**Status**: Production Tested
+**Last Updated**: 2026-05-09
+**Version**: 2.0
+**Status**: Production Tested - Updated for systemd service management
