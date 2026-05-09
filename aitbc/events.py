@@ -261,7 +261,9 @@ class EventRouter:
                         await handler(event)
                     else:
                         handler(event)
+                    self.logger.debug(f"Routed event {event.event_type} to handler")
                     return True
                 except Exception as e:
-                    print(f"Error in routed handler: {e}")
+                    self.logger.error(f"Routed handler failed for {event.event_type}: {e}")
+        self.logger.debug(f"No matching route found for event {event.event_type}")
         return False

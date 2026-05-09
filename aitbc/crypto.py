@@ -100,12 +100,15 @@ def encrypt_private_key(private_key: str, password: str) -> str:
 def decrypt_private_key(encrypted_key: str, password: str) -> str:
     """Decrypt private key using Fernet symmetric encryption"""
     try:
-        # Decode combined data
+        # Decode combined salt + encrypted data
         combined = base64.urlsafe_b64decode(encrypted_key.encode('utf-8'))
+        
+        # Extract salt (first 16 bytes) and encrypted data (remaining bytes)
         salt = combined[:16]
         encrypted_data = combined[16:]
         
-        # Derive key from password
+        # Derive same encryption key from password using stored salt
+        # Must use identical parameters as encryption for successful decryption
         password_bytes = password.encode('utf-8')
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -115,7 +118,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
         )
         key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
         
-        # Decrypt private key
+        # Decrypt private key using derived key
         fernet = Fernet(key)
         decrypted_key = fernet.decrypt(encrypted_data)
         return decrypted_key.decode('utf-8')
