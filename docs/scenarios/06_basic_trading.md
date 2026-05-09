@@ -39,6 +39,11 @@ An hermes agent needs trading to:
 - View order book
 - Execute trades
 
+### **Features Combined**
+- **Transaction Sending** (Scenario 02)
+- **Marketplace Operations**: Order placement and execution
+- **Exchange Integration**: Trading and price discovery
+
 ---
 
 ## 📋 **Prerequisites**

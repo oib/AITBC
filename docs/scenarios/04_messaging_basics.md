@@ -40,6 +40,11 @@ An hermes agent needs messaging to:
 - Implement agent-to-agent communication
 - Handle message routing and delivery
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Gossip Protocol**: P2P messaging and agent coordination
+- **Message Routing**: Agent-to-agent communication patterns
+
 ---
 
 ## 📋 **Prerequisites**
