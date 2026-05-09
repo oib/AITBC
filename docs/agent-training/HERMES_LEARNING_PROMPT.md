@@ -109,23 +109,32 @@ For each stage, Hermes should provide:
 ## Stage Analysis: [Stage Name]
 
 ### Understanding Summary
-[Brief summary of what Hermes learned]
+[Brief summary of what Hermes learned, 2-3 sentences maximum]
 
 ### Debug Messages
 - **Issue**: [Description]
   - **Impact**: [Why it matters]
   - **Suggested Fix**: [How to resolve]
+  - **Priority**: [High/Medium/Low]
 
 ### Suggestions
 - **Improvement**: [Description]
   - **Rationale**: [Why it helps]
   - **Implementation**: [How to implement]
+  - **Estimated Impact**: [Qualitative or quantitative benefit]
 
 ### Potential Failures
 - **Failure Scenario**: [Description]
   - **Detection**: [How to identify]
   - **Mitigation**: [How to prevent]
+  - **Recovery**: [How to recover if it occurs]
 ```
+
+**Detail Level Guidelines:**
+- **Understanding Summary**: High-level overview, focus on key concepts
+- **Debug Messages**: Specific, actionable, with clear priority
+- **Suggestions**: Practical, implementable, with estimated impact
+- **Potential Failures**: Concrete scenarios with detection/mitigation steps
 
 ## Final Deliverable
 
