@@ -276,7 +276,7 @@ Log levels:
 
 ## Migration from Shell Scripts
 
-The shell scripts in `/opt/aitbc/scripts/training/` are maintained for backward compatibility but are deprecated.
+The shell scripts in `/opt/aitbc/scripts/training/` are maintained for backward compatibility. The Python-based training environment system is the recommended approach.
 
 **Migration Guide:**
 

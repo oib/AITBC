@@ -322,7 +322,6 @@ Complete documentation for all AITBC applications and services
 - [Blockchain Explorer](apps/blockchain/blockchain-explorer.md) - Blockchain explorer and analytics
 
 **Coordinator**
-- [Coordinator API](apps/coordinator/coordinator-api.md) - Job coordination service (⚠️ LEGACY - use Agent Coordinator 9001)
 - [Agent Coordinator](apps/coordinator/agent-coordinator.md) - Agent coordination and management (Port 9001)
 
 **Agents**
