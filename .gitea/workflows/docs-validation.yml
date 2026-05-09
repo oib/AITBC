@@ -19,6 +19,11 @@ concurrency:
   group: docs-validation-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  WORKSPACE_BASE: /var/lib/aitbc-workspaces
+  REPO_URL: http://gitea.bubuit.net:3000/oib/aitbc.git
+  STANDARD_DIRS: /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+
 jobs:
   validate-docs:
     runs-on: debian
@@ -27,16 +32,19 @@ jobs:
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/docs-validation"
+          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation"
           rm -rf "$WORKSPACE"
           mkdir -p "$WORKSPACE"
           cd "$WORKSPACE"
-          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+          git clone --depth 1 "${{ env.REPO_URL }}" repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           bash scripts/ci/setup-job-logging.sh
+
+      - name: Ensure standard directories
+        run: mkdir -p ${{ env.STANDARD_DIRS }}
 
       - name: Install tools
         run: |
@@ -44,10 +52,7 @@ jobs:
 
       - name: Lint Markdown files
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
-          
-          # Ensure standard directories exist
-          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           
           echo "=== Linting Markdown ==="
           if command -v markdownlint >/dev/null 2>&1; then
@@ -98,7 +103,7 @@ jobs:
 
       - name: Check documentation structure
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           echo "=== Documentation Structure ==="
           required_files=(
             docs/README.md
@@ -136,7 +141,6 @@ jobs:
             if [[ -f "$f" ]]; then
               echo "  $f exists"
             else
-              echo "  $f missing"
               echo "  ❌ $f missing"
               exit 1
             fi
@@ -144,7 +148,7 @@ jobs:
 
       - name: Validate master index structure
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           echo "=== Master Index Structure ==="
 
           master_index_markers=(
@@ -165,7 +169,7 @@ jobs:
 
       - name: Validate priority docs metadata
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           echo "=== Priority Documentation Metadata ==="
 
           priority_docs=(
@@ -208,7 +212,7 @@ jobs:
       - name: Documentation stats
         if: always()
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation/repo"
           echo "=== Documentation Statistics ==="
           echo "  Markdown files: $(find docs -name '*.md' 2>/dev/null | wc -l)"
           echo "  Total size: $(du -sh docs 2>/dev/null | cut -f1)"
@@ -216,7 +220,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/docs-validation
+        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation"
 
   validate-policies-strict:
     runs-on: debian
@@ -225,16 +229,19 @@ jobs:
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/docs-validation-policies"
+          WORKSPACE="${{ env.WORKSPACE_BASE }}/docs-validation-policies"
           rm -rf "$WORKSPACE"
           mkdir -p "$WORKSPACE"
           cd "$WORKSPACE"
-          git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
+          git clone --depth 1 "${{ env.REPO_URL }}" repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation-policies/repo
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
           bash scripts/ci/setup-job-logging.sh
+
+      - name: Ensure standard directories
+        run: mkdir -p ${{ env.STANDARD_DIRS }}
 
       - name: Install markdownlint
         run: |
@@ -242,10 +249,7 @@ jobs:
 
       - name: Strict lint policy docs
         run: |
-          cd /var/lib/aitbc-workspaces/docs-validation-policies/repo
-
-          # Ensure standard directories exist
-          mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
+          cd "${{ env.WORKSPACE_BASE }}/docs-validation-policies/repo"
 
           shopt -s globstar nullglob
           mapfile -t targets < <(printf '%s\n' docs/policies/*.md docs/policies/**/*.md | awk '!seen[$0]++')
@@ -261,4 +265,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/docs-validation-policies
+        run: rm -rf "${{ env.WORKSPACE_BASE }}/docs-validation-policies"

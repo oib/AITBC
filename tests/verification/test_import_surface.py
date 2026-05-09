@@ -74,7 +74,7 @@ def test_agent_coordinator_wrapper_bootstrap(monkeypatch) -> None:
 
     with monkeypatch.context() as m:
         m.setattr(os, "execvp", fake_execvp)
-        m.setattr(aitbc_paths, "ensure_dir", lambda path: path)
+        m.setattr(aitbc.utils.paths, "ensure_dir", lambda path: path)
         m.setenv("AITBC_ENV_FILE", "placeholder")
         m.setenv("AITBC_NODE_ENV_FILE", "placeholder")
         m.setenv("PYTHONPATH", "placeholder")
