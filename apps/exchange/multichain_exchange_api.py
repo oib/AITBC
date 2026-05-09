@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 import uvicorn
 import os
 
-from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 

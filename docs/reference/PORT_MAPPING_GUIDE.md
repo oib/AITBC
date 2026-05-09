@@ -120,8 +120,8 @@ curl -s http://localhost:8007/  # Web UI
 ### AI/Agent/GPU Services
 ```bash
 curl -s http://localhost:8010/health  # GPU Service
-curl -s http://localhost:8011/health  # Learning Service
-curl -s http://localhost:8012/health  # Agent Coordinator
+curl -s http://localhost:8012/health  # Learning Service (updated from 8011)
+curl -s http://localhost:9001/health  # Agent Coordinator
 curl -s http://localhost:8013/health  # Agent Registry
 curl -s http://localhost:8014/health  # hermes Service
 curl -s http://localhost:8015/health  # AI Service
