@@ -11,6 +11,7 @@ Direct access - no SSH required.
 # Run commands directly on localhost
 echo "command"
 systemctl restart service-name
+curl http://127.0.0.1:8006/rpc/head
 ```
 
 ### aitbc1
@@ -19,6 +20,10 @@ Direct SSH access.
 ssh aitbc1
 # Or execute single command
 ssh aitbc1 "command"
+# Access aitbc1's blockchain RPC
+ssh aitbc1 "curl http://127.0.0.1:8006/rpc/head"
+# Access aitbc from aitbc1
+ssh aitbc1 "curl http://aitbc:8006/rpc/head"
 ```
 
 ### gitea-runner (hosts aitbc2 blockchain node)
@@ -33,6 +38,11 @@ ssh gitea-runner "command"
 ssh gitea-runner "/opt/aitbc/aitbc-cli blockchain info"
 ssh gitea-runner "systemctl status aitbc-blockchain-node --no-pager"
 ```
+
+## Important Notes
+- **Never SSH to localhost**: Commands should run directly on the local machine
+- **Use proper quoting**: When passing commands to SSH, use single quotes to prevent shell expansion
+- **Test connectivity**: Verify RPC endpoints are accessible before running sync operations
 
 ## Common Operations
 
