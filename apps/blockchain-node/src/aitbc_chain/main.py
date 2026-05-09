@@ -124,6 +124,7 @@ class BlockchainNode:
             interval_seconds=settings.block_time_seconds,
             max_block_size_bytes=settings.max_block_size_bytes,
             max_txs_per_block=settings.max_txs_per_block,
+            default_peer_rpc_url=settings.default_peer_rpc_url,
         )
 
     async def _ensure_genesis_for_chains(self) -> None:
