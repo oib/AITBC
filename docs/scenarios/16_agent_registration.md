@@ -40,6 +40,11 @@ An hermes agent needs registration to:
 - Manage agent reputation
 - Handle agent discovery
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Agent Identity**: Registration and discovery
+- **Agent Coordinator**: Agent-to-agent communication
+
 ---
 
 ## 📋 **Prerequisites**

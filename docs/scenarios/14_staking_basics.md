@@ -40,6 +40,11 @@ An Hermes agent needs staking to:
 - Participate in governance voting
 - Manage validator operations
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Proof-of-Stake**: Token staking and rewards
+- **Governance**: Network participation and voting
+
 ---
 
 ## 📋 **Prerequisites**
