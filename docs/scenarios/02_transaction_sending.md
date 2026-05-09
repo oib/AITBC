@@ -39,6 +39,11 @@ An hermes agent needs to send transactions to:
 - Estimate transaction fees
 - Handle transaction failures
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Blockchain Transactions**: Single and batch transfers
+- **Transaction Monitoring**: Status tracking and fee estimation
+
 ---
 
 ## 📋 **Prerequisites**
