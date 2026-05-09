@@ -39,6 +39,11 @@ An hermes agent needs to deploy genesis blocks to:
 - Validate genesis block integrity
 - Initialize chain from genesis
 
+### **Features Combined**
+- **Blockchain Initialization**: Genesis block creation and deployment
+- **Network Setup**: Custom chain configuration
+- **Validation**: Genesis integrity verification
+
 ---
 
 ## 📋 **Prerequisites**
