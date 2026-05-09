@@ -192,8 +192,8 @@ Each training stage includes validation criteria to ensure successful completion
 
 For issues during training:
 
-1. Check [`ENVIRONMENT_SETUP.md`](./ENVIRONMENT_SETUP.md) for configuration problems
-2. Review [`OPERATIONS_AUDIT.md`](./OPERATIONS_AUDIT.md) for known issues and solutions
+1. Check `ENVIRONMENT_SETUP.md` for configuration problems
+2. Review `OPERATIONS_AUDIT.md` for known issues and solutions
 3. Verify blockchain node synchronization status
 4. Confirm wallet balances and permissions
 5. Check network connectivity to RPC endpoints
@@ -214,5 +214,9 @@ For issues during training:
 
 ---
 
-**Last Updated:** 2026-05-07
+**Last Updated:** 2026-05-09
+**Version:** 2.0
 **Maintained By:** AITBC Development Team
+**Changelog:**
+- v2.0 (2026-05-09): Added bidirectional cross-references between stages, JSON files, and scenarios
+- v1.0 (2026-05-07): Initial version
