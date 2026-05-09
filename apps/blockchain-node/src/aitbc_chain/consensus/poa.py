@@ -537,27 +537,8 @@ class PoAProposer:
 
     def _load_genesis_allocations_for_metadata(self) -> list:
         """Load genesis allocations from file for embedding in genesis block metadata."""
-        genesis_paths = [
-            Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
-        ]
-        
-        genesis_path = None
-        for path in genesis_paths:
-            if path.exists():
-                genesis_path = path
-                break
-        
-        if not genesis_path:
-            self._logger.warning("Genesis allocations file not found; genesis block will not contain allocation metadata", extra={"paths": str(genesis_paths)})
-            return []
-        
-        try:
-            with open(genesis_path) as f:
-                genesis_data = json.load(f)
-            return genesis_data.get("allocations", [])
-        except Exception as e:
-            self._logger.warning(f"Failed to load genesis allocations file: {e}")
-            return []
+        # Skip loading for metadata if we used RPC bootstrap
+        return []
 
     async def _load_genesis_allocations_from_rpc(self) -> list:
         """Load genesis allocations from trusted peer via RPC."""
