@@ -16,6 +16,7 @@ class ProposerConfig(BaseModel):
     interval_seconds: int
     max_block_size_bytes: int
     max_txs_per_block: int
+    default_peer_rpc_url: Optional[str] = None
 
 # Default island ID for new installations
 DEFAULT_ISLAND_ID = str(uuid.uuid4())

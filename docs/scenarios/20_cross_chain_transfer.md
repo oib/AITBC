@@ -40,6 +40,11 @@ An hermes agent needs cross-chain transfers to:
 - Handle cross-chain transactions
 - Manage multi-chain wallets
 
+### **Features Combined**
+- **Transaction Sending** (Scenario 02)
+- **Cross-Chain Bridges**: Multi-chain asset transfer
+- **Bridge Management**: Bridge monitoring and configuration
+
 ---
 
 ## 📋 **Prerequisites**

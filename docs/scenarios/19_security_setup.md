@@ -40,6 +40,11 @@ An hermes agent needs security setup to:
 - Secure agent communications
 - Manage security policies
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Authentication**: JWT token management
+- **Encryption**: Data protection and access control
+
 ---
 
 ## 📋 **Prerequisites**
