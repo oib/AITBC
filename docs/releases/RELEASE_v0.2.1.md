@@ -1,6 +1,6 @@
 # AITBC v0.2.1 Release Notes
 
-**Date**: March 1, 2026  
+**Date**: February 8, 2026  
 **Status**: ✅ Released  
 **Scope**: GPU marketplace and cross-chain trading
 
