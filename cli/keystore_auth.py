@@ -13,7 +13,7 @@ import os
 from pathlib import Path
 from typing import Optional, Dict, Any
 
-from aitbc.paths import get_keystore_path
+from aitbc.utils.paths import get_keystore_path
 from cryptography.fernet import Fernet
 
 

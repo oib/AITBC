@@ -14,7 +14,7 @@ from .agent import Agent, AgentCapabilities, AgentIdentity
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.http_client import AITBCHTTPClient
+from aitbc.network.http_client import AITBCHTTPClient
 
 logger = get_logger(__name__)
 

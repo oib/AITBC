@@ -2,7 +2,7 @@ import json
 import os
 import time
 import uuid
-from aitbc.paths import get_data_path
+from aitbc.utils.paths import get_data_path
 
 STATE_FILE = str(get_data_path("data/cli_extended_state.json"))
 
