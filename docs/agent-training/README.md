@@ -93,11 +93,12 @@ The training program consists of the following stages:
 - Custom skill development
 
 ### Stage 9: Multi-Chain Architecture
-**File:** `stage9_multi_chain_architecture.json`
+**File:** [`stage9_multi_chain_architecture.json`](./stage9_multi_chain_architecture.json)
 - Cross-chain operations
 - Bridge protocols
 - Multi-chain asset management
 - Interoperability patterns
+**Related Scenarios:** [42 Cross Chain Atomic Swap](../scenarios/47_cross_chain_atomic_swap.md), [44 Dispute Resolution](../scenarios/44_dispute_resolution.md), [45 Zero Knowledge Proofs](../scenarios/45_zero_knowledge_proofs.md), [46 Multi Chain Island Architecture](../scenarios/46_multi_chain_island_architecture.md)
 
 ### Stage 10: Failure Recovery
 **File:** `stage10_failure_recovery.json`
@@ -191,8 +192,8 @@ Each training stage includes validation criteria to ensure successful completion
 
 For issues during training:
 
-1. Check `ENVIRONMENT_SETUP.md` for configuration problems
-2. Review `OPERATIONS_AUDIT.md` for known issues and solutions
+1. Check [`ENVIRONMENT_SETUP.md`](./ENVIRONMENT_SETUP.md) for configuration problems
+2. Review [`OPERATIONS_AUDIT.md`](./OPERATIONS_AUDIT.md) for known issues and solutions
 3. Verify blockchain node synchronization status
 4. Confirm wallet balances and permissions
 5. Check network connectivity to RPC endpoints
