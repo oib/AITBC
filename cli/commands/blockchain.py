@@ -332,7 +332,7 @@ def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
                             tx_results[chain] = {"error": f"Transaction not found: HTTP {response.status_code}"}
                             
                 except Exception as e:
-                    tx_results[chain] = {"error": str(e)}
+                    tx_results[chain] = {"error": f"Request failed: {str(e)}"}
             
             # Count successful searches
             successful_searches = sum(1 for result in tx_results.values() if "error" not in result)
@@ -1343,8 +1343,9 @@ def state(ctx, chain_id: str, all_chains: bool):
                 except Exception as e:
                     all_state[chain] = {
                         "chain_id": chain,
-                        "error": str(e),
-                        "available": False
+                        "error": f"Request failed: {str(e)}",
+                        "available": False,
+                        "query_type": "all_chains_error"
                     }
             
             # Count available chains
