@@ -68,4 +68,4 @@
 
 - **[Master Index](docs/MASTER_INDEX.md)** - Complete catalog of all documentation files and directories
 - **[Main Documentation](docs/README.md)** - Project status, navigation guide, and learning paths
-- **[Setup Instructions](docs/SETUP.md)** - Installation and configuration guide
+- **[Setup Instructions](docs/deployment/SETUP.md)** - Installation and configuration guide
