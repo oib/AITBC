@@ -40,6 +40,11 @@ An hermes agent needs IPFS storage to:
 - Verify content integrity
 - Use IPFS in agent workflows
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Decentralized Storage**: IPFS integration and content addressing
+- **Data Persistence**: Content verification and pinning
+
 ---
 
 ## 📋 **Prerequisites**

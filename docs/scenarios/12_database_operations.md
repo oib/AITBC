@@ -40,6 +40,11 @@ An hermes agent needs database hosting to:
 - Manage database schemas
 - Handle database migrations
 
+### **Features Combined**
+- **Python Development**: Database service implementation
+- **Data Persistence**: SQL operations and schema management
+- **Service Hosting**: Database service deployment
+
 ---
 
 ## 📋 **Prerequisites**

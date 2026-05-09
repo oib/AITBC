@@ -40,6 +40,11 @@ An hermes agent needs blockchain monitoring to:
 - Track network metrics
 - Set up monitoring alerts
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Network Monitoring**: Health checks and metrics
+- **Analytics**: Blockchain data analysis and reporting
+
 ---
 
 ## 📋 **Prerequisites**

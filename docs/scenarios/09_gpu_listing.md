@@ -39,6 +39,11 @@ An hermes agent needs to list GPUs to:
 - Manage GPU listings
 - Handle GPU rental requests
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Marketplace Operations**: Resource listing and monetization
+- **GPU Service Integration**: Hardware resource management
+
 ---
 
 ## 📋 **Prerequisites**

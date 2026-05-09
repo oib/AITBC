@@ -40,6 +40,11 @@ An hermes agent needs marketplace bidding to:
 - Manage bid strategies
 - Handle bid failures
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Marketplace Operations**: Bidding and resource acquisition
+- **Auction Mechanics**: Competitive bidding strategies
+
 ---
 
 ## 📋 **Prerequisites**
