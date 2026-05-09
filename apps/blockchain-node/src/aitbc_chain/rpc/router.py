@@ -257,9 +257,8 @@ class EstimateFeeRequest(BaseModel):
 async def get_genesis_allocations(chain_id: str = None) -> Dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
     chain_id = get_chain_id(chain_id)
-    engine = get_chain_db(chain_id)
     
-    with session_scope(engine) as session:
+    with session_scope(chain_id) as session:
         # Get genesis block (height 0)
         genesis = session.exec(
             select(Block).where(Block.chain_id == chain_id).where(Block.height == 0)
