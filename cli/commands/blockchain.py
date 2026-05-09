@@ -1071,7 +1071,18 @@ def send(ctx, chain_id, from_addr, to, data, nonce):
 @click.option('--all-chains', is_flag=True, help='Query balance across all available chains')
 @click.pass_context
 def balance(ctx, address, chain_id, all_chains):
-    """Get the balance of an address across chains"""
+    """
+    Get the balance of an address across chains.
+    
+    Retrieves the current balance for a specific wallet address including
+    token amount and nonce. Supports querying across multiple chains.
+    
+    Args:
+        ctx: Click context object
+        address: Wallet address to query
+        chain_id: Specific chain ID to query
+        all_chains: Flag to query balance across all available chains
+    """
     config = ctx.obj['config']
     try:
         import httpx

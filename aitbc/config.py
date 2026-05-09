@@ -41,14 +41,6 @@ class BaseAITBCConfig(BaseSettings):
         default="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
         description="Log format string"
     )
-    
-    def __init__(self, **kwargs):
-        """Initialize configuration with logging"""
-        super().__init__(**kwargs)
-        logger.info(f"Loading configuration for {self.app_name} v{self.app_version} in {self.environment} environment")
-        logger.debug(f"Data directory: {self.data_dir}")
-        logger.debug(f"Config directory: {self.config_dir}")
-        logger.debug(f"Log directory: {self.log_dir}")
 
 
 class AITBCConfig(BaseAITBCConfig):
@@ -80,3 +72,9 @@ class AITBCConfig(BaseAITBCConfig):
     # Performance settings
     request_timeout: int = Field(default=30, description="Request timeout in seconds")
     max_request_size: int = Field(default=10 * 1024 * 1024, description="Max request size in bytes")
+    
+    def __init__(self, **kwargs):
+        """Initialize AITBC configuration with extended logging"""
+        super().__init__(**kwargs)
+        logger.info(f"Server configured for {self.host}:{self.port}")
+        logger.debug(f"Workers: {self.workers}, Request timeout: {self.request_timeout}s")
