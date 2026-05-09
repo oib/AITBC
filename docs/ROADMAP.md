@@ -8,43 +8,43 @@ Update this document as milestones evolve.
 
 ### High Priority - Security & Stability
 
-- **Redis-backed Rate Limiting**
-  - Replace in-memory rate limiter with Redis-backed implementation
-  - Support for distributed rate limiting across multiple instances
-  - Configurable limits per endpoint
-  - Status: Pending implementation
+- **Rate Limiting** ✅ IMPLEMENTED
+  - In-memory rate limiter implemented in `aitbc/security_hardening.py`
+  - Rate limiting support in `aitbc/network/http_client.py`
+  - Configurable limits per client
+  - Status: Implemented (in-memory, Redis-backed not yet implemented)
 
-- **Request Validation Middleware**
-  - Add request size limits for all endpoints
-  - Input sanitization for all user inputs
-  - SQL injection and XSS prevention
-  - Status: Pending implementation
+- **Request Validation Middleware** ✅ IMPLEMENTED
+  - Request size limits implemented in `aitbc/middleware/validation.py`
+  - Response size validation
+  - Configurable max request/response sizes
+  - Status: Implemented (input sanitization and XSS prevention partial)
 
-- **Audit Logging**
-  - Comprehensive audit logging for sensitive operations
-  - Track: API key usage, admin actions, configuration changes
-  - Integration with existing `AuditLogger` class
-  - Status: Pending implementation
+- **Audit Logging** ✅ IMPLEMENTED
+  - Comprehensive audit logging in `apps/coordinator-api/src/app/services/audit_logging.py`
+  - AuditLogger class for sensitive operations
+  - Tamper-evident logging for privacy compliance
+  - Status: Implemented
 
 ### Medium Priority - Performance & Quality
 
-- **Redis-backed Mempool (Production)**
-  - Add Redis adapter for mempool in production
-  - Support for distributed mempool across nodes
-  - Better persistence and recovery
-  - Status: Pending implementation
+- **Database-backed Mempool** ✅ IMPLEMENTED (SQLite)
+  - DatabaseMempool implemented in `apps/blockchain-node/src/aitbc_chain/mempool.py`
+  - SQLite-backed mempool for persistence
+  - Better persistence than in-memory
+  - Status: Implemented (Redis adapter not yet implemented)
 
-- **Async I/O Conversion**
-  - Convert blocking I/O operations to async where possible
-  - Use `aiohttp` or `httpx` async clients for external API calls
-  - Async database operations with SQLModel
-  - Status: Pending implementation
+- **Async I/O Conversion** 🔄 PARTIAL
+  - Some async patterns in codebase
+  - Main HTTP client still uses synchronous `requests`
+  - Not yet converted to `aiohttp` or `httpx`
+  - Status: Partially implemented
 
-- **Custom Business Metrics**
-  - Add Prometheus metrics for business logic
-  - Track: jobs created, miners registered, payments processed
-  - Custom dashboards for operational visibility
-  - Status: Pending implementation
+- **Custom Business Metrics** ✅ IMPLEMENTED
+  - Prometheus metrics in `apps/coordinator-api/src/app/metrics.py`
+  - Marketplace API metrics tracking
+  - Error tracking by endpoint and method
+  - Status: Implemented (comprehensive business logic coverage partial)
 
 ### Low Priority - Polish & Documentation
 
