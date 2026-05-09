@@ -645,8 +645,9 @@ def peers(ctx, chain_id: str, all_chains: bool):
                     all_peers[chain] = {
                         "chain_id": chain,
                         "peers": [],
-                        "error": str(e),
-                        "available": False
+                        "error": f"Request failed: {str(e)}",
+                        "available": False,
+                        "query_type": "all_chains_error"
                     }
             
             # Count chains with available peers
