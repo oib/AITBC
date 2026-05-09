@@ -53,7 +53,22 @@ def blockchain(ctx, chain_id: Optional[str]):
 @click.option('--all-chains', is_flag=True, help='Query blocks across all available chains')
 @click.pass_context
 def blocks(ctx, limit: int, from_height: Optional[int], chain_id: str, all_chains: bool):
-    """List recent blocks across chains"""
+    """
+    List recent blocks across chains.
+    
+    Displays blockchain blocks with support for:
+    - Single chain queries
+    - Multi-chain queries (with --all-chains flag)
+    - Height-based ranges (with --from-height)
+    - Custom block limits
+    
+    Args:
+        ctx: Click context object
+        limit: Maximum number of blocks to display
+        from_height: Starting block height for range queries
+        chain_id: Specific chain ID to query
+        all_chains: Flag to query all available chains
+    """
     try:
         config = ctx.obj['config']
         
@@ -165,7 +180,19 @@ def blocks(ctx, limit: int, from_height: Optional[int], chain_id: str, all_chain
 @click.option('--all-chains', is_flag=True, help='Search block across all available chains')
 @click.pass_context
 def block(ctx, block_hash: str, chain_id: str, all_chains: bool):
-    """Get details of a specific block across chains"""
+    """
+    Get details of a specific block across chains.
+    
+    Retrieves detailed information about a block including transactions,
+    timestamp, miner, and other block metadata. Supports searching
+    across multiple chains.
+    
+    Args:
+        ctx: Click context object
+        block_hash: Hash of the block to query
+        chain_id: Specific chain ID to query
+        all_chains: Flag to search across all available chains
+    """
     try:
         config = ctx.obj['config']
         
@@ -266,7 +293,19 @@ def block(ctx, block_hash: str, chain_id: str, all_chains: bool):
 @click.option('--all-chains', is_flag=True, help='Search transaction across all available chains')
 @click.pass_context
 def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
-    """Get transaction details across chains"""
+    """
+    Get transaction details across chains.
+    
+    Retrieves detailed transaction information including sender, recipient,
+    amount, gas used, and block inclusion. Supports searching across
+    multiple chains.
+    
+    Args:
+        ctx: Click context object
+        tx_hash: Hash of the transaction to query
+        chain_id: Specific chain ID to query
+        all_chains: Flag to search across all available chains
+    """
     config = ctx.obj['config']
     
     try:
@@ -339,7 +378,19 @@ def transaction(ctx, tx_hash: str, chain_id: str, all_chains: bool):
 @click.option('--all-chains', is_flag=True, help='Get status across all available chains')
 @click.pass_context
 def status(ctx, node: int, chain_id: str, all_chains: bool):
-    """Get blockchain node status across chains"""
+    """
+    Get blockchain node status across chains.
+    
+    Displays the current status of the blockchain node including sync status,
+    block height, peer count, and network information. Supports querying
+    across multiple chains.
+    
+    Args:
+        ctx: Click context object
+        node: Node number to query (1, 2, or 3)
+        chain_id: Specific chain ID to query
+        all_chains: Flag to get status across all available chains
+    """
     config = ctx.obj['config']
     
     # Map node to RPC URL using new port logic
@@ -446,7 +497,18 @@ def status(ctx, node: int, chain_id: str, all_chains: bool):
 @click.option('--all-chains', is_flag=True, help='Get sync status across all available chains')
 @click.pass_context
 def sync_status(ctx, chain_id: str, all_chains: bool):
-    """Get blockchain synchronization status across chains"""
+    """
+    Get blockchain synchronization status across chains.
+    
+    Displays the current synchronization status including current block height,
+    highest known block, sync percentage, and sync speed. Supports querying
+    across multiple chains.
+    
+    Args:
+        ctx: Click context object
+        chain_id: Specific chain ID to query
+        all_chains: Flag to get sync status across all available chains
+    """
     config = ctx.obj['config']
     
     try:
@@ -533,7 +595,17 @@ def sync_status(ctx, chain_id: str, all_chains: bool):
 @click.option('--all-chains', is_flag=True, help='Get peers across all available chains')
 @click.pass_context
 def peers(ctx, chain_id: str, all_chains: bool):
-    """List connected peers across chains"""
+    """
+    List connected peers across chains.
+    
+    Displays information about connected network peers including their IDs,
+    addresses, and connection status. Supports querying across multiple chains.
+    
+    Args:
+        ctx: Click context object
+        chain_id: Specific chain ID to query
+        all_chains: Flag to get peers across all available chains
+    """
     try:
         config = ctx.obj['config']
         node_url = _get_node_endpoint(ctx)
