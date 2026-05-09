@@ -73,9 +73,10 @@ def test_cross_node_chain_id_consistency():
         else:
             # Check remote .env file via SSH
             result = subprocess.run(
-                ["ssh", node_key, "cat /etc/aitbc/.env | grep CHAIN_ID"],
+                ["ssh", "-o", "StrictHostKeyChecking=no", "-o", "BatchMode=yes", node_key, "cat /etc/aitbc/.env | grep CHAIN_ID"],
                 capture_output=True,
-                text=True
+                text=True,
+                timeout=10
             )
             if result.returncode == 0:
                 chain_id = result.stdout.strip().split("=")[1]
@@ -116,7 +117,7 @@ def test_cross_node_block_sync():
     aitbc_head = heads["aitbc"]
     height = aitbc_head["height"] + 10000000  # Use very high height to avoid conflicts
     parent_hash = aitbc_head["hash"]
-    timestamp = datetime.now(UTC).isoformat() + "Z"
+    timestamp = datetime.now(timezone.utc).isoformat() + "Z"
     valid_hash = compute_block_hash(height, parent_hash, timestamp)
     
     client = AITBCHTTPClient(timeout=10)

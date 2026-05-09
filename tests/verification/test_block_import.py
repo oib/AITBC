@@ -30,7 +30,7 @@ def test_block_import():
     print(f"Current head: height={head['height']}, hash={head['hash']}")
     
     # Use very high heights to avoid conflicts with existing chain
-    base_height = 1000000
+    base_height = head["height"] + 10000000
     
     # Test 1: Import a valid block at high height
     print("\n1. Testing valid block import...")
