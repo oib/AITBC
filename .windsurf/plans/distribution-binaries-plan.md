@@ -1,14 +1,14 @@
 ---
-description: Distribution & Binaries Workflow for Cross-Platform Miner
+description: Distribution & Binaries Workflow for Debian Stable Miner
 ---
 
 # Distribution & Binaries Workflow
 
-This workflow covers the creation and distribution of cross-platform miner binaries.
+This workflow covers the creation and distribution of Debian stable miner binaries.
 
 ## Prerequisites
 
-- Build machines for each target platform (Linux, Windows, macOS)
+- Debian stable build machine
 - PyInstaller or similar packaging tool
 - GitHub Releases configured
 - Code signing certificates (for production)
@@ -16,27 +16,14 @@ This workflow covers the creation and distribution of cross-platform miner binar
 
 ## Steps
 
-### 1. Cross-Platform Miner Binaries (Linux, Windows, macOS)
+### 1. Debian Stable Miner Binary
 
-1. **Set up build environment for each platform**
+1. **Set up build environment for Debian stable**
 
-   **Linux:**
-   - Ubuntu 20.04+ build machine
+   - Debian stable (bookworm) build machine
    - Python 3.13+ with PyInstaller
    - CUDA Toolkit (for GPU support)
-   - System dependencies: build-essential, python3-dev
-
-   **Windows:**
-   - Windows 10/11 build machine
-   - Python 3.13+ with PyInstaller
-   - CUDA Toolkit (for GPU support)
-   - Visual Studio Build Tools
-
-   **macOS:**
-   - macOS 11+ build machine
-   - Python 3.13+ with PyInstaller
-   - Xcode Command Line Tools
-   - Metal support (for Apple Silicon GPU)
+   - System dependencies: build-essential, python3-dev, python3-venv
 
 2. **Create PyInstaller spec files**
    - File: `scripts/gpu/miner.spec`
@@ -45,27 +32,21 @@ This workflow covers the creation and distribution of cross-platform miner binar
    - Configure hidden imports
    - Set icon and metadata
 
-3. **Build binaries for each platform**
+3. **Build binary for Debian stable**
    ```bash
-   # Linux
-   pyinstaller --onefile --name aitbc-miner-linux scripts/gpu/miner.spec
-
-   # Windows
-   pyinstaller --onefile --name aitbc-miner-windows.exe scripts/gpu/miner.spec
-
-   # macOS
-   pyinstaller --onefile --name aitbc-miner-macos scripts/gpu/miner.spec
+   # Debian stable
+   pyinstaller --onefile --name aitbc-miner-debian scripts/gpu/miner.spec
    ```
 
-4. **Test binaries**
-   - Run each binary on respective platform
+4. **Test binary**
+   - Run binary on Debian stable
    - Verify GPU detection works
    - Test job submission and processing
    - Verify logging and error handling
 
-5. **Package binaries with dependencies**
-   - Create installation scripts for each platform
-   - Include README with platform-specific instructions
+5. **Package binary with dependencies**
+   - Create installation script for Debian stable
+   - Include README with Debian-specific instructions
    - Bundle configuration templates
    - Add verification checksums
 
@@ -100,7 +81,7 @@ This workflow covers the creation and distribution of cross-platform miner binar
 1. **Create GitHub Actions workflow**
    - File: `.github/workflows/build-binaries.yml`
    - Trigger on version tags (e.g., `v*.*.*`)
-   - Build for all platforms in parallel
+   - Build for Debian stable
    - Upload artifacts to workflow
 
 2. **Configure automatic release creation**
@@ -116,7 +97,7 @@ This workflow covers the creation and distribution of cross-platform miner binar
    git push origin v0.1.0
 
    # GitHub Actions will:
-   # 1. Build binaries for all platforms
+   # 1. Build binary for Debian stable
    # 2. Create GitHub Release
    # 3. Attach binaries as assets
    ```
@@ -132,15 +113,13 @@ This workflow covers the creation and distribution of cross-platform miner binar
 
 1. **Enhance existing CI/CD pipeline**
    - Add binary build step to existing workflows
-   - Configure matrix builds for platforms
+   - Configure build for Debian stable
    - Cache build dependencies
    - Optimize build times
 
-2. **Set up build agents**
-   - Configure GitHub Actions runners
-   - Use self-hosted runners for specific platforms
-   - Set up macOS runner for Apple Silicon builds
-   - Configure Windows runner for Windows builds
+2. **Set up build agent**
+   - Configure GitHub Actions runner
+   - Use self-hosted runner for Debian stable builds
 
 3. **Add build notifications**
    - Notify on build failures
@@ -156,10 +135,8 @@ This workflow covers the creation and distribution of cross-platform miner binar
 
 ### 5. Installation Guides and Verification Instructions
 
-1. **Create platform-specific installation guides**
-   - Linux: `docs/installation/linux-miner.md`
-   - Windows: `docs/installation/windows-miner.md`
-   - macOS: `docs/installation/macos-miner.md`
+1. **Create Debian stable installation guide**
+   - Debian: `docs/installation/debian-miner.md`
 
 2. **Installation guide sections**
    - System requirements
@@ -211,20 +188,20 @@ This workflow covers the creation and distribution of cross-platform miner binar
 
 ## Verification
 
-- [ ] Binaries build successfully for all platforms
-- [ ] Binaries run correctly on respective platforms
+- [ ] Binary builds successfully for Debian stable
+- [ ] Binary runs correctly on Debian stable
 - [ ] vLLM integration tested and documented
-- [ ] GitHub Actions workflow builds binaries automatically
+- [ ] GitHub Actions workflow builds binary automatically
 - [ ] Releases created automatically on tags
-- [ ] Installation guides complete for all platforms
+- [ ] Installation guide complete for Debian stable
 - [ ] Verification scripts work correctly
 - [ ] Code signing configured and tested
 - [ ] Signature verification documented
 
 ## Troubleshooting
 
-- **Build fails on specific platform**: Check platform-specific dependencies, verify Python version, test build locally
-- **Binary doesn't run**: Check PyInstaller spec file, verify dependencies, test on clean system
+- **Build fails on Debian stable**: Check Debian-specific dependencies, verify Python version, test build locally
+- **Binary doesn't run**: Check PyInstaller spec file, verify dependencies, test on clean Debian system
 - **vLLM integration fails**: Check vLLM version compatibility, verify GPU drivers, test with simple model
 - **Release creation fails**: Check GitHub token permissions, verify workflow configuration, test with manual release
 - **Signature verification fails**: Check certificate validity, verify signing process, test verification commands
@@ -234,7 +211,5 @@ This workflow covers the creation and distribution of cross-platform miner binar
 - `scripts/gpu/miner.spec`
 - `scripts/gpu/gpu_miner_host.py`
 - `.github/workflows/build-binaries.yml`
-- `docs/installation/linux-miner.md`
-- `docs/installation/windows-miner.md`
-- `docs/installation/macos-miner.md`
+- `docs/installation/debian-miner.md`
 - `scripts/installation/verify-install.sh`
