@@ -120,9 +120,10 @@ This release focuses on resolving pytest import conflicts through test file nami
 
 ### ✅ **Environment Configuration Unification**
 - **Unified environment files**: Split global (.env) from node-specific (node.env)
-- **Removed redundant files**: Removed production.env and blockchain.env
+- **Removed redundant files**: Removed production.env (consolidated into blockchain.env)
 - **Moved hardcoded variables**: Moved from systemd services to environment files
 - **Benefits**: Single source of truth for configuration
+- **Current structure**: blockchain.env (shared + production) + node.env (node-specific)
 
 ## 🔧 Systemd Service Improvements
 
