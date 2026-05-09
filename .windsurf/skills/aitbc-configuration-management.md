@@ -264,6 +264,50 @@ curl http://<peer_host>:8006/rpc/head
 journalctl -u aitbc-blockchain-node.service | grep -i sync
 ```
 
+### Genesis Block Mismatch Issues
+
+**Problem:** Nodes have different genesis block hashes for the same chain, causing sync failures with "Unhandled import case" errors.
+
+**Solution:** Use RPC bootstrap for genesis block creation.
+
+**How RPC bootstrap works:**
+- When a node starts without a genesis block for a chain, it attempts RPC bootstrap
+- The node fetches genesis block data (allocations, hash, state_root) from trusted peers
+- Genesis block is created using RPC-provided data, ensuring consistency across nodes
+- Falls back to local genesis block creation if RPC bootstrap fails
+
+**Configuration requirements:**
+- `default_peer_rpc_url` must be set in blockchain.env
+- Points to a trusted peer that has the correct genesis block
+- Multiple peers can be configured (default_peer_rpc_url + localhost:8006)
+
+**Troubleshooting RPC bootstrap:**
+```bash
+# Check RPC bootstrap logs
+journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
+
+# Verify RPC endpoint is accessible
+curl http://<peer_host>:8006/rpc/genesis_allocations?chain_id=ait-testnet
+
+# Check genesis block hash consistency
+sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"
+```
+
+**Force RPC bootstrap:**
+```bash
+# Stop blockchain service
+sudo systemctl stop aitbc-blockchain-node.service
+
+# Delete genesis block from database
+sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db "DELETE FROM block WHERE chain_id='<chain_id>' AND height=0"
+
+# Restart service to trigger RPC bootstrap
+sudo systemctl start aitbc-blockchain-node.service
+
+# Verify RPC bootstrap worked
+journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
+```
+
 ## Best Practices
 
 1. **Always backup before changes**
