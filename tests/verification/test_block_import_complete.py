@@ -6,7 +6,8 @@ Tests all functionality including validation, conflicts, and transaction import
 
 import json
 import hashlib
-from datetime import datetime
+import requests
+from datetime import datetime, timezone
 from aitbc import AITBCHTTPClient
 
 BASE_URL = "https://aitbc.bubuit.net/rpc"
@@ -26,6 +27,11 @@ def test_block_import_complete():
     
     results = []
     client = AITBCHTTPClient()
+    
+    # Get current head to use for dynamic height calculation
+    response = requests.get(f"{BASE_URL}/head")
+    head = response.json()
+    base_height = head["height"] + 10000000
     
     # Test 1: Invalid height (0)
     print("\n[TEST 1] Invalid height (0)...")
@@ -53,7 +59,7 @@ def test_block_import_complete():
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
-            "height": 1,
+            "height": base_height,
             "hash": "0xinvalidhash",
             "parent_hash": "0x00",
             "proposer": "test",
@@ -101,7 +107,7 @@ def test_block_import_complete():
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
-            "height": 999999,
+            "height": base_height + 1,
             "hash": "0xinvalid",
             "parent_hash": head["hash"],
             "proposer": "test",
@@ -122,8 +128,8 @@ def test_block_import_complete():
     response = requests.post(
         f"{BASE_URL}/importBlock",
         json={
-            "height": 999998,
-            "hash": compute_block_hash(999998, "0xnonexistent", "2026-01-29T10:20:00"),
+            "height": base_height + 2,
+            "hash": compute_block_hash(base_height + 2, "0xnonexistent", "2026-01-29T10:20:00"),
             "parent_hash": "0xnonexistent",
             "proposer": "test",
             "timestamp": "2026-01-29T10:20:00",
@@ -143,7 +149,7 @@ def test_block_import_complete():
     response = requests.get(f"{BASE_URL}/head")
     head = response.json()
     
-    height = head["height"] + 1
+    height = base_height + 10
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
     
     response = requests.post(
@@ -171,7 +177,7 @@ def test_block_import_complete():
     print("⚠️  KNOWN ISSUE: Transaction import currently fails with database constraint error")
     print("    This appears to be a bug in the transaction field mapping")
     
-    height = height + 1
+    height = base_height + 11
     block_hash = compute_block_hash(height, head["hash"], "2026-01-29T10:20:00")
     
     response = requests.post(
