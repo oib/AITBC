@@ -1,5 +1,10 @@
 # AITBC Enhanced Services (8000-8023) Implementation Complete - March 30, 2026
 
+> **NOTE**: This document describes the implementation as of March 30, 2026. Port allocations have since changed:
+> - Learning Service moved from port 8011 to 8012 (to avoid conflict with Coordinator API)
+> - Agent Coordinator moved from port 8012 to 9001
+> - Current port mappings are documented in `/opt/aitbc/.windsurf/skills/service-port-mapping.md`
+
 ## 🎯 Implementation Summary
 
 **✅ Status**: Enhanced Services successfully implemented and running

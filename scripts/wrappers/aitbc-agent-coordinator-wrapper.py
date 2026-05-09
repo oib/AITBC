@@ -21,7 +21,7 @@ os.environ["DATA_DIR"] = str(DATA_DIR)
 os.environ["LOG_DIR"] = str(LOG_DIR)
 
 # Create required directories
-from aitbc.paths import ensure_dir
+from aitbc.utils.paths import ensure_dir
 ensure_dir(DATA_DIR / "agent-coordinator")
 ensure_dir(LOG_DIR / "agent-coordinator")
 
