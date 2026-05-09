@@ -279,6 +279,7 @@ async def get_genesis_allocations(chain_id: str = None) -> Dict[str, Any]:
                 "allocations": allocations,
                 "genesis_hash": genesis.hash,
                 "genesis_height": genesis.height,
+                "genesis_state_root": genesis.state_root,  # Include the actual genesis state_root
             }
         except json.JSONDecodeError as e:
             raise HTTPException(status_code=500, detail=f"Failed to parse genesis block metadata: {e}")
