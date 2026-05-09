@@ -8,10 +8,10 @@ Specialized skill for managing `/etc/aitbc/` configuration files across multi-no
 ### File Organization
 ```
 /etc/aitbc/
-├── blockchain.env          # Shared blockchain configuration (chains, RPC, sync)
+├── blockchain.env          # Shared blockchain and production configuration
 ├── node.env                # Node-specific configuration (P2P, proposer ID)
-├── production.env          # Production environment variables
 ├── credentials/            # Keystore and secrets
+├── production.env.backup   # Backup of consolidated production.env
 └── .env.backup            # Legacy configuration backup
 ```
 
@@ -23,8 +23,11 @@ Specialized skill for managing `/etc/aitbc/` configuration files across multi-no
 - RPC binding configuration
 - Sync configuration (SYNC_SOURCE_HOST, SYNC_LEADER_HOST)
 - Block production settings
-- Database and Redis URLs
+- Database and Redis URLs (PostgreSQL, Redis)
 - API and service port bindings
+- Production environment variables (NODE_ENV, LOG_LEVEL)
+- Security keys (SECRET_KEY, JWT_SECRET, BLOCKCHAIN_API_KEY)
+- Monitoring configuration (PROMETHEUS_PORT, GRAFANA_PORT)
 
 **node.env**
 - Node-specific identity (NODE_ID, p2p_node_id)
@@ -32,14 +35,6 @@ Specialized skill for managing `/etc/aitbc/` configuration files across multi-no
 - Proposer ID for block production
 - Trusted proposers list
 - Node-specific host bindings
-
-**production.env**
-- Production environment variables
-- NODE_ENV, LOG_LEVEL
-- Database and Redis URLs
-- Security keys (SECRET_KEY, JWT_SECRET)
-- Service port configurations
-- Monitoring endpoints
 
 ## Multi-Node Configuration
 
@@ -151,6 +146,24 @@ grep -r "EnvironmentFile=/etc/aitbc" /etc/systemd/system/aitbc-*.service
 ```
 
 ## Migration Procedures
+
+### Consolidation from 3 Files to 2 Files
+
+**Completed consolidation (2026-05-09):**
+- Merged production.env into blockchain.env
+- Removed duplicate DATABASE_URL and REDIS_URL (kept PostgreSQL and localhost)
+- Added production environment variables to blockchain.env
+- Added security keys to blockchain.env
+- Added monitoring configuration to blockchain.env
+- Deleted production.env (backed up to production.env.backup)
+- Updated all nodes (aitbc, aitbc1, gitea-runner)
+- Restarted services on all nodes
+
+**Benefits:**
+- Simpler configuration structure (2 files instead of 3)
+- No overlapping variables
+- Clear separation: blockchain.env (shared) + node.env (node-specific)
+- Single source of truth for production settings
 
 ### Legacy .env → blockchain.env Migration
 
