@@ -3,7 +3,7 @@
 **Level**: All Levels  
 **Prerequisites**: None  
 **Estimated Time**: 5-15 minutes  
-**Last Updated**: 2026-04-27  
+**Last Updated**: 2026-05-09  
 **Version**: 1.0
 
 ## 🧭 **Navigation Path:**
@@ -25,6 +25,7 @@
 
 Read the release notes newest-first:
 
+- **[v0.3.4](RELEASE_v0.3.4.md)** - May 9, 2026
 - **[v0.3.3](RELEASE_v0.3.3.md)** - April 28, 2026
 - **[v0.3.2](RELEASE_v0.3.2.md)** - April 23, 2026
 - **[v0.3.1](RELEASE_v0.3.1.md)** - April 13, 2026
