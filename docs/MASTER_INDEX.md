@@ -79,10 +79,20 @@ Documentation about the documentation system itself
   - [Integration Assets README](agents/INTEGRATION_ASSETS_README.md)
   - [Agent API Spec](agents/agent-api-spec.json)
   - [Agent Manifest](agents/agent-manifest.json)
-
-### 📱 Applications Documentation
-- **[Apps](apps/)** - Applications documentation (72 items)
-  - Agent services, coordinator, exchange, marketplace, wallet, infrastructure, plugins, crypto, compliance, mining, global AI, explorer
+  - [Agent Integration Guide](agents/AGENT_INTEGRATION_GUIDE.md)
+  - [Agent Configuration](agents/AGENT_CONFIGURATION.md)
+  - [Agent Services](agents/AGENT_SERVICES.md)
+  - [Agent Coordinator](agents/AGENT_COORDINATOR.md)
+  - [Agent Exchange](agents/AGENT_EXCHANGE.md)
+  - [Agent Marketplace](agents/AGENT_MARKETPLACE.md)
+  - [Agent Wallet](agents/AGENT_WALLET.md)
+  - [Agent Infrastructure](agents/AGENT_INFRASTRUCTURE.md)
+  - [Agent Plugins](agents/AGENT_PLUGINS.md)
+  - [Agent Crypto](agents/AGENT_CRYPTO.md)
+  - [Agent Compliance](agents/AGENT_COMPLIANCE.md)
+  - [Agent Mining](agents/AGENT_MINING.md)
+  - [Agent Global AI](agents/AGENT_GLOBAL_AI.md)
+  - [Agent Explorer](agents/AGENT_EXPLORER.md)
 
 ### 🏗️ Architecture Documentation
 - **[Architecture](architecture/)** - System architecture and design patterns (10 items)
