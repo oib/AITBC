@@ -1,6 +1,6 @@
 # AITBC v0.2.2 Release Notes
 
-**Date**: March 15, 2026  
+**Date**: February 15, 2026  
 **Status**: ✅ Released  
 **Scope: Enhanced AI agent services and testing framework
 
