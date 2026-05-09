@@ -8,7 +8,7 @@ import hmac
 import json
 import time
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
@@ -508,9 +508,9 @@ class ChainSync:
         block_hash = block_data["hash"]
         timestamp_str = block_data.get("timestamp", "")
         try:
-            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(datetime.UTC)
+            timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(timezone.utc)
         except (ValueError, TypeError):
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
 
         tx_count = block_data.get("tx_count", 0)
         if transactions:

@@ -8,7 +8,7 @@ from locust.stats import stats_printer, stats_history
 import json
 import random
 import time
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 import gevent
 from gevent.pool import Pool
 

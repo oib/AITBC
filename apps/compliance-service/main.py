@@ -5,7 +5,7 @@ Handles KYC/AML, regulatory compliance, and monitoring
 
 import asyncio
 import json
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, HTTPException
@@ -68,7 +68,7 @@ async def root():
     return {
         "service": "AITBC Compliance Service",
         "status": "running",
-        "timestamp": datetime.now(datetime.UTC).isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": "1.0.0"
     }
 
@@ -97,7 +97,7 @@ async def submit_kyc(kyc_request: KYCRequest):
         "document_number": kyc_request.document_number,
         "address": kyc_request.address,
         "status": "pending",
-        "submitted_at": datetime.now(datetime.UTC).isoformat(),
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
         "reviewed_at": None,
         "approved_at": None,
         "risk_score": "medium",
@@ -111,8 +111,8 @@ async def submit_kyc(kyc_request: KYCRequest):
     
     # Auto-approve for demo (in production, this would involve actual verification)
     kyc_record["status"] = "approved"
-    kyc_record["reviewed_at"] = datetime.now(datetime.UTC).isoformat()
-    kyc_record["approved_at"] = datetime.now(datetime.UTC).isoformat()
+    kyc_record["reviewed_at"] = datetime.now(timezone.utc).isoformat()
+    kyc_record["approved_at"] = datetime.now(timezone.utc).isoformat()
     kyc_record["risk_score"] = "low"
     
     logger.info(f"KYC approved for user: {kyc_request.user_id}")
@@ -146,7 +146,7 @@ async def list_kyc_records():
 @app.post("/api/v1/compliance/report")
 async def create_compliance_report(report: ComplianceReport):
     """Create a compliance report"""
-    report_id = f"report_{int(datetime.now(datetime.UTC).timestamp())}"
+    report_id = f"report_{int(datetime.now(timezone.utc).timestamp())}"
     
     compliance_record = {
         "report_id": report_id,
@@ -155,7 +155,7 @@ async def create_compliance_report(report: ComplianceReport):
         "severity": report.severity,
         "details": report.details,
         "status": "open",
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "assigned_to": None,
         "resolved_at": None,
         "resolution": None
@@ -195,7 +195,7 @@ async def monitor_transaction(transaction: TransactionMonitoring):
         "currency": transaction.currency,
         "counterparty": transaction.counterparty,
         "timestamp": transaction.timestamp.isoformat(),
-        "monitored_at": datetime.now(datetime.UTC).isoformat(),
+        "monitored_at": datetime.now(timezone.utc).isoformat(),
         "risk_score": calculate_transaction_risk(transaction),
         "flags": [],
         "status": "monitored"
@@ -232,7 +232,7 @@ async def list_monitored_transactions():
 @app.post("/api/v1/rules/create")
 async def create_compliance_rule(rule_data: Dict[str, Any]):
     """Create a new compliance rule"""
-    rule_id = f"rule_{int(datetime.now(datetime.UTC).timestamp())}"
+    rule_id = f"rule_{int(datetime.now(timezone.utc).timestamp())}"
     
     rule = {
         "rule_id": rule_id,
@@ -243,7 +243,7 @@ async def create_compliance_rule(rule_data: Dict[str, Any]):
         "actions": rule_data.get("actions", []),
         "severity": rule_data.get("severity", "medium"),
         "active": True,
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "trigger_count": 0
     }
     
@@ -294,7 +294,7 @@ async def compliance_dashboard():
         },
         "risk_distribution": get_risk_distribution(),
         "recent_activity": get_recent_activity(),
-        "generated_at": datetime.now(datetime.UTC).isoformat()
+        "generated_at": datetime.now(timezone.utc).isoformat()
     }
 
 # Helper functions
@@ -337,7 +337,7 @@ def check_suspicious_patterns(transaction: TransactionMonitoring) -> List[str]:
     
     recent_transactions = [t for t in user_transactions 
                          if datetime.fromisoformat(t["monitored_at"]) > 
-                         datetime.now(datetime.UTC) - timedelta(hours=1)]
+                         datetime.now(timezone.utc) - timedelta(hours=1)]
     
     if len(recent_transactions) > 5:
         flags.append("rapid_transactions")
@@ -385,7 +385,7 @@ def get_recent_activity() -> List[Dict]:
     recent_kyc = [r for r in kyc_records.values() 
                  if r.get("approved_at") and 
                  datetime.fromisoformat(r["approved_at"]) > 
-                 datetime.now(datetime.UTC) - timedelta(hours=24)]
+                 datetime.now(timezone.utc) - timedelta(hours=24)]
     
     for kyc in recent_kyc[:5]:
         activities.append({
@@ -397,7 +397,7 @@ def get_recent_activity() -> List[Dict]:
     # Recent compliance reports
     recent_reports = [r for r in compliance_reports.values() 
                      if datetime.fromisoformat(r["created_at"]) > 
-                     datetime.now(datetime.UTC) - timedelta(hours=24)]
+                     datetime.now(timezone.utc) - timedelta(hours=24)]
     
     for report in recent_reports[:5]:
         activities.append({
@@ -418,7 +418,7 @@ async def periodic_compliance_checks():
         await asyncio.sleep(300)  # Check every 5 minutes
         
         # Check for expired KYC records
-        current_time = datetime.now(datetime.UTC)
+        current_time = datetime.now(timezone.utc)
         for user_id, kyc_record in kyc_records.items():
             if kyc_record["status"] == "approved":
                 approved_time = datetime.fromisoformat(kyc_record["approved_at"])

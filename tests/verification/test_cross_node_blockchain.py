@@ -6,7 +6,7 @@ Tests new blockchain features across aitbc and aitbc1 nodes
 
 import hashlib
 import subprocess
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import time
 from aitbc import AITBCHTTPClient, NetworkError
 

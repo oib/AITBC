@@ -10,7 +10,7 @@ sys.path.insert(0, '/home/oib/windsurf/aitbc/apps/coordinator-api/src')
 from sqlmodel import Session, select
 from app.database import engine, create_db_and_tables
 from app.domain.gpu_marketplace import GPURegistry, GPUBooking
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 def fix_gpu_release():
     """Fix GPU release issue by ensuring proper booking records exist"""
@@ -40,7 +40,7 @@ def fix_gpu_release():
             print("❌ No active booking found, creating one...")
             
             # Create a booking record
-            now = datetime.now(datetime.UTC)
+            now = datetime.now(timezone.utc)
             booking = GPUBooking(
                 gpu_id=gpu_id,
                 client_id="localhost-user",

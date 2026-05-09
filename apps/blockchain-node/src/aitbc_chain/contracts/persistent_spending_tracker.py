@@ -5,7 +5,7 @@ Fixes the critical vulnerability where spending limits were lost on restart
 
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import create_engine, Column, String, Integer, Float, DateTime, Index
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
@@ -25,7 +25,7 @@ class SpendingRecord(Base):
     period_key = Column(String, index=True)
     amount = Column(Float)
     transaction_hash = Column(String)
-    timestamp = Column(DateTime, default=datetime.now(datetime.UTC))
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc))
     
     # Composite indexes for performance
     __table_args__ = (
@@ -45,7 +45,7 @@ class SpendingLimit(Base):
     per_week = Column(Float)
     time_lock_threshold = Column(Float)
     time_lock_delay_hours = Column(Integer)
-    updated_at = Column(DateTime, default=datetime.now(datetime.UTC))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc))
     updated_by = Column(String)  # Guardian who updated
 
 
@@ -57,7 +57,7 @@ class GuardianAuthorization(Base):
     agent_address = Column(String, index=True)
     guardian_address = Column(String, index=True)
     is_active = Column(Boolean, default=True)
-    added_at = Column(DateTime, default=datetime.now(datetime.UTC))
+    added_at = Column(DateTime, default=datetime.now(timezone.utc))
     added_by = Column(String)
 
 
@@ -112,7 +112,7 @@ class PersistentSpendingTracker:
             Total amount spent in period
         """
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
         
         period_key = self._get_period_key(timestamp, period)
         agent_address = to_checksum_address(agent_address)
@@ -140,7 +140,7 @@ class PersistentSpendingTracker:
             True if recorded successfully
         """
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
         
         agent_address = to_checksum_address(agent_address)
         
@@ -184,7 +184,7 @@ class PersistentSpendingTracker:
             Spending check result
         """
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
         
         agent_address = to_checksum_address(agent_address)
         
@@ -312,7 +312,7 @@ class PersistentSpendingTracker:
                     limits.per_week = new_limits.get("per_week", limits.per_week)
                     limits.time_lock_threshold = new_limits.get("time_lock_threshold", limits.time_lock_threshold)
                     limits.time_lock_delay_hours = new_limits.get("time_lock_delay_hours", limits.time_lock_delay_hours)
-                    limits.updated_at = datetime.now(datetime.UTC)
+                    limits.updated_at = datetime.now(timezone.utc)
                     limits.updated_by = guardian_address
                 else:
                     limits = SpendingLimit(
@@ -323,7 +323,7 @@ class PersistentSpendingTracker:
                         per_week=new_limits.get("per_week", 100000.0),
                         time_lock_threshold=new_limits.get("time_lock_threshold", 5000.0),
                         time_lock_delay_hours=new_limits.get("time_lock_delay_hours", 24),
-                        updated_at=datetime.now(datetime.UTC),
+                        updated_at=datetime.now(timezone.utc),
                         updated_by=guardian_address
                     )
                     session.add(limits)
@@ -361,7 +361,7 @@ class PersistentSpendingTracker:
                 
                 if existing:
                     existing.is_active = True
-                    existing.added_at = datetime.now(datetime.UTC)
+                    existing.added_at = datetime.now(timezone.utc)
                     existing.added_by = added_by
                 else:
                     auth = GuardianAuthorization(
@@ -369,7 +369,7 @@ class PersistentSpendingTracker:
                         agent_address=agent_address,
                         guardian_address=guardian_address,
                         is_active=True,
-                        added_at=datetime.now(datetime.UTC),
+                        added_at=datetime.now(timezone.utc),
                         added_by=added_by
                     )
                     session.add(auth)
@@ -415,7 +415,7 @@ class PersistentSpendingTracker:
             Spending summary
         """
         agent_address = to_checksum_address(agent_address)
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         
         # Get current spending
         current_spent = {

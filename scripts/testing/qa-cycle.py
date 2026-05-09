@@ -10,7 +10,7 @@ import sys
 import shutil
 import time
 import random
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 
 # Jitter: random delay up to 15 minutes (900 seconds)

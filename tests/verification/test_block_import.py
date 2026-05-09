@@ -6,7 +6,7 @@ Tests the /rpc/blocks/import POST endpoint functionality
 
 import json
 import hashlib
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import requests
 
 # Test configuration

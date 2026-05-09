@@ -9,7 +9,7 @@ import json
 import os
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 
 @click.group()
@@ -42,7 +42,7 @@ def register(ctx, name: str, api_key: str, secret_key: Optional[str], sandbox: b
         "secret_key": secret_key or "NOT_SET",
         "sandbox": sandbox,
         "description": description or f"{name} exchange integration",
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "active",
         "trading_pairs": [],
         "last_sync": None
@@ -109,7 +109,7 @@ def create_pair(ctx, base_asset: str, quote_asset: str, exchange: str, min_order
         "price_precision": price_precision,
         "quantity_precision": quantity_precision,
         "status": "active",
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "trading_enabled": False
     }
     
@@ -168,7 +168,7 @@ def start_trading(ctx, pair: str, price: Optional[float], base_liquidity: float,
     
     # Update pair to enable trading
     target_pair["trading_enabled"] = True
-    target_pair["started_at"] = datetime.now(datetime.UTC).isoformat()
+    target_pair["started_at"] = datetime.now(timezone.utc).isoformat()
     target_pair["initial_price"] = price or 0.00001  # Default price for AITBC
     target_pair["base_liquidity"] = base_liquidity
     target_pair["quote_liquidity"] = quote_liquidity
@@ -291,7 +291,7 @@ def add_liquidity(ctx, pair: str, amount: float, side: str, exchange: Optional[s
     if side == 'sell' or side == 'both':
         target_pair["base_liquidity"] = target_pair.get("base_liquidity", 0) + amount
     
-    target_pair["liquidity_updated_at"] = datetime.now(datetime.UTC).isoformat()
+    target_pair["liquidity_updated_at"] = datetime.now(timezone.utc).isoformat()
     
     # Save exchanges
     with open(exchanges_file, 'w') as f:
