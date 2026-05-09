@@ -36,7 +36,7 @@ from app.main import create_app  # noqa: E402
 from app.deps import APIKeyValidator  # noqa: E402
 
 # CLI imports
-from aitbc_cli.main import cli  # noqa: E402
+from aitbc_cli import cli  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
