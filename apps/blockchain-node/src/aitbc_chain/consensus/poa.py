@@ -497,23 +497,23 @@ class PoAProposer:
         # Try local file first
         local_allocations = self._load_genesis_allocations_from_file()
         if local_allocations:
-            self._logger.info("Using local genesis allocations file")
+            self._logger.info(f"Using local genesis allocations file for chain {self._config.chain_id}")
             self._create_accounts_from_allocations(session, local_allocations)
             return
         
         # Try RPC bootstrap
-        self._logger.info("Local genesis file not found, attempting RPC bootstrap")
+        self._logger.info(f"Local genesis file not found for chain {self._config.chain_id}, attempting RPC bootstrap")
         try:
             rpc_allocations = await self._load_genesis_allocations_from_rpc()
             if rpc_allocations:
-                self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap")
+                self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap for chain {self._config.chain_id}")
                 self._create_accounts_from_allocations(session, rpc_allocations)
-                self._logger.info("RPC bootstrap completed successfully, skipping local file")
+                self._logger.info(f"RPC bootstrap completed successfully for chain {self._config.chain_id}, skipping local file")
                 return  # Return early to avoid falling back to local file
             else:
-                self._logger.warning("RPC bootstrap returned no allocations, skipping account initialization")
+                self._logger.warning(f"RPC bootstrap returned no allocations for chain {self._config.chain_id}, skipping account initialization")
         except Exception as e:
-            self._logger.warning(f"RPC bootstrap failed: {e}, skipping account initialization")
+            self._logger.warning(f"RPC bootstrap failed for chain {self._config.chain_id}: {e}, skipping account initialization")
     
     def _load_genesis_allocations_from_file(self) -> list:
         """Load genesis allocations from local file."""
