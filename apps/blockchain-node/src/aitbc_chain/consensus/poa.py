@@ -506,6 +506,7 @@ class PoAProposer:
             if rpc_allocations:
                 self._logger.info(f"Loaded {len(rpc_allocations)} allocations via RPC bootstrap")
                 self._create_accounts_from_allocations(session, rpc_allocations)
+                return  # Return early to avoid falling back to local file
             else:
                 self._logger.warning("RPC bootstrap returned no allocations, skipping account initialization")
         except Exception as e:
