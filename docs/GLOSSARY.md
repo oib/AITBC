@@ -149,7 +149,6 @@
 - **Wallet Agent**: Agent type focused on wallet operations
 - **Wallet Balance**: Amount of AIT tokens in a wallet
 - **Wallet Create**: CLI operation for creating a new wallet
-- **Wallet Fund**: Adding tokens to a wallet (deprecated in favor of transaction_send)
 - **Wallet Import**: Importing an existing wallet from a private key
 - **WAL Mode**: Write-Ahead Logging - SQLite journal mode for better concurrency and performance
 

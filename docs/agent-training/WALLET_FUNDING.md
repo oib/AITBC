@@ -60,9 +60,9 @@ GENESIS_PASSWORD=$(cat /var/lib/aitbc/keystore/.genesis_password)
 
 The AITBC system includes a faucet service for automated wallet funding.
 
-### Faucet Setup (Deprecated)
+### Faucet Setup
 
-The bash-based faucet setup script is deprecated. Use the Python-based setup system instead:
+Use the Python-based setup system for faucet configuration:
 
 ```bash
 python3 -m aitbc.training_setup.cli setup
