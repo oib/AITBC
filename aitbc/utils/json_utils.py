@@ -6,7 +6,7 @@ Centralized JSON loading, saving, and manipulation
 import json
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from .exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 
 
 def load_json(path: Path) -> Dict[str, Any]:

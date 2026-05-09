@@ -4,8 +4,8 @@ Centralized path resolution and directory management
 """
 
 from pathlib import Path
-from .constants import DATA_DIR, CONFIG_DIR, LOG_DIR, REPO_DIR
-from .exceptions import ConfigurationError
+from ..constants import DATA_DIR, CONFIG_DIR, LOG_DIR, REPO_DIR
+from ..exceptions import ConfigurationError
 
 
 def get_data_path(subpath: str = "") -> Path:

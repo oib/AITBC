@@ -5,7 +5,7 @@ Centralized utilities for loading and managing environment variables
 
 import os
 from typing import Optional
-from .exceptions import ConfigurationError
+from ..exceptions import ConfigurationError
 
 
 def get_env_var(key: str, default: str = "") -> str:
