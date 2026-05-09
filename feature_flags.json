@@ -1,0 +1,10 @@
+{
+  "test-feature": {
+    "enabled": true,
+    "description": "",
+    "rollout_percentage": 50,
+    "whitelisted_users": [],
+    "blacklisted_users": [],
+    "enabled_since": "2026-05-09T17:37:36.659721"
+  }
+}
