@@ -5,7 +5,7 @@ Reusable fixtures for service and integration tests to avoid duplication
 
 import sys
 from pathlib import Path
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pytest
 from sqlalchemy import create_engine

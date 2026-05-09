@@ -6,7 +6,7 @@ import hashlib
 import uuid
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from utils import output, error, success, warning
 
 
@@ -42,7 +42,7 @@ def create(ctx, threshold: int, owners: str, name: Optional[str], description: O
         "threshold": threshold,
         "owners": owner_list,
         "status": "active",
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "description": description or f"Multi-signature wallet with {threshold}/{len(owner_list)} threshold",
         "transactions": [],
         "proposals": [],
@@ -112,7 +112,7 @@ def propose(ctx, wallet_id: str, recipient: str, amount: float, description: Opt
         "amount": amount,
         "description": description or f"Send {amount} to {recipient}",
         "status": "pending",
-        "created_at": datetime.now(datetime.UTC).isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "signatures": [],
         "threshold": wallet["threshold"],
         "owners": wallet["owners"]
@@ -190,7 +190,7 @@ def sign(ctx, proposal_id: str, signer: str, private_key: Optional[str]):
     signature_obj = {
         "signer": signer,
         "signature": signature,
-        "timestamp": datetime.now(datetime.UTC).isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
     
     target_proposal["signatures"].append(signature_obj)
@@ -198,7 +198,7 @@ def sign(ctx, proposal_id: str, signer: str, private_key: Optional[str]):
     # Check if threshold reached
     if len(target_proposal["signatures"]) >= target_proposal["threshold"]:
         target_proposal["status"] = "approved"
-        target_proposal["approved_at"] = datetime.now(datetime.UTC).isoformat()
+        target_proposal["approved_at"] = datetime.now(timezone.utc).isoformat()
         
         # Add to transactions
         transaction = {
@@ -411,9 +411,9 @@ def challenge(ctx, proposal_id: str):
     challenge_data = {
         "challenge_id": f"challenge_{str(uuid.uuid4())[:8]}",
         "proposal_id": proposal_id,
-        "challenge": hashlib.sha256(f"{proposal_id}:{datetime.now(datetime.UTC).isoformat()}".encode()).hexdigest(),
-        "created_at": datetime.now(datetime.UTC).isoformat(),
-        "expires_at": (datetime.now(datetime.UTC) + timedelta(hours=1)).isoformat()
+        "challenge": hashlib.sha256(f"{proposal_id}:{datetime.now(timezone.utc).isoformat()}".encode()).hexdigest(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
     }
     
     # Store challenge (in a real implementation, this would be more secure)

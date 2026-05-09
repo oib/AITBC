@@ -6,7 +6,7 @@ Tests for distributed decision making, voting systems, and consensus algorithms
 import pytest
 import asyncio
 import json
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, AsyncMock
 from typing import Dict, List, Any
 

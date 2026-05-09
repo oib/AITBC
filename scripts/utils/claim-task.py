@@ -6,7 +6,7 @@ Uses Git branch atomic creation as a distributed lock to prevent duplicate work.
 import os
 import json
 import subprocess
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 REPO_DIR = '/opt/aitbc'
 STATE_FILE = '/opt/aitbc/.claim-state.json'
@@ -106,7 +106,7 @@ def create_work_branch(issue_number, title):
     return branch_name
 
 def main():
-    now = datetime.now(datetime.UTC)
+    now = datetime.now(timezone.utc)
     print(f"[{now.isoformat()}Z] Claim task cycle starting...")
     
     state = load_state()
@@ -155,7 +155,7 @@ def main():
                 'current_claim': num,
                 'claim_branch': f'claim/{num}',
                 'work_branch': work_branch,
-                'claimed_at': datetime.now(datetime.UTC).isoformat() + 'Z',
+                'claimed_at': datetime.now(timezone.utc).isoformat() + 'Z',
                 'issue_title': title,
                 'labels': labels
             })

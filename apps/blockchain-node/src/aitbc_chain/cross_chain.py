@@ -1,7 +1,7 @@
 """Cross-chain synchronization for testing multi-chain scenarios."""
 
 import asyncio
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any, Dict, List
 
 

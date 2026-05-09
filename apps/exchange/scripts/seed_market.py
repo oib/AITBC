@@ -2,7 +2,7 @@
 """Seed initial market price for the exchange"""
 
 import sqlite3
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from aitbc.constants import DATA_DIR
 
 def seed_initial_price():
@@ -27,7 +27,7 @@ def seed_initial_price():
         cursor.execute('''
             INSERT INTO trades (amount, price, total, created_at)
             VALUES (?, ?, ?, ?)
-        ''', (amount, price, total, datetime.now(datetime.UTC)))
+        ''', (amount, price, total, datetime.now(timezone.utc)))
     
     # Also create some initial orders for liquidity
     initial_orders = [

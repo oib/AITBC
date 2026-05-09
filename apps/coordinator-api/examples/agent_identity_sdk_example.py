@@ -6,7 +6,7 @@ Demonstrates basic usage of the Agent Identity SDK
 
 import asyncio
 import json
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, Any
 
 # Import SDK components
@@ -94,7 +94,7 @@ async def basic_identity_example():
                         "agent_id": identity.agent_id,
                         "chain_id": mapping.chain_id,
                         "chain_address": mapping.chain_address,
-                        "timestamp": datetime.now(datetime.UTC).isoformat(),
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
                         "verification_method": "demo"
                     }
                     
@@ -234,7 +234,7 @@ async def advanced_transaction_example():
                     "description": "Updated description with new capabilities",
                     "metadata": {
                         "version": "1.1.0",
-                        "last_updated": datetime.now(datetime.UTC).isoformat()
+                        "last_updated": datetime.now(timezone.utc).isoformat()
                     },
                     "tags": ["demo", "ai", "updated"]
                 }

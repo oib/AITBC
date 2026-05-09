@@ -4,7 +4,7 @@ Exception classes and error response schemas for AITBC coordinator
 Provides structured error responses for consistent API error handling.
 """
 
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Any
 
 from pydantic import BaseModel, Field

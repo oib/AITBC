@@ -5,7 +5,7 @@ Base interfaces for cross-chain settlement bridges
 import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -51,7 +51,7 @@ class SettlementMessage:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(datetime.UTC)
+            self.created_at = datetime.now(timezone.utc)
 
 
 @dataclass
@@ -69,7 +69,7 @@ class SettlementResult:
 
     def __post_init__(self):
         if self.created_at is None:
-            self.created_at = datetime.now(datetime.UTC)
+            self.created_at = datetime.now(timezone.utc)
 
 
 class BridgeAdapter(ABC):
@@ -220,7 +220,7 @@ class EthereumBridge(BridgeAdapter):
                 transaction_hash="0x" + "0" * 64,  # Mock hash
                 gas_used=gas_estimate,
                 fee_paid=int(self.config.default_fee),
-                completed_at=datetime.now(datetime.UTC)
+                completed_at=datetime.now(timezone.utc)
             )
             
             return result
