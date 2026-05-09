@@ -381,7 +381,7 @@
   "failure_simulation": [
     {
       "test_name": "Insufficient funds error",
-      "operation": "wallet_send",
+      "operation": "transaction_send",
       "failure_type": "insufficient_funds",
       "test_case": {
         "wallet": "training-wallet",
@@ -394,7 +394,7 @@
     },
     {
       "test_name": "Invalid password error",
-      "operation": "wallet_send",
+      "operation": "transaction_send",
       "failure_type": "invalid_password",
       "test_case": {
         "wallet": "training-wallet",
