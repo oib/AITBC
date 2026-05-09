@@ -4,7 +4,7 @@ import asyncio
 import json
 import time
 from typing import Any, Dict, Optional, List
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, model_validator
@@ -478,12 +478,12 @@ async def submit_marketplace_transaction(tx_data: Dict[str, Any]) -> Dict[str, A
                 sender=sender_addr,
                 recipient=recipient_addr,
                 payload=tx_data.get("payload", {}),
-                created_at=datetime.now(datetime.UTC),
+                created_at=datetime.now(timezone.utc),
                 nonce=tx_nonce,
                 value=amount,
                 fee=fee,
                 status="pending",
-                timestamp=datetime.now(datetime.UTC).isoformat()
+                timestamp=datetime.now(timezone.utc).isoformat()
             )
             session.add(transaction)
             
@@ -798,9 +798,9 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
                 try:
                     timestamp = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
                 except ValueError:
-                    timestamp = datetime.now(datetime.UTC)
+                    timestamp = datetime.now(timezone.utc)
             elif timestamp is None:
-                timestamp = datetime.now(datetime.UTC)
+                timestamp = datetime.now(timezone.utc)
 
             with session_scope(chain_id) as session:
                 # Check for hash conflicts across chains
@@ -1046,7 +1046,7 @@ async def import_chain(import_data: dict) -> Dict[str, Any]:
                  _logger.info(f"Importing {len(unique_blocks)} unique blocks (filtered from {len(blocks)} total)")
 
                  for block_data in unique_blocks:
-                     block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(datetime.UTC)
+                     block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(timezone.utc)
                      block = Block(
                          chain_id=chain_id,
                          height=block_data["height"],

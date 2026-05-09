@@ -10,7 +10,7 @@ from typing import List, Optional, Dict, Any
 import json
 import uuid
 import os
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import sqlite3
 from contextlib import contextmanager
 from contextlib import asynccontextmanager
@@ -247,7 +247,7 @@ async def get_task_status():
                 },
                 "queue_sizes": queue_sizes
             },
-            "timestamp": datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
 
 # Agent Management Endpoints
@@ -272,7 +272,7 @@ async def register_agent(request: AgentRegistrationRequest):
                 json.dumps(request.services),
                 json.dumps(request.endpoints),
                 json.dumps(request.metadata),
-                datetime.now(datetime.UTC),
+                datetime.now(timezone.utc),
                 1.0
             ))
             conn.commit()
@@ -284,7 +284,7 @@ async def register_agent(request: AgentRegistrationRequest):
             "status": "success",
             "message": f"Agent {request.agent_id} registered successfully",
             "agent_id": request.agent_id,
-            "registered_at": datetime.now(datetime.UTC).isoformat()
+            "registered_at": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
         print(f"ERROR: Failed to register agent: {str(e)}")
@@ -345,7 +345,7 @@ async def discover_agents(query: Dict[str, Any]):
                     for agent in agents
                 ],
                 "count": len(agents),
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error discovering agents: {str(e)}")
@@ -374,7 +374,7 @@ async def get_agent(agent_id: str):
                     "registration_time": agent["registration_time"],
                     "health_score": agent["health_score"]
                 },
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     except HTTPException:
         raise
@@ -390,7 +390,7 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
             conn.execute('''
                 UPDATE agents SET status = ?, last_heartbeat = ?
                 WHERE id = ?
-            ''', (request.status, datetime.now(datetime.UTC), agent_id))
+            ''', (request.status, datetime.now(timezone.utc), agent_id))
             
             # Update load metrics if provided
             if request.load_metrics:
@@ -404,7 +404,7 @@ async def update_agent_status(agent_id: str, request: AgentStatusUpdate):
                 "message": f"Agent {agent_id} status updated",
                 "agent_id": agent_id,
                 "new_status": request.status,
-                "updated_at": datetime.now(datetime.UTC).isoformat()
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating agent status: {str(e)}")
@@ -417,12 +417,12 @@ async def agent_heartbeat(agent_id: str):
             conn.execute('''
                 UPDATE agents SET last_heartbeat = ?
                 WHERE id = ?
-            ''', (datetime.now(datetime.UTC), agent_id))
+            ''', (datetime.now(timezone.utc), agent_id))
             
             return {
                 "status": "success",
                 "message": f"Heartbeat received for agent {agent_id}",
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating heartbeat: {str(e)}")

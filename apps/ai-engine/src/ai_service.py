@@ -7,7 +7,7 @@ Basic AI-powered trading and analytics
 import asyncio
 import json
 import numpy as np
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Dict, Any, List
@@ -58,7 +58,7 @@ class SimpleAITradingEngine:
                     'overall_sentiment': np.random.choice(['bullish', 'bearish', 'neutral'])
                 }
             },
-            'timestamp': datetime.now(datetime.UTC)
+            'timestamp': datetime.now(timezone.utc)
         }
     
     async def make_trading_decision(self, symbol: str) -> Dict[str, Any]:
@@ -90,7 +90,7 @@ class SimpleAITradingEngine:
             'quantity': quantity,
             'price': analysis['current_price'],
             'reasoning': f"Signal strength: {signal_strength:.3f}",
-            'timestamp': datetime.now(datetime.UTC)
+            'timestamp': datetime.now(timezone.utc)
         }
 
 # Global AI engine
@@ -104,7 +104,7 @@ async def analyze_market(request: AnalysisRequest):
         return {
             "status": "success",
             "analysis": analysis,
-            "timestamp": datetime.now(datetime.UTC)
+            "timestamp": datetime.now(timezone.utc)
         }
     except Exception as e:
         return {"status": "error", "message": "Analysis failed"}
@@ -118,7 +118,7 @@ async def execute_ai_trade(request: TradingRequest):
         return {
             "status": "success",
             "decision": decision,
-            "timestamp": datetime.now(datetime.UTC)
+            "timestamp": datetime.now(timezone.utc)
         }
     except Exception as e:
         return {"status": "error", "message": "Analysis failed"}
@@ -136,7 +136,7 @@ async def predict_market(symbol: str):
                 "risk": analysis['ai_predictions']['risk_assessment'],
                 "sentiment": analysis['ai_predictions']['sentiment_analysis']
             },
-            "timestamp": datetime.now(datetime.UTC)
+            "timestamp": datetime.now(timezone.utc)
         }
     except Exception as e:
         return {"status": "error", "message": "Analysis failed"}
@@ -152,7 +152,7 @@ async def get_ai_dashboard():
                 'total_volume': np.random.uniform(100000, 1000000),
                 'active_symbols': len(symbols),
                 'ai_models_active': 3,
-                'last_update': datetime.now(datetime.UTC)
+                'last_update': datetime.now(timezone.utc)
             },
             'symbol_analysis': {}
         }
@@ -169,7 +169,7 @@ async def get_ai_dashboard():
         return {
             "status": "success",
             "dashboard": dashboard_data,
-            "timestamp": datetime.now(datetime.UTC)
+            "timestamp": datetime.now(timezone.utc)
         }
     except Exception as e:
         return {"status": "error", "message": "Analysis failed"}
@@ -192,13 +192,13 @@ async def get_ai_status():
             "risk_assessment",
             "sentiment_analysis"
         ],
-        "timestamp": datetime.now(datetime.UTC)
+        "timestamp": datetime.now(timezone.utc)
     }
 
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "timestamp": datetime.now(datetime.UTC)}
+    return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
 
 if __name__ == "__main__":
     import uvicorn

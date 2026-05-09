@@ -4,7 +4,7 @@ Provides blockchain-agnostic wallet interface for agents
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -69,7 +69,7 @@ class EthereumWalletAdapter(WalletAdapter):
             "wallet_address": f"0x{'0' * 40}",  # Mock address
             "contract_address": f"0x{'1' * 40}",  # Mock contract
             "transaction_hash": f"0x{'2' * 64}",  # Mock tx hash
-            "created_at": datetime.now(datetime.UTC).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
         }
 
     async def get_balance(self, wallet_address: str) -> Decimal:
@@ -91,7 +91,7 @@ class EthereumWalletAdapter(WalletAdapter):
             "gas_price": "20000000000",
             "status": "success",
             "block_number": 12345,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     async def get_transaction_history(self, wallet_address: str, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
@@ -105,7 +105,7 @@ class EthereumWalletAdapter(WalletAdapter):
                 "amount": "0.1",
                 "gas_used": "21000",
                 "block_number": 12344,
-                "timestamp": datetime.now(datetime.UTC).isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
         ]
 
@@ -269,7 +269,7 @@ class MultiChainWalletAdapter:
 
         # Update wallet in database
         wallet.total_spent += float(amount)
-        wallet.last_transaction = datetime.now(datetime.UTC)
+        wallet.last_transaction = datetime.now(timezone.utc)
         wallet.transaction_count += 1
         self.session.commit()
 
@@ -312,7 +312,7 @@ class MultiChainWalletAdapter:
             if hasattr(wallet, field):
                 setattr(wallet, field, value)
 
-        wallet.updated_at = datetime.now(datetime.UTC)
+        wallet.updated_at = datetime.now(timezone.utc)
 
         self.session.commit()
         self.session.refresh(wallet)
@@ -338,7 +338,7 @@ class MultiChainWalletAdapter:
 
         # Deactivate wallet
         wallet.is_active = False
-        wallet.updated_at = datetime.now(datetime.UTC)
+        wallet.updated_at = datetime.now(timezone.utc)
 
         self.session.commit()
 

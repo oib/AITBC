@@ -12,7 +12,7 @@ wallets from unlimited spending in case of compromise. It provides:
 
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 import json
 import os
 import sqlite3
@@ -248,7 +248,7 @@ class GuardianContract:
     def _get_spent_in_period(self, period: str, timestamp: datetime = None) -> int:
         """Calculate total spent in given period"""
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
             
         period_key = self._get_period_key(timestamp, period)
         
@@ -265,7 +265,7 @@ class GuardianContract:
     def _check_spending_limits(self, amount: int, timestamp: datetime = None) -> Tuple[bool, str]:
         """Check if amount exceeds spending limits"""
         if timestamp is None:
-            timestamp = datetime.now(datetime.UTC)
+            timestamp = datetime.now(timezone.utc)
             
         # Check per-transaction limit
         if amount > self.config.limits.per_transaction:
@@ -350,7 +350,7 @@ class GuardianContract:
             "to": to_address,
             "amount": amount,
             "data": data,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "nonce": self.nonce,
             "status": "pending"
         }
@@ -360,7 +360,7 @@ class GuardianContract:
         
         # Check if time lock is required
         if self._requires_time_lock(amount):
-            unlock_time = datetime.now(datetime.UTC) + timedelta(hours=self.config.time_lock.delay_hours)
+            unlock_time = datetime.now(timezone.utc) + timedelta(hours=self.config.time_lock.delay_hours)
             operation["unlock_time"] = unlock_time.isoformat()
             operation["status"] = "time_locked"
             
@@ -406,7 +406,7 @@ class GuardianContract:
         # Check if operation is time locked
         if operation["status"] == "time_locked":
             unlock_time = datetime.fromisoformat(operation["unlock_time"])
-            if datetime.now(datetime.UTC) < unlock_time:
+            if datetime.now(timezone.utc) < unlock_time:
                 return {
                     "status": "error",
                     "reason": f"Operation locked until {unlock_time.isoformat()}"
@@ -432,7 +432,7 @@ class GuardianContract:
             "amount": operation["amount"],
             "data": operation.get("data", ""),
             "timestamp": operation["timestamp"],
-            "executed_at": datetime.now(datetime.UTC).isoformat(),
+            "executed_at": datetime.now(timezone.utc).isoformat(),
             "status": "completed",
             "nonce": operation["nonce"]
         }
@@ -479,7 +479,7 @@ class GuardianContract:
         
         return {
             "status": "paused",
-            "paused_at": datetime.now(datetime.UTC).isoformat(),
+            "paused_at": datetime.now(timezone.utc).isoformat(),
             "guardian": guardian_address,
             "message": "Emergency pause activated - all operations halted"
         }
@@ -513,7 +513,7 @@ class GuardianContract:
         
         return {
             "status": "unpaused",
-            "unpaused_at": datetime.now(datetime.UTC).isoformat(),
+            "unpaused_at": datetime.now(timezone.utc).isoformat(),
             "message": "Emergency pause lifted - operations resumed"
         }
     
@@ -541,13 +541,13 @@ class GuardianContract:
             "status": "updated",
             "old_limits": old_limits,
             "new_limits": new_limits,
-            "updated_at": datetime.now(datetime.UTC).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
             "guardian": guardian_address
         }
     
     def get_spending_status(self) -> Dict:
         """Get current spending status and limits"""
-        now = datetime.now(datetime.UTC)
+        now = datetime.now(timezone.utc)
         
         return {
             "agent_address": self.agent_address,

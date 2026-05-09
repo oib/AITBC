@@ -5,7 +5,7 @@ Security tests for AITBC Confidential Transactions
 import pytest
 import json
 import sys
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch, AsyncMock
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM

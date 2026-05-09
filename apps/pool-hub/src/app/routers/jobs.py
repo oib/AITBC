@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pydantic import BaseModel
 
 from ..registry import MinerRegistry
@@ -86,7 +86,7 @@ async def assign_job(
         job_id=job.job_id,
         miner_id=best_miner.miner_id,
         pool_id=best_miner.pool_id,
-        assigned_at=datetime.now(datetime.UTC),
+        assigned_at=datetime.now(timezone.utc),
         deadline=job.deadline
     )
 

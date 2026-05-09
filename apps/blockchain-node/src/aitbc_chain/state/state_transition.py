@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 from sqlmodel import Session, select
 from sqlalchemy import select, text
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 from ..models import Account, Transaction, Receipt
 from ..logger import get_logger
@@ -242,7 +242,7 @@ class StateTransition:
                 
                 # Update receipt status
                 receipt.status = "claimed"
-                receipt.claimed_at = datetime.now(datetime.UTC)
+                receipt.claimed_at = datetime.now(timezone.utc)
                 receipt.claimed_by = sender_addr
                 
                 logger.info(

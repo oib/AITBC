@@ -5,7 +5,7 @@ Simple FastAPI backend for the AITBC Trade Exchange (Python 3.13 compatible)
 
 import sqlite3
 import json
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import random

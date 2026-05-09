@@ -34,7 +34,7 @@ class MatchRepository:
             requirements=requirements,
             hints=hints or {},
             top_k=top_k,
-            created_at=dt.datetime.now(datetime.UTC),
+            created_at=dt.datetime.now(timezone.utc),
         )
         self._session.add(request)
         await self._session.flush()
@@ -58,7 +58,7 @@ class MatchRepository:
         publish: bool = True,
     ) -> List[MatchResult]:
         results: List[MatchResult] = []
-        created_at = dt.datetime.now(datetime.UTC)
+        created_at = dt.datetime.now(timezone.utc)
         for candidate in candidates:
             result = MatchResult(
                 request_id=request_id,

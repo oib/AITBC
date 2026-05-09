@@ -9,7 +9,7 @@ import json
 import logging
 import time
 from typing import Dict, Any, List
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 import sys
 import os
 
@@ -112,7 +112,7 @@ class ComplianceAgent:
             "alert_type": "compliance_failure",
             "severity": "high",
             "details": result,
-            "timestamp": datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
         
         # In a real implementation, this would send to alert system
