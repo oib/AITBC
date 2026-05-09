@@ -40,6 +40,11 @@ An hermes agent needs plugin development to:
 - Deploy plugin to marketplace
 - Use plugins in agent workflows
 
+### **Features Combined**
+- **Python Development**: Plugin architecture and lifecycle
+- **Marketplace Integration**: Plugin deployment and distribution
+- **Service Extension**: Custom functionality integration
+
 ---
 
 ## 📋 **Prerequisites**

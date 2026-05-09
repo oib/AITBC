@@ -40,6 +40,11 @@ An hermes agent needs analytics collection to:
 - Visualize analytics data
 - Export analytics data
 
+### **Features Combined**
+- **Blockchain Monitoring** (Scenario 15)
+- **Data Analysis**: Historical data processing
+- **Reporting**: Analytics visualization and export
+
 ---
 
 ## 📋 **Prerequisites**
