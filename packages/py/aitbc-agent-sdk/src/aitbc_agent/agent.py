@@ -16,7 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
-from aitbc.http_client import AITBCHTTPClient
+from aitbc.network.http_client import AITBCHTTPClient
 from aitbc_agent.contract_integration import (
     AgentContractIntegration, 
     ContractClient, 

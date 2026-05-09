@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 import uvicorn
 
-from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 

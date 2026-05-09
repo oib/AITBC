@@ -13,15 +13,14 @@ sys.path.insert(0, str(REPO_ROOT / "packages" / "py" / "aitbc-sdk" / "src"))
 import aitbc
 import aitbc_agent
 import aitbc_sdk
-import aitbc.paths as aitbc_paths
 
 from aitbc.aitbc_logging import get_logger as direct_get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_PORT, DATA_DIR, ENV_FILE, KEYSTORE_DIR, LOG_DIR, NODE_ENV_FILE, PACKAGE_VERSION
 from aitbc.exceptions import NetworkError, ValidationError
-from aitbc.http_client import AITBCHTTPClient
-from aitbc.paths import ensure_dir, get_keystore_path
+from aitbc.network.http_client import AITBCHTTPClient
+from aitbc.utils.paths import ensure_dir, get_keystore_path
+from aitbc.utils.validation import validate_address, validate_url
 from aitbc.testing import MockFactory
-from aitbc.validation import validate_address, validate_url
 
 
 def test_aitbc_root_exports_match_lightweight_submodules() -> None:
