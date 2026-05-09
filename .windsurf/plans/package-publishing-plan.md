@@ -10,7 +10,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 
 - Active PyPI account with publishing permissions
 - Active npm account with publishing permissions
-- GitHub Actions configured for the repository
+- Gitea Actions configured for the repository
 - Version management strategy defined
 
 ## Steps
@@ -23,8 +23,8 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
    - Verify package metadata (name, version, description, authors)
 
 2. **Configure PyPI publishing**
-   - Add PyPI API token to GitHub repository secrets (`PYPI_API_TOKEN`)
-   - Create GitHub Actions workflow for PyPI publishing
+   - Add PyPI API token to Gitea repository secrets (`PYPI_API_TOKEN`)
+   - Create Gitea Actions workflow for PyPI publishing
    - Configure automatic publishing on version tags
 
 3. **Test package installation**
@@ -34,7 +34,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 
 4. **Publish to PyPI**
    - Create and push version tag (e.g., `v0.1.0`)
-   - GitHub Actions will automatically publish to PyPI
+   - Gitea Actions will automatically publish to PyPI
    - Verify package appears on PyPI
    - Test installation from PyPI: `pip install aitbc-sdk`
 
@@ -47,7 +47,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 
 2. **Configure PyPI publishing**
    - Use existing PyPI token from aitbc-sdk
-   - Create GitHub Actions workflow for aitbc-crypto publishing
+   - Create Gitea Actions workflow for aitbc-crypto publishing
    - Configure automatic publishing on version tags
 
 3. **Test package installation**
@@ -57,7 +57,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 
 4. **Publish to PyPI**
    - Create and push version tag
-   - GitHub Actions will automatically publish
+   - Gitea Actions will automatically publish
    - Verify package appears on PyPI
    - Test installation from PyPI: `pip install aitbc-crypto`
 
@@ -69,8 +69,8 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
    - Verify package metadata (name, version, description, author)
 
 2. **Configure npm publishing**
-   - Add npm authentication token to GitHub repository secrets (`NPM_TOKEN`)
-   - Create GitHub Actions workflow for npm publishing
+   - Add npm authentication token to Gitea repository secrets (`NPM_TOKEN`)
+   - Create Gitea Actions workflow for npm publishing
    - Configure `.npmrc` for proper authentication
 
 3. **Test package build**
@@ -80,7 +80,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 
 4. **Publish to npm**
    - Create and push version tag
-   - GitHub Actions will automatically publish to npm
+   - Gitea Actions will automatically publish to npm
    - Verify package appears on npm registry
    - Test installation from npm: `npm install aitbc-sdk`
 
@@ -93,7 +93,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
    - PATCH: Bug fixes, backward compatible
 
 2. **Configure version management**
-   - Set up automated version bumping in GitHub Actions
+   - Set up automated version bumping in Gitea Actions
    - Create version tags for releases
    - Maintain CHANGELOG.md with release notes
 
@@ -107,7 +107,7 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 - [ ] aitbc-sdk published to PyPI and installable
 - [ ] aitbc-crypto published to PyPI and installable
 - [ ] aitbc-sdk published to npm and installable
-- [ ] GitHub Actions workflows successfully publish on tags
+- [ ] Gitea Actions workflows successfully publish on tags
 - [ ] Version management strategy documented
 - [ ] CHANGELOG.md maintained with release notes
 
@@ -123,5 +123,5 @@ This workflow covers the packaging and publishing of AITBC SDKs to PyPI and npm.
 - `packages/py/aitbc-sdk/pyproject.toml`
 - `packages/py/aitbc-crypto/pyproject.toml`
 - `packages/js/aitbc-sdk/package.json`
-- `.github/workflows/publish-python.yml`
-- `.github/workflows/publish-js.yml`
+- `.gitea/workflows/publish-python.yml`
+- `.gitea/workflows/publish-js.yml`
