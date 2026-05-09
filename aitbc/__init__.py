@@ -68,14 +68,14 @@ from .utils.paths import (
 __version__ = "0.6.0"
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
-    "load_json": ("json_utils", "load_json"),
-    "save_json": ("json_utils", "save_json"),
-    "merge_json": ("json_utils", "merge_json"),
-    "json_to_string": ("json_utils", "json_to_string"),
-    "string_to_json": ("json_utils", "string_to_json"),
-    "get_nested_value": ("json_utils", "get_nested_value"),
-    "set_nested_value": ("json_utils", "set_nested_value"),
-    "flatten_json": ("json_utils", "flatten_json"),
+    "load_json": ("utils.json_utils", "load_json"),
+    "save_json": ("utils.json_utils", "save_json"),
+    "merge_json": ("utils.json_utils", "merge_json"),
+    "json_to_string": ("utils.json_utils", "json_to_string"),
+    "string_to_json": ("utils.json_utils", "string_to_json"),
+    "get_nested_value": ("utils.json_utils", "get_nested_value"),
+    "set_nested_value": ("utils.json_utils", "set_nested_value"),
+    "flatten_json": ("utils.json_utils", "flatten_json"),
     "BlockchainService": ("blockchain_service", "BlockchainService"),
     "RPCBlockchainService": ("blockchain_service", "RPCBlockchainService"),
     "BlockchainServiceFactory": ("blockchain_service", "BlockchainServiceFactory"),
@@ -83,21 +83,22 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "SQLiteDatabaseService": ("database_service", "SQLiteDatabaseService"),
     "DatabaseServiceFactory": ("database_service", "DatabaseServiceFactory"),
     "AsyncAITBCHTTPClient": ("network.http_client", "AsyncAITBCHTTPClient"),
-    "BaseAITBCConfig": ("config", "BaseAITBCConfig"),
-    "AITBCConfig": ("config", "AITBCConfig"),
+    "BaseAITBCConfig": ("hierarchical_config", "BaseAITBCConfig"),
+    "AITBCConfig": ("hierarchical_config", "AITBCConfig"),
+    "AITBCHTTPClient": ("network.http_client", "AITBCHTTPClient"),
     "retry": ("decorators", "retry"),
     "timing": ("decorators", "timing"),
     "cache_result": ("decorators", "cache_result"),
     "validate_args": ("decorators", "validate_args"),
     "handle_exceptions": ("decorators", "handle_exceptions"),
     "async_timing": ("decorators", "async_timing"),
-    "validate_address": ("validation", "validate_address"),
-    "validate_hash": ("validation", "validate_hash"),
-    "validate_url": ("validation", "validate_url"),
-    "validate_port": ("validation", "validate_port"),
-    "validate_email": ("validation", "validate_email"),
-    "validate_non_empty": ("validation", "validate_non_empty"),
-    "validate_positive_number": ("validation", "validate_positive_number"),
+    "validate_address": ("utils.validation", "validate_address"),
+    "validate_hash": ("utils.validation", "validate_hash"),
+    "validate_url": ("utils.validation", "validate_url"),
+    "validate_port": ("utils.validation", "validate_port"),
+    "validate_email": ("utils.validation", "validate_email"),
+    "validate_non_empty": ("utils.validation", "validate_non_empty"),
+    "validate_positive_number": ("utils.validation", "validate_positive_number"),
     "validate_range": ("utils.validation", "validate_range"),
     "validate_chain_id": ("utils.validation", "validate_chain_id"),
     "validate_uuid": ("utils.validation", "validate_uuid"),
@@ -122,32 +123,32 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "MockDataGenerator": ("data_layer", "MockDataGenerator"),
     "RealDataFetcher": ("data_layer", "RealDataFetcher"),
     "get_data_layer": ("data_layer", "get_data_layer"),
-    "derive_ethereum_address": ("crypto", "derive_ethereum_address"),
-    "sign_transaction_hash": ("crypto", "sign_transaction_hash"),
-    "verify_signature": ("crypto", "verify_signature"),
-    "encrypt_private_key": ("crypto", "encrypt_private_key"),
-    "decrypt_private_key": ("crypto", "decrypt_private_key"),
-    "generate_secure_random_bytes": ("crypto", "generate_secure_random_bytes"),
-    "keccak256_hash": ("crypto", "keccak256_hash"),
-    "sha256_hash": ("crypto", "sha256_hash"),
-    "validate_ethereum_address": ("crypto", "validate_ethereum_address"),
-    "generate_ethereum_private_key": ("crypto", "generate_ethereum_private_key"),
-    "Web3Client": ("web3_utils", "Web3Client"),
-    "create_web3_client": ("web3_utils", "create_web3_client"),
-    "generate_token": ("security", "generate_token"),
-    "generate_api_key": ("security", "generate_api_key"),
-    "validate_token_format": ("security", "validate_token_format"),
-    "validate_api_key": ("security", "validate_api_key"),
-    "SessionManager": ("security", "SessionManager"),
-    "APIKeyManager": ("security", "APIKeyManager"),
-    "generate_secure_random_string": ("security", "generate_secure_random_string"),
-    "generate_secure_random_int": ("security", "generate_secure_random_int"),
-    "SecretManager": ("security", "SecretManager"),
-    "hash_password": ("security", "hash_password"),
-    "verify_password": ("security", "verify_password"),
-    "generate_nonce": ("security", "generate_nonce"),
-    "generate_hmac": ("security", "generate_hmac"),
-    "verify_hmac": ("security", "verify_hmac"),
+    "derive_ethereum_address": ("crypto.crypto", "derive_ethereum_address"),
+    "sign_transaction_hash": ("crypto.crypto", "sign_transaction_hash"),
+    "verify_signature": ("crypto.crypto", "verify_signature"),
+    "encrypt_private_key": ("crypto.crypto", "encrypt_private_key"),
+    "decrypt_private_key": ("crypto.crypto", "decrypt_private_key"),
+    "generate_secure_random_bytes": ("crypto.crypto", "generate_secure_random_bytes"),
+    "keccak256_hash": ("crypto.crypto", "keccak256_hash"),
+    "sha256_hash": ("crypto.crypto", "sha256_hash"),
+    "validate_ethereum_address": ("crypto.crypto", "validate_ethereum_address"),
+    "generate_ethereum_private_key": ("crypto.crypto", "generate_ethereum_private_key"),
+    "Web3Client": ("network.web3_utils", "Web3Client"),
+    "create_web3_client": ("network.web3_utils", "create_web3_client"),
+    "generate_token": ("crypto.security", "generate_token"),
+    "generate_api_key": ("crypto.security", "generate_api_key"),
+    "validate_token_format": ("crypto.security", "validate_token_format"),
+    "validate_api_key": ("crypto.security", "validate_api_key"),
+    "SessionManager": ("crypto.security", "SessionManager"),
+    "APIKeyManager": ("crypto.security", "APIKeyManager"),
+    "generate_secure_random_string": ("crypto.security", "generate_secure_random_string"),
+    "generate_secure_random_int": ("crypto.security", "generate_secure_random_int"),
+    "SecretManager": ("crypto.security", "SecretManager"),
+    "hash_password": ("crypto.security", "hash_password"),
+    "verify_password": ("crypto.security", "verify_password"),
+    "generate_nonce": ("crypto.security", "generate_nonce"),
+    "generate_hmac": ("crypto.security", "generate_hmac"),
+    "verify_hmac": ("crypto.security", "verify_hmac"),
 }
 
 for _name in (
@@ -157,7 +158,7 @@ for _name in (
     "format_time_in to_timezone get_timezone_offset is_business_hours get_start_of_day get_end_of_day "
     "get_start_of_week get_end_of_week get_start_of_month get_end_of_month sleep_until retry_until_deadline Timer"
 ).split():
-    _LAZY_EXPORTS[_name] = ("time_utils", _name)
+    _LAZY_EXPORTS[_name] = ("utils.time_utils", _name)
 
 for _name in (
     "APIResponse PaginatedResponse success_response error_response not_found_response unauthorized_response "
@@ -193,13 +194,11 @@ for _name in (
 
 
 def __getattr__(name: str) -> Any:
-    if name not in _LAZY_EXPORTS:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-    module_name, attribute_name = _LAZY_EXPORTS[name]
-    module = import_module(f".{module_name}", __name__)
-    value = getattr(module, attribute_name)
-    globals()[name] = value
-    return value
+    if name in _LAZY_EXPORTS:
+        module_name, attr_name = _LAZY_EXPORTS[name]
+        module = import_module(f".{module_name}", __name__)
+        return getattr(module, attr_name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
