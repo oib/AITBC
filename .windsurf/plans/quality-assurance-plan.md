@@ -8,10 +8,9 @@ This workflow covers comprehensive testing and quality assurance for the AITBC p
 
 ## Prerequisites
 
-- Test environment matching production
+- Test environment matching production (Debian stable)
 - Test data and fixtures
 - Load testing tools (k6, locust, or similar)
-- Cross-platform testing environments
 - Security testing tools (OWASP ZAP, Burp Suite)
 - CI/CD pipeline with test automation
 
@@ -93,45 +92,35 @@ This workflow covers comprehensive testing and quality assurance for the AITBC p
    - Create optimization plans
    - Define SLA targets
 
-### 3. Cross-Platform Compatibility Validation
+### 3. Debian Stable Compatibility Validation
 
-1. **Define target platforms**
-   - **Operating Systems**: Linux (Ubuntu, Debian, CentOS), Windows 10/11, macOS 11+
+1. **Define target platform**
+   - **Operating System**: Debian stable (bookworm)
    - **Python Versions**: 3.13, 3.14
-   - **GPU Hardware**: NVIDIA (various generations), AMD (ROCm), Apple Silicon (Metal)
-   - **Browsers**: Chrome, Firefox, Safari, Edge
+   - **GPU Hardware**: NVIDIA (various generations with CUDA)
 
-2. **Set up test environments**
-   - Virtual machines for each OS
-   - Cloud testing services (BrowserStack, Sauce Labs)
+2. **Set up test environment**
+   - Debian stable virtual machine
    - Physical hardware for GPU testing
    - Containerized environments
 
 3. **Test Python compatibility**
    - Test on Python 3.13 and 3.14
    - Verify dependency compatibility
-   - Test with different package managers (pip, poetry)
+   - Test with pip package manager
    - Check for deprecated features
 
 4. **Test OS compatibility**
-   - Install and run on each target OS
+   - Install and run on Debian stable
    - Verify service startup
-   - Test systemd services (Linux)
-   - Test Windows services (Windows)
-   - Test launchd services (macOS)
+   - Test systemd services
+   - Verify package dependencies
 
 5. **Test GPU compatibility**
    - Test with NVIDIA GPUs (CUDA)
-   - Test with AMD GPUs (ROCm)
-   - Test with Apple Silicon (Metal)
    - Test with various GPU generations
    - Verify GPU detection and utilization
-
-6. **Test browser compatibility**
-   - Test web interfaces on all browsers
-   - Verify JavaScript compatibility
-   - Test mobile browsers
-   - Check responsive design
+   - Test CUDA toolkit compatibility
 
 ### 4. Disaster Recovery Procedure Testing
 
@@ -256,7 +245,7 @@ This workflow covers comprehensive testing and quality assurance for the AITBC p
 
 - [ ] E2E test suite complete and passing
 - [ ] Load testing completed and baselines defined
-- [ ] Cross-platform testing completed for all targets
+- [ ] Debian stable testing completed
 - [ ] Disaster recovery procedures tested
 - [ ] Security penetration testing completed
 - [ ] All Critical/High vulnerabilities remediated
@@ -269,7 +258,7 @@ This workflow covers comprehensive testing and quality assurance for the AITBC p
 
 - **E2E tests flaky**: Review test dependencies, add proper waits, isolate tests, use test fixtures
 - **Load tests fail**: Check resource limits, verify test environment, optimize code, scale infrastructure
-- **Cross-platform tests fail**: Check platform-specific code, verify dependencies, test on actual hardware
+- **Debian stable tests fail**: Check Debian-specific code, verify dependencies, test on actual Debian system
 - **Disaster recovery fails**: Verify backup integrity, test restoration procedures, check documentation
 - **Security tests find vulnerabilities**: Prioritize by severity, implement fixes, re-test, document lessons
 
@@ -281,5 +270,5 @@ This workflow covers comprehensive testing and quality assurance for the AITBC p
 - `tests/integration/`
 - `docs/operations/disaster-recovery.md`
 - `docs/security/penetration-test-report.md`
-- `.github/workflows/test.yml`
-- `.github/workflows/security-scan.yml`
+- `.gitea/workflows/test.yml`
+- `.gitea/workflows/security-scan.yml`
