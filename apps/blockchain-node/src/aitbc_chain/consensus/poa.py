@@ -563,10 +563,15 @@ class PoAProposer:
         import httpx
         
         # Try multiple trusted peers
-        trusted_peers = [
-            f"http://{self._config.default_peer_rpc_url}",
-            "http://localhost:8006",
-        ]
+        trusted_peers = []
+        if self._config.default_peer_rpc_url:
+            peer_url = self._config.default_peer_rpc_url
+            # Remove http:// prefix if present to avoid double prefix
+            if peer_url.startswith("http://"):
+                peer_url = peer_url.replace("http://", "")
+            peer_url = f"http://{peer_url}"
+            trusted_peers.append(peer_url)
+        trusted_peers.append("http://localhost:8006")
         
         self._logger.info(f"Attempting RPC bootstrap from peers: {trusted_peers}")
         
