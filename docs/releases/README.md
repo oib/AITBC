@@ -47,6 +47,10 @@ Read the release notes newest-first:
 - **[v0.2.0](RELEASE_v0.2.0.md)** - February 1, 2026
 - **[v0.1.1](RELEASE_v0.1.1.md)** - January 25, 2026
 - **[v0.1.0](RELEASE_v0.1.0.md)** - January 15, 2026
+- **[v0.0.5](RELEASE_v0.0.5.md)** - December 30, 2025
+- **[v0.0.4](RELEASE_v0.0.4.md)** - December 29, 2025
+- **[v0.0.3](RELEASE_v0.0.3.md)** - December 28, 2025
+- **[v0.0.2](RELEASE_v0.0.2.md)** - December 22, 2025
 - **[v0.0.1](RELEASE_v0.0.1.md)** - December 1, 2025
 
 ---
