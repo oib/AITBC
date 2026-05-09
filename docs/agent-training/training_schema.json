@@ -24,7 +24,7 @@
     "agent_type": {
       "type": "string",
       "description": "Type of agent being trained",
-      "enum": ["coordinator", "genesis", "follower", "wallet", "general"]
+      "enum": ["coordinator", "genesis", "follower", "wallet", "general", "specialized", "architect"]
     },
     "scenarios": {
       "type": "array",

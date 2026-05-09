@@ -155,7 +155,7 @@ Before beginning training, ensure the environment is properly configured:
 1. **Review `HERMES_LEARNING_PROMPT.md`** for detailed learning instructions
 2. **Analyze `training_schema.json`** to understand the stage structure
 3. **Study `ENVIRONMENT_SETUP.md`** to understand environment requirements
-4. **Begin with Stage 1** (`stage1_foundation_commands.json`) and progress sequentially
+4. **Begin with Stage 1** (`stage1_foundation.json`) and progress sequentially
 5. **For each stage, provide:**
    - Debug messages for issues found
    - Suggestions for improvements
