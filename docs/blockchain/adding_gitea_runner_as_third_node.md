@@ -51,7 +51,7 @@ trusted_proposers=
 
 ### Step 2: Configure Shared Environment on gitea-runner
 
-**File**: `/etc/aitbc/.env`
+**File**: `/etc/aitbc/blockchain.env`
 
 ```bash
 # AITBC Environment Configuration
@@ -134,7 +134,7 @@ p2p_bind_port=7070
 
 ### Step 6: Update Gossip Backend Configuration
 
-**File**: `/etc/aitbc/.env` (all nodes)
+**File**: `/etc/aitbc/blockchain.env` (all nodes)
 
 Updated to use shared Redis instance for gossip:
 
@@ -220,7 +220,7 @@ This makes gitea-runner a follower node that only receives blocks from the netwo
 
 **Symptom**: gitea-runner blockchain height remained at 25 despite copying database
 
-**Cause**: `DATABASE_URL` in `.env` was set to `sqlite:////var/lib/aitbc/aitbc.db` but the config uses `db_path` which defaults to `/var/lib/aitbc/data/chain.db`
+**Cause**: `DATABASE_URL` in `blockchain.env` was set to `sqlite:////var/lib/aitbc/aitbc.db` but the config uses `db_path` which defaults to `/var/lib/aitbc/data/chain.db`
 
 **Resolution**: Updated `DATABASE_URL` to match the actual database location:
 ```bash
@@ -233,7 +233,7 @@ DATABASE_URL=sqlite:////var/lib/aitbc/data/chain.db
 
 **Cause**: The blockchain node uses `supported_chains` (default: "ait-devnet") to determine which chains to propose blocks on, not just `CHAIN_ID`
 
-**Resolution**: Explicitly set `supported_chains` in `.env`:
+**Resolution**: Explicitly set `supported_chains` in `blockchain.env`:
 ```bash
 supported_chains=ait-devnet
 ```
@@ -308,13 +308,13 @@ ssh gitea-runner "journalctl -u aitbc-blockchain-node.service -n 30 --no-pager"
 
 1. **supported_chains is Critical**: The blockchain node uses `supported_chains` to determine which chains to propose blocks on. This must be set explicitly, not just `CHAIN_ID`.
 
-2. **Database Location Matters**: The `DATABASE_URL` in `.env` must match the actual database location used by the config (`db_path` defaults to `/var/lib/aitbc/data/chain.db`).
+2. **Database Location Matters**: The `DATABASE_URL` in `blockchain.env` must match the actual database location used by the config (`db_path` defaults to `/var/lib/aitbc/data/chain.db`).
 
 3. **Proposer ID Conflicts**: All nodes with the same `proposer_id` will propose blocks simultaneously, causing forks. Disable block production on follower nodes.
 
 4. **P2P Bind Configuration**: Missing `p2p_bind_host` and `p2p_bind_port` causes P2P service failures. These must be set in `node.env`.
 
-5. **Environment Variable Loading**: Systemd services load environment variables from `EnvironmentFile` directives. Verify that the correct files are being loaded (`/etc/aitbc/.env` and `/etc/aitbc/node.env`).
+5. **Environment Variable Loading**: Systemd services load environment variables from `EnvironmentFile` directives. Verify that the correct files are being loaded (`/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env`).
 
 ## Recommendations
 
@@ -345,7 +345,7 @@ ssh gitea-runner "journalctl -u aitbc-blockchain-node.service -n 30 --no-pager"
 - [Multi-Node Blockchain Setup](../../.windsurf/workflows/multi-node-blockchain-setup.md)
 
 ### Configuration Files
-- `/etc/aitbc/.env` (shared environment)
+- `/etc/aitbc/blockchain.env` (shared environment)
 - `/etc/aitbc/node.env` (node-specific environment)
 - `/etc/systemd/system/aitbc-blockchain-node.service`
 - `/etc/systemd/system/aitbc-blockchain-p2p.service`

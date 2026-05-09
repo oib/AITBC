@@ -333,7 +333,7 @@
         {
           "operation": "configuration_backup",
           "parameters": {
-            "config_files": ["/etc/aitbc/.env", "/etc/aitbc/node.env"],
+            "config_files": ["/etc/aitbc/blockchain.env", "/etc/aitbc/node.env"],
             "backup_location": "/opt/aitbc/backups/config"
           },
           "expected_result": {
@@ -345,7 +345,7 @@
           },
           "examples": [
             {
-              "command": "tar -czf /opt/aitbc/backups/config/aitbc-config-backup.tar.gz /etc/aitbc/.env /etc/aitbc/node.env",
+              "command": "tar -czf /opt/aitbc/backups/config/aitbc-config-backup.tar.gz /etc/aitbc/blockchain.env /etc/aitbc/node.env",
               "description": "Backup configuration files"
             },
             {

@@ -16,7 +16,7 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 - SSH access configured between genesis (aitbc) and follower (aitbc1) with key-based authentication
 - Blockchain nodes operational on both nodes via systemd services
 - P2P mesh network active on port 7070 with peer configuration
-- Unique node IDs configured (proposer_id and p2p_node_id in `/etc/aitbc/.env` and `/etc/aitbc/node.env`)
+- Unique node IDs configured (proposer_id and p2p_node_id in `/etc/aitbc/node.env`)
 - Git synchronization configured between nodes at `/opt/aitbc/.git`
 
 ## Operations

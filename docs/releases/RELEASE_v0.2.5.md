@@ -36,7 +36,7 @@ AITBC v0.3.0 marks the **100% completion** of the entire project with all 9 majo
 - **Single Marketplace Service**: GPU functionality unified into `aitbc-marketplace.service`
 - **Service Consolidation**: Duplicate GPU service elimination
 - **Path Corrections**: All services using `/opt/aitbc/services`
-- **Environment Consolidation**: `/etc/aitbc/production.env`
+- **Environment Consolidation**: `/etc/aitbc/blockchain.env` (consolidated with production settings)
 - **Blockchain Service**: Functionality restored and operational
 
 ### **🔐 Basic Security (100%)**
@@ -271,8 +271,8 @@ cd apps/agent-coordinator
 pip install -r requirements.txt
 
 # 4. Configure environment
-cp /etc/aitbc/production.env.example /etc/aitbc/production.env
-# Edit production.env with your settings
+cp /etc/aitbc/blockchain.env.example /etc/aitbc/blockchain.env
+# Edit blockchain.env with your settings
 
 # 5. Start services
 systemctl enable aitbc-agent-coordinator.service
@@ -378,7 +378,7 @@ curl http://localhost:9001/health
 
 ### **🔧 Troubleshooting**
 - **Service Issues**: Check `systemctl status aitbc-agent-coordinator.service`
-- **Authentication**: Verify JWT configuration in production.env
+- **Authentication**: Verify JWT configuration in blockchain.env
 - **Monitoring**: Check Prometheus metrics endpoint
 - **Type Errors**: Run MyPy checking for detailed error reports
 
