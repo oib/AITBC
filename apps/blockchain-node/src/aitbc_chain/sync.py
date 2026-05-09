@@ -320,10 +320,16 @@ class ChainSync:
             logger.error("Failed to fetch blocks range", extra={"start": start, "end": end, "error": str(e)})
             return []
 
-    async def bulk_import_from(self, source_url: str, import_url: Optional[str] = None) -> int:
-        """Bulk import missing blocks from source to catch up quickly."""
-        if import_url is None:
-            import_url = "http://127.0.0.1:8006"  # default local RPC
+    async def _bulk_import_from(self, source_url: str) -> int:
+        """Import blocks from a remote source via RPC."""
+        # Ensure URL has protocol
+        if source_url and not source_url.startswith("http://") and not source_url.startswith("https://"):
+            source_url = f"http://{source_url}"
+            self._logger.info(f"Added http:// prefix to source URL: {source_url}")
+        # Ensure URL has protocol
+        if source_url and not source_url.startswith("http://") and not source_url.startswith("https://"):
+            source_url = f"http://{source_url}"
+            self._logger.info(f"Added http:// prefix to source URL: {source_url}")
 
         # Get local head
         with self._session_factory() as session:
