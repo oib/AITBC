@@ -3,7 +3,7 @@
 import json
 import requests
 import sys
-from aitbc.paths import get_data_path
+from aitbc.utils.paths import get_data_path
 
 
 def handle_wallet_create(args, create_wallet, read_password, first):

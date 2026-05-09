@@ -3,7 +3,7 @@
 import asyncio
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
-from aitbc.http_client import AsyncAITBCHTTPClient
+from aitbc.network.http_client import AsyncAITBCHTTPClient
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
 

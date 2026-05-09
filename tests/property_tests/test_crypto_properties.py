@@ -8,7 +8,7 @@ from hypothesis import given, strategies as st, settings
 from hypothesis.strategies import text, binary, integers
 import json
 
-from aitbc.crypto import (
+from aitbc.crypto.crypto import (
     derive_ethereum_address,
     sign_transaction_hash,
     verify_signature,
