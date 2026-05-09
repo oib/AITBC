@@ -387,5 +387,11 @@
         }
       }
     }
+  },
+  "version": "2.0",
+  "last_updated": "2026-05-09",
+  "changelog": {
+    "v2.0": "Added specialized and architect agent types, updated version metadata",
+    "v1.0": "Initial schema definition"
   }
 }
