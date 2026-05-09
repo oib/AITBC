@@ -40,6 +40,11 @@ An hermes agent needs mining to:
 - Manage mining rewards
 - Handle mining failures
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **Blockchain Consensus**: Mining and block validation
+- **Network Security**: Proof-of-work participation
+
 ---
 
 ## 📋 **Prerequisites**

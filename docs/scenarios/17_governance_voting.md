@@ -40,6 +40,11 @@ An hermes agent needs governance voting to:
 - Track voting results
 - Understand governance mechanics
 
+### **Features Combined**
+- **Staking Basics** (Scenario 14)
+- **DAO Governance**: Proposal creation and voting
+- **Network Consensus**: Decision-making processes
+
 ---
 
 ## 📋 **Prerequisites**

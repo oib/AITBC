@@ -40,6 +40,11 @@ An hermes agent needs to submit AI jobs to:
 - Retrieve job results
 - Handle job failures
 
+### **Features Combined**
+- **Wallet Operations** (Scenario 01)
+- **AI Service Integration**: Job submission and monitoring
+- **Compute Resource Management**: GPU resource allocation
+
 ---
 
 ## 📋 **Prerequisites**
