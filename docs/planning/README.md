@@ -71,7 +71,7 @@ System maintenance and requirements
 - `debian13-trixie-support-update.md` - Debian 13 support updates
 - `ubuntu-removal-summary.md` - Ubuntu removal procedures
 
-### 📊 [Summaries](../../archive/summaries/)
+### 📊 [Summaries](../archive/summaries/)
 - **Content**: High-level summaries and current issues
 - **Topics**: Project status, critical gaps, implementation summaries
 - **Relevance**: Quick access to project status and issues and blockers (30364 bytes)
@@ -80,7 +80,7 @@ System maintenance and requirements
 
 ### Most Important Documents
 1. **Exchange Infrastructure Plan**: `02_implementation/exchange-infrastructure-implementation.md` - Critical 40% gap resolution
-2. **Current Issues**: `../../archive/summaries/99_currentissue_exchange-gap.md` - Active implementation gaps
+2. **Current Issues**: `../archive/summaries/99_currentissue_exchange-gap.md` - Active implementation gaps
 3. **Next Milestone**: `01_core_planning/00_nextMileston.md` - Updated with exchange focus
 4. **Implementation Status**: `02_implementation/backend-implementation-status.md` - Current progress
 
