@@ -6,7 +6,7 @@ Test 3.1.1: Complete staking lifecycle integration test
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pytest
 

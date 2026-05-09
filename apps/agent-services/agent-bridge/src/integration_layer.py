@@ -8,7 +8,7 @@ import asyncio
 import aiohttp
 import json
 from typing import Dict, Any, List, Optional
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 
 class AITBCServiceIntegration:
     """Integration layer for AITBC services"""
@@ -110,7 +110,7 @@ class AgentServiceBridge:
                 self.active_agents[agent_id] = {
                     "config": agent_config,
                     "registration": registration_result,
-                    "started_at": datetime.now(datetime.UTC)
+                    "started_at": datetime.now(timezone.utc)
                 }
                 return True
             else:
@@ -182,7 +182,7 @@ class AgentServiceBridge:
                         "volatility": "medium",
                         "recommendation": "hold"
                     },
-                    "timestamp": datetime.now(datetime.UTC).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }
                 
                 return {"status": "success", "result": analysis_result}
@@ -221,7 +221,7 @@ class AgentServiceBridge:
                 "check_type": task_data.get("check_type", "basic"),
                 "status": "passed",
                 "checks_performed": ["kyc", "aml", "sanctions"],
-                "timestamp": datetime.now(datetime.UTC).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             }
             
             return {"status": "success", "result": compliance_result}

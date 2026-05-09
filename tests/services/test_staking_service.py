@@ -6,7 +6,7 @@ High-priority tests for staking service functionality
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 
 import pytest
 from sqlalchemy import create_engine

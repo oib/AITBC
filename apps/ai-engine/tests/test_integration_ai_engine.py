@@ -4,7 +4,7 @@ import pytest
 import sys
 import sys
 from pathlib import Path
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch, MagicMock
 from fastapi.testclient import TestClient
 
@@ -98,7 +98,7 @@ def test_get_ai_dashboard_endpoint():
                 'risk_assessment': {'risk_score': 0.5, 'volatility': 0.03},
                 'sentiment_analysis': {'sentiment_score': 0.5, 'overall_sentiment': 'bullish'}
             },
-            'timestamp': datetime.now(datetime.UTC)
+            'timestamp': datetime.now(timezone.utc)
         }
         
         mock_decision.return_value = {
@@ -108,7 +108,7 @@ def test_get_ai_dashboard_endpoint():
             'quantity': 500,
             'price': 0.005,
             'reasoning': 'Test reasoning',
-            'timestamp': datetime.now(datetime.UTC)
+            'timestamp': datetime.now(timezone.utc)
         }
         
         response = client.get("/api/ai/dashboard")

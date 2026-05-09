@@ -1,7 +1,7 @@
 """Miner Registry Implementation"""
 
 from typing import List, Optional, Dict, Any
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from dataclasses import dataclass, field
 import asyncio
 
@@ -22,8 +22,8 @@ class MinerInfo:
     jobs_completed: int = 0
     jobs_failed: int = 0
     uptime_percent: float = 100.0
-    registered_at: datetime = field(default_factory=datetime.now(datetime.UTC))
-    last_heartbeat: datetime = field(default_factory=datetime.now(datetime.UTC))
+    registered_at: datetime = field(default_factory=datetime.now(timezone.utc))
+    last_heartbeat: datetime = field(default_factory=datetime.now(timezone.utc))
     gpu_utilization: float = 0.0
     memory_used_gb: float = 0.0
 
@@ -43,7 +43,7 @@ class PoolInfo:
     total_hashrate: float = 0.0
     jobs_completed_24h: int = 0
     earnings_24h: float = 0.0
-    created_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    created_at: datetime = field(default_factory=datetime.now(timezone.utc))
 
 
 @dataclass
@@ -55,7 +55,7 @@ class JobAssignment:
     pool_id: str
     model: str
     status: str = "assigned"
-    assigned_at: datetime = field(default_factory=datetime.now(datetime.UTC))
+    assigned_at: datetime = field(default_factory=datetime.now(timezone.utc))
     deadline: Optional[datetime] = None
     completed_at: Optional[datetime] = None
 
@@ -142,7 +142,7 @@ class MinerRegistry:
                 miner.current_jobs = current_jobs
                 miner.gpu_utilization = gpu_utilization
                 miner.memory_used_gb = memory_used_gb
-                miner.last_heartbeat = datetime.now(datetime.UTC)
+                miner.last_heartbeat = datetime.now(timezone.utc)
 
     async def update_capabilities(self, miner_id: str, capabilities: List[str]):
         """Update miner capabilities."""
@@ -271,7 +271,7 @@ class MinerRegistry:
             if job_id in self._jobs:
                 job = self._jobs[job_id]
                 job.status = status
-                job.completed_at = datetime.now(datetime.UTC)
+                job.completed_at = datetime.now(timezone.utc)
 
             if miner_id in self._miners:
                 miner = self._miners[miner_id]
@@ -314,7 +314,7 @@ class MinerRegistry:
             # Update job
             job.miner_id = new_miner_id
             job.status = "assigned"
-            job.assigned_at = datetime.now(datetime.UTC)
+            job.assigned_at = datetime.now(timezone.utc)
 
             # Update new miner
             if new_miner_id in self._miners:

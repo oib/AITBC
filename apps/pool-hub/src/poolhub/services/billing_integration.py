@@ -4,7 +4,7 @@ Integrates pool-hub usage data with coordinator-api's billing system.
 """
 
 import asyncio
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import Dict, List, Optional, Any
 
@@ -76,7 +76,7 @@ class BillingIntegration:
             "unit_price": float(unit_price),
             "total_amount": float(total_cost),
             "currency": "USD",
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "metadata": metadata or {},
         }
 
@@ -139,7 +139,7 @@ class BillingIntegration:
     ) -> Dict[str, Any]:
         """Sync usage data for all miners to coordinator-api billing"""
 
-        end_date = datetime.now(datetime.UTC)
+        end_date = datetime.now(timezone.utc)
         start_date = end_date - timedelta(hours=hours_back)
 
         # Get all miners

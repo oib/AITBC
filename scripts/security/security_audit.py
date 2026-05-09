@@ -9,7 +9,7 @@ import sys
 import json
 import subprocess
 import logging
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Any, Tuple
 import hashlib
@@ -25,7 +25,7 @@ class SecurityAudit:
     def __init__(self, project_root: str = "/opt/aitbc"):
         self.project_root = Path(project_root)
         self.results = {
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "audit_version": "v0.2.0",
             "findings": [],
             "score": 0,

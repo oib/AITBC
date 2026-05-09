@@ -5,7 +5,7 @@ Handles message creation, routing, and delivery between agents
 
 import json
 import uuid
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
 from enum import Enum
 
@@ -43,7 +43,7 @@ class MessageProtocol:
             "receiver_id": receiver_id,
             "message_type": message_type.value,
             "content": content,
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": "pending"
         }
         
@@ -54,7 +54,7 @@ class MessageProtocol:
         """Send a message to the receiver"""
         try:
             message["status"] = "sent"
-            message["sent_timestamp"] = datetime.now(datetime.UTC).isoformat()
+            message["sent_timestamp"] = datetime.now(timezone.utc).isoformat()
             return True
         except Exception:
             message["status"] = "failed"
@@ -65,7 +65,7 @@ class MessageProtocol:
         for message in self.messages:
             if message["message_id"] == message_id:
                 message["status"] = "received"
-                message["received_timestamp"] = datetime.now(datetime.UTC).isoformat()
+                message["received_timestamp"] = datetime.now(timezone.utc).isoformat()
                 return message
         return None
     

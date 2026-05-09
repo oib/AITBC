@@ -1,7 +1,7 @@
 import json
 import os
 from collections import deque
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from urllib import error, request
 
@@ -36,7 +36,7 @@ class AlertDispatcher:
 
             try:
                 self._deliver(name, alert)
-                self._last_sent[name] = datetime.now(datetime.UTC)
+                self._last_sent[name] = datetime.now(timezone.utc)
                 results["sent"].append(name)
                 self._record_alert(name, alert, delivery_status="sent")
             except Exception as exc:
@@ -62,7 +62,7 @@ class AlertDispatcher:
         last_sent = self._last_sent.get(name)
         if last_sent is None:
             return False
-        return datetime.now(datetime.UTC) - last_sent < timedelta(seconds=self.cooldown_seconds)
+        return datetime.now(timezone.utc) - last_sent < timedelta(seconds=self.cooldown_seconds)
 
     def _record_alert(
         self,
@@ -71,9 +71,9 @@ class AlertDispatcher:
         delivery_status: str,
         error_message: str | None = None,
     ) -> None:
-        timestamp = datetime.now(datetime.UTC).isoformat()
+        timestamp = datetime.now(timezone.utc).isoformat()
         record = {
-            "id": f"metrics_alert_{name}_{int(datetime.now(datetime.UTC).timestamp() * 1000)}",
+            "id": f"metrics_alert_{name}_{int(datetime.now(timezone.utc).timestamp() * 1000)}",
             "deployment_id": None,
             "severity": alert.get("status", "critical"),
             "message": f"Threshold triggered for {name}",
@@ -96,7 +96,7 @@ class AlertDispatcher:
             "status": alert.get("status", "critical"),
             "value": alert.get("value"),
             "threshold": alert.get("threshold"),
-            "timestamp": datetime.now(datetime.UTC).isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         if webhook_url:

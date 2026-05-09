@@ -5,7 +5,7 @@ Swarm Coordinator - for agents participating in collective intelligence
 import asyncio
 import json
 from typing import Dict, List, Optional, Any  # noqa: F401
-from datetime import datetime, UTC
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from .agent import Agent
 
