@@ -11,7 +11,7 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 ExecStartPre=/opt/aitbc/scripts/utils/load-keystore-secrets.sh
 EnvironmentFile=/run/aitbc/secrets/.env
-EnvironmentFile=/etc/aitbc/.env
+EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/scripts/wrappers/aitbc-blockchain-node-wrapper.py
 ExecReload=/bin/kill -HUP $MAINPID
