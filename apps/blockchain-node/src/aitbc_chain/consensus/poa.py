@@ -511,17 +511,12 @@ class PoAProposer:
                 self._logger.warning("RPC bootstrap returned no allocations, skipping account initialization")
         except Exception as e:
             self._logger.warning(f"RPC bootstrap failed: {e}, skipping account initialization")
-        
-        # If both local file and RPC bootstrap failed, check if there's a keystore genesis file
-        keystore_allocations = self._load_genesis_allocations_from_file()
-        if keystore_allocations:
-            self._logger.info("Using keystore genesis allocations file")
-            self._create_accounts_from_allocations(session, keystore_allocations)
     
     def _load_genesis_allocations_from_file(self) -> list:
         """Load genesis allocations from local file."""
         genesis_paths = [
             Path(f"/var/lib/aitbc/data/{self._config.chain_id}/genesis.json"),  # Standard location
+            Path(f"/var/lib/aitbc/keystore/genesis.json"),  # Keystore location
         ]
         
         genesis_path = None
