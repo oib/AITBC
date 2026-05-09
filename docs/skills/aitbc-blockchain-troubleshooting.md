@@ -54,6 +54,52 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli mempool status'
 ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
 ```
 
+### 2.1 Genesis Block Mismatch Issues
+
+**Symptoms:**
+- "Unhandled import case" errors during bulk sync
+- Nodes unable to sync blocks for a specific chain
+- Different genesis block hashes across nodes
+
+**Diagnosis:**
+```bash
+# Check genesis block hashes across nodes
+sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"
+ssh aitbc1 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"'
+
+# Check RPC bootstrap logs
+journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
+
+# Verify RPC endpoint is accessible
+curl http://aitbc1:8006/rpc/genesis_allocations?chain_id=ait-testnet
+```
+
+**Solution - Force RPC Bootstrap:**
+```bash
+# Stop blockchain service
+sudo systemctl stop aitbc-blockchain-node.service
+
+# Delete genesis block from database
+sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db "DELETE FROM block WHERE chain_id='<chain_id>' AND height=0"
+
+# Restart service to trigger RPC bootstrap
+sudo systemctl start aitbc-blockchain-node.service
+
+# Verify RPC bootstrap worked
+journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
+```
+
+**How RPC Bootstrap Works:**
+- Nodes attempt RPC bootstrap when genesis block is missing
+- Fetches genesis block data (allocations, hash, state_root) from trusted peers
+- Creates genesis block using RPC-provided data for consistency
+- Falls back to local creation if RPC bootstrap fails
+
+**Configuration Requirements:**
+- `default_peer_rpc_url` must be set in blockchain.env
+- Points to trusted peer with correct genesis block
+- Multiple peers can be configured
+
 ### 3. P2P Network Problems
 ```bash
 # Check P2P node IDs
