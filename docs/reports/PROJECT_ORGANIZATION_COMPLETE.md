@@ -71,7 +71,7 @@ Successfully organized the AITBC project root directory, moving from a cluttered
 
 ### **Moved to scripts/**
 - ✅ setup.sh
-- ✅ health-check.sh
+- ✅ monitoring/health_check.sh
 - ✅ aitbc-cli
 - ✅ aitbc-miner
 
@@ -110,7 +110,7 @@ ls config/quality/  # Code quality configurations
 
 # Run scripts
 ./scripts/setup.sh  # Moved from root
-./scripts/health-check.sh  # Moved from root
+./scripts/monitoring/health_check.sh  # Monitoring script
 ```
 
 ### **Documentation Access**

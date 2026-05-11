@@ -7,7 +7,8 @@ from contextlib import asynccontextmanager
 from typing import AsyncIterator
 
 from fastapi import FastAPI, Depends
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,6 +99,12 @@ async def marketplace_status() -> dict[str, str]:
         "service": "marketplace-service",
         "message": "Marketplace service is running",
     }
+
+
+@app.get("/metrics", response_class=PlainTextResponse)
+async def metrics() -> PlainTextResponse:
+    """Prometheus metrics endpoint"""
+    return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 async def get_marketplace_service(session: AsyncSession = Depends(get_session)) -> MarketplaceService:

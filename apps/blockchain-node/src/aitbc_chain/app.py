@@ -15,7 +15,8 @@ from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
 from .logger import get_logger
 from .mempool import init_mempool
-from .metrics import metrics_registry
+from .metrics import metrics_registry, block_processing_duration, block_height, block_validation_duration, block_propagation_duration, transaction_processing_duration, transactions_total, sync_duration, sync_blocks_imported, rpc_request_duration, rpc_requests_total
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from .rpc.router import router as rpc_router, set_poa_proposer
 from .rpc.websocket import router as websocket_router
 # from .escrow_routes import router as escrow_router  # Not yet implemented
@@ -205,8 +206,8 @@ def create_app() -> FastAPI:
     metrics_router = APIRouter()
 
     @metrics_router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"], summary="Prometheus metrics")
-    async def metrics() -> str:
-        return metrics_registry.render_prometheus()
+    async def metrics() -> PlainTextResponse:
+        return PlainTextResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
     @metrics_router.get("/health", tags=["health"], summary="Health check")
     async def health() -> dict:

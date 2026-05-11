@@ -106,7 +106,7 @@ apps/coordinator-api/src/app/services/advanced_ai_service.py # Port 8015
 ### Quick Health Check
 ```bash
 # Run comprehensive health check
-/opt/aitbc/health-check.sh
+/opt/aitbc/scripts/monitoring/health_check.sh
 
 # Check specific service categories
 curl -s http://localhost:8000/health  # Coordinator API

@@ -2625,7 +2625,7 @@ run_contract_tests() {
     fi
     
     # Run tests
-    python -m pytest tests/contracts/ -v
+    python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/contracts/ -v
     
     if [ $? -eq 0 ]; then
         log_info "All smart contract tests passed!"

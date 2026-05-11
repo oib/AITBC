@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Agent Coordinator Service
-After=network.target redis.service
+After=network.target redis.service aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple

@@ -123,12 +123,59 @@ class ZKProofService:
             return None
 
     async def verify_proof(
-        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any]
+        self, proof: dict[str, Any], public_signals: list[str], verification_key: dict[str, Any] = None
     ) -> dict[str, Any]:
-        """Verify a ZK proof"""
+        """Verify a ZK proof using Groth16 verification"""
         try:
-            # For now, return mock verification - in production, implement actual verification
-            return {"verified": True, "computation_correct": True, "privacy_preserved": True}
+            if not self.enabled:
+                return {"verified": False, "error": "ZK proof service not enabled"}
+
+            # Load verification key from file (verification_key parameter ignored, loaded from self.vkey_path)
+            with open(self.vkey_path) as f:
+                vkey = json.load(f)
+
+            # Create verification script
+            script = f"""
+const snarkjs = require('snarkjs');
+
+async function main() {{
+    try {{
+        const vKey = {json.dumps(vkey)};
+        const proof = {json.dumps(proof)};
+        const publicSignals = {json.dumps(public_signals)};
+
+        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);
+        console.log(verified);
+    }} catch (error) {{
+        console.error('Error:', error);
+        process.exit(1);
+    }}
+}}
+
+main();
+"""
+
+            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
+                f.write(script)
+                script_file = f.name
+
+            try:
+                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
+
+                if result.returncode != 0:
+                    logger.error(f"Proof verification failed: {result.stderr}")
+                    return {"verified": False, "error": result.stderr}
+
+                is_verified = result.stdout.strip() == "true"
+                return {
+                    "verified": is_verified,
+                    "computation_correct": is_verified,
+                    "privacy_preserved": is_verified
+                }
+
+            finally:
+                os.unlink(script_file)
+
         except Exception as e:
             logger.error(f"Failed to verify proof: {e}")
             return {"verified": False, "error": str(e)}
@@ -335,58 +382,6 @@ main();
         """Get hash of current circuit for verification"""
         # In a real implementation, compute hash of circuit files
         return "placeholder_hash"
-
-    async def verify_proof(self, proof: dict[str, Any], public_signals: list[str]) -> bool:
-        """Verify a ZK proof"""
-
-        if not self.enabled:
-            return False
-
-        try:
-            # Load verification key
-            with open(self.vkey_path) as f:
-                vkey = json.load(f)
-
-            # Create verification script
-            script = f"""
-const snarkjs = require('snarkjs');
-
-async function main() {{
-    try {{
-        const vKey = {json.dumps(vkey)};
-        const proof = {json.dumps(proof)};
-        const publicSignals = {json.dumps(public_signals)};
-
-        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);
-        console.log(verified);
-    }} catch (error) {{
-        console.error('Error:', error);
-        process.exit(1);
-    }}
-}}
-
-main();
-"""
-
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
-                f.write(script)
-                script_file = f.name
-
-            try:
-                result = subprocess.run(["node", script_file], capture_output=True, text=True, cwd=str(self.circuits_dir))
-
-                if result.returncode != 0:
-                    logger.error(f"Proof verification failed: {result.stderr}")
-                    return False
-
-                return result.stdout.strip() == "true"
-
-            finally:
-                os.unlink(script_file)
-
-        except Exception as e:
-            logger.error(f"Failed to verify proof: {e}")
-            return False
 
     def is_enabled(self) -> bool:
         """Check if ZK proof generation is available"""

@@ -1,15 +1,78 @@
 from __future__ import annotations
 
+from prometheus_client import Counter, Histogram, Gauge, Info
+
+# Block Processing Metrics
+block_processing_duration = Histogram(
+    'blockchain_block_processing_duration_seconds',
+    'Time to process a block',
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0]
+)
+
+block_height = Gauge(
+    'blockchain_block_height',
+    'Current blockchain height'
+)
+
+block_validation_duration = Histogram(
+    'blockchain_block_validation_duration_seconds',
+    'Time to validate a block',
+    buckets=[0.01, 0.05, 0.1, 0.5, 1.0]
+)
+
+block_propagation_duration = Histogram(
+    'blockchain_block_propagation_duration_seconds',
+    'Time to propagate block to peers',
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0]
+)
+
+# Transaction Metrics
+transaction_processing_duration = Histogram(
+    'blockchain_transaction_processing_duration_seconds',
+    'Time to process a transaction',
+    buckets=[0.001, 0.005, 0.01, 0.05, 0.1]
+)
+
+transactions_total = Counter(
+    'blockchain_transactions_total',
+    'Total number of transactions processed',
+    ['status']
+)
+
+# Sync Metrics
+sync_duration = Histogram(
+    'blockchain_sync_duration_seconds',
+    'Time to sync blockchain',
+    buckets=[1.0, 5.0, 10.0, 30.0, 60.0]
+)
+
+sync_blocks_imported = Counter(
+    'blockchain_sync_blocks_imported_total',
+    'Total number of blocks imported during sync'
+)
+
+# RPC Metrics
+rpc_request_duration = Histogram(
+    'blockchain_rpc_request_duration_seconds',
+    'RPC request duration',
+    buckets=[0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0]
+)
+
+rpc_requests_total = Counter(
+    'blockchain_rpc_requests_total',
+    'Total RPC requests',
+    ['method', 'status']
+)
+
+# Legacy MetricsRegistry for backward compatibility
 from dataclasses import dataclass
 from threading import Lock
 from typing import Dict
-
 
 @dataclass
 class MetricValue:
     name: str
     value: float
-
 
 class MetricsRegistry:
     def __init__(self) -> None:

@@ -23,6 +23,7 @@ INTEGRATION_TEST_FILE="$PROJECT_ROOT/tests/integration/test_staking_lifecycle.py
 CONTRACT_TEST_FILE="$PROJECT_ROOT/contracts/test/AgentStaking.test.js"
 REPORT_DIR="/var/log/aitbc/tests/staking"
 PYTHON_VENV="$PROJECT_ROOT/venv"
+PYTHONPATH_BASE="$PROJECT_ROOT/apps/coordinator-api/src:$PROJECT_ROOT"
 
 # Test counters
 TESTS_PASSED=0
@@ -70,7 +71,11 @@ SERVICE_LOG="$REPORT_DIR/service_tests_$(date +%Y%m%d_%H%M%S).log"
 
 if [ -f "$SERVICE_TEST_FILE" ]; then
     echo "Running service tests with pytest..."
-    if "$PYTHON_VENV/bin/python" -m pytest "$SERVICE_TEST_FILE" -v --tb=short > "$SERVICE_LOG" 2>&1; then
+    if PYTHONPATH="$PYTHONPATH_BASE${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_VENV/bin/python" -m pytest \
+        -c /dev/null \
+        --rootdir "$PROJECT_ROOT" \
+        --import-mode=importlib \
+        "$SERVICE_TEST_FILE" -v --tb=short > "$SERVICE_LOG" 2>&1; then
         echo -e "${GREEN}✅ Service tests passed${NC}"
         ((TESTS_PASSED++))
         
@@ -95,7 +100,11 @@ INTEGRATION_LOG="$REPORT_DIR/integration_tests_$(date +%Y%m%d_%H%M%S).log"
 
 if [ -f "$INTEGRATION_TEST_FILE" ]; then
     echo "Running integration tests with pytest..."
-    if "$PYTHON_VENV/bin/python" -m pytest "$INTEGRATION_TEST_FILE" -v --tb=short > "$INTEGRATION_LOG" 2>&1; then
+    if PYTHONPATH="$PYTHONPATH_BASE${PYTHONPATH:+:$PYTHONPATH}" "$PYTHON_VENV/bin/python" -m pytest \
+        -c /dev/null \
+        --rootdir "$PROJECT_ROOT" \
+        --import-mode=importlib \
+        "$INTEGRATION_TEST_FILE" -v --tb=short > "$INTEGRATION_LOG" 2>&1; then
         echo -e "${GREEN}✅ Integration tests passed${NC}"
         ((TESTS_PASSED++))
         

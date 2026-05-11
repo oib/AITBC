@@ -11,6 +11,8 @@ VERSION=${1:-latest}
 REGION=${2:-us-east-1}
 NAMESPACE="aitbc-prod"
 DOMAIN="aitbc.dev"
+REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
+PYTHON_VENV="${PYTHON_VENV:-$REPO_ROOT/venv}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -49,10 +51,16 @@ pre_deployment_checks() {
     
     # Check if all tests pass
     log "Running tests..."
-    pytest tests/unit/ -v --tb=short || error "Unit tests failed"
-    pytest tests/integration/ -v --tb=short || error "Integration tests failed"
-    pytest tests/security/ -v --tb=short || error "Security tests failed"
-    pytest tests/performance/test_performance_lightweight.py::TestPerformance::test_cli_performance -v --tb=short || error "Performance tests failed"
+    PYTEST_CMD=(
+        "$PYTHON_VENV/bin/python" -m pytest
+        -c /dev/null
+        --rootdir "$REPO_ROOT"
+        --import-mode=importlib
+    )
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/unit/" -v --tb=short || error "Unit tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/integration/" -v --tb=short || error "Integration tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/security/" -v --tb=short || error "Security tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/performance/test_performance_lightweight.py::TestPerformance::test_cli_performance" -v --tb=short || error "Performance tests failed"
     
     # Check if production infrastructure is ready
     log "Checking production infrastructure..."

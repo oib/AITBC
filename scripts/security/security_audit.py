@@ -186,13 +186,24 @@ class SecurityAudit:
         # Check for .env files in git
         try:
             result = subprocess.run(
-                ["git", "ls-files", " | grep -E '\.env$|\.key$|\.pem$'"],
-                shell=True, cwd=self.project_root, capture_output=True, text=True
+                ["git", "ls-files"],
+                cwd=self.project_root,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
-            if result.stdout.strip():
+            if result.returncode == 0:
+                sensitive_files = [
+                    path for path in result.stdout.splitlines()
+                    if path.endswith((".env", ".key", ".pem"))
+                ]
+            else:
+                sensitive_files = []
+
+            if sensitive_files:
                 issues.append({
                     "type": "secrets_in_git",
-                    "files": result.stdout.strip().split('\n'),
+                    "files": sensitive_files,
                     "severity": "critical"
                 })
                 score -= 5

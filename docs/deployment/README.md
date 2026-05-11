@@ -22,6 +22,7 @@
 
 ## 📦 **Contents**
 
+- **[SETUP.md](SETUP.md)** - Main host bootstrap and setup script
 - **[AITBC1_TEST_COMMANDS.md](AITBC1_TEST_COMMANDS.md)** - Test command reference for AITBC1
 - **[AITBC1_UPDATED_COMMANDS.md](AITBC1_UPDATED_COMMANDS.md)** - Updated operational commands for AITBC1
 
@@ -39,6 +40,7 @@ This directory holds node-specific operational notes and command references, esp
 
 ## 🚀 **Next Steps**
 
+- Use `SETUP.md` to bootstrap a new host with the main `scripts/setup.sh` flow.
 - Use `AITBC1_TEST_COMMANDS.md` to verify current node behavior.
 - Use `AITBC1_UPDATED_COMMANDS.md` as the authoritative updated command reference.
 - Cross-check command usage with `../reference/README.md`.

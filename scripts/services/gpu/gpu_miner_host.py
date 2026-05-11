@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Real GPU Miner Client for AITBC - runs on host with actual GPU
+Supports both Ollama and vLLM for inference
 """
 
 import json
@@ -19,6 +20,7 @@ AUTH_TOKEN = "${MINER_API_KEY}"
 HEARTBEAT_INTERVAL = 15
 MAX_RETRIES = 10
 RETRY_DELAY = 30
+INFERENCE_BACKEND = os.getenv("INFERENCE_BACKEND", "auto")  # auto, ollama, vllm
 
 # Setup logging with explicit configuration
 LOG_PATH = "/home/oib/windsurf/aitbc/logs/host_gpu_miner.log"
@@ -88,6 +90,42 @@ def check_ollama():
     except Exception as e:
         logger.error(f"Ollama check failed: {e}")
         return False, []
+
+def check_vllm():
+    """Check if vLLM is available and can load models"""
+    try:
+        from vllm import LLM
+        # Test basic vLLM functionality
+        logger.info("vLLM is available")
+        return True, ["vllm"]
+    except ImportError:
+        logger.warning("vLLM not installed")
+        return False, []
+    except Exception as e:
+        logger.error(f"vLLM check failed: {e}")
+        return False, []
+
+def detect_inference_backend():
+    """Detect available inference backend"""
+    if INFERENCE_BACKEND == "ollama":
+        available, models = check_ollama()
+        return "ollama", models if available else []
+    elif INFERENCE_BACKEND == "vllm":
+        available, models = check_vllm()
+        return "vllm", models if available else []
+    else:  # auto
+        # Try vLLM first (more optimized)
+        vllm_available, vllm_models = check_vllm()
+        if vllm_available:
+            return "vllm", vllm_models
+        
+        # Fall back to Ollama
+        ollama_available, ollama_models = check_ollama()
+        if ollama_available:
+            return "ollama", ollama_models
+        
+        logger.error("No inference backend available")
+        return None, []
 
 def wait_for_coordinator():
     """Wait for coordinator to be available"""
@@ -182,12 +220,67 @@ def send_heartbeat():
     except Exception as e:
         logger.error(f"Heartbeat error: {e}")
 
-def execute_job(job, available_models):
+def execute_job_with_ollama(job_id, prompt, model):
+    """Execute job using Ollama"""
+    logger.info(f"Running inference with Ollama model: {model}")
+    start_time = time.time()
+    
+    ollama_response = httpx.post(
+        "http://localhost:11434/api/generate",
+        json={
+            "model": model,
+            "prompt": prompt,
+            "stream": False
+        },
+        timeout=60
+    )
+    
+    if ollama_response.status_code == 200:
+        result = ollama_response.json()
+        output = result.get('response', '')
+        execution_time = time.time() - start_time
+        return {
+            "output": output,
+            "model": model,
+            "tokens_processed": result.get('eval_count', 0),
+            "execution_time": execution_time
+        }
+    else:
+        raise Exception(f"Ollama error: {ollama_response.status_code}")
+
+def execute_job_with_vllm(job_id, prompt, model):
+    """Execute job using vLLM"""
+    logger.info(f"Running inference with vLLM model: {model}")
+    start_time = time.time()
+    
+    try:
+        from vllm import LLM
+        
+        # Initialize vLLM with the model
+        # Note: vLLM uses HuggingFace model names
+        llm = LLM(model=model, trust_remote_code=True)
+        
+        # Generate response
+        outputs = llm.generate([prompt])
+        
+        output = outputs[0].outputs[0].text
+        execution_time = time.time() - start_time
+        
+        return {
+            "output": output,
+            "model": model,
+            "tokens_processed": len(outputs[0].outputs[0].token_ids),
+            "execution_time": execution_time
+        }
+    except Exception as e:
+        raise Exception(f"vLLM error: {e}")
+
+def execute_job(job, available_models, backend):
     """Execute a job using real GPU resources"""
     job_id = job.get('job_id')
     payload = job.get('payload', {})
     
-    logger.info(f"Executing job {job_id}: {payload}")
+    logger.info(f"Executing job {job_id} with backend: {backend}")
     
     try:
         if payload.get('type') == 'inference':
@@ -195,65 +288,49 @@ def execute_job(job, available_models):
             prompt = payload.get('prompt', '')
             model = payload.get('model', 'llama3.2:latest')
             
-            # Check if model is available
-            if model not in available_models:
-                # Use first available model
-                if available_models:
-                    model = available_models[0]
-                    logger.info(f"Using available model: {model}")
-                else:
-                    raise Exception("No models available in Ollama")
+            # Convert Ollama model name to vLLM format if needed
+            if backend == "vllm":
+                # vLLM uses HuggingFace model names
+                # Map common Ollama models to vLLM equivalents
+                model_mapping = {
+                    "llama2:7b": "meta-llama/Llama-2-7b-hf",
+                    "llama3.2:latest": "meta-llama/Llama-3.2-3B-Instruct",
+                    "llama3.2:3b": "meta-llama/Llama-3.2-3B-Instruct",
+                    "qwen3:8b": "Qwen/Qwen2.5-7B-Instruct",
+                }
+                model = model_mapping.get(model, model)
             
-            # Call Ollama API for real GPU inference
-            logger.info(f"Running inference on GPU with model: {model}")
-            start_time = time.time()
-            
-            ollama_response = httpx.post(
-                "http://localhost:11434/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=60
-            )
-            
-            if ollama_response.status_code == 200:
-                result = ollama_response.json()
-                output = result.get('response', '')
-                execution_time = time.time() - start_time
-                
-                # Get GPU stats after execution
-                gpu_after = get_gpu_info()
-                
-                # Submit result back to coordinator
-                submit_result(job_id, {
-                    "result": {
-                        "status": "completed",
-                        "output": output,
-                        "model": model,
-                        "tokens_processed": result.get('eval_count', 0),
-                        "execution_time": execution_time,
-                        "gpu_used": True
-                    },
-                    "metrics": {
-                        "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
-                        "memory_used": gpu_after["memory_used"] if gpu_after else 0,
-                        "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048)
-                    }
-                })
-                
-                logger.info(f"Job {job_id} completed in {execution_time:.2f}s")
-                return True
+            # Execute with appropriate backend
+            if backend == "ollama":
+                result = execute_job_with_ollama(job_id, prompt, model)
+            elif backend == "vllm":
+                result = execute_job_with_vllm(job_id, prompt, model)
             else:
-                logger.error(f"Ollama error: {ollama_response.status_code}")
-                submit_result(job_id, {
-                    "result": {
-                        "status": "failed",
-                        "error": f"Ollama error: {ollama_response.text}"
-                    }
-                })
-                return False
+                raise Exception(f"Unknown backend: {backend}")
+            
+            # Get GPU stats after execution
+            gpu_after = get_gpu_info()
+            
+            # Submit result back to coordinator
+            submit_result(job_id, {
+                "result": {
+                    "status": "completed",
+                    "output": result["output"],
+                    "model": result["model"],
+                    "tokens_processed": result["tokens_processed"],
+                    "execution_time": result["execution_time"],
+                    "gpu_used": True,
+                    "backend": backend
+                },
+                "metrics": {
+                    "gpu_utilization": gpu_after["utilization"] if gpu_after else 0,
+                    "memory_used": gpu_after["memory_used"] if gpu_after else 0,
+                    "memory_peak": max(gpu_after["memory_used"] if gpu_after else 0, 2048)
+                }
+            })
+            
+            logger.info(f"Job {job_id} completed in {result['execution_time']:.2f}s")
+            return True
         else:
             # Unsupported job type
             logger.error(f"Unsupported job type: {payload.get('type')}")
@@ -343,13 +420,14 @@ def main():
     
     logger.info(f"GPU detected: {gpu_info['name']} ({gpu_info['memory_total']}MB)")
     
-    # Check Ollama
-    ollama_available, models = check_ollama()
-    if not ollama_available:
-        logger.error("Ollama not available - please install and start Ollama")
+    # Detect inference backend
+    backend, models = detect_inference_backend()
+    if not backend:
+        logger.error("No inference backend available - please install Ollama or vLLM")
         sys.exit(1)
-
-    logger.info(f"Ollama models available: {', '.join(models)}")
+    
+    logger.info(f"Using inference backend: {backend}")
+    logger.info(f"Available models: {', '.join(models)}")
     
     # Wait for coordinator
     if not wait_for_coordinator():
@@ -381,7 +459,7 @@ def main():
                 job = poll_for_jobs()
                 if job:
                     # Execute the job with real GPU
-                    execute_job(job, models)
+                    execute_job(job, models, backend)
                 last_poll = current_time
             
             time.sleep(1)

@@ -142,24 +142,24 @@ ai_job_submission() {
 resource_management() {
     print_status "3.2 Resource Management"
     
-    print_status "Checking resource status..."
-    $CLI_PATH resource status 2>/dev/null || print_warning "Resource status command not available"
+    print_status "Checking resource status (verbose mode, output json)..."
+    $CLI_PATH resource status --verbose --output json 2>/dev/null || print_warning "Resource status command not available"
     log "Resource status checked"
     
-    print_status "Allocating GPU resources..."
-    $CLI_PATH resource allocate --agent-id test-agent --cpu 2 --memory 4096 2>/dev/null || print_warning "Resource allocation command not available"
+    print_status "Allocating GPU resources (non-interactive)..."
+    $CLI_PATH resource allocate --type gpu --amount 50% --yes --no-confirm 2>/dev/null || print_warning "Resource allocation command not available"
     log "GPU resource allocation attempted"
     
-    print_status "Monitoring resource utilization..."
-    $CLI_PATH resource monitor --interval 5 --duration 10 2>/dev/null || print_warning "Resource monitoring command not available"
+    print_status "Monitoring resource utilization (debug mode)..."
+    $CLI_PATH resource monitor --interval 30 --debug 2>/dev/null || print_warning "Resource monitoring command not available"
     log "Resource monitoring completed"
     
-    print_status "Optimizing CPU resources..."
-    $CLI_PATH resource optimize --target cpu 2>/dev/null || print_warning "Resource optimization command not available"
+    print_status "Optimizing CPU resources (dry-run)..."
+    $CLI_PATH resource optimize --target cpu --dry-run 2>/dev/null || print_warning "Resource optimization command not available"
     log "CPU resource optimization attempted"
     
-    print_status "Running resource benchmark..."
-    $CLI_PATH resource benchmark --type cpu 2>/dev/null || print_warning "Resource benchmark command not available"
+    print_status "Running resource benchmark (verbose mode)..."
+    $CLI_PATH resource benchmark --type inference --verbose 2>/dev/null || print_warning "Resource benchmark command not available"
     log "Resource benchmark completed"
     
     print_success "3.2 Resource Management completed"
@@ -179,8 +179,8 @@ ollama_integration() {
         return 1
     fi
     
-    print_status "Listing available Ollama models..."
-    ollama list 2>/dev/null || {
+    print_status "Listing available Ollama models (format table)..."
+    $CLI_PATH ollama models --format table 2>/dev/null || {
         print_warning "Ollama list command not available, checking directly..."
         curl -s http://localhost:11434/api/tags | jq -r '.models[].name' 2>/dev/null || echo "Direct API check failed"
     }
@@ -189,15 +189,15 @@ ollama_integration() {
     print_status "Using existing llama2:7b model (already available)"
     log "Ollama model pull skipped (using existing model)"
     
-    print_status "Running Ollama model inference..."
-    ollama run llama2:7b "AITBC training test" 2>/dev/null || {
+    print_status "Running Ollama model inference (verbose mode)..."
+    $CLI_PATH ollama run --model llama2 --prompt "Test prompt" --verbose 2>/dev/null || {
         print_warning "Ollama run command not available, trying direct API..."
         curl -s http://localhost:11434/api/generate -d '{"model":"llama2:7b","prompt":"AITBC training test","stream":false}' 2>/dev/null | jq -r '.response' || echo "Direct API inference failed"
     }
     log "Ollama model inference completed"
     
-    print_status "Checking Ollama service health..."
-    ollama ps 2>/dev/null || print_warning "Ollama ps command not available"
+    print_status "Checking Ollama service health (debug mode)..."
+    $CLI_PATH ollama status --debug 2>/dev/null || print_warning "Ollama status command not available"
     log "Ollama service health checked"
     
     print_success "3.3 Ollama Integration completed"
@@ -207,16 +207,16 @@ ollama_integration() {
 ai_service_integration() {
     print_status "3.4 AI Service Integration"
     
-    print_status "Listing available AI services..."
-    $CLI_PATH ai service list 2>/dev/null || print_warning "AI service list command not available"
+    print_status "Listing available AI services (format table)..."
+    $CLI_PATH ai service list --format table 2>/dev/null || print_warning "AI service list command not available"
     log "AI services listed"
     
-    print_status "Checking Agent Coordinator service health..."
+    print_status "Checking Agent Coordinator service health (verbose mode)..."
     coordinator_health=$(curl -s "${AGENT_COORDINATOR_URL}/health" 2>/dev/null)
     if [ -n "$coordinator_health" ]; then
         coordinator_service=$(echo "$coordinator_health" | jq -r '.service // empty' 2>/dev/null || echo "")
         if [ "$coordinator_service" = "agent-coordinator" ]; then
-            print_success "Agent Coordinator service is running"
+            print_success "Agent Coordinator service is running (port 9001)"
             log "Agent Coordinator service: RUNNING"
         else
             print_warning "Agent Coordinator service returned unexpected response"
@@ -228,7 +228,7 @@ ai_service_integration() {
         return 1
     fi
     
-    print_status "Testing Agent Coordinator task endpoint..."
+    print_status "Testing Agent Coordinator task endpoint (debug mode)..."
     if curl -s "${AGENT_COORDINATOR_URL}/tasks/status" > /dev/null 2>&1; then
         print_success "Agent Coordinator task endpoint is accessible"
         log "Agent Coordinator task endpoint tested"
@@ -238,8 +238,8 @@ ai_service_integration() {
         return 1
     fi
     
-    print_status "Monitoring Agent Coordinator task status..."
-    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null > /dev/null || print_warning "Agent Coordinator task status unavailable"
+    print_status "Monitoring Agent Coordinator task status (output json)..."
+    curl -s "${AGENT_COORDINATOR_URL}/tasks/status" 2>/dev/null | jq '.' 2>/dev/null || print_warning "Agent Coordinator task status unavailable"
     log "Agent Coordinator task status monitored"
     
     print_success "3.4 AI Service Integration completed"

@@ -266,13 +266,20 @@ Performance and scalability tests:
 - **Purpose**: Test system under load
 - **Speed**: Long-running (minutes)
 - **Dependencies**: Locust, staging environment
+- **Canonical Entry Point**: `tests/load/test_api_load.py`
 - **Examples**:
   ```bash
-  # Run Locust web UI
-  locust -f tests/load/locustfile.py --web-host 127.0.0.1
+  # Run canonical load test with runner script (recommended)
+  scripts/testing/run_load_tests.sh
   
-  # Run headless
-  locust -f tests/load/locustfile.py --headless -u 100 -r 10 -t 5m
+  # Run with custom parameters
+  LOAD_USERS=200 LOAD_DURATION=10m scripts/testing/run_load_tests.sh
+  
+  # Run Locust web UI directly
+  locust -f tests/load/test_api_load.py --web-host 127.0.0.1
+  
+  # Run headless directly
+  locust -f tests/load/test_api_load.py --headless -u 100 -r 10 -t 5m
   ```
 
 ## Configuration
