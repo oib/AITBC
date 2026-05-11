@@ -5,9 +5,6 @@ import os
 import tempfile
 from pathlib import Path
 import pytest
-from sqlmodel import SQLModel, create_engine, Session
-from app.models import MarketplaceOffer, MarketplaceBid
-from app.domain.gpu_marketplace import ConsumerGPUProfile
 
 _src = str(Path(__file__).resolve().parent.parent / "src")
 
@@ -21,6 +18,11 @@ if _app_mod and hasattr(_app_mod, "__file__") and _app_mod.__file__ and _src not
 
 if _src not in sys.path:
     sys.path.insert(0, _src)
+
+# Import after sys.path is set up
+from sqlmodel import SQLModel, create_engine, Session
+from app.models import MarketplaceOffer, MarketplaceBid
+from app.domain.gpu_marketplace import ConsumerGPUProfile
 
 # Set up test environment
 os.environ["TEST_MODE"] = "true"

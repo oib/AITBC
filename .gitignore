@@ -238,6 +238,8 @@ contracts/artifacts/
 *.dbg.json
 cli/build/
 cli/dist/
+cli/commands.legacy/
+cli/aitbc_cli.legacy.py
 dev/test-nodes/*.log
 
 # Local test fixtures and E2E testing

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aitbc"
-version = "v0.3.4"
+version = "0.6.0"
 description = "AI Agent Compute Network - Main Project"
 authors = ["AITBC Team"]
 
@@ -95,6 +95,9 @@ pydocstyle = "6.3.0"
 pyupgrade = "3.21.2"
 safety = "3.7.0"
 pytest-cov = "6.0.0"
+types-requests = ">=2.32.0"
+types-PyYAML = ">=6.0.0"
+types-python-dateutil = ">=2.9.0"
 
 [tool.black]
 line-length = 127

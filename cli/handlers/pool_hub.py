@@ -6,7 +6,7 @@ from aitbc import AITBCHTTPClient, NetworkError
 def handle_pool_hub_sla_metrics(args):
     """Get SLA metrics for a miner or all miners."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -37,7 +37,7 @@ def handle_pool_hub_sla_metrics(args):
 def handle_pool_hub_sla_violations(args):
     """Get SLA violations across all miners."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -61,7 +61,7 @@ def handle_pool_hub_sla_violations(args):
 def handle_pool_hub_capacity_snapshots(args):
     """Get capacity planning snapshots."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -86,7 +86,7 @@ def handle_pool_hub_capacity_snapshots(args):
 def handle_pool_hub_capacity_forecast(args):
     """Get capacity forecast."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -111,7 +111,7 @@ def handle_pool_hub_capacity_forecast(args):
 def handle_pool_hub_capacity_recommendations(args):
     """Get scaling recommendations."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -136,7 +136,7 @@ def handle_pool_hub_capacity_recommendations(args):
 def handle_pool_hub_billing_usage(args):
     """Get billing usage data."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -161,7 +161,7 @@ def handle_pool_hub_billing_usage(args):
 def handle_pool_hub_billing_sync(args):
     """Trigger billing sync with coordinator-api."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:
@@ -184,7 +184,7 @@ def handle_pool_hub_billing_sync(args):
 def handle_pool_hub_collect_metrics(args):
     """Trigger SLA metrics collection."""
     try:
-        from commands.pool_hub import get_config as get_pool_hub_config
+        from commands.legacy.pool_hub import get_config as get_pool_hub_config
         config = get_pool_hub_config()
         
         if args.test_mode:

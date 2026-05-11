@@ -8,7 +8,7 @@ from aitbc import AITBCHTTPClient, NetworkError
 def handle_bridge_health(args):
     """Health check for blockchain event bridge service."""
     try:
-        from commands.blockchain_event_bridge import get_config as get_bridge_config
+        from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
         
         if args.test_mode:
@@ -33,7 +33,7 @@ def handle_bridge_health(args):
 def handle_bridge_metrics(args):
     """Get Prometheus metrics from blockchain event bridge service."""
     try:
-        from commands.blockchain_event_bridge import get_config as get_bridge_config
+        from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
         
         if args.test_mode:
@@ -57,7 +57,7 @@ def handle_bridge_metrics(args):
 def handle_bridge_status(args):
     """Get detailed status of blockchain event bridge service."""
     try:
-        from commands.blockchain_event_bridge import get_config as get_bridge_config
+        from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
         
         if args.test_mode:
@@ -82,7 +82,7 @@ def handle_bridge_status(args):
 def handle_bridge_config(args):
     """Show current configuration of blockchain event bridge service."""
     try:
-        from commands.blockchain_event_bridge import get_config as get_bridge_config
+        from commands.legacy.blockchain_event_bridge import get_config as get_bridge_config
         config = get_bridge_config()
         
         if args.test_mode:

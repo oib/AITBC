@@ -7,6 +7,9 @@ import time
 import functools
 from typing import Callable, Type, Any
 from .exceptions import AITBCError
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 def retry(
@@ -70,7 +73,7 @@ def timing(func: Callable) -> Callable:
         result = func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"{func.__name__} executed in {execution_time:.4f} seconds")
+        logger.info(f"{func.__name__} executed in {execution_time:.4f} seconds")
         return result
     
     return wrapper
@@ -156,7 +159,7 @@ def handle_exceptions(
                 raise
             except Exception as e:
                 if log_errors:
-                    print(f"Error in {func.__name__}: {e}")
+                    logger.error(f"Error in {func.__name__}: {e}")
                 return default_return
         
         return wrapper
@@ -179,7 +182,7 @@ def async_timing(func: Callable) -> Callable:
         result = await func(*args, **kwargs)
         end_time = time.time()
         execution_time = end_time - start_time
-        print(f"{func.__name__} executed in {execution_time:.4f} seconds")
+        logger.info(f"{func.__name__} executed in {execution_time:.4f} seconds")
         return result
     
     return wrapper

@@ -4,6 +4,7 @@ Centralized constants for AITBC system paths and configuration
 """
 
 from pathlib import Path
+from ._version import __version__
 
 # AITBC System Paths
 DATA_DIR = Path("/var/lib/aitbc")
@@ -27,4 +28,4 @@ AGENT_COORDINATOR_PORT = 9001
 MARKETPLACE_PORT = 8081
 
 # Package version
-PACKAGE_VERSION = "0.3.0"
+PACKAGE_VERSION = __version__
