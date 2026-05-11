@@ -1140,7 +1140,7 @@ run_consensus_tests() {
     fi
     
     # Run tests
-    python -m pytest tests/consensus/ -v
+    python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/consensus/ -v
     
     if [ $? -eq 0 ]; then
         log_info "All consensus tests passed!"

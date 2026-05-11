@@ -2946,7 +2946,7 @@ run_agent_tests() {
     fi
     
     # Run tests
-    python -m pytest tests/ -v
+    python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -v
     
     if [ $? -eq 0 ]; then
         log_info "All agent tests passed!"

@@ -128,11 +128,10 @@ jobs:
           # Test both chains
           export CHAINS="ait-mainnet,ait-testnet"
 
-          venv/bin/pytest tests/production/ \
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/production/ \
             -v \
             --tb=short \
             --timeout=30 \
-            --import-mode=importlib \
             -k "not test_error_handling"
 
           echo "✅ Production tests completed"

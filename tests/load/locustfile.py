@@ -77,7 +77,11 @@ class MarketplaceUser(HttpUser):
         ) as response:
             if response.status_code == 200:
                 data = response.json()
-                offers = data.get("items", [])
+                # Handle both list and dict response formats
+                if isinstance(data, list):
+                    offers = data
+                else:
+                    offers = data.get("items", [])
                 # Simulate user viewing offers
                 if offers:
                     self.view_offer_details(random.choice(offers)["id"])
@@ -148,12 +152,20 @@ class MarketplaceUser(HttpUser):
             "/v1/marketplace/offers",
             params={"limit": 10, "status": "active"},
             headers=self.auth_headers,
+            catch_response=True,
         ) as response:
             if response.status_code != 200:
+                response.failure(f"Failed to get offers: {response.status_code}")
                 return
-            
-            offers = response.json().get("items", [])
+
+            data = response.json()
+            # Handle both list and dict response formats
+            if isinstance(data, list):
+                offers = data
+            else:
+                offers = data.get("items", [])
             if not offers:
+                response.success()
                 return
             
             # Select random offer

@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Coordinator API
-After=network.target
+After=network.target aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple

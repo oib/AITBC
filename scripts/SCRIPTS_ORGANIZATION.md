@@ -71,6 +71,7 @@ Testing and quality assurance
 
 ### 📁 utils/
 Utility scripts and helpers
+- `deploy_common.sh` - Shared deployment bootstrap helpers
 - `link-systemd.sh` - SystemD linking
 - `manage-services.sh` - Service management
 - `requirements_migrator.py` - Requirements migration

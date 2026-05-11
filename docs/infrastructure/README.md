@@ -100,7 +100,7 @@ sudo ./setup.sh
 ### Health Monitoring
 ```bash
 # Check all services
-/opt/aitbc/health-check.sh
+/opt/aitbc/scripts/monitoring/health_check.sh
 
 # View logs (new locations)
 tail -f /var/lib/aitbc/logs/aitbc-*.log

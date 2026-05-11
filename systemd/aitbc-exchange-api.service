@@ -1,7 +1,7 @@
 [Unit]
 Description=AITBC Exchange API Service
-After=network.target
-Wants=network.target
+After=network.target aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple

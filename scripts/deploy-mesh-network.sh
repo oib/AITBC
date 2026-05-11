@@ -194,19 +194,19 @@ validate_phase() {
     
     case "$phase" in
         "consensus")
-            "$PYTHON_CMD" -m pytest phase1/ -v --tb=short
+            "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase1/ -v --tb=short
             ;;
         "network")
-            "$PYTHON_CMD" -m pytest phase2/ -v --tb=short
+            "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase2/ -v --tb=short
             ;;
         "economics")
-            "$PYTHON_CMD" -m pytest phase3/ -v --tb=short
+            "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase3/ -v --tb=short
             ;;
         "agents")
-            "$PYTHON_CMD" -m pytest phase4/ -v --tb=short
+            "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase4/ -v --tb=short
             ;;
         "contracts")
-            "$PYTHON_CMD" -m pytest phase5/ -v --tb=short
+            "$PYTHON_CMD" -m pytest -c /dev/null --rootdir "$AITBC_ROOT" --import-mode=importlib phase5/ -v --tb=short
             ;;
         *)
             log_warn "No specific tests for phase: $phase"

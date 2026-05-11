@@ -55,7 +55,6 @@ async def submit_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
-@cached(**get_cache_config("job_list"))  # Cache job status for 1 minute
 async def get_job(
     job_id: str,
     session: Annotated[Session, Depends(get_session)],

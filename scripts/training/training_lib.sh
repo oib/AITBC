@@ -22,10 +22,11 @@ export TRAINING_TIMEOUT="${TRAINING_TIMEOUT:-300}"
 export GENESIS_NODE="http://localhost:8006"
 export FOLLOWER_NODE="http://aitbc1:8006"
 
-# Service endpoints
+# Service endpoints (per HERMES_AITBC_MASTERY_PLAN.md)
 export SERVICES=(
-    "8001:Exchange"
+    "8011:Coordinator-API"
     "9001:Agent-Coordinator"
+    "8001:Exchange-API"
     "8006:Genesis-Node-RPC"
     "8006:Follower-Node-RPC"
     "11434:Ollama"

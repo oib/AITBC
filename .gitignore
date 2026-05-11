@@ -292,9 +292,10 @@ apps/coordinator-api/.env
 # ===================
 scripts/deploy/*
 !scripts/deploy/*.example
+!scripts/deploy/deploy.sh
+!scripts/deploy/validate-env.sh
 scripts/gpu/*
 !scripts/gpu/*.example
-scripts/service/*
 
 # ===================
 # Infra Configs (production IPs & secrets)

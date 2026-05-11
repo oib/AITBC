@@ -9,6 +9,16 @@ import subprocess
 from pathlib import Path
 
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def resolve_test_path(test_path: str) -> str:
+    path = Path(test_path)
+    if not path.is_absolute():
+        path = REPO_ROOT / path
+    return str(path)
+
+
 def run_command(cmd, description):
     """Run a command and handle errors"""
     print(f"\n{'='*60}")
@@ -16,7 +26,7 @@ def run_command(cmd, description):
     print(f"Command: {' '.join(cmd)}")
     print('='*60)
     
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=REPO_ROOT)
     
     if result.stdout:
         print(result.stdout)
@@ -62,7 +72,16 @@ def main():
     args = parser.parse_args()
     
     # Base pytest command
-    pytest_cmd = ["python", "-m", "pytest"]
+    pytest_cmd = [
+        sys.executable,
+        "-m",
+        "pytest",
+        "-c",
+        "/dev/null",
+        "--rootdir",
+        str(REPO_ROOT),
+        "--import-mode=importlib",
+    ]
     
     # Add verbosity
     if args.verbose:
@@ -84,21 +103,21 @@ def main():
     test_paths = []
     
     if args.file:
-        test_paths.append(args.file)
+        test_paths.append(resolve_test_path(args.file))
     elif args.marker:
         pytest_cmd.extend(["-m", args.marker])
     elif args.suite == "unit":
-        test_paths.append("tests/unit/")
+        test_paths.append(resolve_test_path("tests/unit/"))
     elif args.suite == "integration":
-        test_paths.append("tests/integration/")
+        test_paths.append(resolve_test_path("tests/integration/"))
     elif args.suite == "e2e":
-        test_paths.append("tests/e2e/")
+        test_paths.append(resolve_test_path("tests/e2e/"))
         # E2E tests might need additional setup
         pytest_cmd.extend(["--driver=Chrome"])
     elif args.suite == "security":
         pytest_cmd.extend(["-m", "security"])
     else:  # all
-        test_paths.append("tests/")
+        test_paths.append(resolve_test_path("tests/"))
     
     # Add test paths to command
     pytest_cmd.extend(test_paths)

@@ -1941,7 +1941,7 @@ run_economic_tests() {
     fi
     
     # Run tests
-    python -m pytest tests/economics/ -v
+    python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/economics/ -v
     
     if [ $? -eq 0 ]; then
         log_info "All economic tests passed!"

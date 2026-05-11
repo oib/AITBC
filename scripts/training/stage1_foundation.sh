@@ -87,18 +87,24 @@ basic_system_orientation() {
     print_status "1.1 Basic System Orientation"
     log_info "Starting basic system orientation"
     
-    print_status "Getting CLI version..."
+    print_status "Getting CLI version (verbose mode)..."
     local version_output
-    version_output=$($CLI_PATH --version 2>/dev/null) || version_output="Unknown"
+    version_output=$($CLI_PATH --version --verbose 2>/dev/null) || version_output="Unknown"
     print_success "CLI version: $version_output"
     log_info "CLI version: $version_output"
     
-    print_status "Displaying CLI help..."
-    $CLI_PATH --help 2>/dev/null | head -20 || print_warning "CLI help command not available"
+    print_status "Displaying CLI help (debug mode)..."
+    $CLI_PATH --help --debug 2>/dev/null | head -20 || print_warning "CLI help command not available"
     log_info "CLI help displayed"
     
-    print_status "Checking system status..."
-    cli_cmd "system" || print_warning "System status command not available"
+    print_status "Checking system status (verbose mode)..."
+    cli_cmd "system --status --verbose" || print_warning "System status command not available"
+    
+    print_status "Getting node information (output json)..."
+    cli_cmd "node --info --output json" || print_warning "Node info command not available"
+    
+    print_status "Listing nodes (format table)..."
+    cli_cmd "node --list --format table" || print_warning "Node list command not available"
     
     update_progress "Basic System Orientation"
 }
@@ -108,9 +114,9 @@ basic_wallet_operations() {
     print_status "1.2 Basic Wallet Operations"
     log_info "Starting basic wallet operations"
     
-    print_status "Creating training wallet..."
+    print_status "Creating training wallet (non-interactive)..."
     if ! check_wallet "$WALLET_NAME"; then
-        if cli_cmd "create --name $WALLET_NAME --password $WALLET_PASSWORD"; then
+        if cli_cmd "wallet create --name $WALLET_NAME --password $WALLET_PASSWORD --yes --no-confirm"; then
             print_success "Wallet $WALLET_NAME created successfully"
         else
             print_warning "Wallet creation may have failed or wallet already exists"
@@ -119,11 +125,14 @@ basic_wallet_operations() {
         print_success "Training wallet $WALLET_NAME already exists"
     fi
     
-    print_status "Listing all wallets..."
-    cli_cmd_output "wallet list" || print_warning "Wallet list command not available"
+    print_status "Listing all wallets (output json)..."
+    cli_cmd_output "wallet list --output json" || print_warning "Wallet list command not available"
     
-    print_status "Checking wallet balance..."
-    cli_cmd "wallet balance $WALLET_NAME" || print_warning "Balance check failed"
+    print_status "Checking wallet balance (verbose mode)..."
+    cli_cmd "wallet balance --name $WALLET_NAME --verbose" || print_warning "Balance check failed"
+    
+    print_status "Checking all wallet balances (format table)..."
+    cli_cmd "wallet balance --all --format table" || print_warning "All wallet balances command not available"
     
     update_progress "Basic Wallet Operations"
 }
@@ -137,13 +146,13 @@ basic_transaction_operations() {
     local wallet_address
     local wallet_balance
     local balance_output
-    balance_output=$(cli_cmd_output "wallet balance $WALLET_NAME")
-    wallet_address=$(echo "$balance_output" | grep "Address:" | awk '{print $2}')
-    wallet_balance=$(echo "$balance_output" | grep "Balance:" | awk '{print $2}')
+    balance_output=$(cli_cmd_output "wallet balance --name $WALLET_NAME --output json")
+    wallet_address=$(echo "$balance_output" | grep -oP '(?<="address":")[^"]*' || echo "")
+    wallet_balance=$(echo "$balance_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
     
     if [[ -n "$wallet_address" && "${wallet_balance:-0}" -gt 0 ]]; then
-        print_status "Sending test transaction (self-transfer)..."
-        if cli_cmd "wallet send $WALLET_NAME $wallet_address 0 $WALLET_PASSWORD"; then
+        print_status "Sending test transaction (self-transfer, non-interactive)..."
+        if cli_cmd "wallet send --from $WALLET_NAME --to $wallet_address --amount 0 --password $WALLET_PASSWORD --yes --no-confirm"; then
             print_success "Test transaction sent successfully"
         else
             print_warning "Transaction may have failed (insufficient balance or other issue)"
@@ -155,26 +164,26 @@ basic_transaction_operations() {
         local genesis_output
         local genesis_address
         local genesis_balance
-        genesis_output=$(cli_cmd_output "wallet balance genesis")
-        genesis_address=$(echo "$genesis_output" | grep "Address:" | awk '{print $2}')
-        genesis_balance=$(echo "$genesis_output" | grep "Balance:" | awk '{print $2}')
+        genesis_output=$(cli_cmd_output "wallet balance --name genesis --output json")
+        genesis_address=$(echo "$genesis_output" | grep -oP '(?<="address":")[^"]*' || echo "")
+        genesis_balance=$(echo "$genesis_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
         
         if [[ -n "$genesis_address" && "${genesis_balance:-0}" -gt 0 ]]; then
-            print_status "Sending 100 AIT from genesis wallet to training wallet..."
+            print_status "Sending 100 AIT from genesis wallet to training wallet (non-interactive)..."
             local genesis_password
             genesis_password=$(cat /var/lib/aitbc/keystore/.genesis_password 2>/dev/null || echo "genesis")
-            if cli_cmd "wallet send genesis $wallet_address 100 $genesis_password"; then
+            if cli_cmd "wallet send --from genesis --to $wallet_address --amount 100 --password $genesis_password --yes --no-confirm"; then
                 print_success "Funding transaction sent successfully"
                 sleep 2  # Wait for transaction to be processed
                 
                 # Re-check training wallet balance
-                balance_output=$(cli_cmd_output "wallet balance $WALLET_NAME")
-                wallet_balance=$(echo "$balance_output" | grep "Balance:" | awk '{print $2}')
+                balance_output=$(cli_cmd_output "wallet balance --name $WALLET_NAME --output json")
+                wallet_balance=$(echo "$balance_output" | grep -oP '(?<="balance":)[0-9]+' || echo "0")
                 
                 if [[ "${wallet_balance:-0}" -gt 0 ]]; then
                     print_status "Training wallet now funded (Balance: ${wallet_balance} AIT)"
-                    print_status "Sending test transaction (self-transfer)..."
-                    if cli_cmd "wallet send $WALLET_NAME $wallet_address 0 $WALLET_PASSWORD"; then
+                    print_status "Sending test transaction (self-transfer, non-interactive)..."
+                    if cli_cmd "wallet send --from $WALLET_NAME --to $wallet_address --amount 0 --password $WALLET_PASSWORD --yes --no-confirm"; then
                         print_success "Test transaction sent successfully"
                     else
                         print_warning "Transaction may have failed (insufficient balance or other issue)"
@@ -192,8 +201,8 @@ basic_transaction_operations() {
         print_warning "Could not get wallet address for transaction test"
     fi
     
-    print_status "Checking transaction history..."
-    cli_cmd "wallet transactions $WALLET_NAME --limit 5" || print_warning "Transaction history command failed"
+    print_status "Checking transaction history (limit 10, output json)..."
+    cli_cmd "wallet transactions --name $WALLET_NAME --limit 10 --output json" || print_warning "Transaction history command failed"
     
     update_progress "Basic Transaction Operations"
 }
@@ -203,8 +212,30 @@ service_health_monitoring() {
     print_status "1.4 Service Health Monitoring"
     log_info "Starting service health monitoring"
     
-    print_status "Checking all service statuses..."
-    check_all_services
+    print_status "Checking all service statuses (verbose mode)..."
+    cli_cmd "service status --verbose" || print_warning "Service status command not available"
+    
+    print_status "Checking service health (debug mode, output json)..."
+    cli_cmd "service health --debug --output json" || print_warning "Service health command not available"
+    
+    print_status "Checking specific service health endpoints..."
+    print_status "Coordinator API (8011) /health/live..."
+    curl -s http://localhost:8011/health/live | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API health check failed"
+    
+    print_status "Coordinator API (8011) /v1/health..."
+    curl -s http://localhost:8011/v1/health | python3 -m json.tool 2>/dev/null || print_warning "Coordinator API v1 health check failed"
+    
+    print_status "Agent Coordinator (9001) /health..."
+    curl -s http://localhost:9001/health | python3 -m json.tool 2>/dev/null || print_warning "Agent Coordinator health check failed"
+    
+    print_status "Exchange API (8001) /health..."
+    curl -s http://localhost:8001/health | python3 -m json.tool 2>/dev/null || print_warning "Exchange API health check failed"
+    
+    print_status "Checking network status (format table)..."
+    cli_cmd "network status --format table" || print_warning "Network status command not available"
+    
+    print_status "Checking network peers (verbose mode)..."
+    cli_cmd "network peers --verbose" || print_warning "Network peers command not available"
     
     print_status "Testing node connectivity..."
     test_node_connectivity "$GENESIS_NODE" "Genesis Node"

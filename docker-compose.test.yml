@@ -1,0 +1,5 @@
+version: '3.8'
+
+# NOTE: This file is not used as AITBC does not support Docker.
+# See docs/testing/e2e-test-plan.md for systemd-based service orchestration.
+

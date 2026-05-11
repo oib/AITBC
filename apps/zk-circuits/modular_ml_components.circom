@@ -1,5 +1,7 @@
 pragma circom 2.0.0;
 
+include "node_modules/circomlib/circuits/comparators.circom";
+
 /*
  * Modular ML Circuit Components
  *
@@ -62,8 +64,20 @@ template LossConstraint() {
 template LearningRateValidation() {
     signal input learning_rate;
 
-    // Removed constraint for optimization - learning rate validation handled externally
-    // This reduces non-linear constraints from 1 to 0 for better proving performance
+    // Re-implemented proper validation using efficient comparison circuits
+    // Ensures 0 < learning_rate < 1
+    component lt1 = LessThan(252);
+    component gt0 = GreaterThan(252);
+    
+    // Ensure learning_rate < 1
+    lt1.in[0] <== learning_rate;
+    lt1.in[1] <== 1;
+    lt1.out === 1;
+    
+    // Ensure learning_rate > 0
+    gt0.in[0] <== learning_rate;
+    gt0.in[1] <== 0;
+    gt0.out === 1;
 }
 
 // Training epoch component

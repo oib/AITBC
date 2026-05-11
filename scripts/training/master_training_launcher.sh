@@ -117,7 +117,7 @@ show_overview() {
     
     echo -e "${BOLD}📊 Prerequisites:${NC}"
     echo "• AITBC CLI accessible at $CLI_PATH"
-    echo "• Services running on ports 8001 (Exchange), 9001 (Agent-Coordinator), 8006 (Blockchain RPC)"
+    echo "• Services running on ports 8011 (Coordinator-API), 9001 (Agent-Coordinator), 8001 (Exchange-API), 8006 (Blockchain RPC)"
     echo "• Basic computer skills and command-line familiarity"
     echo
 }

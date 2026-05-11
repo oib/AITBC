@@ -22,9 +22,10 @@ logger = get_logger(__name__)
 
 
 class ZKMemoryVerificationService:
-    def __init__(self, session: Session, contract_service: ContractInteractionService):
+    def __init__(self, session: Session, contract_service: ContractInteractionService, enabled: bool = False):
         self.session = session
         self.contract_service = contract_service
+        self.enabled = enabled
 
     async def generate_memory_proof(self, node_id: str, raw_data: bytes) -> tuple[str, str]:
         """
@@ -35,6 +36,12 @@ class ZKMemoryVerificationService:
         Returns:
             Tuple[str, str]: (zk_proof_payload, zk_proof_hash)
         """
+        if not self.enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="ZK memory verification is not enabled. Enable the service with actual circuit implementation."
+            )
+
         node = self.session.get(AgentMemoryNode, node_id)
         if not node:
             raise HTTPException(status_code=404, detail="Memory node not found")
@@ -44,8 +51,11 @@ class ZKMemoryVerificationService:
         # 2. Run the witness generator.
         # 3. Generate the proof.
 
-        # Mocking ZK Proof generation
-        logger.info(f"Generating ZK proof for memory node {node_id}")
+        # SECURITY NOTE: This is a placeholder implementation for development only.
+        # In production, this must be replaced with actual ZK proof generation
+        # using circom circuits and snarkjs. The mock values below provide no
+        # cryptographic security.
+        logger.warning(f"Using MOCK ZK proof generation for memory node {node_id} - NOT SECURE FOR PRODUCTION")
 
         # We simulate a proof by creating a structured JSON string
         data_hash = hashlib.sha256(raw_data).hexdigest()
@@ -70,6 +80,12 @@ class ZKMemoryVerificationService:
         """
         Verify that the retrieved data matches the on-chain anchored ZK proof.
         """
+        if not self.enabled:
+            raise HTTPException(
+                status_code=503,
+                detail="ZK memory verification is not enabled. Enable the service with actual circuit implementation."
+            )
+
         node = self.session.get(AgentMemoryNode, node_id)
         if not node:
             raise HTTPException(status_code=404, detail="Memory node not found")
@@ -87,9 +103,13 @@ class ZKMemoryVerificationService:
                 return False
 
             # 2. Verify the proof against the retrieved data (Circuit verification)
-            # In a real system, we might verify this locally or query the smart contract
+            # In a real system, we would use snarkjs to verify the Groth16 proof
+            # SECURITY NOTE: This is a placeholder implementation. In production,
+            # this must be replaced with actual cryptographic verification using
+            # the verification key and snarkjs.groth16.verify()
+            logger.warning("Using MOCK ZK proof verification - NOT SECURE FOR PRODUCTION")
 
-            # Local mock verification
+            # Local mock verification - checks hash match only
             proof_data = json.loads(proof_payload)
             data_hash = hashlib.sha256(retrieved_data).hexdigest()
 
@@ -98,7 +118,7 @@ class ZKMemoryVerificationService:
                 logger.error("Public signals in proof do not match retrieved data hash")
                 return False
 
-            logger.info("ZK Memory Verification Successful")
+            logger.info("ZK Memory Verification Successful (mock)")
             return True
 
         except Exception as e:

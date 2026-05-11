@@ -6,12 +6,12 @@ Test 3.1.1: Complete staking lifecycle integration test
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timezone, timedelta
 
 import pytest
 
 repo_root = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(repo_root / "apps/coordinator-api/src"))
+sys.path.insert(0, str(repo_root / "apps" / "coordinator-api" / "src"))
 sys.path.insert(0, str(repo_root / "contracts"))
 
 # Import after path setup

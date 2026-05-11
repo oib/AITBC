@@ -87,7 +87,10 @@ async def submit_result(
     metrics = dict(req.metrics or {})
     duration_ms = metrics.get("duration_ms")
     if duration_ms is None and job.requested_at:
-        duration_ms = int((datetime.now(timezone.utc) - job.requested_at).total_seconds() * 1000)
+        # Ensure both datetimes are timezone-aware or both are offset-naive
+        now = datetime.now(timezone.utc)
+        requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=timezone.utc)
+        duration_ms = int((now - requested_at).total_seconds() * 1000)
         metrics["duration_ms"] = duration_ms
 
     receipt = receipt_service.create_receipt(job, miner_id, req.result, metrics)
