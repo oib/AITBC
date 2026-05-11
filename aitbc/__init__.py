@@ -22,9 +22,9 @@ from .constants import (
     MARKETPLACE_DATA_DIR,
     MARKETPLACE_PORT,
     NODE_ENV_FILE,
-    PACKAGE_VERSION,
     REPO_DIR,
 )
+from ._version import __version__
 from .utils.env import (
     get_bool_env_var,
     get_env_var,
@@ -64,8 +64,6 @@ from .utils.paths import (
     get_repo_path,
     resolve_path,
 )
-
-__version__ = "0.6.0"
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "load_json": ("utils.json_utils", "load_json"),

@@ -13,6 +13,15 @@ from aitbc_cli.commands.exchange_island import exchange_island
 from aitbc_cli.commands.wallet import wallet
 from aitbc_cli.commands.genesis import genesis
 
+# Import new modular commands
+from aitbc_cli.commands.transactions import transactions
+from aitbc_cli.commands.mining import mining
+from aitbc_cli.commands.hermes import hermes
+from aitbc_cli.commands.workflow import workflow
+from aitbc_cli.commands.resource import resource
+from aitbc_cli.commands.operations import operations
+from aitbc_cli.commands.simulate import simulate
+
 # Force version to 0.2.2
 __version__ = "0.2.2"
 
@@ -161,6 +170,15 @@ cli.add_command(gpu)
 cli.add_command(exchange_island)
 cli.add_command(wallet)
 cli.add_command(genesis)
+
+# Add new modular commands
+cli.add_command(transactions)
+cli.add_command(mining)
+cli.add_command(hermes)
+cli.add_command(workflow)
+cli.add_command(resource)
+cli.add_command(operations)
+cli.add_command(simulate)
 
 if __name__ == '__main__':
     cli()
