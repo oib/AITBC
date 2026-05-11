@@ -19,6 +19,10 @@ from ..storage import get_session
 
 router = APIRouter(tags=["zk-applications"])
 
+# Feature flag to control demo vs production mode
+# In production, set this to False to disable demo-only endpoints
+DEMO_MODE_ENABLED = False
+
 
 class ZKProofRequest(BaseModel):
     """Request for ZK proof generation"""
@@ -64,6 +68,9 @@ async def create_identity_commitment(
         salt = secrets.token_hex(16)
 
     # Create commitment: H(email || salt)
+    # SECURITY NOTE: This uses SHA256 which is a hash commitment, not a cryptographic commitment
+    # In production, should use Pedersen commitments or similar cryptographic commitment schemes
+    # for better privacy properties (perfect hiding, computational binding)
     commitment_input = f"{user.email}:{salt}"
     commitment = hashlib.sha256(commitment_input.encode()).hexdigest()
 
@@ -79,8 +86,14 @@ async def verify_group_membership(
     Demo implementation - in production would use actual ZK-SNARKs
     """
 
+    if not DEMO_MODE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Group membership verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+        )
+
     # In a real implementation, this would:
-    # 1. Verify the ZK-SNARK proof
+    # 1. Verify the ZK-SNARK proof using the verification key
     # 2. Check the nullifier hasn't been used before
     # 3. Confirm membership in the group's Merkle tree
 
@@ -94,7 +107,8 @@ async def verify_group_membership(
     if request.group_id not in group_members:
         raise HTTPException(status_code=404, detail="Group not found")
 
-    # Simulate proof verification
+    # SECURITY NOTE: This is weak validation (length checks only)
+    # In production, must use actual Groth16 verification
     is_valid = len(request.proof) > 10 and len(request.nullifier) == 64
 
     if not is_valid:
@@ -115,8 +129,14 @@ async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Sess
     Uses commitment scheme to hide bid amount while allowing verification
     """
 
+    if not DEMO_MODE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Private bidding is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+        )
+
     # In production, would verify:
-    # 1. The ZK proof shows the bid is within valid range
+    # 1. The ZK proof shows the bid is within valid range using Groth16 verification
     # 2. The commitment matches the hidden bid amount
     # 3. User has sufficient funds
 
@@ -163,9 +183,17 @@ async def verify_computation_proof(
     Verify that an AI computation was performed correctly without revealing inputs
     """
 
-    # In production, would verify actual ZK-SNARK proof
+    if not DEMO_MODE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Computation verification is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+        )
+
+    # In production, would verify actual ZK-SNARK proof using Groth16 verification
     # For demo, simulate verification
 
+    # SECURITY NOTE: This is weak validation (length check only)
+    # In production, must use actual Groth16 verification
     verification_result = {
         "job_id": request.job_id,
         "verified": len(request.proof_of_execution) > 20,
@@ -226,10 +254,18 @@ async def generate_stealth_address(recipient_public_key: str, sender_random: str
     Demo implementation
     """
 
+    if not DEMO_MODE_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Stealth address generation is not enabled. This is a demo-only endpoint. Enable DEMO_MODE_ENABLED for development."
+        )
+
     if not sender_random:
         sender_random = secrets.token_hex(16)
 
     # In production, use elliptic curve diffie-hellman
+    # SECURITY NOTE: This is a simplified implementation for demo only
+    # In production, must use proper ECDH for stealth addresses
     shared_secret = hashlib.sha256(f"{recipient_public_key}:{sender_random}".encode()).hexdigest()
 
     stealth_address = hashlib.sha256(f"{shared_secret}:{recipient_public_key}".encode()).hexdigest()[:40]

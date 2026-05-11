@@ -2,10 +2,12 @@
 
 ## Quick Setup (New Host)
 
+The main setup script lives at `scripts/setup.sh`.
+
 Run this single command on any new host to install AITBC:
 
 ```bash
-sudo bash <(curl -sSL https://raw.githubusercontent.com/oib/aitbc/main/setup.sh)
+sudo bash <(curl -sSL https://gitea.bubuit.net/oib/aitbc/raw/branch/main/scripts/setup.sh)
 ```
 
 Or clone and run manually:
@@ -13,11 +15,11 @@ Or clone and run manually:
 ```bash
 sudo git clone https://gitea.bubuit.net/oib/aitbc.git /opt/aitbc
 cd /opt/aitbc
-sudo chmod +x setup.sh
-sudo ./setup.sh
+sudo chmod +x scripts/setup.sh
+sudo ./scripts/setup.sh
 ```
 
-## What the Setup Script Does
+## What `scripts/setup.sh` Does
 
 1. **Prerequisites Check**
    - Verifies Python 3.13.5+, pip3, git, systemd
@@ -54,7 +56,7 @@ sudo ./setup.sh
 
 7. **Service Management**
    - Creates `/opt/aitbc/start-services.sh` for manual control
-   - Creates `/opt/aitbc/health-check.sh` for monitoring
+   - Uses `/opt/aitbc/scripts/monitoring/health_check.sh` for monitoring
    - Sets up logging to `/var/log/aitbc-*.log`
 
 ## Runtime Directories
@@ -89,7 +91,7 @@ AITBC uses standard Linux system directories for runtime data:
 
 ```bash
 # Check service health
-/opt/aitbc/health-check.sh
+/opt/aitbc/scripts/monitoring/health_check.sh
 
 # Restart all services
 /opt/aitbc/start-services.sh
@@ -153,7 +155,7 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 For production deployment:
 1. Configure proper environment variables
 2. Set up reverse proxy (nginx)
-3. Configure SSL certificates
+3. Configure SSL certificates manually outside `scripts/setup.sh`
 4. Set up log rotation
 5. Configure monitoring and alerts
 6. Use proper database setup (PostgreSQL/Redis)

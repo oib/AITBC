@@ -28,6 +28,16 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     uint256 public defaultReleaseDelay = 3600; // 1 hour default
     uint256 public emergencyReleaseDelay = 86400; // 24 hours for emergency
     uint256 public platformFeePercentage = 50; // 0.5% in basis points
+    uint256 public constant BASIS_POINTS = 10000; // 100% in basis points
+    
+    // Multi-oracle verification state variables
+    uint256 public oracleVerificationThreshold = 2; // Minimum oracles required
+    uint256 public oracleVerificationDelay = 1 hours; // Delay after verification before release
+    
+    // Emergency release voting threshold state variables
+    uint256 public emergencyReleaseVotingThreshold = 66; // 66% approval threshold (in basis points)
+    uint256 public emergencyReleaseQuorum = 3; // Minimum arbiters required to vote
+    uint256 public emergencyReleaseTimelock = 1 hours; // Time lock after approval before execution
     
     // Structs
     struct EscrowAccount {
@@ -58,7 +68,16 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 verificationTime;
         string conditionData;
         uint256 confidence;
+        // Multi-oracle verification fields (without nested mappings)
+        address[] assignedOracles;
+        uint256 verificationCount;
+        uint256 requiredVerifications;
+        uint256 finalVerificationTime;
     }
+    
+    // Separate mappings for multi-oracle verification (to avoid nested mappings in struct)
+    mapping(uint256 => mapping(address => bool)) public oracleHasVerified;
+    mapping(uint256 => mapping(address => bool)) public oracleVerdict;
     
     struct MultiSigRelease {
         uint256 escrowId;
@@ -92,6 +111,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 totalVotes;
         bool isApproved;
         bool isExecuted;
+        uint256 approvalTime; // Timestamp when approval was achieved
     }
     
     // Enums
@@ -239,6 +259,21 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 feeAmount,
         address indexed collector
     );
+    
+    // Multi-oracle verification events
+    event OracleVerificationSubmitted(
+        uint256 indexed escrowId,
+        address indexed oracle,
+        bool verdict,
+        uint256 confidence
+    );
+    event OracleVerificationThresholdMet(
+        uint256 indexed escrowId,
+        uint256 verificationCount,
+        uint256 requiredVerifications
+    );
+    event OracleAuthorized(address indexed oracle);
+    event OracleRevoked(address indexed oracle);
     
     // Modifiers
     modifier onlyAuthorizedOracle() {
@@ -407,15 +442,24 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
         escrow.conditionHash = _condition;
         
-        conditionalReleases[_escrowId] = ConditionalRelease({
-            escrowId: _escrowId,
-            condition: _condition,
-            conditionMet: false,
-            oracle: _oracle,
-            verificationTime: 0,
-            conditionData: _conditionData,
-            confidence: 0
-        });
+        // Initialize ConditionalRelease with multi-oracle support
+        ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
+        condRelease.escrowId = _escrowId;
+        condRelease.condition = _condition;
+        condRelease.conditionMet = false;
+        condRelease.oracle = _oracle;
+        condRelease.verificationTime = 0;
+        condRelease.conditionData = _conditionData;
+        condRelease.confidence = 0;
+        // Initialize multi-oracle fields
+        condRelease.verificationCount = 0;
+        condRelease.requiredVerifications = oracleVerificationThreshold;
+        condRelease.finalVerificationTime = 0;
+        
+        // If a single oracle is specified, add to assigned oracles
+        if (_oracle != address(0)) {
+            condRelease.assignedOracles.push(_oracle);
+        }
         
         conditionEscrows[_condition] = _escrowId;
         
@@ -434,16 +478,54 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 _confidence
     ) external onlyAuthorizedOracle escrowExists(_escrowId) escrowNotFrozen(_escrowId) escrowNotReleased(_escrowId) {
         ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
-        require(condRelease.oracle == msg.sender, "Not assigned oracle");
         
-        condRelease.conditionMet = _conditionMet;
-        condRelease.verificationTime = block.timestamp;
-        condRelease.confidence = _confidence;
+        // Check if oracle is assigned (for backward compatibility with single oracle mode)
+        if (condRelease.assignedOracles.length == 0) {
+            require(condRelease.oracle == msg.sender, "Not assigned oracle");
+            
+            condRelease.conditionMet = _conditionMet;
+            condRelease.verificationTime = block.timestamp;
+            condRelease.confidence = _confidence;
+            
+            emit ConditionMet(_escrowId, condRelease.condition, _conditionMet, block.timestamp);
+            
+            if (_conditionMet) {
+                _releaseEscrow(_escrowId, "Condition verified and met");
+            }
+            return;
+        }
         
-        emit ConditionMet(_escrowId, condRelease.condition, _conditionMet, block.timestamp);
+        // Multi-oracle verification mode
+        require(!oracleHasVerified[_escrowId][msg.sender], "Oracle already verified");
         
-        if (_conditionMet) {
-            _releaseEscrow(_escrowId, "Condition verified and met");
+        oracleHasVerified[_escrowId][msg.sender] = true;
+        oracleVerdict[_escrowId][msg.sender] = _conditionMet;
+        condRelease.verificationCount++;
+        
+        emit OracleVerificationSubmitted(_escrowId, msg.sender, _conditionMet, _confidence);
+        
+        // Check if threshold is met
+        if (condRelease.verificationCount >= condRelease.requiredVerifications) {
+            // Count positive verdicts
+            uint256 positiveVotes = 0;
+            for (uint256 i = 0; i < condRelease.assignedOracles.length; i++) {
+                if (oracleVerdict[_escrowId][condRelease.assignedOracles[i]]) {
+                    positiveVotes++;
+                }
+            }
+            
+            // Check if majority approves
+            if (positiveVotes > condRelease.assignedOracles.length / 2) {
+                condRelease.conditionMet = true;
+                condRelease.finalVerificationTime = block.timestamp;
+                
+                emit OracleVerificationThresholdMet(_escrowId, condRelease.verificationCount, condRelease.requiredVerifications);
+                
+                // Apply time delay before release
+                if (block.timestamp >= condRelease.finalVerificationTime + oracleVerificationDelay) {
+                    _releaseEscrow(_escrowId, "Multi-oracle verification completed");
+                }
+            }
         }
     }
     
@@ -609,10 +691,20 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         }
         
         // Check if voting is complete and approved
-        if (emergency.totalVotes >= 3 && emergency.votesFor > emergency.votesAgainst) {
-            emergency.isApproved = true;
-            emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
-            _releaseEscrow(_escrowId, "Emergency release approved");
+        if (emergency.totalVotes >= emergencyReleaseQuorum) {
+            // Calculate approval percentage
+            uint256 approvalPercentage = (emergency.votesFor * BASIS_POINTS) / emergency.totalVotes;
+            
+            if (approvalPercentage >= emergencyReleaseVotingThreshold) {
+                emergency.isApproved = true;
+                emergency.approvalTime = block.timestamp;
+                emit EmergencyReleaseApproved(_escrowId, emergency.votesFor, emergency.votesAgainst, true);
+                
+                // Apply timelock before execution
+                if (block.timestamp >= emergency.approvalTime + emergencyReleaseTimelock) {
+                    _releaseEscrow(_escrowId, "Emergency release approved and timelock elapsed");
+                }
+            }
         }
     }
     
@@ -672,6 +764,80 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
      */
     function revokeOracle(address _oracle) external onlyOwner {
         authorizedOracles[_oracle] = false;
+        emit OracleRevoked(_oracle);
+    }
+    
+    /**
+     * @dev Sets the oracle verification threshold
+     * @param newThreshold Minimum oracles required for verification
+     */
+    function setOracleVerificationThreshold(uint256 newThreshold) external onlyOwner {
+        require(newThreshold >= 1, "Threshold must be at least 1");
+        require(newThreshold <= 10, "Threshold too high");
+        oracleVerificationThreshold = newThreshold;
+    }
+    
+    /**
+     * @dev Sets the oracle verification delay
+     * @param newDelay Delay after verification before release
+     */
+    function setOracleVerificationDelay(uint256 newDelay) external onlyOwner {
+        require(newDelay >= 0, "Delay cannot be negative");
+        require(newDelay <= 24 hours, "Delay too long");
+        oracleVerificationDelay = newDelay;
+    }
+    
+    /**
+     * @dev Assigns multiple oracles to a conditional release
+     * @param _escrowId ID of the escrow
+     * @param _oracles Array of oracle addresses
+     */
+    function assignMultipleOracles(uint256 _escrowId, address[] memory _oracles) external onlyOwner escrowExists(_escrowId) {
+        ConditionalRelease storage condRelease = conditionalReleases[_escrowId];
+        
+        // Clear existing assigned oracles
+        delete condRelease.assignedOracles;
+        
+        // Assign new oracles
+        for (uint256 i = 0; i < _oracles.length; i++) {
+            require(authorizedOracles[_oracles[i]], "Unauthorized oracle");
+            condRelease.assignedOracles.push(_oracles[i]);
+        }
+        
+        // Update required verifications based on oracle count
+        condRelease.requiredVerifications = _oracles.length >= oracleVerificationThreshold 
+            ? oracleVerificationThreshold 
+            : _oracles.length;
+    }
+    
+    /**
+     * @dev Sets the emergency release voting threshold
+     * @param newThreshold Percentage threshold (in basis points)
+     */
+    function setEmergencyReleaseVotingThreshold(uint256 newThreshold) external onlyOwner {
+        require(newThreshold >= 51, "Threshold must be at least 51%");
+        require(newThreshold <= 100, "Threshold cannot exceed 100%");
+        emergencyReleaseVotingThreshold = newThreshold;
+    }
+    
+    /**
+     * @dev Sets the emergency release quorum
+     * @param newQuorum Minimum arbiters required to vote
+     */
+    function setEmergencyReleaseQuorum(uint256 newQuorum) external onlyOwner {
+        require(newQuorum >= 1, "Quorum must be at least 1");
+        require(newQuorum <= 10, "Quorum too high");
+        emergencyReleaseQuorum = newQuorum;
+    }
+    
+    /**
+     * @dev Sets the emergency release timelock
+     * @param newTimelock Time lock after approval before execution
+     */
+    function setEmergencyReleaseTimelock(uint256 newTimelock) external onlyOwner {
+        require(newTimelock >= 0, "Timelock cannot be negative");
+        require(newTimelock <= 24 hours, "Timelock too long");
+        emergencyReleaseTimelock = newTimelock;
     }
     
     /**

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+import logging
+from datetime import datetime, timedelta
+from typing import Any
 
 from sqlmodel import Session, select
 
@@ -16,11 +18,12 @@ class JobService:
 
     def create_job(self, client_id: str, req: JobCreate) -> Job:
         ttl = max(req.ttl_seconds, 1)
-        now = datetime.now(timezone.utc)
+        now = datetime.now()
         job = Job(
             client_id=client_id,
+            state="QUEUED",
             payload=req.payload,
-            constraints=req.constraints.model_dump(exclude_none=True),
+            constraints=req.constraints.dict() if hasattr(req.constraints, 'dict') else req.constraints,
             ttl_seconds=ttl,
             requested_at=now,
             expires_at=now + timedelta(seconds=ttl),
@@ -112,7 +115,7 @@ class JobService:
 
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
-            now = datetime.now(timezone.utc)
+            now = datetime.now()
             statement = select(Job).where(Job.state == JobState.queued).order_by(Job.requested_at.asc())
 
             jobs = self.session.scalars(statement).all()
@@ -121,7 +124,7 @@ class JobService:
                     job = self._ensure_not_expired(job)
                     if job.state != JobState.queued:
                         continue
-                    if job.expires_at <= now:
+                    if job.expires_at and job.expires_at <= now:
                         continue
                     if not self._satisfies_constraints(job, miner):
                         continue
@@ -146,7 +149,7 @@ class JobService:
             raise  # Propagate for caller to handle
 
     def _ensure_not_expired(self, job: Job) -> Job:
-        if job.state in {JobState.queued, JobState.running} and job.expires_at <= datetime.now(timezone.utc):
+        if job.state in {JobState.queued, JobState.running} and job.expires_at and job.expires_at <= datetime.now():
             job.state = JobState.expired
             job.error = "job expired"
             self.session.add(job)

@@ -8,7 +8,12 @@ import subprocess
 import sys
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Any
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+TESTS_DIR = Path(__file__).resolve().parent
 
 class CompleteTestRunner:
     """Complete test runner for all 9 systems"""
@@ -70,13 +75,20 @@ class CompleteTestRunner:
         try:
             # Run pytest with specific test file
             result = subprocess.run([
-                sys.executable, "-m", "pytest", 
-                suite_info['file'],
+                sys.executable,
+                "-m",
+                "pytest",
+                "-c",
+                "/dev/null",
+                "--rootdir",
+                str(REPO_ROOT),
+                "--import-mode=importlib",
+                str(TESTS_DIR / suite_info['file']),
                 "-v",
                 "--tb=short",
                 "--no-header",
                 "--disable-warnings"
-            ], capture_output=True, text=True, cwd="/opt/aitbc/tests")
+            ], capture_output=True, text=True, cwd=REPO_ROOT)
             
             end_time = time.time()
             duration = end_time - start_time

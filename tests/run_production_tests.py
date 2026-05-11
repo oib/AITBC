@@ -9,6 +9,10 @@ import subprocess
 import os
 from pathlib import Path
 
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+TESTS_DIR = Path(__file__).resolve().parent / "production"
+
 def run_test_suite(test_file: str, description: str) -> bool:
     """Run a single test suite and return success status"""
     print(f"\n🧪 Running {description}")
@@ -16,15 +20,22 @@ def run_test_suite(test_file: str, description: str) -> bool:
     print("=" * 60)
     
     try:
-        # Change to the correct directory
-        test_dir = Path(__file__).parent
-        test_path = test_dir / "production" / test_file
-        
-        # Run the test
+        test_path = TESTS_DIR / test_file
+
+        # Run the test with monorepo-safe pytest settings
         result = subprocess.run([
-            sys.executable, "-m", "pytest", 
-            str(test_path), "-v", "--tb=short"
-        ], capture_output=True, text=True, cwd=test_dir.parent.parent)
+            sys.executable,
+            "-m",
+            "pytest",
+            "-c",
+            "/dev/null",
+            "--rootdir",
+            str(REPO_ROOT),
+            "--import-mode=importlib",
+            str(test_path),
+            "-v",
+            "--tb=short",
+        ], capture_output=True, text=True, cwd=REPO_ROOT)
         
         print(result.stdout)
         if result.stderr:

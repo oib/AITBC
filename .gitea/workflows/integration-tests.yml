@@ -142,7 +142,7 @@ jobs:
         run: |
           cd /var/lib/aitbc-workspaces/integration-tests/repo
           source venv/bin/activate
-          export PYTHONPATH="apps/agent-coordinator/src:apps/wallet/src:apps/exchange/src:$PYTHONPATH"
+          export PYTHONPATH="$PWD/apps/agent-coordinator/src:$PWD/apps/wallet/src:$PWD/apps/exchange/src:$PYTHONPATH"
 
           # Skip if services not available
           if [ "${{ steps.wait-services.outputs.services_available }}" != "true" ]; then
@@ -152,7 +152,7 @@ jobs:
 
           # Run existing test suites
           if [[ -d "tests" ]]; then
-            pytest tests/ -x --timeout=30 -q --ignore=tests/production
+            venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -x --timeout=30 -q --ignore=tests/production
           fi
 
           # Service health check integration (now tests both chains)

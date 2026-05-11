@@ -10,6 +10,8 @@ ENVIRONMENT=${1:-staging}
 VERSION=${2:-latest}
 REGION=${3:-us-east-1}
 NAMESPACE="aitbc-${ENVIRONMENT}"
+REPO_ROOT="${REPO_ROOT:-/opt/aitbc}"
+PYTHON_VENV="${PYTHON_VENV:-$REPO_ROOT/venv}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -59,22 +61,29 @@ build_images() {
 # Run tests
 run_tests() {
     log "Running tests..."
+
+    PYTEST_CMD=(
+        "$PYTHON_VENV/bin/python" -m pytest
+        -c /dev/null
+        --rootdir "$REPO_ROOT"
+        --import-mode=importlib
+    )
     
     # Run unit tests
     log "Running unit tests..."
-    pytest tests/unit/ -v --cov=aitbc_cli --cov-report=term || error "Unit tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/unit/" -v --cov=aitbc_cli --cov-report=term || error "Unit tests failed"
     
     # Run integration tests
     log "Running integration tests..."
-    pytest tests/integration/ -v || error "Integration tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/integration/" -v || error "Integration tests failed"
     
     # Run security tests
     log "Running security tests..."
-    pytest tests/security/ -v || error "Security tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/security/" -v || error "Security tests failed"
     
     # Run performance tests
     log "Running performance tests..."
-    pytest tests/performance/test_performance_lightweight.py::TestPerformance::test_cli_performance -v || error "Performance tests failed"
+    "${PYTEST_CMD[@]}" "$REPO_ROOT/tests/performance/test_performance_lightweight.py::TestPerformance::test_cli_performance" -v || error "Performance tests failed"
     
     success "All tests passed"
 }

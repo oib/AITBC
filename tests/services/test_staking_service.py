@@ -6,13 +6,14 @@ High-priority tests for staking service functionality
 import asyncio
 import sys
 from pathlib import Path
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timezone, timedelta
 
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/coordinator-api/src"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "apps" / "coordinator-api" / "src"))
 
 from app.domain.bounty import AgentStake, AgentMetrics, StakingPool, StakeStatus, PerformanceTier
 from app.services.staking_service import StakingService

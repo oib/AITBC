@@ -64,20 +64,20 @@ check_prerequisites() {
 advanced_automation() {
     print_status "5.1 Advanced Automation"
     
-    print_status "Creating AI job pipeline workflow..."
-    $CLI_PATH workflow create --name ai-job-pipeline 2>/dev/null || print_warning "Workflow creation command not available"
+    print_status "Creating AI job pipeline workflow (non-interactive)..."
+    $CLI_PATH workflow create --name ai-job-pipeline --yes --no-confirm 2>/dev/null || print_warning "Workflow creation command not available"
     log "AI job pipeline workflow creation attempted"
     
-    print_status "Setting up automated job submission schedule..."
-    $CLI_PATH workflow schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" 2>/dev/null || print_warning "Schedule command not available"
+    print_status "Setting up automated job submission schedule (verbose mode)..."
+    $CLI_PATH workflow schedule --cron "0 */6 * * *" --command "$CLI_PATH ai submit --prompt inference" --verbose 2>/dev/null || print_warning "Schedule command not available"
     log "Automated job submission schedule attempted"
     
-    print_status "Creating marketplace monitoring bot..."
-    $CLI_PATH workflow create --name marketplace-bot 2>/dev/null || print_warning "Marketplace bot creation failed"
+    print_status "Creating marketplace monitoring bot (debug mode)..."
+    $CLI_PATH workflow create --name marketplace-bot --debug 2>/dev/null || print_warning "Marketplace bot creation failed"
     log "Marketplace monitoring bot creation attempted"
     
-    print_status "Monitoring automation workflows..."
-    $CLI_PATH workflow monitor --name ai-job-pipeline 2>/dev/null || print_warning "Workflow monitoring command not available"
+    print_status "Monitoring automation workflows (output json)..."
+    $CLI_PATH workflow monitor --name ai-job-pipeline --output json 2>/dev/null || print_warning "Workflow monitoring command not available"
     log "Automation workflow monitoring attempted"
     
     print_success "5.1 Advanced Automation completed"
@@ -107,6 +107,19 @@ multi_node_coordination() {
     $CLI_PATH cluster status --nodes aitbc1 2>/dev/null || print_warning "Recovery coordination failed"
     log "Recovery coordination on Follower node tested"
     
+    print_status "Gitea-based Node Synchronization (instead of SCP)..."
+    print_status "Sync aitbc1 from Gitea repository..."
+    ssh aitbc1 'cd /opt/aitbc && git pull origin main --yes --no-confirm' 2>/dev/null || print_warning "Gitea sync to aitbc1 failed"
+    log "Gitea sync to aitbc1 attempted"
+    
+    print_status "Checking git sync status on local node..."
+    git status --verbose 2>/dev/null || print_warning "Git status check failed"
+    log "Local git sync status checked"
+    
+    print_status "Checking git log for recent changes..."
+    git log --oneline -5 --decorate 2>/dev/null || print_warning "Git log check failed"
+    log "Git log checked"
+    
     print_success "5.2 Multi-Node Coordination completed"
 }
 
@@ -114,24 +127,24 @@ multi_node_coordination() {
 performance_optimization() {
     print_status "5.3 Performance Optimization"
     
-    print_status "Running comprehensive performance benchmark..."
-    $CLI_PATH performance benchmark 2>/dev/null || print_warning "Performance benchmark command not available"
+    print_status "Running comprehensive performance benchmark (verbose mode, output json)..."
+    $CLI_PATH performance benchmark --verbose --output json 2>/dev/null || print_warning "Performance benchmark command not available"
     log "Comprehensive performance benchmark executed"
     
-    print_status "Optimizing for low latency..."
-    $CLI_PATH performance optimize --target latency 2>/dev/null || print_warning "Latency optimization command not available"
+    print_status "Optimizing for low latency (dry-run)..."
+    $CLI_PATH performance optimize --target latency --dry-run 2>/dev/null || print_warning "Latency optimization command not available"
     log "Latency optimization executed"
     
-    print_status "Tuning system parameters aggressively..."
-    $CLI_PATH performance tune --aggressive 2>/dev/null || print_warning "Parameter tuning command not available"
+    print_status "Tuning system parameters aggressively (non-interactive)..."
+    $CLI_PATH performance tune --aggressive --yes --no-confirm 2>/dev/null || print_warning "Parameter tuning command not available"
     log "Aggressive parameter tuning executed"
     
-    print_status "Optimizing global resource usage..."
-    $CLI_PATH performance optimize --target all 2>/dev/null || print_warning "Global resource optimization command not available"
+    print_status "Optimizing global resource usage (debug mode)..."
+    $CLI_PATH performance optimize --target all --debug 2>/dev/null || print_warning "Global resource optimization command not available"
     log "Global resource optimization executed"
     
-    print_status "Optimizing cache strategy..."
-    $CLI_PATH performance tune --parameters 2>/dev/null || print_warning "Cache optimization command not available"
+    print_status "Optimizing cache strategy (format table)..."
+    $CLI_PATH performance tune --parameters --format table 2>/dev/null || print_warning "Cache optimization command not available"
     log "LRU cache optimization executed"
     
     print_success "5.3 Performance Optimization completed"
@@ -141,27 +154,131 @@ performance_optimization() {
 security_compliance() {
     print_status "5.4 Security & Compliance"
     
-    print_status "Running comprehensive security audit..."
-    $CLI_PATH security audit --comprehensive 2>/dev/null || print_warning "Security audit command not available"
+    print_status "Running comprehensive security audit (verbose mode, output json)..."
+    $CLI_PATH security audit --comprehensive --verbose --output json 2>/dev/null || print_warning "Security audit command not available"
     log "Comprehensive security audit executed"
     
-    print_status "Scanning for vulnerabilities..."
-    $CLI_PATH security scan --vulnerabilities 2>/dev/null || print_warning "Vulnerability scan command not available"
+    print_status "Scanning for vulnerabilities (debug mode)..."
+    $CLI_PATH security scan --vulnerabilities --debug 2>/dev/null || print_warning "Vulnerability scan command not available"
     log "Vulnerability scan completed"
     
-    print_status "Checking for critical security patches..."
-    $CLI_PATH security patch --critical 2>/dev/null || print_warning "Security patch command not available"
+    print_status "Checking for critical security patches (non-interactive)..."
+    $CLI_PATH security patch --check --critical --yes --no-confirm 2>/dev/null || print_warning "Security patch command not available"
     log "Critical security patches check completed"
     
-    print_status "Checking GDPR compliance..."
-    $CLI_PATH compliance check --standard gdpr 2>/dev/null || print_warning "GDPR compliance check command not available"
+    print_status "Checking GDPR compliance (format table)..."
+    $CLI_PATH compliance check --standard gdpr --format table 2>/dev/null || print_warning "GDPR compliance check command not available"
     log "GDPR compliance check completed"
     
-    print_status "Generating detailed compliance report..."
-    $CLI_PATH compliance report --format detailed 2>/dev/null || print_warning "Compliance report command not available"
+    print_status "Generating detailed compliance report (dry-run)..."
+    $CLI_PATH compliance report --format detailed --dry-run 2>/dev/null || print_warning "Compliance report command not available"
     log "Detailed compliance report generated"
     
     print_success "5.4 Security & Compliance completed"
+}
+
+# 5.5 Agent Integration Service Management
+agent_integration_service_management() {
+    print_status "5.5 Agent Integration Service Management"
+    
+    print_status "Understanding Agent Integration Service features..."
+    print_status "Systemd Deployment: Dynamic service file generation for agent instances"
+    print_status "Health Checks: Combined systemd status and HTTP health endpoint monitoring"
+    print_status "Metrics Collection: CPU, memory, error rate, and response time metrics"
+    print_status "Alerting Rules: Configurable thresholds for monitoring"
+    print_status "Lifecycle Management: Deployment, rollback, and instance removal operations"
+    log "Agent Integration Service features explained"
+    
+    print_status "Testing agent instance deployment via Coordinator API (port 8011)..."
+    DEPLOY_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/deploy \
+        -H "Content-Type: application/json" \
+        -d '{
+          "agent_id": "test-agent-1",
+          "agent_type": "ai-worker",
+          "config": {"gpu_required": true}
+        }' 2>/dev/null)
+    
+    if [ -n "$DEPLOY_RESPONSE" ]; then
+        print_success "Agent deployment response received"
+        echo "$DEPLOY_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$DEPLOY_RESPONSE"
+        log "Agent deployment test attempted: $DEPLOY_RESPONSE"
+    else
+        print_warning "Agent deployment endpoint may not be available"
+        log "Agent deployment test failed - endpoint unavailable"
+    fi
+    
+    print_status "Checking agent instance health endpoint..."
+    HEALTH_RESPONSE=$(curl -s http://localhost:8011/v1/agent-integration/instances/test-agent-1/health 2>/dev/null)
+    if [ -n "$HEALTH_RESPONSE" ]; then
+        print_success "Agent health check response received"
+        echo "$HEALTH_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$HEALTH_RESPONSE"
+        log "Agent health check test attempted"
+    else
+        print_warning "Agent health check endpoint may not be available"
+        log "Agent health check test failed - endpoint unavailable"
+    fi
+    
+    print_status "Collecting metrics from agent instance..."
+    METRICS_RESPONSE=$(curl -s http://localhost:8011/v1/agent-integration/instances/test-agent-1/metrics 2>/dev/null)
+    if [ -n "$METRICS_RESPONSE" ]; then
+        print_success "Agent metrics response received"
+        echo "$METRICS_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$METRICS_RESPONSE"
+        log "Agent metrics collection test attempted"
+    else
+        print_warning "Agent metrics endpoint may not be available"
+        log "Agent metrics collection test failed - endpoint unavailable"
+    fi
+    
+    print_status "Configuring alerting rules..."
+    ALERT_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/alerting/rules \
+        -H "Content-Type: application/json" \
+        -d '{
+          "cpu_threshold": 80,
+          "memory_threshold": 70,
+          "error_rate_threshold": 5,
+          "response_time_threshold": 1000
+        }' 2>/dev/null)
+    
+    if [ -n "$ALERT_RESPONSE" ]; then
+        print_success "Alerting rules configuration response received"
+        echo "$ALERT_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$ALERT_RESPONSE"
+        log "Alerting rules configuration test attempted"
+    else
+        print_warning "Alerting rules endpoint may not be available"
+        log "Alerting rules configuration test failed - endpoint unavailable"
+    fi
+    
+    print_status "Testing rollback deployment endpoint..."
+    ROLLBACK_RESPONSE=$(curl -s -X POST http://localhost:8011/v1/agent-integration/instances/test-agent-1/rollback 2>/dev/null)
+    if [ -n "$ROLLBACK_RESPONSE" ]; then
+        print_success "Rollback response received"
+        echo "$ROLLBACK_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$ROLLBACK_RESPONSE"
+        log "Agent rollback test attempted"
+    else
+        print_warning "Rollback endpoint may not be available"
+        log "Agent rollback test failed - endpoint unavailable"
+    fi
+    
+    print_status "Testing agent instance removal endpoint..."
+    REMOVE_RESPONSE=$(curl -s -X DELETE http://localhost:8011/v1/agent-integration/instances/test-agent-1 2>/dev/null)
+    if [ -n "$REMOVE_RESPONSE" ]; then
+        print_success "Agent removal response received"
+        echo "$REMOVE_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$REMOVE_RESPONSE"
+        log "Agent removal test attempted"
+    else
+        print_warning "Agent removal endpoint may not be available"
+        log "Agent removal test failed - endpoint unavailable"
+    fi
+    
+    print_status "Checking systemd service status for agent instances..."
+    systemctl status aitbc-agent-test-agent-1.service --no-pager 2>/dev/null || print_warning "Systemd service for test-agent-1 not found or not active"
+    log "Systemd service status check attempted"
+    
+    print_status "Viewing agent service logs (if available)..."
+    journalctl -u aitbc-agent-test-agent-1.service -n 10 --no-pager 2>/dev/null || print_warning "Agent service logs not available"
+    log "Agent service logs check attempted"
+    
+    print_success "5.5 Agent Integration Service Management completed"
 }
 
 # Advanced automation scripting
@@ -451,6 +568,7 @@ main() {
     multi_node_coordination
     performance_optimization
     security_compliance
+    agent_integration_service_management
     advanced_scripting
     expert_performance_analysis
     final_certification_exam

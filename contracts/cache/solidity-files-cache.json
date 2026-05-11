@@ -958,8 +958,8 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/EscrowService.sol": {
-      "lastModificationDate": 1776798809546,
-      "contentHash": "8ed24c1fa857455a40b3c6c555b4545c",
+      "lastModificationDate": 1778499363705,
+      "contentHash": "ba10dd9258bc5da054b1140ae5a21688",
       "sourceName": "contracts/EscrowService.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -1480,8 +1480,8 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AIServiceAMM.sol": {
-      "lastModificationDate": 1776798809546,
-      "contentHash": "3e95a04b8c88f379da7bfca06f6fc603",
+      "lastModificationDate": 1778499100296,
+      "contentHash": "497393ce1d73662e58a5ac0d6439a3e2",
       "sourceName": "contracts/AIServiceAMM.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -1564,7 +1564,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/BountyIntegration.sol": {
-      "lastModificationDate": 1776798809546,
+      "lastModificationDate": 1778145446305,
       "contentHash": "453b657ebe28ba5da51d14607d276a2d",
       "sourceName": "contracts/BountyIntegration.sol",
       "solcConfig": {
@@ -1607,7 +1607,7 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentBounty.sol": {
-      "lastModificationDate": 1776798809546,
+      "lastModificationDate": 1778145446301,
       "contentHash": "5c4a0794eed82917df0db4b5f239a2fe",
       "sourceName": "contracts/AgentBounty.sol",
       "solcConfig": {
@@ -1650,8 +1650,8 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AgentStaking.sol": {
-      "lastModificationDate": 1776798809546,
-      "contentHash": "a82def520a32036e992abcfd3e9ba4e6",
+      "lastModificationDate": 1778499444590,
+      "contentHash": "92aba16e31736a28ce2a836633e80f6a",
       "sourceName": "contracts/AgentStaking.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -1682,6 +1682,8 @@
         "@openzeppelin/contracts/security/ReentrancyGuard.sol",
         "@openzeppelin/contracts/security/Pausable.sol",
         "@openzeppelin/contracts/token/ERC20/IERC20.sol",
+        "@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
+        "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol",
         "./PerformanceVerifier.sol",
         "./AIToken.sol"
       ],
@@ -1693,8 +1695,8 @@
       ]
     },
     "/opt/aitbc/contracts/contracts/AIToken.sol": {
-      "lastModificationDate": 1776798809546,
-      "contentHash": "a519ac2b538bf933d939cff30af42b82",
+      "lastModificationDate": 1778496452092,
+      "contentHash": "89623495cb644a61055a58560f6767a0",
       "sourceName": "contracts/AIToken.sol",
       "solcConfig": {
         "version": "0.8.19",
@@ -1928,6 +1930,81 @@
       ],
       "artifacts": [
         "MockVerifier"
+      ]
+    },
+    "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol": {
+      "lastModificationDate": 1778145436009,
+      "contentHash": "53d16b3bec482493405bdc74852eb2cd",
+      "sourceName": "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [
+        "./ECDSA.sol",
+        "../../interfaces/IERC1271.sol"
+      ],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "SignatureChecker"
+      ]
+    },
+    "/opt/aitbc/contracts/node_modules/@openzeppelin/contracts/interfaces/IERC1271.sol": {
+      "lastModificationDate": 1778145436065,
+      "contentHash": "8fe867b95c856b204f954a1910e28a1e",
+      "sourceName": "@openzeppelin/contracts/interfaces/IERC1271.sol",
+      "solcConfig": {
+        "version": "0.8.19",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "viaIR": true,
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.0"
+      ],
+      "artifacts": [
+        "IERC1271"
       ]
     }
   }

@@ -15,8 +15,8 @@ import requests
 from typing import Optional, Dict, Any
 
 # Default configuration
-DEFAULT_COORDINATOR_URL = "http://localhost:8011"
-DEFAULT_API_KEY = "miner_prod_key_use_real_value"
+DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://localhost:8011")
+DEFAULT_API_KEY = os.getenv("MINER_API_KEY", "")
 
 
 def register_miner(

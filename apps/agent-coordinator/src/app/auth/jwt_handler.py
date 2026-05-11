@@ -212,10 +212,35 @@ class PasswordManager:
             return {"status": "error", "message": str(e)}
 
 class APIKeyManager:
-    """API key generation and management"""
+    """API key generation and management with persistent storage"""
     
-    def __init__(self):
-        self.api_keys = {}  # In production, use secure storage
+    def __init__(self, storage_path: str = None):
+        self.storage_path = storage_path or os.getenv("API_KEY_STORAGE_PATH", "/var/lib/aitbc/api_keys.json")
+        self.api_keys = self._load_keys()
+    
+    def _load_keys(self) -> Dict[str, Any]:
+        """Load API keys from persistent storage"""
+        try:
+            if os.path.exists(self.storage_path):
+                with open(self.storage_path, 'r') as f:
+                    import json
+                    return json.load(f)
+            return {}
+        except Exception as e:
+            logger.error(f"Error loading API keys: {e}")
+            return {}
+    
+    def _save_keys(self) -> None:
+        """Save API keys to persistent storage"""
+        try:
+            os.makedirs(os.path.dirname(self.storage_path), exist_ok=True)
+            with open(self.storage_path, 'w') as f:
+                import json
+                json.dump(self.api_keys, f, indent=2)
+            # Set restrictive permissions
+            os.chmod(self.storage_path, 0o600)
+        except Exception as e:
+            logger.error(f"Error saving API keys: {e}")
         
     def generate_api_key(self, user_id: str, permissions: List[str] = None) -> Dict[str, Any]:
         """Generate new API key for user"""
@@ -233,6 +258,7 @@ class APIKeyManager:
             }
             
             self.api_keys[api_key] = key_data
+            self._save_keys()
             
             return {
                 "status": "success",
@@ -260,6 +286,7 @@ class APIKeyManager:
             # Update usage statistics
             key_data["last_used"] = datetime.now(timezone.utc).isoformat()
             key_data["usage_count"] += 1
+            self._save_keys()
             
             return {
                 "status": "success",
@@ -277,6 +304,7 @@ class APIKeyManager:
         try:
             if api_key in self.api_keys:
                 del self.api_keys[api_key]
+                self._save_keys()
                 return {"status": "success", "message": "API key revoked"}
             else:
                 return {"status": "error", "message": "API key not found"}
@@ -292,7 +320,12 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-jwt_secret = os.getenv("JWT_SECRET", "production-jwt-secret-change-me")
+jwt_secret = os.getenv("JWT_SECRET")
+if not jwt_secret:
+    raise ValueError(
+        "JWT_SECRET environment variable must be set. "
+        "Generate a secure secret using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 jwt_handler = JWTHandler(jwt_secret)
 password_manager = PasswordManager()
 api_key_manager = APIKeyManager()

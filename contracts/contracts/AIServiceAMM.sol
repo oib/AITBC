@@ -28,6 +28,28 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     uint256 public defaultFee = 30; // 0.3% default fee
     uint256 public protocolFeePercentage = 20; // 20% of fees go to protocol
     address public protocolFeeRecipient;
+    
+    // Flash loan protection state variables
+    uint256 public maxPriceDeviation = 500; // 5% max price deviation (in basis points)
+    uint256 public twapPeriod = 30 minutes; // TWAP observation period
+    uint256 public minSwapDelay = 1 seconds; // Minimum delay between swaps
+    bool public circuitBreakerTriggered = false;
+    uint256 public circuitBreakerCooldown = 1 hours;
+    uint256 public circuitBreakerTriggerTime;
+    
+    // Front-running protection state variables
+    uint256 public largeTradeThreshold = 1e18; // Threshold for commit-reveal scheme
+    mapping(address => bytes32) public commitHashes; // Mapping from trader to commit hash
+    mapping(address => uint256) public commitTimestamps; // Mapping from trader to commit timestamp
+    uint256 public commitRevealWindow = 5 minutes; // Time window to reveal commitment
+    uint256 public maxPriceImpact = 300; // 3% max price impact (in basis points)
+    uint256 public batchExecutionDelay = 10 seconds; // Delay for batch execution
+    
+    // Emergency withdraw timelock state variables
+    uint256 public emergencyWithdrawTimelock = 48 hours; // 48 hour timelock
+    mapping(bytes32 => bool) public emergencyWithdrawScheduled; // Mapping from operation hash to scheduled status
+    mapping(bytes32 => uint256) public emergencyWithdrawTimestamps; // Mapping from operation hash to execution timestamp
+    mapping(bytes32 => address) public emergencyWithdrawProposers; // Mapping from operation hash to proposer
 
     // Structs
     struct LiquidityPool {
@@ -44,6 +66,12 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         uint256 lastTradeTime;
         uint256 volume24h;
         uint256 fee24h;
+        // Flash loan protection fields
+        uint256 lastPriceA; // Last price of tokenA in terms of tokenB
+        uint256 lastPriceUpdateTime; // Timestamp of last price update
+        uint256 twapPriceA; // TWAP price of tokenA
+        uint256 twapObservationCount; // Number of observations for TWAP
+        uint256 lastSwapTime; // Timestamp of last swap for delay enforcement
     }
 
     struct LiquidityPosition {
@@ -64,6 +92,12 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         address recipient;
         uint256 deadline;
     }
+    
+    struct Commitment {
+        bytes32 commitHash;
+        uint256 timestamp;
+        bool revealed;
+    }
 
     struct PoolMetrics {
         uint256 totalVolume;
@@ -78,6 +112,7 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     mapping(address => mapping(uint256 => LiquidityPosition)) public liquidityPositions;
     mapping(address => uint256[]) public providerPools;
     mapping(address => mapping(address => uint256)) public poolByTokenPair; // tokenA -> tokenB -> poolId
+    mapping(address => Commitment) public commitments; // Trader to commitment mapping
 
     // Arrays
     uint256[] public activePoolIds;
@@ -89,6 +124,19 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     event SwapExecuted(uint256 indexed poolId, address indexed recipient, address tokenIn, address tokenOut, uint256 amountIn, uint256 amountOut);
     event FeesCollected(uint256 indexed poolId, uint256 protocolFees, uint256 lpFees);
     event PoolUpdated(uint256 indexed poolId, uint256 reserveA, uint256 reserveB);
+    // Flash loan protection events
+    event CircuitBreakerTriggered(uint256 indexed poolId, uint256 timestamp);
+    event CircuitBreakerReset(uint256 timestamp);
+    event PriceDeviationExceeded(uint256 indexed poolId, uint256 currentPrice, uint256 twapPrice, uint256 deviation);
+    event FlashLoanDetected(uint256 indexed poolId, address indexed sender);
+    // Front-running protection events
+    event CommitmentSubmitted(address indexed trader, bytes32 commitHash, uint256 timestamp);
+    event CommitmentRevealed(address indexed trader, bytes32 commitHash, uint256 timestamp);
+    event PriceImpactExceeded(uint256 indexed poolId, uint256 priceImpact, uint256 maxImpact);
+    // Emergency withdraw timelock events
+    event EmergencyWithdrawScheduled(bytes32 indexed operationHash, address token, uint256 amount, uint256 executeAfter);
+    event EmergencyWithdrawExecuted(bytes32 indexed operationHash, address token, uint256 amount);
+    event EmergencyWithdrawCancelled(bytes32 indexed operationHash);
 
     // Modifiers
     modifier validPool(uint256 poolId) {
@@ -104,6 +152,19 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
     modifier nonZeroAmount(uint256 amount) {
         require(amount > 0, "Amount must be greater than 0");
+        _;
+    }
+    
+    modifier circuitBreakerCheck(uint256 poolId) {
+        require(!circuitBreakerTriggered, "Circuit breaker triggered");
+        _;
+    }
+    
+    modifier swapDelayCheck(uint256 poolId) {
+        LiquidityPool storage pool = pools[poolId];
+        if (pool.lastSwapTime > 0) {
+            require(block.timestamp >= pool.lastSwapTime + minSwapDelay, "Swap too frequent");
+        }
         _;
     }
 
@@ -149,7 +210,13 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
             created_at: block.timestamp,
             lastTradeTime: 0,
             volume24h: 0,
-            fee24h: 0
+            fee24h: 0,
+            // Flash loan protection fields
+            lastPriceA: 0,
+            lastPriceUpdateTime: 0,
+            twapPriceA: 0,
+            twapObservationCount: 0,
+            lastSwapTime: 0
         });
 
         poolByTokenPair[tokenA][tokenB] = poolId;
@@ -290,8 +357,13 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param params Swap parameters
      * @return amountOut Amount of tokens received
      */
-    function swap(SwapParams calldata params) 
-        external 
+    /**
+     * @dev Executes a token swap (internal function)
+     * @param params Swap parameters
+     * @return amountOut Amount of tokens received
+     */
+    function _swap(SwapParams memory params) 
+        internal 
         nonReentrant 
         whenNotPaused
         validPool(params.poolId)
@@ -315,7 +387,15 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         // Calculate output amount
         amountOut = _calculateSwapOutput(params.poolId, params.amountIn, params.tokenIn);
         require(amountOut >= params.minAmountOut, "Insufficient output amount");
-
+        
+        // Flash loan protection: Check price deviation
+        _checkPriceDeviation(params.poolId, params.amountIn, amountOut, params.tokenIn);
+        
+        // Front-running protection: Check price impact for large trades
+        if (params.amountIn >= largeTradeThreshold) {
+            _checkPriceImpact(params.poolId, params.amountIn, amountOut, params.tokenIn);
+        }
+        
         // Transfer input tokens
         IERC20(params.tokenIn).safeTransferFrom(msg.sender, address(this), params.amountIn);
 
@@ -330,6 +410,12 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
         // Transfer output tokens
         IERC20(params.tokenOut).safeTransfer(params.recipient, amountOut);
+        
+        // Update TWAP and price tracking
+        _updateTwapPrice(params.poolId);
+        
+        // Update last swap time for delay enforcement
+        pool.lastSwapTime = block.timestamp;
 
         // Update pool metrics
         pool.lastTradeTime = block.timestamp;
@@ -337,6 +423,20 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
         emit SwapExecuted(params.poolId, params.recipient, params.tokenIn, params.tokenOut, params.amountIn, amountOut);
         emit PoolUpdated(params.poolId, pool.reserveA, pool.reserveB);
+    }
+    
+    /**
+     * @dev Executes a token swap (public function)
+     * @param params Swap parameters
+     * @return amountOut Amount of tokens received
+     */
+    function swap(SwapParams calldata params) 
+        external 
+        circuitBreakerCheck(params.poolId)
+        swapDelayCheck(params.poolId)
+        returns (uint256 amountOut) 
+    {
+        return _swap(params);
     }
 
     /**
@@ -399,6 +499,145 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
         LiquidityPool storage pool = pools[poolId];
         if (pool.reserveA == 0) return 0;
         return (amountA * pool.reserveB) / pool.reserveA;
+    }
+    
+    /**
+     * @dev Calculates current price of tokenA in terms of tokenB
+     * @param poolId Pool ID
+     * @return price Current price (tokenB / tokenA)
+     */
+    function _calculateCurrentPrice(uint256 poolId) internal view returns (uint256) {
+        LiquidityPool storage pool = pools[poolId];
+        if (pool.reserveA == 0) return 0;
+        return (pool.reserveB * 1e18) / pool.reserveA;
+    }
+    
+    /**
+     * @dev Checks if price deviation exceeds threshold and triggers circuit breaker if needed
+     * @param poolId Pool ID
+     * @param amountIn Input amount
+     * @param amountOut Output amount
+     * @param tokenIn Input token address
+     */
+    function _checkPriceDeviation(
+        uint256 poolId,
+        uint256 amountIn,
+        uint256 amountOut,
+        address tokenIn
+    ) internal {
+        LiquidityPool storage pool = pools[poolId];
+        
+        // Skip check if this is the first trade or TWAP not established
+        if (pool.twapObservationCount < 2) return;
+        
+        // Calculate current price after swap
+        uint256 newReserveA = pool.reserveA;
+        uint256 newReserveB = pool.reserveB;
+        
+        if (tokenIn == pool.tokenA) {
+            newReserveA += amountIn;
+            newReserveB -= amountOut;
+        } else {
+            newReserveB += amountIn;
+            newReserveA -= amountOut;
+        }
+        
+        uint256 currentPrice = newReserveA > 0 ? (newReserveB * 1e18) / newReserveA : 0;
+        uint256 twapPrice = pool.twapPriceA;
+        
+        // Calculate price deviation
+        if (twapPrice > 0 && currentPrice > 0) {
+            uint256 deviation;
+            if (currentPrice > twapPrice) {
+                deviation = ((currentPrice - twapPrice) * BASIS_POINTS) / twapPrice;
+            } else {
+                deviation = ((twapPrice - currentPrice) * BASIS_POINTS) / twapPrice;
+            }
+            
+            if (deviation > maxPriceDeviation) {
+                emit PriceDeviationExceeded(poolId, currentPrice, twapPrice, deviation);
+                _triggerCircuitBreaker(poolId);
+                revert("Price deviation exceeded");
+            }
+        }
+    }
+    
+    /**
+     * @dev Updates TWAP price for the pool
+     * @param poolId Pool ID
+     */
+    function _updateTwapPrice(uint256 poolId) internal {
+        LiquidityPool storage pool = pools[poolId];
+        
+        uint256 currentPrice = _calculateCurrentPrice(poolId);
+        uint256 currentTime = block.timestamp;
+        
+        if (pool.twapObservationCount == 0) {
+            // First observation
+            pool.twapPriceA = currentPrice;
+            pool.lastPriceUpdateTime = currentTime;
+            pool.twapObservationCount = 1;
+        } else {
+            // Update TWAP
+            uint256 timeElapsed = currentTime - pool.lastPriceUpdateTime;
+            
+            if (timeElapsed > 0 && currentPrice > 0) {
+                // Calculate weighted average price
+                uint256 weightedPrice = (pool.twapPriceA * pool.twapObservationCount) + currentPrice;
+                pool.twapObservationCount++;
+                pool.twapPriceA = weightedPrice / pool.twapObservationCount;
+                pool.lastPriceUpdateTime = currentTime;
+            }
+        }
+        
+        pool.lastPriceA = currentPrice;
+    }
+    
+    /**
+     * @dev Triggers circuit breaker for the pool
+     * @param poolId Pool ID
+     */
+    function _triggerCircuitBreaker(uint256 poolId) internal {
+        circuitBreakerTriggered = true;
+        circuitBreakerTriggerTime = block.timestamp;
+        emit CircuitBreakerTriggered(poolId, block.timestamp);
+    }
+    
+    /**
+     * @dev Checks if price impact exceeds threshold
+     * @param poolId Pool ID
+     * @param amountIn Input amount
+     * @param amountOut Output amount
+     * @param tokenIn Input token address
+     */
+    function _checkPriceImpact(
+        uint256 poolId,
+        uint256 amountIn,
+        uint256 amountOut,
+        address tokenIn
+    ) internal {
+        LiquidityPool storage pool = pools[poolId];
+        
+        uint256 reserveIn;
+        uint256 reserveOut;
+        
+        if (tokenIn == pool.tokenA) {
+            reserveIn = pool.reserveA;
+            reserveOut = pool.reserveB;
+        } else {
+            reserveIn = pool.reserveB;
+            reserveOut = pool.reserveA;
+        }
+        
+        // Calculate price impact
+        if (reserveIn > 0) {
+            uint256 priceImpact = (amountIn * BASIS_POINTS) / (reserveIn + amountIn);
+            
+            if (priceImpact > maxPriceImpact) {
+                emit PriceImpactExceeded(poolId, priceImpact, maxPriceImpact);
+                revert("Price impact exceeded");
+            }
+        }
     }
 
     function _calculateSwapOutput(uint256 poolId, uint256 amountIn, address tokenIn) 
@@ -482,11 +721,203 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
 
     // Emergency functions
 
-    function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
-        IERC20(token).safeTransfer(owner(), amount);
-    }
-
     function emergencyPause() external onlyOwner {
         _pause();
+    }
+    
+    // Flash loan protection admin functions
+    
+    function setMaxPriceDeviation(uint256 newMaxDeviation) external onlyOwner {
+        require(newMaxDeviation <= BASIS_POINTS, "Invalid deviation");
+        maxPriceDeviation = newMaxDeviation;
+    }
+    
+    function setTwapPeriod(uint256 newTwapPeriod) external onlyOwner {
+        require(newTwapPeriod > 0, "Invalid period");
+        twapPeriod = newTwapPeriod;
+    }
+    
+    function setMinSwapDelay(uint256 newMinSwapDelay) external onlyOwner {
+        require(newMinSwapDelay >= 1, "Invalid delay");
+        minSwapDelay = newMinSwapDelay;
+    }
+    
+    function setCircuitBreakerCooldown(uint256 newCooldown) external onlyOwner {
+        require(newCooldown > 0, "Invalid cooldown");
+        circuitBreakerCooldown = newCooldown;
+    }
+    
+    function resetCircuitBreaker() external onlyOwner {
+        require(circuitBreakerTriggered, "Circuit breaker not triggered");
+        require(block.timestamp >= circuitBreakerTriggerTime + circuitBreakerCooldown, "Cooldown not elapsed");
+        circuitBreakerTriggered = false;
+        emit CircuitBreakerReset(block.timestamp);
+    }
+    
+    // Front-running protection functions
+    
+    /**
+     * @dev Submit a commitment for a large trade (commit-reveal scheme)
+     * @param commitHash Keccak256 hash of (poolId, tokenIn, tokenOut, amountIn, minAmountOut, recipient, deadline, secret)
+     */
+    function commitTrade(bytes32 commitHash) external {
+        require(commitHashes[msg.sender] == bytes32(0), "Commitment already exists");
+        
+        commitments[msg.sender] = Commitment({
+            commitHash: commitHash,
+            timestamp: block.timestamp,
+            revealed: false
+        });
+        
+        commitHashes[msg.sender] = commitHash;
+        commitTimestamps[msg.sender] = block.timestamp;
+        
+        emit CommitmentSubmitted(msg.sender, commitHash, block.timestamp);
+    }
+    
+    /**
+     * @dev Reveal a commitment and execute the trade
+     * @param poolId Pool ID
+     * @param tokenIn Input token address
+     * @param tokenOut Output token address
+     * @param amountIn Input amount
+     * @param minAmountOut Minimum output amount
+     * @param recipient Recipient address
+     * @param deadline Trade deadline
+     * @param secret Secret used for commitment
+     */
+    function revealAndSwap(
+        uint256 poolId,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        uint256 minAmountOut,
+        address recipient,
+        uint256 deadline,
+        uint256 secret
+    ) external {
+        Commitment storage commitment = commitments[msg.sender];
+        
+        require(commitment.commitHash != bytes32(0), "No commitment found");
+        require(!commitment.revealed, "Already revealed");
+        require(block.timestamp <= commitment.timestamp + commitRevealWindow, "Reveal window expired");
+        
+        // Verify commitment
+        bytes32 computedHash = keccak256(abi.encodePacked(poolId, tokenIn, tokenOut, amountIn, minAmountOut, recipient, deadline, secret));
+        require(computedHash == commitment.commitHash, "Invalid commitment");
+        
+        commitment.revealed = true;
+        
+        // Construct swap params
+        SwapParams memory swapParams = SwapParams({
+            poolId: poolId,
+            tokenIn: tokenIn,
+            tokenOut: tokenOut,
+            amountIn: amountIn,
+            minAmountOut: minAmountOut,
+            recipient: recipient,
+            deadline: deadline
+        });
+        
+        // Execute swap via internal function
+        _swap(swapParams);
+        
+        emit CommitmentRevealed(msg.sender, commitment.commitHash, block.timestamp);
+    }
+    
+    // Front-running protection admin functions
+    
+    function setLargeTradeThreshold(uint256 newThreshold) external onlyOwner {
+        require(newThreshold > 0, "Invalid threshold");
+        largeTradeThreshold = newThreshold;
+    }
+    
+    function setCommitRevealWindow(uint256 newWindow) external onlyOwner {
+        require(newWindow > 0, "Invalid window");
+        commitRevealWindow = newWindow;
+    }
+    
+    function setMaxPriceImpact(uint256 newMaxImpact) external onlyOwner {
+        require(newMaxImpact <= BASIS_POINTS, "Invalid impact");
+        maxPriceImpact = newMaxImpact;
+    }
+    
+    function setBatchExecutionDelay(uint256 newDelay) external onlyOwner {
+        require(newDelay >= 1, "Invalid delay");
+        batchExecutionDelay = newDelay;
+    }
+    
+    // Emergency withdraw timelock functions
+    
+    /**
+     * @dev Schedule an emergency withdrawal with timelock
+     * @param token Token address to withdraw
+     * @param amount Amount to withdraw
+     */
+    function scheduleEmergencyWithdraw(address token, uint256 amount) external onlyOwner {
+        bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp));
+        
+        require(!emergencyWithdrawScheduled[operationHash], "Operation already scheduled");
+        
+        uint256 executeAfter = block.timestamp + emergencyWithdrawTimelock;
+        
+        emergencyWithdrawScheduled[operationHash] = true;
+        emergencyWithdrawTimestamps[operationHash] = executeAfter;
+        emergencyWithdrawProposers[operationHash] = msg.sender;
+        
+        emit EmergencyWithdrawScheduled(operationHash, token, amount, executeAfter);
+    }
+    
+    /**
+     * @dev Execute a scheduled emergency withdrawal
+     * @param token Token address to withdraw
+     * @param amount Amount to withdraw
+     */
+    function executeEmergencyWithdraw(address token, uint256 amount) external onlyOwner {
+        bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - emergencyWithdrawTimelock));
+        
+        // Try to find the operation hash by checking all possible timestamps within the timelock window
+        for (uint256 i = 0; i <= emergencyWithdrawTimelock; i++) {
+            bytes32 testHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, msg.sender, block.timestamp - i));
+            if (emergencyWithdrawScheduled[testHash]) {
+                operationHash = testHash;
+                break;
+            }
+        }
+        
+        require(emergencyWithdrawScheduled[operationHash], "Operation not scheduled");
+        require(block.timestamp >= emergencyWithdrawTimestamps[operationHash], "Timelock not elapsed");
+        require(emergencyWithdrawProposers[operationHash] == msg.sender, "Not the proposer");
+        
+        emergencyWithdrawScheduled[operationHash] = false;
+        
+        IERC20(token).safeTransfer(owner(), amount);
+        
+        emit EmergencyWithdrawExecuted(operationHash, token, amount);
+    }
+    
+    /**
+     * @dev Cancel a scheduled emergency withdrawal
+     * @param token Token address to withdraw
+     * @param amount Amount to withdraw
+     * @param proposer Address of the proposer
+     * @param scheduleTime Timestamp when the operation was scheduled
+     */
+    function cancelEmergencyWithdraw(address token, uint256 amount, address proposer, uint256 scheduleTime) external onlyOwner {
+        bytes32 operationHash = keccak256(abi.encodePacked("emergencyWithdraw", token, amount, proposer, scheduleTime));
+        
+        require(emergencyWithdrawScheduled[operationHash], "Operation not scheduled");
+        
+        emergencyWithdrawScheduled[operationHash] = false;
+        
+        emit EmergencyWithdrawCancelled(operationHash);
+    }
+    
+    // Emergency withdraw timelock admin functions
+    
+    function setEmergencyWithdrawTimelock(uint256 newTimelock) external onlyOwner {
+        require(newTimelock >= 1 hours, "Timelock too short");
+        require(newTimelock <= 7 days, "Timelock too long");
+        emergencyWithdrawTimelock = newTimelock;
     }
 }

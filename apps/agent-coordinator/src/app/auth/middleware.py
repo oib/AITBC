@@ -3,6 +3,7 @@ Authentication Middleware for AITBC Agent Coordinator
 Implements JWT and API key authentication middleware
 """
 
+import os
 from fastapi import HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Dict, Any, List, Optional
@@ -21,20 +22,28 @@ class AuthenticationError(Exception):
     pass
 
 class RateLimiter:
-    """Simple in-memory rate limiter"""
+    """Distributed rate limiter using Redis"""
     
-    def __init__(self):
-        self.requests = {}  # {user_id: [timestamp, ...]}
+    def __init__(self, redis_url: str = None):
+        import redis
+        self.redis_url = redis_url or os.getenv("REDIS_URL", "redis://localhost:6379/0")
         self.limits = {
             "default": {"requests": 100, "window": 3600},  # 100 requests per hour
             "admin": {"requests": 1000, "window": 3600},   # 1000 requests per hour
             "api_key": {"requests": 10000, "window": 3600}  # 10000 requests per hour
         }
+        try:
+            self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
+            # Test connection
+            self.redis_client.ping()
+            logger.info("RateLimiter connected to Redis")
+        except Exception as e:
+            logger.error(f"Failed to connect to Redis: {e}")
+            self.redis_client = None
     
     def is_allowed(self, user_id: str, user_role: str = "default") -> Dict[str, Any]:
         """Check if user is allowed to make request"""
         import time
-        from collections import deque
         
         current_time = time.time()
         
@@ -43,16 +52,63 @@ class RateLimiter:
         max_requests = limit_config["requests"]
         window_seconds = limit_config["window"]
         
-        # Initialize user request queue if not exists
-        if user_id not in self.requests:
-            self.requests[user_id] = deque()
+        # Fallback to in-memory if Redis not available
+        if self.redis_client is None:
+            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
         
-        # Remove old requests outside the window
-        user_requests = self.requests[user_id]
+        try:
+            # Use Redis for distributed rate limiting
+            key = f"ratelimit:{user_id}:{user_role}"
+            
+            # Use Redis sorted set with timestamp as score
+            # Remove entries outside the window
+            self.redis_client.zremrangebyscore(key, 0, current_time - window_seconds)
+            
+            # Get current count
+            current_count = self.redis_client.zcard(key)
+            
+            if current_count < max_requests:
+                # Add current request
+                self.redis_client.zadd(key, {str(current_time): current_time})
+                # Set expiration
+                self.redis_client.expire(key, window_seconds)
+                
+                return {
+                    "allowed": True,
+                    "remaining": max_requests - current_count - 1,
+                    "reset_time": current_time + window_seconds
+                }
+            else:
+                # Get oldest request timestamp
+                oldest = self.redis_client.zrange(key, 0, 0, withscores=True)
+                if oldest:
+                    reset_time = oldest[0][1] + window_seconds
+                else:
+                    reset_time = current_time + window_seconds
+                
+                return {
+                    "allowed": False,
+                    "remaining": 0,
+                    "reset_time": reset_time
+                }
+        except Exception as e:
+            logger.error(f"Redis rate limiting error, falling back to in-memory: {e}")
+            return self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
+    
+    def _is_allowed_memory(self, user_id: str, user_role: str, current_time: float, max_requests: int, window_seconds: int) -> Dict[str, Any]:
+        """Fallback in-memory rate limiting"""
+        from collections import deque
+        
+        if not hasattr(self, 'memory_requests'):
+            self.memory_requests = {}
+        
+        if user_id not in self.memory_requests:
+            self.memory_requests[user_id] = deque()
+        
+        user_requests = self.memory_requests[user_id]
         while user_requests and user_requests[0] < current_time - window_seconds:
             user_requests.popleft()
         
-        # Check if under limit
         if len(user_requests) < max_requests:
             user_requests.append(current_time)
             return {
@@ -61,7 +117,6 @@ class RateLimiter:
                 "reset_time": current_time + window_seconds
             }
         else:
-            # Find when the oldest request will expire
             oldest_request = user_requests[0]
             reset_time = oldest_request + window_seconds
             

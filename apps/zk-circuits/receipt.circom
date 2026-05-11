@@ -95,29 +95,24 @@ template ReceiptHashPreimage() {
 }
 
 /*
- * ECDSA Signature Verification Component
- * 
- * Verifies that a receipt was signed by the coordinator
+ * Signature Verification Component
+ *
+ * SECURITY NOTE: Signature verification moved off-chain
+ *
+ * Full on-chain signature verification in Circom is complex and requires
+ * significant circuit constraints. For the immediate security fix, signature
+ * verification is performed off-chain by the Coordinator API before accepting
+ * proofs. The circuit proves knowledge of the receipt preimage without
+ * attempting to verify signatures.
+ *
+ * Future Enhancement: Implement EdDSA verification using circomlib's
+ * eddsa.circom circuits for on-chain signature verification.
+ *
+ * Current Security Model:
+ * - API layer verifies signatures before accepting proofs
+ * - Circuit proves receipt preimage knowledge
+ * - Signature verification is a prerequisite for proof submission
  */
-template ECDSAVerify() {
-    // Public inputs
-    signal input publicKey[2];
-    signal input messageHash;
-    signal input signature[2];
-    
-    // Private inputs
-    signal input r;
-    signal input s;
-    
-    // Note: Full ECDSA verification in circom is complex
-    // This is a placeholder for the actual implementation
-    // In practice, we'd use a more efficient approach like:
-    // - EDDSA verification (simpler in circom)
-    // - Or move signature verification off-chain
-    
-    // Placeholder constraint
-    signature[0] * signature[1] === r * s;
-}
 
 /*
  * Main circuit for initial implementation

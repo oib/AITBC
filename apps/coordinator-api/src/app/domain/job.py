@@ -20,8 +20,8 @@ class Job(SQLModel, table=True):
     constraints: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
 
     ttl_seconds: int = Field(default=900)
-    requested_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    expires_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    requested_at: datetime = Field(default_factory=datetime.now)
+    expires_at: datetime = Field(default_factory=datetime.now)
 
     assigned_miner_id: str | None = Field(default=None, index=True)
 

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from base64 import b64decode, b64encode
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -288,8 +288,8 @@ class JobView(BaseModel):
     job_id: str
     state: JobState
     assigned_miner_id: str | None = None
-    requested_at: datetime
-    expires_at: datetime
+    requested_at: datetime | None = None
+    expires_at: datetime | None = None
     error: str | None = None
     payment_id: str | None = None
     payment_status: str | None = None
