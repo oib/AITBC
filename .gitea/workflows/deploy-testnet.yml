@@ -32,42 +32,44 @@ jobs:
       name: testnet
       url: https://testnet.aitbc.network
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/deploy-testnet
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/deploy-testnet"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           echo "✅ Node.js environment ready"
 
       - name: Compile contracts
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npx hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Run contract tests
         continue-on-error: true
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npx hardhat test || echo "⚠️ Some contract tests failed - continuing with deployment"
           echo "✅ Contract tests completed"
 
       - name: Deploy contracts to testnet
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Skip deployment - no Ethereum-compatible testnet endpoint available
           # AITBC blockchain uses custom RPC protocol, not standard Ethereum JSON-RPC
@@ -78,7 +80,7 @@ jobs:
       - name: Verify contracts on block explorer
         if: inputs.verify_contracts != false
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Load verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.TESTNET_EXPLORER_API_KEY }}
@@ -91,7 +93,7 @@ jobs:
 
       - name: Record deployment metadata
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Save deployment information
           cat > deployment-info.json << EOF
@@ -112,7 +114,7 @@ jobs:
 
       - name: Setup monitoring alerts
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Configure monitoring for deployed contracts
           bash scripts/monitoring/setup-contract-monitoring.sh testnet
@@ -121,7 +123,7 @@ jobs:
 
       - name: Run smoke tests
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-testnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Skip smoke tests - script doesn't exist
           echo "⚠️  Skipping smoke tests - script not found"
@@ -129,4 +131,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/deploy-testnet
+        run: rm -rf "${{ env.WORKSPACE }}"

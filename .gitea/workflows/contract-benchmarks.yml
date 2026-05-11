@@ -31,29 +31,31 @@ jobs:
     runs-on: debian
     timeout-minutes: 30
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/gas-benchmarks
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/gas-benchmarks"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/gas-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd /var/lib/aitbc-workspaces/gas-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           echo "✅ Node.js environment ready"
 
       - name: Run gas usage benchmarks
         run: |
-          cd /var/lib/aitbc-workspaces/gas-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           echo "🧪 Running gas usage benchmarks"
           
@@ -64,7 +66,7 @@ jobs:
 
       - name: Upload gas report
         run: |
-          cd /var/lib/aitbc-workspaces/gas-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           echo "📊 Gas report upload skipped (reports will be added when tests are implemented)"
           
@@ -76,35 +78,37 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/gas-benchmarks
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   benchmark-execution-time:
     runs-on: debian
     timeout-minutes: 30
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/execution-benchmarks
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/execution-benchmarks"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/execution-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd /var/lib/aitbc-workspaces/execution-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           echo "✅ Node.js environment ready"
 
       - name: Run execution time benchmarks
         run: |
-          cd /var/lib/aitbc-workspaces/execution-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           echo "🧪 Running execution time benchmarks"
           
@@ -114,7 +118,7 @@ jobs:
 
       - name: Upload execution time report
         run: |
-          cd /var/lib/aitbc-workspaces/execution-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           echo "📊 Execution time report upload skipped (reports will be added when tests are implemented)"
           
@@ -125,35 +129,37 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/execution-benchmarks
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   benchmark-throughput:
     runs-on: debian
     timeout-minutes: 30
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/throughput-benchmarks
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/throughput-benchmarks"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/throughput-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd /var/lib/aitbc-workspaces/throughput-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           echo "✅ Node.js environment ready"
 
       - name: Run throughput benchmarks
         run: |
-          cd /var/lib/aitbc-workspaces/throughput-benchmarks/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           echo "🧪 Running throughput benchmarks"
           
@@ -163,7 +169,7 @@ jobs:
 
       - name: Upload throughput report
         run: |
-          cd /var/lib/aitbc-workspaces/throughput-benchmarks/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           echo "📊 Throughput report upload skipped (reports will be added when tests are implemented)"
           
@@ -174,30 +180,32 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/throughput-benchmarks
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   compare-benchmarks:
     runs-on: debian
     timeout-minutes: 15
     needs: [benchmark-gas-usage, benchmark-execution-time, benchmark-throughput]
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/benchmark-comparison
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/benchmark-comparison"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/benchmark-comparison/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Compare with previous benchmarks
         run: |
-          cd /var/lib/aitbc-workspaces/benchmark-comparison/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           echo "📊 Comparing benchmark results"
           
@@ -208,7 +216,7 @@ jobs:
 
       - name: Generate benchmark report
         run: |
-          cd /var/lib/aitbc-workspaces/benchmark-comparison/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           echo "📝 Generating benchmark report"
           
@@ -218,4 +226,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/benchmark-comparison
+        run: rm -rf "${{ env.WORKSPACE }}"

@@ -20,23 +20,25 @@ jobs:
     runs-on: debian
     timeout-minutes: 10
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/cli-tests
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/cli-tests"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/cli-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Python environment
         run: |
-          cd /var/lib/aitbc-workspaces/cli-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -53,7 +55,7 @@ jobs:
 
       - name: Verify CLI imports
         run: |
-          cd /var/lib/aitbc-workspaces/cli-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
@@ -61,7 +63,7 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          cd /var/lib/aitbc-workspaces/cli-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           source venv/bin/activate
           export PYTHONPATH="cli:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:."
 
@@ -80,4 +82,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/cli-tests
+        run: rm -rf "${{ env.WORKSPACE }}"

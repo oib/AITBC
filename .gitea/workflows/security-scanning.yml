@@ -22,13 +22,15 @@ jobs:
     runs-on: debian
     timeout-minutes: 15
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/security-scan
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/security-scan"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 2 http://gitea.bubuit.net:3000/oib/aitbc.git repo
           cd repo
           git fetch --depth 2 origin "${{ github.ref }}"
@@ -36,12 +38,12 @@ jobs:
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup tools
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
 
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -59,14 +61,14 @@ jobs:
 
       - name: Python dependency audit
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== Dependency Audit ==="
           venv/bin/pip-audit -r requirements.txt --desc
           echo "✅ Dependency audit completed"
 
       - name: Bandit security scan
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== Bandit Security Scan ==="
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             venv/bin/bandit -r apps/ packages/py/ cli/ \
@@ -92,7 +94,7 @@ jobs:
 
       - name: Check for secrets
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== Secret Detection ==="
           # Simple pattern check for leaked secrets
           secret_matches=$(mktemp)
@@ -133,7 +135,7 @@ jobs:
 
       - name: Smart contract security scan
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== Smart Contract Security Scan ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -187,7 +189,7 @@ jobs:
 
       - name: Circom circuit security check
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== Circom Circuit Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -230,7 +232,7 @@ jobs:
 
       - name: ZK proof implementation security check
         run: |
-          cd /var/lib/aitbc-workspaces/security-scan/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "=== ZK Proof Implementation Security Check ==="
 
           if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -276,4 +278,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/security-scan
+        run: rm -rf "${{ env.WORKSPACE }}"
