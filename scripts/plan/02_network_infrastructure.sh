@@ -2501,7 +2501,7 @@ run_network_tests() {
     fi
     
     # Run tests
-    python -m pytest tests/network/ -v
+    python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/network/ -v
     
     if [ $? -eq 0 ]; then
         log_info "All network tests passed!"

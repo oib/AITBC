@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Marketplace Service
-After=network.target postgresql.service
+After=network.target postgresql.service aitbc-blockchain-node.service
+Wants=aitbc-blockchain-node.service
 
 [Service]
 Type=simple

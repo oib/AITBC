@@ -54,10 +54,10 @@ jobs:
       - name: Run staking service tests
         run: |
           cd /var/lib/aitbc-workspaces/staking-tests/repo
-          export PYTHONPATH="apps/coordinator-api/src:."
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking service tests..."
-          venv/bin/pytest tests/services/test_staking_service.py -v --tb=short
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/services/test_staking_service.py -v --tb=short
           echo "✅ Service tests completed"
 
       - name: Generate test data
@@ -106,10 +106,10 @@ jobs:
       - name: Run staking integration tests
         run: |
           cd /var/lib/aitbc-workspaces/staking-integration/repo
-          export PYTHONPATH="apps/coordinator-api/src:."
+          export PYTHONPATH="$PWD/apps/coordinator-api/src:$PWD:$PYTHONPATH"
 
           echo "🧪 Running staking integration tests..."
-          venv/bin/pytest tests/integration/test_staking_lifecycle.py -v --tb=short
+          venv/bin/python -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/integration/test_staking_lifecycle.py -v --tb=short
           echo "✅ Integration tests completed"
 
       - name: Cleanup

@@ -5,62 +5,39 @@
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_COMMON_PATH="$SCRIPT_DIR/utils/deploy_common.sh"
+DEPLOY_COMMON_TEMP=""
 
-# Logging function
-log() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-    exit 1
-}
-
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-# Check if running as root
-check_root() {
-    if [ "$EUID" -ne 0 ]; then
-        error "This script must be run as root (use sudo)"
+if [ ! -f "$DEPLOY_COMMON_PATH" ]; then
+    DEPLOY_COMMON_TEMP="$(mktemp)"
+    if ! curl -fsSL "https://gitea.bubuit.net/oib/aitbc/raw/branch/main/scripts/utils/deploy_common.sh" -o "$DEPLOY_COMMON_TEMP"; then
+        rm -f "$DEPLOY_COMMON_TEMP"
+        echo "[ERROR] Failed to load shared deployment helper"
+        exit 1
     fi
-}
+
+    DEPLOY_COMMON_PATH="$DEPLOY_COMMON_TEMP"
+    trap 'rm -f "$DEPLOY_COMMON_TEMP"' EXIT
+fi
+
+source "$DEPLOY_COMMON_PATH"
+
+HEALTH_CHECK_SCRIPT="/opt/aitbc/scripts/monitoring/health_check.sh"
+LEGACY_HEALTH_CHECK_PATH="/opt/aitbc/health-check.sh"
 
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
-    
-    # Check if required tools are installed
-    command -v python3 >/dev/null 2>&1 || error "Python 3 is not installed"
-    command -v pip3 >/dev/null 2>&1 || error "pip3 is not installed"
-    command -v git >/dev/null 2>&1 || error "git is not installed"
-    command -v systemctl >/dev/null 2>&1 || error "systemctl is not available"
-    command -v node >/dev/null 2>&1 || error "Node.js is not installed"
-    command -v npm >/dev/null 2>&1 || error "npm is not installed"
-    
-    # Check Python version
+
+    require_commands python3 pip3 git systemctl node npm
+
     python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
-    if [ "$(printf '%s\n' "3.13.5" "$python_version" | sort -V | head -n1)" != "3.13.5" ]; then
-        error "Python 3.13.5+ is required, found $python_version"
-    fi
-    
-    # Check Node.js version
+    require_min_version "$python_version" "3.13.5" "Python"
+
     node_version=$(node -v | sed 's/v//')
-    if [ "$(printf '%s\n' "24.14.0" "$node_version" | sort -V | head -n1)" != "24.14.0" ]; then
-        error "Node.js 24.14.0+ is required, found $node_version"
-    fi
-    
+    require_min_version "$node_version" "24.14.0" "Node.js"
+
     success "Prerequisites check passed"
 }
 
@@ -411,88 +388,17 @@ install_services() {
     success "Systemd services installed"
 }
 
-# Create health check script
-create_health_check() {
-    log "Creating health check script..."
-    
-    cat > /opt/aitbc/health-check.sh << 'EOF'
-#!/bin/bash
+prepare_health_check() {
+    log "Preparing health check script..."
 
-# AITBC Health Check Script
-
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
-check_service() {
-    local name=$1
-    local url=$2
-    local expected=${3:-200}
-    
-    if curl -s -o /dev/null -w "%{http_code}" "$url" | grep -q "$expected"; then
-        echo -e "${GREEN}✓${NC} $name is healthy"
-        return 0
-    else
-        echo -e "${RED}✗${NC} $name is unhealthy"
-        return 1
+    if [ ! -f "$HEALTH_CHECK_SCRIPT" ]; then
+        error "Health check script not found: $HEALTH_CHECK_SCRIPT"
     fi
-}
 
-echo "AITBC Service Health Check"
-echo "========================"
+    chmod +x "$HEALTH_CHECK_SCRIPT"
+    ln -sf "$HEALTH_CHECK_SCRIPT" "$LEGACY_HEALTH_CHECK_PATH"
 
-# Core Services (8000-8009)
-echo ""
-echo "🔧 Core Services (8000-8009):"
-check_service "Coordinator API" "http://localhost:8000/health"
-check_service "Exchange API" "http://localhost:8001/api/health"
-check_service "Marketplace API" "http://localhost:8007/health"
-check_service "Wallet API" "http://localhost:8003/health"
-check_service "Explorer" "http://localhost:8004/health"
-
-# Check blockchain node and RPC
-echo ""
-echo "⛓️ Blockchain Services:"
-if systemctl is-active --quiet aitbc-blockchain-node.service; then
-    echo -e "${GREEN}✓${NC} Blockchain Node is running"
-else
-    echo -e "${RED}✗${NC} Blockchain Node is not running"
-fi
-
-if systemctl is-active --quiet aitbc-blockchain-rpc.service; then
-    echo -e "${GREEN}✓${NC} Blockchain RPC (port 8006) is running"
-else
-    echo -e "${RED}✗${NC} Blockchain RPC (port 8006) is not running"
-fi
-
-# AI/Agent/GPU Services (8010-8019)
-echo ""
-echo "🚀 AI/Agent/GPU Services (8010-8019):"
-check_service "GPU Service" "http://localhost:8010/health"
-check_service "Learning Service" "http://localhost:8011/health"
-check_service "Agent Coordinator" "http://localhost:8012/health"
-check_service "Agent Registry" "http://localhost:8013/health"
-check_service "hermes Service" "http://localhost:8014/health"
-check_service "AI Service" "http://localhost:8015/health"
-
-# Other Services (8020-8029)
-echo ""
-echo "📊 Other Services (8020-8029):"
-check_service "Multimodal Service" "http://localhost:8020/health"
-check_service "Modality Optimization" "http://localhost:8021/health"
-
-# Check process status
-echo ""
-echo "Process Status:"
-ps aux | grep -E "simple_daemon|uvicorn|simple_exchange_api" | grep -v grep | while read line; do
-    echo -e "${GREEN}✓${NC} $line"
-done
-EOF
-
-    chmod +x /opt/aitbc/health-check.sh
-    
-    success "Health check script created"
+    success "Health check script ready"
 }
 
 # Start services
@@ -520,7 +426,7 @@ start_services() {
     sleep 10
     
     # Run health check
-    /opt/aitbc/health-check.sh
+    "$HEALTH_CHECK_SCRIPT"
 }
 
 # Setup auto-start
@@ -560,7 +466,7 @@ main() {
     setup_credentials
     setup_venvs
     install_services
-    create_health_check
+    prepare_health_check
     start_services
     setup_autostart
 
@@ -580,7 +486,7 @@ main() {
     echo "  Runtime secrets: /run/aitbc/secrets/ (tmpfs)"
     echo ""
     echo "Management Commands:"
-    echo "  Health check: /opt/aitbc/health-check.sh"
+    echo "  Health check: $HEALTH_CHECK_SCRIPT"
     echo "  Load secrets: /opt/aitbc/scripts/utils/load-keystore-secrets.sh"
     echo "  Restart services: systemctl restart aitbc-wallet aitbc-coordinator-api aitbc-exchange-api"
     echo "  View logs: journalctl -u aitbc-wallet -f"

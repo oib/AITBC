@@ -17,8 +17,21 @@ from pathlib import Path
 time.sleep(random.randint(0, 900))
 
 REPO_DIR = '/opt/aitbc'
-LOG_FILE = '/opt/aitbc/qa-cycle.log'
+LOG_FILE = '/var/log/aitbc/qa-cycle.log'
 TOKEN_FILE = '/opt/aitbc/.gitea_token.sh'
+
+
+def build_pytest_env(package_root: Path):
+    env = os.environ.copy()
+    package_src = str(package_root / 'src')
+    existing_pythonpath = env.get('PYTHONPATH', '')
+
+    pythonpath_parts = [package_src, REPO_DIR]
+    if existing_pythonpath:
+        pythonpath_parts.append(existing_pythonpath)
+
+    env['PYTHONPATH'] = os.pathsep.join(part for part in pythonpath_parts if part)
+    return env
 
 def get_token():
     if os.path.exists(TOKEN_FILE):
@@ -34,13 +47,22 @@ REPO = 'oib/aitbc'
 
 def log(msg):
     now = datetime.now(timezone.utc).isoformat() + 'Z'
+    Path(LOG_FILE).parent.mkdir(parents=True, exist_ok=True)
     with open(LOG_FILE, 'a') as f:
         f.write(f"[{now}] {msg}\n")
     print(msg)
 
-def run_cmd(cmd, cwd=REPO_DIR, timeout=300):
+def run_cmd(cmd, cwd=REPO_DIR, timeout=300, env=None):
     try:
-        result = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
         return result.returncode, result.stdout, result.stderr
     except subprocess.TimeoutExpired:
         return -1, "", "timeout"
@@ -67,12 +89,20 @@ def fetch_latest_main():
 def run_tests():
     log("Running test suites...")
     results = []
+    repo_root = Path(REPO_DIR)
     for pkg in ['aitbc-core', 'aitbc-sdk', 'aitbc-crypto']:
-        testdir = f"packages/py/{pkg}/tests"
-        if not os.path.exists(os.path.join(REPO_DIR, testdir)):
+        package_root = repo_root / 'packages' / 'py' / pkg
+        testdir = package_root / 'tests'
+        if not testdir.exists():
             continue
         log(f"Testing {pkg}...")
-        rc, out, err = run_cmd(f"python3 -m pytest {testdir} -q", timeout=120)
+        env = build_pytest_env(package_root)
+        rc, out, err = run_cmd(
+            'python3 -m pytest -c /dev/null --rootdir "$PWD" --import-mode=importlib tests/ -q --tb=short',
+            cwd=str(package_root),
+            timeout=120,
+            env=env,
+        )
         if rc == 0:
             log(f"✅ {pkg} tests passed.")
         else:

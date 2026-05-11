@@ -7,6 +7,7 @@ on:
       - 'apps/**'
       - 'packages/**'
       - 'cli/**'
+      - 'contracts/**'
       - '.gitea/workflows/security-scanning.yml'
   pull_request:
     branches: [main, develop]
@@ -129,6 +130,149 @@ jobs:
 
           rm -f "$secret_matches" "$password_matches"
           echo "✅ No hardcoded secrets detected"
+
+      - name: Smart contract security scan
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          echo "=== Smart Contract Security Scan ==="
+
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            mapfile -t contract_files < <(find contracts/contracts -name "*.sol" 2>/dev/null || true)
+          else
+            mapfile -t contract_files < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^contracts/.*\.sol$' || true)
+          fi
+
+          if [[ ${#contract_files[@]} -eq 0 ]]; then
+            echo "✅ No changed Solidity files to scan"
+            exit 0
+          fi
+
+          printf '%s\n' "${contract_files[@]}"
+
+          # Check for common smart contract vulnerabilities using grep patterns
+          vuln_found=false
+
+          # Check for tx.origin authentication (vulnerable to phishing)
+          if grep -rn "tx\.origin" "${contract_files[@]}" 2>/dev/null | grep -v "example\|test\|mock"; then
+            echo "❌ VULNERABILITY: tx.origin usage detected (vulnerable to phishing attacks)"
+            vuln_found=true
+          fi
+
+          # Check for low-level calls without proper checks
+          if grep -rn "\.call\|\.delegatecall\|\.send" "${contract_files[@]}" 2>/dev/null | grep -v "example\|test\|mock\|reentrancy"; then
+            echo "⚠️  WARNING: Low-level calls detected (ensure reentrancy guards are in place)"
+          fi
+
+          # Check for unchecked return values
+          if grep -rn "\.transfer\|\.send" "${contract_files[@]}" 2>/dev/null | grep -v "example\|test\|mock" | grep -v "require\|if"; then
+            echo "⚠️  WARNING: Possible unchecked return values on transfer/send"
+          fi
+
+          # Check for missing onlyOwner on sensitive functions
+          if grep -rn "function.*mint\|function.*burn\|function.*pause" "${contract_files[@]}" 2>/dev/null | grep -v "example\|test\|mock" | grep -v "onlyOwner\|onlyRole"; then
+            echo "⚠️  WARNING: Sensitive functions without access control detected"
+          fi
+
+          # Check for floating pragma (should lock to specific version)
+          if grep -rn "pragma solidity \^" "${contract_files[@]}" 2>/dev/null | grep -v "example\|test\|mock"; then
+            echo "⚠️  WARNING: Floating pragma detected (consider locking to specific version)"
+          fi
+
+          if [[ "$vuln_found" == "true" ]]; then
+            echo "❌ Smart contract vulnerabilities found"
+            exit 1
+          fi
+
+          echo "✅ Smart contract security scan completed"
+
+      - name: Circom circuit security check
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          echo "=== Circom Circuit Security Check ==="
+
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            mapfile -t circuit_files < <(find apps/zk-circuits -name "*.circom" 2>/dev/null || true)
+          else
+            mapfile -t circuit_files < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^apps/zk-circuits/.*\.circom$' || true)
+          fi
+
+          if [[ ${#circuit_files[@]} -eq 0 ]]; then
+            echo "✅ No changed Circom files to scan"
+            exit 0
+          fi
+
+          printf '%s\n' "${circuit_files[@]}"
+
+          vuln_found=false
+
+          # Check for incorrect constraint patterns
+          if grep -rn "learning_rate.*1.*-.*learning_rate.*===.*learning_rate" "${circuit_files[@]}" 2>/dev/null; then
+            echo "❌ VULNERABILITY: Incorrect learning rate constraint detected"
+            vuln_found=true
+          fi
+
+          # Check for placeholder/mock implementations
+          if grep -rn "mock\|placeholder\|TODO.*implement" "${circuit_files[@]}" 2>/dev/null | grep -i "constraint\|signal"; then
+            echo "⚠️  WARNING: Placeholder implementations detected in circuits"
+          fi
+
+          # Check for missing input validation
+          if grep -rn "signal input" "${circuit_files[@]}" 2>/dev/null; then
+            echo "ℹ️  INFO: Review input validation for all signal inputs"
+          fi
+
+          if [[ "$vuln_found" == "true" ]]; then
+            echo "❌ Circom circuit vulnerabilities found"
+            exit 1
+          fi
+
+          echo "✅ Circom circuit security check completed"
+
+      - name: ZK proof implementation security check
+        run: |
+          cd /var/lib/aitbc-workspaces/security-scan/repo
+          echo "=== ZK Proof Implementation Security Check ==="
+
+          if [[ "${{ github.event_name }}" == "schedule" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            mapfile -t zk_files < <(find apps/coordinator-api/src/app/services -name "*zk*.py" 2>/dev/null || true)
+            mapfile -t zk_routers < <(find apps/coordinator-api/src/app/routers -name "*zk*.py" 2>/dev/null || true)
+          else
+            mapfile -t zk_files < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^apps/coordinator-api/src/app/services/.*zk.*\.py$' || true)
+            mapfile -t zk_routers < <(git diff --name-only --diff-filter=ACMR HEAD^ HEAD | grep -E '^apps/coordinator-api/src/app/routers/.*zk.*\.py$' || true)
+          fi
+
+          if [[ ${#zk_files[@]} -eq 0 && ${#zk_routers[@]} -eq 0 ]]; then
+            echo "✅ No changed ZK-related files to scan"
+            exit 0
+          fi
+
+          all_zk_files=("${zk_files[@]}" "${zk_routers[@]}")
+          printf '%s\n' "${all_zk_files[@]}"
+
+          vuln_found=false
+
+          # Check for mock verification implementations
+          if grep -rn "mock.*verification\|return.*verified.*True\|TODO.*actual verification" "${all_zk_files[@]}" 2>/dev/null | grep -v "example\|test"; then
+            echo "❌ VULNERABILITY: Mock ZK proof verification detected"
+            vuln_found=true
+          fi
+
+          # Check for weak validation (length checks only)
+          if grep -rn "len(.*proof).*>" "${all_zk_files[@]}" 2>/dev/null | grep -v "example\|test"; then
+            echo "⚠️  WARNING: Weak proof validation (length checks only)"
+          fi
+
+          # Check for missing input validation
+          if grep -rn "def.*generate.*proof" "${all_zk_files[@]}" 2>/dev/null; then
+            echo "ℹ️  INFO: Ensure all proof generation functions validate inputs"
+          fi
+
+          if [[ "$vuln_found" == "true" ]]; then
+            echo "❌ ZK proof implementation vulnerabilities found"
+            exit 1
+          fi
+
+          echo "✅ ZK proof implementation security check completed"
 
       - name: Cleanup
         if: always()

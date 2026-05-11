@@ -3,6 +3,8 @@
 ## Overview
 This deployment strategy builds the blockchain node directly on the ns3 server to utilize its gigabit connection, avoiding slow uploads from localhost.
 
+For new-host bootstrap, start with `SETUP.md`, which documents the main `scripts/setup.sh` entry point.
+
 ## Quick Start
 
 ### 1. Deploy Everything
@@ -132,7 +134,7 @@ Location: `/opt/blockchain-explorer/index.html`
 ## Next Steps
 
 1. Set up proper authentication
-2. Configure HTTPS with SSL certificates
+2. Configure HTTPS with manually issued SSL certificates
 3. Add multiple peers for network resilience
 4. Implement proper backup procedures
 5. Set up monitoring and alerting
