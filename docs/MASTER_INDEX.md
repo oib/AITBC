@@ -2,8 +2,8 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-05-03
-**Version**: 6.4 (May 3, 2026 Update - documentation consolidation)
+**Last Updated**: 2026-05-11
+**Version**: 6.5 (May 11, 2026 Update - roadmap simplification)
 
 ---
 
@@ -59,6 +59,7 @@
 ### 🏠 Core Documentation
 - **[README.md](README.md)** - Main documentation entry point and navigation guide
 - **[MASTER_INDEX.md](MASTER_INDEX.md)** - This file - complete catalog of all documentation
+- **[ROADMAP.md](ROADMAP.md)** - Current open tasks and development roadmap (simplified - only pending items)
 
 ### 📖 About Documentation
 Documentation about the documentation system itself

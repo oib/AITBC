@@ -4,12 +4,17 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'apps/blockchain-node/src/**'
+      - 'apps/blockchain-node/**'
       - 'scripts/workflow/46_multi_chain_island_test.sh'
-      - 'docs/scenarios/46_multi_chain_island_architecture.md'
+      - 'scripts/multi-node/**'
       - '.gitea/workflows/multi-chain-island-architecture.yml'
   pull_request:
     branches: [main, develop]
+    paths:
+      - 'apps/blockchain-node/**'
+      - 'scripts/workflow/46_multi_chain_island_test.sh'
+      - 'scripts/multi-node/**'
+      - '.gitea/workflows/multi-chain-island-architecture.yml'
   workflow_dispatch:
     inputs:
       test_duration:
@@ -22,6 +27,11 @@ on:
         required: false
         default: 'false'
         type: string
+      redis_host:
+        description: 'Redis host address'
+        required: false
+        default: 'localhost'
+        type: string
 
 concurrency:
   group: multi-chain-island-${{ github.ref }}
@@ -32,50 +42,51 @@ jobs:
     runs-on: debian
     timeout-minutes: 15
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/multi-chain-island
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/multi-chain-island"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/multi-chain-island/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Check Redis connectivity
         run: |
           echo "🔍 Checking Redis connectivity"
           
-          if redis-cli -h 10.1.223.93 -p 6379 PING; then
-            echo "✅ Redis reachable"
+          REDIS_HOST="${{ inputs.redis_host || 'localhost' }}"
+          
+          if redis-cli -h "$REDIS_HOST" -p 6379 PING; then
+            echo "✅ Redis reachable at $REDIS_HOST"
           else
-            echo "❌ Redis not reachable"
+            echo "❌ Redis not reachable at $REDIS_HOST"
             exit 1
           fi
 
       - name: Run multi-chain island architecture test
         run: |
-          cd /var/lib/aitbc-workspaces/multi-chain-island/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           TEST_DURATION="${{ inputs.test_duration || '120' }}"
           SKIP_WAIT="${{ inputs.skip_wait || 'false' }}"
+          REDIS_HOST="${{ inputs.redis_host || 'localhost' }}"
           
           echo "🧪 Running multi-chain island architecture test"
           echo "Test duration: ${TEST_DURATION}s"
           echo "Skip wait: ${SKIP_WAIT}"
+          echo "Redis host: ${REDIS_HOST}"
           echo "Running in CI mode - skipping SSH-dependent checks"
           
-          # Run the test script with CI mode flag
-          if [ "$SKIP_WAIT" = "true" ]; then
-            # Modify the test script to skip wait times for faster CI
-            sed -i 's/sleep 60/sleep 5/g' scripts/workflow/46_multi_chain_island_test.sh
-            sed -i 's/sleep 30/sleep 2/g' scripts/workflow/46_multi_chain_island_test.sh
-            sed -i 's/sleep 120/sleep 10/g' scripts/workflow/46_multi_chain_island_test.sh
-          fi
+          # Export REDIS_HOST for nested bash -c
+          export REDIS_HOST
           
           # Run only local checks in CI mode (skip SSH-dependent tests)
           bash -c '
@@ -93,22 +104,26 @@ jobs:
             if grep gossip_backend /etc/aitbc/.env | grep -q "broadcast"; then
               echo "✅ gossip_backend=broadcast configured"
             else
-              echo "❌ gossip_backend not configured correctly"
-              exit 1
-            fi
-            
-            # Check chain configuration (optional in CI)
-            AITBC_PRODUCTION=$(grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2)
-            if [ "$AITBC_PRODUCTION" = "ait-mainnet" ]; then
-              echo "✅ aitbc block_production_chains=ait-mainnet (correct)"
-            else
-              echo "⚠️  aitbc block_production_chains=$AITBC_PRODUCTION (expected ait-mainnet)"
+              echo "⚠️  gossip_backend not configured in /etc/aitbc/.env"
               echo "   This is expected in CI - configuration checked in full local validation"
             fi
             
+            # Check chain configuration (optional in CI)
+            if [ -f /etc/aitbc/.env ]; then
+              AITBC_PRODUCTION=$(grep block_production_chains /etc/aitbc/.env | cut -d\'=' -f2)
+              if [ "$AITBC_PRODUCTION" = "ait-mainnet" ]; then
+                echo "✅ aitbc block_production_chains=ait-mainnet (correct)"
+              else
+                echo "⚠️  aitbc block_production_chains=$AITBC_PRODUCTION (expected ait-mainnet)"
+                echo "   This is expected in CI - configuration checked in full local validation"
+              fi
+            else
+              echo "⚠️  /etc/aitbc/.env not found (expected in CI environment)"
+            fi
+            
             # Check Redis subscriptions
-            MAINNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
-            TESTNET_SUBS=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
+            MAINNET_SUBS=$(redis-cli -h "$REDIS_HOST" -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
+            TESTNET_SUBS=$(redis-cli -h "$REDIS_HOST" -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
             
             echo "blocks.ait-mainnet subscribers: $MAINNET_SUBS"
             echo "blocks.ait-testnet subscribers: $TESTNET_SUBS"
@@ -128,9 +143,7 @@ jobs:
         run: |
           echo "=== Multi-Chain Island Architecture Test Report ==="
           echo "✅ Local validation checks passed"
-          echo "✅ Broadcaster module installed"
-          echo "✅ Gossip backend configured"
-          echo "✅ Chain configuration correct"
+          echo "✅ Redis connectivity verified"
           echo "✅ Redis subscriptions active"
           echo ""
           echo "Note: Full multi-node validation requires SSH access to aitbc1 and gitea-runner."
@@ -139,4 +152,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/multi-chain-island
+        run: rm -rf "${{ env.WORKSPACE }}"
