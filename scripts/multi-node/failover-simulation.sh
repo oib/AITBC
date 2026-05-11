@@ -2,7 +2,8 @@
 #
 # Node Failover Simulation Script
 # Simulates node shutdown and verifies network continues operating
-# Uses RPC endpoints only, no SSH access (check logic only)
+# Uses RPC endpoints with SSH for remote nodes (aitbc1, gitea-runner)
+# Local node (aitbc) uses localhost
 #
 
 # Don't use set -e - we handle errors manually
@@ -11,13 +12,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Node Configuration
+# Uses hostnames for consistency with current infrastructure
 NODES=(
-    "aitbc:10.1.223.93"
-    "aitbc1:10.1.223.40"
-    "aitbc2:10.1.223.98"
+    "aitbc:localhost"
+    "aitbc1:aitbc1"
+    "gitea-runner:gitea-runner"
 )
 
 RPC_PORT=8006
+
+# Determine if running locally or via SSH
+RUNNING_ON_GITEA_RUNNER=false
+if [ "$(hostname)" = "gitea-runner" ] || [ "$(hostname)" = "aitbc2" ]; then
+    RUNNING_ON_GITEA_RUNNER=true
+fi
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/failover-simulation.log"
 
@@ -54,9 +62,16 @@ log_warning() {
 # Check RPC endpoint health
 check_rpc_health() {
     local node_name="$1"
-    local node_ip="$2"
+    local node_host="$2"
     
-    if curl -f -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" > /dev/null 2>&1; then
+    local health_check_cmd="curl -f -s --max-time 5 http://localhost:${RPC_PORT}/health"
+    
+    # Use SSH for remote nodes
+    if [ "$node_host" != "localhost" ]; then
+        health_check_cmd="ssh ${node_host} \"${health_check_cmd}\""
+    fi
+    
+    if eval "$health_check_cmd" > /dev/null 2>&1; then
         log_success "RPC healthy on ${node_name}"
         return 0
     else
@@ -68,7 +83,7 @@ check_rpc_health() {
 # Simulate node shutdown (check logic only)
 simulate_node_shutdown() {
     local node_name="$1"
-    local node_ip="$2"
+    local node_host="$2"
     
     log "=== SIMULATING shutdown of ${node_name} ==="
     log "Note: This is a simulation - no actual service shutdown"
@@ -82,14 +97,14 @@ simulate_node_shutdown() {
 # Simulate node reconnection (check logic only)
 simulate_node_reconnection() {
     local node_name="$1"
-    local node_ip="$2"
+    local node_host="$2"
     
     log "=== SIMULATING reconnection of ${node_name} ==="
     log "Note: This is a simulation - no actual service restart"
     log "Marking ${node_name} as available in test logic"
     
     # Check if RPC is actually available
-    if check_rpc_health "$node_name" "$node_ip"; then
+    if check_rpc_health "$node_name" "$node_host"; then
         log_success "${node_name} reconnected (RPC available)"
         return 0
     else
@@ -107,7 +122,7 @@ verify_network_continues() {
     local available_nodes=0
     
     for node_config in "${NODES[@]}"; do
-        IFS=':' read -r node_name node_ip <<< "$node_config"
+        IFS=':' read -r node_name node_host <<< "$node_config"
         
         # Skip the simulated down node
         if [ "$node_name" = "$down_node" ]; then
@@ -115,7 +130,7 @@ verify_network_continues() {
             continue
         fi
         
-        if check_rpc_health "$node_name" "$node_ip"; then
+        if check_rpc_health "$node_name" "$node_host"; then
             ((available_nodes++))
         fi
     done
@@ -141,14 +156,18 @@ verify_consensus() {
     local heights=()
     
     for node_config in "${NODES[@]}"; do
-        IFS=':' read -r node_name node_ip <<< "$node_config"
+        IFS=':' read -r node_name node_host <<< "$node_config"
         
         # Skip the simulated down node
         if [ "$node_name" = "$down_node" ]; then
             continue
         fi
         
-        local height=$(curl -s --max-time 5 "http://${node_ip}:${RPC_PORT}/rpc/head" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
+        local height_cmd="curl -s --max-time 5 http://localhost:${RPC_PORT}/rpc/head"
+        if [ "$node_host" != "localhost" ]; then
+            height_cmd="ssh ${node_host} \"${height_cmd}\""
+        fi
+        local height=$(eval "$height_cmd" 2>/dev/null | grep -o '"height":[0-9]*' | grep -o '[0-9]*' || echo "0")
         
         if [ "$height" != "0" ]; then
             heights+=("${node_name}:${height}")
@@ -185,14 +204,14 @@ verify_consensus() {
 # Measure recovery time (simulated)
 measure_recovery_time() {
     local node_name="$1"
-    local node_ip="$2"
+    local node_host="$2"
     
     log "=== Measuring recovery time for ${node_name} ==="
     
     local start=$(date +%s)
     
     # Simulate reconnection check
-    if simulate_node_reconnection "$node_name" "$node_ip"; then
+    if simulate_node_reconnection "$node_name" "$node_host"; then
         local end=$(date +%s)
         local recovery_time=$((end - start))
         log "Recovery time for ${node_name}: ${recovery_time}s"
@@ -220,8 +239,8 @@ main() {
     local available_nodes=()
     
     for node_config in "${NODES[@]}"; do
-        IFS=':' read -r node_name node_ip <<< "$node_config"
-        if check_rpc_health "$node_name" "$node_ip"; then
+        IFS=':' read -r node_name node_host <<< "$node_config"
+        if check_rpc_health "$node_name" "$node_host"; then
             ((healthy_nodes++))
             available_nodes+=("$node_config")
         else
@@ -244,13 +263,13 @@ main() {
     
     # Simulate shutdown of each node sequentially
     for node_config in "${NODES[@]}"; do
-        IFS=':' read -r node_name node_ip <<< "$node_config"
+        IFS=':' read -r node_name node_host <<< "$node_config"
         
         log ""
         log "=== Testing failover for ${node_name} ==="
         
         # Simulate shutdown
-        simulate_node_shutdown "$node_name" "$node_ip"
+        simulate_node_shutdown "$node_name" "$node_host"
         
         # Verify network continues
         if ! verify_network_continues "$node_name"; then
@@ -265,7 +284,7 @@ main() {
         fi
         
         # Simulate reconnection
-        local recovery_time=$(measure_recovery_time "$node_name" "$node_ip")
+        local recovery_time=$(measure_recovery_time "$node_name" "$node_host")
         
         if [ "$recovery_time" = "failed" ]; then
             log_error "Recovery failed for ${node_name}"
