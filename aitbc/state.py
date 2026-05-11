@@ -11,6 +11,9 @@ from datetime import datetime, timezone
 from enum import Enum
 from abc import ABC, abstractmethod
 import asyncio
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 T = TypeVar('T')
@@ -243,7 +246,7 @@ class StateMonitor:
             try:
                 observer(transition)
             except Exception as e:
-                print(f"Error in state observer: {e}")
+                logger.error(f"Error in state observer: {e}")
     
     def wrap_transition(self, original_transition: Callable) -> Callable:
         """Wrap transition method to notify observers"""

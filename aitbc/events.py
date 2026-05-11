@@ -10,6 +10,9 @@ from datetime import datetime, timezone
 from enum import Enum
 import inspect
 import functools
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 T = TypeVar('T')
@@ -79,7 +82,7 @@ class EventBus:
                 else:
                     handler(event)
             except Exception as e:
-                print(f"Error in event handler: {e}")
+                logger.error(f"Error in event handler: {e}")
     
     def publish_sync(self, event: Event) -> None:
         """Publish an event synchronously"""
@@ -123,7 +126,7 @@ class AsyncEventBus(EventBus):
                         else:
                             handler(event)
                     except Exception as e:
-                        print(f"Error in event handler: {e}")
+                        logger.error(f"Error in event handler: {e}")
             
             tasks.append(safe_handler())
         
