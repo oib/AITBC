@@ -19,18 +19,20 @@ jobs:
     runs-on: debian
     timeout-minutes: 10
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/js-sdk-tests
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/js-sdk-tests"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/js-sdk-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Verify Node.js
@@ -40,7 +42,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -54,13 +56,13 @@ jobs:
 
       - name: Build TypeScript
         run: |
-          cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
           npm run build
           echo "✅ TypeScript build completed"
 
       - name: Lint
         run: |
-          cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
           npm run lint
           echo "✅ Lint passed"
           npx prettier --check "src/**/*.ts"
@@ -68,10 +70,10 @@ jobs:
 
       - name: Run tests
         run: |
-          cd /var/lib/aitbc-workspaces/js-sdk-tests/repo/packages/js/aitbc-sdk
+          cd "${{ env.WORKSPACE }}/repo/packages/js/aitbc-sdk"
           npm test
           echo "✅ Tests passed"
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/js-sdk-tests
+        run: rm -rf "${{ env.WORKSPACE }}"

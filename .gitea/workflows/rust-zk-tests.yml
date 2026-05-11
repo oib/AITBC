@@ -19,23 +19,25 @@ jobs:
     runs-on: debian
     timeout-minutes: 15
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/rust-zk-tests
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/rust-zk-tests"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Rust environment
         run: |
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -60,7 +62,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cd "${{ env.WORKSPACE }}/repo/dev/gpu/gpu_zk_research"
           cargo fmt --all -- --check
           echo "✅ Formatting OK"
 
@@ -69,7 +71,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cd "${{ env.WORKSPACE }}/repo/dev/gpu/gpu_zk_research"
           cargo clippy --all-targets -- -D warnings
           echo "✅ Clippy OK"
 
@@ -78,7 +80,7 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cd "${{ env.WORKSPACE }}/repo/dev/gpu/gpu_zk_research"
           cargo build --release
           echo "✅ Build completed"
 
@@ -87,10 +89,10 @@ jobs:
           export HOME=/root
           export PATH="$HOME/.cargo/bin:$PATH"
           source "$HOME/.cargo/env" 2>/dev/null || true
-          cd /var/lib/aitbc-workspaces/rust-zk-tests/repo/dev/gpu/gpu_zk_research
+          cd "${{ env.WORKSPACE }}/repo/dev/gpu/gpu_zk_research"
           cargo test --all-targets
           echo "✅ Tests passed"
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/rust-zk-tests
+        run: rm -rf "${{ env.WORKSPACE }}"

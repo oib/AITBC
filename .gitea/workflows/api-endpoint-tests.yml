@@ -22,23 +22,25 @@ jobs:
     runs-on: debian
     timeout-minutes: 10
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/api-tests
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/api-tests"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/api-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup test environment
         run: |
-          cd /var/lib/aitbc-workspaces/api-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -54,7 +56,7 @@ jobs:
 
       - name: Start required services
         run: |
-          cd /var/lib/aitbc-workspaces/api-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           echo "Starting AITBC services for endpoint testing..."
 
           mapfile -t services < <(
@@ -108,13 +110,13 @@ jobs:
 
           if [[ -z "$service_host" ]]; then
             echo "⚠️  Could not find a reachable API host - skipping API endpoint tests"
-            echo "services_available=false" > /var/lib/aitbc-workspaces/api-tests/status
+            echo "services_available=false" > "${{ env.WORKSPACE }}/status"
             exit 0
           fi
 
-          echo "$service_host" > /var/lib/aitbc-workspaces/api-tests/service_host
+          echo "$service_host" > "${{ env.WORKSPACE }}/service_host"
           echo "Using service host: $service_host"
-          echo "services_available=true" > /var/lib/aitbc-workspaces/api-tests/status
+          echo "services_available=true" > "${{ env.WORKSPACE }}/status"
 
           # Check only the services needed for API endpoint tests (exclude blockchain RPC)
           for port in 9001 8001 8003; do
@@ -144,26 +146,26 @@ jobs:
 
             if [[ $port_ready -ne 1 ]]; then
               echo "⚠️  Not all services ready - skipping API endpoint tests"
-              echo "services_available=false" > /var/lib/aitbc-workspaces/api-tests/status
+              echo "services_available=false" > "${{ env.WORKSPACE }}/status"
               exit 0
             fi
           done
 
       - name: Run API endpoint tests
         run: |
-          cd /var/lib/aitbc-workspaces/api-tests/repo
-          if [ ! -f /var/lib/aitbc-workspaces/api-tests/status ] || [ "$(cat /var/lib/aitbc-workspaces/api-tests/status)" != "true" ]; then
+          cd "${{ env.WORKSPACE }}/repo"
+          if [ ! -f "${{ env.WORKSPACE }}/status" ] || [ "$(cat "${{ env.WORKSPACE }}/status")" != "true" ]; then
             echo "⚠️  Services not available - skipping API endpoint tests"
             exit 0
           fi
-          service_host=$(cat /var/lib/aitbc-workspaces/api-tests/service_host)
+          service_host=$(cat "${{ env.WORKSPACE }}/service_host")
           AITBC_API_HOST="$service_host" venv/bin/python scripts/ci/test_api_endpoints.py
           echo "✅ API endpoint tests completed"
 
       - name: Cleanup
         if: always()
         run: |
-          cd /var/lib/aitbc-workspaces/api-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           # Stop the services we started
           mapfile -t services < <(
             find systemd -maxdepth 1 -type f -name "aitbc-*.service" -printf "%f\n" |
@@ -176,4 +178,4 @@ jobs:
           done
           
           # Clean up workspace
-          rm -rf /var/lib/aitbc-workspaces/api-tests
+          rm -rf "${{ env.WORKSPACE }}"
