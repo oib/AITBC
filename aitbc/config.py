@@ -9,6 +9,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 from .constants import DATA_DIR, CONFIG_DIR, LOG_DIR, ENV_FILE
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class BaseAITBCConfig(BaseSettings):

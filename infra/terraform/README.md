@@ -2,6 +2,18 @@
 
 This directory contains Terraform configurations for deploying AITBC infrastructure on AWS.
 
+## Current Scope
+
+**ECS-focused with partial Kubernetes support**
+
+The Terraform configuration is primarily focused on ECS deployment with some Kubernetes modules. Current coverage includes:
+
+- **ECS**: Task definitions, services, and cluster configuration
+- **Kubernetes**: Partial support through modules/kubernetes/
+- **Missing components**: Full VPC, RDS, and IAM modules are not yet implemented
+
+This is a partial implementation suitable for current ECS-based deployment.
+
 ## Prerequisites
 
 - Terraform >= 1.0

@@ -1,4 +1,18 @@
-"""Service layer for coordinator business logic."""
+"""
+Service layer for coordinator business logic.
+
+This module uses a lazy import pattern to avoid importing all 101+ services at startup.
+Only the 4 core services (JobService, MinerService, MarketplaceService, ExplorerService)
+are exported in __all__ and loaded immediately via __getattr__.
+
+To add a new service to the public API:
+1. Add the service name to __all__
+2. Add an entry to _MODULE_BY_EXPORT mapping the service name to its module path
+3. The service will be lazily loaded on first access
+
+For services not in __all__, import them directly from their module:
+    from app.services.blockchain import BlockchainService
+"""
 
 from importlib import import_module
 
@@ -13,6 +27,7 @@ _MODULE_BY_EXPORT = {
 
 
 def __getattr__(name: str):
+    """Lazy load services on first access."""
     module_name = _MODULE_BY_EXPORT.get(name)
     if module_name is None:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

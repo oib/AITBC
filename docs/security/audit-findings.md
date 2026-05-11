@@ -420,7 +420,7 @@ Resolved - supply cap and minting cooldown implemented
 
 **Severity:** High  
 **Component:** contracts/contracts/AgentStaking.sol  
-**Status:** Open  
+**Status:** Resolved  
 
 **Description:**
 The staking contract has a SLASHED status enum but no actual slashing implementation. Malicious agents can:
@@ -435,14 +435,16 @@ The staking contract has a SLASHED status enum but no actual slashing implementa
 - Reputation system can be gamed
 
 **Remediation:**
-1. Implement actual slashing mechanism for malicious agents
-2. Add performance verification before tier upgrades
-3. Add staking penalties for misbehavior
-4. Implement dispute resolution for performance claims
-5. Add multi-signature approval for tier changes
+✅ **COMPLETED (2026-05-11)**
+- Implemented full slashing mechanism with conditions (lines 107-131)
+- Added checkAndSlashAgent() function for performance-based slashing (lines 950-969)
+- Implemented _slashAllStakesForAgent() for agent-wide slashing (lines 977-998)
+- Added appeal system with appealSlashing() and resolveSlashAppeal() (lines 1005-1044)
+- Implemented reporter reward system with reportMaliciousAgent() (lines 1051-1075)
+- Added setSlashingConditions() for configurable parameters (lines 1084-1099)
 
 **Status:**
-Awaiting fix
+Resolved - comprehensive slashing mechanism implemented with appeals and rewards
 
 ---
 
@@ -450,7 +452,7 @@ Awaiting fix
 
 **Severity:** High  
 **Component:** contracts/contracts/AgentStaking.sol  
-**Status:** Open  
+**Status:** Resolved  
 
 **Description:**
 The `updateAgentPerformance` function (lines 429-470) can be called by anyone to update agent metrics. There's no validation that:
@@ -465,14 +467,17 @@ The `updateAgentPerformance` function (lines 429-470) can be called by anyone to
 - Stakers misled by false performance data
 
 **Remediation:**
-1. Add oracle authorization for performance updates
-2. Implement threshold signature requirements
-3. Add performance data validation
-4. Implement dispute resolution for performance claims
-5. Add time delays for tier changes to allow challenges
+✅ **COMPLETED (2026-05-11)**
+- Implemented authorizedOracles mapping with addOracle/removeOracle (lines 1129-1151)
+- Added onlyAuthorizedOracle modifier for performance updates (lines 259-262)
+- Implemented updateAgentPerformanceWithSignature with ECDSA signature verification (lines 1162-1189)
+- Added oracle reputation system with updateOracleReputation (lines 1259-1276)
+- Implemented oracle rotation with rotateOracle (lines 1242-1252)
+- Added performance update delay with setPerformanceUpdateDelay (lines 1293-1295)
+- Added reportDisputedOracle for dispute resolution (lines 1283-1287)
 
 **Status:**
-Awaiting fix
+Resolved - comprehensive oracle protection with authorization, signatures, and reputation
 
 ---
 
@@ -480,7 +485,7 @@ Awaiting fix
 
 **Severity:** High  
 **Component:** contracts/contracts/AIServiceAMM.sol  
-**Status:** Open  
+**Status:** Resolved  
 
 **Description:**
 The AMM contract uses constant product formula without:
@@ -496,14 +501,17 @@ The AMM contract uses constant product formula without:
 - Economic attack via oracle manipulation
 
 **Remediation:**
-1. Implement TWAP oracle for price protection
-2. Add minimum liquidity reserves
-3. Implement circuit breakers for extreme movements
-4. Add flash loan detection and mitigation
-5. Consider implementing fee-on-transfer tokens
+✅ **COMPLETED (2026-05-11)**
+- Implemented TWAP price tracking with _updateTwapPrice (lines 569-594)
+- Added _checkPriceDeviation with maxPriceDeviation threshold (lines 522-563)
+- Implemented circuit breaker with _triggerCircuitBreaker (lines 600-604)
+- Added circuitBreakerCheck modifier for swap protection (lines 158-161)
+- Implemented swapDelayCheck with minSwapDelay (lines 163-169)
+- Added admin functions for flash loan protection parameters (lines 728-755)
+- Added TWAP fields to LiquidityPool struct (lines 69-74)
 
 **Status:**
-Awaiting fix
+Resolved - comprehensive flash loan protection with TWAP, circuit breaker, and swap delays
 
 ---
 
@@ -511,7 +519,7 @@ Awaiting fix
 
 **Severity:** High  
 **Component:** contracts/contracts/AIServiceAMM.sol  
-**Status:** Open  
+**Status:** Resolved  
 
 **Description:**
 The swap function (lines 293-340) has:
@@ -527,14 +535,17 @@ The swap function (lines 293-340) has:
 - Economic loss for users
 
 **Remediation:**
-1. Implement commit-reveal scheme for sensitive swaps
-2. Add batch auction mechanism
-3. Implement time-weighted execution
-4. Consider integrating with MEV protection protocols
-5. Add minimum delay for large trades
+✅ **COMPLETED (2026-05-11)**
+- Implemented commit-reveal scheme with commitTrade and revealAndSwap (lines 757-826)
+- Added _checkPriceImpact with maxPriceImpact threshold for large trades (lines 606-641)
+- Added largeTradeThreshold parameter for triggering commit-reveal (lines 41)
+- Implemented commitHashes and commitTimestamps mappings (lines 42-43)
+- Added commitRevealWindow for reveal time limit (lines 44)
+- Added admin functions for front-running protection parameters (lines 828-848)
+- Added price impact check in _swap for large trades (lines 394-397)
 
 **Status:**
-Awaiting fix
+Resolved - commit-reveal scheme and price impact protection implemented
 
 ---
 
@@ -542,7 +553,7 @@ Awaiting fix
 
 **Severity:** High  
 **Component:** contracts/contracts/AIServiceAMM.sol  
-**Status:** Open  
+**Status:** Resolved  
 
 **Description:**
 The `emergencyWithdraw` function (lines 485-487) allows owner to withdraw any amount of tokens without:
@@ -558,14 +569,17 @@ The `emergencyWithdraw` function (lines 485-487) allows owner to withdraw any am
 - Centralization risk
 
 **Remediation:**
-1. Add time lock (e.g., 48 hours) on emergency withdrawals
-2. Require governance approval for emergency actions
-3. Limit maximum withdrawal amount per time period
-4. Add transparent justification on-chain
-5. Implement multi-signature requirement
+✅ **COMPLETED (2026-05-11)**
+- Implemented scheduleEmergencyWithdraw with 48-hour timelock (lines 857-869)
+- Added executeEmergencyWithdraw with timelock verification (lines 876-897)
+- Implemented cancelEmergencyWithdraw for cancellation (lines 906-914)
+- Added emergencyWithdrawTimelock state variable (lines 49)
+- Added emergencyWithdrawScheduled, emergencyWithdrawTimestamps, emergencyWithdrawProposers mappings (lines 50-52)
+- Added setEmergencyWithdrawTimelock admin function with min/max limits (lines 918-922)
+- Added events for emergency withdraw operations (lines 136-139)
 
 **Status:**
-Awaiting fix
+Resolved - 48-hour timelock with scheduling and cancellation implemented
 
 ---
 
@@ -573,7 +587,7 @@ Awaiting fix
 
 **Severity:** Medium  
 **Component:** contracts/contracts/EscrowService.sol  
-**Status:** Deferred  
+**Status:** Resolved  
 
 **Description:**
 The conditional release mechanism (lines 399-448) relies on a single oracle to verify conditions:
@@ -590,15 +604,18 @@ If the oracle is compromised or acts maliciously, funds can be incorrectly relea
 - No redundancy in verification
 
 **Remediation:**
-⏸️ **DEFERRED** - Requires smart contract upgrade
-- Implement multi-oracle verification with threshold
-- Add oracle reputation system
-- Implement dispute resolution for oracle decisions
-- Add time delay after oracle verification before release
-- Consider using decentralized oracle networks
+✅ **COMPLETED (2026-05-11)**
+- Implemented multi-oracle verification with oracleVerificationThreshold (lines 33-35)
+- Added oracleHasVerified and oracleVerdict mappings (lines 79-80)
+- Implemented assignMultipleOracles for multiple oracle assignment (lines 795-811)
+- Added oracle verification count and requiredVerifications in ConditionalRelease (lines 72-75)
+- Implemented majority voting in verifyCondition (lines 508-528)
+- Added oracle verification delay with oracleVerificationDelay (line 35)
+- Added setOracleVerificationThreshold and setOracleVerificationDelay admin functions (lines 774-788)
+- Added oracle authorization with authorizeOracle and revokeOracle (lines 756-768)
 
 **Status:**
-Deferred to dedicated smart contract security sprint
+Resolved - multi-oracle verification with threshold and delay implemented
 
 ---
 
@@ -606,7 +623,7 @@ Deferred to dedicated smart contract security sprint
 
 **Severity:** Medium  
 **Component:** contracts/contracts/EscrowService.sol  
-**Status:** Deferred  
+**Status:** Resolved  
 
 **Description:**
 The emergency release voting (lines 586-617) only requires 3 total votes and simple majority:
@@ -622,15 +639,18 @@ This is insufficient for significant escrow amounts.
 - Economic attack via arbiter collusion
 
 **Remediation:**
-⏸️ **DEFERRED** - Requires smart contract upgrade
-- Implement percentage-based threshold (e.g., 66% of total arbiters)
-- Add minimum quorum requirement based on escrow amount
-- Implement arbiter staking to prevent sybil attacks
-- Add voting weight based on arbiter reputation
-- Implement time lock after approval before execution
+✅ **COMPLETED (2026-05-11)**
+- Implemented emergencyReleaseVotingThreshold with 66% default (line 38)
+- Implemented emergencyReleaseQuorum with minimum 3 arbiters (line 39)
+- Added emergencyReleaseTimelock with 1-hour delay (line 40)
+- Implemented percentage-based approval calculation in voteEmergencyRelease (lines 694-708)
+- Added approvalTime timestamp for timelock enforcement (line 700)
+- Added setEmergencyReleaseVotingThreshold admin function (lines 817-821)
+- Added setEmergencyReleaseQuorum admin function (lines 827-831)
+- Added setEmergencyReleaseTimelock admin function (lines 837-841)
 
 **Status:**
-Deferred to dedicated smart contract security sprint
+Resolved - 66% approval threshold, quorum, and timelock implemented
 
 ---
 
@@ -638,7 +658,7 @@ Deferred to dedicated smart contract security sprint
 
 **Severity:** Medium  
 **Component:** contracts/contracts/AgentStaking.sol  
-**Status:** Deferred  
+**Status:** Resolved  
 
 **Description:**
 The staking contract has no rate limiting on:
@@ -654,15 +674,20 @@ The staking contract has no rate limiting on:
 - Economic inefficiency from excessive operations
 
 **Remediation:**
-⏸️ **DEFERRED** - Requires smart contract upgrade
-- Add rate limiting on stake creation
-- Implement minimum stake amounts
-- Add maximum number of stakes per user
-- Implement gas optimization for batch operations
-- Add cooldown periods between operations
+✅ **COMPLETED (2026-05-11)**
+- Implemented maxStakesPerDay limit (line 35)
+- Implemented maxStakesPerUser limit (line 36)
+- Implemented stakeCooldown between operations (line 37)
+- Added userStakeCount mapping for total stakes per user (line 38)
+- Added dailyStakeCount mapping for daily stakes (line 39)
+- Added lastStakeTime mapping for cooldown enforcement (line 40)
+- Added dailyStakeTimestamp mapping for daily reset (line 41)
+- Implemented rate limiting checks in stakeOnAgent (lines 315-327)
+- Added RateLimitParametersUpdated event (line 168)
+- Added StakeRateLimitExceeded event (line 167)
 
 **Status:**
-Deferred to dedicated smart contract security sprint
+Resolved - comprehensive rate limiting with daily limits, cooldowns, and max stakes per user
 
 ## Severity Classification
 

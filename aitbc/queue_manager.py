@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from enum import Enum
 import uuid
+from .aitbc_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 T = TypeVar('T')
@@ -209,7 +212,7 @@ class JobScheduler:
                     else:
                         del self.scheduled_jobs[job["job_id"]]
                 except Exception as e:
-                    print(f"Error running scheduled job {job['job_id']}: {e}")
+                    logger.error(f"Error running scheduled job {job['job_id']}: {e}")
                     if not job["interval"]:
                         del self.scheduled_jobs[job["job_id"]]
             
@@ -374,7 +377,7 @@ class WorkerPool:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                print(f"Worker {worker_id} error: {e}")
+                logger.error(f"Worker {worker_id} error: {e}")
     
     async def get_queue_size(self) -> int:
         """Get queue size"""
