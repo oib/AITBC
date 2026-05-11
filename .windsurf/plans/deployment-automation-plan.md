@@ -56,7 +56,6 @@ This workflow covers the automation of AITBC service deployment with one-command
    - Install Python dependencies
    - Configure environment variables
    - Initialize databases
-   - Generate SSL certificates
    - Start systemd services
    - Run health checks
    - Display deployment status
@@ -122,26 +121,10 @@ This workflow covers the automation of AITBC service deployment with one-command
    - Configure restart on health check failure
    - Use systemd notify for service readiness
 
-### 5. Automatic SSL Certificate Generation (Let's Encrypt)
+### 5. Manual SSL Certificate Handling
 
-1. **Install certbot**
-   - Script: `scripts/deploy/install-certbot.sh`
-   - Install certbot and certbot-auto
-   - Configure webroot authentication
-   - Set up auto-renewal cron job
-
-2. **Create certificate generation script**
-   - Script: `scripts/deploy/generate-ssl.sh`
-   - Request certificate for domain
-   - Configure nginx with SSL certificates
-   - Set up certificate auto-renewal
-   - Handle certificate renewal hooks
-
-3. **Configure nginx reverse proxy**
-   - SSL termination at nginx
-   - Redirect HTTP to HTTPS
-   - Configure modern TLS settings (TLS 1.3)
-   - Add security headers (HSTS, X-Frame-Options)
+- SSL certificate provisioning and renewal are handled manually outside this workflow.
+- Configure nginx with manually issued certificates as needed.
 
 ## Verification
 
@@ -149,8 +132,7 @@ This workflow covers the automation of AITBC service deployment with one-command
 - [ ] Deployment script completes successfully
 - [ ] .env.example template is complete
 - [ ] Health checks pass for all services
-- [ ] SSL certificates are generated and renewed
-- [ ] Services are accessible via HTTPS
+- [ ] SSL certificates are configured manually and services are accessible via HTTPS
 - [ ] Rollback capability tested
 
 ## Troubleshooting
@@ -158,7 +140,7 @@ This workflow covers the automation of AITBC service deployment with one-command
 - **Service fails to start**: Check logs with `journalctl -u service-name`, verify dependencies
 - **Deployment script fails**: Check error logs, verify prerequisites, test individual steps
 - **Health checks fail**: Verify service is running, check endpoint configuration
-- **SSL certificate fails**: Check domain DNS, verify port 80 is open, check certbot logs
+- **SSL configuration fails**: Check domain DNS, verify nginx config, and confirm the manually issued certificate paths
 - **Environment validation fails**: Verify all required variables are set, check formats
 
 ## Related Files
@@ -168,5 +150,4 @@ This workflow covers the automation of AITBC service deployment with one-command
 - `.env.example`
 - `scripts/deploy/validate-env.sh`
 - `scripts/monitoring/health-check.sh`
-- `scripts/deploy/generate-ssl.sh`
 - `nginx/nginx.conf`
