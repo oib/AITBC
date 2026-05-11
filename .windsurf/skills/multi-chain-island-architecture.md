@@ -97,6 +97,7 @@ Activate this skill when:
       "broadcaster_installed": {"type": "boolean"},
       "gossip_backend_configured": {"type": "boolean"},
       "chain_roles_correct": {"type": "boolean"},
+      "sync_config_correct": {"type": "boolean"},
       "redis_subscriptions_active": {"type": "boolean"},
       "block_production_correct": {"type": "boolean"},
       "cross_chain_sync_working": {"type": "boolean"}
@@ -145,6 +146,16 @@ gossip_backend=broadcast
 gossip_broadcast_url=redis://10.1.223.93:6379
 EOF
 
+# Configure blockchain.env sync parameters
+# As hub of ait-mainnet, it doesn't need to sync mainnet from others
+# As member of ait-testnet, it syncs testnet from aitbc1
+cat > /etc/aitbc/blockchain.env << EOF
+SYNC_SOURCE_HOST=aitbc1
+SYNC_LEADER_HOST=aitbc1
+SYNC_CHAIN_ID=ait-testnet
+default_peer_rpc_url=http://aitbc1:8006
+EOF
+
 # Restart blockchain node
 systemctl restart aitbc-blockchain-node
 ```
@@ -157,7 +168,17 @@ block_production_chains=ait-testnet
 supported_chains=ait-mainnet,ait-testnet
 gossip_backend=broadcast
 gossip_broadcast_url=redis://10.1.223.93:6379
-default_peer_rpc_url=http://10.1.223.93:8006
+default_peer_rpc_url=http://aitbc:8006
+EOF'
+
+# Configure blockchain.env sync parameters
+# As hub of ait-testnet, it doesn't need to sync testnet from others
+# As member of ait-mainnet, it syncs mainnet from aitbc
+ssh aitbc1 'cat > /etc/aitbc/blockchain.env << EOF
+SYNC_SOURCE_HOST=aitbc
+SYNC_LEADER_HOST=aitbc
+SYNC_CHAIN_ID=ait-mainnet
+default_peer_rpc_url=http://aitbc:8006
 EOF'
 
 # Restart blockchain node
@@ -172,7 +193,16 @@ block_production_chains=
 supported_chains=ait-mainnet,ait-testnet
 gossip_backend=broadcast
 gossip_broadcast_url=redis://10.1.223.93:6379
-default_peer_rpc_url=http://10.1.223.93:8006
+default_peer_rpc_url=http://aitbc:8006
+EOF'
+
+# Configure blockchain.env sync parameters
+# As member of both chains, it syncs mainnet from aitbc and testnet from aitbc1
+ssh gitea-runner 'cat > /etc/aitbc/blockchain.env << EOF
+SYNC_SOURCE_HOST=aitbc
+SYNC_LEADER_HOST=aitbc
+SYNC_CHAIN_ID=ait-mainnet
+default_peer_rpc_url=http://aitbc:8006
 EOF'
 
 # Restart blockchain node
@@ -180,6 +210,38 @@ ssh gitea-runner 'systemctl restart aitbc-blockchain-node'
 ```
 
 ### 2. Validate Configuration
+
+#### Sync Configuration Parameters
+```bash
+# SYNC_SOURCE_HOST: The node to sync blocks from for the specified chain
+# SYNC_LEADER_HOST: The consensus leader node for the specified chain
+# SYNC_CHAIN_ID: The chain ID to sync from the source/leader
+
+# For member nodes, these should point to the hub of that chain:
+# - Member of ait-mainnet: SYNC_SOURCE_HOST=aitbc, SYNC_LEADER_HOST=aitbc, SYNC_CHAIN_ID=ait-mainnet
+# - Member of ait-testnet: SYNC_SOURCE_HOST=aitbc1, SYNC_LEADER_HOST=aitbc1, SYNC_CHAIN_ID=ait-testnet
+
+# For hub nodes, these can point to themselves or be omitted for their hub chain
+# but should point to the other hub for their member chain
+
+# Common misconfigurations to avoid:
+# - SYNC_SOURCE_HOST pointing to self (causes sync loop, no actual sync)
+# - SYNC_CHAIN_ID mismatched with the chain being synced
+# - SYNC_LEADER_HOST pointing to wrong hub for consensus
+```
+
+#### Check Sync Configuration
+```bash
+# Check sync parameters on all nodes
+grep -E "SYNC_SOURCE_HOST|SYNC_LEADER_HOST|SYNC_CHAIN_ID" /etc/aitbc/blockchain.env
+ssh aitbc1 'grep -E "SYNC_SOURCE_HOST|SYNC_LEADER_HOST|SYNC_CHAIN_ID" /etc/aitbc/blockchain.env'
+ssh gitea-runner 'grep -E "SYNC_SOURCE_HOST|SYNC_LEADER_HOST|SYNC_CHAIN_ID" /etc/aitbc/blockchain.env'
+
+# Expected:
+# aitbc: SYNC_SOURCE_HOST=aitbc1, SYNC_LEADER_HOST=aitbc1, SYNC_CHAIN_ID=ait-testnet
+# aitbc1: SYNC_SOURCE_HOST=aitbc, SYNC_LEADER_HOST=aitbc, SYNC_CHAIN_ID=ait-mainnet
+# gitea-runner: SYNC_SOURCE_HOST=aitbc, SYNC_LEADER_HOST=aitbc, SYNC_CHAIN_ID=ait-mainnet
+```
 
 #### Check Broadcaster Module Installation
 ```bash
@@ -253,6 +315,26 @@ ssh gitea-runner 'journalctl -u aitbc-blockchain-node --since "5 minutes ago" --
 ```
 
 ### 3. Troubleshoot Common Issues
+
+#### Sync Configuration Misconfiguration
+```bash
+# Symptom: Node stuck at low block height while other nodes are much higher
+# Root Cause: SYNC_SOURCE_HOST pointing to self instead of hub node
+
+# Check current sync configuration
+grep -E "SYNC_SOURCE_HOST|SYNC_LEADER_HOST|SYNC_CHAIN_ID" /etc/aitbc/blockchain.env
+
+# Fix: Point to correct hub for the chain being synced
+# For aitbc1 (member of ait-mainnet):
+ssh aitbc1 'sudo sed -i "s/SYNC_SOURCE_HOST=aitbc1/SYNC_SOURCE_HOST=aitbc/" /etc/aitbc/blockchain.env'
+ssh aitbc1 'sudo sed -i "s/SYNC_LEADER_HOST=aitbc1/SYNC_LEADER_HOST=aitbc/" /etc/aitbc/blockchain.env'
+ssh aitbc1 'sudo sed -i "s/SYNC_CHAIN_ID=ait-testnet/SYNC_CHAIN_ID=ait-mainnet/" /etc/aitbc/blockchain.env'
+
+# Restart service to apply changes
+ssh aitbc1 'sudo systemctl restart aitbc-blockchain-node'
+
+# Verify sync is working by checking block height increase over time
+```
 
 #### Missing Broadcaster Module
 ```bash
@@ -415,6 +497,7 @@ ssh gitea-runner 'systemctl stop aitbc-blockchain-node && rm -rf /var/lib/aitbc/
     "broadcaster_installed": true,
     "gossip_backend_configured": true,
     "chain_roles_correct": true,
+    "sync_config_correct": true,
     "redis_subscriptions_active": true,
     "block_production_correct": true,
     "cross_chain_sync_working": true
@@ -429,7 +512,8 @@ ssh gitea-runner 'systemctl stop aitbc-blockchain-node && rm -rf /var/lib/aitbc/
   "recommendations": [
     "Monitor gossip sync regularly",
     "Run validation test daily",
-    "Check Redis subscriber counts weekly"
+    "Check Redis subscriber counts weekly",
+    "Verify sync configuration after node restarts"
   ]
 }
 ```

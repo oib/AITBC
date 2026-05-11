@@ -21,23 +21,25 @@ jobs:
     runs-on: debian
     timeout-minutes: 20
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/production-tests
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/production-tests"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/production-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup test environment
         run: |
-          cd /var/lib/aitbc-workspaces/production-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
 
           # Remove any existing venv to avoid cache corruption issues
           rm -rf venv
@@ -70,7 +72,7 @@ jobs:
 
       - name: Start agent coordinator
         run: |
-          cd /var/lib/aitbc-workspaces/production-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
 
           echo "Ensuring default port 9001 is available..."
@@ -122,7 +124,7 @@ jobs:
 
       - name: Run production tests
         run: |
-          cd /var/lib/aitbc-workspaces/production-tests/repo
+          cd "${{ env.WORKSPACE }}/repo"
           export PYTHONPATH="apps/agent-coordinator/src:$PYTHONPATH"
 
           # Test both chains
@@ -153,4 +155,4 @@ jobs:
           fi
           pkill -f "uvicorn app.main:app" 2>/dev/null || true
           redis-cli shutdown 2>/dev/null || true
-          rm -rf /var/lib/aitbc-workspaces/production-tests
+          rm -rf "${{ env.WORKSPACE }}"

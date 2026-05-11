@@ -32,23 +32,25 @@ jobs:
     runs-on: debian
     timeout-minutes: 20
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/pre-deployment
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/pre-deployment"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Run security scan
         run: |
-          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Run comprehensive security scan before mainnet deployment
           bash scripts/ci/security-scan.sh
@@ -58,14 +60,14 @@ jobs:
       - name: Run contract tests
         if: inputs.skip_tests != true
         run: |
-          cd /var/lib/aitbc-workspaces/pre-deployment/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           npx hardhat test
           echo "✅ Contract tests passed"
 
       - name: Verify deployment readiness
         run: |
-          cd /var/lib/aitbc-workspaces/pre-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Check all pre-deployment requirements
           bash scripts/deployment/check-deployment-readiness.sh mainnet
@@ -74,7 +76,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/pre-deployment
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   deploy-mainnet:
     runs-on: debian
@@ -84,35 +86,37 @@ jobs:
       name: mainnet
       url: https://mainnet.aitbc.network
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/deploy-mainnet
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/deploy-mainnet"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup Node.js environment
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npm install
           echo "✅ Node.js environment ready"
 
       - name: Compile contracts
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           npx hardhat compile
           echo "✅ Contracts compiled"
 
       - name: Deploy contracts to mainnet
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Load mainnet deployment configuration
           export HARDHAT_NETWORK=mainnet
@@ -127,7 +131,7 @@ jobs:
       - name: Verify contracts on Etherscan
         if: inputs.verify_contracts != false
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Load Etherscan verification configuration
           export ETHERSCAN_API_KEY=${{ secrets.ETHERSCAN_API_KEY }}
@@ -151,7 +155,7 @@ jobs:
 
       - name: Record deployment metadata
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Save deployment information
           cat > deployment-info.json << EOF
@@ -175,7 +179,7 @@ jobs:
 
       - name: Setup contract monitoring
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Configure monitoring for deployed contracts on mainnet
           bash scripts/monitoring/setup-contract-monitoring.sh mainnet
@@ -184,7 +188,7 @@ jobs:
 
       - name: Run production smoke tests
         run: |
-          cd /var/lib/aitbc-workspaces/deploy-mainnet/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Run smoke tests against deployed contracts on mainnet
           bash scripts/testing/run-production-smoke-tests.sh mainnet
@@ -193,30 +197,32 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/deploy-mainnet
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   post-deployment-monitoring:
     runs-on: debian
     needs: deploy-mainnet
     if: always()
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/post-deployment
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/post-deployment"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Configure automated monitoring alerts
         run: |
-          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Setup automated alerts for contract events
           bash scripts/monitoring/setup-automated-alerts.sh mainnet
@@ -225,7 +231,7 @@ jobs:
 
       - name: Verify monitoring setup
         run: |
-          cd /var/lib/aitbc-workspaces/post-deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Verify monitoring is working
           bash scripts/monitoring/verify-monitoring.sh mainnet
@@ -234,4 +240,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/post-deployment
+        run: rm -rf "${{ env.WORKSPACE }}"

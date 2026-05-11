@@ -29,24 +29,25 @@ jobs:
           - name: "aitbc-contracts"
             path: "contracts"
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd "/var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}/repo"
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Setup and test
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/solidity-${{ matrix.project.name }}"
-          cd "$WORKSPACE/repo/${{ matrix.project.path }}"
+          cd "${{ env.WORKSPACE }}/repo/${{ matrix.project.path }}"
           echo "=== Testing ${{ matrix.project.name }} ==="
           
           # Ensure standard directories exist
@@ -100,18 +101,20 @@ jobs:
     runs-on: debian
     timeout-minutes: 20
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/foundry
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/foundry"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/foundry/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Install Foundry
@@ -127,7 +130,7 @@ jobs:
       - name: Test contracts with Foundry
         run: |
           export PATH="$HOME/.foundry/bin:$PATH"
-          cd /var/lib/aitbc-workspaces/foundry/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -153,29 +156,31 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf "/var/lib/aitbc-workspaces/foundry"
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   lint-solidity:
     runs-on: debian
     timeout-minutes: 10
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/solidity-lint
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/solidity-lint"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/solidity-lint/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Lint contracts
         run: |
-          cd /var/lib/aitbc-workspaces/solidity-lint/repo
+          cd "${{ env.WORKSPACE }}/repo"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -192,7 +197,7 @@ jobs:
               else
                 echo "⚠️ No lint script for $project, skipping"
               fi
-              cd /var/lib/aitbc-workspaces/solidity-lint/repo
+              cd "${{ env.WORKSPACE }}/repo"
             fi
           done
 
@@ -200,30 +205,32 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/solidity-lint
+        run: rm -rf "${{ env.WORKSPACE }}"
 
   deploy-contracts:
     runs-on: debian
     timeout-minutes: 15
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
+    env:
+      WORKSPACE: /var/lib/aitbc-workspaces/deployment
+
     steps:
       - name: Clone repository
         run: |
-          WORKSPACE="/var/lib/aitbc-workspaces/deployment"
-          rm -rf "$WORKSPACE"
-          mkdir -p "$WORKSPACE"
-          cd "$WORKSPACE"
+          rm -rf "${{ env.WORKSPACE }}"
+          mkdir -p "${{ env.WORKSPACE }}"
+          cd "${{ env.WORKSPACE }}"
           git clone --depth 1 http://gitea.bubuit.net:3000/oib/aitbc.git repo
 
       - name: Initialize job logging
         run: |
-          cd /var/lib/aitbc-workspaces/deployment/repo
+          cd "${{ env.WORKSPACE }}/repo"
           bash scripts/ci/setup-job-logging.sh
 
       - name: Deploy contracts to localhost
         run: |
-          cd /var/lib/aitbc-workspaces/deployment/repo/contracts
+          cd "${{ env.WORKSPACE }}/repo/contracts"
           
           # Ensure standard directories exist
           mkdir -p /var/lib/aitbc/data /var/lib/aitbc/keystore /etc/aitbc /var/log/aitbc
@@ -254,4 +261,4 @@ jobs:
 
       - name: Cleanup
         if: always()
-        run: rm -rf /var/lib/aitbc-workspaces/deployment
+        run: rm -rf "${{ env.WORKSPACE }}"
