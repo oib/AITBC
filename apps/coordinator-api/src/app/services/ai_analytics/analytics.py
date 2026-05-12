@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, and_, select
 
-from ..domain.analytics import (
+from ...domain.analytics import (
     AnalyticsAlert,
     AnalyticsPeriod,
     DashboardConfig,

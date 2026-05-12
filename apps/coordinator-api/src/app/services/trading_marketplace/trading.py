@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, or_, select
 
-from ..domain.trading import (
+from ...domain.trading import (
     NegotiationStatus,
     SettlementType,
     TradeAgreement,

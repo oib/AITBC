@@ -1,16 +1,14 @@
 """
 Enterprise Integration Bounded Context
-Provides enterprise API gateway, security, load balancing, and integration services.
+Provides enterprise integration, security, and load balancing services.
 """
 
-from .api_gateway import EnterpriseAPIGateway
-from .integration import EnterpriseIntegrationService
+from .integration import EnterpriseIntegrationFramework
 from .load_balancer import AdvancedLoadBalancer
 from .security import EnterpriseEncryption, HSMManager, ThreatDetectionSystem, ZeroTrustArchitecture
 
 __all__ = [
-    "EnterpriseAPIGateway",
-    "EnterpriseIntegrationService",
+    "EnterpriseIntegrationFramework",
     "AdvancedLoadBalancer",
     "EnterpriseEncryption",
     "HSMManager",
