@@ -69,7 +69,7 @@ class Web3Client:
                 })
                 symbol_bytes = bytes.fromhex(symbol_result.hex()[2:])
                 symbol = symbol_bytes.rstrip(b'\x00').decode('utf-8')
-            except:
+            except (UnicodeDecodeError, ValueError):
                 symbol = "TOKEN"
             
             return {

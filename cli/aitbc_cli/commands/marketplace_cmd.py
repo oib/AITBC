@@ -55,7 +55,7 @@ def list(ctx, chain_id, chain_name, chain_type, description, seller_id, price, c
         # Parse price
         try:
             price_decimal = Decimal(price)
-        except:
+        except (ValueError, TypeError):
             error("Invalid price format")
             raise click.Abort()
         

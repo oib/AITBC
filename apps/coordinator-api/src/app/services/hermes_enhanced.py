@@ -12,8 +12,8 @@ from uuid import uuid4
 
 from sqlmodel import Session
 
-from ..services.agent_integration import AgentIntegrationManager
-from ..services.agent_service import AgentStateManager, AIAgentOrchestrator
+from ..services.agent_coordination.integration import AgentIntegrationManager
+from ..services.agent_coordination.agent_service import AgentStateManager, AIAgentOrchestrator
 
 
 class SkillType(StrEnum):

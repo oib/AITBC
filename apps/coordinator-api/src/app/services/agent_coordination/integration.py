@@ -19,9 +19,9 @@ from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
-from ..domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
-from ..services.agent_security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
-from ..services.agent_service import AIAgentOrchestrator
+from ...domain.agent import AgentExecution, AgentStepExecution, VerificationLevel
+from .security import AgentAuditor, AgentSecurityManager, AuditEventType, SecurityLevel
+from .agent_service import AIAgentOrchestrator
 
 
 # Mock ZKProofService for testing

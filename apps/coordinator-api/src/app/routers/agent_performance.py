@@ -31,7 +31,7 @@ from ..domain.agent_performance import (
     ResourceAllocation,
     ResourceType,
 )
-from ..services.agent_performance_service import (
+from ..services.agent_coordination.performance import (
     AgentPerformanceService,
     MetaLearningEngine,
     PerformanceOptimizer,

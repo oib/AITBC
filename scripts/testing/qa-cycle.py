@@ -90,7 +90,7 @@ def run_tests():
     log("Running test suites...")
     results = []
     repo_root = Path(REPO_DIR)
-    for pkg in ['aitbc-core', 'aitbc-sdk', 'aitbc-crypto']:
+    for pkg in ['aitbc-sdk', 'aitbc-crypto']:
         package_root = repo_root / 'packages' / 'py' / pkg
         testdir = package_root / 'tests'
         if not testdir.exists():

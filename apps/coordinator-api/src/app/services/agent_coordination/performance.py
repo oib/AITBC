@@ -14,7 +14,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select
 
-from ..domain.agent_performance import (
+from ...domain.agent_performance import (
     AgentPerformanceProfile,
     LearningStrategy,
     MetaLearningModel,

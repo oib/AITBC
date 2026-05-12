@@ -17,7 +17,7 @@ from sqlmodel import Session, select
 
 from ..deps import require_admin_key
 from ..domain.agent import AIAgentWorkflow
-from ..services.agent_security import (
+from ..services.agent_coordination.security import (
     AgentAuditLog,
     AgentAuditor,
     AgentSandboxManager,
@@ -232,7 +232,7 @@ async def list_audit_logs(
     """List audit logs with filtering"""
 
     try:
-        from ..services.agent_security import AgentAuditLog
+        from ..services.agent_coordination.security import AgentAuditLog
 
         query = select(AgentAuditLog)
 
@@ -303,7 +303,7 @@ async def list_trust_scores(
     """List trust scores with filtering"""
 
     try:
-        from ..services.agent_security import AgentTrustScore
+        from ..services.agent_coordination.security import AgentTrustScore
 
         query = select(AgentTrustScore)
 
@@ -339,7 +339,7 @@ async def get_trust_score(
     """Get trust score for specific entity"""
 
     try:
-        from ..services.agent_security import AgentTrustScore
+        from ..services.agent_coordination.security import AgentTrustScore
 
         trust_score = session.execute(
             select(AgentTrustScore).where(
@@ -521,7 +521,7 @@ async def get_security_dashboard(
     """Get comprehensive security dashboard data"""
 
     try:
-        from ..services.agent_security import AgentAuditLog, AgentSandboxConfig
+        from ..services.agent_coordination.security import AgentAuditLog, AgentSandboxConfig
 
         # Get recent audit logs
         recent_audits = session.execute(select(AgentAuditLog).order_by(AgentAuditLog.timestamp.desc()).limit(50)).all()
@@ -576,7 +576,7 @@ async def get_security_statistics(
     """Get security statistics and metrics"""
 
     try:
-        from ..services.agent_security import AgentTrustScore
+        from ..services.agent_coordination.security import AgentTrustScore
 
         # Audit statistics
         total_audits = session.execute(select(AuditLog)).count()
