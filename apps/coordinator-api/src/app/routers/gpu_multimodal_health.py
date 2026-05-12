@@ -11,8 +11,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
 
 from ..storage import get_session
 
@@ -20,7 +22,8 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="GPU Multi-Modal Service Health")
-async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def gpu_multimodal_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Health check for GPU Multi-Modal Service (Port 8010)
     """
@@ -92,7 +95,8 @@ async def gpu_multimodal_health(session: Annotated[Session, Depends(get_session)
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep GPU Multi-Modal Service Health")
-async def gpu_multimodal_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def gpu_multimodal_deep_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Deep health check with CUDA performance validation
     """

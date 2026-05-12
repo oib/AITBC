@@ -167,12 +167,45 @@
     - Helper functions: is_feature_enabled(), get_feature_flag_manager()
     - Comprehensive tests: tests/test_feature_flags.py (30+ test cases, 404 lines)
     - Features: gradual rollouts, user whitelisting/blacklisting, percentage-based targeting, timestamp tracking
-  - [ ] Implement comprehensive observability
-  - [ ] Design contract upgrade pattern
+  - [DONE] Implement comprehensive observability - COMPLETED
+    - aitbc/metrics.py implements Prometheus metrics (Counter, Histogram, Gauge, Info)
+    - Metrics for: block processing, job processing, API requests, uptime, service info
+    - Decorators: @track_block_processing, @track_job_processing, @track_http_request
+    - Helper functions: update_block_height, update_jobs_in_queue, increment_service_restarts
+    - ASGI metrics endpoint via make_asgi_app()
+    - aitbc/monitoring.py implements MetricsCollector, PerformanceTimer, HealthChecker
+    - Health checks with overall status calculation (healthy, degraded, unhealthy)
+    - Alerting exists in apps/agent-coordinator/src/app/monitoring/alerting.py and apps/coordinator-api/src/app/utils/alerting.py
+    - Comprehensive tests: tests/test_metrics.py (30+ test cases, 251 lines), tests/test_monitoring.py (30+ test cases, 353 lines)
+    - Enhanced aitbc/aitbc_logging.py with structured JSON logging (StructuredFormatter, log_context, LogContext)
+    - Created aitbc/tracing.py for OpenTelemetry-based distributed tracing
+    - Tracing features: setup_tracing, instrument_fastapi, instrument_httpx, instrument_sqlalchemy
+    - Decorators: trace_function, trace_async_function for automatic instrumentation
+    - Context manager: trace_span for manual span creation
+    - Created aitbc/alerting.py for centralized alerting system (AlertManager, AlertRule, AlertChannel)
+    - Created metrics dashboard configuration at infra/monitoring/aitbc-dashboard.json
+    - All observability components tested and imports verified
+  - [DONE] Design contract upgrade pattern - COMPLETED
+    - apps/blockchain-node/src/aitbc_chain/contracts/upgrades.py implements comprehensive contract upgrade system (543 lines)
+    - Core components: UpgradeStatus enum, UpgradeType enum, ContractVersion dataclass, UpgradeProposal dataclass
+    - ContractUpgradeManager with proposal creation, stake-weighted governance voting, upgrade execution, rollback mechanism
+    - Features: voting deadlines (3-7 days), 60% approval requirement, 30% minimum participation, emergency upgrades (80% threshold)
+    - Rollback window (7 days), version history tracking, upgrade statistics
+    - Contract examples: guardian_contract.py (683 lines), agent_messaging_contract.py (520 lines)
+    - Global upgrade manager singleton pattern
+    - Security: proposer authorization, version validation, proposal deduplication
 
 ### Distribution & Binaries
 
-- [ ] Debian stable miner binary (build workflow exists, binary built but distribution mechanism pending)
+- [DONE] Debian stable miner binary - COMPLETED
+  - Build workflow exists: .gitea/workflows/build-miner-binary.yml
+  - Binary built using PyInstaller with vLLM and Ollama support
+  - Package includes: binary, README.md, install.sh, verify-install.sh, miner.env.template, SHA256SUMS
+  - Distribution mechanism implemented: Gitea releases API integration
+  - Updated build workflow to create Gitea releases and upload assets automatically
+  - Updated README.md to reference Gitea releases instead of GitHub
+  - Binary and package uploaded to Gitea releases on tag push
+  - Checksum verification supported via SHA256SUMS file
 - [ ] Binary distribution via GitHub Releases (deferred until v1 release - policy: no GitHub Releases before v1)
 
 ### Quality Assurance

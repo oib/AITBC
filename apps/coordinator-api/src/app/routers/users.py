@@ -12,8 +12,10 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlmodel import Session, select
+
+from aitbc.rate_limiting import rate_limit
 
 from ..domain import User, Wallet
 from ..schemas import UserBalance, UserCreate, UserLogin, UserProfile
@@ -56,7 +58,8 @@ def verify_session_token(token: str) -> str | None:
 
 
 @router.post("/register", response_model=UserProfile)
-async def register_user(user_data: UserCreate, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=10, per=60)
+async def register_user(user_data: UserCreate, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Register a new user"""
 
     # Check if user already exists
@@ -97,7 +100,8 @@ async def register_user(user_data: UserCreate, session: Annotated[Session, Depen
 
 
 @router.post("/login", response_model=UserProfile)
-async def login_user(login_data: UserLogin, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def login_user(login_data: UserLogin, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Login user with wallet address"""
 
     # For demo, we'll create or get user by wallet address
@@ -144,7 +148,8 @@ async def login_user(login_data: UserLogin, session: Annotated[Session, Depends(
 
 
 @router.get("/users/me", response_model=UserProfile)
-async def get_current_user(token: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=100, per=60)
+async def get_current_user(token: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get current user profile"""
 
     user_id = verify_session_token(token)
@@ -165,7 +170,8 @@ async def get_current_user(token: str, session: Annotated[Session, Depends(get_s
 
 
 @router.get("/users/{user_id}/balance", response_model=UserBalance)
-async def get_user_balance(user_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def get_user_balance(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get user's AITBC balance"""
 
     wallet = session.execute(select(Wallet).where(Wallet.user_id == user_id)).first()
@@ -182,7 +188,8 @@ async def get_user_balance(user_id: str, session: Annotated[Session, Depends(get
 
 
 @router.post("/logout")
-async def logout_user(token: str) -> dict[str, str]:
+@rate_limit(rate=20, per=60)
+async def logout_user(token: str, request: Request) -> dict[str, str]:
     """Logout user and invalidate session"""
 
     if token in user_sessions:
@@ -192,7 +199,8 @@ async def logout_user(token: str) -> dict[str, str]:
 
 
 @router.get("/users/{user_id}/transactions")
-async def get_user_transactions(user_id: str, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def get_user_transactions(user_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get user's transaction history"""
 
     # For demo, return empty list

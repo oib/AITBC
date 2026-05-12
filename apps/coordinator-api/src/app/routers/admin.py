@@ -4,12 +4,11 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..deps import require_admin_key
@@ -19,12 +18,12 @@ from ..utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/debug-settings", summary="Debug settings")
-async def debug_settings() -> dict:  # type: ignore[arg-type]
+@rate_limit(rate=100, per=60)
+async def debug_settings(request: Request) -> dict:  # type: ignore[arg-type]
     # SECURITY FIX: Mask API keys before returning to prevent clear-text exposure
     def mask_keys(keys: list[str]) -> list[str]:
         return [key[:8] + "..." if len(key) > 8 else "***" for key in keys]
@@ -38,8 +37,9 @@ async def debug_settings() -> dict:  # type: ignore[arg-type]
 
 
 @router.post("/debug/create-test-miner", summary="Create a test miner for debugging")
+@rate_limit(rate=10, per=60)
 async def create_test_miner(
-    session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
+    request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
 ) -> dict[str, str]:  # type: ignore[arg-type]
     """Create a test miner for debugging marketplace sync"""
     try:
@@ -101,7 +101,8 @@ async def create_test_miner(
 
 
 @router.get("/test-key", summary="Test API key validation")
-async def test_key(api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:  # type: ignore[arg-type]
+@rate_limit(rate=100, per=60)
+async def test_key(request: Request, api_key: str = Header(default=None, alias="X-Api-Key")) -> dict[str, str]:  # type: ignore[arg-type]
     masked_key = api_key[:8] + "..." if api_key else "None"
     logger.debug(f"Received API key: {masked_key}")
     logger.debug(f"Allowed admin keys count: {len(settings.admin_api_keys)}")
@@ -115,7 +116,7 @@ async def test_key(api_key: str = Header(default=None, alias="X-Api-Key")) -> di
 
 
 @router.get("/stats", summary="Get coordinator stats")
-@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@rate_limit(rate=100, per=60)
 @cached(**get_cache_config("job_list"))  # Cache admin stats for 1 minute
 async def get_stats(
     request: Request, session: Annotated[Session, Depends(get_session)], api_key: str = Header(default=None, alias="X-Api-Key")
@@ -151,7 +152,8 @@ async def get_stats(
 
 
 @router.get("/jobs", summary="List jobs")
-async def list_jobs(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+@rate_limit(rate=100, per=60)
+async def list_jobs(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     from ..domain import Job
 
     jobs = session.execute(select(Job).order_by(Job.requested_at.desc()).limit(100)).all()
@@ -170,7 +172,8 @@ async def list_jobs(session: Annotated[Session, Depends(get_session)], admin_key
 
 
 @router.get("/miners", summary="List miners")
-async def list_miners(session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
+@rate_limit(rate=100, per=60)
+async def list_miners(request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())) -> dict[str, list[dict]]:  # type: ignore[arg-type]
     from sqlmodel import select
 
     from ..domain import Miner
@@ -195,6 +198,7 @@ async def list_miners(session: Annotated[Session, Depends(get_session)], admin_k
 
 
 @router.get("/status", summary="Get system status", response_model=None)
+@rate_limit(rate=100, per=60)
 async def get_system_status(
     request: Request, session: Annotated[Session, Depends(get_session)], admin_key: str = Depends(require_admin_key())
 ) -> dict[str, any]:  # type: ignore[arg-type]
@@ -263,7 +267,8 @@ async def get_system_status(
 
 # Agent endpoints temporarily added to admin router
 @router.post("/agents/networks", response_model=dict, status_code=201)
-async def create_agent_network(network_data: dict) -> dict:
+@rate_limit(rate=20, per=60)
+async def create_agent_network(request: Request, network_data: dict) -> dict:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -300,7 +305,8 @@ async def create_agent_network(network_data: dict) -> dict:
 
 
 @router.get("/agents/executions/{execution_id}/receipt")
-async def get_execution_receipt(execution_id: str) -> dict:
+@rate_limit(rate=100, per=60)
+async def get_execution_receipt(request: Request, execution_id: str) -> dict:
     """Get verifiable receipt for completed execution"""
 
     try:
