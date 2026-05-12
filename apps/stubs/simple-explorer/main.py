@@ -3,6 +3,7 @@
 Simple AITBC Blockchain Explorer - Demonstrating the issues described in the analysis
 """
 
+import os
 import asyncio
 import re
 from datetime import datetime
@@ -234,4 +235,4 @@ async def root():
     return HTML_TEMPLATE
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8017)
+    uvicorn.run(app, host="127.0.0.1", port=8017)

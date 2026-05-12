@@ -14,15 +14,15 @@ import numpy as np
 import torch
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
 
 from .advanced_learning import AdvancedLearningService
-from .advanced_reinforcement_learning import AdvancedReinforcementLearningEngine
 from .gpu_multimodal import GPUAcceleratedMultiModal
+from .advanced_rl import AdvancedReinforcementLearningEngine
 from .multi_modal_fusion import MultiModalFusionEngine
 
 
@@ -42,6 +42,8 @@ class MultiModalFusionRequest(BaseModel):
 
 
 class GPUOptimizationRequest(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     modality_features: dict[str, np.ndarray] = Field(..., description="Features for each modality")
     attention_config: dict[str, Any] | None = Field(default=None, description="Attention configuration")
 
@@ -81,7 +83,7 @@ app.add_middleware(
 # Service instances
 rl_engine = AdvancedReinforcementLearningEngine()
 fusion_engine = MultiModalFusionEngine()
-advanced_learning = AdvancedLearningService()
+advanced_learning = AdvancedLearningService({})
 
 
 @app.on_event("startup")

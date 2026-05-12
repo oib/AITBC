@@ -792,6 +792,12 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
             _last_import_time = time.time()
             
             chain_id = block_data.get("chain_id") or block_data.get("chainId") or get_chain_id(None)
+            block_hash = block_data["hash"]
+
+            try:
+                block_height = int(block_data["height"])
+            except (KeyError, TypeError, ValueError) as exc:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block height") from exc
 
             timestamp = block_data.get("timestamp")
             if isinstance(timestamp, str):
@@ -803,8 +809,25 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
                 timestamp = datetime.now(timezone.utc)
 
             with session_scope(chain_id) as session:
+                existing_height_block = session.exec(
+                    select(Block)
+                    .where(Block.chain_id == chain_id)
+                    .where(Block.height == block_height)
+                ).first()
+                if existing_height_block is not None:
+                    if existing_height_block.hash == block_hash:
+                        return {
+                            "success": True,
+                            "block_height": existing_height_block.height,
+                            "block_hash": existing_height_block.hash,
+                            "chain_id": chain_id
+                        }
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail=f"Block height {block_height} already exists with different hash",
+                    )
+
                 # Check for hash conflicts across chains
-                block_hash = block_data["hash"]
                 existing_block = session.execute(
                     select(Block).where(Block.hash == block_hash)
                 ).first()
@@ -818,7 +841,7 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
                 # Create block
                 block = Block(
                     chain_id=chain_id,
-                    height=block_data["height"],
+                    height=block_height,
                     hash=block_hash,
                     parent_hash=block_data["parent_hash"],
                     proposer=block_data["proposer"],
@@ -835,6 +858,8 @@ async def import_block(block_data: dict) -> Dict[str, Any]:
                     "block_hash": block.hash,
                     "chain_id": chain_id
                 }
+        except HTTPException:
+            raise
         except Exception as e:
             _logger.error(f"Error importing block: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to import block: {str(e)}")

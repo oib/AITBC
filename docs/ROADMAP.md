@@ -14,12 +14,6 @@
 
 ### Codebase Quality & Technical Debt
 
-#### CRITICAL (Short-term, 0-2 weeks)
-
-- [ ] Replace print() statements with proper logging in aitbc/decorators.py, aitbc/events.py, aitbc/queue_manager.py, aitbc/state.py
-- [ ] Fix bare except: in config.py line 79 - add logger assignment at top of file
-- [ ] Coordinator-API service exports - either expand all 101 services to __init__.py or document lazy import pattern
-
 #### HIGH (Medium-term, 2-6 weeks)
 
 - [ ] Split massive service classes (advanced_reinforcement_learning.py 2,000 lines, certification_service.py 1,368 lines, multi_modal_fusion.py 1,324 lines)

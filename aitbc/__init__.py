@@ -21,6 +21,7 @@ from .constants import (
     LOG_DIR,
     MARKETPLACE_DATA_DIR,
     MARKETPLACE_PORT,
+    PACKAGE_VERSION,
     NODE_ENV_FILE,
     REPO_DIR,
 )

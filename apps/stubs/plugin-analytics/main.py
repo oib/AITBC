@@ -3,6 +3,7 @@ Plugin Analytics and Usage Tracking Service for AITBC
 Handles plugin analytics, usage tracking, and performance monitoring
 """
 
+import os
 import asyncio
 import json
 from datetime import datetime, timezone, timedelta
@@ -651,4 +652,4 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8016, log_level="info")
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8016, log_level="info")
