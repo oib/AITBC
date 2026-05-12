@@ -11,7 +11,7 @@ def load_state():
         try:
             with open(STATE_FILE, 'r') as f:
                 return json.load(f)
-        except:
+        except (OSError, json.JSONDecodeError):
             pass
     return {
         "contracts": [],

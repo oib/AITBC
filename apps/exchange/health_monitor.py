@@ -249,26 +249,26 @@ def get_alerts():
 # Test function
 async def test_health_monitoring():
     """Test health monitoring system"""
-    print("🧪 Testing Health Monitoring System...")
+    logger.info("Testing Health Monitoring System")
     
     # Start monitoring
     await start_health_monitoring()
-    print("✅ Health monitoring started")
+    logger.info("Health monitoring started")
     
     # Run for a few seconds to see it work
     await asyncio.sleep(5)
     
     # Get summary
     summary = get_health_summary()
-    print(f"📊 Health Summary: {summary}")
+    logger.info("Health summary", summary=summary)
     
     # Get alerts
     alerts = get_alerts()
-    print(f"🚨 Alerts: {len(alerts)}")
+    logger.info("Alerts", alert_count=len(alerts))
     
     # Stop monitoring
     await stop_health_monitoring()
-    print("🔍 Health monitoring stopped")
+    logger.info("Health monitoring stopped")
 
 if __name__ == "__main__":
     asyncio.run(test_health_monitoring())

@@ -63,7 +63,7 @@ class BitcoinProcessor:
                 # In production, implement proper transaction verification
                 return False, 0.0
         except Exception as e:
-            print(f"Error checking payment: {e}")
+            logger.error("Error checking payment", error=str(e))
         
         return False, 0.0
     

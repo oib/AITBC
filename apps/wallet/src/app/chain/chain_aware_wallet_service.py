@@ -84,7 +84,7 @@ class ChainAwareWalletService:
                 # Rollback keystore creation
                 try:
                     keystore.delete_wallet(wallet_id, password)
-                except:
+                except Exception:
                     pass
                 return None
             

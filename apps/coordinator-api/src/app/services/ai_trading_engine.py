@@ -629,27 +629,27 @@ def get_engine_status() -> dict[str, Any]:
 # Test function
 async def test_ai_trading_engine():
     """Test AI trading engine"""
-    print("🤖 Testing AI Trading Engine...")
+    logger.info("Testing AI Trading Engine")
 
     # Initialize engine
     await initialize_ai_engine()
 
     # Train strategies
     success = await train_strategies("BTC/USDT", 30)
-    print(f"✅ Training successful: {success}")
+    logger.info("Training completed", success=success)
 
     # Generate signals
     signals = await generate_trading_signals("BTC/USDT")
-    print(f"📈 Generated {len(signals)} signals")
+    logger.info("Generated trading signals", signal_count=len(signals))
 
     for signal in signals:
-        print(f"   {signal['strategy']}: {signal['signal_type']} (confidence: {signal['confidence']:.2f})")
+        logger.info("Trading signal", strategy=signal['strategy'], signal_type=signal['signal_type'], confidence=signal['confidence'])
 
     # Get status
     status = get_engine_status()
-    print(f"📊 Engine Status: {status}")
+    logger.info("Engine status", status=status)
 
-    print("🎉 AI Trading Engine test complete!")
+    logger.info("AI Trading Engine test complete")
 
 
 if __name__ == "__main__":

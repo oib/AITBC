@@ -102,7 +102,7 @@ async def get_gpu_offers():
         if response.status_code == 200:
             data = response.json()
             return {"offers": data.get("gpus", [])}
-    except:
+    except (httpx.RequestException, KeyError, ValueError):
         pass
     
     # Return demo data if registry not available

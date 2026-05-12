@@ -34,7 +34,7 @@ async def main() -> None:
     )
     try:
         imported = await sync.bulk_import_from(args.source, import_url=args.import_url)
-        print(f"[+] Bulk sync complete: imported {imported} blocks")
+        logger.info("Bulk sync complete", blocks_imported=imported)
     finally:
         await sync.close()
 

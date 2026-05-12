@@ -27,22 +27,12 @@ def run_server(port=3002, directory=None):
     server_address = ('', port)
     httpd = HTTPServer(server_address, CORSHTTPRequestHandler)
     
-    print(f"""
-╔═══════════════════════════════════════╗
-║     AITBC Trade Exchange Server       ║
-╠═══════════════════════════════════════╣
-║  Server running at:                   ║
-║  http://localhost:{port}               ║
-║                                       ║
-║  Buy AITBC with Bitcoin!              ║
-║  Press Ctrl+C to stop                  ║
-╚═══════════════════════════════════════╝
-    """)
+    logger.info("AITBC Trade Exchange Server started", port=port, url=f"http://localhost:{port}")
     
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down server...")
+        logger.info("Shutting down server...")
         httpd.server_close()
 
 if __name__ == '__main__':

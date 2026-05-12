@@ -206,7 +206,7 @@ class TestHelpers:
             try:
                 os.remove(file_path)
                 count += 1
-            except:
+            except (OSError, IOError):
                 pass
         return count
 
@@ -389,7 +389,7 @@ import time
 def create_test_scenario(name: str, steps: List[Callable]) -> Callable:
     """Create a test scenario with multiple steps"""
     def scenario():
-        print(f"Running test scenario: {name}")
+        logger.info("Running test scenario", name=name)
         results = []
         for i, step in enumerate(steps):
             try:

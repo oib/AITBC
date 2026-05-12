@@ -527,28 +527,28 @@ def get_surveillance_summary() -> dict[str, Any]:
 # Test function
 async def test_trading_surveillance():
     """Test trading surveillance system"""
-    print("🧪 Testing Trading Surveillance System...")
+    logger.info("Testing Trading Surveillance System")
 
     # Start monitoring
     await start_surveillance(["BTC/USDT", "ETH/USDT"])
-    print("✅ Surveillance started")
+    logger.info("Surveillance started")
 
     # Let it run for a few seconds to generate alerts
     await asyncio.sleep(5)
 
     # Get alerts
     alerts = get_alerts()
-    print(f"🚨 Generated {alerts['total']} alerts")
+    logger.info("Generated alerts", total=alerts['total'])
 
     # Get summary
     summary = get_surveillance_summary()
-    print(f"📊 Alert Summary: {summary}")
+    logger.info("Alert summary", summary=summary)
 
     # Stop monitoring
     await stop_surveillance()
-    print("🔍 Surveillance stopped")
+    logger.info("Surveillance stopped")
 
-    print("🎉 Trading surveillance test complete!")
+    logger.info("Trading surveillance test complete")
 
 
 if __name__ == "__main__":

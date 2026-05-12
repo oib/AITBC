@@ -15,6 +15,9 @@ import sqlite3
 from contextlib import contextmanager
 from contextlib import asynccontextmanager
 
+from aitbc import get_logger
+logger = get_logger(__name__)
+
 # Use absolute path for database in /var/lib/aitbc for persistence
 DB_DIR = "/var/lib/aitbc"
 os.makedirs(DB_DIR, exist_ok=True)
@@ -145,9 +148,9 @@ async def create_task(task: TaskCreation):
     assigned_agent_id = assign_task_to_agent(task_id, task.required_capabilities)
     
     if assigned_agent_id:
-        print(f"Task {task_id} assigned to agent {assigned_agent_id}")
+        logger.info(f"Task {task_id} assigned to agent {assigned_agent_id}")
     else:
-        print(f"Task {task_id} - no eligible agents found")
+        logger.info(f"Task {task_id} - no eligible agents found")
     
     return Task(
         id=task_id,
@@ -193,7 +196,7 @@ async def health_check():
 @app.get("/tasks/status")
 async def get_task_status():
     """Get task distribution statistics including active agents"""
-    print(f"DEBUG: Querying tasks/status, DB_PATH={DB_PATH}")
+    logger.debug(f"DEBUG: Querying tasks/status, DB_PATH={DB_PATH}")
     with get_db_connection() as conn:
         # Get task statistics
         tasks = conn.execute("SELECT * FROM tasks").fetchall()
@@ -203,7 +206,7 @@ async def get_task_status():
         
         # Get active agents count
         agents = conn.execute("SELECT * FROM agents WHERE status = ?", ("active",)).fetchall()
-        print(f"DEBUG: Found {len(agents)} active agents")
+        logger.debug(f"DEBUG: Found {len(agents)} active agents")
         active_agents = len(agents)
         
         # Calculate load balancer stats
@@ -256,11 +259,11 @@ async def get_task_status():
 async def register_agent(request: AgentRegistrationRequest):
     """Register a new agent"""
     try:
-        print(f"DEBUG: Attempting to register agent {request.agent_id}")
-        print(f"DEBUG: Database path: {DB_PATH}")
+        logger.debug(f"DEBUG: Attempting to register agent {request.agent_id}")
+        logger.debug(f"DEBUG: Database path: {DB_PATH}")
         conn = get_db()
         try:
-            print(f"DEBUG: Database connection established")
+            logger.debug(f"DEBUG: Database connection established")
             conn.execute('''
                 INSERT INTO agents (id, agent_type, status, capabilities, services, endpoints, metadata, last_heartbeat, health_score)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -276,7 +279,7 @@ async def register_agent(request: AgentRegistrationRequest):
                 1.0
             ))
             conn.commit()
-            print(f"DEBUG: Agent {request.agent_id} inserted and committed")
+            logger.debug(f"DEBUG: Agent {request.agent_id} inserted and committed")
         finally:
             conn.close()
         
@@ -287,7 +290,7 @@ async def register_agent(request: AgentRegistrationRequest):
             "registered_at": datetime.now(timezone.utc).isoformat()
         }
     except Exception as e:
-        print(f"ERROR: Failed to register agent: {str(e)}")
+        logger.error(f"ERROR: Failed to register agent: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to register agent: {str(e)}")
 
 @app.post("/agents/discover")

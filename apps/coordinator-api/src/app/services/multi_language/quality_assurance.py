@@ -153,7 +153,7 @@ class TranslationQualityChecker:
                 confidence_factors.append(0.7)
             else:
                 confidence_factors.append(0.3)
-        except:
+        except Exception:
             confidence_factors.append(0.5)
 
         # Text structure preservation

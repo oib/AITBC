@@ -10,6 +10,9 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 import urllib.parse
 import random
 from aitbc.constants import DATA_DIR
+from aitbc import get_logger
+
+logger = get_logger(__name__)
 
 # Database setup
 def get_db_path():
@@ -85,12 +88,12 @@ def init_db():
     # Add columns if they don't exist (for existing databases)
     try:
         cursor.execute('ALTER TABLE orders ADD COLUMN user_address TEXT')
-    except:
+    except Exception:
         pass
     
     try:
         cursor.execute('ALTER TABLE orders ADD COLUMN tx_hash TEXT')
-    except:
+    except Exception:
         pass
     
     conn.commit()
@@ -659,7 +662,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                         ''', (order_row[0],))
                     
                 except Exception as e:
-                    print(f"Failed to create trade on blockchain: {e}")
+                    logger.error(f"Failed to create trade on blockchain: {e}")
                     # Still record the trade in database
                     cursor.execute('''
                         INSERT INTO trades (amount, price, total)
@@ -853,22 +856,13 @@ def run_server(port=8001):
     # Removed mock trades - now using only real blockchain data
     
     server = HTTPServer(('localhost', port), ExchangeAPIHandler)
-    print(f"""
-╔═══════════════════════════════════════╗
-║   AITBC Exchange API Server          ║
-╠═══════════════════════════════════════╣
-║  Server running at:                   ║
-║  http://localhost:{port}               ║
-║                                       ║
-║  Real trading API active!             ║
-║  Press Ctrl+C to stop                  ║
-╚═══════════════════════════════════════╝
-    """)
+    logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}")
     
     try:
         server.serve_forever()
     except KeyboardInterrupt:
-        print("\nShutting down server...")
+        logger.info("Shutting down server...")
+        server.shutdown()
         server.server_close()
 
 if __name__ == "__main__":

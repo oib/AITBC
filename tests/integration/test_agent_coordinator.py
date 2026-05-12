@@ -23,8 +23,12 @@ def coordinator_client() -> Generator[TestClient, None, None]:
 @pytest.fixture
 def authenticated_client(coordinator_client: TestClient) -> Generator[TestClient, None, None]:
     """Create an authenticated test client with admin token."""
+    import os
     # Login to get a token
-    login_data = {"username": "admin", "password": "admin123"}
+    admin_password = os.getenv("TEST_ADMIN_PASSWORD")
+    if not admin_password:
+        raise ValueError("TEST_ADMIN_PASSWORD environment variable must be set for tests")
+    login_data = {"username": "admin", "password": admin_password}
     login_response = coordinator_client.post("/auth/login", json=login_data)
     token = login_response.json()["access_token"]
     
@@ -302,7 +306,11 @@ class TestAuthentication:
 
     def test_login_admin_success(self, coordinator_client: TestClient):
         """Test successful admin login."""
-        login_data = {"username": "admin", "password": "admin123"}
+        import os
+        admin_password = os.getenv("TEST_ADMIN_PASSWORD")
+        if not admin_password:
+            pytest.skip("TEST_ADMIN_PASSWORD environment variable not set")
+        login_data = {"username": "admin", "password": admin_password}
         response = coordinator_client.post("/auth/login", json=login_data)
         assert response.status_code == 200
         data = response.json()

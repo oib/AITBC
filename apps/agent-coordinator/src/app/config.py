@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     connection_timeout: int = 30
     
     # Security settings
-    secret_key: str = "your-secret-key-change-in-production"
+    secret_key: str
     allowed_hosts: list = ["*"]
     cors_origins: list = ["*"]
     
@@ -237,7 +237,7 @@ class EnvironmentConfig:
             "enable_metrics": True,
             "workers": 4,
             "cors_origins": ["https://aitbc.com"],
-            "secret_key": os.getenv("SECRET_KEY", "change-this-in-production"),
+            "secret_key": os.getenv("SECRET_KEY"),
             "allowed_hosts": ["aitbc.com", "www.aitbc.com"]
         }
 
@@ -275,7 +275,7 @@ class ConfigLoader:
         errors = []
         
         # Validate required settings
-        if not settings.secret_key or settings.secret_key == "your-secret-key-change-in-production":
+        if not settings.secret_key:
             if settings.environment == Environment.PRODUCTION:
                 errors.append("SECRET_KEY must be set in production")
         
