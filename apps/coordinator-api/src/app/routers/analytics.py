@@ -27,7 +27,7 @@ from ..domain.analytics import (
     MetricType,
     ReportType,
 )
-from ..services.analytics_service import MarketplaceAnalytics
+from ..services.ai_analytics.analytics import MarketplaceAnalytics
 from ..storage import get_session
 
 router = APIRouter(prefix="/v1/analytics", tags=["analytics"])

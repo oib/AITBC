@@ -114,6 +114,7 @@ logger = get_logger(__name__)
 from contextlib import asynccontextmanager
 
 from .storage.db import init_db
+from .database_async import init_async_db, close_async_db
 
 
 @asynccontextmanager
@@ -129,6 +130,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         except Exception as e:
             logger.warning(f"Database initialization failed (non-fatal): {e}")
             # Continue startup even if init_db fails
+
+        # Initialize async database
+        try:
+            init_async_db()
+            logger.info("Async database initialized successfully")
+        except Exception as e:
+            logger.warning(f"Async database initialization failed (non-fatal): {e}")
+            # Continue startup even if async init fails
 
         # Warmup database connections
         logger.info("Warming up database connections...")
@@ -226,6 +235,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("Database connections closed successfully")
         except Exception as e:
             logger.warning(f"Error closing database connections: {e}")
+
+        # Close async database connections
+        try:
+            await close_async_db()
+            logger.info("Async database connections closed successfully")
+        except Exception as e:
+            logger.warning(f"Error closing async database connections: {e}")
 
         # Cleanup rate limiting state
         logger.info("Cleaning up rate limiting state...")
