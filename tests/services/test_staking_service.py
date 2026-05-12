@@ -24,7 +24,15 @@ def db_session():
     """Create SQLite in-memory database for testing"""
     engine = create_engine("sqlite:///:memory:", echo=False)
     from sqlmodel import SQLModel
-    SQLModel.metadata.create_all(engine)
+    
+    # Only create tables needed for staking tests
+    # Import and create only the bounty-related tables
+    from app.domain.bounty import AgentStake, AgentMetrics, StakingPool
+    
+    # Create only the tables we need
+    AgentMetrics.metadata.create_all(engine)
+    AgentStake.metadata.create_all(engine)
+    StakingPool.metadata.create_all(engine)
     
     SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     session = SessionLocal()

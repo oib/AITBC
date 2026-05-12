@@ -14,8 +14,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlmodel import Session
 
-from ..blockchain.contract_interactions import ContractInteractionService
-from ..domain.agent_portfolio import (
+from ...blockchain.contract_interactions import ContractInteractionService
+from ...domain.agent_portfolio import (
     AgentPortfolio,
     PortfolioAsset,
     PortfolioStrategy,
@@ -23,10 +23,10 @@ from ..domain.agent_portfolio import (
     RiskMetrics,
     TradeStatus,
 )
-from ..marketdata.price_service import PriceService
-from ..ml.strategy_optimizer import StrategyOptimizer
-from ..risk.risk_calculator import RiskCalculator
-from ..schemas.portfolio import (
+from ...marketdata.price_service import PriceService
+from ...ml.strategy_optimizer import StrategyOptimizer
+from ...risk.risk_calculator import RiskCalculator
+from ...schemas.portfolio import (
     PortfolioCreate,
     PortfolioResponse,
     RebalanceRequest,

@@ -58,7 +58,7 @@ def get_my_reviews(pr_number):
 
 # Stability ring definitions
 RING_PREFIXES = [
-    (0, ["packages/py/aitbc-core", "packages/py/aitbc-sdk"]),  # Ring 0: Core
+    (0, ["packages/py/aitbc-sdk"]),  # Ring 0: Core
     (1, ["apps/"]),                                           # Ring 1: Platform services
     (2, ["cli/", "analytics/", "tools/"]),                    # Ring 2: Application
 ]

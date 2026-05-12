@@ -31,7 +31,7 @@ class Job(SQLModel, table=True):
     error: str | None = None
 
     # Payment tracking
-    payment_id: str | None = Field(default=None, sa_column=Column(String, ForeignKey("job_payments.id"), index=True))
+    payment_id: str | None = Field(default=None, index=True)
     payment_status: str | None = Field(default=None, max_length=20)  # pending, escrowed, released, refunded
 
     # Relationships

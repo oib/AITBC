@@ -28,7 +28,7 @@ from ..domain.agent import (
     AgentWorkflowUpdate,
     AIAgentWorkflow,
 )
-from ..services.agent_service import AIAgentOrchestrator
+from ..services.agent_coordination.agent_service import AIAgentOrchestrator
 from ..storage import get_session
 
 router = APIRouter(tags=["AI Agents"])
@@ -242,7 +242,7 @@ async def get_execution_status(
 
     try:
         from ..coordinator_client import CoordinatorClient
-        from ..services.agent_service import AIAgentOrchestrator
+        from ..services.agent_coordination.agent_service import AIAgentOrchestrator
 
         coordinator_client = CoordinatorClient()
         orchestrator = AIAgentOrchestrator(session, coordinator_client)
@@ -307,7 +307,7 @@ async def list_executions(
         execution_statuses = []
         for execution in executions:
             from ..coordinator_client import CoordinatorClient
-            from ..services.agent_service import AIAgentOrchestrator
+            from ..services.agent_coordination.agent_service import AIAgentOrchestrator
 
             coordinator_client = CoordinatorClient()
             orchestrator = AIAgentOrchestrator(session, coordinator_client)
@@ -334,7 +334,7 @@ async def cancel_execution(
 
     try:
         from ..domain.agent import AgentExecution
-        from ..services.agent_service import AgentStateManager
+        from ..services.agent_coordination.agent_service import AgentStateManager
 
         # Get execution
         execution = session.get(AgentExecution, execution_id)

@@ -15,7 +15,7 @@ from sqlmodel import Session, select
 
 from ..deps import require_admin_key
 from ..domain.agent import AgentExecution, AIAgentWorkflow, VerificationLevel
-from ..services.agent_integration import (
+from ..services.agent_coordination.integration import (
     AgentDeploymentConfig,
     AgentDeploymentInstance,
     AgentDeploymentManager,
