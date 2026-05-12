@@ -16,7 +16,7 @@ from uuid import uuid4
 
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
-from ..domain.agent import AIAgentWorkflow, VerificationLevel
+from ...domain.agent import AIAgentWorkflow, VerificationLevel
 
 
 class SecurityLevel(StrEnum):

@@ -13,6 +13,9 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 from datetime import datetime
 from decimal import Decimal
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Database configurations
 SQLITE_DB = "exchange.db"
@@ -30,7 +33,7 @@ def create_pg_schema():
     conn = psycopg2.connect(**PG_CONFIG)
     cursor = conn.cursor()
     
-    print("Creating PostgreSQL schema...")
+    logger.info("Creating PostgreSQL schema...")
     
     # Drop existing tables
     cursor.execute("DROP TABLE IF EXISTS trades CASCADE")
@@ -69,7 +72,7 @@ def create_pg_schema():
     """)
     
     # Create indexes for performance
-    print("Creating indexes...")
+    logger.info("Creating indexes...")
     cursor.execute("CREATE INDEX idx_trades_created_at ON trades(created_at DESC)")
     cursor.execute("CREATE INDEX idx_trades_price ON trades(price)")
     cursor.execute("CREATE INDEX idx_orders_type ON orders(order_type)")
@@ -80,12 +83,12 @@ def create_pg_schema():
     
     conn.commit()
     conn.close()
-    print("✅ PostgreSQL schema created successfully!")
+    logger.info("PostgreSQL schema created successfully")
 
 def migrate_data():
     """Migrate data from SQLite to PostgreSQL"""
     
-    print("\nStarting data migration...")
+    logger.info("Starting data migration...")
     
     # Connect to SQLite
     sqlite_conn = sqlite3.connect(SQLITE_DB)
@@ -97,7 +100,7 @@ def migrate_data():
     pg_cursor = pg_conn.cursor()
     
     # Migrate trades
-    print("Migrating trades...")
+    logger.info("Migrating trades...")
     sqlite_cursor.execute("SELECT * FROM trades")
     trades = sqlite_cursor.fetchall()
     
@@ -118,7 +121,7 @@ def migrate_data():
         trades_count += 1
     
     # Migrate orders
-    print("Migrating orders...")
+    logger.info("Migrating orders...")
     sqlite_cursor.execute("SELECT * FROM orders")
     orders = sqlite_cursor.fetchall()
     
@@ -145,9 +148,9 @@ def migrate_data():
     
     pg_conn.commit()
     
-    print(f"\n✅ Migration complete!")
-    print(f"   - Migrated {trades_count} trades")
-    print(f"   - Migrated {orders_count} orders")
+    logger.info("Migration complete")
+    logger.info(f"Migrated {trades_count} trades")
+    logger.info(f"Migrated {orders_count} orders")
     
     sqlite_conn.close()
     pg_conn.close()
@@ -157,10 +160,10 @@ def update_exchange_config():
     
     config_file = Path("simple_exchange_api.py")
     if not config_file.exists():
-        print("❌ simple_exchange_api.py not found!")
+        logger.error("simple_exchange_api.py not found!")
         return
     
-    print("\nUpdating exchange configuration...")
+    logger.info("Updating exchange configuration...")
     
     # Read the current file
     content = config_file.read_text()
@@ -198,12 +201,12 @@ def init_db():
         \"\"\")
         
         if not cursor.fetchone()[0]:
-            print("Creating PostgreSQL tables...")
+            logger.info("Creating PostgreSQL tables...")
             create_pg_schema()
         
         conn.close()
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        logger.error(f"Database initialization error: {e}")
 """
     
     # Update the file
@@ -214,18 +217,18 @@ def init_db():
     
     # Write back
     config_file.write_text(content)
-    print("✅ Configuration updated to use PostgreSQL!")
+    logger.info("Configuration updated to use PostgreSQL")
 
 def main():
     """Main migration process"""
     
-    print("=" * 60)
-    print("AITBC Exchange SQLite to PostgreSQL Migration")
-    print("=" * 60)
+    logger.info("=" * 60)
+    logger.info("AITBC Exchange SQLite to PostgreSQL Migration")
+    logger.info("=" * 60)
     
     # Check if SQLite DB exists
     if not Path(SQLITE_DB).exists():
-        print(f"❌ SQLite database '{SQLITE_DB}' not found!")
+        logger.error(f"SQLite database '{SQLITE_DB}' not found!")
         return
     
     # Create PostgreSQL schema
@@ -237,14 +240,14 @@ def main():
     # Update configuration
     update_exchange_config()
     
-    print("\n" + "=" * 60)
-    print("Migration completed successfully!")
-    print("=" * 60)
-    print("\nNext steps:")
-    print("1. Install PostgreSQL dependencies: pip install psycopg2-binary")
-    print("2. Restart the exchange service")
-    print("3. Verify data integrity")
-    print("4. Backup and remove SQLite database")
+    logger.info("\n" + "=" * 60)
+    logger.info("Migration completed successfully!")
+    logger.info("=" * 60)
+    logger.info("Next steps:")
+    logger.info("1. Install PostgreSQL dependencies: pip install psycopg2-binary")
+    logger.info("2. Restart the exchange service")
+    logger.info("3. Verify data integrity")
+    logger.info("4. Backup and remove SQLite database")
 
 if __name__ == "__main__":
     main()

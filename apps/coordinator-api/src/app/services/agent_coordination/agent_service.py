@@ -13,7 +13,7 @@ logger = get_logger(__name__)
 
 from sqlmodel import Session, select, update
 
-from ..domain.agent import (
+from ...domain.agent import (
     AgentExecution,
     AgentExecutionRequest,
     AgentExecutionResponse,
