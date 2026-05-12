@@ -8,11 +8,12 @@ REST API for AI agent bounty system with ZK-proof verification
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..auth import get_current_user
 from ..domain.bounty import (
     Bounty,
@@ -177,8 +178,10 @@ def get_blockchain_service() -> BlockchainService:
 
 # API endpoints
 @router.post("/bounties", response_model=BountyResponse)
+@rate_limit(rate=20, per=60)
 async def create_bounty(
-    request: BountyCreateRequest,
+    request: Request,
+    bounty_request: BountyCreateRequest,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
@@ -211,7 +214,9 @@ async def create_bounty(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties", response_model=List[BountyResponse])
+@rate_limit(rate=200, per=60)
 async def get_bounties(
+    request: Request,
     session: Session = Depends(get_session),
     filters: BountyFilterRequest = Depends(),
     bounty_service: BountyService = Depends(get_bounty_service)
@@ -240,7 +245,9 @@ async def get_bounties(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/{bounty_id}", response_model=BountyResponse)
+@rate_limit(rate=200, per=60)
 async def get_bounty(
+    request: Request,
     bounty_id: str,
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
@@ -260,7 +267,9 @@ async def get_bounty(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/bounties/{bounty_id}/submit", response_model=BountySubmissionResponse)
+@rate_limit(rate=20, per=60)
 async def submit_bounty_solution(
+    request: Request,
     bounty_id: str,
     request: BountySubmissionRequest,
     background_tasks: BackgroundTasks,
@@ -311,7 +320,9 @@ async def submit_bounty_solution(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/{bounty_id}/submissions", response_model=List[BountySubmissionResponse])
+@rate_limit(rate=200, per=60)
 async def get_bounty_submissions(
+    request: Request,
     bounty_id: str,
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service),
@@ -339,7 +350,9 @@ async def get_bounty_submissions(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/bounties/{bounty_id}/verify")
+@rate_limit(rate=20, per=60)
 async def verify_bounty_submission(
+    request: Request,
     bounty_id: str,
     request: BountyVerificationRequest,
     background_tasks: BackgroundTasks,
@@ -379,7 +392,9 @@ async def verify_bounty_submission(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/bounties/{bounty_id}/dispute")
+@rate_limit(rate=20, per=60)
 async def dispute_bounty_submission(
+    request: Request,
     bounty_id: str,
     request: BountyDisputeRequest,
     background_tasks: BackgroundTasks,
@@ -414,7 +429,9 @@ async def dispute_bounty_submission(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/my/created", response_model=List[BountyResponse])
+@rate_limit(rate=200, per=60)
 async def get_my_created_bounties(
+    request: Request,
     status: Optional[BountyStatus] = None,
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),
@@ -438,7 +455,9 @@ async def get_my_created_bounties(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/my/submissions", response_model=List[BountySubmissionResponse])
+@rate_limit(rate=200, per=60)
 async def get_my_submissions(
+    request: Request,
     status: Optional[SubmissionStatus] = None,
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),
@@ -462,7 +481,9 @@ async def get_my_submissions(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/leaderboard")
+@rate_limit(rate=200, per=60)
 async def get_bounty_leaderboard(
+    request: Request,
     period: str = Field(default="weekly", regex="^(daily|weekly|monthly)$"),
     limit: int = Field(default=50, ge=1, le=100),
     session: Session = Depends(get_session),
@@ -482,7 +503,9 @@ async def get_bounty_leaderboard(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/stats", response_model=BountyStatsResponse)
+@rate_limit(rate=200, per=60)
 async def get_bounty_stats(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
@@ -498,7 +521,9 @@ async def get_bounty_stats(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/bounties/{bounty_id}/expire")
+@rate_limit(rate=20, per=60)
 async def expire_bounty(
+    request: Request,
     bounty_id: str,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -540,8 +565,9 @@ async def expire_bounty(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/categories")
+@rate_limit(rate=500, per=60)
 async def get_bounty_categories(
-    session: Session = Depends(get_session),
+    request: Request, session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
 ) -> Dict[str, Any]:
     """Get all bounty categories"""
@@ -554,7 +580,9 @@ async def get_bounty_categories(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/tags")
+@rate_limit(rate=500, per=60)
 async def get_bounty_tags(
+    request: Request,
     limit: int = Field(default=100, ge=1, le=500),
     session: Session = Depends(get_session),
     bounty_service: BountyService = Depends(get_bounty_service)
@@ -569,7 +597,9 @@ async def get_bounty_tags(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/bounties/search")
+@rate_limit(rate=200, per=60)
 async def search_bounties(
+    request: Request,
     query: str = Field(..., min_length=1, max_length=100),
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=20, ge=1, le=100),

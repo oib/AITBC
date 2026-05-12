@@ -8,7 +8,9 @@ Services router for specific GPU workloads
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+
+from aitbc.rate_limiting import rate_limit
 
 from ..deps import require_client_key
 from ..models.services import (
@@ -37,7 +39,9 @@ router = APIRouter(tags=["services"])
     summary="Submit a service-specific job",
     deprecated=True,
 )
+@rate_limit(rate=20, per=60)
 async def submit_service_job(
+    request: Request,
     service_type: ServiceType,
     request_data: dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
@@ -105,8 +109,10 @@ async def submit_service_job(
     status_code=status.HTTP_201_CREATED,
     summary="Transcribe audio using Whisper",
 )
+@rate_limit(rate=20, per=60)
 async def whisper_transcribe(
-    request: WhisperRequest,
+    request: Request,
+    whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -136,8 +142,10 @@ async def whisper_transcribe(
     status_code=status.HTTP_201_CREATED,
     summary="Translate audio using Whisper",
 )
+@rate_limit(rate=20, per=60)
 async def whisper_translate(
-    request: WhisperRequest,
+    request: Request,
+    whisper_request: WhisperRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -170,8 +178,10 @@ async def whisper_translate(
     status_code=status.HTTP_201_CREATED,
     summary="Generate images using Stable Diffusion",
 )
+@rate_limit(rate=20, per=60)
 async def stable_diffusion_generate(
-    request: StableDiffusionRequest,
+    request: Request,
+    sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -203,8 +213,10 @@ async def stable_diffusion_generate(
     status_code=status.HTTP_201_CREATED,
     summary="Image-to-image generation",
 )
+@rate_limit(rate=20, per=60)
 async def stable_diffusion_img2img(
-    request: StableDiffusionRequest,
+    request: Request,
+    sd_request: StableDiffusionRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -235,8 +247,10 @@ async def stable_diffusion_img2img(
 @router.post(
     "/services/llm/inference", response_model=ServiceResponse, status_code=status.HTTP_201_CREATED, summary="Run LLM inference"
 )
+@rate_limit(rate=20, per=60)
 async def llm_inference(
-    request: LLMRequest,
+    request: Request,
+    llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -263,8 +277,10 @@ async def llm_inference(
 
 
 @router.post("/services/llm/stream", summary="Stream LLM inference")
+@rate_limit(rate=20, per=60)
 async def llm_stream(
-    request: LLMRequest,
+    request: Request,
+    llm_request: LLMRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -299,8 +315,10 @@ async def llm_stream(
     status_code=status.HTTP_201_CREATED,
     summary="Transcode video using FFmpeg",
 )
+@rate_limit(rate=20, per=60)
 async def ffmpeg_transcode(
-    request: FFmpegRequest,
+    request: Request,
+    ffmpeg_request: FFmpegRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -334,8 +352,10 @@ async def ffmpeg_transcode(
     status_code=status.HTTP_201_CREATED,
     summary="Render using Blender",
 )
+@rate_limit(rate=20, per=60)
 async def blender_render(
-    request: BlenderRequest,
+    request: Request,
+    blender_request: BlenderRequest,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> ServiceResponse:
@@ -366,7 +386,8 @@ async def blender_render(
 
 # Utility endpoints
 @router.get("/services", summary="List available services")
-async def list_services() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_services(request: Request) -> dict[str, Any]:
     """List all available service types and their capabilities"""
     return {
         "services": [
@@ -425,7 +446,8 @@ async def list_services() -> dict[str, Any]:
 
 
 @router.get("/services/{service_type}/schema", summary="Get service request schema", deprecated=True)
-async def get_service_schema(service_type: ServiceType) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_service_schema(request: Request, service_type: ServiceType) -> dict[str, Any]:
     """Get the JSON schema for a specific service type
 
     DEPRECATED: Use /v1/registry/services/{service_id}/schema instead.
