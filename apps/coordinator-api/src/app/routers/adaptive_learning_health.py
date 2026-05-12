@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
 from ..services.ai_analytics.adaptive_learning import AdaptiveLearningService
@@ -23,7 +25,8 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Adaptive Learning Service Health")
-async def adaptive_learning_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def adaptive_learning_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Health check for Adaptive Learning Service (Port 8011)
     """
@@ -103,7 +106,8 @@ async def adaptive_learning_health(session: Annotated[Session, Depends(get_sessi
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Adaptive Learning Service Health")
-async def adaptive_learning_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def adaptive_learning_deep_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Deep health check with learning framework validation
     """

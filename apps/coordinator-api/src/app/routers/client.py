@@ -4,11 +4,10 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
 from ..custom_types import JobState
@@ -21,12 +20,11 @@ from ..utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(tags=["client"])
 
 
 @router.post("/jobs", response_model=JobView, status_code=status.HTTP_201_CREATED, summary="Submit a job")
-@limiter.limit(lambda: settings.rate_limit_jobs_submit)
+@rate_limit(rate=50, per=60)
 async def submit_job(
     req: JobCreate,
     request: Request,
@@ -55,8 +53,9 @@ async def submit_job(
 
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
+@rate_limit(rate=200, per=60)
 async def get_job(
-    job_id: str,
+    request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
@@ -69,8 +68,9 @@ async def get_job(
 
 
 @router.get("/jobs/{job_id}/result", response_model=JobResult, summary="Get job result")
+@rate_limit(rate=200, per=60)
 async def get_job_result(
-    job_id: str,
+    request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobResult:  # type: ignore[arg-type]
@@ -88,8 +88,9 @@ async def get_job_result(
 
 
 @router.post("/jobs/{job_id}/cancel", response_model=JobView, summary="Cancel job")
+@rate_limit(rate=50, per=60)
 async def cancel_job(
-    job_id: str,
+    request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> JobView:  # type: ignore[arg-type]
@@ -107,8 +108,9 @@ async def cancel_job(
 
 
 @router.get("/jobs/{job_id}/receipt", summary="Get latest signed receipt")
+@rate_limit(rate=200, per=60)
 async def get_job_receipt(
-    job_id: str,
+    request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> dict:  # type: ignore[arg-type]
@@ -123,8 +125,9 @@ async def get_job_receipt(
 
 
 @router.get("/jobs/{job_id}/receipts", summary="List signed receipts")
+@rate_limit(rate=200, per=60)
 async def list_job_receipts(
-    job_id: str,
+    request: Request, job_id: str,
     session: Annotated[Session, Depends(get_session)],
     client_id: str = Depends(require_client_key()),
 ) -> dict:  # type: ignore[arg-type]
@@ -134,6 +137,7 @@ async def list_job_receipts(
 
 
 @router.get("/jobs", summary="List jobs with filtering")
+@rate_limit(rate=200, per=60)
 @cached(**get_cache_config("job_list"))  # Cache job list for 30 seconds
 async def list_jobs(
     request: Request,
@@ -164,6 +168,7 @@ async def list_jobs(
 
 
 @router.get("/jobs/history", summary="Get job history")
+@rate_limit(rate=200, per=60)
 @cached(**get_cache_config("job_list"))  # Cache job history for 30 seconds
 async def get_job_history(
     request: Request,
@@ -216,6 +221,7 @@ async def get_job_history(
 
 
 @router.get("/blocks", summary="Get blockchain blocks")
+@rate_limit(rate=200, per=60)
 async def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
@@ -252,7 +258,8 @@ async def get_blocks(
 
 # Temporary agent endpoints added to client router until agent router issue is resolved
 @router.post("/agents/networks", response_model=dict, status_code=201)
-async def create_agent_network(network_data: dict) -> dict:
+@rate_limit(rate=20, per=60)
+async def create_agent_network(request: Request, network_data: dict) -> dict:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -286,7 +293,8 @@ async def create_agent_network(network_data: dict) -> dict:
 
 
 @router.get("/agents/executions/{execution_id}/receipt")
-async def get_execution_receipt(execution_id: str) -> dict:
+@rate_limit(rate=200, per=60)
+async def get_execution_receipt(request: Request, execution_id: str) -> dict:
     """Get verifiable receipt for completed execution"""
 
     try:

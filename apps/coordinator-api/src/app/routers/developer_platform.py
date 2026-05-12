@@ -6,8 +6,10 @@ REST API endpoints for the developer ecosystem including bounties, certification
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, func, select
+
+from aitbc.rate_limiting import rate_limit
 
 from ..domain.developer_platform import (
     BountyStatus,
@@ -35,8 +37,9 @@ def get_governance_service(session: Session = Depends(get_session)) -> Governanc
 
 # Developer Management Endpoints
 @router.post("/register", response_model=dict[str, Any])
+@rate_limit(rate=10, per=60)
 async def register_developer(
-    request: DeveloperCreate,
+    request: DeveloperCreate, request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -61,8 +64,9 @@ async def register_developer(
 
 
 @router.get("/profile/{wallet_address}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_developer_profile(
-    wallet_address: str,
+    wallet_address: str, request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -93,9 +97,11 @@ async def get_developer_profile(
 
 
 @router.put("/profile/{wallet_address}", response_model=dict[str, Any])
+@rate_limit(rate=50, per=60)
 async def update_developer_profile(
     wallet_address: str,
     updates: dict[str, Any],
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -119,9 +125,11 @@ async def update_developer_profile(
 
 
 @router.get("/leaderboard", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_leaderboard(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of developers"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:
@@ -149,8 +157,9 @@ async def get_leaderboard(
 
 
 @router.get("/stats/{wallet_address}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_developer_stats(
-    wallet_address: str,
+    wallet_address: str, request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -168,8 +177,9 @@ async def get_developer_stats(
 
 # Bounty Management Endpoints
 @router.post("/bounties", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_bounty(
-    request: BountyCreate,
+    request: BountyCreate, request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -195,10 +205,12 @@ async def create_bounty(
 
 
 @router.get("/bounties", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def list_bounties(
     status: BountyStatus | None = Query(None, description="Filter by bounty status"),
     limit: int = Query(100, ge=1, le=500, description="Maximum number of bounties"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:
@@ -228,8 +240,9 @@ async def list_bounties(
 
 
 @router.get("/bounties/{bounty_id}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_bounty_details(
-    bounty_id: str,
+    bounty_id: str, request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -246,9 +259,11 @@ async def get_bounty_details(
 
 
 @router.post("/bounties/{bounty_id}/submit", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def submit_bounty_solution(
     bounty_id: str,
     request: BountySubmissionCreate,
+    request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -275,10 +290,12 @@ async def submit_bounty_solution(
 
 
 @router.get("/bounties/my-submissions", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_my_submissions(
     developer_id: str,
     limit: int = Query(100, ge=1, le=500, description="Maximum number of submissions"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:
@@ -308,11 +325,13 @@ async def get_my_submissions(
 
 
 @router.post("/bounties/{bounty_id}/review", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def review_bounty_submission(
     submission_id: str,
     reviewer_address: str,
     review_notes: str,
     approved: bool = Query(True, description="Whether to approve the submission"),
+    request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -344,8 +363,9 @@ async def review_bounty_submission(
 
 
 @router.get("/bounties/stats", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_bounty_statistics(
-    session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
 ) -> dict[str, Any]:
     """Get comprehensive bounty statistics"""
 
@@ -359,8 +379,9 @@ async def get_bounty_statistics(
 
 # Certification Management Endpoints
 @router.post("/certifications", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def grant_certification(
-    request: CertificationGrant,
+    request: CertificationGrant, request_http: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> dict[str, Any]:
@@ -388,8 +409,9 @@ async def grant_certification(
 
 
 @router.get("/certifications/{wallet_address}", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_developer_certifications(
-    wallet_address: str,
+    wallet_address: str, request: Request,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
 ) -> list[dict[str, Any]]:

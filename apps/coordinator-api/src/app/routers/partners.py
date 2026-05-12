@@ -11,8 +11,10 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from aitbc.rate_limiting import rate_limit
 
 from ..storage import get_session
 
@@ -63,7 +65,8 @@ WEBHOOKS_DB = {}
 
 
 @router.post("/partners/register", response_model=PartnerResponse)
-async def register_partner(partner: PartnerRegister, session: Annotated[Session, Depends(get_session)]) -> PartnerResponse:
+@rate_limit(rate=10, per=60)
+async def register_partner(partner: PartnerRegister, request: Request, session: Annotated[Session, Depends(get_session)]) -> PartnerResponse:
     """Register a new partner application"""
 
     # Generate credentials
@@ -105,7 +108,8 @@ async def register_partner(partner: PartnerRegister, session: Annotated[Session,
 
 
 @router.get("/partners/{partner_id}")
-async def get_partner(partner_id: str, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def get_partner(partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, Any]:
     """Get partner information"""
 
     # Verify API key
@@ -125,8 +129,9 @@ async def get_partner(partner_id: str, session: Annotated[Session, Depends(get_s
 
 
 @router.post("/partners/webhooks", response_model=WebhookResponse)
+@rate_limit(rate=20, per=60)
 async def create_webhook(
-    webhook: WebhookCreate, session: Annotated[Session, Depends(get_session)], api_key: str
+    webhook: WebhookCreate, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
 ) -> WebhookResponse:
     """Create a webhook subscription"""
 
@@ -175,7 +180,8 @@ async def create_webhook(
 
 
 @router.get("/partners/webhooks")
-async def list_webhooks(session: Annotated[Session, Depends(get_session)], api_key: str) -> list[WebhookResponse]:
+@rate_limit(rate=50, per=60)
+async def list_webhooks(request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> list[WebhookResponse]:
     """List partner webhooks"""
 
     # Verify partner
@@ -201,7 +207,8 @@ async def list_webhooks(session: Annotated[Session, Depends(get_session)], api_k
 
 
 @router.delete("/partners/webhooks/{webhook_id}")
-async def delete_webhook(webhook_id: str, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, str]:
+@rate_limit(rate=20, per=60)
+async def delete_webhook(webhook_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str) -> dict[str, str]:
     """Delete a webhook"""
 
     # Verify partner
@@ -221,8 +228,9 @@ async def delete_webhook(webhook_id: str, session: Annotated[Session, Depends(ge
 
 
 @router.get("/partners/analytics/usage")
+@rate_limit(rate=30, per=60)
 async def get_usage_analytics(
-    session: Annotated[Session, Depends(get_session)], api_key: str, period: str = "24h"
+    request: Request, session: Annotated[Session, Depends(get_session)], api_key: str, period: str = "24h"
 ) -> dict[str, Any]:
     """Get API usage analytics"""
 
