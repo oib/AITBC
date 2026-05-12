@@ -18,7 +18,7 @@ from ..domain.global_marketplace import (
     GlobalMarketplaceOffer,
 )
 from ..reputation.engine import CrossChainReputationEngine
-from ..services.cross_chain_bridge_enhanced import BridgeProtocol, CrossChainBridgeService
+from ..services.cross_chain.bridge_enhanced import BridgeProtocol, CrossChainBridgeService
 from ..services.global_marketplace import GlobalMarketplaceService, RegionManager
 from ..services.multi_chain_transaction_manager import MultiChainTransactionManager, TransactionPriority
 

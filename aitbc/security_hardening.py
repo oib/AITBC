@@ -7,7 +7,7 @@ import re
 import json
 import html
 from typing import Any, Optional, Dict, List
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from dataclasses import dataclass, asdict
 
@@ -311,7 +311,7 @@ class RateLimiter:
             self._requests[identifier] = []
         
         # Remove old requests outside time window
-        cutoff_time = now - datetime.timedelta(seconds=self.per)
+        cutoff_time = now - timedelta(seconds=self.per)
         self._requests[identifier] = [
             req_time for req_time in self._requests[identifier]
             if req_time > cutoff_time
@@ -351,7 +351,7 @@ class RateLimiter:
             return self.rate
         
         now = datetime.now()
-        cutoff_time = now - datetime.timedelta(seconds=self.per)
+        cutoff_time = now - timedelta(seconds=self.per)
         recent_requests = [
             req_time for req_time in self._requests[identifier]
             if req_time > cutoff_time

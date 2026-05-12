@@ -18,7 +18,7 @@ from ..agent_identity.wallet_adapter_enhanced import (
     WalletStatus,
 )
 from ..reputation.engine import CrossChainReputationEngine
-from ..services.cross_chain_bridge_enhanced import (
+from ..services.cross_chain.bridge_enhanced import (
     BridgeProtocol,
     BridgeSecurityLevel,
     CrossChainBridgeService,
