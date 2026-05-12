@@ -1,11 +1,15 @@
 """Router modules for the coordinator API."""
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 # Skip optional routers with missing dependencies
 try:
     from .admin import router as admin
 except ImportError:
     admin = None
-    print("WARNING: Admin router not available (missing slowapi)")
+    logger.warning("Admin router not available (missing slowapi)")
 
 from .agent_identity import router as agent_identity
 from .blockchain import router as blockchain

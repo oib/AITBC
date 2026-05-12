@@ -24,9 +24,10 @@ try:
     CUDA_AVAILABLE = True
 except ImportError:
     CUDA_AVAILABLE = False
-    print("Warning: PyCUDA not available. GPU optimization will run in simulation mode.")
+    logger = get_logger(__name__)
+    logger.warning("PyCUDA not available. GPU optimization will run in simulation mode.")
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class MarketplaceGPUOptimizer:
     """Optimizes GPU resources for marketplace AI power trading"""

@@ -591,28 +591,28 @@ def get_analytics_summary() -> dict[str, Any]:
 # Test function
 async def test_advanced_analytics():
     """Test advanced analytics platform"""
-    print("📊 Testing Advanced Analytics Platform...")
+    logger.info("Testing Advanced Analytics Platform")
 
     # Start monitoring
     await start_analytics_monitoring(["BTC/USDT", "ETH/USDT"])
-    print("✅ Analytics monitoring started")
+    logger.info("Analytics monitoring started")
 
     # Let it run for a few seconds to generate data
     await asyncio.sleep(5)
 
     # Get dashboard data
     dashboard = get_dashboard_data("BTC/USDT")
-    print(f"📈 Dashboard data: {len(dashboard)} fields")
+    logger.info("Dashboard data retrieved", field_count=len(dashboard))
 
     # Get summary
     summary = get_analytics_summary()
-    print(f"📊 Analytics summary: {summary}")
+    logger.info("Analytics summary", summary=summary)
 
     # Stop monitoring
     await stop_analytics_monitoring()
-    print("📊 Analytics monitoring stopped")
+    logger.info("Analytics monitoring stopped")
 
-    print("🎉 Advanced Analytics test complete!")
+    logger.info("Advanced Analytics test complete")
 
 
 if __name__ == "__main__":

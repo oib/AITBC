@@ -137,7 +137,7 @@ def init_database():
         conn.close()
         return True
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        logger.error(f"Database initialization error: {e}")
         return False
 
 # Chain-specific functions
@@ -293,7 +293,7 @@ async def submit_order_to_blockchain(order_id: int, chain_id: str):
         
         conn.close()
     except Exception as e:
-        print(f"Background blockchain submission error: {e}")
+        logger.error(f"Background blockchain submission error: {e}")
 
 @app.get("/api/v1/orders/{chain_id}")
 async def get_chain_orders(chain_id: str, status: Optional[str] = None):
@@ -521,9 +521,9 @@ async def get_chain_stats(chain_id: str):
 if __name__ == "__main__":
     # Initialize database
     if init_database():
-        print("✅ Multi-chain database initialized successfully")
+        logger.info("Multi-chain database initialized successfully")
     else:
-        print("❌ Database initialization failed")
+        logger.error("Database initialization failed")
     
     # Run the server
     uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -113,7 +113,7 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
                     min_amount = amount * rate * (1 - slippage) * 0.97  # Account for fees
                 else:
                     min_amount = amount * 0.95  # Conservative fallback
-        except:
+        except (requests.RequestException, KeyError, ValueError):
             min_amount = amount * 0.95
     
     swap_data = {
@@ -141,13 +141,9 @@ def swap(ctx, from_chain: str, to_chain: str, from_token: str, to_token: str,
             "Total Fees": swap_result.get('total_fees'),
             "Status": swap_result.get('status')
         }, ctx.obj['output_format'])
-                
-                # Show swap ID for tracking
-                success(f"Track swap with: aitbc cross-chain status {swap_result.get('swap_id')}")
-            else:
-                error(f"Failed to create swap: {response.status_code}")
-                if response.text:
-                    error(f"Details: {response.text}")
+        
+        # Show swap ID for tracking
+        success(f"Track swap with: aitbc cross-chain status {swap_result.get('swap_id')}")
     except Exception as e:
         error(f"Network error: {e}")
 

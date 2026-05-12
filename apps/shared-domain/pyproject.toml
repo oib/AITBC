@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "aitbc-shared-domain"
+version = "0.1.0"
+description = "Shared domain models for AITBC microservices"
+authors = ["AITBC Team <team@aitbc.dev>"]
+readme = "README.md"
+packages = [{include = "app", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+aitbc = {path = "../../../"}  # Root aitbc package
+sqlmodel = ">=0.0.14"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

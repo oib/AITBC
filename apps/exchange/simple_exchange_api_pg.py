@@ -10,6 +10,9 @@ from psycopg2.extras import RealDictCursor
 from datetime import datetime, timezone
 from decimal import Decimal
 import random
+import logging
+
+logger = logging.getLogger(__name__)
 
 # PostgreSQL Configuration
 PG_CONFIG = {
@@ -39,12 +42,12 @@ def init_db():
         """)
         
         if not cursor.fetchone()[0]:
-            print("Creating PostgreSQL tables...")
+            logger.info("Creating PostgreSQL tables...")
             create_pg_schema()
-        
+
         conn.close()
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        logger.error(f"Database initialization error: {e}")
 
 def create_pg_schema():
     """Create PostgreSQL schema"""
@@ -267,7 +270,7 @@ class ExchangeAPIHandler(BaseHTTPRequestHandler):
                 balance_data = json.loads(response.read().decode())
                 aitbc_balance = balance_data.get('balance', 0)
                 nonce = balance_data.get('nonce', 0)
-        except:
+        except Exception:
             aitbc_balance = 0
             nonce = 0
         
@@ -357,17 +360,7 @@ def run_server(port=8008):
     init_db()
     
     server = HTTPServer(('localhost', port), ExchangeAPIHandler)
-    print(f"""
-╔═══════════════════════════════════════╗
-║   AITBC Exchange API Server          ║
-╠═══════════════════════════════════════╣
-║  Server running at:                   ║
-║  http://localhost:{port}               ║
-║                                       ║
-║  Database: PostgreSQL                  ║
-║  Real trading API active!             ║
-╚═══════════════════════════════════════╝
-""")
+    logger.info("AITBC Exchange API Server started", port=port, url=f"http://localhost:{port}", database="PostgreSQL")
     server.serve_forever()
 
 if __name__ == "__main__":

@@ -50,12 +50,12 @@ def migrate_all_data():
             print(f"  Skipping table {table_name} (not in allowed list)")
             continue
         
-        sqlite_cursor.execute(f"PRAGMA table_info({table_name})")
+        sqlite_cursor.execute(f"PRAGMA table_info(\"{table_name}\")")
         columns = sqlite_cursor.fetchall()
         column_names = [col[1] for col in columns]
         
         # Get data
-        sqlite_cursor.execute(f"SELECT * FROM {table_name}")
+        sqlite_cursor.execute(f"SELECT * FROM \"{table_name}\"")
         rows = sqlite_cursor.fetchall()
         
         if not rows:
@@ -70,7 +70,7 @@ def migrate_all_data():
             '''
         else:
             insert_sql = f'''
-                INSERT INTO {table_name} ({', '.join(column_names)})
+                INSERT INTO "{table_name}" ({', '.join(column_names)})
                 VALUES ({', '.join(['%s'] * len(column_names))})
             '''
         

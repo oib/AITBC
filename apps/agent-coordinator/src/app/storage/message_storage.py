@@ -55,7 +55,7 @@ class MessageStorage:
                 # Try to parse ISO format
                 dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
                 timestamp_float = dt.timestamp()
-            except:
+            except Exception:
                 # Already a float or int
                 timestamp_float = float(timestamp_str)
             await self.redis.zadd(f"messages:timestamp", {message_id: timestamp_float})

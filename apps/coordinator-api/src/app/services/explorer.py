@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlmodel import Session, select
 
-from aitbc import AITBCHTTPClient, NetworkError
+from aitbc import AITBCHTTPClient, NetworkError, get_logger
 from ..config import settings
 from ..domain import Job, JobReceipt
 from ..schemas import (
@@ -19,6 +19,8 @@ from ..schemas import (
     TransactionListResponse,
     TransactionSummary,
 )
+
+logger = get_logger(__name__)
 
 _STATUS_LABELS = {
     JobState.queued: "Queued",
@@ -77,7 +79,7 @@ class ExplorerService:
                 return BlockListResponse(items=[], next_offset=None)
         except Exception as e:
             # Fallback to fake data if RPC is unavailable
-            print(f"Warning: Failed to fetch blocks from RPC: {e}, falling back to fake data")
+            logger.warning(f"Failed to fetch blocks from RPC: {e}, falling back to fake data")
             statement = select(Job).order_by(Job.requested_at.desc())
             jobs = self.session.execute(statement.offset(offset).limit(limit)).all()
 
@@ -280,5 +282,5 @@ class ExplorerService:
                     return {"error": "Transaction not found", "hash": tx_hash}
                 return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
         except Exception as e:
-            print(f"Warning: Failed to fetch transaction {tx_hash} from RPC: {e}")
+            logger.warning("Failed to fetch transaction from RPC", tx_hash=tx_hash, error=str(e))
             return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}

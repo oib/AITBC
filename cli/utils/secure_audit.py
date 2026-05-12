@@ -233,7 +233,7 @@ class SecureAuditLogger:
             try:
                 hour = entry["timestamp"][:13]  # YYYY-MM-DDTHH
                 hourly_counts[hour] = hourly_counts.get(hour, 0) + 1
-            except:
+            except (KeyError, TypeError):
                 pass
         
         # Create report

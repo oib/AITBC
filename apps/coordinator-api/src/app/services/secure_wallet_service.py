@@ -178,7 +178,7 @@ class SecureWalletService:
 
             to_checksum_address(wallet.address)
             results["address_format_valid"] = True
-        except:
+        except Exception:
             pass
 
         # Check if we can verify the keypair consistency
@@ -395,7 +395,7 @@ class SecureWalletService:
 
             to_checksum_address(wallet.address)
             audit["address_valid"] = True
-        except:
+        except Exception:
             audit["address_valid"] = False
             audit["address_issues"] = ["Invalid Ethereum address format"]
 

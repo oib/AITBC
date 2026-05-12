@@ -16,6 +16,8 @@ import os
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../..'))
 
 from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
+from aitbc import get_logger
+logger = get_logger(__name__)
 
 class TradingAgent:
     """Automated trading agent"""
@@ -156,11 +158,11 @@ async def main():
             # Run trading loop
             await agent.run_trading_loop()
         except KeyboardInterrupt:
-            print("Shutting down trading agent...")
+            logger.info("Shutting down trading agent...")
         finally:
             await agent.stop()
     else:
-        print("Failed to start trading agent")
+        logger.error("Failed to start trading agent")
 
 if __name__ == "__main__":
     asyncio.run(main())

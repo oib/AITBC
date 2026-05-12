@@ -302,7 +302,7 @@ async def get_exchange_status(exchange_name: str = None) -> Dict[str, Any]:
 # Test function
 async def test_real_exchange_integration():
     """Test the real exchange integration"""
-    print("🧪 Testing Real Exchange Integration...")
+    logger.info("Testing Real Exchange Integration")
     
     # Test with Binance sandbox
     test_credentials = ExchangeCredentials(
@@ -314,15 +314,15 @@ async def test_real_exchange_integration():
     try:
         # This will fail with test credentials, but tests the structure
         success = await exchange_manager.connect_exchange("binance", test_credentials)
-        print(f"Connection test result: {success}")
+        logger.info("Connection test result", success=success)
         
         # Get health status
         health = await exchange_manager.check_exchange_health("binance")
-        print(f"Health status: {health}")
+        logger.info("Health status", health=health)
         
     except Exception as e:
-        print(f"Expected error with test credentials: {str(e)}")
-        print("✅ Integration structure working correctly")
+        logger.warning("Expected error with test credentials", error=str(e))
+        logger.info("Integration structure working correctly")
 
 if __name__ == "__main__":
     asyncio.run(test_real_exchange_integration())

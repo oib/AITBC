@@ -403,7 +403,7 @@ class SAPIntegration(ERPIntegration):
             elif transform.get("type") == "integer":
                 return int(float(value))
             return value
-        except:
+        except Exception:
             return value
 
 class OracleIntegration(ERPIntegration):

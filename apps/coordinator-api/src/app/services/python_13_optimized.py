@@ -12,7 +12,10 @@ from typing import Any, TypeVar, override
 
 from sqlmodel import Session, select
 
+from aitbc import get_logger
 from ..domain import Job, Miner
+
+logger = get_logger(__name__)
 
 T = TypeVar("T")
 
@@ -310,22 +313,12 @@ class ServiceFactory:
 # Usage Examples
 # ============================================================================
 
-
-async def demonstrate_optimized_services():
-    """Demonstrate optimized services usage"""
-    print("🚀 Python 3.13.5 Optimized Services Demo")
-    print("=" * 50)
-
-    # This would be used in actual application code
-    print("\n✅ Services ready for Python 3.13.5 deployment:")
-    print("   - OptimizedJobService with batch processing")
-    print("   - OptimizedMinerService with enhanced validation")
-    print("   - SecurityEnhancedService with improved hashing")
-    print("   - PerformanceMonitor with real-time metrics")
-    print("   - Generic base classes with type safety")
-    print("   - @override decorators for method safety")
-    print("   - Enhanced error messages for debugging")
-    print("   - 5-10% performance improvements")
+def demo_optimized_services():
+    logger.info("Python 3.13.5 Optimized Services Demo")
+    logger.info("Features:")
+    logger.info("  - @override decorators for method safety")
+    logger.info("  - Enhanced error messages for debugging")
+    logger.info("  - 5-10% performance improvements")
 
 
 if __name__ == "__main__":
