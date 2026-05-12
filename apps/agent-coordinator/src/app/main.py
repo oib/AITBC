@@ -2,6 +2,8 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from aitbc.rate_limiting import RateLimitMiddleware
+
 from .config import settings
 from .exceptions import register_exception_handlers
 from .lifespan import lifespan
@@ -23,6 +25,13 @@ def create_app() -> FastAPI:
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
+    )
+
+    # Add rate limiting middleware
+    app.add_middleware(
+        RateLimitMiddleware,
+        rate=100,
+        per=60
     )
 
     for router in ROUTERS:

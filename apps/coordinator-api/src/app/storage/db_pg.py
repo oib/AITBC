@@ -21,8 +21,10 @@ from .config_pg import settings
 engine = create_engine(
     settings.database_url,
     echo=settings.debug,
-    pool_pre_ping=True,
-    pool_recycle=300,
+    pool_size=settings.db_pool_size,
+    max_overflow=settings.db_max_overflow,
+    pool_recycle=settings.db_pool_recycle,
+    pool_pre_ping=settings.db_pool_pre_ping,
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

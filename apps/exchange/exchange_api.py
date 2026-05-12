@@ -15,6 +15,11 @@ import time
 from typing import Annotated
 from contextlib import asynccontextmanager
 
+import sys
+sys.path.insert(0, "/opt/aitbc")
+
+from aitbc.rate_limiting import RateLimitMiddleware
+
 from database import init_db, get_db_session
 from models import User, Order, Trade, Balance
 
@@ -28,6 +33,13 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app
 app = FastAPI(title="AITBC Trade Exchange API", version="1.0.0", lifespan=lifespan)
+
+# Add rate limiting middleware
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=100,
+    per=60
+)
 
 # In-memory session storage (use Redis in production)
 user_sessions = {}

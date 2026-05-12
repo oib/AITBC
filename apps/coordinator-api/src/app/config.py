@@ -6,6 +6,7 @@ Provides environment-based adapter selection and consolidated settings.
 
 import os
 
+from aitbc.config import BaseAITBCConfig
 from aitbc.constants import DATA_DIR, LOG_DIR
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -36,26 +37,25 @@ class DatabaseConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
 
-class Settings(BaseSettings):
+class Settings(BaseAITBCConfig):
     """Unified application settings with environment-based configuration."""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="allow"
+    )
 
-    # Environment
-    app_env: str = "dev"
-    app_host: str = "127.0.0.1"
-    app_port: int = 8011
-    audit_log_dir: str = str(LOG_DIR / "audit")
+    # Override defaults for coordinator-api
+    app_name: str = Field(default="AITBC Coordinator API", description="Application name")
+    app_host: str = Field(default="127.0.0.1", description="Application host")
+    port: int = Field(default=8011, description="Server port")
+    environment: str = Field(default="dev", description="Environment")
+    audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
 
     # Database
-    database: DatabaseConfig = DatabaseConfig()
-
-    # Database Connection Pooling
-    db_pool_size: int = Field(default=20, description="Database connection pool size")
-    db_max_overflow: int = Field(default=40, description="Maximum overflow connections")
-    db_pool_recycle: int = Field(default=3600, description="Connection recycle time in seconds")
-    db_pool_pre_ping: bool = Field(default=True, description="Test connections before using")
-    db_echo: bool = Field(default=False, description="Enable SQL query logging")
+    database: DatabaseConfig = Field(default_factory=DatabaseConfig, description="Database configuration")
 
     # API Keys
     client_api_keys: list[str] = []
@@ -94,103 +94,61 @@ class Settings(BaseSettings):
                 raise ValueError("API keys must be at least 16 characters long")
         return v
 
-    # Security
+    # Security - using inherited secret_key and jwt_secret from BaseAITBCConfig
     hmac_secret: str | None = None
-    jwt_secret: str | None = None
-    jwt_algorithm: str = "HS256"
-    jwt_expiration_hours: int = 24
 
-    @field_validator("hmac_secret")
-    @classmethod
-    def validate_hmac_secret(cls, v: str | None) -> str | None:
-        # Allow None in development/test environments
-        import os
-
-        if os.getenv("APP_ENV", "dev") != "production" and not v:
-            return v
-        if not v or v.startswith("$") or v == "your_secret_here":
-            raise ValueError("HMAC_SECRET must be set to a secure value")
-        if len(v) < 32:
-            raise ValueError("HMAC_SECRET must be at least 32 characters long")
-        return v
-
-    @field_validator("jwt_secret")
-    @classmethod
-    def validate_jwt_secret(cls, v: str | None) -> str | None:
-        # Allow None in development/test environments
-        import os
-
-        if os.getenv("APP_ENV", "dev") != "production" and not v:
-            return v
-        if not v or v.startswith("$") or v == "your_secret_here":
-            raise ValueError("JWT_SECRET must be set to a secure value")
-        if len(v) < 32:
-            raise ValueError("JWT_SECRET must be at least 32 characters long")
-        return v
-
-    # CORS
-    allow_origins: list[str] = [
-        "http://localhost:8011",  # Coordinator API
-        "http://localhost:8001",  # Exchange API
-        "http://localhost:8002",  # Blockchain Node
-        "http://localhost:8003",  # Blockchain RPC
-        "http://localhost:8010",  # Multimodal GPU
-        "http://localhost:8011",  # GPU Multimodal
-        "http://localhost:8012",  # Modality Optimization
-        "http://localhost:8013",  # Adaptive Learning
-        "http://localhost:8014",  # Marketplace Enhanced
-        "http://localhost:8015",  # hermes Enhanced
-        "http://localhost:8016",  # Web UI
-    ]
+    # CORS - override inherited allow_origins with coordinator-api specific defaults
+    allow_origins: list[str] = Field(
+        default=[
+            "http://localhost:8011",  # Coordinator API
+            "http://localhost:8001",  # Exchange API
+            "http://localhost:8002",  # Blockchain Node
+            "http://localhost:8003",  # Blockchain RPC
+            "http://localhost:8010",  # Multimodal GPU
+            "http://localhost:8011",  # GPU Multimodal
+            "http://localhost:8012",  # Modality Optimization
+            "http://localhost:8013",  # Adaptive Learning
+            "http://localhost:8014",  # Marketplace Enhanced
+            "http://localhost:8015",  # hermes Enhanced
+            "http://localhost:8016",  # Web UI
+        ],
+        description="CORS allowed origins"
+    )
 
     # Job Configuration
-    job_ttl_seconds: int = 900
-    heartbeat_interval_seconds: int = 10
-    heartbeat_timeout_seconds: int = 30
+    job_ttl_seconds: int = Field(default=900, description="Job TTL in seconds")
+    heartbeat_interval_seconds: int = Field(default=10, description="Heartbeat interval in seconds")
+    heartbeat_timeout_seconds: int = Field(default=30, description="Heartbeat timeout in seconds")
 
-    # Rate Limiting
-    rate_limit_requests: int = 60
-    rate_limit_window_seconds: int = 60
-
-    # Configurable Rate Limits (per minute)
-    rate_limit_jobs_submit: str = "100/minute"
-    rate_limit_miner_register: str = "30/minute"
-    rate_limit_miner_heartbeat: str = "60/minute"
-    rate_limit_admin_stats: str = "20/minute"
-    rate_limit_marketplace_list: str = "100/minute"
-    rate_limit_marketplace_stats: str = "50/minute"
-    rate_limit_marketplace_bid: str = "30/minute"
-    rate_limit_exchange_payment: str = "20/minute"
+    # Configurable Rate Limits (per minute) - extending inherited rate limiting
+    rate_limit_jobs_submit: str = Field(default="100/minute", description="Rate limit for job submission")
+    rate_limit_miner_register: str = Field(default="30/minute", description="Rate limit for miner registration")
+    rate_limit_miner_heartbeat: str = Field(default="60/minute", description="Rate limit for miner heartbeat")
+    rate_limit_admin_stats: str = Field(default="20/minute", description="Rate limit for admin stats")
+    rate_limit_marketplace_list: str = Field(default="100/minute", description="Rate limit for marketplace list")
+    rate_limit_marketplace_stats: str = Field(default="50/minute", description="Rate limit for marketplace stats")
+    rate_limit_marketplace_bid: str = Field(default="30/minute", description="Rate limit for marketplace bid")
+    rate_limit_exchange_payment: str = Field(default="20/minute", description="Rate limit for exchange payment")
 
     # Receipt Signing
     receipt_signing_key_hex: str | None = None
     receipt_attestation_key_hex: str | None = None
 
-    # Logging
-    log_level: str = "INFO"
-    log_format: str = "json"  # json or text
+    # Logging - using inherited log_level and log_format from BaseAITBCConfig
+    log_format: str = Field(default="json", description="Log format (json or text)")
 
     # Mempool
-    mempool_backend: str = "database"  # database, memory
+    mempool_backend: str = Field(default="database", description="Mempool backend (database, memory)")
 
     # Blockchain RPC
-    blockchain_rpc_url: str = "http://localhost:8082"
+    blockchain_rpc_url: str = Field(default="http://localhost:8082", description="Blockchain RPC URL")
 
     # Test Configuration
-    test_mode: bool = False
+    test_mode: bool = Field(default=False, description="Test mode")
     test_database_url: str | None = None
 
-    def validate_secrets(self) -> None:
-        """Validate that all required secrets are provided."""
-        if self.app_env == "production":
-            if not self.jwt_secret:
-                raise ValueError("JWT_SECRET environment variable is required in production")
-            if self.jwt_secret == "change-me-in-production":
-                raise ValueError("JWT_SECRET must be changed from default value")
-
-    @property
-    def database_url(self) -> str:
-        """Get the database URL (backward compatibility)."""
+    def get_effective_database_url(self) -> str:
+        """Get the effective database URL with test mode support."""
         # Use test database if in test mode and test_database_url is set
         if self.test_mode and self.test_database_url:
             return self.test_database_url
@@ -198,13 +156,6 @@ class Settings(BaseSettings):
             return self.database.url
         # Default SQLite path - consistent with blockchain-node pattern
         return f"sqlite:///{DATA_DIR}/data/coordinator.db"
-
-    @database_url.setter
-    def database_url(self, value: str):
-        """Allow setting database URL for tests"""
-        if not self.test_mode:
-            raise RuntimeError("Cannot set database_url outside of test mode")
-        self.test_database_url = value
 
 
 settings = Settings()

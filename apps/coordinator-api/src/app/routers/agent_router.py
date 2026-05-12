@@ -94,8 +94,10 @@ async def list_workflows(
 
 
 @router.get("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
+@rate_limit(rate=200, per=60)
 async def get_workflow(
     workflow_id: str,
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> AIAgentWorkflow:
@@ -120,9 +122,11 @@ async def get_workflow(
 
 
 @router.put("/workflows/{workflow_id}", response_model=AIAgentWorkflow)
+@rate_limit(rate=100, per=60)
 async def update_workflow(
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> AIAgentWorkflow:
@@ -423,14 +427,17 @@ async def get_execution_logs(
 
 
 @router.get("/test")
-async def test_endpoint() -> dict[str, str]:
+@rate_limit(rate=1000, per=60)
+async def test_endpoint(request: Request) -> dict[str, str]:
     """Test endpoint to verify router is working"""
     return {"message": "Agent router is working", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.post("/networks", response_model=dict, status_code=201)
+@rate_limit(rate=50, per=60)
 async def create_agent_network(
     network_data: dict,
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:
@@ -469,8 +476,10 @@ async def create_agent_network(
 
 
 @router.get("/executions/{execution_id}/receipt")
+@rate_limit(rate=100, per=60)
 async def get_execution_receipt(
     execution_id: str,
+    request: Request,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:

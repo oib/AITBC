@@ -39,6 +39,26 @@ from tests.fixtures.blockchain import (
 # Training fixtures (kept here as they're specific to training tests)
 from aitbc.training_setup import TrainingEnvironment, TrainingSetupError
 
+# Auth fixtures
+from tests.fixtures.auth_fixtures import (
+    mock_jwt_secret,
+    test_user_token,
+    test_admin_token,
+    expired_token,
+    invalid_token,
+    auth_headers,
+    admin_auth_headers,
+    mock_user,
+    mock_admin_user,
+    mock_auth_service,
+    permission_checker,
+    api_key_headers,
+    mock_api_keys,
+)
+
+# Test data factory
+from tests.fixtures.test_data_factory import TestDataFactory
+
 import pytest
 
 

@@ -6,26 +6,26 @@ from sqlmodel import SQLModel, create_engine
 from .config import settings
 
 # Create database engine using URL from config with performance optimizations
-if settings.database_url.startswith("sqlite"):
+if settings.get_effective_database_url().startswith("sqlite"):
     engine = create_engine(
-        settings.database_url,
+        settings.get_effective_database_url(),
         connect_args={
             "check_same_thread": False,
             "timeout": 30
         },
         poolclass=StaticPool,
-        echo=settings.test_mode,  # Enable SQL logging for debugging in test mode
-        pool_pre_ping=True,  # Verify connections before using
+        echo=settings.database_echo,
+        pool_pre_ping=settings.database_pool_pre_ping,
     )
 else:
-    # PostgreSQL/MySQL with connection pooling
+    # PostgreSQL/MySQL with connection pooling using config values
     engine = create_engine(
-        settings.database_url,
-        pool_size=10,  # Number of connections to maintain
-        max_overflow=20,  # Additional connections when pool is exhausted
-        pool_pre_ping=True,  # Verify connections before using
-        pool_recycle=3600,  # Recycle connections after 1 hour
-        echo=settings.test_mode,  # Enable SQL logging for debugging in test mode
+        settings.get_effective_database_url(),
+        pool_size=settings.database_pool_size,
+        max_overflow=settings.database_max_overflow,
+        pool_pre_ping=settings.database_pool_pre_ping,
+        pool_recycle=settings.database_pool_recycle,
+        echo=settings.database_echo,
     )
 
 
