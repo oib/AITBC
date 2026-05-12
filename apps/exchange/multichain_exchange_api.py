@@ -470,7 +470,7 @@ async def submit_trade_to_blockchain(trade_id: int, chain_id: str):
         
         conn.close()
     except Exception as e:
-        print(f"Background trade blockchain submission error: {e}")
+        logger.error(f"Background trade blockchain submission error: {e}")
 
 @app.get("/api/v1/stats/{chain_id}")
 async def get_chain_stats(chain_id: str):
