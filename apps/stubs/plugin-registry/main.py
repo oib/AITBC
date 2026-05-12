@@ -3,6 +3,7 @@ Production Plugin Registry Service for AITBC
 Handles plugin registration, discovery, versioning, and security validation
 """
 
+import os
 import asyncio
 import json
 import hashlib
@@ -481,4 +482,4 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8013, log_level="info")
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8013, log_level="info")
