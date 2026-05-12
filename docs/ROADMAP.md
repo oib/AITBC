@@ -271,6 +271,10 @@
     - test_blockchain_service.py: 25 tests (blockchain_service.py: 88% coverage)
     - test_blue_green_deployment.py: 24 tests (blue_green_deployment.py: 95% coverage)
     - test_state.py: 52 tests (state.py: 97% coverage)
+  - Added tests for new observability modules (74 new tests):
+    - test_tracing.py: 18 tests (tracing.py: OpenTelemetry distributed tracing)
+    - test_alerting.py: 33 tests (alerting.py: centralized alerting system)
+    - test_aitbc_logging.py: 23 tests (aitbc_logging.py: structured JSON logging)
     - test_events.py: 44 tests (events.py: 94% coverage)
     - test_security_hardening.py: 39 tests (security_hardening.py: 99% coverage)
     - test_profiling.py: 26 tests (profiling.py: 100% coverage)

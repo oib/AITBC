@@ -8,8 +8,10 @@ Provides RESTful endpoints for dynamic pricing management
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
+
+from aitbc.rate_limiting import rate_limit
 
 from ..domain.pricing_strategies import StrategyLibrary
 from ..schemas.pricing import (
@@ -59,7 +61,9 @@ async def get_market_collector() -> MarketDataCollector:
 
 
 @router.get("/dynamic/{resource_type}/{resource_id}", response_model=DynamicPriceResponse)
+@rate_limit(rate=200, per=60)
 async def get_dynamic_price(
+    request: Request,
     resource_type: str,
     resource_id: str,
     strategy: str | None = Query(default=None),
@@ -111,7 +115,9 @@ async def get_dynamic_price(
 
 
 @router.get("/forecast/{resource_type}/{resource_id}", response_model=PriceForecast)
+@rate_limit(rate=200, per=60)
 async def get_price_forecast(
+    request: Request,
     resource_type: str,
     resource_id: str,
     hours: int = Query(default=24, ge=1, le=168),  # 1 hour to 1 week
@@ -162,8 +168,10 @@ async def get_price_forecast(
 
 
 @router.post("/strategy/{provider_id}", response_model=PricingStrategyResponse)
+@rate_limit(rate=20, per=60)
 async def set_pricing_strategy(
-    provider_id: str, request: PricingStrategyRequest, engine: DynamicPricingEngine = Depends(get_pricing_engine)
+    request: Request,
+    provider_id: str, request_data: PricingStrategyRequest, engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> PricingStrategyResponse:
     """Set pricing strategy for a provider"""
 
@@ -210,7 +218,9 @@ async def set_pricing_strategy(
 
 
 @router.get("/strategy/{provider_id}", response_model=PricingStrategyResponse)
+@rate_limit(rate=200, per=60)
 async def get_pricing_strategy(
+    request: Request,
     provider_id: str, engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> PricingStrategyResponse:
     """Get current pricing strategy for a provider"""
@@ -252,7 +262,8 @@ async def get_pricing_strategy(
 
 
 @router.get("/strategies/available", response_model=list[dict[str, Any]])
-async def get_available_strategies() -> list[dict[str, Any]]:
+@rate_limit(rate=500, per=60)
+async def get_available_strategies(request: Request) -> list[dict[str, Any]]:
     """Get list of available pricing strategies"""
 
     try:
@@ -289,7 +300,9 @@ async def get_available_strategies() -> list[dict[str, Any]]:
 
 
 @router.get("/market-analysis", response_model=MarketAnalysisResponse)
+@rate_limit(rate=200, per=60)
 async def get_market_analysis(
+    request: Request,
     region: str = Query(default="global"),
     resource_type: str = Query(default="gpu"),
     collector: MarketDataCollector = Depends(get_market_collector),
@@ -390,7 +403,9 @@ async def get_market_analysis(
 
 
 @router.get("/recommendations/{provider_id}", response_model=list[PricingRecommendation])
+@rate_limit(rate=200, per=60)
 async def get_pricing_recommendations(
+    request: Request,
     provider_id: str,
     resource_type: str = Query(default="gpu"),
     region: str = Query(default="global"),
@@ -509,7 +524,9 @@ async def get_pricing_recommendations(
 
 
 @router.get("/history/{resource_id}", response_model=PriceHistoryResponse)
+@rate_limit(rate=200, per=60)
 async def get_price_history(
+    request: Request,
     resource_id: str,
     period: str = Query(default="7d", regex="^(1d|7d|30d|90d)$"),
     engine: DynamicPricingEngine = Depends(get_pricing_engine),
@@ -588,8 +605,10 @@ async def get_price_history(
 
 
 @router.post("/bulk-update", response_model=BulkPricingUpdateResponse)
+@rate_limit(rate=20, per=60)
 async def bulk_pricing_update(
-    request: BulkPricingUpdateRequest, engine: DynamicPricingEngine = Depends(get_pricing_engine)
+    request: Request,
+    request_data: BulkPricingUpdateRequest, engine: DynamicPricingEngine = Depends(get_pricing_engine)
 ) -> BulkPricingUpdateResponse:
     """Bulk update pricing for multiple resources"""
 
@@ -652,7 +671,9 @@ async def bulk_pricing_update(
 
 
 @router.get("/health")
+@rate_limit(rate=1000, per=60)
 async def pricing_health_check(
+    request: Request,
     engine: DynamicPricingEngine = Depends(get_pricing_engine), collector: MarketDataCollector = Depends(get_market_collector)
 ) -> dict[str, Any]:
     """Health check for pricing services"""
