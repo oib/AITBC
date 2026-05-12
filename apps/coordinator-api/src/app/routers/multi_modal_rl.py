@@ -6,10 +6,11 @@ Handles multi-modal reinforcement learning endpoints by proxying to AI service
 import logging
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from aitbc import AITBCHTTPClient, NetworkError
+from aitbc.rate_limiting import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ def get_ai_service_url() -> str:
 
 
 @router.post("/jobs")
-async def submit_job(req: JobCreate, client_id: str = "default_client") -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def submit_job(request: Request, req: JobCreate, client_id: str = "default_client") -> dict[str, Any]:
     """Submit a job for execution (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -56,7 +58,8 @@ async def submit_job(req: JobCreate, client_id: str = "default_client") -> dict[
 
 
 @router.get("/jobs/{job_id}")
-async def get_job(job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Get job status (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -72,7 +75,8 @@ async def get_job(job_id: str, client_id: str = "default_client") -> dict[str, A
 
 
 @router.get("/jobs/{job_id}/result")
-async def get_job_result(job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_job_result(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Get job result (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -88,7 +92,8 @@ async def get_job_result(job_id: str, client_id: str = "default_client") -> dict
 
 
 @router.post("/jobs/{job_id}/cancel")
-async def cancel_job(job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def cancel_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Cancel a job (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -104,7 +109,8 @@ async def cancel_job(job_id: str, client_id: str = "default_client") -> dict[str
 
 
 @router.get("/jobs")
-async def list_jobs(client_id: str = "default_client", limit: int = 10, state: str | None = None) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_jobs(request: Request, client_id: str = "default_client", limit: int = 10, state: str | None = None) -> dict[str, Any]:
     """List jobs with filtering (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -123,7 +129,8 @@ async def list_jobs(client_id: str = "default_client", limit: int = 10, state: s
 
 
 @router.get("/health")
-async def health() -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def health(request: Request) -> dict[str, Any]:
     """Health check for multi-modal RL router"""
     try:
         ai_url = get_ai_service_url()

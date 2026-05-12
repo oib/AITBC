@@ -9,11 +9,10 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPBearer
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
+from aitbc.rate_limiting import rate_limit
 from ..auth import get_api_key
 from ..schemas import (
     AccessLogQuery,
@@ -33,7 +32,6 @@ from ..services.key_management import KeyManagementError, KeyManager
 # Initialize router and security
 router = APIRouter(prefix="/confidential", tags=["confidential"])
 security = HTTPBearer()
-limiter = Limiter(key_func=get_remote_address)
 
 # Global instances (in production, inject via DI)
 encryption_service: EncryptionService | None = None
@@ -79,7 +77,10 @@ def get_access_controller() -> AccessController:
 
 
 @router.post("/transactions", response_model=ConfidentialTransactionView)
-async def create_confidential_transaction(request: ConfidentialTransactionCreate, api_key: str = Depends(get_api_key)) -> ConfidentialTransactionView:
+@rate_limit(rate=20, per=60)
+async def create_confidential_transaction(
+    request_http: Request, request: ConfidentialTransactionCreate, api_key: str = Depends(get_api_key)
+) -> ConfidentialTransactionView:
     """Create a new confidential transaction with optional encryption"""
     try:
         # Generate transaction ID
@@ -149,7 +150,10 @@ async def create_confidential_transaction(request: ConfidentialTransactionCreate
 
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
-async def get_confidential_transaction(transaction_id: str, api_key: str = Depends(get_api_key)) -> ConfidentialTransactionView:
+@rate_limit(rate=200, per=60)
+async def get_confidential_transaction(
+    request: Request, transaction_id: str, api_key: str = Depends(get_api_key)
+) -> ConfidentialTransactionView:
     """Get confidential transaction metadata (without decrypting sensitive data)"""
     try:
         # Retrieve transaction (in production, query from database)
@@ -164,8 +168,10 @@ async def get_confidential_transaction(transaction_id: str, api_key: str = Depen
 
 
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
+@rate_limit(rate=20, per=60)
 async def access_confidential_data(
-    request: ConfidentialAccessRequest, transaction_id: str, api_key: str = Depends(get_api_key)
+    request: Request,
+    request_data: ConfidentialAccessRequest, transaction_id: str, api_key: str = Depends(get_api_key)
 ) -> ConfidentialAccessResponse:
     """Request access to decrypt confidential transaction data"""
     try:
@@ -245,7 +251,9 @@ async def access_confidential_data(
 
 
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
+@rate_limit(rate=20, per=60)
 async def audit_access_confidential_data(
+    request: Request,
     transaction_id: str, authorization: str, purpose: str = "compliance", api_key: str = Depends(get_api_key)
 ) -> ConfidentialAccessResponse:
     """Audit access to confidential transaction data"""
@@ -298,7 +306,10 @@ async def audit_access_confidential_data(
 
 
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
-async def register_encryption_key(request: KeyRegistrationRequest, api_key: str = Depends(get_api_key)) -> KeyRegistrationResponse:
+@rate_limit(rate=20, per=60)
+async def register_encryption_key(
+    request: Request, request_data: KeyRegistrationRequest, api_key: str = Depends(get_api_key)
+) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
     try:
         # Get key manager
@@ -341,7 +352,10 @@ async def register_encryption_key(request: KeyRegistrationRequest, api_key: str 
 
 
 @router.post("/keys/rotate")
-async def rotate_encryption_key(participant_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def rotate_encryption_key(
+    request: Request, participant_id: str, api_key: str = Depends(get_api_key)
+) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
     try:
         km = get_key_manager()
@@ -365,7 +379,10 @@ async def rotate_encryption_key(participant_id: str, api_key: str = Depends(get_
 
 
 @router.get("/access/logs", response_model=AccessLogResponse)
-async def get_access_logs(query: AccessLogQuery = Depends(), api_key: str = Depends(get_api_key)) -> AccessLogResponse:
+@rate_limit(rate=200, per=60)
+async def get_access_logs(
+    request: Request, query: AccessLogQuery = Depends(), api_key: str = Depends(get_api_key)
+) -> AccessLogResponse:
     """Get access logs for confidential transactions"""
     try:
         # Query logs (in production, query from database)
@@ -378,7 +395,8 @@ async def get_access_logs(query: AccessLogQuery = Depends(), api_key: str = Depe
 
 
 @router.get("/status")
-async def get_confidential_status(api_key: str = Depends(get_api_key)) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def get_confidential_status(request: Request, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
     """Get status of confidential transaction system"""
     try:
         km = get_key_manager()
