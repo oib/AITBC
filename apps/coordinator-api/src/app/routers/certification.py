@@ -10,10 +10,11 @@ REST API for agent certification, partnership programs, and badge system
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -144,7 +145,9 @@ class AgentCertificationSummary(BaseModel):
 # API Endpoints
 
 @router.post("/certify", response_model=CertificationResponse)
+@rate_limit(rate=20, per=60)
 async def certify_agent(
+    request: Request,
     certification_request: CertificationRequest,
     session: Session = Depends(get_session)
 ) -> CertificationResponse:
@@ -187,7 +190,9 @@ async def certify_agent(
 
 
 @router.post("/certifications/{certification_id}/renew")
+@rate_limit(rate=20, per=60)
 async def renew_certification(
+    request: Request,
     certification_id: str,
     renewed_by: str,
     session: Session = Depends(get_session)
@@ -220,7 +225,9 @@ async def renew_certification(
 
 
 @router.get("/certifications/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_agent_certifications(
+    request: Request,
     agent_id: str,
     status: Optional[str] = Query(default=None, description="Filter by status"),
     session: Session = Depends(get_session),
@@ -261,8 +268,10 @@ async def get_agent_certifications(
 
 
 @router.post("/partnerships/programs")
+@rate_limit(rate=20, per=60)
 async def create_partnership_program(
-    request: PartnershipProgramRequest,
+    request: Request,
+    program_request: PartnershipProgramRequest,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     """Create a new partnership program"""
@@ -299,7 +308,9 @@ async def create_partnership_program(
 
 
 @router.post("/partnerships/apply", response_model=PartnershipResponse)
+@rate_limit(rate=20, per=60)
 async def apply_for_partnership(
+    request: Request,
     application: PartnershipApplicationRequest,
     session: Session = Depends(get_session)
 ) -> PartnershipResponse:
@@ -340,7 +351,9 @@ async def apply_for_partnership(
 
 
 @router.get("/partnerships/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_agent_partnerships(
+    request: Request,
     agent_id: str,
     status: Optional[str] = Query(default=None, description="Filter by status"),
     partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
@@ -383,7 +396,9 @@ async def get_agent_partnerships(
 
 
 @router.get("/partnerships/programs")
+@rate_limit(rate=200, per=60)
 async def list_partnership_programs(
+    request: Request,
     partnership_type: Optional[str] = Query(default=None, description="Filter by partnership type"),
     status: Optional[str] = Query(default="active", description="Filter by status"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
@@ -426,7 +441,9 @@ async def list_partnership_programs(
 
 
 @router.post("/badges")
+@rate_limit(rate=20, per=60)
 async def create_badge(
+    request: Request,
     badge_request: BadgeCreationRequest,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
@@ -464,7 +481,9 @@ async def create_badge(
 
 
 @router.post("/badges/award", response_model=BadgeResponse)
+@rate_limit(rate=20, per=60)
 async def award_badge(
+    request: Request,
     badge_request: BadgeAwardRequest,
     session: Session = Depends(get_session)
 ) -> BadgeResponse:
@@ -511,7 +530,9 @@ async def award_badge(
 
 
 @router.get("/badges/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_agent_badges(
+    request: Request,
     agent_id: str,
     badge_type: Optional[str] = Query(default=None, description="Filter by badge type"),
     category: Optional[str] = Query(default=None, description="Filter by category"),
@@ -564,7 +585,9 @@ async def get_agent_badges(
 
 
 @router.get("/badges")
+@rate_limit(rate=500, per=60)
 async def list_available_badges(
+    request: Request,
     badge_type: Optional[str] = Query(default=None, description="Filter by badge type"),
     category: Optional[str] = Query(default=None, description="Filter by category"),
     rarity: Optional[str] = Query(default=None, description="Filter by rarity"),
@@ -616,7 +639,9 @@ async def list_available_badges(
 
 
 @router.post("/badges/{agent_id}/check-automatic")
+@rate_limit(rate=20, per=60)
 async def check_automatic_badges(
+    request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
@@ -640,7 +665,9 @@ async def check_automatic_badges(
 
 
 @router.get("/summary/{agent_id}", response_model=AgentCertificationSummary)
+@rate_limit(rate=200, per=60)
 async def get_agent_summary(
+    request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
 ) -> AgentCertificationSummary:
@@ -659,7 +686,9 @@ async def get_agent_summary(
 
 
 @router.get("/verification/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_verification_records(
+    request: Request,
     agent_id: str,
     verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
@@ -703,8 +732,9 @@ async def get_verification_records(
 
 
 @router.get("/levels")
+@rate_limit(rate=500, per=60)
 async def get_certification_levels(
-    session: Session = Depends(get_session)
+    request: Request, session: Session = Depends(get_session)
 ) -> List[Dict[str, Any]]:
     """Get available certification levels and requirements"""
     
@@ -729,7 +759,9 @@ async def get_certification_levels(
 
 
 @router.get("/requirements")
+@rate_limit(rate=500, per=60)
 async def get_certification_requirements(
+    request: Request,
     level: Optional[str] = Query(default=None, description="Filter by certification level"),
     verification_type: Optional[str] = Query(default=None, description="Filter by verification type"),
     session: Session = Depends(get_session)
@@ -773,7 +805,9 @@ async def get_certification_requirements(
 
 
 @router.get("/leaderboard")
+@rate_limit(rate=200, per=60)
 async def get_certification_leaderboard(
+    request: Request,
     category: str = Query(default="highest_level", description="Leaderboard category"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
     session: Session = Depends(get_session)

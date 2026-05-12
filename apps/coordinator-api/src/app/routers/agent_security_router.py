@@ -7,9 +7,10 @@ Agent Security API Router for Verifiable AI Agent Orchestration
 Provides REST API endpoints for security management and auditing
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -34,7 +35,9 @@ router = APIRouter(prefix="/agents/security", tags=["Agent Security"])
 
 
 @router.post("/policies", response_model=AgentSecurityPolicy)
+@rate_limit(rate=20, per=60)
 async def create_security_policy(
+    request: Request,
     name: str,
     description: str,
     security_level: SecurityLevel,
@@ -59,7 +62,9 @@ async def create_security_policy(
 
 
 @router.get("/policies", response_model=list[AgentSecurityPolicy])
+@rate_limit(rate=200, per=60)
 async def list_security_policies(
+    request: Request,
     security_level: SecurityLevel | None = None,
     is_active: bool | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -85,7 +90,9 @@ async def list_security_policies(
 
 
 @router.get("/policies/{policy_id}", response_model=AgentSecurityPolicy)
+@rate_limit(rate=200, per=60)
 async def get_security_policy(
+    request: Request,
     policy_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -107,7 +114,9 @@ async def get_security_policy(
 
 
 @router.put("/policies/{policy_id}", response_model=AgentSecurityPolicy)
+@rate_limit(rate=20, per=60)
 async def update_security_policy(
+    request: Request,
     policy_id: str,
     policy_updates: dict,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -150,7 +159,9 @@ async def update_security_policy(
 
 
 @router.delete("/policies/{policy_id}")
+@rate_limit(rate=20, per=60)
 async def delete_security_policy(
+    request: Request,
     policy_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -186,7 +197,9 @@ async def delete_security_policy(
 
 
 @router.post("/validate-workflow/{workflow_id}")
+@rate_limit(rate=50, per=60)
 async def validate_workflow_security(
+    request: Request,
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -215,7 +228,9 @@ async def validate_workflow_security(
 
 
 @router.get("/audit-logs", response_model=list[AgentAuditLog])
+@rate_limit(rate=200, per=60)
 async def list_audit_logs(
+    request: Request,
     event_type: AuditEventType | None = None,
     workflow_id: str | None = None,
     execution_id: str | None = None,
@@ -267,7 +282,9 @@ async def list_audit_logs(
 
 
 @router.get("/audit-logs/{audit_id}", response_model=AgentAuditLog)
+@rate_limit(rate=200, per=60)
 async def get_audit_log(
+    request: Request,
     audit_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -290,7 +307,9 @@ async def get_audit_log(
 
 
 @router.get("/trust-scores")
+@rate_limit(rate=200, per=60)
 async def list_trust_scores(
+    request: Request,
     entity_type: str | None = None,
     entity_id: str | None = None,
     min_score: float | None = None,
@@ -330,7 +349,9 @@ async def list_trust_scores(
 
 
 @router.get("/trust-scores/{entity_type}/{entity_id}", response_model=AgentTrustScore)
+@rate_limit(rate=200, per=60)
 async def get_trust_score(
+    request: Request,
     entity_type: str,
     entity_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -360,7 +381,9 @@ async def get_trust_score(
 
 
 @router.post("/trust-scores/{entity_type}/{entity_id}/update")
+@rate_limit(rate=20, per=60)
 async def update_trust_score(
+    request: Request,
     entity_type: str,
     entity_id: str,
     execution_success: bool,
@@ -409,7 +432,9 @@ async def update_trust_score(
 
 
 @router.post("/sandbox/{execution_id}/create")
+@rate_limit(rate=20, per=60)
 async def create_sandbox(
+    request: Request,
     execution_id: str,
     security_level: SecurityLevel = SecurityLevel.PUBLIC,
     workflow_requirements: dict | None = None,
@@ -447,7 +472,9 @@ async def create_sandbox(
 
 
 @router.get("/sandbox/{execution_id}/monitor")
+@rate_limit(rate=200, per=60)
 async def monitor_sandbox(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -466,7 +493,9 @@ async def monitor_sandbox(
 
 
 @router.post("/sandbox/{execution_id}/cleanup")
+@rate_limit(rate=20, per=60)
 async def cleanup_sandbox(
+    request: Request,
     execution_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -495,7 +524,9 @@ async def cleanup_sandbox(
 
 
 @router.post("/executions/{execution_id}/security-monitor")
+@rate_limit(rate=50, per=60)
 async def monitor_execution_security(
+    request: Request,
     execution_id: str,
     workflow_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -515,8 +546,9 @@ async def monitor_execution_security(
 
 
 @router.get("/security-dashboard")
+@rate_limit(rate=200, per=60)
 async def get_security_dashboard(
-    session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
+    request: Request, session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
 ) -> dict[str, Any]:
     """Get comprehensive security dashboard data"""
 
@@ -570,8 +602,9 @@ async def get_security_dashboard(
 
 
 @router.get("/security-stats")
+@rate_limit(rate=200, per=60)
 async def get_security_statistics(
-    session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
+    request: Request, session: Session = Depends(Annotated[Session, Depends(get_session)]), current_user: str = Depends(require_admin_key())
 ) -> dict[str, Any]:
     """Get security statistics and metrics"""
 

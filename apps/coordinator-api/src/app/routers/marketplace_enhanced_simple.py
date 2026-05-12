@@ -12,10 +12,12 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..deps import require_admin_key
 from ..services.marketplace_enhanced_simple import EnhancedMarketplaceService, LicenseType, VerificationType
 from ..storage import get_session
@@ -53,8 +55,10 @@ class MarketplaceAnalyticsRequest(BaseModel):
 
 
 @router.post("/royalty/create")
+@rate_limit(rate=20, per=60)
 async def create_royalty_distribution(
-    request: RoyaltyDistributionRequest,
+    request: Request,
+    royalty_request: RoyaltyDistributionRequest,
     offer_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -75,7 +79,9 @@ async def create_royalty_distribution(
 
 
 @router.get("/royalty/calculate/{offer_id}")
+@rate_limit(rate=50, per=60)
 async def calculate_royalties(
+    request: Request,
     offer_id: str,
     sale_amount: float,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -95,8 +101,10 @@ async def calculate_royalties(
 
 
 @router.post("/license/create")
+@rate_limit(rate=20, per=60)
 async def create_model_license(
-    request: ModelLicenseRequest,
+    request: Request,
+    license_request: ModelLicenseRequest,
     offer_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -121,8 +129,10 @@ async def create_model_license(
 
 
 @router.post("/verification/verify")
+@rate_limit(rate=20, per=60)
 async def verify_model(
-    request: ModelVerificationRequest,
+    request: Request,
+    verification_request: ModelVerificationRequest,
     offer_id: str,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -141,8 +151,10 @@ async def verify_model(
 
 
 @router.post("/analytics")
+@rate_limit(rate=200, per=60)
 async def get_marketplace_analytics(
-    request: MarketplaceAnalyticsRequest,
+    request: Request,
+    analytics_request: MarketplaceAnalyticsRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
 ) -> dict[str, Any]:
