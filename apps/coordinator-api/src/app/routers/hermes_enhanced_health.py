@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
 
@@ -23,7 +25,8 @@ logger = get_logger(__name__)
 
 
 @router.get("/health", tags=["health"], summary="hermes Enhanced Service Health")
-async def hermes_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def hermes_enhanced_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Health check for hermes Enhanced Service (Port 8007)
     """
@@ -101,7 +104,8 @@ async def hermes_enhanced_health(session: Annotated[Session, Depends(get_session
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep hermes Enhanced Service Health")
-async def hermes_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def hermes_enhanced_deep_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Deep health check with hermes ecosystem validation
     """

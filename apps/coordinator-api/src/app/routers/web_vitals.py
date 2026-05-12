@@ -5,10 +5,12 @@ Web Vitals API endpoint for collecting performance metrics
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..auth import get_api_key
 
 logger = get_logger(__name__)
@@ -35,7 +37,8 @@ class WebVitalsMetric(BaseModel):
 
 
 @router.post("/web-vitals")
-async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
+@rate_limit(rate=100, per=60)
+async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[str, Any]:
     """
     Collect Web Vitals performance metrics from the frontend.
     This endpoint receives Core Web Vitals (LCP, FID, CLS, TTFB, FCP) for monitoring.
@@ -79,6 +82,7 @@ async def collect_web_vitals(metric: WebVitalsMetric) -> dict[str, Any]:
 
 # Health check for web vitals endpoint
 @router.get("/web-vitals/health")
-async def web_vitals_health() -> dict[str, str]:
+@rate_limit(rate=1000, per=60)
+async def web_vitals_health(request: Request) -> dict[str, str]:
     """Health check for web vitals collection endpoint"""
     return {"status": "healthy", "service": "web-vitals"}
