@@ -4,6 +4,7 @@ Cross-node blockchain feature tests
 Tests new blockchain features across aitbc and aitbc1 nodes
 """
 
+import os
 import hashlib
 import subprocess
 from datetime import datetime, timezone
@@ -27,6 +28,19 @@ NODES = {
 }
 
 CHAIN_ID = "ait-mainnet"
+
+
+def _get_local_chain_id() -> str:
+    env_chain_id = os.getenv("CHAIN_ID", CHAIN_ID)
+    env_path = "/etc/aitbc/.env"
+    if not os.path.exists(env_path):
+        return env_chain_id
+
+    with open(env_path, "r") as f:
+        for line in f:
+            if line.startswith("CHAIN_ID="):
+                return line.strip().split("=", 1)[1]
+    return env_chain_id
 
 def compute_block_hash(height, parent_hash, timestamp):
     """Compute block hash using the same algorithm as PoA proposer"""
@@ -62,14 +76,9 @@ def test_cross_node_chain_id_consistency():
     chain_ids = {}
     for node_key in NODES:
         if node_key == "aitbc":
-            # Check local .env file
-            with open("/etc/aitbc/.env", "r") as f:
-                for line in f:
-                    if line.startswith("CHAIN_ID="):
-                        chain_id = line.strip().split("=")[1]
-                        chain_ids[node_key] = chain_id
-                        print(f"{NODES[node_key]['name']}: chain_id = {chain_id}")
-                        break
+            chain_id = _get_local_chain_id()
+            chain_ids[node_key] = chain_id
+            print(f"{NODES[node_key]['name']}: chain_id = {chain_id}")
         else:
             # Check remote .env file via SSH
             result = subprocess.run(

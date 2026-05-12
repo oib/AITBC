@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import logging
 import asyncio
 from datetime import datetime, timezone
@@ -262,4 +263,4 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8107)
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8107)

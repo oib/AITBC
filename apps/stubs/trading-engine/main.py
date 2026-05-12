@@ -3,6 +3,7 @@ Production Trading Engine for AITBC
 Handles order matching, trade execution, and settlement
 """
 
+import os
 import asyncio
 import json
 from collections import defaultdict, deque
@@ -580,4 +581,4 @@ async def simulate_market_activity():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8012, log_level="info")
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8012, log_level="info")

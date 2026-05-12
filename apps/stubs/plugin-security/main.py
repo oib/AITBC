@@ -656,4 +656,4 @@ def initialize_vulnerability_database():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8015, log_level="info")
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8015, log_level="info")

@@ -31,7 +31,7 @@ from ..domain.certification import (
     VerificationRecord,
     VerificationType,
 )
-from ..services.certification_service import (
+from ..services.certification import (
     BadgeSystem,
     CertificationAndPartnershipService,
     CertificationSystem,
@@ -72,6 +72,17 @@ class PartnershipApplicationRequest(BaseModel):
     agent_id: str
     program_id: str
     application_data: Dict[str, Any] = Field(default_factory=dict, description="Application data")
+
+
+class PartnershipProgramRequest(BaseModel):
+    """Request model for partnership program creation"""
+    program_name: str
+    program_type: PartnershipType
+    description: str
+    created_by: str
+    tier_levels: List[str] = Field(default_factory=lambda: ["basic", "premium"])
+    max_participants: Optional[int] = Field(default=None, description="Maximum participants")
+    launch_immediately: bool = Field(default=False, description="Launch program immediately")
 
 
 class PartnershipResponse(BaseModel):
@@ -251,13 +262,7 @@ async def get_agent_certifications(
 
 @router.post("/partnerships/programs")
 async def create_partnership_program(
-    program_name: str,
-    program_type: PartnershipType,
-    description: str,
-    created_by: str,
-    tier_levels: List[str] = Field(default_factory=lambda: ["basic", "premium"]),
-    max_participants: Optional[int] = Field(default=None, description="Maximum participants"),
-    launch_immediately: bool = Field(default=False, description="Launch program immediately"),
+    request: PartnershipProgramRequest,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
     """Create a new partnership program"""
@@ -267,13 +272,13 @@ async def create_partnership_program(
     try:
         program = await partnership_manager.create_partnership_program(
             session=session,
-            program_name=program_name,
-            program_type=program_type,
-            description=description,
-            created_by=created_by,
-            tier_levels=tier_levels,
-            max_participants=max_participants,
-            launch_immediately=launch_immediately
+            program_name=request.program_name,
+            program_type=request.program_type,
+            description=request.description,
+            created_by=request.created_by,
+            tier_levels=request.tier_levels,
+            max_participants=request.max_participants,
+            launch_immediately=request.launch_immediately
         )
         
         return {

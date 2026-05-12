@@ -3,6 +3,7 @@ Production Compliance Service for AITBC
 Handles KYC/AML, regulatory compliance, and monitoring
 """
 
+import os
 import asyncio
 import json
 from datetime import datetime, timezone, timedelta
@@ -430,4 +431,4 @@ async def periodic_compliance_checks():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8011, log_level="info")
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8011, log_level="info")
