@@ -10,10 +10,11 @@ REST API for meta-learning, resource optimization, and performance enhancement
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -176,7 +177,9 @@ class CapabilityResponse(BaseModel):
 
 
 @router.post("/profiles", response_model=PerformanceProfileResponse)
+@rate_limit(rate=20, per=60)
 async def create_performance_profile(
+    request: Request,
     profile_request: PerformanceProfileRequest, session: Annotated[Session, Depends(get_session)]
 ) -> PerformanceProfileResponse:
     """Create agent performance profile"""
@@ -214,7 +217,11 @@ async def create_performance_profile(
 
 
 @router.get("/profiles/{agent_id}", response_model=Dict[str, Any])
-async def get_performance_profile(agent_id: str, session: Annotated[Session, Depends(get_session)]) -> Dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_performance_profile(
+    request: Request,
+    agent_id: str, session: Annotated[Session, Depends(get_session)]
+) -> Dict[str, Any]:
     """Get agent performance profile"""
 
     performance_service = AgentPerformanceService(session)
@@ -235,7 +242,9 @@ async def get_performance_profile(agent_id: str, session: Annotated[Session, Dep
 
 
 @router.post("/profiles/{agent_id}/metrics")
+@rate_limit(rate=20, per=60)
 async def update_performance_metrics(
+    request: Request,
     agent_id: str,
     metrics: Dict[str, float],
     session: Annotated[Session, Depends(get_session)],
@@ -264,7 +273,9 @@ async def update_performance_metrics(
 
 
 @router.post("/meta-learning/models", response_model=MetaLearningResponse)
+@rate_limit(rate=20, per=60)
 async def create_meta_learning_model(
+    request: Request,
     model_request: MetaLearningRequest, session: Annotated[Session, Depends(get_session)]
 ) -> MetaLearningResponse:
     """Create meta-learning model"""
@@ -300,7 +311,9 @@ async def create_meta_learning_model(
 
 
 @router.post("/meta-learning/models/{model_id}/adapt")
+@rate_limit(rate=20, per=60)
 async def adapt_model_to_task(
+    request: Request,
     model_id: str,
     task_data: Dict[str, Any],
     session: Annotated[Session, Depends(get_session)],
@@ -330,7 +343,9 @@ async def adapt_model_to_task(
 
 
 @router.get("/meta-learning/models")
+@rate_limit(rate=200, per=60)
 async def list_meta_learning_models(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None, description="Filter by status"),
     meta_strategy: Optional[str] = Query(default=None, description="Filter by meta strategy"),
@@ -373,7 +388,9 @@ async def list_meta_learning_models(
 
 
 @router.post("/resources/allocate", response_model=ResourceAllocationResponse)
+@rate_limit(rate=20, per=60)
 async def allocate_resources(
+    request: Request,
     allocation_request: ResourceAllocationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> ResourceAllocationResponse:
     """Allocate resources for agent task"""
@@ -408,7 +425,9 @@ async def allocate_resources(
 
 
 @router.get("/resources/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_resource_allocations(
+    request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None, description="Filter by status"),
@@ -453,7 +472,9 @@ async def get_resource_allocations(
 
 
 @router.post("/optimization/optimize", response_model=PerformanceOptimizationResponse)
+@rate_limit(rate=20, per=60)
 async def optimize_performance(
+    request: Request,
     optimization_request: PerformanceOptimizationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> PerformanceOptimizationResponse:
     """Optimize agent performance"""
@@ -488,7 +509,9 @@ async def optimize_performance(
 
 
 @router.get("/optimization/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_optimization_history(
+    request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
     status: Optional[str] = Query(default=None, description="Filter by status"),
@@ -537,7 +560,9 @@ async def get_optimization_history(
 
 
 @router.post("/capabilities", response_model=CapabilityResponse)
+@rate_limit(rate=20, per=60)
 async def create_capability(
+    request: Request,
     capability_request: CapabilityRequest, session: Annotated[Session, Depends(get_session)]
 ) -> CapabilityResponse:
     """Create agent capability"""
@@ -580,7 +605,9 @@ async def create_capability(
 
 
 @router.get("/capabilities/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_agent_capabilities(
+    request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
     capability_type: Optional[str] = Query(default=None, description="Filter by capability type"),
@@ -631,7 +658,9 @@ async def get_agent_capabilities(
 
 
 @router.get("/analytics/performance-summary")
+@rate_limit(rate=200, per=60)
 async def get_performance_summary(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     agent_ids: List[str] = Query(default=[], description="List of agent IDs"),
     metric: Optional[str] = Query(default="overall_score", description="Metric to summarize"),
@@ -713,7 +742,8 @@ def calculate_specialization_distribution(summaries: List[Dict[str, Any]]) -> Di
 
 
 @router.get("/health")
-async def health_check() -> Dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def health_check(request: Request) -> Dict[str, Any]:
     """Health check for agent performance service"""
 
     return {

@@ -10,8 +10,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
+from aitbc import get_logger
 
 from ..storage import get_session
 
@@ -19,7 +22,10 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Modality Optimization Service Health")
-async def modality_optimization_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def modality_optimization_health(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """
     Health check for Modality Optimization Service (Port 8004)
     """
@@ -92,7 +98,10 @@ async def modality_optimization_health(session: Annotated[Session, Depends(get_s
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Modality Optimization Service Health")
-async def modality_optimization_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def modality_optimization_deep_health(
+    request: Request, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
     """
     Deep health check with optimization strategy validation
     """

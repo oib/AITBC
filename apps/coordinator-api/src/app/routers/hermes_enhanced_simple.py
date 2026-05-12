@@ -13,10 +13,11 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlmodel import Session
 
+from aitbc.rate_limiting import rate_limit
 from ..deps import require_admin_key
 from ..services.hermes_enhanced_simple import hermesEnhancedService, SkillType
 from ..storage import get_session
@@ -77,7 +78,9 @@ class EcosystemDevelopmentRequest(BaseModel):
 
 
 @router.post("/routing/skill")
+@rate_limit(rate=20, per=60)
 async def route_agent_skill(
+    request_http: Request,
     request: SkillRoutingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -100,7 +103,9 @@ async def route_agent_skill(
 
 
 @router.post("/offloading/intelligent")
+@rate_limit(rate=20, per=60)
 async def intelligent_job_offloading(
+    request_http: Request,
     request: JobOffloadingRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -123,7 +128,9 @@ async def intelligent_job_offloading(
 
 
 @router.post("/collaboration/coordinate")
+@rate_limit(rate=20, per=60)
 async def coordinate_agent_collaboration(
+    request_http: Request,
     request: AgentCollaborationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -144,7 +151,9 @@ async def coordinate_agent_collaboration(
 
 
 @router.post("/execution/hybrid-optimize")
+@rate_limit(rate=20, per=60)
 async def optimize_hybrid_execution(
+    request_http: Request,
     request: HybridExecutionRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -165,7 +174,9 @@ async def optimize_hybrid_execution(
 
 
 @router.post("/edge/deploy")
+@rate_limit(rate=20, per=60)
 async def deploy_to_edge(
+    request_http: Request,
     request: EdgeDeploymentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -186,7 +197,9 @@ async def deploy_to_edge(
 
 
 @router.post("/edge/coordinate")
+@rate_limit(rate=20, per=60)
 async def coordinate_edge_to_cloud(
+    request_http: Request,
     request: EdgeCoordinationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),
@@ -207,7 +220,9 @@ async def coordinate_edge_to_cloud(
 
 
 @router.post("/ecosystem/develop")
+@rate_limit(rate=20, per=60)
 async def develop_hermes_ecosystem(
+    request_http: Request,
     request: EcosystemDevelopmentRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
     current_user: str = Depends(require_admin_key()),

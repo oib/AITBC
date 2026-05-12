@@ -1,8 +1,9 @@
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from aitbc.rate_limiting import rate_limit
 from ..services.fhe_service import FHEService
 from ..services.zk_proofs import ZKProofService
 
@@ -13,7 +14,8 @@ fhe_service = FHEService()
 
 
 @router.post("/prove/training")
-async def prove_ml_training(proof_request: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def prove_ml_training(request: Request, proof_request: dict) -> dict[str, Any]:
     """Generate ZK proof for ML training verification"""
     try:
         circuit_name = "ml_training_verification"
@@ -35,7 +37,8 @@ async def prove_ml_training(proof_request: dict) -> dict[str, Any]:
 
 
 @router.post("/verify/training")
-async def verify_ml_training(verification_request: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def verify_ml_training(request: Request, verification_request: dict) -> dict[str, Any]:
     """Verify ZK proof for ML training"""
     try:
         verification_result = await zk_service.verify_proof(
@@ -54,7 +57,8 @@ async def verify_ml_training(verification_request: dict) -> dict[str, Any]:
 
 
 @router.post("/prove/modular")
-async def prove_modular_ml(proof_request: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def prove_modular_ml(request: Request, proof_request: dict) -> dict[str, Any]:
     """Generate ZK proof using optimized modular circuits"""
     try:
         circuit_name = "modular_ml_components"
@@ -77,7 +81,8 @@ async def prove_modular_ml(proof_request: dict) -> dict[str, Any]:
 
 
 @router.post("/verify/inference")
-async def verify_ml_inference(verification_request: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def verify_ml_inference(request: Request, verification_request: dict) -> dict[str, Any]:
     """Verify ZK proof for ML inference"""
     try:
         verification_result = await zk_service.verify_proof(
@@ -96,7 +101,8 @@ async def verify_ml_inference(verification_request: dict) -> dict[str, Any]:
 
 
 @router.post("/fhe/inference")
-async def fhe_ml_inference(fhe_request: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def fhe_ml_inference(request: Request, fhe_request: dict) -> dict[str, Any]:
     """Perform ML inference on encrypted data"""
     try:
         # Setup FHE context
@@ -125,7 +131,8 @@ async def fhe_ml_inference(fhe_request: dict) -> dict[str, Any]:
 
 
 @router.get("/circuits")
-async def list_ml_circuits() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_ml_circuits(request: Request) -> dict[str, Any]:
     """List available ML ZK circuits"""
     circuits = [
         {

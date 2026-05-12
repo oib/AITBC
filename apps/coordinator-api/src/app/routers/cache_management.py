@@ -5,10 +5,9 @@ Cache monitoring and management endpoints
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..deps import require_admin_key
 from ..utils.cache_management import clear_cache, get_cache_stats, warm_cache
@@ -16,12 +15,11 @@ from ..utils.cache_management import clear_cache, get_cache_stats, warm_cache
 logger = get_logger(__name__)
 
 
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter(prefix="/cache", tags=["cache-management"])
 
 
 @router.get("/stats", summary="Get cache statistics")
-@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@rate_limit(rate=200, per=60)
 async def get_cache_statistics(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Get cache performance statistics"""
     try:
@@ -33,7 +31,7 @@ async def get_cache_statistics(request: Request, admin_key: str = Depends(requir
 
 
 @router.post("/clear", summary="Clear cache entries")
-@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@rate_limit(rate=20, per=60)
 async def clear_cache_entries(request: Request, pattern: str = None, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Clear cache entries (all or matching pattern)"""
     try:
@@ -46,7 +44,7 @@ async def clear_cache_entries(request: Request, pattern: str = None, admin_key: 
 
 
 @router.post("/warm", summary="Warm up cache")
-@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@rate_limit(rate=20, per=60)
 async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Trigger cache warming for common queries"""
     try:
@@ -59,7 +57,7 @@ async def warm_up_cache(request: Request, admin_key: str = Depends(require_admin
 
 
 @router.get("/health", summary="Get cache health status")
-@limiter.limit(lambda: settings.rate_limit_admin_stats)
+@rate_limit(rate=1000, per=60)
 async def cache_health_check(request: Request, admin_key: str = Depends(require_admin_key())) -> dict[str, Any]:
     """Get detailed cache health information"""
     try:

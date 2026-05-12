@@ -6,8 +6,10 @@ Handles edge GPU management endpoints
 import subprocess
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/edge-gpu", tags=["edge-gpu"])
 
@@ -83,7 +85,8 @@ def parse_gpu_info() -> list[dict[str, Any]]:
 
 
 @router.get("/profiles")
-async def list_profiles() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_profiles(request: Request) -> dict[str, Any]:
     """List available edge GPU profiles"""
     gpus = parse_gpu_info()
     profiles = []
@@ -99,7 +102,8 @@ async def list_profiles() -> dict[str, Any]:
 
 
 @router.get("/metrics/{gpu_id}")
-async def get_gpu_metrics(gpu_id: str) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_gpu_metrics(request: Request, gpu_id: str) -> dict[str, Any]:
     """Get metrics for a specific GPU"""
     output = run_nvidia_smi([
         "--query-gpu=utilization.gpu,memory.used,temperature.gpu",
@@ -121,14 +125,16 @@ async def get_gpu_metrics(gpu_id: str) -> dict[str, Any]:
 
 
 @router.post("/metrics")
-async def submit_metrics(metrics: GPUMetrics) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def submit_metrics(request: Request, metrics: GPUMetrics) -> dict[str, Any]:
     """Submit GPU metrics"""
     # In a real implementation, this would store metrics in a database
     return {"status": "success", "gpu_id": metrics.gpu_id}
 
 
 @router.post("/discover")
-async def discover_edge_gpus(miner_id: str) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def discover_edge_gpus(request: Request, miner_id: str) -> dict[str, Any]:
     """Discover and register edge GPUs for a miner"""
     gpus = parse_gpu_info()
     registered = len(gpus)
@@ -143,7 +149,8 @@ async def discover_edge_gpus(miner_id: str) -> dict[str, Any]:
 
 
 @router.post("/optimize")
-async def optimize_inference(gpu_id: str, model_name: str, request_data: dict) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def optimize_inference(request: Request, gpu_id: str, model_name: str, request_data: dict) -> dict[str, Any]:
     """Optimize ML inference request for edge GPU"""
     # In a real implementation, this would apply optimization techniques
     return {
