@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
 
 from ..schemas import (
     AddressListResponse,
@@ -22,7 +24,9 @@ def _service(session: Annotated[Session, Depends(get_session)]) -> ExplorerServi
 
 
 @router.get("/blocks", response_model=BlockListResponse, summary="List recent blocks")
+@rate_limit(rate=100, per=60)
 async def list_blocks(
+    request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=20, ge=1, le=200),
@@ -36,7 +40,9 @@ async def list_blocks(
     response_model=TransactionListResponse,
     summary="List recent transactions",
 )
+@rate_limit(rate=100, per=60)
 async def list_transactions(
+    request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=50, ge=1, le=200),
@@ -46,7 +52,9 @@ async def list_transactions(
 
 
 @router.get("/addresses", response_model=AddressListResponse, summary="List address summaries")
+@rate_limit(rate=100, per=60)
 async def list_addresses(
+    request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
     limit: int = Query(default=50, ge=1, le=200),
@@ -56,7 +64,9 @@ async def list_addresses(
 
 
 @router.get("/receipts", response_model=ReceiptListResponse, summary="List job receipts")
+@rate_limit(rate=100, per=60)
 async def list_receipts(
+    request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
     job_id: str | None = Query(default=None, description="Filter by job identifier"),
@@ -67,7 +77,9 @@ async def list_receipts(
 
 
 @router.get("/transactions/{tx_hash}", summary="Get transaction details by hash")
+@rate_limit(rate=100, per=60)
 async def get_transaction(
+    request: Request,
     *,
     session: Annotated[Session, Depends(get_session)],
     tx_hash: str,

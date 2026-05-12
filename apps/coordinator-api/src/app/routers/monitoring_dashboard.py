@@ -7,9 +7,11 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlmodel import Session
 
 from aitbc import get_logger, AITBCHTTPClient, NetworkError
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -63,7 +65,8 @@ SERVICES = {
 
 
 @router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
-async def monitoring_dashboard() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def monitoring_dashboard(request: Request) -> dict[str, Any]:
     """
     Unified monitoring dashboard for all enhanced services
     """

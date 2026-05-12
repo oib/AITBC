@@ -10,8 +10,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 import psutil
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
+
+from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
 from ..services.marketplace_enhanced import EnhancedMarketplaceService
@@ -24,7 +26,8 @@ router = APIRouter()
 
 
 @router.get("/health", tags=["health"], summary="Enhanced Marketplace Service Health")
-async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def marketplace_enhanced_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Health check for Enhanced Marketplace Service (Port 8002)
     """
@@ -104,7 +107,8 @@ async def marketplace_enhanced_health(session: Annotated[Session, Depends(get_se
 
 
 @router.get("/health/deep", tags=["health"], summary="Deep Enhanced Marketplace Service Health")
-async def marketplace_enhanced_deep_health(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def marketplace_enhanced_deep_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
     Deep health check with marketplace feature validation
     """

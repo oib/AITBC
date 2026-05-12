@@ -9,8 +9,10 @@ REST API for managing hermes developer profiles, SDKs, solutions, and hackathons
 
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+
+from aitbc.rate_limiting import rate_limit
 
 from aitbc import get_logger
 
@@ -84,7 +86,8 @@ class HackathonCreateRequest(BaseModel):
 
 # Endpoints - Developer Ecosystem
 @router.post("/developers", response_model=DeveloperProfile)
-async def create_developer_profile(request: DeveloperProfileCreate, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
+@rate_limit(rate=10, per=60)
+async def create_developer_profile(request: DeveloperProfileCreate, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Register a new developer in the hermes ecosystem"""
     service = DeveloperEcosystemService(session)
     try:
@@ -98,7 +101,8 @@ async def create_developer_profile(request: DeveloperProfileCreate, session: Ann
 
 
 @router.get("/developers/{developer_id}", response_model=DeveloperProfile)
-async def get_developer_profile(developer_id: str, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
+@rate_limit(rate=100, per=60)
+async def get_developer_profile(developer_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> DeveloperProfile:
     """Get a developer's profile and reputation"""
     service = DeveloperEcosystemService(session)
     profile = await service.get_developer_profile(developer_id)
@@ -108,7 +112,8 @@ async def get_developer_profile(developer_id: str, session: Annotated[Session, D
 
 
 @router.get("/sdk/latest")
-async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+@rate_limit(rate=100, per=60)
+async def get_latest_sdk(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Get information about the latest hermes SDK releases"""
     service = DeveloperEcosystemService(session)
     return await service.get_sdk_release_info()
@@ -116,7 +121,8 @@ async def get_latest_sdk(session: Annotated[Session, Depends(get_session)]) -> d
 
 # Endpoints - Marketplace Solutions
 @router.post("/solutions/publish", response_model=AgentSolution)
-async def publish_solution(request: SolutionPublishRequest, session: Annotated[Session, Depends(get_session)]) -> AgentSolution:
+@rate_limit(rate=10, per=60)
+async def publish_solution(request: SolutionPublishRequest, request_http: Request, session: Annotated[Session, Depends(get_session)]) -> AgentSolution:
     """Publish a new third-party agent solution to the marketplace"""
     service = ThirdPartySolutionService(session)
     try:
@@ -128,9 +134,11 @@ async def publish_solution(request: SolutionPublishRequest, session: Annotated[S
 
 
 @router.get("/solutions", response_model=list[AgentSolution])
+@rate_limit(rate=100, per=60)
 async def list_solutions(
     category: str | None = None,
     limit: int = 50,
+    request: Request,
     session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> list[AgentSolution]:
     """List available third-party agent solutions"""
@@ -139,8 +147,9 @@ async def list_solutions(
 
 
 @router.post("/solutions/{solution_id}/purchase")
+@rate_limit(rate=20, per=60)
 async def purchase_solution(
-    solution_id: str, session: Annotated[Session, Depends(get_session)], buyer_id: str = Body(embed=True)
+    solution_id: str, request: Request, session: Annotated[Session, Depends(get_session)], buyer_id: str = Body(embed=True)
 ) -> dict[str, Any]:
     """Purchase or install a third-party solution"""
     service = ThirdPartySolutionService(session)
@@ -155,9 +164,11 @@ async def purchase_solution(
 
 # Endpoints - Innovation Labs
 @router.post("/labs/propose", response_model=InnovationLab)
+@rate_limit(rate=10, per=60)
 async def propose_innovation_lab(
     researcher_id: str = Query(...),
     request: LabProposalRequest = Body(...),
+    request_http: Request,
     session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> InnovationLab:
     """Propose a new agent innovation lab or research program"""
@@ -170,8 +181,9 @@ async def propose_innovation_lab(
 
 
 @router.post("/labs/{lab_id}/join")
+@rate_limit(rate=20, per=60)
 async def join_innovation_lab(
-    lab_id: str, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
+    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
 ) -> InnovationLab:
     """Join an active innovation lab"""
     service = InnovationLabService(session)
@@ -183,8 +195,9 @@ async def join_innovation_lab(
 
 
 @router.post("/labs/{lab_id}/fund")
+@rate_limit(rate=20, per=60)
 async def fund_innovation_lab(
-    lab_id: str, session: Annotated[Session, Depends(get_session)], amount: float = Body(embed=True)
+    lab_id: str, request: Request, session: Annotated[Session, Depends(get_session)], amount: float = Body(embed=True)
 ) -> InnovationLab:
     """Provide funding to a proposed innovation lab"""
     service = InnovationLabService(session)
@@ -197,9 +210,11 @@ async def fund_innovation_lab(
 
 # Endpoints - Community Platform
 @router.post("/platform/posts", response_model=CommunityPost)
+@rate_limit(rate=20, per=60)
 async def create_community_post(
     author_id: str = Query(...),
     request: PostCreateRequest = Body(...),
+    request_http: Request,
     session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> CommunityPost:
     """Create a new post in the community forum"""
@@ -212,9 +227,11 @@ async def create_community_post(
 
 
 @router.get("/platform/feed", response_model=list[CommunityPost])
+@rate_limit(rate=100, per=60)
 async def get_community_feed(
     category: str | None = None,
     limit: int = 20,
+    request: Request,
     session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> list[CommunityPost]:
     """Get the latest community posts and discussions"""
@@ -223,7 +240,8 @@ async def get_community_feed(
 
 
 @router.post("/platform/posts/{post_id}/upvote")
-async def upvote_community_post(post_id: str, session: Annotated[Session, Depends(get_session)]) -> CommunityPost:
+@rate_limit(rate=50, per=60)
+async def upvote_community_post(post_id: str, request: Request, session: Annotated[Session, Depends(get_session)]) -> CommunityPost:
     """Upvote a community post (rewards author reputation)"""
     service = CommunityPlatformService(session)
     try:
@@ -235,9 +253,11 @@ async def upvote_community_post(post_id: str, session: Annotated[Session, Depend
 
 # Endpoints - Hackathons
 @router.post("/hackathons/create", response_model=Hackathon)
+@rate_limit(rate=10, per=60)
 async def create_hackathon(
     organizer_id: str = Query(...),
     request: HackathonCreateRequest = Body(...),
+    request_http: Request,
     session: Annotated[Session, Depends(get_session)] = Depends(get_session),
 ) -> Hackathon:
     """Create a new agent innovation hackathon (requires high reputation)"""
@@ -252,8 +272,9 @@ async def create_hackathon(
 
 
 @router.post("/hackathons/{hackathon_id}/register")
+@rate_limit(rate=20, per=60)
 async def register_for_hackathon(
-    hackathon_id: str, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
+    hackathon_id: str, request: Request, session: Annotated[Session, Depends(get_session)], developer_id: str = Body(embed=True)
 ) -> Hackathon:
     """Register for an upcoming or ongoing hackathon"""
     service = CommunityPlatformService(session)

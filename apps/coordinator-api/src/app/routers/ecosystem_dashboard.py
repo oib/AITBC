@@ -8,11 +8,12 @@ REST API for developer ecosystem metrics and analytics
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..auth import get_current_user
 from ..domain.bounty import AgentMetrics, BountyStats, EcosystemMetrics
 from ..services.ecosystem_service import EcosystemService
@@ -88,7 +89,9 @@ def get_ecosystem_service(session: Session = Depends(get_session)) -> EcosystemS
 
 # API endpoints
 @router.get("/ecosystem/developer-earnings", response_model=DeveloperEarningsResponse)
+@rate_limit(rate=200, per=60)
 async def get_developer_earnings(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service),
@@ -108,7 +111,9 @@ async def get_developer_earnings(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/agent-utilization", response_model=AgentUtilizationResponse)
+@rate_limit(rate=200, per=60)
 async def get_agent_utilization(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -127,7 +132,9 @@ async def get_agent_utilization(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/treasury-allocation", response_model=TreasuryAllocationResponse)
+@rate_limit(rate=200, per=60)
 async def get_treasury_allocation(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -146,7 +153,9 @@ async def get_treasury_allocation(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/staking-metrics", response_model=StakingMetricsResponse)
+@rate_limit(rate=200, per=60)
 async def get_staking_metrics(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -165,7 +174,9 @@ async def get_staking_metrics(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/bounty-analytics", response_model=BountyAnalyticsResponse)
+@rate_limit(rate=200, per=60)
 async def get_bounty_analytics(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -184,7 +195,9 @@ async def get_bounty_analytics(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/overview", response_model=EcosystemOverviewResponse)
+@rate_limit(rate=100, per=60)
 async def get_ecosystem_overview(
+    request: Request,
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -210,7 +223,9 @@ async def get_ecosystem_overview(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/metrics")
+@rate_limit(rate=200, per=60)
 async def get_ecosystem_metrics(
+    request: Request,
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
@@ -238,9 +253,9 @@ async def get_ecosystem_metrics(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/health-score")
+@rate_limit(rate=200, per=60)
 async def get_ecosystem_health_score(
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
+    request: Request, session: Session = Depends(get_session), ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
     """Get overall ecosystem health score"""
     try:
@@ -258,7 +273,9 @@ async def get_ecosystem_health_score(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/growth-indicators")
+@rate_limit(rate=200, per=60)
 async def get_growth_indicators(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -279,7 +296,9 @@ async def get_growth_indicators(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/top-performers")
+@rate_limit(rate=200, per=60)
 async def get_top_performers(
+    request: Request,
     category: str = Field(default="all", regex="^(developers|agents|stakers|all)$"),
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     limit: int = Field(default=50, ge=1, le=100),
