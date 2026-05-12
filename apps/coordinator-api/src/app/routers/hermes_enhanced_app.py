@@ -6,8 +6,10 @@ hermes Enhanced Service - FastAPI Entry Point
 
 from typing import Any
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+from aitbc.rate_limiting import rate_limit
 
 from .hermes_enhanced_health import router as health_router
 from .hermes_enhanced_simple import router
@@ -34,12 +36,14 @@ app.include_router(health_router, tags=["health"])
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+@rate_limit(rate=1000, per=60)
+async def health(request: Request) -> dict[str, str]:
     return {"status": "ok", "service": "hermes-enhanced"}
 
 
 @app.get("/health/detailed")
-async def detailed_health() -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def detailed_health(request: Request) -> dict[str, Any]:
     """Simple health check without database dependency"""
     try:
         import psutil
