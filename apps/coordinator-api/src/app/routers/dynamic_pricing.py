@@ -23,7 +23,7 @@ from ..schemas.pricing import (
     PricingStrategyRequest,
     PricingStrategyResponse,
 )
-from ..services.dynamic_pricing_engine import DynamicPricingEngine, PriceConstraints, PricingStrategy, ResourceType
+from ..services.trading_marketplace.dynamic_pricing import DynamicPricingEngine, PriceConstraints, PricingStrategy, ResourceType
 from ..services.market_data_collector import MarketDataCollector
 
 router = APIRouter(prefix="/v1/pricing", tags=["dynamic-pricing"])

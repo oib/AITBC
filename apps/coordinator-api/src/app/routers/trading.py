@@ -28,7 +28,7 @@ from ..domain.trading import (
     TradeStatus,
     TradeType,
 )
-from ..services.trading_service import P2PTradingProtocol
+from ..services.trading_marketplace.trading import P2PTradingProtocol
 from ..storage import get_session
 
 router = APIRouter(prefix="/v1/trading", tags=["trading"])
