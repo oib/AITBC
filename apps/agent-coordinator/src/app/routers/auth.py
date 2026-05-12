@@ -39,10 +39,14 @@ async def login(login_data: Dict[str, str]):
         import os
         
         demo_users = {
-            "admin": os.getenv("DEMO_ADMIN_PASSWORD", "admin123"),
-            "operator": os.getenv("DEMO_OPERATOR_PASSWORD", "operator123"),
-            "user": os.getenv("DEMO_USER_PASSWORD", "user123")
+            "admin": os.getenv("DEMO_ADMIN_PASSWORD"),
+            "operator": os.getenv("DEMO_OPERATOR_PASSWORD"),
+            "user": os.getenv("DEMO_USER_PASSWORD")
         }
+        
+        # Require environment variables for demo credentials - no hardcoded fallbacks
+        if username in demo_users and demo_users[username] is None:
+            raise HTTPException(status_code=500, detail=f"{username.capitalize()} password not configured in environment")
         
         if username == "admin" and password == demo_users["admin"]:
             user_id = "admin_001"

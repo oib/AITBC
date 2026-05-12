@@ -261,7 +261,7 @@ def migrate_data():
             continue
         
         print(f"Migrating {table_name}...")
-        sqlite_cursor.execute(f"SELECT * FROM {table_name}")
+        sqlite_cursor.execute(f"SELECT * FROM \"{table_name}\"")
         rows = sqlite_cursor.fetchall()
         
         count = 0

@@ -97,7 +97,7 @@ async def get_blockchain_balance(address: str) -> int:
             if response.status_code == 200:
                 data = response.json()
                 return int(data.get("balance", 0))
-    except:
+    except Exception:
         pass
     return 0
 

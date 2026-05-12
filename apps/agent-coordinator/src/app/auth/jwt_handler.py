@@ -324,7 +324,7 @@ jwt_secret = os.getenv("JWT_SECRET")
 if not jwt_secret:
     raise ValueError(
         "JWT_SECRET environment variable must be set. "
-        "Generate a secure secret using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+        "Generate a secure secret using: python -c 'import secrets; logger.info(secrets.token_urlsafe(32))'"
     )
 jwt_handler = JWTHandler(jwt_secret)
 password_manager = PasswordManager()

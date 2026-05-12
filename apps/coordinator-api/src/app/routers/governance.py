@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Annotated
 
 from sqlalchemy.orm import Session
@@ -6,8 +8,6 @@ from sqlalchemy.orm import Session
 Decentralized Governance API Endpoints
 REST API for hermes DAO voting, proposals, and governance analytics
 """
-
-from __future__ import annotations
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 

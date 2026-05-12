@@ -400,23 +400,23 @@ async def perform_aml_screening(user_id: str, user_data: dict[str, Any]) -> dict
 # Test function
 async def test_kyc_aml_integration():
     """Test KYC/AML integration"""
-    print("🧪 Testing KYC/AML Integration...")
+    logger.info("Testing KYC/AML Integration")
 
     # Test KYC submission
     customer_data = {"first_name": "John", "last_name": "Doe", "email": "john.doe@example.com", "date_of_birth": "1990-01-01"}
 
     kyc_result = await submit_kyc_verification("user123", "chainalysis", customer_data)
-    print(f"✅ KYC Submitted: {kyc_result}")
+    logger.info("KYC Submitted", result=kyc_result)
 
     # Test KYC status check
     kyc_status = await check_kyc_status(kyc_result["request_id"], "chainalysis")
-    print(f"📋 KYC Status: {kyc_status}")
+    logger.info("KYC Status", status=kyc_status)
 
     # Test AML screening
     aml_result = await perform_aml_screening("user123", customer_data)
-    print(f"🔍 AML Screening: {aml_result}")
+    logger.info("AML Screening", result=aml_result)
 
-    print("🎉 KYC/AML integration test complete!")
+    logger.info("KYC/AML integration test complete")
 
 
 if __name__ == "__main__":

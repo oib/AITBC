@@ -80,7 +80,7 @@ async def send_message(request: MessageRequest):
         if state.communication_manager:
             try:
                 await state.communication_manager.send_message(protocol, message)
-            except:
+            except Exception:
                 pass  # Protocol send is optional
         
         return {
@@ -172,7 +172,7 @@ async def broadcast_message(request: BroadcastRequest):
             if state.communication_manager:
                 try:
                     await state.communication_manager.send_message("broadcast", message)
-                except:
+                except Exception:
                     pass  # Protocol send is optional
         
         return {

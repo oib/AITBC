@@ -362,7 +362,7 @@ class MemoryCompressionService:
 
             # Simple hash comparison (not ideal for real use)
             return 1.0 if hash1 == hash2 else 0.0
-        except:
+        except Exception:
             return 0.0
 
 

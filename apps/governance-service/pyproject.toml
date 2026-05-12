@@ -10,7 +10,7 @@ fastapi = ">=0.115.6"
 uvicorn = {extras = ["standard"], version = ">=0.34.0"}
 sqlmodel = ">=0.0.38"
 asyncpg = ">=0.30.0"
-aitbc-core = {path = "../../packages/py/aitbc-core", develop = true}
+
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=9.0.3"

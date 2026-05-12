@@ -12,6 +12,10 @@ from sqlalchemy.orm import sessionmaker, Session
 from eth_utils import to_checksum_address
 import json
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 Base = declarative_base()
 
 
@@ -168,7 +172,7 @@ class PersistentSpendingTracker:
                 return True
                 
         except Exception as e:
-            print(f"Failed to record spending: {e}")
+            logger.error(f"Failed to record spending: {e}")
             return False
     
     def check_spending_limits(self, agent_address: str, amount: float, timestamp: datetime = None) -> SpendingCheckResult:
@@ -332,7 +336,7 @@ class PersistentSpendingTracker:
                 return True
                 
         except Exception as e:
-            print(f"Failed to update spending limits: {e}")
+            logger.error("Failed to update spending limits", error=str(e))
             return False
     
     def add_guardian(self, agent_address: str, guardian_address: str, added_by: str) -> bool:
@@ -378,7 +382,7 @@ class PersistentSpendingTracker:
                 return True
                 
         except Exception as e:
-            print(f"Failed to add guardian: {e}")
+            logger.error("Failed to add guardian", error=str(e))
             return False
     
     def is_guardian_authorized(self, agent_address: str, guardian_address: str) -> bool:

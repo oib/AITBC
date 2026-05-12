@@ -14,7 +14,7 @@ def _get_node_endpoint(ctx):
             return "http://127.0.0.1:8082"
         # Return the first node's endpoint
         return list(config.nodes.values())[0].endpoint
-    except:
+    except (ImportError, AttributeError, KeyError):
         return "http://127.0.0.1:8082"
 """
 

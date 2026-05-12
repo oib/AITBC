@@ -864,7 +864,7 @@ class MultiChainTransactionManager:
         try:
             self.wallet_adapters[transaction["chain_id"]]
             return await self._get_transaction_confirmations(transaction["chain_id"], transaction["transaction_hash"])
-        except:
+        except Exception:
             return transaction.get("confirmations", 0)
 
     async def _estimate_processing_time(self, transaction: dict[str, Any]) -> float:
@@ -888,7 +888,7 @@ class MultiChainTransactionManager:
 
             return base_time * multiplier
 
-        except:
+        except Exception:
             return 120.0  # 2 minutes default
 
     async def _calculate_transaction_progress(self, transaction: dict[str, Any]) -> float:
@@ -928,7 +928,7 @@ class MultiChainTransactionManager:
 
             return 0.0
 
-        except:
+        except Exception:
             return 0.0
 
     def _get_min_reputation_for_transaction(self, transaction_type: TransactionType, priority: TransactionPriority) -> int:

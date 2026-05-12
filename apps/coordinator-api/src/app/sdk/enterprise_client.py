@@ -499,7 +499,7 @@ async def example_usage():
             # Test integration
             test_result = await client.test_integration(integration_id)
             if test_result.success:
-                print("SAP integration test passed")
+                logger.info("SAP integration test passed")
 
                 # Sync customers
                 erp = ERPIntegration(client)
@@ -507,12 +507,12 @@ async def example_usage():
 
                 if customers_result.success:
                     customers = customers_result.data["data"]["customers"]
-                    print(f"Synced {len(customers)} customers")
+                    logger.info(f"Synced {len(customers)} customers")
 
         # Get analytics
         analytics = await client.get_analytics()
         if analytics.success:
-            print(f"API calls: {analytics.data['api_calls_total']}")
+            logger.info(f"API calls: {analytics.data['api_calls_total']}")
 
 
 # Export main classes

@@ -11,8 +11,12 @@ from urllib.parse import urljoin
 
 import aiohttp
 
+from aitbc import get_logger
+
 from .exceptions import *
 from .models import *
+
+logger = get_logger(__name__)
 
 
 class AgentIdentityClient:
@@ -460,9 +464,9 @@ async def create_identity_with_wallets(
     failed_wallets = [w for w in wallet_results if not w.get("success", False)]
 
     if failed_wallets:
-        print(f"Warning: {len(failed_wallets)} wallets failed to create")
+        logger.warning(f"{len(failed_wallets)} wallets failed to create")
         for wallet in failed_wallets:
-            print(f"  Chain {wallet['chain_id']}: {wallet.get('error', 'Unknown error')}")
+            logger.warning(f"Chain {wallet['chain_id']}: {wallet.get('error', 'Unknown error')}")
 
     return identity_response
 
@@ -505,7 +509,7 @@ async def verify_identity_on_all_chains(
             verification_results.append(result)
 
         except Exception as e:
-            print(f"Failed to verify on chain {mapping.chain_id}: {e}")
+            logger.error(f"Failed to verify on chain {mapping.chain_id}: {e}")
 
     return verification_results
 

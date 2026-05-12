@@ -649,9 +649,9 @@ async def get_cross_chain_stats():
 if __name__ == "__main__":
     # Initialize database
     if init_database():
-        print("✅ Complete cross-chain database initialized")
+        logger.info("Complete cross-chain database initialized")
     else:
-        print("❌ Database initialization failed")
+        logger.error("Database initialization failed")
     
     # Run the server
     uvicorn.run(app, host="0.0.0.0", port=8001)
