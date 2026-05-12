@@ -16,7 +16,8 @@ import numpy as np
 import pandas as pd
 
 from aitbc import get_logger
-logger = logging.getLogger(__name__)
+
+logger = get_logger(__name__)
 
 
 class SurveillanceType(StrEnum):
@@ -708,32 +709,32 @@ def analyze_behavior_patterns(user_id: str = None) -> dict[str, Any]:
 # Test function
 async def test_ai_surveillance():
     """Test AI surveillance system"""
-    print("🤖 Testing AI Surveillance System...")
+    logger.info("Testing AI Surveillance System")
 
     # Start surveillance
     await start_ai_surveillance(["BTC/USDT", "ETH/USDT"])
-    print("✅ AI surveillance started")
+    logger.info("AI surveillance started")
 
     # Let it run for data collection
     await asyncio.sleep(5)
 
     # Get summary
     summary = get_surveillance_summary()
-    print(f"📊 Surveillance summary: {summary}")
+    logger.info("Surveillance summary", summary=summary)
 
     # Get alerts
     alerts = list_active_alerts()
-    print(f"🚨 Active alerts: {len(alerts)}")
+    logger.info("Active alerts", alert_count=len(alerts))
 
     # Analyze patterns
     patterns = analyze_behavior_patterns()
-    print(f"🔍 Behavior patterns: {patterns}")
+    logger.info("Behavior patterns", patterns=patterns)
 
     # Stop surveillance
     await stop_ai_surveillance()
-    print("🔍 AI surveillance stopped")
+    logger.info("AI surveillance stopped")
 
-    print("🎉 AI Surveillance test complete!")
+    logger.info("AI Surveillance test complete")
 
 
 if __name__ == "__main__":

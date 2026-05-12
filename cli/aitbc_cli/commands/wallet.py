@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone, timedelta
 from ..utils import output, error, success
+from ..config import get_config
 import getpass
 
 # Import shared modules
@@ -119,7 +120,6 @@ def wallet(ctx, wallet_name: Optional[str], wallet_path: Optional[str], use_daem
     ctx.obj["chain_id"] = get_chain_id(default_rpc_url, override=chain_id)
     
     # Initialize dual-mode adapter
-    from ..config import get_config
     import sys
     sys.path.insert(0, '/opt/aitbc/cli')
     from utils.dual_mode_wallet_adapter import DualModeWalletAdapter

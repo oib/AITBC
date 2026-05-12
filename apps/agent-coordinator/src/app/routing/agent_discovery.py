@@ -628,17 +628,17 @@ async def example_usage():
         "capabilities": ["data_processing"],
         "status": "active"
     })
-    
-    print(f"Found {len(agents)} agents")
-    
+
+    logger.info(f"Found {len(agents)} agents")
+
     # Find best agent
     best_agent = await discovery_service.find_best_agent({
         "capabilities": ["data_processing"],
         "min_health_score": 0.8
     })
-    
+
     if best_agent:
-        print(f"Best agent: {best_agent.agent_id}")
+        logger.info(f"Best agent: {best_agent.agent_id}")
     
     await registry.stop()
 

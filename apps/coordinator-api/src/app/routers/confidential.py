@@ -316,7 +316,7 @@ async def register_encryption_key(request: KeyRegistrationRequest, api_key: str 
                     registered_at=datetime.now(timezone.utc),
                     error=None,
                 )
-        except:
+        except Exception:
             pass  # Key doesn't exist, continue
 
         # Generate new key pair

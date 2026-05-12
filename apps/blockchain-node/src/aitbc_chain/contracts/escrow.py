@@ -11,9 +11,18 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from decimal import Decimal
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 def log_info(message: str):
     """Simple logging function"""
-    print(f"[EscrowManager] {message}")
+    logger.info(message)
+
+# Remove the old print-based logging function
+def log_info_old(message: str):
+    """Legacy logging function - use logger instead"""
+    logger.info(f"[EscrowManager] {message}")
 
 class EscrowState(Enum):
     CREATED = "created"

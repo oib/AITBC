@@ -19,6 +19,8 @@ logger = logging.getLogger(__name__)
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../../..'))
 
 from apps.agent_services.agent_bridge.src.integration_layer import AgentServiceBridge
+from aitbc import get_logger
+logger = get_logger(__name__)
 
 class ComplianceAgent:
     """Automated compliance agent"""
@@ -142,11 +144,11 @@ async def main():
             # Run compliance loop
             await agent.run_compliance_loop()
         except KeyboardInterrupt:
-            print("Shutting down compliance agent...")
+            logger.info("Shutting down compliance agent...")
         finally:
             await agent.stop()
     else:
-        print("Failed to start compliance agent")
+        logger.error("Failed to start compliance agent")
 
 if __name__ == "__main__":
     asyncio.run(main())

@@ -9,7 +9,7 @@ python = "^3.13"
 fastapi = ">=0.115.6"
 uvicorn = "^0.24.0"
 httpx = ">=0.28.1"
-aitbc-core = {path = "../../packages/py/aitbc-core", develop = true}
+
 
 [tool.poetry.group.test.dependencies]
 pytest = ">=9.0.3"

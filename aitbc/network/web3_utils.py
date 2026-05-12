@@ -193,7 +193,7 @@ class Web3Client:
                             })
                             if len(transactions) >= limit:
                                 break
-                except:
+                except (KeyError, ValueError, AttributeError):
                     continue
             
             return transactions

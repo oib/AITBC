@@ -15,6 +15,10 @@ from pydantic import BaseModel, Field
 import uuid
 import hashlib
 
+from aitbc import get_logger
+
+logger = get_logger(__name__)
+
 # Import the base multi-chain exchange
 from multichain_exchange_api import app, get_db_connection, SUPPORTED_CHAINS
 
@@ -181,7 +185,7 @@ def get_chain_token_price(chain_id: str, token: str) -> Optional[float]:
             return 1.0
         else:
             return 0.5  # Default fallback
-    except:
+    except Exception:
         return None
 
 # Cross-Chain Swap Functions
@@ -313,7 +317,7 @@ async def lock_funds_on_chain(chain_id: str, token: str, amount: float, user_add
         await asyncio.sleep(1)
         
         return lock_tx_hash
-    except:
+    except Exception:
         return None
 
 async def transfer_to_target_chain(chain_id: str, token: str, amount: float, user_address: str) -> Optional[str]:
@@ -330,7 +334,7 @@ async def transfer_to_target_chain(chain_id: str, token: str, amount: float, use
         await asyncio.sleep(2)
         
         return transfer_tx_hash
-    except:
+    except Exception:
         return None
 
 async def refund_source_chain(chain_id: str, lock_tx_hash: str, user_address: str) -> bool:
@@ -344,7 +348,7 @@ async def refund_source_chain(chain_id: str, lock_tx_hash: str, user_address: st
         await asyncio.sleep(1)
         
         return True
-    except:
+    except Exception:
         return False
 
 async def verify_target_transfer(chain_id: str, tx_hash: str) -> Optional[float]:
@@ -358,7 +362,7 @@ async def verify_target_transfer(chain_id: str, tx_hash: str) -> Optional[float]
         await asyncio.sleep(1)
         
         return 100.0  # Mock amount
-    except:
+    except Exception:
         return None
 
 # Cross-Chain API Endpoints
@@ -611,4 +615,4 @@ async def get_cross_chain_stats():
 # Initialize cross-chain tables
 if __name__ == "__main__":
     init_cross_chain_tables()
-    print("✅ Cross-chain trading extensions initialized")
+    logger.info("Cross-chain trading extensions initialized")

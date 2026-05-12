@@ -12,6 +12,8 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+from aitbc import get_logger
+logger = get_logger(__name__)
 
 @dataclass
 class ValidatorKeyPair:
@@ -52,7 +54,7 @@ class KeyManager:
                         last_rotated=key_data['last_rotated']
                     )
             except Exception as e:
-                print(f"Error loading keys: {e}")
+                logger.error(f"Error loading keys: {e}")
     
     def generate_key_pair(self, address: str) -> ValidatorKeyPair:
         """Generate new RSA key pair for validator"""
@@ -195,7 +197,7 @@ class KeyManager:
             # Set secure permissions
             os.chmod(keys_file, 0o600)
         except Exception as e:
-            print(f"Error saving keys: {e}")
+            logger.error("Error saving keys", error=str(e))
     
     def should_rotate_key(self, address: str, rotation_interval: int = 86400) -> bool:
         """Check if key should be rotated (default: 24 hours)"""

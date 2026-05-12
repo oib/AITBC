@@ -216,7 +216,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
         if min_price:
             try:
                 min_price_dec = Decimal(min_price)
-            except:
+            except (ValueError, TypeError):
                 error("Invalid minimum price format")
                 raise click.Abort()
         
@@ -224,7 +224,7 @@ def search(ctx, type, min_price, max_price, seller, status, format):
         if max_price:
             try:
                 max_price_dec = Decimal(max_price)
-            except:
+            except (ValueError, TypeError):
                 error("Invalid maximum price format")
                 raise click.Abort()
         

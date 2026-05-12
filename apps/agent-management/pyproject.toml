@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "aitbc-agent-management"
+version = "0.1.0"
+description = "AITBC Agent Management Service - AI agent lifecycle, orchestration, and performance tracking"
+authors = ["AITBC Team <team@aitbc.dev>"]
+readme = "README.md"
+packages = [{include = "app", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.13"
+aitbc = {path = "../../../"}
+aitbc-shared-domain = {path = "../../shared-domain"}
+aitbc-shared-core = {path = "../../shared-core"}
+fastapi = ">=0.104.0"
+uvicorn = ">=0.24.0"
+sqlmodel = ">=0.0.14"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=9.0.3"
+pytest-asyncio = ">=1.3.0"
+pytest-cov = ">=6.0.0"
+httpx = ">=0.28.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

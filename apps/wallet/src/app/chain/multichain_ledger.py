@@ -13,10 +13,22 @@ import json
 from datetime import datetime
 from dataclasses import dataclass, asdict
 
+import re
+
 from aitbc import get_logger
 from .manager import ChainManager, ChainConfig
 
 logger = get_logger(__name__)
+
+# Chain ID validation pattern: alphanumeric, dash, underscore only
+CHAIN_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+
+def _validate_chain_id(chain_id: str) -> None:
+    """Validate chain_id to prevent SQL injection via table name interpolation."""
+    if not isinstance(chain_id, str):
+        raise TypeError("chain_id must be a string")
+    if not CHAIN_ID_PATTERN.match(chain_id):
+        raise ValueError(f"Invalid chain_id format: {chain_id!r}")
 
 
 @dataclass
@@ -64,6 +76,7 @@ class MultiChainLedgerAdapter:
     
     def _get_chain_db_path(self, chain_id: str) -> Path:
         """Get database path for a specific chain"""
+        _validate_chain_id(chain_id)
         chain = self.chain_manager.get_chain(chain_id)
         if chain and chain.ledger_db_path:
             return Path(chain.ledger_db_path)
@@ -73,6 +86,7 @@ class MultiChainLedgerAdapter:
     
     def _init_chain_database(self, chain_id: str):
         """Initialize database for a specific chain"""
+        _validate_chain_id(chain_id)
         try:
             db_path = self._get_chain_db_path(chain_id)
             db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +148,7 @@ class MultiChainLedgerAdapter:
     
     def _get_connection(self, chain_id: str) -> Optional[sqlite3.Connection]:
         """Get database connection for a specific chain"""
+        _validate_chain_id(chain_id)
         if chain_id not in self.chain_connections:
             self._init_chain_database(chain_id)
         
@@ -141,6 +156,7 @@ class MultiChainLedgerAdapter:
     
     def _get_lock(self, chain_id: str) -> threading.Lock:
         """Get lock for a specific chain"""
+        _validate_chain_id(chain_id)
         if chain_id not in self.chain_locks:
             self.chain_locks[chain_id] = threading.Lock()
         

@@ -146,7 +146,7 @@ def create_mock_trades(db: Session):
     
     db.add_all(trades)
     db.commit()
-    print(f"Created {len(trades)} mock trades")
+    logger.info("Created mock trades", count=len(trades))
 
 @app.get("/api/trades/recent", response_model=List[TradeResponse])
 def get_recent_trades(limit: int = 20, db: Session = Depends(get_db_session)):

@@ -57,7 +57,7 @@ try:
         print(f"      Block Hash: {data.get('hash', 'Unknown')[:16]}...")
     else:
         print("   ❌ Blockchain Node not responding")
-except:
+except (httpx.RequestException, KeyError, ValueError):
     print("   ❌ Blockchain Node not accessible")
 
 # Show Integration Points

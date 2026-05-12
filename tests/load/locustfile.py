@@ -456,8 +456,12 @@ class MarketplaceAdmin(HttpUser):
     
     def on_start(self):
         """Initialize admin"""
+        import os
+        admin_token = os.getenv("LOCUST_ADMIN_TOKEN")
+        if not admin_token:
+            raise ValueError("LOCUST_ADMIN_TOKEN environment variable must be set for load testing")
         self.auth_headers = {
-            "Authorization": "Bearer admin_token_123",
+            "Authorization": f"Bearer {admin_token}",
             "X-Admin-Access": "true",
         }
     

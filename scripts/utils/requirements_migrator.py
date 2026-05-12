@@ -118,7 +118,7 @@ class RequirementsMigrator:
                         match = re.match(rf'^{re.escape(package_name)}([><=!]+.+)', line)
                         if match:
                             return match.group(1)
-        except:
+        except (OSError, IOError):
             pass
         return ""
     

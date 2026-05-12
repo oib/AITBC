@@ -46,37 +46,39 @@ from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
 from .routers import (
     admin,
-    agent_identity,
     agent_router,
-    blockchain,
     client,
     cross_chain_integration,
     developer_platform,
     edge_gpu,
     exchange,
     explorer,
-    global_marketplace,
-    global_marketplace_integration,
     governance_enhanced,
-    marketplace,
-    marketplace_gpu,
-    marketplace_offers,
     miner,
     monitor,
     multi_modal_rl,
-    payments,
     services,
     swarm,
     users,
     web_vitals,
 )
+from .contexts.marketplace.routers import (
+    marketplace,
+    marketplace_gpu,
+    marketplace_offers,
+    global_marketplace,
+    global_marketplace_integration,
+)
+from .contexts.payments.routers import payments
+from .contexts.blockchain.routers import blockchain
+from .contexts.agent_identity.routers import agent_identity
  
 # Skip optional routers with missing dependencies
 try:
     from .routers.ml_zk_proofs import router as ml_zk_proofs
 except ImportError:
     ml_zk_proofs = None
-    print("WARNING: ML ZK proofs router not available (missing tenseal)")
+    logger.warning("ML ZK proofs router not available (missing tenseal)")
 from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 from .routers.monitoring_dashboard import router as monitoring_dashboard
 from .routers.hermes_enhanced_simple import router as hermes_enhanced
@@ -86,14 +88,15 @@ try:
     from .routers.multi_modal_rl import router as multi_modal_rl_router
 except ImportError:
     multi_modal_rl_router = None
-    print("WARNING: Multi-modal RL router not available (missing torch)")
+    logger.warning("Multi-modal RL router not available (missing torch)")
 
 try:
     from .routers.ml_zk_proofs import router as ml_zk_proofs
 except ImportError:
     ml_zk_proofs = None
-    print("WARNING: ML ZK proofs router not available (missing dependencies)")
-from aitbc import get_logger
+    logger.warning("ML ZK proofs router not available (missing dependencies)")
+
+from .routers.marketplace_enhanced_simple import router as marketplace_enhanced
 
 from aitbc.aitbc_logging import configure_logging
 from aitbc import (

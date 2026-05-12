@@ -1,11 +1,15 @@
 #!/usr/bin/env python3
 """
-AITBC CLI - Fixed version with inline system commands
+AITBC CLI - Fixed version with modular command groups
 """
 
 import click
-import os
-from pathlib import Path
+
+# Import modular command groups
+from aitbc_cli.commands.system import system
+from aitbc_cli.commands.marketplace_cmd import marketplace
+from aitbc_cli.commands.chain import chain
+from aitbc_cli.commands.agent_sdk import agent
 
 # Import island-specific commands
 from aitbc_cli.commands.gpu_marketplace import gpu
@@ -22,75 +26,15 @@ from aitbc_cli.commands.resource import resource
 from aitbc_cli.commands.operations import operations
 from aitbc_cli.commands.simulate import simulate
 
-# Force version to 0.2.2
-__version__ = "0.2.2"
+# Force CLI version for user-facing output
+__version__ = "2.1.0"
 
-@click.group()
-def system():
-    """System management commands"""
-    pass
 
-@system.command()
-def architect():
-    """System architecture analysis"""
-    click.echo("=== AITBC System Architecture ===")
-    click.echo("✅ Data: /var/lib/aitbc/data")
-    click.echo("✅ Config: /etc/aitbc")
-    click.echo("✅ Logs: /var/log/aitbc")
-    click.echo("✅ Repository: Clean")
-    
-    # Check actual directories
-    system_dirs = {
-        '/var/lib/aitbc/data': 'Data storage',
-        '/etc/aitbc': 'Configuration',
-        '/var/log/aitbc': 'Logs'
-    }
-    
-    for dir_path, description in system_dirs.items():
-        if os.path.exists(dir_path):
-            click.echo(f"✅ {description}: {dir_path}")
-        else:
-            click.echo(f"❌ {description}: {dir_path} (missing)")
+@click.command(name="list")
+def list_wallets():
+    """Legacy wallet list alias"""
+    return wallet.main(args=["list"], standalone_mode=False)
 
-@system.command()
-def audit():
-    """Audit system compliance"""
-    click.echo("=== System Audit ===")
-    click.echo("FHS Compliance: ✅")
-    click.echo("Repository Clean: ✅")
-    click.echo("Service Health: ✅")
-    
-    # Check repository cleanliness
-    repo_dirs = ['/var/lib/aitbc/data', '/etc/aitbc', '/var/log/aitbc']
-    clean = True
-    for dir_path in repo_dirs:
-        if os.path.exists(dir_path):
-            click.echo(f"❌ Repository contains: {dir_path}")
-            clean = False
-    
-    if clean:
-        click.echo("✅ Repository clean of runtime directories")
-
-@system.command()
-@click.option('--service', help='Check specific service')
-def check(service):
-    """Check service configuration"""
-    click.echo(f"=== Service Check: {service or 'All Services'} ===")
-    
-    if service:
-        service_file = f"/etc/systemd/system/aitbc-{service}.service"
-        if os.path.exists(service_file):
-            click.echo(f"✅ Service file exists: {service_file}")
-        else:
-            click.echo(f"❌ Service file missing: {service_file}")
-    else:
-        services = ['marketplace', 'mining-blockchain', 'hermes-ai', 'blockchain-node']
-        for svc in services:
-            service_file = f"/etc/systemd/system/aitbc-{svc}.service"
-            if os.path.exists(service_file):
-                click.echo(f"✅ {svc}: {service_file}")
-            else:
-                click.echo(f"❌ {svc}: {service_file}")
 
 @click.command()
 def version():
@@ -101,6 +45,7 @@ def version():
     click.echo("New Features: ✅")
 
 @click.group()
+@click.version_option(version=__version__, prog_name="aitbc")
 @click.option(
     "--url",
     default=None,
@@ -159,12 +104,16 @@ def cli(ctx, url, api_key, chain_id, output, verbose, debug):
     ctx.obj['debug'] = debug
     
     # Handle chain_id with auto-detection
-    from aitbc_cli.utils.chain_id import get_chain_id, get_default_chain_id
+    from aitbc_cli.utils.chain_id import get_chain_id
     default_rpc_url = url.replace('/api', '') if url else 'http://localhost:8006'
     ctx.obj['chain_id'] = get_chain_id(default_rpc_url, override=chain_id)
 
 # Add commands to CLI
 cli.add_command(system)
+cli.add_command(marketplace, name="market")
+cli.add_command(chain, name="blockchain")
+cli.add_command(agent, name="ai")
+cli.add_command(list_wallets)
 cli.add_command(version)
 cli.add_command(gpu)
 cli.add_command(exchange_island)
@@ -180,5 +129,10 @@ cli.add_command(resource)
 cli.add_command(operations)
 cli.add_command(simulate)
 
+def main(argv=None):
+    """Entry point for console scripts and compatibility wrappers."""
+    return cli.main(args=argv, prog_name="aitbc", standalone_mode=False)
+
+
 if __name__ == '__main__':
-    cli()
+    raise SystemExit(main())

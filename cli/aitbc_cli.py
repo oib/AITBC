@@ -9,32 +9,34 @@ from pathlib import Path
 from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
+CLI_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT))
+sys.path.insert(0, str(CLI_DIR))
 
 from aitbc.constants import BLOCKCHAIN_RPC_PORT
 
 DEFAULT_RPC_URL = f"http://localhost:{BLOCKCHAIN_RPC_PORT}"
-_LEGACY_MODULE: ModuleType | None = None
+_CLI_MODULE: ModuleType | None = None
 
 
-def _load_legacy_module() -> ModuleType:
-    global _LEGACY_MODULE
-    if _LEGACY_MODULE is not None:
-        return _LEGACY_MODULE
+def _load_cli_module() -> ModuleType:
+    global _CLI_MODULE
+    if _CLI_MODULE is not None:
+        return _CLI_MODULE
 
-    legacy_path = Path(__file__).with_name("aitbc_cli.legacy.py")
-    spec = importlib.util.spec_from_file_location("aitbc_cli_legacy", legacy_path)
+    cli_path = Path(__file__).with_name("core") / "main.py"
+    spec = importlib.util.spec_from_file_location("aitbc_cli_core_main", cli_path)
     if spec is None or spec.loader is None:
-        raise ImportError(f"Unable to load legacy CLI entrypoint from {legacy_path}")
+        raise ImportError(f"Unable to load modular CLI entrypoint from {cli_path}")
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    _LEGACY_MODULE = module
+    _CLI_MODULE = module
     return module
 
 
 def main(argv=None):
-    return _load_legacy_module().main(argv)
+    return _load_cli_module().main(argv)
 
 
 if __name__ == "__main__":

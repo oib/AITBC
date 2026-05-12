@@ -775,7 +775,7 @@ def list_reports(report_type: str | None = None, status: str | None = None) -> l
 # Test function
 async def test_regulatory_reporting():
     """Test regulatory reporting system"""
-    print("🧪 Testing Regulatory Reporting System...")
+    logger.info("Testing Regulatory Reporting System")
 
     # Test SAR generation
     activities = [
@@ -794,17 +794,17 @@ async def test_regulatory_reporting():
     ]
 
     sar_result = await generate_sar(activities)
-    print(f"✅ SAR Report Generated: {sar_result['report_id']}")
+    logger.info("SAR Report Generated", report_id=sar_result['report_id'])
 
     # Test compliance summary
     compliance_result = await generate_compliance_summary("2026-01-01T00:00:00", "2026-01-31T23:59:59")
-    print(f"✅ Compliance Summary Generated: {compliance_result['report_id']}")
+    logger.info("Compliance Summary Generated", report_id=compliance_result['report_id'])
 
     # List reports
     reports = list_reports()
-    print(f"📋 Total Reports: {len(reports)}")
+    logger.info("Total reports", count=len(reports))
 
-    print("🎉 Regulatory reporting test complete!")
+    logger.info("Regulatory reporting test complete")
 
 
 if __name__ == "__main__":
