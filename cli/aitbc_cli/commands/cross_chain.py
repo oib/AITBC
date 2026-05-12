@@ -191,24 +191,6 @@ def status(ctx, swap_id: str):
             success("🔄 Swap is executing...")
         elif swap_data.get('status') == 'refunded':
             success("💰 Swap was refunded")
-    except NetworkError as e:
-                output(details, ctx.obj['output_format'])
-                
-                # Show additional status info
-                if swap_data.get('status') == 'completed':
-                    success("✅ Swap completed successfully!")
-                elif swap_data.get('status') == 'failed':
-                    error("❌ Swap failed")
-                    if swap_data.get('error_message'):
-                        error(f"Error: {swap_data['error_message']}")
-                elif swap_data.get('status') == 'pending':
-                    success("⏳ Swap is pending...")
-                elif swap_data.get('status') == 'executing':
-                    success("🔄 Swap is executing...")
-                elif swap_data.get('status') == 'refunded':
-                    success("💰 Swap was refunded")
-            else:
-                error(f"Failed to get swap status: {response.status_code}")
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -233,27 +215,25 @@ def swaps(ctx, user_address: Optional[str], status: Optional[str], limit: int):
         
         if swaps:
             success(f"Found {len(swaps)} cross-chain swaps:")
-                    
-                    # Create table
-                    swap_table = []
-                    for swap in swaps[:limit]:
-                        swap_table.append([
-                            swap.get('swap_id', '')[:8] + '...',
-                            swap.get('from_chain', ''),
-                            swap.get('to_chain', ''),
-                            swap.get('amount', 0),
-                            swap.get('status', ''),
-                            swap.get('created_at', '')[:19]
-                        ])
-                    
-                    table(["ID", "From", "To", "Amount", "Status", "Created"], swap_table)
-                    
-                    if len(swaps) > limit:
-                        success(f"Showing {limit} of {len(swaps)} total swaps")
-                else:
-                    success("No cross-chain swaps found")
-            else:
-                error(f"Failed to get swaps: {response.status_code}")
+            
+            # Create table
+            swap_table = []
+            for swap in swaps[:limit]:
+                swap_table.append([
+                    swap.get('swap_id', '')[:8] + '...',
+                    swap.get('from_chain', ''),
+                    swap.get('to_chain', ''),
+                    swap.get('amount', 0),
+                    swap.get('status', ''),
+                    swap.get('created_at', '')[:19]
+                ])
+            
+            table(["ID", "From", "To", "Amount", "Status", "Created"], swap_table)
+            
+            if len(swaps) > limit:
+                success(f"Showing {limit} of {len(swaps)} total swaps")
+        else:
+            success("No cross-chain swaps found")
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -292,7 +272,7 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
     }
     
     try:
-        http_client = AITBCHTTPClient(base_url="{config.exchange_service_url}", timeout=30)
+        http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=30)
         bridge_result = http_client.post("/cross-chain/bridge", json=bridge_data)
         success("Cross-chain bridge created successfully!")
         output({
@@ -302,15 +282,11 @@ def bridge(ctx, source_chain: str, target_chain: str, token: str,
             "Token": bridge_result.get('token'),
             "Amount": bridge_result.get('amount'),
             "Bridge Fee": bridge_result.get('bridge_fee'),
-                    "Status": bridge_result.get('status')
-                }, ctx.obj['output_format'])
-                
-                # Show bridge ID for tracking
-                success(f"Track bridge with: aitbc cross-chain bridge-status {bridge_result.get('bridge_id')}")
-            else:
-                error(f"Failed to create bridge: {response.status_code}")
-                if response.text:
-                    error(f"Details: {response.text}")
+            "Status": bridge_result.get('status')
+        }, ctx.obj['output_format'])
+        
+        # Show bridge ID for tracking
+        success(f"Track bridge with: aitbc cross-chain bridge-status {bridge_result.get('bridge_id')}")
     except Exception as e:
         error(f"Network error: {e}")
 
@@ -324,40 +300,38 @@ def bridge_status(ctx, bridge_id: str):
         http_client = AITBCHTTPClient(base_url=config.exchange_service_url, timeout=10)
         bridge_data = http_client.get(f"/cross-chain/bridge/{bridge_id}")
         success(f"Bridge Status: {bridge_data.get('status', 'unknown')}")
-                
-                # Display bridge details
-                details = {
-                    "Bridge ID": bridge_data.get('bridge_id'),
-                    "Source Chain": bridge_data.get('source_chain'),
-                    "Target Chain": bridge_data.get('target_chain'),
-                    "Token": bridge_data.get('token'),
-                    "Amount": bridge_data.get('amount'),
-                    "Recipient Address": bridge_data.get('recipient_address'),
-                    "Status": bridge_data.get('status'),
-                    "Created At": bridge_data.get('created_at'),
-                    "Completed At": bridge_data.get('completed_at'),
-                    "Bridge Fee": bridge_data.get('bridge_fee'),
-                    "Source Tx Hash": bridge_data.get('source_tx_hash'),
-                    "Target Tx Hash": bridge_data.get('target_tx_hash')
-                }
-                
-                output(details, ctx.obj['output_format'])
-                
-                # Show additional status info
-                if bridge_data.get('status') == 'completed':
-                    success("✅ Bridge completed successfully!")
-                elif bridge_data.get('status') == 'failed':
-                    error("❌ Bridge failed")
-                    if bridge_data.get('error_message'):
-                        error(f"Error: {bridge_data['error_message']}")
-                elif bridge_data.get('status') == 'pending':
-                    success("⏳ Bridge is pending...")
-                elif bridge_data.get('status') == 'locked':
-                    success("🔒 Bridge is locked...")
-                elif bridge_data.get('status') == 'transferred':
-                    success("🔄 Bridge is transferring...")
-            else:
-                error(f"Failed to get bridge status: {response.status_code}")
+
+        # Display bridge details
+        details = {
+            "Bridge ID": bridge_data.get('bridge_id'),
+            "Source Chain": bridge_data.get('source_chain'),
+            "Target Chain": bridge_data.get('target_chain'),
+            "Token": bridge_data.get('token'),
+            "Amount": bridge_data.get('amount'),
+            "Recipient Address": bridge_data.get('recipient_address'),
+            "Status": bridge_data.get('status'),
+            "Created At": bridge_data.get('created_at'),
+            "Completed At": bridge_data.get('completed_at'),
+            "Bridge Fee": bridge_data.get('bridge_fee'),
+            "Source Tx Hash": bridge_data.get('source_tx_hash'),
+            "Target Tx Hash": bridge_data.get('target_tx_hash')
+        }
+
+        output(details, ctx.obj['output_format'])
+
+        # Show additional status info
+        if bridge_data.get('status') == 'completed':
+            success("✅ Bridge completed successfully!")
+        elif bridge_data.get('status') == 'failed':
+            error("❌ Bridge failed")
+            if bridge_data.get('error_message'):
+                error(f"Error: {bridge_data['error_message']}")
+        elif bridge_data.get('status') == 'pending':
+            success("⏳ Bridge is pending...")
+        elif bridge_data.get('status') == 'locked':
+            success("🔒 Bridge is locked...")
+        elif bridge_data.get('status') == 'transferred':
+            success("🔄 Bridge is transferring...")
     except Exception as e:
         error(f"Network error: {e}")
 
