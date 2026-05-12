@@ -39,7 +39,7 @@ def get_pr_files(pr_number):
     return query_api(f'repos/{REPO}/pulls/{pr_number}/files') or []
 
 def detect_ring(path):
-    ring0 = ['packages/py/aitbc-core/', 'packages/py/aitbc-sdk/', 'packages/py/aitbc-agent-sdk/', 'packages/py/aitbc-crypto/']
+    ring0 = ['packages/py/aitbc-sdk/', 'packages/py/aitbc-agent-sdk/', 'packages/py/aitbc-crypto/']
     ring1 = ['apps/coordinator-api/', 'apps/blockchain-node/', 'apps/analytics/', 'services/']
     ring2 = ['cli/', 'scripts/', 'tools/']
     ring3 = ['experiments/', 'playground/', 'prototypes/', 'examples/']

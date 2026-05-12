@@ -5,6 +5,10 @@ This module uses a lazy import pattern to avoid importing all 101+ services at s
 Only the 4 core services (JobService, MinerService, MarketplaceService, ExplorerService)
 are exported in __all__ and loaded immediately via __getattr__.
 
+The agent_coordination bounded context package provides:
+- AgentIntegrationService, AgentCommunicationService, AgentPerformanceService
+- AgentSecurityManager, AgentOrchestrator, AgentPortfolioManager, AgentServiceMarketplace
+
 To add a new service to the public API:
 1. Add the service name to __all__
 2. Add an entry to _MODULE_BY_EXPORT mapping the service name to its module path
@@ -12,6 +16,7 @@ To add a new service to the public API:
 
 For services not in __all__, import them directly from their module:
     from app.services.blockchain import BlockchainService
+    from app.services.agent_coordination import AgentIntegrationService
 """
 
 from importlib import import_module

@@ -11,7 +11,6 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 # Add package source directories
-sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-core" / "src"))
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-crypto" / "src"))
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-p2p" / "src"))
 sys.path.insert(0, str(project_root / "packages" / "py" / "aitbc-sdk" / "src"))

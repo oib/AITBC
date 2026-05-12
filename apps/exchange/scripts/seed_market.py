@@ -4,6 +4,9 @@
 import sqlite3
 from datetime import datetime, timezone
 from aitbc.constants import DATA_DIR
+import logging
+
+logger = logging.getLogger(__name__)
 
 def seed_initial_price():
     """Create initial trades to establish market price"""
@@ -46,12 +49,12 @@ def seed_initial_price():
     
     conn.commit()
     conn.close()
-    
-    print("✅ Seeded initial market data:")
-    print(f"   - Created {len(initial_trades)} historical trades")
-    print(f"   - Created {len(initial_orders)} liquidity orders")
-    print(f"   - Initial price range: 0.0000095 - 0.000011 BTC")
-    print("   The exchange should now show real prices!")
+
+    logger.info("Seeded initial market data")
+    logger.info(f"Created {len(initial_trades)} historical trades")
+    logger.info(f"Created {len(initial_orders)} liquidity orders")
+    logger.info("Initial price range: 0.0000095 - 0.000011 BTC")
+    logger.info("The exchange should now show real prices")
 
 if __name__ == "__main__":
     seed_initial_price()

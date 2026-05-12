@@ -128,7 +128,6 @@ ensure_newline_before_comments = true
 
 [tool.mypy]
 python_version = "3.13"
-exclude = "^apps/(agent-management|agent-coordinator|agent-services|blockchain-node|computing-node|identity-node|marketplace|mining-pool)/.*"
 warn_return_any = true
 warn_unused_configs = true
 # Start with less strict mode and gradually increase
@@ -167,19 +166,6 @@ module = [
     "apps.coordinator-api.src.app.domain.global_marketplace",
     "apps.coordinator-api.src.app.domain.cross_chain_reputation",
     "apps.coordinator-api.src.app.domain.agent_identity",
-]
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = [
-    "apps.agent-management.*",
-    "apps.agent-coordinator.*",
-    "apps.agent-services.*",
-    "apps.blockchain-node.*",
-    "apps.computing-node.*",
-    "apps.identity-node.*",
-    "apps.marketplace.*",
-    "apps.mining-pool.*",
 ]
 ignore_errors = true
 

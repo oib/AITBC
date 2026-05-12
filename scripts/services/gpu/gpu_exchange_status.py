@@ -43,7 +43,7 @@ try:
         print("   🌐 URL: http://localhost:3002")
     else:
         print("   ❌ Trade Exchange not responding")
-except:
+except httpx.RequestException:
     print("   ❌ Trade Exchange not accessible")
 
 # Check Blockchain
