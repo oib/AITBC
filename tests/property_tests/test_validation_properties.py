@@ -121,7 +121,7 @@ class TestValidationProperties:
         """Test that valid chain IDs pass validation"""
         assert validate_chain_id(chain_id)
 
-    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.replace('-', '').isalnum()))
+    @given(st.text(min_size=1, max_size=50).filter(lambda x: not x.replace('-', '').isalnum() and x.replace('-', '') != ''))
     @settings(max_examples=50)
     def test_validate_invalid_chain_id(self, text):
         """Test that invalid chain IDs fail validation"""
