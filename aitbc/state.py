@@ -34,7 +34,7 @@ class StateTransition:
     """Record of a state transition"""
     from_state: str
     to_state: str
-    timestamp: datetime = field(default_factory=datetime.now(timezone.utc))
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     data: Dict[str, Any] = field(default_factory=dict)
 
 
@@ -264,13 +264,12 @@ class StateValidator:
     
     @staticmethod
     def validate_transitions(transitions: Dict[str, List[str]]) -> bool:
-        """Validate that all target states exist"""
-        all_states = set(transitions.keys())
-        all_states.update(*transitions.values())
+        """Validate that all target states exist as source states"""
+        valid_states = set(transitions.keys())
         
         for from_state, to_states in transitions.items():
             for to_state in to_states:
-                if to_state not in all_states:
+                if to_state not in valid_states:
                     return False
         
         return True

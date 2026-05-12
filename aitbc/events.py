@@ -250,6 +250,7 @@ class EventRouter:
     def __init__(self):
         """Initialize event router"""
         self.routes: List[Callable[[Event], Optional[Callable]]] = []
+        self.logger = get_logger(__name__)
     
     def add_route(self, condition: Callable[[Event], bool], handler: Callable) -> None:
         """Add a route"""

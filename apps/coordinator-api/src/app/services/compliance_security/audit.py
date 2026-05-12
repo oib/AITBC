@@ -12,7 +12,7 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any
 
-from ..config import settings
+from ...config import settings
 
 
 @dataclass
