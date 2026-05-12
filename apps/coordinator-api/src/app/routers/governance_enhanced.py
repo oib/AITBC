@@ -6,8 +6,10 @@ REST API endpoints for multi-jurisdictional DAO governance, regional councils, t
 from datetime import datetime, timezone, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session, func, select
+
+from aitbc.rate_limiting import rate_limit
 
 from ..domain.governance import (
     GovernanceProfile,
@@ -26,7 +28,9 @@ def get_governance_service(session: Session = Depends(get_session)) -> Governanc
 
 # Regional Council Management Endpoints
 @router.post("/regional-councils", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_regional_council(
+    request: Request,
     region: str,
     council_name: str,
     jurisdiction: str,
@@ -53,7 +57,9 @@ async def create_regional_council(
 
 
 @router.get("/regional-councils", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_regional_councils(
+    request: Request,
     region: str | None = Query(None, description="Filter by region"),
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -69,7 +75,9 @@ async def get_regional_councils(
 
 
 @router.post("/regional-proposals", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_regional_proposal(
+    request: Request,
     council_id: str,
     title: str,
     description: str,
@@ -93,7 +101,9 @@ async def create_regional_proposal(
 
 
 @router.post("/regional-proposals/{proposal_id}/vote", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def vote_on_regional_proposal(
+    request: Request,
     proposal_id: str,
     voter_address: str,
     vote_type: VoteType,
@@ -114,7 +124,9 @@ async def vote_on_regional_proposal(
 
 # Treasury Management Endpoints
 @router.get("/treasury/balance", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_treasury_balance(
+    request: Request,
     region: str | None = Query(None, description="Filter by region"),
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -130,7 +142,9 @@ async def get_treasury_balance(
 
 
 @router.post("/treasury/allocate", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def allocate_treasury_funds(
+    request: Request,
     council_id: str,
     amount: float,
     purpose: str,
@@ -153,7 +167,9 @@ async def allocate_treasury_funds(
 
 
 @router.get("/treasury/transactions", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_treasury_transactions(
+    request: Request,
     limit: int = Query(100, ge=1, le=500, description="Maximum number of transactions"),
     offset: int = Query(0, ge=0, description="Offset for pagination"),
     region: str | None = Query(None, description="Filter by region"),
@@ -172,7 +188,9 @@ async def get_treasury_transactions(
 
 # Staking & Rewards Endpoints
 @router.post("/staking/pools", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_staking_pool(
+    request: Request,
     pool_name: str,
     developer_address: str,
     base_apy: float,
@@ -192,7 +210,9 @@ async def create_staking_pool(
 
 
 @router.get("/staking/pools", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_developer_staking_pools(
+    request: Request,
     developer_address: str | None = Query(None, description="Filter by developer address"),
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -208,7 +228,9 @@ async def get_developer_staking_pools(
 
 
 @router.get("/staking/calculate-rewards", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def calculate_staking_rewards(
+    request: Request,
     pool_id: str,
     staker_address: str,
     amount: float,
@@ -227,7 +249,9 @@ async def calculate_staking_rewards(
 
 
 @router.post("/staking/distribute-rewards/{pool_id}", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def distribute_staking_rewards(
+    request: Request,
     pool_id: str,
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -249,7 +273,9 @@ async def distribute_staking_rewards(
 
 # Analytics and Monitoring Endpoints
 @router.get("/analytics/governance", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_governance_analytics(
+    request: Request,
     time_period_days: int = Query(30, ge=1, le=365, description="Time period in days"),
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -265,7 +291,9 @@ async def get_governance_analytics(
 
 
 @router.get("/analytics/regional-health/{region}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_regional_governance_health(
+    request: Request,
     region: str,
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -282,7 +310,9 @@ async def get_regional_governance_health(
 
 # Enhanced Profile Management
 @router.post("/profiles/create", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_governance_profile(
+    request: Request,
     user_id: str,
     initial_voting_power: float = 0.0,
     session: Session = Depends(get_session),
@@ -310,7 +340,9 @@ async def create_governance_profile(
 
 
 @router.post("/profiles/delegate", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def delegate_votes(
+    request: Request,
     delegator_id: str,
     delegatee_id: str,
     session: Session = Depends(get_session),
@@ -335,7 +367,9 @@ async def delegate_votes(
 
 
 @router.get("/profiles/{user_id}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_governance_profile(
+    request: Request,
     user_id: str,
     session: Session = Depends(get_session),
     governance_service: GovernanceService = Depends(get_governance_service),
@@ -365,7 +399,8 @@ async def get_governance_profile(
 
 # Multi-Jurisdictional Compliance
 @router.get("/jurisdictions", response_model=list[dict[str, Any]])
-async def get_supported_jurisdictions() -> list[dict[str, Any]]:
+@rate_limit(rate=500, per=60)
+async def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
     """Get list of supported jurisdictions and their requirements"""
 
     try:
@@ -418,7 +453,9 @@ async def get_supported_jurisdictions() -> list[dict[str, Any]]:
 
 
 @router.get("/compliance/check/{user_address}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def check_compliance_status(
+    request: Request,
     user_address: str,
     jurisdiction: str,
     session: Session = Depends(get_session),
@@ -452,8 +489,9 @@ async def check_compliance_status(
 
 # System Health and Status
 @router.get("/health", response_model=dict[str, Any])
+@rate_limit(rate=1000, per=60)
 async def get_governance_system_health(
-    session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
+    request: Request, session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
 ) -> dict[str, Any]:
     """Get overall governance system health status"""
 
@@ -500,8 +538,9 @@ async def get_governance_system_health(
 
 
 @router.get("/status", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_governance_platform_status(
-    session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
+    request: Request, session: Session = Depends(get_session), governance_service: GovernanceService = Depends(get_governance_service)
 ) -> dict[str, Any]:
     """Get comprehensive platform status information"""
 

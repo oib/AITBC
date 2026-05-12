@@ -8,10 +8,11 @@ REST API endpoints for advanced marketplace features including royalties, licens
 """
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..deps import require_admin_key
 from ..domain import MarketplaceOffer
@@ -31,7 +32,9 @@ router = APIRouter(prefix="/marketplace/enhanced", tags=["Enhanced Marketplace"]
 
 
 @router.post("/royalties/distribution", response_model=RoyaltyDistributionResponse)
+@rate_limit(rate=20, per=60)
 async def create_royalty_distribution(
+    request: Request,
     offer_id: str,
     royalty_tiers: RoyaltyDistributionRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -66,7 +69,9 @@ async def create_royalty_distribution(
 
 
 @router.post("/royalties/calculate", response_model=dict)
+@rate_limit(rate=50, per=60)
 async def calculate_royalties(
+    request: Request,
     offer_id: str,
     sale_amount: float,
     transaction_id: str | None = None,
@@ -97,7 +102,9 @@ async def calculate_royalties(
 
 
 @router.post("/licenses/create", response_model=ModelLicenseResponse)
+@rate_limit(rate=20, per=60)
 async def create_model_license(
+    request: Request,
     offer_id: str,
     license_request: ModelLicenseRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -138,7 +145,9 @@ async def create_model_license(
 
 
 @router.post("/verification/verify", response_model=ModelVerificationResponse)
+@rate_limit(rate=20, per=60)
 async def verify_model(
+    request: Request,
     offer_id: str,
     verification_request: ModelVerificationRequest,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),
@@ -174,7 +183,9 @@ async def verify_model(
 
 
 @router.get("/analytics", response_model=MarketplaceAnalyticsResponse)
+@rate_limit(rate=200, per=60)
 async def get_marketplace_analytics(
+    request: Request,
     period_days: int = 30,
     metrics: list[str] | None = None,
     session: Session = Depends(Annotated[Session, Depends(get_session)]),

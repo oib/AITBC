@@ -4,7 +4,9 @@ Service registry router for dynamic service management
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Request
+
+from aitbc.rate_limiting import rate_limit
 
 from ..models.registry import AI_ML_SERVICES, ServiceCategory, ServiceDefinition, ServiceRegistry
 from ..models.registry_data import DATA_ANALYTICS_SERVICES
@@ -37,13 +39,15 @@ service_registry = create_service_registry()
 
 
 @router.get("/", response_model=ServiceRegistry)
-async def get_registry() -> ServiceRegistry:
+@rate_limit(rate=500, per=60)
+async def get_registry(request: Request) -> ServiceRegistry:
     """Get the complete service registry"""
     return service_registry
 
 
 @router.get("/services", response_model=list[ServiceDefinition])
-async def list_services(category: ServiceCategory | None = None, search: str | None = None) -> list[ServiceDefinition]:
+@rate_limit(rate=500, per=60)
+async def list_services(request: Request, category: ServiceCategory | None = None, search: str | None = None) -> list[ServiceDefinition]:
     """List all available services with optional filtering"""
     services = list(service_registry.services.values())
 
@@ -64,7 +68,8 @@ async def list_services(category: ServiceCategory | None = None, search: str | N
 
 
 @router.get("/services/{service_id}", response_model=ServiceDefinition)
-async def get_service(service_id: str) -> ServiceDefinition:
+@rate_limit(rate=500, per=60)
+async def get_service(request: Request, service_id: str) -> ServiceDefinition:
     """Get a specific service definition"""
     service = service_registry.get_service(service_id)
     if not service:
@@ -73,7 +78,8 @@ async def get_service(service_id: str) -> ServiceDefinition:
 
 
 @router.get("/categories", response_model=list[dict[str, Any]])
-async def list_categories() -> list[dict[str, Any]]:
+@rate_limit(rate=500, per=60)
+async def list_categories(request: Request) -> list[dict[str, Any]]:
     """List all service categories with counts"""
     category_counts = {}
     for service in service_registry.services.values():
@@ -86,13 +92,15 @@ async def list_categories() -> list[dict[str, Any]]:
 
 
 @router.get("/categories/{category}", response_model=list[ServiceDefinition])
-async def get_services_by_category(category: ServiceCategory) -> list[ServiceDefinition]:
+@rate_limit(rate=500, per=60)
+async def get_services_by_category(request: Request, category: ServiceCategory) -> list[ServiceDefinition]:
     """Get all services in a specific category"""
     return service_registry.get_services_by_category(category)
 
 
 @router.get("/services/{service_id}/schema")
-async def get_service_schema(service_id: str) -> dict[str, Any]:
+@rate_limit(rate=500, per=60)
+async def get_service_schema(request: Request, service_id: str) -> dict[str, Any]:
     """Get JSON schema for a service's input parameters"""
     service = service_registry.get_service(service_id)
     if not service:

@@ -9,9 +9,10 @@ Decentralized Governance API Endpoints
 REST API for hermes DAO voting, proposals, and governance analytics
 """
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -59,7 +60,8 @@ class VoteRequest(BaseModel):
 
 # Endpoints - Profile & Delegation
 @router.post("/profiles", response_model=GovernanceProfile)
-async def init_governance_profile(request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)]) -> GovernanceProfile:
+@rate_limit(rate=20, per=60)
+async def init_governance_profile(request: Request, profile_request: ProfileInitRequest, session: Annotated[Session, Depends(get_session)]) -> GovernanceProfile:
     """Initialize a governance profile for a user"""
     service = GovernanceService(session)
     try:
@@ -71,8 +73,10 @@ async def init_governance_profile(request: ProfileInitRequest, session: Annotate
 
 
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
+@rate_limit(rate=20, per=60)
 async def delegate_voting_power(
-    profile_id: str, request: DelegationRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    profile_id: str, delegation_request: DelegationRequest, session: Annotated[Session, Depends(get_session)]
 ) -> GovernanceProfile:
     """Delegate your voting power to another DAO member"""
     service = GovernanceService(session)
@@ -87,7 +91,9 @@ async def delegate_voting_power(
 
 # Endpoints - Proposals
 @router.post("/proposals", response_model=Proposal)
+@rate_limit(rate=20, per=60)
 async def create_proposal(
+    request: Request,
     session: Annotated[Session, Depends(get_session)],
     proposer_id: str = Query(...),
     request: ProposalCreateRequest = Body(...),
@@ -104,7 +110,9 @@ async def create_proposal(
 
 
 @router.post("/proposals/{proposal_id}/vote", response_model=Vote)
+@rate_limit(rate=20, per=60)
 async def cast_vote(
+    request: Request,
     proposal_id: str,
     session: Annotated[Session, Depends(get_session)],
     voter_id: str = Query(...),
@@ -124,7 +132,8 @@ async def cast_vote(
 
 
 @router.post("/proposals/{proposal_id}/process", response_model=Proposal)
-async def process_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)]) -> Proposal:
+@rate_limit(rate=20, per=60)
+async def process_proposal(request: Request, proposal_id: str, session: Annotated[Session, Depends(get_session)]) -> Proposal:
     """Manually trigger the lifecycle check of a proposal (e.g., tally votes when time ends)"""
     service = GovernanceService(session)
     try:
@@ -137,7 +146,8 @@ async def process_proposal(proposal_id: str, session: Annotated[Session, Depends
 
 
 @router.post("/proposals/{proposal_id}/execute", response_model=Proposal)
-async def execute_proposal(proposal_id: str, session: Annotated[Session, Depends(get_session)], executor_id: str = Query(...)) -> Proposal:
+@rate_limit(rate=20, per=60)
+async def execute_proposal(request: Request, proposal_id: str, session: Annotated[Session, Depends(get_session)], executor_id: str = Query(...)) -> Proposal:
     """Execute the payload of a succeeded proposal"""
     service = GovernanceService(session)
     try:
@@ -151,8 +161,9 @@ async def execute_proposal(proposal_id: str, session: Annotated[Session, Depends
 
 # Endpoints - Analytics
 @router.post("/analytics/reports", response_model=TransparencyReport)
+@rate_limit(rate=200, per=60)
 async def generate_transparency_report(
-    session: Annotated[Session, Depends(get_session)], period: str = Query(..., description="e.g., 2026-Q1")
+    request: Request, session: Annotated[Session, Depends(get_session)], period: str = Query(..., description="e.g., 2026-Q1")
 ) -> TransparencyReport:
     """Generate a governance analytics and transparency report"""
     service = GovernanceService(session)

@@ -10,10 +10,11 @@ REST API for agent rewards, incentives, and performance-based earnings
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -115,7 +116,9 @@ class MilestoneResponse(BaseModel):
 # API Endpoints
 
 @router.get("/profile/{agent_id}", response_model=RewardProfileResponse)
+@rate_limit(rate=200, per=60)
 async def get_reward_profile(
+    request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
 ) -> RewardProfileResponse:
@@ -137,7 +140,9 @@ async def get_reward_profile(
 
 
 @router.post("/profile/{agent_id}")
+@rate_limit(rate=20, per=60)
 async def create_reward_profile(
+    request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
@@ -162,7 +167,9 @@ async def create_reward_profile(
 
 
 @router.post("/calculate-and-distribute", response_model=RewardResponse)
+@rate_limit(rate=20, per=60)
 async def calculate_and_distribute_reward(
+    request: Request,
     reward_request: RewardRequest,
     session: Session = Depends(get_session)
 ) -> RewardResponse:
@@ -201,7 +208,9 @@ async def calculate_and_distribute_reward(
 
 
 @router.get("/tier-progress/{agent_id}", response_model=TierProgressResponse)
+@rate_limit(rate=200, per=60)
 async def get_tier_progress(
+    request: Request,
     agent_id: str,
     session: Session = Depends(get_session)
 ) -> TierProgressResponse:
@@ -301,7 +310,9 @@ async def get_tier_progress(
 
 
 @router.post("/batch-process", response_model=BatchProcessResponse)
+@rate_limit(rate=20, per=60)
 async def batch_process_pending_rewards(
+    request: Request,
     limit: int = Query(default=100, ge=1, le=1000, description="Maximum number of rewards to process"),
     session: Session = Depends(get_session),
 ) -> BatchProcessResponse:
@@ -324,7 +335,9 @@ async def batch_process_pending_rewards(
 
 
 @router.get("/analytics", response_model=RewardAnalyticsResponse)
+@rate_limit(rate=200, per=60)
 async def get_reward_analytics(
+    request: Request,
     period_type: str = Query(default="daily", description="Period type: daily, weekly, monthly"),
     start_date: Optional[str] = Query(default=None, description="Start date (ISO format)"),
     end_date: Optional[str] = Query(default=None, description="End date (ISO format)"),
@@ -357,7 +370,9 @@ async def get_reward_analytics(
 
 
 @router.get("/leaderboard")
+@rate_limit(rate=200, per=60)
 async def get_reward_leaderboard(
+    request: Request,
     tier: Optional[str] = Query(default=None, description="Filter by tier"),
     period: str = Query(default="weekly", description="Period: daily, weekly, monthly"),
     limit: int = Query(default=50, ge=1, le=100, description="Number of results"),
@@ -409,8 +424,9 @@ async def get_reward_leaderboard(
 
 
 @router.get("/tiers")
+@rate_limit(rate=500, per=60)
 async def get_reward_tiers(
-    session: Session = Depends(get_session)
+    request: Request, session: Session = Depends(get_session)
 ) -> List[Dict[str, Any]]:
     """Get reward tier configurations"""
     
@@ -444,7 +460,9 @@ async def get_reward_tiers(
 
 
 @router.get("/milestones/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_agent_milestones(
+    request: Request,
     agent_id: str,
     include_completed: bool = Query(default=True, description="Include completed milestones"),
     session: Session = Depends(get_session)
@@ -487,7 +505,9 @@ async def get_agent_milestones(
 
 
 @router.get("/distributions/{agent_id}")
+@rate_limit(rate=200, per=60)
 async def get_reward_distributions(
+    request: Request,
     agent_id: str,
     limit: int = Query(default=20, ge=1, le=100),
     status: Optional[str] = Query(default=None, description="Filter by status"),
@@ -529,7 +549,9 @@ async def get_reward_distributions(
 
 
 @router.post("/simulate-reward")
+@rate_limit(rate=50, per=60)
 async def simulate_reward_calculation(
+    request: Request,
     reward_request: RewardRequest,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:

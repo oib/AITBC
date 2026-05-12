@@ -10,10 +10,11 @@ REST API for analytics, insights, reporting, and dashboards
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 
@@ -119,7 +120,9 @@ class AnalyticsSummaryResponse(BaseModel):
 # API Endpoints
 
 @router.post("/data-collection", response_model=AnalyticsSummaryResponse)
+@rate_limit(rate=20, per=60)
 async def collect_market_data(
+    request: Request,
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Collection period"),
     session: Session = Depends(get_session),
 ) -> AnalyticsSummaryResponse:
@@ -138,7 +141,9 @@ async def collect_market_data(
 
 
 @router.get("/insights", response_model=Dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_market_insights(
+    request: Request,
     time_period: str = Query(default="daily", description="Time period: daily, weekly, monthly"),
     insight_type: Optional[str] = Query(default=None, description="Filter by insight type"),
     impact_level: Optional[str] = Query(default=None, description="Filter by impact level"),
@@ -175,7 +180,9 @@ async def get_market_insights(
 
 
 @router.get("/metrics", response_model=List[MetricResponse])
+@rate_limit(rate=200, per=60)
 async def get_market_metrics(
+    request: Request,
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
     metric_name: Optional[str] = Query(default=None, description="Filter by metric name"),
     category: Optional[str] = Query(default=None, description="Filter by category"),
@@ -224,8 +231,9 @@ async def get_market_metrics(
 
 
 @router.get("/overview", response_model=MarketOverviewResponse)
+@rate_limit(rate=200, per=60)
 async def get_market_overview(
-    session: Session = Depends(get_session)
+    request: Request, session: Session = Depends(get_session)
 ) -> MarketOverviewResponse:
     """Get comprehensive market overview"""
     
@@ -242,7 +250,9 @@ async def get_market_overview(
 
 
 @router.post("/dashboards", response_model=DashboardResponse)
+@rate_limit(rate=20, per=60)
 async def create_dashboard(
+    request: Request,
     owner_id: str,
     dashboard_type: str = Query(default="default", description="Dashboard type: default, executive"),
     name: Optional[str] = Query(default=None, description="Custom dashboard name"),
@@ -285,7 +295,9 @@ async def create_dashboard(
 
 
 @router.get("/dashboards/{dashboard_id}", response_model=DashboardResponse)
+@rate_limit(rate=200, per=60)
 async def get_dashboard(
+    request: Request,
     dashboard_id: str,
     session: Session = Depends(get_session)
 ) -> DashboardResponse:
@@ -323,7 +335,9 @@ async def get_dashboard(
 
 
 @router.get("/dashboards")
+@rate_limit(rate=200, per=60)
 async def list_dashboards(
+    request: Request,
     owner_id: Optional[str] = Query(default=None, description="Filter by owner ID"),
     dashboard_type: Optional[str] = Query(default=None, description="Filter by dashboard type"),
     status: Optional[str] = Query(default=None, description="Filter by status"),
@@ -371,7 +385,9 @@ async def list_dashboards(
 
 
 @router.post("/reports", response_model=Dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def generate_report(
+    request: Request,
     report_request: ReportRequest,
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:
@@ -444,7 +460,9 @@ async def generate_report(
 
 
 @router.get("/reports/{report_id}")
+@rate_limit(rate=200, per=60)
 async def get_report(
+    request: Request,
     report_id: str,
     format: str = Query(default="json", description="Response format: json, csv, pdf"),
     session: Session = Depends(get_session)
@@ -497,7 +515,9 @@ async def get_report(
 
 
 @router.get("/alerts")
+@rate_limit(rate=200, per=60)
 async def get_analytics_alerts(
+    request: Request,
     severity: Optional[str] = Query(default=None, description="Filter by severity level"),
     status: Optional[str] = Query(default="active", description="Filter by status"),
     limit: int = Query(default=20, ge=1, le=100, description="Number of results"),
@@ -544,7 +564,9 @@ async def get_analytics_alerts(
 
 
 @router.get("/kpi")
+@rate_limit(rate=200, per=60)
 async def get_key_performance_indicators(
+    request: Request,
     period_type: AnalyticsPeriod = Query(default=AnalyticsPeriod.DAILY, description="Period type"),
     session: Session = Depends(get_session)
 ) -> Dict[str, Any]:

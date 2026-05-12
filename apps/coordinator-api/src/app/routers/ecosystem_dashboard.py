@@ -325,7 +325,9 @@ async def get_top_performers(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/predictions")
+@rate_limit(rate=200, per=60)
 async def get_ecosystem_predictions(
+    request: Request,
     metric: str = Field(default="all", regex="^(earnings|staking|bounties|agents|all)$"),
     horizon: int = Field(default=30, ge=1, le=365),  # days
     session: Session = Depends(get_session),
@@ -351,7 +353,9 @@ async def get_ecosystem_predictions(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/alerts")
+@rate_limit(rate=200, per=60)
 async def get_ecosystem_alerts(
+    request: Request,
     severity: str = Field(default="all", regex="^(low|medium|high|critical|all)$"),
     session: Session = Depends(get_session),
     ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
@@ -372,7 +376,9 @@ async def get_ecosystem_alerts(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/comparison")
+@rate_limit(rate=200, per=60)
 async def get_ecosystem_comparison(
+    request: Request,
     current_period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     compare_period: str = Field(default="previous", regex="^(previous|same_last_year|custom)$"),
     custom_start_date: Optional[datetime] = None,
@@ -401,7 +407,9 @@ async def get_ecosystem_comparison(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/export")
+@rate_limit(rate=50, per=60)
 async def export_ecosystem_data(
+    request: Request,
     format: str = Field(default="json", regex="^(json|csv|xlsx)$"),
     period_type: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     start_date: Optional[datetime] = None,
@@ -432,9 +440,9 @@ async def export_ecosystem_data(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/real-time")
+@rate_limit(rate=100, per=60)
 async def get_real_time_metrics(
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
+    request: Request, session: Session = Depends(get_session), ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
     """Get real-time ecosystem metrics"""
     try:
@@ -451,9 +459,9 @@ async def get_real_time_metrics(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/ecosystem/kpi-dashboard")
+@rate_limit(rate=200, per=60)
 async def get_kpi_dashboard(
-    session: Session = Depends(get_session),
-    ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
+    request: Request, session: Session = Depends(get_session), ecosystem_service: EcosystemService = Depends(get_ecosystem_service)
 ) -> Dict[str, Any]:
     """Get KPI dashboard with key performance indicators"""
     try:
