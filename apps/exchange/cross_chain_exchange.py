@@ -132,7 +132,7 @@ def init_cross_chain_tables():
         conn.close()
         return True
     except Exception as e:
-        print(f"Cross-chain database initialization error: {e}")
+        logger.error(f"Cross-chain database initialization error: {e}")
         return False
 
 # Cross-Chain Liquidity Management
@@ -165,10 +165,10 @@ def get_cross_chain_rate(from_chain: str, to_chain: str, from_token: str, to_tok
         
         if rate_a and rate_b:
             return rate_b / rate_a
-            
+
         return None
     except Exception as e:
-        print(f"Rate calculation error: {e}")
+        logger.error(f"Rate calculation error: {e}")
         return None
 
 def get_chain_token_price(chain_id: str, token: str) -> Optional[float]:
@@ -299,9 +299,9 @@ async def process_cross_chain_swap(swap_id: str):
         conn.commit()
         
         conn.close()
-        
+
     except Exception as e:
-        print(f"Cross-chain swap processing error: {e}")
+        logger.error(f"Cross-chain swap processing error: {e}")
 
 async def lock_funds_on_chain(chain_id: str, token: str, amount: float, user_address: str) -> Optional[str]:
     """Lock funds on source chain"""
@@ -510,9 +510,9 @@ async def process_bridge_transaction(bridge_id: str):
         
         conn.commit()
         conn.close()
-        
+
     except Exception as e:
-        print(f"Bridge processing error: {e}")
+        logger.error(f"Bridge processing error: {e}")
 
 @app.get("/api/v1/cross-chain/bridge/{bridge_id}")
 async def get_bridge_transaction(bridge_id: str):

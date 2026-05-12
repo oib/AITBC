@@ -226,7 +226,7 @@ def init_database():
         conn.close()
         return True
     except Exception as e:
-        print(f"Database initialization error: {e}")
+        logger.error(f"Database initialization error: {e}")
         return False
 
 # Cross-chain rate calculation
@@ -250,10 +250,10 @@ def get_cross_chain_rate(from_chain: str, to_chain: str, from_token: str, to_tok
         # Fallback to 1:1 for same tokens
         if from_token == to_token:
             return 1.0
-            
+
         return 1.0  # Default fallback rate
     except Exception as e:
-        print(f"Rate calculation error: {e}")
+        logger.error(f"Rate calculation error: {e}")
         return None
 
 # Cross-chain swap execution
@@ -354,9 +354,9 @@ async def process_cross_chain_swap(swap_id: str):
         
         conn.commit()
         conn.close()
-        
+
     except Exception as e:
-        print(f"Cross-chain swap processing error: {e}")
+        logger.error(f"Cross-chain swap processing error: {e}")
 
 # API Endpoints
 @app.get("/health")
@@ -544,9 +544,9 @@ async def process_bridge_transaction(bridge_id: str):
         
         conn.commit()
         conn.close()
-        
+
     except Exception as e:
-        print(f"Bridge processing error: {e}")
+        logger.error(f"Bridge processing error: {e}")
 
 @app.get("/api/v1/cross-chain/bridge/{bridge_id}")
 async def get_bridge_transaction(bridge_id: str):
