@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import logging
 from typing import Any
 
@@ -67,4 +68,4 @@ async def get_plugin_analytics() -> dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8109)
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8109)

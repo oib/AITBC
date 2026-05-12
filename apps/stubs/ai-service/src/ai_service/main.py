@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import logging
 from datetime import datetime, timezone
 from typing import Annotated
@@ -403,4 +404,4 @@ async def optimization_health() -> dict[str, Any]:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8106)
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8106)

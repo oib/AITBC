@@ -3,6 +3,7 @@ Multi-Region Load Balancing Service for AITBC
 Handles intelligent load distribution across global regions
 """
 
+import os
 import asyncio
 import json
 from datetime import datetime, timezone, timedelta
@@ -692,4 +693,5 @@ async def shutdown_event():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8019, log_level="info")
+    import os
+    uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8019, log_level="info")

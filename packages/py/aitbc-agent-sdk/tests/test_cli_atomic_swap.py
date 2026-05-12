@@ -6,6 +6,8 @@ import sys
 import os
 import logging
 
+import pytest
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 
@@ -25,6 +27,7 @@ sys.modules['aitbc.exceptions'].NetworkError = Exception
 
 from aitbc_agent.contract_integration import ContractConfig, create_agent_contract_integration
 
+@pytest.mark.asyncio
 async def test_cli_client():
     """Test CLI client atomic swap methods"""
     print("Testing CLI client atomic swap methods...")
