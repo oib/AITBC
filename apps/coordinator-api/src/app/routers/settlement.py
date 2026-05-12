@@ -5,8 +5,10 @@ Settlement router for cross-chain settlements
 import asyncio
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
+
+from aitbc.rate_limiting import rate_limit
 
 from ..auth import get_api_key
 from .settlement.manager import BridgeManager
@@ -37,8 +39,10 @@ class CrossChainSettlementResponse(BaseModel):
 
 
 @router.post("/cross-chain", response_model=CrossChainSettlementResponse)
+@rate_limit(rate=20, per=60)
 async def initiate_cross_chain_settlement(
-    request: CrossChainSettlementRequest, background_tasks: BackgroundTasks, api_key: str = Depends(get_api_key)
+    request: Request,
+    settlement_request: CrossChainSettlementRequest, background_tasks: BackgroundTasks, api_key: str = Depends(get_api_key)
 ) -> CrossChainSettlementResponse:
     """Initiate a cross-chain settlement"""
     try:
@@ -71,7 +75,8 @@ async def initiate_cross_chain_settlement(
 
 
 @router.get("/cross-chain/{settlement_id}")
-async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_settlement_status(request: Request, settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, Any]:
     """Get settlement status"""
     try:
         manager = BridgeManager()
@@ -96,7 +101,8 @@ async def get_settlement_status(settlement_id: str, api_key: str = Depends(get_a
 
 
 @router.get("/cross-chain")
-async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def list_settlements(request: Request, api_key: str = Depends(get_api_key), limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List settlements with pagination"""
     try:
         manager = BridgeManager()
@@ -109,7 +115,8 @@ async def list_settlements(api_key: str = Depends(get_api_key), limit: int = 50,
 
 
 @router.delete("/cross-chain/{settlement_id}")
-async def cancel_settlement(settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, str]:
+@rate_limit(rate=20, per=60)
+async def cancel_settlement(request: Request, settlement_id: str, api_key: str = Depends(get_api_key)) -> dict[str, str]:
     """Cancel a pending settlement"""
     try:
         manager = BridgeManager()

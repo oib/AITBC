@@ -8,11 +8,12 @@ REST API for AI agent staking system with reputation-based yield farming
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Field
 from pydantic import BaseModel, Field, validator
 from sqlalchemy.orm import Session
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 from ..auth import get_current_user
 from ..domain.bounty import AgentMetrics, AgentStake, EcosystemMetrics, PerformanceTier, StakeStatus, StakingPool
 from ..services.blockchain_service import BlockchainService
@@ -144,8 +145,10 @@ def get_blockchain_service() -> BlockchainService:
 
 # API endpoints
 @router.post("/stake", response_model=StakeResponse)
+@rate_limit(rate=20, per=60)
 async def create_stake(
-    request: StakeCreateRequest,
+    request: Request,
+    stake_request: StakeCreateRequest,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
@@ -186,7 +189,9 @@ async def create_stake(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/stake/{stake_id}", response_model=StakeResponse)
+@rate_limit(rate=200, per=60)
 async def get_stake(
+    request: Request,
     stake_id: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
@@ -211,7 +216,9 @@ async def get_stake(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/stakes", response_model=List[StakeResponse])
+@rate_limit(rate=200, per=60)
 async def get_stakes(
+    request: Request,
     filters: StakingFilterRequest = Depends(),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
@@ -238,7 +245,9 @@ async def get_stakes(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/stake/{stake_id}/add", response_model=StakeResponse)
+@rate_limit(rate=20, per=60)
 async def add_to_stake(
+    request: Request,
     stake_id: str,
     request: StakeUpdateRequest,
     background_tasks: BackgroundTasks,
@@ -282,7 +291,9 @@ async def add_to_stake(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/stake/{stake_id}/unbond")
+@rate_limit(rate=20, per=60)
 async def unbond_stake(
+    request: Request,
     stake_id: str,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -324,7 +335,9 @@ async def unbond_stake(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/stake/{stake_id}/complete")
+@rate_limit(rate=20, per=60)
 async def complete_unbonding(
+    request: Request,
     stake_id: str,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -368,7 +381,9 @@ async def complete_unbonding(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/stake/{stake_id}/rewards")
+@rate_limit(rate=200, per=60)
 async def get_stake_rewards(
+    request: Request,
     stake_id: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
@@ -403,7 +418,9 @@ async def get_stake_rewards(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/agents/{agent_wallet}/metrics", response_model=AgentMetricsResponse)
+@rate_limit(rate=200, per=60)
 async def get_agent_metrics(
+    request: Request,
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
@@ -423,7 +440,9 @@ async def get_agent_metrics(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/agents/{agent_wallet}/staking-pool", response_model=StakingPoolResponse)
+@rate_limit(rate=200, per=60)
 async def get_staking_pool(
+    request: Request,
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
@@ -443,7 +462,9 @@ async def get_staking_pool(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/agents/{agent_wallet}/apy")
+@rate_limit(rate=200, per=60)
 async def get_agent_apy(
+    request: Request,
     agent_wallet: str,
     lock_period: int = Field(default=30, ge=1, le=365),
     session: Session = Depends(get_session),
@@ -466,7 +487,9 @@ async def get_agent_apy(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/agents/{agent_wallet}/performance")
+@rate_limit(rate=20, per=60)
 async def update_agent_performance(
+    request: Request,
     agent_wallet: str,
     request: AgentPerformanceUpdateRequest,
     background_tasks: BackgroundTasks,
@@ -504,7 +527,9 @@ async def update_agent_performance(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/agents/{agent_wallet}/distribute-earnings")
+@rate_limit(rate=20, per=60)
 async def distribute_agent_earnings(
+    request: Request,
     agent_wallet: str,
     request: EarningsDistributionRequest,
     background_tasks: BackgroundTasks,
@@ -547,7 +572,9 @@ async def distribute_agent_earnings(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/agents/supported")
+@rate_limit(rate=200, per=60)
 async def get_supported_agents(
+    request: Request,
     page: int = Field(default=1, ge=1),
     limit: int = Field(default=50, ge=1, le=100),
     tier: Optional[PerformanceTier] = None,
@@ -574,7 +601,9 @@ async def get_supported_agents(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/staking/stats", response_model=StakingStatsResponse)
+@rate_limit(rate=200, per=60)
 async def get_staking_stats(
+    request: Request,
     period: str = Field(default="daily", regex="^(hourly|daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)
@@ -590,7 +619,9 @@ async def get_staking_stats(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/staking/leaderboard")
+@rate_limit(rate=200, per=60)
 async def get_staking_leaderboard(
+    request: Request,
     period: str = Field(default="weekly", regex="^(daily|weekly|monthly)$"),
     metric: str = Field(default="total_staked", regex="^(total_staked|total_rewards|apy)$"),
     limit: int = Field(default=50, ge=1, le=100),
@@ -612,7 +643,9 @@ async def get_staking_leaderboard(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/staking/my-positions", response_model=List[StakeResponse])
+@rate_limit(rate=200, per=60)
 async def get_my_staking_positions(
+    request: Request,
     status: Optional[StakeStatus] = None,
     agent_wallet: Optional[str] = None,
     page: int = Field(default=1, ge=1),
@@ -638,7 +671,9 @@ async def get_my_staking_positions(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/staking/my-rewards")
+@rate_limit(rate=200, per=60)
 async def get_my_staking_rewards(
+    request: Request,
     period: str = Field(default="monthly", regex="^(daily|weekly|monthly)$"),
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service),
@@ -658,7 +693,9 @@ async def get_my_staking_rewards(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.post("/staking/claim-rewards")
+@rate_limit(rate=20, per=60)
 async def claim_staking_rewards(
+    request: Request,
     stake_ids: List[str],
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
@@ -706,7 +743,9 @@ async def claim_staking_rewards(
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/staking/risk-assessment/{agent_wallet}")
+@rate_limit(rate=200, per=60)
 async def get_risk_assessment(
+    request: Request,
     agent_wallet: str,
     session: Session = Depends(get_session),
     staking_service: StakingService = Depends(get_staking_service)

@@ -115,7 +115,8 @@ async def monitoring_dashboard(request: Request) -> dict[str, Any]:
 
 
 @router.get("/dashboard/summary", tags=["monitoring"], summary="Services Summary")
-async def services_summary() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def services_summary(request: Request) -> dict[str, Any]:
     """
     Quick summary of all services status
     """
@@ -143,7 +144,8 @@ async def services_summary() -> dict[str, Any]:
 
 
 @router.get("/dashboard/metrics", tags=["monitoring"], summary="System Metrics")
-async def system_metrics() -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def system_metrics(request: Request) -> dict[str, Any]:
     """
     System-wide performance metrics
     """

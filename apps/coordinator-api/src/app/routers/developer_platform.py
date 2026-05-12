@@ -446,7 +446,8 @@ async def get_developer_certifications(
 
 
 @router.get("/certifications/verify/{certification_id}", response_model=dict[str, Any])
-async def verify_certification(certification_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def verify_certification(request: Request, certification_id: str, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Verify a certification by ID"""
 
     try:
@@ -472,7 +473,8 @@ async def verify_certification(certification_id: str, session: Session = Depends
 
 
 @router.get("/certifications/types", response_model=list[dict[str, Any]])
-async def get_certification_types() -> list[dict[str, Any]]:
+@rate_limit(rate=500, per=60)
+async def get_certification_types(request: Request) -> list[dict[str, Any]]:
     """Get available certification types"""
 
     try:
@@ -511,7 +513,9 @@ async def get_certification_types() -> list[dict[str, Any]]:
 
 # Regional Hub Management Endpoints
 @router.post("/hubs", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def create_regional_hub(
+    request: Request,
     name: str,
     region: str,
     description: str,
@@ -541,8 +545,9 @@ async def create_regional_hub(
 
 
 @router.get("/hubs", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_regional_hubs(
-    session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
 ) -> list[dict[str, Any]]:
     """Get all regional developer hubs"""
 
@@ -568,7 +573,9 @@ async def get_regional_hubs(
 
 
 @router.get("/hubs/{hub_id}/developers", response_model=list[dict[str, Any]])
+@rate_limit(rate=200, per=60)
 async def get_hub_developers(
+    request: Request,
     hub_id: str,
     limit: int = Query(100, ge=1, le=500, description="Maximum number of developers"),
     session: Session = Depends(get_session),
@@ -599,7 +606,9 @@ async def get_hub_developers(
 
 # Staking & Rewards Endpoints
 @router.post("/stake", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def stake_on_developer(
+    request: Request,
     staker_address: str,
     developer_address: str,
     amount: float,
@@ -636,7 +645,9 @@ async def stake_on_developer(
 
 
 @router.get("/staking/{address}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_staking_info(
+    request: Request,
     address: str,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
@@ -652,7 +663,9 @@ async def get_staking_info(
 
 
 @router.post("/unstake", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def unstake_tokens(
+    request: Request,
     staking_id: str,
     amount: float,
     session: Session = Depends(get_session),
@@ -669,7 +682,9 @@ async def unstake_tokens(
 
 
 @router.get("/rewards/{address}", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_rewards(
+    request: Request,
     address: str,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
@@ -685,7 +700,9 @@ async def get_rewards(
 
 
 @router.post("/claim-rewards", response_model=dict[str, Any])
+@rate_limit(rate=20, per=60)
 async def claim_rewards(
+    request: Request,
     address: str,
     session: Session = Depends(get_session),
     dev_service: DeveloperPlatformService = Depends(get_developer_platform_service),
@@ -703,7 +720,8 @@ async def claim_rewards(
 
 
 @router.get("/staking-stats", response_model=dict[str, Any])
-async def get_staking_statistics(session: Session = Depends(get_session)) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_staking_statistics(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Get comprehensive staking statistics"""
 
     try:
@@ -730,8 +748,9 @@ async def get_staking_statistics(session: Session = Depends(get_session)) -> dic
 
 # Platform Analytics Endpoints
 @router.get("/analytics/overview", response_model=dict[str, Any])
+@rate_limit(rate=200, per=60)
 async def get_platform_overview(
-    session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
+    request: Request, session: Session = Depends(get_session), dev_service: DeveloperPlatformService = Depends(get_developer_platform_service)
 ) -> dict[str, Any]:
     """Get platform overview analytics"""
 
@@ -776,7 +795,8 @@ async def get_platform_overview(
 
 
 @router.get("/health", response_model=dict[str, Any])
-async def get_platform_health(session: Session = Depends(get_session)) -> dict[str, Any]:
+@rate_limit(rate=1000, per=60)
+async def get_platform_health(request: Request, session: Session = Depends(get_session)) -> dict[str, Any]:
     """Get developer platform health status"""
 
     try:
