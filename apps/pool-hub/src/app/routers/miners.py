@@ -1,10 +1,11 @@
 """Miner management routes for Pool Hub"""
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from typing import List, Optional
 from datetime import datetime
 from pydantic import BaseModel
 
+from aitbc.rate_limiting import rate_limit
 from ..registry import MinerRegistry
 from ..scoring import ScoringEngine
 
@@ -53,7 +54,9 @@ def get_scoring() -> ScoringEngine:
 
 
 @router.post("/register", response_model=MinerInfo)
+@rate_limit(rate=50, per=60)
 async def register_miner(
+    request: Request,
     registration: MinerRegistration,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -73,7 +76,9 @@ async def register_miner(
 
 
 @router.post("/{miner_id}/heartbeat")
+@rate_limit(rate=100, per=60)
 async def miner_heartbeat(
+    request: Request,
     miner_id: str,
     status: MinerStatus,
     registry: MinerRegistry = Depends(get_registry)
@@ -94,7 +99,9 @@ async def miner_heartbeat(
 
 
 @router.get("/{miner_id}", response_model=MinerInfo)
+@rate_limit(rate=200, per=60)
 async def get_miner(
+    request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -106,7 +113,9 @@ async def get_miner(
 
 
 @router.get("/", response_model=List[MinerInfo])
+@rate_limit(rate=200, per=60)
 async def list_miners(
+    request: Request,
     pool_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     capability: Optional[str] = Query(None),
@@ -123,7 +132,9 @@ async def list_miners(
 
 
 @router.delete("/{miner_id}")
+@rate_limit(rate=50, per=60)
 async def unregister_miner(
+    request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry)
 ):
@@ -137,7 +148,9 @@ async def unregister_miner(
 
 
 @router.get("/{miner_id}/score")
+@rate_limit(rate=200, per=60)
 async def get_miner_score(
+    request: Request,
     miner_id: str,
     registry: MinerRegistry = Depends(get_registry),
     scoring: ScoringEngine = Depends(get_scoring)
@@ -159,7 +172,9 @@ async def get_miner_score(
 
 
 @router.post("/{miner_id}/capabilities")
+@rate_limit(rate=50, per=60)
 async def update_capabilities(
+    request: Request,
     miner_id: str,
     capabilities: List[str],
     registry: MinerRegistry = Depends(get_registry)

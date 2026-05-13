@@ -2,7 +2,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -25,7 +26,10 @@ router = APIRouter()
 
 # Advanced AI/ML endpoints
 @router.post("/ai/learning/experience")
-async def record_learning_experience(experience_data: Dict[str, Any]):
+@rate_limit(rate=50, per=60)
+async def record_learning_experience(
+    request: Request, experience_data: Dict[str, Any]
+):
     """Record a learning experience for the AI system"""
     try:
         result = await learning_system.record_experience(experience_data)
@@ -35,7 +39,10 @@ async def record_learning_experience(experience_data: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/ai/learning/statistics")
-async def get_learning_statistics():
+@rate_limit(rate=200, per=60)
+async def get_learning_statistics(
+    request: Request
+):
     """Get learning system statistics"""
     try:
         result = await learning_system.get_learning_statistics()
@@ -45,7 +52,10 @@ async def get_learning_statistics():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/learning/predict")
-async def predict_performance(context: Dict[str, Any], action: str = Query(...)):
+@rate_limit(rate=100, per=60)
+async def predict_performance(
+    request: Request, context: Dict[str, Any], action: str = Query(...)
+):
     """Predict performance for a given action"""
     try:
         result = await learning_system.predict_performance(context, action)
@@ -55,7 +65,10 @@ async def predict_performance(context: Dict[str, Any], action: str = Query(...))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/learning/recommend")
-async def recommend_action(context: Dict[str, Any], available_actions: List[str]):
+@rate_limit(rate=100, per=60)
+async def recommend_action(
+    request: Request, context: Dict[str, Any], available_actions: List[str]
+):
     """Get AI-recommended action"""
     try:
         result = await learning_system.recommend_action(context, available_actions)
@@ -65,7 +78,10 @@ async def recommend_action(context: Dict[str, Any], available_actions: List[str]
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/neural-network/create")
-async def create_neural_network(config: Dict[str, Any]):
+@rate_limit(rate=50, per=60)
+async def create_neural_network(
+    request: Request, config: Dict[str, Any]
+):
     """Create a new neural network"""
     try:
         result = await ai_integration.create_neural_network(config)
@@ -75,7 +91,10 @@ async def create_neural_network(config: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/neural-network/{network_id}/train")
-async def train_neural_network(network_id: str, training_data: List[Dict[str, Any]], epochs: int = 100):
+@rate_limit(rate=50, per=60)
+async def train_neural_network(
+    request: Request, network_id: str, training_data: List[Dict[str, Any]], epochs: int = 100
+):
     """Train a neural network"""
     try:
         result = await ai_integration.train_neural_network(network_id, training_data, epochs)
@@ -85,7 +104,10 @@ async def train_neural_network(network_id: str, training_data: List[Dict[str, An
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/neural-network/{network_id}/predict")
-async def predict_with_neural_network(network_id: str, features: List[float]):
+@rate_limit(rate=100, per=60)
+async def predict_with_neural_network(
+    request: Request, network_id: str, features: List[float]
+):
     """Make prediction with neural network"""
     try:
         result = await ai_integration.predict_with_neural_network(network_id, features)
@@ -95,7 +117,10 @@ async def predict_with_neural_network(network_id: str, features: List[float]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/ml-model/create")
-async def create_ml_model(config: Dict[str, Any]):
+@rate_limit(rate=50, per=60)
+async def create_ml_model(
+    request: Request, config: Dict[str, Any]
+):
     """Create a new ML model"""
     try:
         result = await ai_integration.create_ml_model(config)
@@ -105,7 +130,10 @@ async def create_ml_model(config: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/ml-model/{model_id}/train")
-async def train_ml_model(model_id: str, training_data: List[Dict[str, Any]]):
+@rate_limit(rate=50, per=60)
+async def train_ml_model(
+    request: Request, model_id: str, training_data: List[Dict[str, Any]]
+):
     """Train an ML model"""
     try:
         result = await ai_integration.train_ml_model(model_id, training_data)
@@ -115,7 +143,10 @@ async def train_ml_model(model_id: str, training_data: List[Dict[str, Any]]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai/ml-model/{model_id}/predict")
-async def predict_with_ml_model(model_id: str, features: List[float]):
+@rate_limit(rate=100, per=60)
+async def predict_with_ml_model(
+    request: Request, model_id: str, features: List[float]
+):
     """Make prediction with ML model"""
     try:
         result = await ai_integration.predict_with_ml_model(model_id, features)
@@ -125,7 +156,10 @@ async def predict_with_ml_model(model_id: str, features: List[float]):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/ai/statistics")
-async def get_ai_statistics():
+@rate_limit(rate=200, per=60)
+async def get_ai_statistics(
+    request: Request
+):
     """Get comprehensive AI/ML statistics"""
     try:
         result = await ai_integration.get_ai_statistics()

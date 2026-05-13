@@ -1,13 +1,16 @@
 """Monitor router for AITBC Agent Coordinator."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from typing import List, Dict
+
+from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(tags=["Monitor"])
 
 
 @router.get("/api/v1/dashboard", response_model=dict)
-async def get_dashboard():
+@rate_limit(rate=1000, per=60)
+async def get_dashboard(request: Request):
     """Get monitoring dashboard data."""
     return {
         "overall_status": "operational",
@@ -26,7 +29,8 @@ async def get_dashboard():
 
 
 @router.get("/status", response_model=dict)
-async def get_status():
+@rate_limit(rate=1000, per=60)
+async def get_status(request: Request):
     """Get coordinator status."""
     return {
         "status": "online",
@@ -37,18 +41,21 @@ async def get_status():
 
 
 @router.get("/miners", response_model=List[Dict])
-async def get_miners():
+@rate_limit(rate=500, per=60)
+async def get_miners(request: Request):
     """Get miners list."""
     return []
 
 
 @router.get("/dashboard", response_model=List[Dict])
-async def get_history_dashboard():
+@rate_limit(rate=500, per=60)
+async def get_history_dashboard(request: Request):
     """Get historical dashboard data."""
     return []
 
 
 @router.get("/jobs", response_model=List[Dict])
-async def get_jobs():
+@rate_limit(rate=500, per=60)
+async def get_jobs(request: Request):
     """Get jobs list for history and metrics commands."""
     return []

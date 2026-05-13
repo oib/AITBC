@@ -8,15 +8,11 @@ from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from aitbc import get_logger
+from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
-
-
-limiter = Limiter(key_func=get_remote_address)
 
 from ..schemas import (
     ExchangePaymentRequest,
@@ -46,7 +42,7 @@ BITCOIN_CONFIG = {
 
 
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
-@limiter.limit("20/minute")
+@rate_limit(rate=20, per=60)
 async def create_payment(
     request: Request, payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
 ) -> dict[str, Any]:
@@ -88,8 +84,11 @@ async def create_payment(
 
 
 @router.get("/exchange/payment-status/{payment_id}", response_model=PaymentStatusResponse)
+@rate_limit(rate=200, per=60)
 @cached(**get_cache_config("user_balance"))  # Cache payment status for 30 seconds
-async def get_payment_status(payment_id: str) -> dict[str, Any]:
+async def get_payment_status(
+    request: Request, payment_id: str
+) -> dict[str, Any]:
     """Get payment status"""
 
     if payment_id not in payments:
@@ -105,7 +104,10 @@ async def get_payment_status(payment_id: str) -> dict[str, Any]:
 
 
 @router.post("/exchange/confirm-payment/{payment_id}")
-async def confirm_payment(payment_id: str, tx_hash: str) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def confirm_payment(
+    request: Request, payment_id: str, tx_hash: str
+) -> dict[str, Any]:
     """Confirm payment (webhook from payment processor)"""
 
     if payment_id not in payments:
@@ -136,7 +138,10 @@ async def confirm_payment(payment_id: str, tx_hash: str) -> dict[str, Any]:
 
 
 @router.get("/exchange/rates", response_model=ExchangeRatesResponse)
-async def get_exchange_rates() -> ExchangeRatesResponse:
+@rate_limit(rate=500, per=60)
+async def get_exchange_rates(
+    request: Request
+) -> ExchangeRatesResponse:
     """Get current exchange rates"""
 
     return ExchangeRatesResponse(
@@ -145,7 +150,10 @@ async def get_exchange_rates() -> ExchangeRatesResponse:
 
 
 @router.get("/exchange/market-stats", response_model=MarketStatsResponse)
-async def get_market_stats() -> MarketStatsResponse:
+@rate_limit(rate=500, per=60)
+async def get_market_stats(
+    request: Request
+) -> MarketStatsResponse:
     """Get market statistics"""
 
     # Calculate 24h volume from payments
@@ -172,7 +180,10 @@ async def get_market_stats() -> MarketStatsResponse:
 
 
 @router.get("/exchange/wallet/balance", response_model=WalletBalanceResponse)
-async def get_wallet_balance_api() -> WalletBalanceResponse:
+@rate_limit(rate=200, per=60)
+async def get_wallet_balance_api(
+    request: Request
+) -> WalletBalanceResponse:
     """Get Bitcoin wallet balance"""
     try:
         balance_data = get_wallet_balance()
@@ -182,7 +193,10 @@ async def get_wallet_balance_api() -> WalletBalanceResponse:
 
 
 @router.get("/exchange/wallet/info", response_model=WalletInfoResponse)
-async def get_wallet_info_api() -> WalletInfoResponse:
+@rate_limit(rate=200, per=60)
+async def get_wallet_info_api(
+    request: Request
+) -> WalletInfoResponse:
     """Get comprehensive wallet information"""
     try:
         wallet_data = get_wallet_info()
@@ -212,13 +226,19 @@ async def monitor_payment(payment_id: str) -> None:
 
 # Agent endpoints temporarily added to exchange router
 @router.get("/agents/test")
-async def test_agent_endpoint() -> dict[str, str]:
+@rate_limit(rate=1000, per=60)
+async def test_agent_endpoint(
+    request: Request
+) -> dict[str, str]:
     """Test endpoint to verify agent routes are working"""
     return {"message": "Agent routes are working", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.post("/agents/networks", response_model=dict, status_code=201)
-async def create_agent_network(network_data: dict) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def create_agent_network(
+    request: Request, network_data: dict
+) -> dict[str, Any]:
     """Create a new agent network for collaborative processing"""
 
     try:
@@ -254,7 +274,10 @@ async def create_agent_network(network_data: dict) -> dict[str, Any]:
 
 
 @router.get("/agents/executions/{execution_id}/receipt")
-async def get_execution_receipt(execution_id: str) -> dict[str, Any]:
+@rate_limit(rate=200, per=60)
+async def get_execution_receipt(
+    request: Request, execution_id: str
+) -> dict[str, Any]:
     """Get verifiable receipt for completed execution"""
 
     try:

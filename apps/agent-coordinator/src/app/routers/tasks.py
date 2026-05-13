@@ -3,7 +3,8 @@ import uuid
 from typing import Any, Dict, List, Optional
 
 from aitbc import get_logger
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
+from aitbc.rate_limiting import rate_limit
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from .. import state
@@ -26,7 +27,10 @@ router = APIRouter()
 
 # Submit task
 @router.post("/tasks/submit")
-async def submit_task(request: TaskSubmission, background_tasks: BackgroundTasks):
+@rate_limit(rate=50, per=60)
+async def submit_task(
+    request_http: Request, request: TaskSubmission, background_tasks: BackgroundTasks
+):
     """Submit a task for distribution"""
     try:
         if not state.task_distributor:
@@ -61,7 +65,10 @@ async def submit_task(request: TaskSubmission, background_tasks: BackgroundTasks
 
 # Get task status
 @router.get("/tasks/status")
-async def get_task_status():
+@rate_limit(rate=200, per=60)
+async def get_task_status(
+    request: Request
+):
     """Get task distribution statistics"""
     try:
         if not state.task_distributor:
@@ -81,7 +88,10 @@ async def get_task_status():
 
 # Task queue management
 @router.get("/tasks/queues")
-async def get_queue_sizes():
+@rate_limit(rate=200, per=60)
+async def get_queue_sizes(
+    request: Request
+):
     """Get task queue sizes"""
     try:
         if not state.task_distributor:
@@ -102,7 +112,10 @@ async def get_queue_sizes():
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/tasks/queues/{priority}/clear")
-async def clear_queue(priority: str):
+@rate_limit(rate=50, per=60)
+async def clear_queue(
+    request: Request, priority: str
+):
     """Clear a priority queue"""
     try:
         if not state.task_distributor:
@@ -132,7 +145,10 @@ async def clear_queue(priority: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/tasks/queues/stats")
-async def get_queue_stats():
+@rate_limit(rate=200, per=60)
+async def get_queue_stats(
+    request: Request
+):
     """Get detailed queue statistics"""
     try:
         if not state.task_distributor:
